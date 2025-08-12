@@ -235,7 +235,7 @@ export class APIRealtimeClient {
 
   subscribe<T extends ServerAction['type']>(
     action: T,
-    callback: (action: Extract<ServerAction, { type: T }>) => void,
+    callback: (action: ServerAction<T>) => void,
   ) {
     const currSubscribers = this.subscribers.get(action) ?? []
     this.subscribers.set(action, [

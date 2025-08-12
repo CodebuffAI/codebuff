@@ -24,9 +24,7 @@ import * as promptAgentStream from '../prompt-agent-stream'
 import * as requestContext from '../websockets/request-context'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
-import type {
-  AgentState,
-} from '@codebuff/common/types/session-state'
+import type { AgentState } from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
 
 describe('loopAgentSteps STEP behavior', () => {
@@ -148,13 +146,13 @@ describe('loopAgentSteps STEP behavior', () => {
     mockTemplate = {
       id: 'test-agent',
       displayName: 'Test Agent',
-      parentPrompt: 'Testing',
+      spawnerPrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
-      outputMode: 'json',
+      outputMode: 'structured_output',
       includeMessageHistory: true,
       toolNames: ['read_files', 'write_file', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
       stepPrompt: 'Test agent step prompt',
@@ -180,7 +178,7 @@ describe('loopAgentSteps STEP behavior', () => {
     clearAgentGeneratorCache()
   })
 
-    llmCallCount = 0 // Reset LLM call count
+  llmCallCount = 0 // Reset LLM call count
   afterAll(() => {
     clearMockedModules()
   })
@@ -188,18 +186,21 @@ describe('loopAgentSteps STEP behavior', () => {
   it('should verify correct STEP behavior - LLM called once after STEP', async () => {
     // This test verifies that programmatic agents don't call the LLM,
     // and that STEP yielding works correctly without LLM involvement
-    
+
     let stepCount = 0
     const mockGenerator = (function* () {
       stepCount++
-      
+
       if (stepCount === 1) {
         // First call: Execute a tool, then STEP
         yield { toolName: 'read_files', args: { paths: ['file1.txt'] } }
         yield 'STEP' // Should pause here
       } else if (stepCount === 2) {
         // Second call: Should continue from here, not call LLM
-        yield { toolName: 'write_file', args: { path: 'output.txt', content: 'test' } }
+        yield {
+          toolName: 'write_file',
+          args: { path: 'output.txt', content: 'test' },
+        }
         yield { toolName: 'end_turn', args: {} }
       }
     })() as StepGenerator
@@ -213,47 +214,55 @@ describe('loopAgentSteps STEP behavior', () => {
     // Mock checkLiveUserInput to return true for multiple iterations
     let checkCallCount = 0
     const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(() => {
-      checkCallCount++
-      // Allow enough iterations to see the bug
-      return checkCallCount <= 3
-    })
+    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
+      () => {
+        checkCallCount++
+        // Allow enough iterations to see the bug
+        return checkCallCount <= 3
+      },
+    )
 
-    const result = await loopAgentSteps(new MockWebSocket() as unknown as WebSocket, {
-      userInputId: 'test-user-input',
-      agentType: 'test-agent',
-      agentState: mockAgentState,
-      prompt: 'Test prompt',
-      params: undefined,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      toolResults: [],
-      localAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      onResponseChunk: () => {},
-    })
+    const result = await loopAgentSteps(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        userInputId: 'test-user-input',
+        agentType: 'test-agent',
+        agentState: mockAgentState,
+        prompt: 'Test prompt',
+        params: undefined,
+        fingerprintId: 'test-fingerprint',
+        fileContext: mockFileContext,
+        toolResults: [],
+        localAgentTemplates,
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+      },
+    )
 
     console.log(`LLM calls made: ${llmCallCount}`)
     console.log(`Step count: ${stepCount}`)
-    
+
     // CORRECT BEHAVIOR: After STEP, LLM should be called once, then no more
     // The programmatic agent yields STEP, then LLM runs once
     expect(llmCallCount).toBe(1) // LLM called once after STEP
-    
+
     // The programmatic agent should have been called once (yielded STEP)
     expect(stepCount).toBe(1)
-    
+
     // After STEP, the LLM should run once, then the loop should continue correctly
   })
 
   it('should demonstrate correct behavior when programmatic agent completes without STEP', async () => {
     // This test shows that when a programmatic agent doesn't yield STEP,
     // it should complete without calling the LLM at all (since it ends with end_turn)
-    
+
     const mockGenerator = (function* () {
       yield { toolName: 'read_files', args: { paths: ['file1.txt'] } }
-      yield { toolName: 'write_file', args: { path: 'output.txt', content: 'test' } }
+      yield {
+        toolName: 'write_file',
+        args: { path: 'output.txt', content: 'test' },
+      }
       yield { toolName: 'end_turn', args: {} }
     })() as StepGenerator
 
@@ -263,20 +272,23 @@ describe('loopAgentSteps STEP behavior', () => {
       'test-agent': mockTemplate,
     }
 
-    const result = await loopAgentSteps(new MockWebSocket() as unknown as WebSocket, {
-      userInputId: 'test-user-input',
-      agentType: 'test-agent',
-      agentState: mockAgentState,
-      prompt: 'Test prompt',
-      params: undefined,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      toolResults: [],
-      localAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      onResponseChunk: () => {},
-    })
+    const result = await loopAgentSteps(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        userInputId: 'test-user-input',
+        agentType: 'test-agent',
+        agentState: mockAgentState,
+        prompt: 'Test prompt',
+        params: undefined,
+        fingerprintId: 'test-fingerprint',
+        fileContext: mockFileContext,
+        toolResults: [],
+        localAgentTemplates,
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+      },
+    )
 
     // Should NOT call LLM since the programmatic agent ended with end_turn
     expect(llmCallCount).toBe(0)

@@ -1,8 +1,6 @@
-import { uniq } from 'lodash'
-import type { WebSocket } from 'ws'
-
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { uniq } from 'lodash'
 
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
@@ -11,6 +9,7 @@ import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
 import { requestToolCall } from './websockets/websocket-action'
 
+import type { AgentTemplate } from './templates/types'
 import type { ClientToolCall } from './tools/constants'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/constants'
@@ -20,7 +19,7 @@ import type {
   ToolResult,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import { AgentTemplate } from './templates/types'
+import type { WebSocket } from 'ws'
 
 export interface MainPromptOptions {
   userId: string | undefined
@@ -31,7 +30,7 @@ export interface MainPromptOptions {
 
 export const mainPrompt = async (
   ws: WebSocket,
-  action: Extract<ClientAction, { type: 'prompt' }>,
+  action: ClientAction<'prompt'>,
   options: MainPromptOptions,
 ): Promise<{
   sessionState: SessionState
@@ -168,14 +167,14 @@ export const mainPrompt = async (
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
 
-  let updatedSubagents = mainAgentTemplate.subagents
+  let updatedSubagents = mainAgentTemplate.spawnableAgents
   if (!agentId) {
-    // If --agent is not specified, use the subagents from the codebuff config or add all local agents
+    // If --agent is not specified, use the spawnableAgents from the codebuff config or add all local agents
     updatedSubagents =
-      fileContext.codebuffConfig?.subagents ??
-      uniq([...mainAgentTemplate.subagents, ...availableAgents])
+      fileContext.codebuffConfig?.spawnableAgents ??
+      uniq([...mainAgentTemplate.spawnableAgents, ...availableAgents])
   }
-  mainAgentTemplate.subagents = updatedSubagents
+  mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
   const { agentState } = await loopAgentSteps(ws, {

@@ -1,13 +1,16 @@
 import z from 'zod/v4'
 
 import { llmToolCallSchema } from './list'
+import { publishedTools } from './constants'
 
 /**
  * Compiles all tool definitions into a single TypeScript definition file content.
  * This generates type definitions for all available tools and their parameters.
  */
 export function compileToolDefinitions(): string {
-  const toolEntries = Object.entries(llmToolCallSchema)
+  const toolEntries = publishedTools.map(
+    (toolName) => [toolName, llmToolCallSchema[toolName]] as const,
+  )
 
   const toolInterfaces = toolEntries
     .map(([toolName, toolDef]) => {
@@ -77,7 +80,7 @@ function jsonSchemaToTypeScript(schema: any): string {
       ([key, prop]: [string, any]) => {
         const isOptional = !schema.required?.includes(key)
         const propType = getTypeFromJsonSchema(prop)
-        const comment = prop.description ? `  // ${prop.description}\n` : ''
+        const comment = prop.description ? `  /** ${prop.description} */\n` : ''
         return `${comment}  "${key}"${isOptional ? '?' : ''}: ${propType}`
       },
     )

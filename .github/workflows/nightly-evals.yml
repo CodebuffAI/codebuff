@@ -47,7 +47,7 @@ jobs:
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run nightly evals
-        run: cd evals && bun run-eval-set --concurrency 10 --email --title "Nightly Eval Run ($(date '+%Y-%m-%d'))"
+        run: cd evals && bun run-eval-set --concurrency 3 --email --title "Nightly Eval Run ($(date '+%Y-%m-%d'))"
 
       - name: Workflow completed
         run: echo "Nightly evals workflow completed successfully"

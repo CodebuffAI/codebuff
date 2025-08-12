@@ -10,14 +10,14 @@ import type { Model } from '@codebuff/common/constants'
 export const thinker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.thinker.displayName,
-  parentPrompt: AGENT_PERSONAS.thinker.purpose,
+  spawnerPrompt: AGENT_PERSONAS.thinker.purpose,
   inputSchema: {
     prompt: z.string().describe('The problem you are trying to solve'),
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  subagents: [],
+  spawnableAgents: [],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 

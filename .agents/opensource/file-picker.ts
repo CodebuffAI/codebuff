@@ -1,11 +1,11 @@
-import type { AgentConfig, ToolCall } from '../types/agent-config'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'oss-model-file-picker',
   publisher: 'codebuff',
   model: 'openai/gpt-oss-120b:fast',
   displayName: 'Fletcher the File Fetcher',
-  parentPrompt:
+  spawnerPrompt:
     'Expert at finding relevant files for efficient file discovery with edge-optimized performance.',
   inputSchema: {
     prompt: {
@@ -16,7 +16,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['find_files'],
-  subagents: [],
+  spawnableAgents: [],
   systemPrompt: `# Persona: Fletcher the File Fetcher
 
 You are an expert at finding relevant files in a codebase. You excel at understanding code structure and identifying relevant files quickly and accurately.
@@ -42,4 +42,4 @@ In your report, please give an analysis that includes the full paths of files th
   },
 }
 
-export default config
+export default definition

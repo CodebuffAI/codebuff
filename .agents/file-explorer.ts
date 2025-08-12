@@ -1,19 +1,22 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'file-explorer',
   version,
   publisher,
   displayName: 'Dora the File Explorer',
-  parentPrompt:
-    'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
   model: 'anthropic/claude-4-sonnet-20250522',
-  outputMode: 'json',
+
+  spawnerPrompt:
+    'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
+
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  subagents: [`file-picker`],
+  spawnableAgents: [`file-picker`],
+
+  outputMode: 'structured_output',
   inputSchema: {
     prompt: {
       description: 'What you need to accomplish by exploring the codebase',
@@ -35,6 +38,18 @@ const config: AgentConfig = {
       additionalProperties: false,
     },
   },
+  outputSchema: {
+    type: 'object',
+    properties: {
+      results: {
+        type: 'string',
+        description: 'The results of the file exploration',
+      },
+    },
+    required: ['results'],
+    additionalProperties: false,
+  },
+
   handleSteps: function* ({ prompt, params }) {
     const prompts: string[] = params?.prompts ?? []
     const filePickerPrompts = prompts.map(
@@ -59,4 +74,4 @@ const config: AgentConfig = {
   },
 }
 
-export default config
+export default definition

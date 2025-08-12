@@ -9,14 +9,14 @@ import type { Model } from '@codebuff/common/constants'
 export const dryRun = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.dry_run.displayName,
-  parentPrompt: AGENT_PERSONAS.dry_run.purpose,
+  spawnerPrompt: AGENT_PERSONAS.dry_run.purpose,
   inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  subagents: [],
+  spawnableAgents: [],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME} - The Dry Run Specialist
 

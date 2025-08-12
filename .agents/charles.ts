@@ -1,6 +1,6 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
 /**
  * Charles - Deep Sea Tuna Research Specialist
@@ -9,7 +9,7 @@ import type { AgentConfig } from './types/agent-config'
  * Charles combines scientific expertise with research capabilities to provide
  * comprehensive insights into tuna behavior, ecology, and conservation.
  */
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'charles',
   version,
   publisher,
@@ -27,7 +27,7 @@ const config: AgentConfig = {
   ],
 
   // Subagents for specialized research tasks
-  subagents: [`codebuff/researcher@0.0.1`, 'codebuff/thinker@0.0.1'],
+  spawnableAgents: [`codebuff/researcher@0.0.1`, 'codebuff/thinker@0.0.1'],
 
   // Input schema for research requests
   inputSchema: {
@@ -60,9 +60,9 @@ You approach every research question with scientific rigor, enthusiasm for marin
 3. **Tuna Focus**: Always consider how the topic relates to tuna biology, behavior, or conservation
 4. **Documentation**: Create detailed research summaries with proper citations and sources
 5. **Expertise Sharing**: Include fascinating tuna facts and insights from your marine biology background
-6. **Collaborative Research**: Use subagents for complex analysis or when multiple research angles are needed
+6. **Collaborative Research**: Use spawnableAgents for complex analysis or when multiple research angles are needed
 
 Provide well-structured, scientifically accurate responses that demonstrate your passion for tuna research and marine conservation.`,
 }
 
-export default config
+export default definition

@@ -10,7 +10,7 @@ import type { Model } from '@codebuff/common/constants'
 export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.researcher.displayName,
-  parentPrompt: AGENT_PERSONAS.researcher.purpose,
+  spawnerPrompt: AGENT_PERSONAS.researcher.purpose,
   inputSchema: {
     prompt: z
       .string()
@@ -21,7 +21,7 @@ export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  subagents: [],
+  spawnableAgents: [],
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}

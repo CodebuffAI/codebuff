@@ -84,13 +84,13 @@ describe('runProgrammaticStep', () => {
     mockTemplate = {
       id: 'test-agent',
       displayName: 'Test Agent',
-      parentPrompt: 'Testing',
+      spawnerPrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       inputSchema: {},
-      outputMode: 'json',
+      outputMode: 'structured_output',
       includeMessageHistory: true,
       toolNames: ['read_files', 'write_file', 'end_turn'],
-      subagents: [],
+      spawnableAgents: [],
 
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
@@ -820,7 +820,7 @@ describe('runProgrammaticStep', () => {
       // Create template with outputSchema
       const schemaTemplate = {
         ...mockTemplate,
-        outputMode: 'json' as const,
+        outputMode: 'structured_output' as const,
         outputSchema: {
           type: 'object',
           properties: {
@@ -868,7 +868,7 @@ describe('runProgrammaticStep', () => {
       // Create template with strict outputSchema
       const schemaTemplate = {
         ...mockTemplate,
-        outputMode: 'json' as const,
+        outputMode: 'structured_output' as const,
         outputSchema: {
           type: 'object',
           properties: {
@@ -949,10 +949,10 @@ describe('runProgrammaticStep', () => {
       })
     })
 
-    it('should work with outputMode json but no outputSchema defined', async () => {
+    it('should work with outputMode structured_output but no outputSchema defined', async () => {
       const schemaWithoutSchemaTemplate = {
         ...mockTemplate,
-        outputMode: 'json' as const,
+        outputMode: 'structured_output' as const,
         outputSchema: undefined, // No schema defined
         toolNames: ['set_output', 'end_turn'],
       }
@@ -986,6 +986,7 @@ describe('runProgrammaticStep', () => {
       })
     })
   })
+
   describe('logging and context', () => {
     it('should log agent execution start', async () => {
       const mockGenerator = (function* () {

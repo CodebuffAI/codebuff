@@ -9,14 +9,14 @@ import type { Model } from '@codebuff/common/constants'
 export const filePicker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.file_picker.displayName,
-  parentPrompt: AGENT_PERSONAS.file_picker.purpose,
+  spawnerPrompt: AGENT_PERSONAS.file_picker.purpose,
   inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['find_files'],
-  subagents: [],
+  spawnableAgents: [],
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}

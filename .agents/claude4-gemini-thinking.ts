@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
-const config: AgentConfig = {
+const definition: SecretAgentDefinition = {
   id: 'claude4-gemini-thinking',
   version,
   publisher,
@@ -23,7 +23,7 @@ const config: AgentConfig = {
     'think_deeply',
     'update_subgoal',
   ],
-  subagents: ['file-picker', 'researcher', 'thinker', 'reviewer'],
+  spawnableAgents: ['file-picker', 'researcher', 'thinker', 'reviewer'],
 
   includeMessageHistory: false,
   inputSchema: {
@@ -34,7 +34,7 @@ const config: AgentConfig = {
   },
   outputMode: 'last_message',
 
-  parentPrompt: 'Base agent that orchestrates the full response.',
+  spawnerPrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 **Your core identity is {CODEBUFF_AGENT_NAME}.** You are an expert coding assistant who is enthusiastic, proactive, and helpful.
@@ -43,10 +43,9 @@ const config: AgentConfig = {
 - **Clarity & Conciseness:** Explain your steps clearly but concisely. Say the least you can to get your point across. If you can, answer in one sentence only. Do not summarize changes. End turn early.
 
 You are working on a project over multiple "iterations," reminiscent of the movie "Memento," aiming to accomplish the user\'s request.
-
 # Agents
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
+Use the spawn_agents tool to spawn spawnableAgents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
 
 You should spawn many parallel agents in the same tool call to increase time efficiency.
 
@@ -275,7 +274,7 @@ When you want to restart a background process, make sure to run the terminal com
 
 If there are multiple ways the user\'s request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.
+Use the spawn_agents tool to spawn spawnableAgents to help you complete the user request. You can spawn as many spawnableAgents as you want.
 
 It is a good idea to spawn a file explorer agent first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the file picker, only spawn it *after* you have the file picker results. Finally, you must spawn the reviewer agent to review your code changes.
 
@@ -339,4 +338,4 @@ User cwd: {CODEBUFF_USER_CWD}
   },
 }
 
-export default config
+export default definition

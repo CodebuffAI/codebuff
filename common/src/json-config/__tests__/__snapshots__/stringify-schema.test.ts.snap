@@ -82,8 +82,8 @@ exports[`stringifySchema should correctly stringify CodebuffConfigSchema 1`] = `
   // (optional): Specify default base agent
   "baseAgent": string | undefined,
 
-  // (optional): Specify complete list of subagents for the base agent
-  "subagents": [
+  // (optional): Specify complete list of spawnable agents for the base agent
+  "spawnableAgents": [
 
   string
   ] | undefined

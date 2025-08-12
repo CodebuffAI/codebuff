@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'file-picker',
   version,
   publisher,
@@ -20,7 +20,7 @@ const config: AgentConfig = {
   },
   outputMode: 'last_message',
 
-  parentPrompt: 'Expert at finding relevant files in a codebase.',
+  spawnerPrompt: 'Expert at finding relevant files in a codebase.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 You are an expert at finding relevant files in a codebase.
@@ -43,4 +43,4 @@ In your report, please give an analysis that includes the full paths of files th
   },
 }
 
-export default config
+export default definition

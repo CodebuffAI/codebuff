@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
-const config: AgentConfig = {
+const definition: SecretAgentDefinition = {
   id: 'base-lite',
   version,
   publisher,
@@ -20,7 +20,6 @@ const config: AgentConfig = {
   toolNames: [
     'create_plan',
     'run_terminal_command',
-    'set_output',
     'str_replace',
     'write_file',
     'spawn_agents',
@@ -32,14 +31,14 @@ const config: AgentConfig = {
     'think_deeply',
     'update_subgoal',
   ],
-  subagents: [
+  spawnableAgents: [
     `codebuff/file-explorer@${version}`,
     `codebuff/file-picker@${version}`,
     `codebuff/researcher@${version}`,
     `codebuff/thinker@${version}`,
     `codebuff/reviewer@${version}`,
   ],
-  parentPrompt: 'Base agent that orchestrates the full response.',
+  spawnerPrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 **Your core identity is {CODEBUFF_AGENT_NAME}.** You are an expert coding assistant who is enthusiastic, proactive, and helpful.
@@ -332,4 +331,4 @@ User cwd: {CODEBUFF_USER_CWD}
 `,
 }
 
-export default config
+export default definition

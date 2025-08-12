@@ -8,17 +8,22 @@ import {
   stringifyVersion,
   versionExists,
 } from '@codebuff/internal'
-import { eq, and, or } from 'drizzle-orm'
+import { eq, and, or, desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { logger } from '@/util/logger'
+
+import {
+  resolveAndValidateSubagents,
+  SubagentResolutionError,
+  type AgentVersionEntry,
+} from './subagent-resolution'
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
 
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { Version } from '@codebuff/internal'
 import type { NextRequest } from 'next/server'
-
-import { logger } from '@/util/logger'
 
 async function getPublishedAgentIds(publisherId: string) {
   const agents = await db
@@ -228,34 +233,57 @@ export async function POST(request: NextRequest) {
     )
     const publishedAgentIds = await getPublishedAgentIds(requestedPublisherId)
 
-    for (const agent of agents) {
-      if (agent.subagents) {
-        for (const subagent of agent.subagents) {
-          const versionMatch = subagent.match(/^([^/]+)\/(.+)@(.+)$/)
-          if (!versionMatch) {
-            return NextResponse.json(
-              {
-                error: 'Invalid spawnable agent format',
-                details: `Agent '${agent.id}' references spawnable agent '${subagent}' with an invalid format. Expected format: {publisherId}/{agentId}@{version}`,
-              },
-              { status: 400 }
-            )
-          }
+    const existsInSamePublisher = (full: string) =>
+      publishingAgentIds.has(full) || publishedAgentIds.has(full)
 
-          if (
-            !publishingAgentIds.has(subagent) &&
-            !publishedAgentIds.has(subagent)
-          ) {
-            return NextResponse.json(
-              {
-                error: 'Invalid spawnable agent',
-                details: `Agent '${agent.id}' references spawnable agent '${subagent}' which is not published and not included in this request.`,
-              },
-              { status: 400 }
-            )
-          }
-        }
+    async function getLatestPublishedVersion(
+      publisherId: string,
+      agentId: string
+    ): Promise<string | null> {
+      const latest = await db
+        .select({ version: schema.agentConfig.version })
+        .from(schema.agentConfig)
+        .where(
+          and(
+            eq(schema.agentConfig.publisher_id, publisherId),
+            eq(schema.agentConfig.id, agentId)
+          )
+        )
+        .orderBy(
+          desc(schema.agentConfig.major),
+          desc(schema.agentConfig.minor),
+          desc(schema.agentConfig.patch)
+        )
+        .limit(1)
+        .then((rows) => rows[0])
+      return latest?.version ?? null
+    }
+
+    const agentEntries: AgentVersionEntry[] = agentVersions.map((av) => ({
+      id: av.id,
+      version: stringifyVersion(av.version),
+      data: av.data,
+    }))
+
+    try {
+      await resolveAndValidateSubagents({
+        agents: agentEntries,
+        requestedPublisherId,
+        existsInSamePublisher,
+        getLatestPublishedVersion,
+      })
+    } catch (err) {
+      if (err instanceof SubagentResolutionError) {
+        return NextResponse.json(
+          {
+            error: 'Invalid spawnable agent',
+            details: err.message,
+            hint: "To fix this, also publish the referenced agent (include it in the same request's data array, or publish it first for the same publisher).",
+          },
+          { status: 400 }
+        )
       }
+      throw err
     }
 
     // If we get here, all agents can be published. Insert them all in a transaction

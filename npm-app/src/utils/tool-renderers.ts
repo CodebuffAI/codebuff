@@ -318,16 +318,27 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
     },
   },
-
-  send_agent_message: {
+  spawn_agent_inline: {
     onToolStart: (toolName) => {
-      return '\n\n' + gray(`[${bold('Send Agent Message')}]`) + '\n'
+      return '\n\n' + gray(`[${bold('Spawn Agent Inline')}]`) + '\n'
     },
-    onParamChunk: (content, paramName, toolName) => {
+    onParamEnd: (paramName, toolName, content) => {
+      if (paramName === 'agent_type') {
+        const client = Client.getInstance(false)
+        const agentName =
+          (client?.agentNames && client.agentNames[content]) || content
+        return gray(`@${bold(agentName)}\n`)
+      }
       if (paramName === 'prompt') {
-        return gray(content)
+        return gray(content + '\n')
       }
       return null
+    },
+    onToolEnd: () => {
+      return () => {
+        Spinner.get().start('Agent running inline...')
+        return '\n'
+      }
     },
   },
   add_message: {

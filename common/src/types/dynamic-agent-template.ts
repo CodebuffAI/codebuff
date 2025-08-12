@@ -81,7 +81,7 @@ const HandleStepsSchema = z
   .optional()
 
 // Validates the Typescript template file.
-export const DynamicAgentConfigSchema = z.object({
+export const DynamicAgentDefinitionSchema = z.object({
   id: z
     .string()
     .regex(
@@ -95,7 +95,7 @@ export const DynamicAgentConfigSchema = z.object({
   displayName: z.string(),
   model: z.string(),
 
-  // Tools and subagents
+  // Tools and spawnable agents
   toolNames: z
     .array(z.enum(toolNames))
     .optional()
@@ -120,18 +120,18 @@ export const DynamicAgentConfigSchema = z.object({
         }
       },
     ),
-  subagents: z.array(z.string()).optional().default([]),
+  spawnableAgents: z.array(z.string()).optional().default([]),
 
   // Input and output
   inputSchema: InputSchemaObjectSchema,
   includeMessageHistory: z.boolean().default(true),
   outputMode: z
-    .enum(['last_message', 'all_messages', 'json'])
-    .default('last_message'), // Will be overridden to 'json' if outputSchema is present
+    .enum(['last_message', 'all_messages', 'structured_output'])
+    .default('last_message'),
   outputSchema: JsonSchemaSchema.optional(), // Optional JSON schema for output validation
 
   // Prompts
-  parentPrompt: z.string().optional(),
+  spawnerPrompt: z.string().optional(),
   systemPrompt: z.string().optional(),
   instructionsPrompt: z.string().optional(),
   stepPrompt: z.string().optional(),
@@ -139,10 +139,14 @@ export const DynamicAgentConfigSchema = z.object({
   // Optional generator function for programmatic agents
   handleSteps: z.union([HandleStepsSchema, z.string()]).optional(),
 })
-export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
-export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
+export type DynamicAgentDefinition = z.input<
+  typeof DynamicAgentDefinitionSchema
+>
+export type DynamicAgentDefinitionParsed = z.infer<
+  typeof DynamicAgentDefinitionSchema
+>
 
-export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
+export const DynamicAgentTemplateSchema = DynamicAgentDefinitionSchema.extend({
   systemPrompt: z.string(),
   instructionsPrompt: z.string(),
   stepPrompt: z.string(),
@@ -150,23 +154,23 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
 })
   .refine(
     (data) => {
-      // If outputSchema is provided, outputMode must be explicitly set to 'json'
-      if (data.outputSchema && data.outputMode !== 'json') {
+      // If outputSchema is provided, outputMode must be explicitly set to 'structured_output'
+      if (data.outputSchema && data.outputMode !== 'structured_output') {
         return false
       }
       return true
     },
     {
       message:
-        "outputSchema requires outputMode to be explicitly set to 'json'.",
+        "outputSchema requires outputMode to be explicitly set to 'structured_output'.",
       path: ['outputMode'],
     },
   )
   .refine(
     (data) => {
-      // If outputMode is 'json', 'set_output' tool must be included
+      // If outputMode is 'structured_output', 'set_output' tool must be included
       if (
-        data.outputMode === 'json' &&
+        data.outputMode === 'structured_output' &&
         !data.toolNames.includes('set_output')
       ) {
         return false
@@ -175,29 +179,32 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
     },
     {
       message:
-        "outputMode 'json' requires the 'set_output' tool. Add 'set_output' to toolNames.",
+        "outputMode 'structured_output' requires the 'set_output' tool. Add 'set_output' to toolNames.",
       path: ['toolNames'],
     },
   )
   .refine(
     (data) => {
-      // If 'set_output' tool is included, outputMode must be 'json'
-      if (data.toolNames.includes('set_output') && data.outputMode !== 'json') {
+      // If 'set_output' tool is included, outputMode must be 'structured_output'
+      if (
+        data.toolNames.includes('set_output') &&
+        data.outputMode !== 'structured_output'
+      ) {
         return false
       }
       return true
     },
     {
       message:
-        "'set_output' tool requires outputMode to be 'json'. Change outputMode to 'json' or remove 'set_output' from toolNames.",
+        "'set_output' tool requires outputMode to be 'structured_output'. Change outputMode to 'structured_output' or remove 'set_output' from toolNames.",
       path: ['outputMode'],
     },
   )
   .refine(
     (data) => {
-      // If subagents array is non-empty, 'spawn_agents' tool must be included
+      // If spawnableAgents array is non-empty, 'spawn_agents' tool must be included
       if (
-        data.subagents.length > 0 &&
+        data.spawnableAgents.length > 0 &&
         !data.toolNames.includes('spawn_agents')
       ) {
         return false
@@ -206,7 +213,7 @@ export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
     },
     {
       message:
-        "Non-empty subagents array requires the 'spawn_agents' tool. Add 'spawn_agents' to toolNames or remove subagents.",
+        "Non-empty spawnableAgents array requires the 'spawn_agents' tool. Add 'spawn_agents' to toolNames or remove spawnableAgents.",
       path: ['toolNames'],
     },
   )

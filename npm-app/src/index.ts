@@ -31,6 +31,7 @@ import { initAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 
 import type { CliOptions } from './types'
+import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
 
 async function codebuff({
   initialInput,

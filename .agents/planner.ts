@@ -1,16 +1,15 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'planner',
   version,
   publisher,
   model: 'x-ai/grok-4-07-09',
   displayName: 'Peter Plan the Planner',
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
-  subagents: [],
-
+  spawnableAgents: [],
   inputSchema: {
     prompt: {
       description:
@@ -21,7 +20,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: true,
 
-  parentPrompt: 'Agent that formulates a comprehensive plan to a prompt.',
+  spawnerPrompt: 'Agent that formulates a comprehensive plan to a prompt.',
   systemPrompt: `You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.`,
   instructionsPrompt: `Steps for your response:
 1. Use the <think_deeply> tool to think through cruxes for the plan, and tricky cases. Consider alternative approaches. Be sure to close the tool call with </think_deeply>.
@@ -30,4 +29,4 @@ const config: AgentConfig = {
 4. Synthesize all the information and rewrite the full plan to be the best it can be. Use the end_turn tool.`,
 }
 
-export default config
+export default definition

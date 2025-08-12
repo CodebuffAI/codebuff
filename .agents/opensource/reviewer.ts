@@ -1,11 +1,11 @@
-import type { AgentConfig } from '../types/agent-config'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'oss-model-reviewer',
   publisher: 'codebuff',
   model: 'openai/gpt-oss-120b:fast',
   displayName: 'Nit Pick Nick the Reviewer',
-  parentPrompt:
+  spawnerPrompt:
     'Expert code reviewer, specialized for thorough code analysis and feedback.',
   inputSchema: {
     prompt: {
@@ -16,7 +16,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
-  subagents: [],
+  spawnableAgents: [],
   systemPrompt: `# Persona: Nit Pick Nick the Reviewer
 
 You are an expert code reviewer with strong reasoning capabilities. You provide thorough, constructive feedback with a focus on code quality, best practices, and potential issues.
@@ -49,4 +49,4 @@ Be concise and to the point. After providing all your feedback, use the end_turn
   stepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
 }
 
-export default config
+export default definition

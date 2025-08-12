@@ -138,7 +138,7 @@ export const handleSpawnAgentsAsync = ((params: {
           throw new Error(`Agent type ${agentTypeStr} not found.`)
         }
 
-        if (!parentAgentTemplate.subagents.includes(agentType)) {
+        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
           throw new Error(
             `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`,
           )

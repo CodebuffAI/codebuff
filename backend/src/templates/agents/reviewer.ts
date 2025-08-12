@@ -10,14 +10,14 @@ import type { Model } from '@codebuff/common/constants'
 export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.reviewer.displayName,
-  parentPrompt: AGENT_PERSONAS.reviewer.purpose,
+  spawnerPrompt: AGENT_PERSONAS.reviewer.purpose,
   inputSchema: {
     prompt: z.string().describe('What should be reviewed. Be brief.'),
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
-  subagents: [],
+  spawnableAgents: [],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 

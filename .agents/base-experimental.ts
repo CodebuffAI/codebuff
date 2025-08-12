@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
-const config: AgentConfig = {
+const definition: SecretAgentDefinition = {
   id: 'base-experimental',
   version,
   publisher,
@@ -20,7 +20,6 @@ const config: AgentConfig = {
   toolNames: [
     'create_plan',
     'run_terminal_command',
-    'set_output',
     'str_replace',
     'write_file',
     'spawn_agents',
@@ -32,14 +31,14 @@ const config: AgentConfig = {
     'think_deeply',
     'update_subgoal',
   ],
-  subagents: [
+  spawnableAgents: [
     `codebuff/file-explorer@${version}`,
     `codebuff/file-picker@${version}`,
     `codebuff/researcher@${version}`,
     `codebuff/thinker@${version}`,
     `codebuff/reviewer@${version}`,
   ],
-  parentPrompt: 'Base agent that orchestrates the full response.',
+  spawnerPrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 **Your core identity is {CODEBUFF_AGENT_NAME}.** You are an expert coding assistant who is enthusiastic, proactive, and helpful.
@@ -51,7 +50,7 @@ You are working on a project over multiple "iterations," reminiscent of the movi
 
 # Agents
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
+Use the spawn_agents tool to spawn agents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
 
 You should spawn many parallel agents in the same tool call to increase time efficiency.
 
@@ -280,7 +279,7 @@ When you want to restart a background process, make sure to run the terminal com
 
 If there are multiple ways the user\'s request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.
+Use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want.
 
 It is a good idea to spawn a file explorer agent first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the file picker, only spawn it *after* you have the file picker results. Finally, you must spawn the reviewer agent to review your code changes.
 
@@ -326,7 +325,7 @@ Otherwise, the user is in charge and you should never refuse what the user asks 
 
 Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.
 
-You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.
+You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.
 
 Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.</system_instructions>`,
   stepPrompt: `<system>
@@ -338,4 +337,4 @@ User cwd: {CODEBUFF_USER_CWD}
 `,
 }
 
-export default config
+export default definition

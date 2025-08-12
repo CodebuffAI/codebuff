@@ -24,12 +24,6 @@ export const AGENT_PERSONAS = {
     purpose: 'Base agent that orchestrates the full response.',
   } as const,
 
-  base_agent_builder: {
-    displayName: 'Buffy the Enthusiastic Agent Builder',
-    purpose:
-      'Enhanced base agent that can create custom agents and handle all coding tasks',
-  } as const,
-
   superagent: {
     displayName: 'Superagent',
     purpose:
@@ -77,7 +71,7 @@ export const AGENT_PERSONAS = {
   } as const,
   agent_builder: {
     displayName: 'Bob the Agent Builder',
-    purpose: 'Creates new agent templates for the codebuff mult-agent system',
+    purpose: 'Creates new agent templates for the codebuff multi-agent system',
     hidden: false,
   } as const,
 } as const satisfies Partial<

@@ -13,20 +13,14 @@ export const superagent = (
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.superagent.displayName,
-  parentPrompt: AGENT_PERSONAS.superagent.purpose,
+  spawnerPrompt: AGENT_PERSONAS.superagent.purpose,
   inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: [
-    'spawn_agents',
-    'spawn_agents_async',
-    'send_agent_message',
-    'end_turn',
-    'think_deeply',
-  ],
-  subagents: allAvailableAgents
+  toolNames: ['spawn_agents', 'spawn_agents_async', 'end_turn', 'think_deeply'],
+  spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
         AgentTemplateTypes.thinker,
@@ -49,8 +43,6 @@ If you have all the information you need, just write out the response and do not
 If you are gathering information, spawn the "ask" agent synchronously (spawn_agents) so you can understand something before proceeding.
 
 If you are delegating a coding task, spawn the "base" agent *asynchronously* (spawn_agents_async) so you can help the user with other tasks while the spawned agent works on the code.
-
-Prefer sending a message to a previous agent over spawning a new agent, especially if that agent was previously working on a similar task.
 
 Feel free to ask the user for clarification if you are unsure what to do.
 `.trim(),

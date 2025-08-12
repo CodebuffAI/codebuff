@@ -15,7 +15,7 @@ import type { Model } from '@codebuff/common/constants'
 export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.ask.displayName,
-  parentPrompt: 'Base ask-mode agent that orchestrates the full response.',
+  spawnerPrompt: 'Base ask-mode agent that orchestrates the full response.',
   inputSchema: {
     prompt: z
       .string()
@@ -33,7 +33,7 @@ export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
     'read_files',
     'think_deeply',
   ],
-  subagents: [AgentTemplateTypes.file_picker],
+  spawnableAgents: [AgentTemplateTypes.file_picker],
 
   systemPrompt:
     `# Persona: ${PLACEHOLDER.AGENT_NAME}

@@ -7,8 +7,6 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { formatValidationErrorMessage } from '@codebuff/common/util/agent-template-validation'
-import { buildArray } from '@codebuff/common/util/array'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
@@ -25,7 +23,6 @@ import { protec } from './middleware'
 import { sendMessage } from './server'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { logger, withLoggerContext } from '../util/logger'
-import { asSystemMessage } from '../util/messages'
 
 import type {
   ClientAction,
@@ -135,7 +132,7 @@ export async function genUsageResponse(
  * @param ws - The WebSocket connection
  */
 const onPrompt = async (
-  action: Extract<ClientAction, { type: 'prompt' }>,
+  action: ClientAction<'prompt'>,
   clientSessionId: string,
   ws: WebSocket,
 ) => {
@@ -168,46 +165,13 @@ const onPrompt = async (
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
         let response =
-          e && typeof e === 'object' && 'message' in e ? `\n\n${e.message}` : ''
-
-        const newMessages = buildArray(
-          ...action.sessionState.mainAgentState.messageHistory,
-          prompt && {
-            role: 'user' as const,
-            content: prompt,
-          },
-          {
-            role: 'user' as const,
-            content: asSystemMessage(`Received error from server: ${response}`),
-          },
-        )
+          e && typeof e === 'object' && 'message' in e ? `${e.message}` : `${e}`
 
         sendAction(ws, {
-          type: 'response-chunk',
+          type: 'prompt-error',
           userInputId: promptId,
-          chunk: { type: 'error', message: response },
+          message: response,
         })
-        sendAction(ws, {
-          type: 'response-chunk',
-          userInputId: promptId,
-          chunk: response,
-        })
-        setTimeout(() => {
-          sendAction(ws, {
-            type: 'prompt-response',
-            promptId,
-            // Send back original sessionState.
-            sessionState: {
-              ...action.sessionState,
-              mainAgentState: {
-                ...action.sessionState.mainAgentState,
-                messageHistory: newMessages,
-              },
-            },
-            toolCalls: [],
-            toolResults: [],
-          })
-        }, 100)
       } finally {
         endUserInput(userId, promptId)
         const usageResponse = await genUsageResponse(
@@ -223,7 +187,7 @@ const onPrompt = async (
 
 export const callMainPrompt = async (
   ws: WebSocket,
-  action: Extract<ClientAction, { type: 'prompt' }>,
+  action: ClientAction<'prompt'>,
   options: {
     userId: string
     promptId: string
@@ -234,8 +198,16 @@ export const callMainPrompt = async (
   const { fileContext } = action.sessionState
 
   // Assemble local agent templates from fileContext
-  const { agentTemplates: localAgentTemplates } =
+  const { agentTemplates: localAgentTemplates, validationErrors } =
     assembleLocalAgentTemplates(fileContext)
+
+  if (validationErrors.length > 0) {
+    sendAction(ws, {
+      type: 'prompt-error',
+      message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
+      userInputId: promptId,
+    })
+  }
 
   const result = await mainPrompt(ws, action, {
     userId,
@@ -274,11 +246,7 @@ export const callMainPrompt = async (
  * @param ws - The WebSocket connection
  */
 const onInit = async (
-  {
-    fileContext,
-    fingerprintId,
-    authToken,
-  }: Extract<ClientAction, { type: 'init' }>,
+  { fileContext, fingerprintId, authToken }: ClientAction<'init'>,
   clientSessionId: string,
   ws: WebSocket,
 ) => {
@@ -296,25 +264,6 @@ const onInit = async (
       return
     }
 
-    // Assemble local agent templates from fileContext
-    const { agentTemplates, validationErrors } =
-      assembleLocalAgentTemplates(fileContext)
-
-    if (validationErrors.length > 0) {
-      logger.warn(
-        { errorCount: validationErrors.length },
-        'Agent template validation errors found',
-      )
-    }
-
-    const errorMessage = formatValidationErrorMessage(validationErrors)
-
-    // Get all agent names for frontend
-    const allAgentNames: Record<string, string> = {}
-    for (const [id, template] of Object.entries(agentTemplates)) {
-      allAgentNames[id] = template.displayName
-    }
-
     // Send combined init and usage response
     const usageResponse = await genUsageResponse(
       fingerprintId,
@@ -324,10 +273,6 @@ const onInit = async (
     sendAction(ws, {
       ...usageResponse,
       type: 'init-response',
-      message: errorMessage
-        ? `**Agent Template Validation Errors:**\n${errorMessage}`
-        : undefined,
-      agentNames: allAgentNames,
     })
   })
 }
@@ -335,7 +280,7 @@ const onInit = async (
 const onCancelUserInput = async ({
   authToken,
   promptId,
-}: Extract<ClientAction, { type: 'cancel-user-input' }>) => {
+}: ClientAction<'cancel-user-input'>) => {
   const userId = await getUserIdFromAuthToken(authToken)
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')
@@ -364,7 +309,7 @@ const callbacksByAction = {} as Record<
 export const subscribeToAction = <T extends ClientAction['type']>(
   type: T,
   callback: (
-    action: Extract<ClientAction, { type: T }>,
+    action: ClientAction<T>,
     clientSessionId: string,
     ws: WebSocket,
   ) => void,

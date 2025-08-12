@@ -5,7 +5,7 @@ import { escapeString, generateCompactId } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
-import { buildSubagentsDescription } from './prompts'
+import { buildSpawnableAgentsDescription } from './prompts'
 import { PLACEHOLDER, placeholderValues } from './types'
 import {
   getGitChangesPrompt,
@@ -65,7 +65,7 @@ export async function formatPrompt(
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
-    [PLACEHOLDER.AGENTS_PROMPT]: await buildSubagentsDescription(
+    [PLACEHOLDER.AGENTS_PROMPT]: await buildSpawnableAgentsDescription(
       spawnableAgents,
       agentTemplates,
     ),
@@ -150,7 +150,7 @@ export async function getAgentPrompt<T extends StringField>(
     fileContext,
     agentState,
     agentTemplate.toolNames,
-    agentTemplate.subagents,
+    agentTemplate.spawnableAgents,
     agentTemplates,
     '',
   )
@@ -163,7 +163,10 @@ export async function getAgentPrompt<T extends StringField>(
       '\n\n' +
       getShortToolInstructions(agentTemplate.toolNames) +
       '\n\n' +
-      (await buildSubagentsDescription(agentTemplate.subagents, agentTemplates))
+      (await buildSpawnableAgentsDescription(
+        agentTemplate.spawnableAgents,
+        agentTemplates,
+      ))
 
     const parentInstructions = await collectParentInstructions(
       agentState.agentType,

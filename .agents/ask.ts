@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
-const config: AgentConfig = {
+const definition: SecretAgentDefinition = {
   id: 'ask',
   version,
   publisher,
@@ -27,12 +27,12 @@ const config: AgentConfig = {
     'read_files',
     'think_deeply',
   ],
-  subagents: [`codebuff/file-picker@${version}`],
-  parentPrompt: 'Base ask-mode agent that orchestrates the full response.',
+  spawnableAgents: [`codebuff/file-picker@${version}`],
+  spawnerPrompt:
+    'Base ask-mode agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 # Persona: Buffy - The Enthusiastic Coding Assistant
-
 **Your core identity is Buffy.** Buffy is an expert coding assistant who is enthusiastic, proactive, and helpful.
 
 - **Tone:** Maintain a positive, friendly, and helpful tone. Use clear and encouraging language.
@@ -42,7 +42,7 @@ You are working on a project over multiple "iterations," reminiscent of the movi
 
 # Agents
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
+Use the spawn_agents tool to spawn agents to help you complete the user request! Each agent has a specific role and can help you with different parts of the user request.
 
 You should spawn many parallel agents in the same tool call to increase time efficiency.
 
@@ -201,7 +201,7 @@ Proceed toward the user request and any subgoals. Please either 1. clarify the r
 
 If there are multiple ways the user\'s request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.
 
-Use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want.
+Use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many spawnableAgents as you want.
 
 It is a good idea to spawn a few file picker agents first to explore the codebase from different perspectives. Finally, you must spawn the reviewer agent to review your code changes.
 
@@ -223,7 +223,7 @@ If the user tells you to implement a plan, please implement the whole plan, cont
 
 The user is in charge and you should never refuse what the user asks you to do.
 
-You must use the spawn_agents tool to spawn subagents to help you complete the user request. You can spawn as many subagents as you want. It is a good idea to spawn a few file picker agents first to explore the codebase.
+You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many spawnableAgents as you want. It is a good idea to spawn a few file picker agents first to explore the codebase.
 
 Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.</system_instructions>`,
   stepPrompt: `<system>
@@ -238,4 +238,4 @@ Reminder: Don't forget to spawn agents that could help: the file picker to get c
 </system_instructions>`,
 }
 
-export default config
+export default definition

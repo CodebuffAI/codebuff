@@ -10,7 +10,7 @@ import type { Model } from '@codebuff/common/constants'
 export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.planner.displayName,
-  parentPrompt: AGENT_PERSONAS.planner.purpose,
+  spawnerPrompt: AGENT_PERSONAS.planner.purpose,
   inputSchema: {
     prompt: z
       .string()
@@ -21,7 +21,7 @@ export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
-  subagents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
+  spawnableAgents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
 
   systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
 

@@ -125,7 +125,7 @@ async function getLocalAgentInfo(): Promise<
         agentType,
         {
           displayName: agentConfig.displayName,
-          purpose: agentConfig.parentPrompt,
+          purpose: agentConfig.spawnerPrompt,
         },
       ]),
     )
@@ -946,7 +946,7 @@ export class CLI {
           const recentSubagents = getRecentSubagents(10)
           displaySubagentList(recentSubagents)
           if (recentSubagents.length === 0) {
-            // Give control back to user when no subagents exist
+            // Give control back to user when no spawnable agents exist
             this.freshPrompt()
           } else {
             // Pre-fill the prompt with the command for easy completion

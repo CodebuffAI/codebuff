@@ -296,9 +296,15 @@ export function expireMessages(
   endOf: 'agentStep' | 'userPrompt',
 ): CodebuffMessage[] {
   return messages.filter(
-    (m) =>
-      (m.timeToLive === undefined && true) ||
-      (m.timeToLive === 'userPrompt' && endOf === 'agentStep') ||
-      (m.timeToLive === 'agentStep' && false),
+    (m) => {
+      // Keep messages with no timeToLive
+      if (m.timeToLive === undefined) return true
+      
+      // Remove messages that have expired
+      if (m.timeToLive === 'agentStep') return false
+      if (m.timeToLive === 'userPrompt' && endOf === 'userPrompt') return false
+      
+      return true
+    },
   )
 }

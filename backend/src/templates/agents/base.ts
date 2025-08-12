@@ -17,7 +17,7 @@ export const base = (
 ): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.base.displayName,
-  parentPrompt: AGENT_PERSONAS.base.purpose,
+  spawnerPrompt: AGENT_PERSONAS.base.purpose,
   inputSchema: {
     prompt: z.string().describe('A coding task to complete'),
   },
@@ -26,7 +26,6 @@ export const base = (
   toolNames: [
     'create_plan',
     'run_terminal_command',
-    'set_output',
     'str_replace',
     'write_file',
     'spawn_agents',
@@ -38,7 +37,7 @@ export const base = (
     'think_deeply',
     'update_subgoal',
   ],
-  subagents: allAvailableAgents
+  spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : [
         AgentTemplateTypes.file_explorer,

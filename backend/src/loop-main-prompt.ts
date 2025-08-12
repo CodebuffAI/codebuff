@@ -13,7 +13,7 @@ const DEFAULT_MAX_ITERATIONS = 20
 
 export async function loopMainPrompt(
   ws: WebSocket,
-  action: Extract<ClientAction, { type: 'prompt' }>,
+  action: ClientAction<'prompt'>,
   options: MainPromptOptions & { maxIterations?: number },
 ): Promise<{
   sessionState: SessionState
@@ -32,7 +32,7 @@ export async function loopMainPrompt(
     toolCalls.length > 0 &&
     !toolCalls.some((tc) => tc.toolName === 'end_turn')
   ) {
-    const nextAction: Extract<ClientAction, { type: 'prompt' }> = {
+    const nextAction: ClientAction<'prompt'> = {
       ...action,
       sessionState,
       toolResults,

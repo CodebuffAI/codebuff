@@ -9,11 +9,11 @@ import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
 import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
-import { sendAgentMessageParams } from './params/tool/send-agent-message'
 import { setMessagesParams } from './params/tool/set-messages'
 import { setOutputParams } from './params/tool/set-output'
 import { spawnAgentsParams } from './params/tool/spawn-agents'
 import { spawnAgentsAsyncParams } from './params/tool/spawn-agents-async'
+import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { strReplaceParams } from './params/tool/str-replace'
 import { thinkDeeplyParams } from './params/tool/think-deeply'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
@@ -34,11 +34,11 @@ export const llmToolCallSchema = {
   read_files: readFilesParams,
   run_file_change_hooks: runFileChangeHooksParams,
   run_terminal_command: runTerminalCommandParams,
-  send_agent_message: sendAgentMessageParams,
   set_messages: setMessagesParams,
   set_output: setOutputParams,
   spawn_agents: spawnAgentsParams,
   spawn_agents_async: spawnAgentsAsyncParams,
+  spawn_agent_inline: spawnAgentInlineParams,
   str_replace: strReplaceParams,
   think_deeply: thinkDeeplyParams,
   update_subgoal: updateSubgoalParams,
@@ -69,9 +69,9 @@ export const clientToolCallSchema = {
 
   browser_logs: ['type', 'url', 'waitUntil'],
 
-  send_agent_message: ['target_agent_id', 'prompt', 'params'],
   spawn_agents: ['agents'],
   spawn_agents_async: ['agents'],
+  spawn_agent_inline: ['agent_type', 'prompt', 'params'],
   set_output: [],
 
   // Documentation tool

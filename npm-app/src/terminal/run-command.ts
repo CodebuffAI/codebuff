@@ -419,6 +419,9 @@ const runCommandChildProcess = async (
       path.parse(projectRoot).base,
       path.relative(projectRoot, path.resolve(projectRoot, cwd)),
     )
+    // Some models omit new lines.
+    console.log()
+    console.log()
     console.log(green(`${displayDir} > ${command}`))
   }
 

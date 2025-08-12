@@ -1,11 +1,11 @@
-import type { AgentConfig } from '../types/agent-config'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
-const config: AgentConfig = {
+const definition: SecretAgentDefinition = {
   id: 'oss-model-base',
   publisher: 'codebuff',
   model: 'qwen/qwen3-235b-a22b-2507:fast',
   displayName: 'Buffy the Coding Assistant',
-  parentPrompt:
+  spawnerPrompt:
     'Base agent for reliable coding assistance with excellent tool calling capabilities.',
   inputSchema: {
     prompt: {
@@ -26,7 +26,7 @@ const config: AgentConfig = {
     'run_terminal_command',
     'update_subgoal',
   ],
-  subagents: [
+  spawnableAgents: [
     'codebuff/oss-model-file-picker@0.0.1',
     'codebuff/oss-model-researcher@0.0.1',
     'codebuff/oss-model-thinker@0.0.1',
@@ -70,7 +70,7 @@ You are working on a project over multiple "iterations," reminiscent of the movi
 - Do NOT write, modify, or debug code yourself - always delegate to 'oss-model-coder'
 - Use only the exact tool names listed above
 - Focus on orchestration and coordination, not implementation`,
-  stepPrompt: `Continue working on the user's request. Use your tools and spawn subagents as needed.`,
+  stepPrompt: `Continue working on the user's request. Use your tools and spawn spawnableAgents as needed.`,
 }
 
-export default config
+export default definition

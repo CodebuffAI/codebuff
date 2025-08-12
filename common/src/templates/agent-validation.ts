@@ -1,12 +1,12 @@
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import {
-  formatSubagentError,
-  validateSubagents,
+  formatSpawnableAgentError,
+  validateSpawnableAgents,
 } from '../util/agent-template-validation'
 import { logger } from '../util/logger'
 import {
-  DynamicAgentConfigSchema,
+  DynamicAgentDefinitionSchema,
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
 import type { AgentTemplate } from '../types/agent-template'
@@ -95,10 +95,10 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
       }
 
       if (templates[validationResult.agentTemplate!.id]) {
-        const agentContext = validationResult.agentTemplate!.displayName 
+        const agentContext = validationResult.agentTemplate!.displayName
           ? `Agent "${validationResult.agentTemplate!.id}" (${validationResult.agentTemplate!.displayName})`
           : `Agent "${validationResult.agentTemplate!.id}"`
-        
+
         validationErrors.push({
           filePath: agentKey,
           message: `${agentContext}: Duplicate agent ID`,
@@ -112,10 +112,10 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
         error instanceof Error ? error.message : 'Unknown error'
 
       // Try to extract agent context for better error messages
-      const agentContext = content?.id 
+      const agentContext = content?.id
         ? `Agent "${content.id}"${content.displayName ? ` (${content.displayName})` : ''}`
         : `Agent in ${agentKey}`
-      
+
       validationErrors.push({
         filePath: agentKey,
         message: `${agentContext}: ${errorMessage}`,
@@ -167,7 +167,7 @@ export function validateSingleAgent(
     // First validate against the Zod schema
     let validatedConfig: DynamicAgentTemplate
     try {
-      const typedAgentConfig = DynamicAgentConfigSchema.parse(template)
+      const typedAgentDefinition = DynamicAgentDefinitionSchema.parse(template)
 
       // Convert handleSteps function to string if present
       let handleStepsString: string | undefined
@@ -176,35 +176,38 @@ export function validateSingleAgent(
       }
 
       validatedConfig = DynamicAgentTemplateSchema.parse({
-        ...typedAgentConfig,
-        systemPrompt: typedAgentConfig.systemPrompt || '',
-        instructionsPrompt: typedAgentConfig.instructionsPrompt || '',
-        stepPrompt: typedAgentConfig.stepPrompt || '',
+        ...typedAgentDefinition,
+        systemPrompt: typedAgentDefinition.systemPrompt || '',
+        instructionsPrompt: typedAgentDefinition.instructionsPrompt || '',
+        stepPrompt: typedAgentDefinition.stepPrompt || '',
         handleSteps: handleStepsString,
       })
     } catch (error: any) {
       // Try to extract agent context for better error messages
-      const agentContext = template.id 
+      const agentContext = template.id
         ? `Agent "${template.id}"${template.displayName ? ` (${template.displayName})` : ''}`
-        : filePath ? `Agent in ${filePath}` : 'Agent'
-      
+        : filePath
+          ? `Agent in ${filePath}`
+          : 'Agent'
+
       return {
         success: false,
         error: `${agentContext}: Schema validation failed: ${error.message}`,
       }
     }
-    // Validate subagents (skip if requested, e.g., for database agents)
+
+    // Validate spawnable agents (skip if requested, e.g., for database agents)
     if (!skipSubagentValidation) {
-      const subagentValidation = validateSubagents(
-        validatedConfig.subagents,
+      const spawnableAgentValidation = validateSpawnableAgents(
+        validatedConfig.spawnableAgents,
         dynamicAgentIds,
       )
-      if (!subagentValidation.valid) {
+      if (!spawnableAgentValidation.valid) {
         return {
           success: false,
-          error: formatSubagentError(
-            subagentValidation.invalidAgents,
-            subagentValidation.availableAgents,
+          error: formatSpawnableAgentError(
+            spawnableAgentValidation.invalidAgents,
+            spawnableAgentValidation.availableAgents,
           ),
         }
       }
@@ -220,10 +223,11 @@ export function validateSingleAgent(
       )
     } catch (error) {
       // Try to extract agent context for better error messages
-      const agentContext = validatedConfig.id 
+      const agentContext = validatedConfig.id
         ? `Agent "${validatedConfig.id}"${validatedConfig.displayName ? ` (${validatedConfig.displayName})` : ''}`
-        : filePath ? `Agent in ${filePath}` : 'Agent'
-      
+        : filePath
+          ? `Agent in ${filePath}`
+          : 'Agent'
       return {
         success: false,
         error: `${agentContext}: ${
@@ -239,10 +243,12 @@ export function validateSingleAgent(
         outputSchema = convertJsonSchemaToZod(validatedConfig.outputSchema)
       } catch (error) {
         // Try to extract agent context for better error messages
-        const agentContext = validatedConfig.id 
+        const agentContext = validatedConfig.id
           ? `Agent "${validatedConfig.id}"${validatedConfig.displayName ? ` (${validatedConfig.displayName})` : ''}`
-          : filePath ? `Agent in ${filePath}` : 'Agent'
-        
+          : filePath
+            ? `Agent in ${filePath}`
+            : 'Agent'
+
         return {
           success: false,
           error: `${agentContext}: Failed to convert outputSchema to Zod: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -254,10 +260,12 @@ export function validateSingleAgent(
     if (validatedConfig.handleSteps) {
       if (!isValidGeneratorFunction(validatedConfig.handleSteps)) {
         // Try to extract agent context for better error messages
-        const agentContext = validatedConfig.id 
+        const agentContext = validatedConfig.id
           ? `Agent "${validatedConfig.id}"${validatedConfig.displayName ? ` (${validatedConfig.displayName})` : ''}`
-          : filePath ? `Agent in ${filePath}` : 'Agent'
-        
+          : filePath
+            ? `Agent in ${filePath}`
+            : 'Agent'
+
         return {
           success: false,
           error: `${agentContext}: handleSteps must be a generator function: "function* (params) { ... }". Found: ${validatedConfig.handleSteps.substring(0, 50)}...`,
@@ -281,10 +289,12 @@ export function validateSingleAgent(
       error instanceof Error ? error.message : 'Unknown error'
 
     // Try to extract agent context for better error messages
-    const agentContext = template?.id 
+    const agentContext = template?.id
       ? `Agent "${template.id}"${template.displayName ? ` (${template.displayName})` : ''}`
-      : filePath ? `Agent in ${filePath}` : 'Agent'
-    
+      : filePath
+        ? `Agent in ${filePath}`
+        : 'Agent'
+
     return {
       success: false,
       error: `${agentContext}: Error validating agent template: ${errorMessage}`,

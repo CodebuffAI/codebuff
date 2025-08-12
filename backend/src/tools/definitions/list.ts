@@ -11,11 +11,11 @@ import { readDocsTool } from './tool/read-docs'
 import { readFilesTool } from './tool/read-files'
 import { runFileChangeHooksTool } from './tool/run-file-change-hooks'
 import { runTerminalCommandTool } from './tool/run-terminal-command'
-import { sendAgentMessageTool } from './tool/send-agent-message'
 import { setMessagesTool } from './tool/set-messages'
 import { setOutputTool } from './tool/set-output'
 import { spawnAgentsTool } from './tool/spawn-agents'
 import { spawnAgentsAsyncTool } from './tool/spawn-agents-async'
+import { spawnAgentInlineTool } from './tool/spawn-agent-inline'
 import { strReplaceTool } from './tool/str-replace'
 import { thinkDeeplyTool } from './tool/think-deeply'
 import { updateSubgoalTool } from './tool/update-subgoal'
@@ -38,11 +38,11 @@ const toolDescriptions = {
   read_files: readFilesTool,
   run_file_change_hooks: runFileChangeHooksTool,
   run_terminal_command: runTerminalCommandTool,
-  send_agent_message: sendAgentMessageTool,
   set_messages: setMessagesTool,
   set_output: setOutputTool,
   spawn_agents: spawnAgentsTool,
   spawn_agents_async: spawnAgentsAsyncTool,
+  spawn_agent_inline: spawnAgentInlineTool,
   str_replace: strReplaceTool,
   think_deeply: thinkDeeplyTool,
   update_subgoal: updateSubgoalTool,
