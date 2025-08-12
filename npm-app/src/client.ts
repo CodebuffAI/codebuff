@@ -789,7 +789,7 @@ export class Client {
 
     // Handle backend-initiated tool call requests
     this.webSocket.subscribe('tool-call-request', async (action) => {
-      const { requestId, toolName, args, userInputId } = action
+      const { requestId, toolName, input, userInputId } = action
 
       // Check if the userInputId matches or is from a spawned agent
       const isValidUserInput = ASYNC_AGENTS_ENABLED
@@ -824,7 +824,7 @@ export class Client {
         const toolCall = {
           toolCallId: requestId,
           toolName,
-          args,
+          input,
         }
 
         Spinner.get().stop()
@@ -838,7 +838,7 @@ export class Client {
           type: 'tool-call-response',
           requestId,
           success: true,
-          result: toolResult.result,
+          output: toolResult.output,
         })
       } catch (error) {
         logger.error(
@@ -1035,7 +1035,7 @@ export class Client {
       scrapedContent && {
         toolName: 'web-scraper',
         toolCallId: generateCompactId(),
-        result: scrapedContent,
+        output: { type: 'text' as const, value: scrapedContent },
       },
     )
 

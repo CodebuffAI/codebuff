@@ -38,7 +38,7 @@ export const handleReadFiles = ((params: {
     state,
   } = params
   const { ws, fingerprintId, userId, repoId, messages } = state
-  const { paths } = toolCall.args
+  const { paths } = toolCall.input
   if (!ws) {
     throw new Error('Internal error for read_files: Missing WebSocket in state')
   }

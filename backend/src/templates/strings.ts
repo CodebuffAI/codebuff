@@ -90,7 +90,7 @@ export async function formatPrompt(
       }).map(([path, content]) => ({
         toolName: 'read_files',
         toolCallId: generateCompactId(),
-        result: JSON.stringify({ path, content }),
+        output: { type: 'text', value: JSON.stringify({ path, content }) },
       })),
     ),
   }

@@ -406,19 +406,28 @@ export async function requestOptionalFile(ws: WebSocket, filePath: string) {
  * Requests a tool call execution from the client with timeout support
  * @param ws - The WebSocket connection
  * @param toolName - Name of the tool to execute
- * @param args - Arguments for the tool (can include timeout)
+ * @param input - Arguments for the tool (can include timeout)
  * @returns Promise resolving to the tool execution result
  */
-export async function requestToolCall<T = any>(
+export async function requestToolCall(
   ws: WebSocket,
   userInputId: string,
   toolName: string,
-  args: Record<string, any> & { timeout_seconds?: number },
-): Promise<{ success: boolean; result?: T; error?: string }> {
+  input: Record<string, any> & { timeout_seconds?: number },
+): Promise<{
+  success: boolean
+  output?: {
+    type: 'text'
+    value: string
+  }
+  error?: string
+}> {
   return new Promise((resolve, reject) => {
     const requestId = generateCompactId()
     const timeoutInSeconds =
-      (args.timeout_seconds || 30) < 0 ? undefined : args.timeout_seconds || 30
+      (input.timeout_seconds || 30) < 0
+        ? undefined
+        : input.timeout_seconds || 30
 
     // Set up timeout
     const timeoutHandle =
@@ -443,7 +452,7 @@ export async function requestToolCall<T = any>(
         unsubscribe()
         resolve({
           success: action.success,
-          result: action.result,
+          output: action.output,
           error: action.error,
         })
       }
@@ -455,7 +464,7 @@ export async function requestToolCall<T = any>(
       requestId,
       userInputId,
       toolName,
-      args,
+      input,
       timeout:
         timeoutInSeconds === undefined ? undefined : timeoutInSeconds * 1000, // Send timeout in milliseconds
     })

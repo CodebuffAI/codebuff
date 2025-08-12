@@ -58,7 +58,7 @@ export async function getFileReadingUpdates(
     .flatMap((content) => parseToolResults(toContentString(content)))
   const previousFileList = toolResults
     .filter(({ toolName }) => toolName === 'read_files')
-    .flatMap(({ result }) => parseReadFilesResult(result))
+    .flatMap(({ output }) => parseReadFilesResult(output.value))
 
   const previousFiles = Object.fromEntries(
     previousFileList.map(({ path, content }) => [path, content]),

@@ -191,7 +191,7 @@ export interface AgentStepContext {
 export type ToolCall<T extends ToolName = ToolName> = {
   [K in T]: {
     toolName: K
-    args?: Tools.GetToolParams<K>
+    input: Tools.GetToolParams<K>
   }
 }[T]
 

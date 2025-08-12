@@ -30,12 +30,12 @@ import type {
   OpenAIModel,
 } from '@codebuff/common/constants'
 import type { CodebuffMessage, Message } from '@codebuff/common/types/message'
-import type { OpenRouterUsageAccounting } from '@codebuff/internal/openrouter-ai-sdk'
-import type { CoreAssistantMessage, CoreUserMessage, LanguageModelV1 } from 'ai'
+import type { OpenRouterUsageAccounting } from '@openrouter/ai-sdk-provider'
+import type { AssistantModelMessage, UserModelMessage, LanguageModel } from 'ai'
 import type { z } from 'zod'
 
 // TODO: We'll want to add all our models here!
-const modelToAiSDKModel = (model: Model): LanguageModelV1 => {
+const modelToAiSDKModel = (model: Model): LanguageModel => {
   if (
     Object.values(finetunedVertexModels as Record<string, string>).includes(
       model,
@@ -136,30 +136,30 @@ export const promptAiSdkStream = async function* (
         cause: chunk.error,
       })
     }
-    if (chunk.type === 'reasoning') {
+    if (chunk.type === 'reasoning-delta') {
       if (!reasoning) {
         reasoning = true
         yield `${startToolTag}{
   ${JSON.stringify(toolNameParam)}: "think_deeply",
   "thought": "`
       }
-      yield JSON.stringify(chunk.textDelta).slice(1, -1)
+      yield JSON.stringify(chunk.text).slice(1, -1)
     }
     if (chunk.type === 'text-delta') {
       if (reasoning) {
         reasoning = false
         yield `"\n}${endToolTag}\n\n`
       }
-      content += chunk.textDelta
-      yield chunk.textDelta
+      content += chunk.text
+      yield chunk.text
     }
   }
 
   const messageId = (await response.response).id
   const providerMetadata = (await response.providerMetadata) ?? {}
   const usage = await response.usage
-  let inputTokens = usage.promptTokens
-  const outputTokens = usage.completionTokens
+  let inputTokens = usage.inputTokens || 0
+  const outputTokens = usage.outputTokens || 0
   let cacheReadInputTokens: number = 0
   let cacheCreationInputTokens: number = 0
   let costOverrideDollars: number | undefined
@@ -245,8 +245,8 @@ export const promptAiSdk = async function (
   })
 
   const content = response.text
-  const inputTokens = response.usage.promptTokens
-  const outputTokens = response.usage.completionTokens
+  const inputTokens = response.usage.inputTokens || 0
+  const outputTokens = response.usage.inputTokens || 0
 
   saveMessage({
     messageId: generateCompactId(),
@@ -301,7 +301,7 @@ export const promptAiSdkStructured = async function <T>(options: {
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
-  const responsePromise = generateObject<T>({
+  const responsePromise = generateObject<z.ZodType<T>, 'object'>({
     ...options,
     model: aiSDKModel,
     output: 'object',
@@ -312,8 +312,8 @@ export const promptAiSdkStructured = async function <T>(options: {
     : withTimeout(responsePromise, options.timeout))
 
   const content = response.object
-  const inputTokens = response.usage.promptTokens
-  const outputTokens = response.usage.completionTokens
+  const inputTokens = response.usage.inputTokens || 0
+  const outputTokens = response.usage.inputTokens || 0
 
   saveMessage({
     messageId: generateCompactId(),
@@ -373,12 +373,12 @@ export function transformMessages(
         })
         continue
       } else {
-        const parts: CoreUserMessage['content'] = []
-        const coreMessage: CoreUserMessage = { role: 'user', content: parts }
+        const parts: UserModelMessage['content'] = []
+        const modelMessage: UserModelMessage = { role: 'user', content: parts }
         for (const part of message.content) {
           // Add ephemeral if present
           if ('cache_control' in part) {
-            coreMessage.providerOptions = {
+            modelMessage.providerOptions = {
               anthropic: { cacheControl: { type: 'ephemeral' } },
               openrouter: { cacheControl: { type: 'ephemeral' } },
             }
@@ -406,7 +406,7 @@ export function transformMessages(
             continue
           }
         }
-        codebuffMessages.push(coreMessage)
+        codebuffMessages.push(modelMessage)
         continue
       }
     }
@@ -423,8 +423,8 @@ export function transformMessages(
         })
         continue
       } else {
-        let messageContent: CoreAssistantMessage['content'] = []
-        const coreMessage: CoreAssistantMessage = {
+        let messageContent: AssistantModelMessage['content'] = []
+        const modelMessage: AssistantModelMessage = {
           ...message,
           role: 'assistant',
           content: messageContent,
@@ -432,7 +432,7 @@ export function transformMessages(
         for (const part of message.content) {
           // Add ephemeral if present
           if ('cache_control' in part) {
-            coreMessage.providerOptions = {
+            modelMessage.providerOptions = {
               anthropic: { cacheControl: { type: 'ephemeral' } },
               openrouter: { cacheControl: { type: 'ephemeral' } },
             }
@@ -445,11 +445,11 @@ export function transformMessages(
               type: 'tool-call',
               toolCallId: part.id,
               toolName: part.name,
-              args: part.input,
+              input: part.input,
             })
           }
         }
-        codebuffMessages.push(coreMessage)
+        codebuffMessages.push(modelMessage)
         continue
       }
     }

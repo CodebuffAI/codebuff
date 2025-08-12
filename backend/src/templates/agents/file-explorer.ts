@@ -2,6 +2,7 @@ import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { z } from 'zod'
 
 import type { AgentTemplate } from '../types'
+import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 const paramsSchema = z.object({
   prompts: z
@@ -41,20 +42,20 @@ export const fileExplorer = {
     // Spawn all file pickers in parallel
     const { toolResult: spawnResult } = yield {
       toolName: 'spawn_agents' as const,
-      args: {
+      input: {
         agents: filePickerPrompts.map((promptText) => ({
           agent_type: 'file-picker' as const,
           prompt: promptText,
         })),
       },
-    }
+    } satisfies ToolCall
 
     // Set output with aggregated results
     yield {
       toolName: 'set_output' as const,
-      args: {
+      input: {
         results: spawnResult,
       },
-    }
+    } satisfies ToolCall
   },
 } satisfies AgentTemplate<string, z.infer<typeof paramsSchema>>

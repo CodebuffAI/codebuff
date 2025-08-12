@@ -12,9 +12,9 @@ import {
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { getInitialSessionState } from '../../common/src/types/session-state'
 
+import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
-import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -27,7 +27,7 @@ export type CodebuffClientOptions = {
     Record<
       ClientToolName,
       (
-        args: ServerAction<'tool-call-request'>['args'],
+        input: ServerAction<'tool-call-request'>['input'],
       ) => Promise<{ toolResultMessage: string }>
     > & {
       // Include read_files separately, since it has a different signature.
@@ -217,7 +217,7 @@ export class CodebuffClient {
 
   private async handleToolCall(action: ServerAction<'tool-call-request'>) {
     const toolName = action.toolName
-    const args = action.args
+    const input = action.input
     let result: string
     try {
       let override = this.overrideTools[toolName as ClientToolName]
@@ -226,12 +226,12 @@ export class CodebuffClient {
         override = this.overrideTools['write_file']
       }
       if (override) {
-        const overrideResult = await override(args)
+        const overrideResult = await override(input)
         result = overrideResult.toolResultMessage
       } else if (toolName === 'end_turn') {
         result = ''
       } else if (toolName === 'write_file' || toolName === 'str_replace') {
-        const r = changeFile(args, this.cwd)
+        const r = changeFile(input, this.cwd)
         result = r.toolResultMessage
       } else if (toolName === 'run_terminal_command') {
         throw new Error(

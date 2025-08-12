@@ -164,7 +164,7 @@ export function getBackgroundProcessUpdates(): ToolResult[] {
     return {
       toolCallId,
       toolName: 'background_process_updates',
-      result: update,
+      output: { type: 'text', value: update },
     }
   })
 }

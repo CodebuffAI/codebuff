@@ -204,11 +204,11 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         yield {
           toolName: 'add_message',
-          args: { role: 'user', content: 'Hello world' },
+          input: { role: 'user', content: 'Hello world' },
         }
-        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
-        yield { toolName: 'end_turn', args: {} }
-      })() as StepGenerator
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
+        yield { toolName: 'end_turn', input: {} }
+      })() satisfies StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
       mockTemplate.toolNames = ['add_message', 'read_files', 'end_turn']
@@ -304,12 +304,15 @@ describe('runProgrammaticStep', () => {
           const toolResult: ToolResult = {
             toolName: 'find_files',
             toolCallId: 'find-files-call-id',
-            result: JSON.stringify({
-              files: [
-                { path: 'src/auth.ts', relevance: 0.9 },
-                { path: 'src/login.ts', relevance: 0.8 },
-              ],
-            }),
+            output: {
+              type: 'text',
+              value: JSON.stringify({
+                files: [
+                  { path: 'src/auth.ts', relevance: 0.9 },
+                  { path: 'src/login.ts', relevance: 0.8 },
+                ],
+              }),
+            },
           }
           options.toolResults.push(toolResult)
 
@@ -320,7 +323,7 @@ describe('runProgrammaticStep', () => {
               {
                 toolName: toolResult.toolName,
                 toolCallId: toolResult.toolCallId,
-                result: toolResult.result,
+                output: toolResult.output,
               },
             ]),
           )
@@ -534,7 +537,10 @@ describe('runProgrammaticStep', () => {
         const toolResult: ToolResult = {
           toolName,
           toolCallId: `${toolName}-call-id`,
-          result,
+          output: {
+            type: 'text',
+            value: result,
+          },
         }
         toolResults.push(toolResult)
 

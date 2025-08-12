@@ -9,15 +9,18 @@ import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
 export const toolCallSchema = z.object({
   toolName: z.string(),
-  args: z.record(z.string(), z.any()),
   toolCallId: z.string(),
+  input: z.record(z.string(), z.any()),
 })
 export type ToolCall = z.infer<typeof toolCallSchema>
 
 export const toolResultSchema = z.object({
   toolName: z.string(),
   toolCallId: z.string(),
-  result: z.string(),
+  output: z.object({
+    type: z.literal('text'),
+    value: z.string(),
+  }),
 })
 export type ToolResult = z.infer<typeof toolResultSchema>
 

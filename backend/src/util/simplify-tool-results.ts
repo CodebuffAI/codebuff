@@ -86,12 +86,15 @@ export function simplifyTerminalCommandResults(
  * @returns A new tool result with just the list of file paths that were read
  */
 export function simplifyReadFileToolResult(toolResult: ToolResult): ToolResult {
-  const fileBlocks = parseReadFilesResult(toolResult.result)
+  const fileBlocks = parseReadFilesResult(toolResult.output.value)
   const filePaths = fileBlocks.map((block) => block.path)
   return {
     toolCallId: toolResult.toolCallId,
     toolName: 'read_files',
-    result: `Read the following files: ${filePaths.join('\n')}`,
+    output: {
+      type: 'text',
+      value: `Read the following files: ${filePaths.join('\n')}`,
+    },
   }
 }
 
@@ -104,11 +107,14 @@ export function simplifyTerminalCommandToolResult(
   toolResult: ToolResult,
 ): ToolResult {
   const shortenedResultCandidate = '[Output omitted]'
-  return shortenedResultCandidate.length < toolResult.result.length
+  return shortenedResultCandidate.length < toolResult.output.value.length
     ? {
         toolCallId: toolResult.toolCallId,
         toolName: 'run_terminal_command',
-        result: shortenedResultCandidate,
+        output: {
+          type: 'text',
+          value: shortenedResultCandidate,
+        },
       }
     : toolResult
 }

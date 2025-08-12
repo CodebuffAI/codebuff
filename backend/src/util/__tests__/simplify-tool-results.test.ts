@@ -208,7 +208,9 @@ describe('simplifyReadFileToolResult', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'read_files',
-      result: `<read_file>
+      output: {
+        type: 'text' as const,
+        value: `<read_file>
 <path>test1.txt</path>
 <content>content1</content>
 <referenced_by>None</referenced_by>
@@ -219,12 +221,13 @@ describe('simplifyReadFileToolResult', () => {
 <content>content2</content>
 <referenced_by>None</referenced_by>
 </read_file>`,
+      },
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
     expect(simplified.toolCallId).toBe('1')
     expect(simplified.toolName).toBe('read_files')
-    expect(simplified.result).toBe(
+    expect(simplified.output.value).toBe(
       'Read the following files: test1.txt\ntest2.txt',
     )
   })
@@ -233,47 +236,59 @@ describe('simplifyReadFileToolResult', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'read_files',
-      result:
-        '<read_file><path>test.txt</path><content>content</content><referenced_by>None</referenced_by></read_file>',
+      output: {
+        type: 'text' as const,
+        value:
+          '<read_file><path>test.txt</path><content>content</content><referenced_by>None</referenced_by></read_file>',
+      },
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.result).toBe('Read the following files: test.txt')
+    expect(simplified.output.value).toBe('Read the following files: test.txt')
   })
 
   it('should handle empty read_files result', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'read_files',
-      result: '',
+      output: {
+        type: 'text' as const,
+        value: '',
+      },
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.result).toBe('Read the following files: ')
+    expect(simplified.output.value).toBe('Read the following files: ')
   })
 
   it('should handle malformed read_file tags', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'read_files',
-      result:
-        '<read_file>no path attribute<referenced_by>None</referenced_by></read_file>',
+      output: {
+        type: 'text' as const,
+        value:
+          '<read_file>no path attribute<referenced_by>None</referenced_by></read_file>',
+      },
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.result).toBe('Read the following files: ')
+    expect(simplified.output.value).toBe('Read the following files: ')
   })
 
   it('should handle read_file tags with empty path', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'read_files',
-      result:
-        '<read_file><path></path><content>content</content><referenced_by>None</referenced_by></read_file>',
+      output: {
+        type: 'text' as const,
+        value:
+          '<read_file><path></path><content>content</content><referenced_by>None</referenced_by></read_file>',
+      },
     }
 
     const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.result).toBe('Read the following files: ')
+    expect(simplified.output.value).toBe('Read the following files: ')
   })
 })
 
@@ -282,13 +297,16 @@ describe('simplifyTerminalCommandResult', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'run_terminal_command',
-      result: 'Very long terminal output that should be shortened',
+      output: {
+        type: 'text' as const,
+        value: 'Very long terminal output that should be shortened',
+      },
     }
 
     const simplified = simplifyTerminalCommandToolResult(toolResult)
     expect(simplified.toolCallId).toBe('1')
     expect(simplified.toolName).toBe('run_terminal_command')
-    expect(simplified.result).toBe('[Output omitted]')
+    expect(simplified.output.value).toBe('[Output omitted]')
   })
 
   it('should preserve short terminal output', () => {
@@ -296,54 +314,66 @@ describe('simplifyTerminalCommandResult', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'run_terminal_command',
-      result: shortOutput,
+      output: { type: 'text' as const, value: shortOutput },
     }
 
     const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.result).toBe(shortOutput)
+    expect(simplified.output.value).toBe(shortOutput)
   })
 
   it('should handle empty terminal output', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'run_terminal_command',
-      result: '',
+      output: {
+        type: 'text' as const,
+        value: '',
+      },
     }
 
     const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.result).toBe('')
+    expect(simplified.output.value).toBe('')
   })
 
   it('should handle output exactly matching omitted message length', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'run_terminal_command',
-      result: '[Output omitted]', // Same length as replacement
+      output: {
+        type: 'text' as const,
+        value: '[Output omitted]', // Same length as replacement
+      },
     }
 
     const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.result).toBe('[Output omitted]')
+    expect(simplified.output.value).toBe('[Output omitted]')
   })
 
   it('should handle output one character longer than omitted message', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'run_terminal_command',
-      result: '[Output omitted].', // One char longer than replacement
+      output: {
+        type: 'text' as const,
+        value: '[Output omitted].', // One char longer than replacement
+      },
     }
 
     const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.result).toBe('[Output omitted]')
+    expect(simplified.output.value).toBe('[Output omitted]')
   })
 
   it('should handle output one character shorter than omitted message', () => {
     const toolResult = {
       toolCallId: '1',
       toolName: 'run_terminal_command',
-      result: '[Output omit]', // One char shorter than replacement
+      output: {
+        type: 'text' as const,
+        value: '[Output omit]', // One char shorter than replacement
+      },
     }
 
     const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.result).toBe('[Output omit]')
+    expect(simplified.output.value).toBe('[Output omit]')
   })
 })

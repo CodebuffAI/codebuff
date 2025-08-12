@@ -48,7 +48,7 @@ export const parseToolResults = (xmlString: string): StringToolResultPart[] => {
       results.push({
         toolName: toolMatch[1],
         toolCallId: generateCompactId(),
-        result: resultMatch[1].trim(),
+        output: { type: 'text', value: resultMatch[1].trim() },
       })
     }
   }
