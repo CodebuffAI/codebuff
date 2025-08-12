@@ -20,7 +20,8 @@ const definition: AgentDefinition = {
   toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
   spawnableAgents: ['james/file-explorer@0.1.3'],
 
-  parentPrompt: 'Spawn when you need to review code changes in the git diff',
+  spawnPurposePrompt:
+    'Spawn when you need to review code changes in the git diff',
 
   systemPrompt:
     'You are an expert software developer. Your job is to review code changes and provide helpful feedback.',

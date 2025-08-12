@@ -5,7 +5,7 @@ const definition: AgentDefinition = {
   publisher: 'codebuff',
   model: 'qwen/qwen3-235b-a22b-2507:fast',
   displayName: 'Buffy the Coding Assistant',
-  parentPrompt:
+  spawnPurposePrompt:
     'Base agent for reliable coding assistance with excellent tool calling capabilities.',
   inputSchema: {
     prompt: {

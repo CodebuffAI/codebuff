@@ -28,7 +28,8 @@ const definition: AgentDefinition = {
     'think_deeply',
   ],
   spawnableAgents: [`codebuff/file-picker@${version}`],
-  parentPrompt: 'Base ask-mode agent that orchestrates the full response.',
+  spawnPurposePrompt:
+    'Base ask-mode agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 # Persona: Buffy - The Enthusiastic Coding Assistant

@@ -25,7 +25,7 @@ const definition: AgentDefinition = {
 
   toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
 
-  parentPrompt: 'Spawn when you need to review code changes',
+  spawnPurposePrompt: 'Spawn when you need to review code changes',
 
   systemPrompt:
     'You are an expert software developer. Your job is to review code changes and provide helpful feedback.',

@@ -10,7 +10,7 @@ import type { Model } from '@codebuff/common/constants'
 export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.reviewer.displayName,
-  parentPrompt: AGENT_PERSONAS.reviewer.purpose,
+  spawnPurposePrompt: AGENT_PERSONAS.reviewer.purpose,
   inputSchema: {
     prompt: z.string().describe('What should be reviewed. Be brief.'),
   },

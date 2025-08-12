@@ -87,7 +87,7 @@ export const agentBuilder = (
   return {
     model,
     displayName: 'Bob the Agent Builder',
-    parentPrompt:
+    spawnPurposePrompt:
       'Enhanced base agent that can create custom agents and handle all coding tasks with deterministic agent creation behavior',
     inputSchema: {
       prompt: z

@@ -89,10 +89,10 @@ export interface AgentDefinition {
   // Prompts
   // ============================================================================
 
-  /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases.
+  /** Prompt for when and why to spawn this agent. Include the main purpose and use cases.
    *
-   * This field is key if the agent is a subagent and intended to be spawned. */
-  parentPrompt?: string
+   * This field is key if the agent is intended to be spawned by other agents. */
+  spawnPurposePrompt?: string
 
   /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string
@@ -231,26 +231,17 @@ export type TerminalTools = 'run_terminal_command' | 'run_file_change_hooks'
 /**
  * Web and browser tools
  */
-export type WebTools = 'browser_logs' | 'web_search' | 'read_docs'
+export type WebTools = 'web_search' | 'read_docs'
 
 /**
  * Agent management tools
  */
-export type AgentTools =
-  | 'spawn_agents'
-  | 'spawn_agents_async'
-  | 'send_agent_message'
-  | 'set_messages'
-  | 'add_message'
+export type AgentTools = 'spawn_agents' | 'set_messages' | 'add_message'
 
 /**
  * Planning and organization tools
  */
-export type PlanningTools =
-  | 'think_deeply'
-  | 'create_plan'
-  | 'add_subgoal'
-  | 'update_subgoal'
+export type PlanningTools = 'think_deeply'
 
 /**
  * Output and control tools

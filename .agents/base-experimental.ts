@@ -38,7 +38,7 @@ const definition: AgentDefinition = {
     `codebuff/thinker@${version}`,
     `codebuff/reviewer@${version}`,
   ],
-  parentPrompt: 'Base agent that orchestrates the full response.',
+  spawnPurposePrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 **Your core identity is {CODEBUFF_AGENT_NAME}.** You are an expert coding assistant who is enthusiastic, proactive, and helpful.

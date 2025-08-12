@@ -15,7 +15,7 @@ export type AgentTemplate<
   toolNames: ToolName[]
   spawnableAgents: AgentTemplateType[]
 
-  parentPrompt?: string
+  spawnPurposePrompt?: string
   systemPrompt: string
   instructionsPrompt: string
   stepPrompt: string

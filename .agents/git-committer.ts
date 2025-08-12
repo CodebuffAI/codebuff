@@ -23,7 +23,7 @@ const definition: AgentDefinition = {
   includeMessageHistory: false,
   outputMode: 'last_message',
 
-  parentPrompt:
+  spawnPurposePrompt:
     'Spawn when you need to commit code changes to git with an appropriate commit message',
 
   systemPrompt:

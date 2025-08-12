@@ -7,7 +7,8 @@ const definition: AgentDefinition = {
   model: 'openai/gpt-5',
   toolNames: ['read_files', 'run_terminal_command'],
 
-  parentPrompt: 'Spawn when you need to review code changes in the git diff',
+  spawnPurposePrompt:
+    'Spawn when you need to review code changes in the git diff',
 
   instructionsPrompt: `Execute the following steps:
 1. Run git diff

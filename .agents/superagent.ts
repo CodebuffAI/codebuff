@@ -25,7 +25,7 @@ const definition: AgentDefinition = {
   outputMode: 'last_message',
   includeMessageHistory: false,
 
-  parentPrompt:
+  spawnPurposePrompt:
     'Superagent that can spawn multiple code editing agents to complete a task.',
   systemPrompt: `You are an expert orchestrator that can solve any problem, including coding tasks.`,
   instructionsPrompt: `Answer the user\'s question or complete the task by spawning copies of the base agent.

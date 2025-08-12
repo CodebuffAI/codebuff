@@ -1,11 +1,11 @@
-import type { AgentDefinition, ToolCall } from '../types/agent-definition'
+import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'oss-model-file-picker',
   publisher: 'codebuff',
   model: 'openai/gpt-oss-120b:fast',
   displayName: 'Fletcher the File Fetcher',
-  parentPrompt:
+  spawnPurposePrompt:
     'Expert at finding relevant files for efficient file discovery with edge-optimized performance.',
   inputSchema: {
     prompt: {

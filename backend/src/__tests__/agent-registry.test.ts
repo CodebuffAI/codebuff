@@ -81,7 +81,7 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
     outputMode: 'last_message',
     includeMessageHistory: true,
     model: 'anthropic/claude-4-sonnet-20250522',
-    parentPrompt: 'Test',
+    spawnPurposePrompt: 'Test',
     inputSchema: {},
   },
   file_picker: {
@@ -95,7 +95,7 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
     outputMode: 'last_message',
     includeMessageHistory: true,
     model: 'google/gemini-2.5-flash',
-    parentPrompt: 'Test',
+    spawnPurposePrompt: 'Test',
     inputSchema: {},
   },
 }
@@ -185,7 +185,7 @@ describe('Agent Registry', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Test',
+          spawnPurposePrompt: 'Test',
           inputSchema: {},
         } as AgentTemplate,
       }
@@ -239,7 +239,7 @@ describe('Agent Registry', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Test',
+          spawnPurposePrompt: 'Test',
         },
       }
 
@@ -276,7 +276,7 @@ describe('Agent Registry', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Local test',
+          spawnPurposePrompt: 'Local test',
           inputSchema: {},
         } as AgentTemplate,
       }
@@ -305,7 +305,7 @@ describe('Agent Registry', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Cached test',
+          spawnPurposePrompt: 'Cached test',
         },
       }
 
@@ -354,7 +354,7 @@ describe('Agent Registry', () => {
             outputMode: 'last_message',
             includeMessageHistory: true,
             model: 'anthropic/claude-4-sonnet-20250522',
-            parentPrompt: 'Custom test',
+            spawnPurposePrompt: 'Custom test',
           },
         },
       }
@@ -428,7 +428,7 @@ describe('Agent Registry', () => {
           outputMode: 'last_message',
           includeMessageHistory: true,
           model: 'anthropic/claude-4-sonnet-20250522',
-          parentPrompt: 'Cache test',
+          spawnPurposePrompt: 'Cache test',
         },
       }
 

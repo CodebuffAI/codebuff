@@ -7,7 +7,7 @@ const definition: AgentDefinition = {
   version,
   publisher,
   displayName: 'Dora the File Explorer',
-  parentPrompt:
+  spawnPurposePrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
   model: 'anthropic/claude-4-sonnet-20250522',
   outputMode: 'structured_output',

@@ -89,10 +89,10 @@ export interface AgentDefinition {
   // Prompts
   // ============================================================================
 
-  /** Prompt for when to spawn this agent as a subagent. Include the main purpose and use cases.
+  /** Prompt for when and why to spawn this agent. Include the main purpose and use cases.
    *
-   * This field is key if the agent is a subagent and intended to be spawned. */
-  parentPrompt?: string
+   * This field is key if the agent is intended to be spawned by other agents. */
+  spawnPurposePrompt?: string
 
   /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string

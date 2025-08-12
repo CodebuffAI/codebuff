@@ -15,7 +15,8 @@ import type { Model } from '@codebuff/common/constants'
 export const ask = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.ask.displayName,
-  parentPrompt: 'Base ask-mode agent that orchestrates the full response.',
+  spawnPurposePrompt:
+    'Base ask-mode agent that orchestrates the full response.',
   inputSchema: {
     prompt: z
       .string()

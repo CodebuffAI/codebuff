@@ -20,7 +20,7 @@ const definition: AgentDefinition = {
   outputMode: 'last_message',
   includeMessageHistory: false,
 
-  parentPrompt:
+  spawnPurposePrompt:
     'Expert at researching topics using web search and documentation.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 

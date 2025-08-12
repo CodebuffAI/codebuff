@@ -10,7 +10,7 @@ import type { Model } from '@codebuff/common/constants'
 export const researcher = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.researcher.displayName,
-  parentPrompt: AGENT_PERSONAS.researcher.purpose,
+  spawnPurposePrompt: AGENT_PERSONAS.researcher.purpose,
   inputSchema: {
     prompt: z
       .string()
