@@ -3,7 +3,7 @@ export class SubagentResolutionError extends Error {}
 export type AgentVersionEntry = {
   id: string
   version: string // stringified
-  data: any // must contain optional `subagents?: string[]`
+  data: any // must contain optional `spawnableAgents?: string[]`
 }
 
 // Resolves subagent references to fully-qualified form and validates them.
@@ -18,11 +18,19 @@ export async function resolveAndValidateSubagents(params: {
   agents: AgentVersionEntry[]
   requestedPublisherId: string
   // Returns latest published version string or null if none
-  getLatestPublishedVersion: (publisherId: string, agentId: string) => Promise<string | null>
+  getLatestPublishedVersion: (
+    publisherId: string,
+    agentId: string
+  ) => Promise<string | null>
   // Checks if a fully-qualified ref exists within the same publisher context
   existsInSamePublisher: (fullyQualifiedRef: string) => boolean
 }): Promise<void> {
-  const { agents, requestedPublisherId, getLatestPublishedVersion, existsInSamePublisher } = params
+  const {
+    agents,
+    requestedPublisherId,
+    getLatestPublishedVersion,
+    existsInSamePublisher,
+  } = params
 
   const publishingVersionsById = new Map<string, string>(
     agents.map(({ id, version }) => [id, version])
@@ -33,10 +41,15 @@ export async function resolveAndValidateSubagents(params: {
 
   for (const agentEntry of agents) {
     const agent = agentEntry.data
-    if (!agent?.subagents) continue
+
+    // Determine input list with backward-compat (prefer spawnableAgents)
+    const inputList: string[] = (agent?.spawnableAgents ??
+      agent?.subagents ??
+      []) as string[]
+    if (!inputList || inputList.length === 0) continue
 
     const transformed: string[] = []
-    for (const sub of agent.subagents as string[]) {
+    for (const sub of agent.spawnableAgents as string[]) {
       const fqMatch = sub.match(fqRegex)
       if (fqMatch) {
         const fullKey = sub
@@ -45,7 +58,7 @@ export async function resolveAndValidateSubagents(params: {
         if (pub === requestedPublisherId) {
           if (!existsInSamePublisher(fullKey)) {
             throw new SubagentResolutionError(
-              `Invalid spawnable agent: '${sub}' is not published and not included in this request.`,
+              `Invalid spawnable agent: '${sub}' is not published and not included in this request.`
             )
           }
         }
@@ -53,7 +66,7 @@ export async function resolveAndValidateSubagents(params: {
         continue
       }
 
-      // Handle simple: 'id' or 'publisher/id'
+      // Handle simple refs: 'id' or 'publisher/id'
       let targetPublisher = requestedPublisherId
       let targetId = sub
       const pubMatch = sub.match(publisherIdRegex)
@@ -64,29 +77,38 @@ export async function resolveAndValidateSubagents(params: {
 
       // Prefer batch version for same publisher
       let resolvedVersion: string | null = null
-      if (targetPublisher === requestedPublisherId && publishingVersionsById.has(targetId)) {
+      if (
+        targetPublisher === requestedPublisherId &&
+        publishingVersionsById.has(targetId)
+      ) {
         resolvedVersion = publishingVersionsById.get(targetId)!
       } else {
-        resolvedVersion = await getLatestPublishedVersion(targetPublisher, targetId)
+        resolvedVersion = await getLatestPublishedVersion(
+          targetPublisher,
+          targetId
+        )
       }
 
       if (!resolvedVersion) {
         throw new SubagentResolutionError(
-          `Invalid spawnable agent: '${sub}' has no published versions to resolve to.`,
+          `Invalid spawnable agent: '${sub}' has no published versions to resolve to.`
         )
       }
 
       const full = `${targetPublisher}/${targetId}@${resolvedVersion}`
 
-      if (targetPublisher === requestedPublisherId && !existsInSamePublisher(full)) {
+      if (
+        targetPublisher === requestedPublisherId &&
+        !existsInSamePublisher(full)
+      ) {
         throw new SubagentResolutionError(
-          `Invalid spawnable agent: '${sub}' resolves to '${full}' but is not published and not included in this request.`,
+          `Invalid spawnable agent: '${sub}' resolves to '${full}' but is not published and not included in this request.`
         )
       }
 
       transformed.push(full)
     }
 
-    agent.subagents = transformed
+    agent.spawnableAgents = transformed
   }
 }

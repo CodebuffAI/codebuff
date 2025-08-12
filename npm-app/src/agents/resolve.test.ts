@@ -12,16 +12,16 @@ describe('resolveCliAgentId', () => {
     expect(resolveCliAgentId(`${DEFAULT_ORG_PREFIX}foo@1.2.3`, [])).toBe(
       `${DEFAULT_ORG_PREFIX}foo@1.2.3`,
     )
-    it('returns input as-is when it exists locally', () => {
-      expect(resolveCliAgentId('local-agent', ['local-agent'])).toBe(
-        'local-agent',
-      )
-    })
+  })
+  it('returns input as-is when it exists locally', () => {
+    expect(resolveCliAgentId('local-agent', ['local-agent'])).toBe(
+      'local-agent',
+    )
+  })
 
-    it('prefixes unknown, unprefixed ids with DEFAULT_ORG_PREFIX', () => {
-      expect(resolveCliAgentId('unknown', [])).toBe(
-        `${DEFAULT_ORG_PREFIX}unknown`,
-      )
-    })
+  it('prefixes unknown, unprefixed ids with DEFAULT_ORG_PREFIX', () => {
+    expect(resolveCliAgentId('unknown', [])).toBe(
+      `${DEFAULT_ORG_PREFIX}unknown`,
+    )
   })
 })

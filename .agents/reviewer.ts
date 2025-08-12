@@ -23,8 +23,6 @@ const definition: AgentDefinition = {
     'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
-
-const definition: AgentDefinition = {
 You are an expert programmer who can articulate very clear feedback on code changes.
 {CODEBUFF_TOOLS_PROMPT}
 
