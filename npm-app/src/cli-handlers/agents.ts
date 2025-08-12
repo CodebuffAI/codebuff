@@ -19,7 +19,11 @@ import intermediateGitCommitter from '../../../common/src/templates/initial-agen
 import advancedFileExplorer from '../../../common/src/templates/initial-agents-dir/examples/03-advanced-file-explorer' with { type: 'text' }
 import myCustomAgent from '../../../common/src/templates/initial-agents-dir/my-custom-agent' with { type: 'text' }
 
-import { loadLocalAgents, getLoadedAgentNames } from '../agents/load-agents'
+import {
+  loadLocalAgents,
+  getLoadedAgentNames,
+  loadedAgents,
+} from '../agents/load-agents'
 import { CLI } from '../cli'
 import { getProjectRoot } from '../project-files'
 import { Spinner } from '../utils/spinner'
@@ -90,35 +94,87 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
     customAgentFiles = filterCustomAgentFiles(files)
   }
 
-  // Add agents section header
-  actions.push({
-    id: '__agents_header__',
-    name:
-      bold(cyan('Custom Agents')) +
-      gray(` • ${customAgentFiles.length} in ${AGENT_TEMPLATES_DIR}`),
-    description: '',
-    isBuiltIn: false,
-    isSectionHeader: true,
-  })
-
   // Build agent list starting with management actions
   agentList = [...actions]
 
-  // Add custom agents from .agents/templates
-  if (customAgentFiles.length > 0) {
-    for (const file of customAgentFiles) {
-      const agentId = extractAgentIdFromFileName(file)
-      const agentName = localAgents[agentId] || agentId
+  // Collect custom agents from .agents/templates
+  const agentEntries = customAgentFiles.map((file) => {
+    const agentId = extractAgentIdFromFileName(file)
+    const filePath = path.join(agentsDir, file)
+    let mtime = 0
+    try {
+      mtime = fs.statSync(filePath).mtimeMs
+    } catch {}
+    const def = (loadedAgents as any)[agentId]
+    return { file, agentId, filePath, mtime, def }
+  })
+
+  const validAgents = agentEntries
+    .filter((e) => e.def && e.def.id && e.def.model)
+    .sort((a, b) => b.mtime - a.mtime)
+
+  const now = Date.now()
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
+  const recentAgents = validAgents.filter((e) => now - e.mtime <= sevenDaysMs)
+  const otherAgents = validAgents.filter((e) => now - e.mtime > sevenDaysMs)
+
+  if (validAgents.length > 0) {
+    if (recentAgents.length > 0) {
       agentList.push({
-        id: agentId,
-        name: agentName,
-        description: 'Custom user-defined agent',
+        id: '__recent_agents_header__',
+        name: bold(cyan('Recently Updated')) + gray(' • last 7 days'),
+        description: '',
         isBuiltIn: false,
-        filePath: path.join(agentsDir, file),
+        isSectionHeader: true,
       })
+
+      for (const entry of recentAgents) {
+        const agentName =
+          localAgents[entry.agentId] || entry.def?.displayName || entry.agentId
+        agentList.push({
+          id: entry.agentId,
+          name: agentName,
+          description: entry.def?.description || 'Custom user-defined agent',
+          isBuiltIn: false,
+          filePath: entry.filePath,
+        })
+      }
+    }
+
+    if (otherAgents.length > 0) {
+      agentList.push({
+        id: '__agents_header__',
+        name:
+          bold(cyan('Custom Agents')) +
+          gray(` • ${otherAgents.length} in ${AGENT_TEMPLATES_DIR}`),
+        description: '',
+        isBuiltIn: false,
+        isSectionHeader: true,
+      })
+
+      for (const entry of otherAgents) {
+        const agentName =
+          localAgents[entry.agentId] || entry.def?.displayName || entry.agentId
+        agentList.push({
+          id: entry.agentId,
+          name: agentName,
+          description: entry.def?.description || 'Custom user-defined agent',
+          isBuiltIn: false,
+          filePath: entry.filePath,
+        })
+      }
     }
   } else {
-    // If no custom agents, add a helpful message
+    // No valid agents; show header + placeholder
+    agentList.push({
+      id: '__agents_header__',
+      name:
+        bold(cyan('Custom Agents')) +
+        gray(` • ${customAgentFiles.length} in ${AGENT_TEMPLATES_DIR}`),
+      description: '',
+      isBuiltIn: false,
+      isSectionHeader: true,
+    })
     agentList.push({
       id: '__no_agents__',
       name: gray('No custom agents found'),
@@ -127,8 +183,6 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
       isPlaceholder: true,
     })
   }
-
-  // No need for special handling here since we now have a proper placeholder
 
   // Initialize selection to first selectable item
   selectedIndex = 0
@@ -400,7 +454,7 @@ function renderAgentsList() {
   }
 
   // Display status line at bottom
-  const statusLine = `\n${gray(`Use ↑/↓/j/k to navigate, Enter to select, ESC to go back`)}`
+  const statusLine = `\n${gray(`Use ↑/↓/j/k to navigate, Enter to select, ESC or q to go back`)}`
 
   process.stdout.write(statusLine)
   process.stdout.write(HIDE_CURSOR)
@@ -416,7 +470,11 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
 
   // Add our custom handler
   process.stdin.on('keypress', (str: string, key: any) => {
-    if (key && key.name === 'escape') {
+    // Support ESC or 'q' (no ctrl/meta) to go back
+    if (
+      (key && key.name === 'escape') ||
+      (!key?.ctrl && !key?.meta && str === 'q')
+    ) {
       exitAgentsBuffer(rl)
       onExit()
       return

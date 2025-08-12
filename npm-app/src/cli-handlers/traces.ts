@@ -157,7 +157,9 @@ function updateSubagentContent() {
   }
   lastContentLength = fullContent.length
 
-  const contentBodyLines = fullContent ? fullContent.split('\n') : ['(no content yet)']
+  const contentBodyLines = fullContent
+    ? fullContent.split('\n')
+    : ['(no content yet)']
 
   const terminalWidth = process.stdout.columns || 80
   const wrappedLines: string[] = []
@@ -212,7 +214,8 @@ function renderSubagentContent() {
   }
 
   // Display status line at bottom
-  const statusLine = `\n${gray(`Use ↑/↓/PgUp/PgDn to scroll, ESC to go back`)}`
+  // Update: mention ESC or q
+  const statusLine = `\n${gray(`Use ↑/↓/PgUp/PgDn to scroll, ESC or q to go back`)}`
 
   process.stdout.write(statusLine)
 }
@@ -235,7 +238,11 @@ function setupSubagentKeyHandler(rl: any, onExit: () => void) {
 
   // Add our custom handler
   process.stdin.on('keypress', (str: string, key: any) => {
-    if (key && key.name === 'escape') {
+    // Support ESC or 'q' (no ctrl/meta) to go back to list
+    if (
+      (key && key.name === 'escape') ||
+      (!key?.ctrl && !key?.meta && str === 'q')
+    ) {
       exitSubagentBuffer(rl)
       // Return to subagent list, preserving the current selection
       enterSubagentListBuffer(rl, onExit)
