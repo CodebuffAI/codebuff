@@ -231,15 +231,13 @@ export type TerminalTools = 'run_terminal_command' | 'run_file_change_hooks'
 /**
  * Web and browser tools
  */
-export type WebTools = 'browser_logs' | 'web_search' | 'read_docs'
+export type WebTools = 'web_search' | 'read_docs'
 
 /**
  * Agent management tools
  */
 export type AgentTools =
   | 'spawn_agents'
-  | 'spawn_agents_async'
-  | 'send_agent_message'
   | 'set_messages'
   | 'add_message'
 
@@ -248,9 +246,6 @@ export type AgentTools =
  */
 export type PlanningTools =
   | 'think_deeply'
-  | 'create_plan'
-  | 'add_subgoal'
-  | 'update_subgoal'
 
 /**
  * Output and control tools

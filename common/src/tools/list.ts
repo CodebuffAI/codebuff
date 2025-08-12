@@ -48,6 +48,26 @@ export const llmToolCallSchema = {
   [K in ToolName]: ToolParams<K>
 }
 
+export const publishedTools = [
+  'add_message',
+  'code_search',
+  'end_turn',
+  'find_files',
+  'read_docs',
+  'read_files',
+  'run_file_change_hooks',
+  'run_terminal_command',
+  'set_messages',
+  'set_output',
+  'spawn_agents',
+  'str_replace',
+  'think_deeply',
+  'web_search',
+  'write_file',
+  // 'spawn_agents_async',
+  // 'spawn_agent_inline',
+] as const
+
 export const clientToolCallSchema = {
   // Tools that require an id and objective
   add_subgoal: ['id', 'objective', 'status', 'plan', 'log'],
