@@ -764,9 +764,9 @@ describe('runProgrammaticStep', () => {
       expect(result.agentState.messageHistory).toEqual([
         ...mockAgentState.messageHistory,
         {
-          role: 'user',
+          role: 'assistant',
           content:
-            '<user_message><codebuff_tool_call>\n{\n  "cb_tool_name": "end_turn",\n  "cb_easp": true\n}\n</codebuff_tool_call></user_message>',
+            '<codebuff_tool_call>\n{\n  "cb_tool_name": "end_turn",\n  "cb_easp": true\n}\n</codebuff_tool_call>',
         },
       ])
     })

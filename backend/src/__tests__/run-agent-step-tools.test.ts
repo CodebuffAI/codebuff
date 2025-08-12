@@ -410,7 +410,7 @@ describe('runAgentStep - set_output tool', () => {
         content: expect.stringContaining('Test instructions prompt'),
       },
       {
-        role: 'user',
+        role: 'assistant',
         content: expect.stringContaining('read_files'),
       },
       {

@@ -2,7 +2,6 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 
 import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
-import { asUserMessage } from './util/messages'
 import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
 import { sendAction } from './websockets/websocket-action'
