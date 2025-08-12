@@ -27,6 +27,7 @@ import * as context7Api from '../llm-apis/context7-api'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
+import * as agentRegistry from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { WebSocket } from 'ws'
@@ -43,6 +44,30 @@ describe('read_docs tool with researcher agent', () => {
       },
       withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
     }))
+
+    // Inject a minimal researcher agent so prompts/spawnableAgents exist
+    const originalAssemble = agentRegistry.assembleLocalAgentTemplates
+    spyOn(agentRegistry, 'assembleLocalAgentTemplates').mockImplementation(
+      (fc: any) => {
+        const res = originalAssemble(fc)
+        return {
+          ...res,
+          agentTemplates: {
+            ...res.agentTemplates,
+            researcher: {
+              id: 'researcher',
+              displayName: 'Researcher',
+              model: 'openai/gpt-4o-mini',
+              toolNames: ['read_docs', 'end_turn'],
+              systemPrompt: '',
+              stepPrompt: '',
+              instructionsPrompt: '',
+              spawnableAgents: [],
+            } as any,
+          },
+        }
+      },
+    )
   })
 
   beforeEach(() => {
@@ -90,6 +115,31 @@ describe('read_docs tool with researcher agent', () => {
 
   // MockWebSocket and mockFileContext imported from test-utils
 
+  // Inject a minimal researcher agent template so tests don't fail on missing agent
+  const minimalResearcherTemplate = {
+    id: 'researcher',
+    displayName: 'Researcher',
+    model: 'openai/gpt-4o-mini',
+    toolNames: ['read_docs', 'end_turn'],
+    systemPrompt: '',
+    stepPrompt: '',
+    instructionsPrompt: '',
+    spawnableAgents: [],
+  } as any
+
+  // Wrap assembleLocalAgentTemplates to include the researcher template
+  const _assembleLocalAgentTemplates = assembleLocalAgentTemplates
+  function assembleLocalAgentTemplatesWithResearcher(fc: any) {
+    const res = _assembleLocalAgentTemplates(fc)
+    return {
+      ...res,
+      agentTemplates: {
+        ...res.agentTemplates,
+        researcher: minimalResearcherTemplate,
+      },
+    }
+  }
+
   test.skip('should successfully fetch documentation with basic query', async () => {
     const mockDocumentation =
       'React is a JavaScript library for building user interfaces...'
@@ -125,7 +175,8 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } =
+      assembleLocalAgentTemplatesWithResearcher(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -199,7 +250,8 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } =
+      assembleLocalAgentTemplatesWithResearcher(mockFileContext)
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -245,7 +297,8 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } =
+      assembleLocalAgentTemplatesWithResearcher(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -313,7 +366,8 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } =
+      assembleLocalAgentTemplatesWithResearcher(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -381,7 +435,8 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } =
+      assembleLocalAgentTemplatesWithResearcher(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -447,7 +502,8 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } =
+      assembleLocalAgentTemplatesWithResearcher(mockFileContext)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
