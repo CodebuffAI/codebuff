@@ -36,6 +36,7 @@ const definition: SecretAgentDefinition = {
     'researcher',
     'thinker',
     'reviewer',
+    'git-committer',
   ],
   spawnerPrompt: 'Base agent that orchestrates the full response.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
