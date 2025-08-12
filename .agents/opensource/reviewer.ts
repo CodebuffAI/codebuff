@@ -1,6 +1,6 @@
 import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'oss-model-reviewer',
   publisher: 'codebuff',
   model: 'openai/gpt-oss-120b:fast',
@@ -49,4 +49,4 @@ Be concise and to the point. After providing all your feedback, use the end_turn
   stepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
 }
 
-export default config
+export default definition

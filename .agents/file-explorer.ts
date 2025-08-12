@@ -2,7 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'file-explorer',
   version,
   publisher,
@@ -59,4 +59,4 @@ const config: AgentDefinition = {
   },
 }
 
-export default config
+export default definition

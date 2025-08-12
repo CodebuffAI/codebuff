@@ -2,7 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'superagent',
   version,
   publisher,
@@ -43,4 +43,4 @@ Feel free to ask the user for clarification if you are unsure what to do.`,
     'Spawn as many agents as you can to help. Use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message or if you are waiting for a response from an agent.',
 }
 
-export default config
+export default definition

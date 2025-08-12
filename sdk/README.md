@@ -62,13 +62,13 @@ const run2 = await client.run({
   },
 
   // Custom agents (optional)
-  agentConfigs: [
+  agentDefinitions: [
     {
       id: 'my-awesome-agent',
       model: 'openai/gpt-5',
       displayName: 'My awesome agent'
       instructionsPrompt: 'Do something awesome'
-      // ... other AgentConfig properties
+      // ... other AgentDefinition properties
     },
   ],
 })
@@ -96,15 +96,12 @@ Runs a Codebuff agent with the specified options.
 
 - **`knowledgeFiles`** (object, optional): Knowledge files to inject into every `run()` call. Uses the same schema as `projectFiles` - keys are file paths and values are file contents. These files are added directly to the agent's context.
 
-- **`agentConfigs`** (array, optional): Array of custom agent configurations. Each object should satisfy the AgentConfig type.
+- **`agentDefinitions`** (array, optional): Array of custom agent configurations. Each object should satisfy the AgentConfig type.
 - **`maxAgentSteps`** (number, optional): Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
 
 #### Returns
 
-Returns a Promise that resolves to a `RunState` object containing:
-
-- `sessionState`: The current session state that can be passed to subsequent runs
-- `toolResults`: Results from any tools that were executed during the run
+Returns a Promise that resolves to a `RunState` object which can be passed into subsequent runs via the `previousRun` parameter to resume the conversation.
 
 ## License
 

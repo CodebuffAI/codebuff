@@ -1,8 +1,11 @@
 import { publisher, version } from './constants'
 
-import type { AgentDefinition, AgentStepContext } from './types/agent-definition'
+import type {
+  AgentDefinition,
+  AgentStepContext,
+} from './types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'changes-reviewer',
   version,
   publisher,
@@ -104,4 +107,4 @@ Use the following guidelines to review the changes and suggest improvements:
   },
 }
 
-export default config
+export default definition

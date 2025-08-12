@@ -7,11 +7,11 @@
  * Usage in .agents/your-agent.ts:
  *   import { AgentDefinition, ToolName, ModelName } from './types/agent-definition'
  *
- *   const config: AgentDefinition = {
+ *   const definition: AgentDefinition = {
  *     // ... your agent configuration with full type safety ...
  *   }
  *
- *   export default config
+ *   export default definition
  */
 
 // ============================================================================

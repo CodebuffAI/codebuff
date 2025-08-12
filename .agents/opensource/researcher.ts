@@ -1,6 +1,6 @@
 import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'oss-model-researcher',
   publisher: 'codebuff',
   model: 'z-ai/glm-4.5:fast',
@@ -44,4 +44,4 @@ Always end your response with the end_turn tool.
   stepPrompt: `Make sure to summarize your notes.`,
 }
 
-export default config
+export default definition

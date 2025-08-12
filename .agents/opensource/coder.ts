@@ -1,6 +1,6 @@
 import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'oss-model-coder',
   publisher: 'codebuff',
   model: 'qwen/qwen3-coder:fast',
@@ -67,4 +67,4 @@ You are an expert coding specialist, focused exclusively on code implementation,
   stepPrompt: `Focus on the coding task. Read files, understand the context, then implement the solution. End with the end_turn tool when complete.`,
 }
 
-export default config
+export default definition

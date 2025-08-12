@@ -1,6 +1,6 @@
 import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'oss-model-thinker',
   publisher: 'codebuff',
   model: 'qwen/qwen3-235b-a22b-thinking-2507:fast',
@@ -36,4 +36,4 @@ You must be extremely concise and to the point.`,
   stepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn></end_turn>`,
 }
 
-export default config
+export default definition

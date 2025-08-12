@@ -1,6 +1,6 @@
 import type { AgentDefinition, ToolCall } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'oss-model-file-picker',
   publisher: 'codebuff',
   model: 'openai/gpt-oss-120b:fast',
@@ -42,4 +42,4 @@ In your report, please give an analysis that includes the full paths of files th
   },
 }
 
-export default config
+export default definition

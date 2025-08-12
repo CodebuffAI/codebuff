@@ -1,6 +1,6 @@
 import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'oss-model-base',
   publisher: 'codebuff',
   model: 'qwen/qwen3-235b-a22b-2507:fast',
@@ -73,4 +73,4 @@ You are working on a project over multiple "iterations," reminiscent of the movi
   stepPrompt: `Continue working on the user's request. Use your tools and spawn spawnableAgents as needed.`,
 }
 
-export default config
+export default definition

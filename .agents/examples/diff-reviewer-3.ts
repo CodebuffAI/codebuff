@@ -3,7 +3,7 @@ import type {
   AgentStepContext,
 } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'diff-reviewer-3',
 
   displayName: 'Diff Reviewer (Level 3)',
@@ -96,4 +96,4 @@ Use the following guidelines while reviewing the changes:
   },
 }
 
-export default config
+export default definition

@@ -2,8 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'planner',
   version,
   publisher,
@@ -30,4 +29,4 @@ const config: AgentDefinition = {
 4. Synthesize all the information and rewrite the full plan to be the best it can be. Use the end_turn tool.`,
 }
 
-export default config
+export default definition

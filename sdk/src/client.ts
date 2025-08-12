@@ -276,10 +276,10 @@ function initialSessionState(
 ) {
   const { knowledgeFiles = {}, agentDefinitions = [] } = options
 
-  // Process agentConfigs array and convert handleSteps functions to strings
+  // Process agentDefinitions array and convert handleSteps functions to strings
   const processedAgentTemplates: Record<string, any> = {}
-  agentDefinitions.forEach((config) => {
-    const processedConfig = { ...config } as Record<string, any>
+  agentDefinitions.forEach((definition) => {
+    const processedConfig = { ...definition } as Record<string, any>
     if (
       processedConfig.handleSteps &&
       typeof processedConfig.handleSteps === 'function'

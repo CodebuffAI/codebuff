@@ -2,7 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'base-lite',
   version,
   publisher,
@@ -331,4 +331,4 @@ User cwd: {CODEBUFF_USER_CWD}
 `,
 }
 
-export default config
+export default definition

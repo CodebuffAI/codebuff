@@ -2,7 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'file-picker',
   version,
   publisher,
@@ -43,4 +43,4 @@ In your report, please give an analysis that includes the full paths of files th
   },
 }
 
-export default config
+export default definition

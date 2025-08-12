@@ -7,11 +7,11 @@
  * Usage in .agents/your-agent.ts:
  *   import { AgentDefinition, ToolName, ModelName } from './types/agent-definition'
  *
- *   const config: AgentDefinition = {
+ *   const definition: AgentDefinition = {
  *     // ... your agent configuration with full type safety ...
  *   }
  *
- *   export default config
+ *   export default definition
  */
 
 // ============================================================================
@@ -236,16 +236,12 @@ export type WebTools = 'web_search' | 'read_docs'
 /**
  * Agent management tools
  */
-export type AgentTools =
-  | 'spawn_agents'
-  | 'set_messages'
-  | 'add_message'
+export type AgentTools = 'spawn_agents' | 'set_messages' | 'add_message'
 
 /**
  * Planning and organization tools
  */
-export type PlanningTools =
-  | 'think_deeply'
+export type PlanningTools = 'think_deeply'
 
 /**
  * Output and control tools

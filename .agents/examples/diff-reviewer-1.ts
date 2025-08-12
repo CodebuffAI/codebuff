@@ -1,6 +1,6 @@
 import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'diff-reviewer-1',
 
   displayName: 'Diff Reviewer (Level 1)',
@@ -15,4 +15,4 @@ const config: AgentDefinition = {
 3. Review the changes and suggest improvements`,
 }
 
-export default config
+export default definition

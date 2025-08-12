@@ -1,9 +1,11 @@
 import { publisher, version } from './constants'
 
-import type { AgentDefinition, AgentStepContext } from './types/agent-definition'
+import type {
+  AgentDefinition,
+  AgentStepContext,
+} from './types/agent-definition'
 
-
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'git-committer',
   version,
   publisher,
@@ -77,4 +79,4 @@ const config: AgentDefinition = {
   },
 }
 
-export default config
+export default definition

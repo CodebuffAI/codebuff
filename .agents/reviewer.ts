@@ -2,7 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'reviewer',
   version,
   publisher,
@@ -25,7 +25,7 @@ const config: AgentConfig = {
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
 You are an expert programmer who can articulate very clear feedback on code changes.
 {CODEBUFF_TOOLS_PROMPT}
 
@@ -56,4 +56,4 @@ Be concise and to the point. After providing all your feedback, use the end_turn
     "IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>",
 }
 
-export default config
+export default definition

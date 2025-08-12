@@ -2,8 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'researcher',
   version,
   publisher,
@@ -44,4 +43,4 @@ Always end your response with the end_turn tool.`,
   },
 }
 
-export default config
+export default definition

@@ -3,7 +3,7 @@ import type {
   AgentStepContext,
 } from '../types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'diff-reviewer-2',
   displayName: 'Diff Reviewer (Level 2)',
   model: 'openai/gpt-5',
@@ -51,4 +51,4 @@ Use the following guidelines while reviewing the changes:
   },
 }
 
-export default config
+export default definition

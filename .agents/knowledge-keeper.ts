@@ -2,8 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'knowledge-keeper',
   version,
   publisher,
@@ -53,4 +52,4 @@ Always start by reading existing knowledge.md files and documentation. Focus on 
     'Continue your knowledge management work. Focus on the most impactful improvements and always end with the end_turn tool.',
 }
 
-export default config
+export default definition

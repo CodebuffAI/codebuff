@@ -2,7 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'ask',
   version,
   publisher,
@@ -237,4 +237,4 @@ Reminder: Don't forget to spawn agents that could help: the file picker to get c
 </system_instructions>`,
 }
 
-export default config
+export default definition

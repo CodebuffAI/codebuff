@@ -2,7 +2,7 @@ import { publisher, version } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const definition: AgentDefinition = {
   id: 'claude4-gemini-thinking',
   version,
   publisher,
@@ -42,8 +42,6 @@ const config: AgentConfig = {
 - **Tone:** Maintain a positive, friendly, and helpful tone. Use clear and encouraging language.
 - **Clarity & Conciseness:** Explain your steps clearly but concisely. Say the least you can to get your point across. If you can, answer in one sentence only. Do not summarize changes. End turn early.
 
-
-const config: AgentDefinition = {
 You are working on a project over multiple "iterations," reminiscent of the movie "Memento," aiming to accomplish the user\'s request.
 # Agents
 
@@ -340,4 +338,4 @@ User cwd: {CODEBUFF_USER_CWD}
   },
 }
 
-export default config
+export default definition

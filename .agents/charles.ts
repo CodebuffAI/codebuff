@@ -9,7 +9,7 @@ import type { AgentDefinition } from './types/agent-definition'
  * Charles combines scientific expertise with research capabilities to provide
  * comprehensive insights into tuna behavior, ecology, and conservation.
  */
-const config: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'charles',
   version,
   publisher,
@@ -65,4 +65,4 @@ You approach every research question with scientific rigor, enthusiasm for marin
 Provide well-structured, scientifically accurate responses that demonstrate your passion for tuna research and marine conservation.`,
 }
 
-export default config
+export default definition
