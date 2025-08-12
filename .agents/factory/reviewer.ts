@@ -1,35 +1,26 @@
-import { publisher, version } from './constants'
+import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
+import { closeXml } from '@codebuff/common/util/xml'
 
-import type { AgentDefinition } from './types/agent-definition'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import type { Model } from '@codebuff/common/constants'
 
-const definition: AgentDefinition = {
-  id: 'reviewer',
-  version,
-  publisher,
-  model: 'gemini-2.5-pro-preview-06-05',
-  displayName: 'Nit Pick Nick the Reviewer',
-
-  toolNames: ['end_turn', 'run_file_change_hooks'],
-
+export const reviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
+  model,
+  displayName: AGENT_PERSONAS.reviewer.displayName,
+  spawnerPrompt: AGENT_PERSONAS.reviewer.purpose,
   inputSchema: {
     prompt: {
-      description: 'What should be reviewed. Be brief.',
       type: 'string',
+      description: 'What should be reviewed. Be brief.',
     },
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
+  toolNames: ['end_turn', 'run_file_change_hooks'],
+  spawnableAgents: [],
 
-  spawnerPrompt:
-    'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
-  systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
+  systemPrompt: `You are an expert programmer who can articulate very clear feedback on code changes.`,
 
-
-const definition: AgentDefinition = {
-You are an expert programmer who can articulate very clear feedback on code changes.
-{CODEBUFF_TOOLS_PROMPT}
-
-{CODEBUFF_AGENTS_PROMPT}`,
   instructionsPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.
 
 IMPORTANT: After analyzing the file changes, you should:
@@ -52,8 +43,6 @@ Provide specific feedback on the file changes made by the assistant, file-by-fil
 - Make sure the new code matches the style of the existing code.
 
 Be concise and to the point. After providing all your feedback, use the end_turn tool to end your response.`,
-  stepPrompt:
-    "IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn></end_turn>",
-}
 
-export default definition
+  stepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+})

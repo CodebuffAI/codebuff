@@ -1,0 +1,37 @@
+import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
+
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import type { Model } from '@codebuff/common/constants'
+
+export const filePicker = (
+  model: Model,
+): Omit<SecretAgentDefinition, 'id'> => ({
+  model,
+  displayName: AGENT_PERSONAS.file_picker.displayName,
+  spawnerPrompt: AGENT_PERSONAS.file_picker.purpose,
+  inputSchema: {
+    prompt: {
+      type: 'string',
+      description: 'A coding task to complete',
+    },
+  },
+  outputMode: 'last_message',
+  includeMessageHistory: false,
+  toolNames: ['find_files'],
+  spawnableAgents: [],
+
+  systemPrompt: `You are an expert at finding relevant files in a codebase.`,
+  instructionsPrompt: `
+Provide the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
+In your report, please give an extremely concise analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful.
+  `.trim(),
+  stepPrompt: `Do not use the find_files tool or any tools again. Just give your response.`,
+
+  handleSteps: function* ({ agentState, prompt, params }) {
+    yield {
+      toolName: 'find_files' as const,
+      args: { prompt: prompt || '' },
+    }
+    yield 'STEP_ALL'
+  },
+})

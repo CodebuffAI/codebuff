@@ -64,6 +64,12 @@
       "name": "regenerate-tool-definitions",
       "command": "bun run generate-tool-definitions",
       "filePattern": "common/src/tools/{params/tool/*.ts,list.ts}"
+    },
+    {
+      "name": "agents-typecheck",
+      "command": "bun x tsc --noEmit -p .agents/tsconfig.json",
+      "cwd": ".",
+      "filePattern": ".agents/**/*.ts"
     }
   ]
 }

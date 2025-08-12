@@ -28,6 +28,7 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
+import researcherAgent from '../../../.agents/researcher'
 
 import type { WebSocket } from 'ws'
 
@@ -89,6 +90,12 @@ describe('read_docs tool with researcher agent', () => {
   })
 
   // MockWebSocket and mockFileContext imported from test-utils
+  const mockFileContextWithAgents = {
+    ...mockFileContext,
+    agentTemplates: {
+      researcher: researcherAgent,
+    },
+  }
 
   test.skip('should successfully fetch documentation with basic query', async () => {
     const mockDocumentation =
@@ -120,12 +127,12 @@ describe('read_docs tool with researcher agent', () => {
       yield mockResponse
     })
 
-    const sessionState = getInitialSessionState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -136,7 +143,7 @@ describe('read_docs tool with researcher agent', () => {
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
         agentType: 'researcher',
-        fileContext: mockFileContext,
+        fileContext: mockFileContextWithAgents,
         localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get React documentation',
@@ -194,12 +201,12 @@ describe('read_docs tool with researcher agent', () => {
       yield mockResponse
     })
 
-    const sessionState = getInitialSessionState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -208,7 +215,7 @@ describe('read_docs tool with researcher agent', () => {
       fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
       agentType: 'researcher',
-      fileContext: mockFileContext,
+      fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React hooks documentation',
@@ -240,12 +247,12 @@ describe('read_docs tool with researcher agent', () => {
       yield mockResponse
     })
 
-    const sessionState = getInitialSessionState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -256,7 +263,7 @@ describe('read_docs tool with researcher agent', () => {
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
         agentType: 'researcher',
-        fileContext: mockFileContext,
+        fileContext: mockFileContextWithAgents,
         localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get documentation for NonExistentLibrary',
@@ -308,12 +315,12 @@ describe('read_docs tool with researcher agent', () => {
       yield mockResponse
     })
 
-    const sessionState = getInitialSessionState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -324,7 +331,7 @@ describe('read_docs tool with researcher agent', () => {
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
         agentType: 'researcher',
-        fileContext: mockFileContext,
+        fileContext: mockFileContextWithAgents,
         localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get React documentation',
@@ -376,12 +383,12 @@ describe('read_docs tool with researcher agent', () => {
       yield mockResponse
     })
 
-    const sessionState = getInitialSessionState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -392,7 +399,7 @@ describe('read_docs tool with researcher agent', () => {
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
         agentType: 'researcher',
-        fileContext: mockFileContext,
+        fileContext: mockFileContextWithAgents,
         localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get React server components documentation',
@@ -442,12 +449,12 @@ describe('read_docs tool with researcher agent', () => {
       yield mockResponse
     })
 
-    const sessionState = getInitialSessionState(mockFileContext)
+    const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContext)
+    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -458,7 +465,7 @@ describe('read_docs tool with researcher agent', () => {
         fingerprintId: 'test-fingerprint',
         onResponseChunk: () => {},
         agentType: 'researcher',
-        fileContext: mockFileContext,
+        fileContext: mockFileContextWithAgents,
         localAgentTemplates: agentTemplates,
         agentState,
         prompt: 'Get React documentation',

@@ -1,4 +1,4 @@
-import { AgentDefinition } from './agent-definition'
+import type { AgentDefinition } from './agent-definition'
 import type * as Tools from './tools'
 export type { Tools }
 
