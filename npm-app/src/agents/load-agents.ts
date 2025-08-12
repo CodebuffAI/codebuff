@@ -34,7 +34,17 @@ export async function loadLocalAgents({
         agentModule = await require(fullPath)
       } catch (error: any) {
         if (verbose) {
-          console.error('Error importing agent:', error)
+          const errorMessage =
+            error instanceof Error
+              ? error.stack || error.message
+              : typeof error === 'string'
+                ? error
+                : JSON.stringify(error)
+          console.error(
+            'Error importing agent from file:',
+            fullPath,
+            errorMessage,
+          )
         }
         continue
       }
@@ -43,11 +53,30 @@ export async function loadLocalAgents({
       try {
         agentDefinition = agentModule.default
       } catch (error: any) {
-        console.error('Error loading agent from file:', fullPath, error)
+        const errorMessage =
+          error instanceof Error
+            ? error.stack || error.message
+            : typeof error === 'string'
+              ? error
+              : JSON.stringify(error)
+        console.error('Error loading agent from file:', fullPath, errorMessage)
         continue
       }
 
       if (!agentDefinition) continue
+
+      // Validate that agent has required attributes
+      if (!agentDefinition.id || !agentDefinition.model) {
+        if (verbose) {
+          console.error(
+            'Agent definition missing required attributes (id, model):',
+            fullPath,
+            'Found:',
+            { id: agentDefinition.id, model: agentDefinition.model },
+          )
+        }
+        continue
+      }
 
       // Convert handleSteps function to string if present
       let processedAgentDefinition = { ...agentDefinition }

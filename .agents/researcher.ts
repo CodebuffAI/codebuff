@@ -1,11 +1,10 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 import { researcher as researcherFactory } from './factory/researcher'
 
 import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'researcher',
-  version,
   publisher,
   ...researcherFactory('claude-3-5-sonnet-20241022'),
 }

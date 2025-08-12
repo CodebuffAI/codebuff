@@ -18,7 +18,7 @@ const definition: AgentDefinition = {
   displayName: 'My Custom Agent',
 
   model: 'anthropic/claude-4-sonnet-20250522',
-  spawnableAgents: ['codebuff/file-explorer@0.0.1'],
+  spawnableAgents: ['file-explorer'],
 
   // Check out .agents/types/tools.ts for more information on the tools you can include.
   toolNames: ['run_terminal_command', 'read_files', 'spawn_agents'],

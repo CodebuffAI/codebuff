@@ -1,4 +1,4 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type {
   AgentDefinition,
@@ -7,7 +7,6 @@ import type {
 
 const definition: AgentDefinition = {
   id: 'changes-reviewer',
-  version,
   publisher,
   displayName: 'Changes Reviewer',
   model: 'x-ai/grok-4',
@@ -18,7 +17,7 @@ const definition: AgentDefinition = {
     'Spawn when you need to review code changes in the git diff or staged changes',
 
   toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
-  spawnableAgents: ['codebuff/file-explorer@0.0.1'],
+  spawnableAgents: ['file-explorer'],
 
   inputSchema: {
     prompt: {

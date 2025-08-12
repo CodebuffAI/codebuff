@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'knowledge-keeper',
-  version,
   publisher,
   displayName: 'Kendra the Knowledge Keeper',
   model: 'anthropic/claude-4-sonnet-20250522',
@@ -17,10 +16,7 @@ const definition: AgentDefinition = {
     'spawn_agents',
     'end_turn',
   ],
-  spawnableAgents: [
-    `codebuff/file-picker@${version}`,
-    `codebuff/researcher@${version}`,
-  ],
+  spawnableAgents: ['file-picker', 'researcher'],
 
   inputSchema: {
     prompt: {
