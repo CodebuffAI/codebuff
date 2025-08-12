@@ -1,4 +1,9 @@
 import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import { getStubProjectFileContext } from '@codebuff/common/util/file'
+import {
   describe,
   expect,
   it,
@@ -6,12 +11,9 @@ import {
   afterEach,
   spyOn,
   mock,
+  beforeAll,
+  afterAll,
 } from 'bun:test'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import { getStubProjectFileContext } from '@codebuff/common/util/file'
 
 import {
   getAgentTemplate,
@@ -20,53 +22,8 @@ import {
 } from '../templates/agent-registry'
 
 import type { AgentTemplate } from '../templates/types'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
-
-// Mock the database module
-mockModule('@codebuff/common/db', () => ({
-  default: {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          orderBy: () => ({
-            limit: () => Promise.resolve([]),
-          }),
-          then: (fn: (rows: any[]) => any) => fn([]),
-        }),
-      }),
-    }),
-  },
-}))
-
-// Mock the schema module
-mockModule('@codebuff/common/db/schema', () => ({
-  agentConfig: {
-    id: 'id',
-    publisher_id: 'publisher_id',
-    version: 'version',
-    major: 'major',
-    minor: 'minor',
-    patch: 'patch',
-    data: 'data',
-  },
-}))
-
-// Mock drizzle-orm
-mockModule('drizzle-orm', () => ({
-  and: (...args: any[]) => ({ type: 'and', args }),
-  desc: (field: any) => ({ type: 'desc', field }),
-  eq: (field: any, value: any) => ({ type: 'eq', field, value }),
-}))
-
-// Mock logger
-mockModule('../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    warn: () => {},
-  },
-}))
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 // Create mock static templates that will be used by the agent registry
 const mockStaticTemplates: Record<string, AgentTemplate> = {
@@ -100,14 +57,60 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
   },
 }
 
-// Mock static agent templates
-mockModule('@codebuff/backend/templates/agent-list', () => ({
-  agentTemplates: mockStaticTemplates,
-}))
-
 // We'll spy on the validation functions instead of mocking the entire module
 
 describe('Agent Registry', () => {
+  beforeAll(() => {
+    // Mock the database module
+    mockModule('@codebuff/common/db', () => ({
+      default: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => Promise.resolve([]),
+              }),
+              then: (fn: (rows: any[]) => any) => fn([]),
+            }),
+          }),
+        }),
+      },
+    }))
+
+    // Mock the schema module
+    mockModule('@codebuff/common/db/schema', () => ({
+      agentConfig: {
+        id: 'id',
+        publisher_id: 'publisher_id',
+        version: 'version',
+        major: 'major',
+        minor: 'minor',
+        patch: 'patch',
+        data: 'data',
+      },
+    }))
+
+    // Mock drizzle-orm
+    mockModule('drizzle-orm', () => ({
+      and: (...args: any[]) => ({ type: 'and', args }),
+      desc: (field: any) => ({ type: 'desc', field }),
+      eq: (field: any, value: any) => ({ type: 'eq', field, value }),
+    }))
+
+    // Mock logger
+    mockModule('../util/logger', () => ({
+      logger: {
+        debug: () => {},
+        error: () => {},
+        warn: () => {},
+      },
+    }))
+
+    // Mock static agent templates
+    mockModule('@codebuff/backend/templates/agent-list', () => ({
+      agentTemplates: mockStaticTemplates,
+    }))
+  })
   let mockFileContext: ProjectFileContext
 
   beforeEach(async () => {
@@ -168,6 +171,9 @@ describe('Agent Registry', () => {
 
   afterEach(() => {
     mock.restore()
+  })
+
+  afterAll(() => {
     clearMockedModules()
   })
 

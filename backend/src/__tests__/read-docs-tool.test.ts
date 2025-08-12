@@ -90,7 +90,7 @@ describe('read_docs tool with researcher agent', () => {
 
   // MockWebSocket and mockFileContext imported from test-utils
 
-  test.skip('should successfully fetch documentation with basic query', async () => {
+  test('should successfully fetch documentation with basic query', async () => {
     const mockDocumentation =
       'React is a JavaScript library for building user interfaces...'
 
@@ -162,7 +162,7 @@ describe('read_docs tool with researcher agent', () => {
     )
   })
 
-  test.skip('should fetch documentation with topic and max_tokens', async () => {
+  test('should fetch documentation with topic and max_tokens', async () => {
     const mockDocumentation =
       'React hooks allow you to use state and other React features...'
 

@@ -51,7 +51,7 @@ const JsonObjectSchemaSchema = z.intersection(
 const InputSchemaObjectSchema = z
   .looseObject({
     prompt: z
-      .object({
+      .looseObject({
         type: z.literal('string'),
         description: z.string().optional(),
       })
@@ -121,7 +121,7 @@ export const DynamicAgentDefinitionSchema = z.object({
   stepPrompt: z.string().optional(),
 
   // Optional generator function for programmatic agents
-  handleSteps: z.union([HandleStepsSchema, z.string()]).optional(),
+  handleSteps: z.union([z.string(), HandleStepsSchema]).optional(),
 })
 export type DynamicAgentDefinition = z.input<
   typeof DynamicAgentDefinitionSchema
