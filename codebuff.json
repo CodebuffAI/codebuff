@@ -65,6 +65,5 @@
       "command": "bun run generate-tool-definitions",
       "filePattern": "common/src/tools/{params/tool/*.ts,list.ts}"
     }
-  ],
-  "maxAgentSteps": 20
+  ]
 }

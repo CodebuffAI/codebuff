@@ -5,6 +5,7 @@ import { ProjectFileContextSchema } from '../util/file'
 
 import type { CodebuffMessage } from './message'
 import type { ProjectFileContext } from '../util/file'
+import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
 export const toolCallSchema = z.object({
   toolName: z.string(),
@@ -107,7 +108,7 @@ export function getInitialSessionState(
       agentContext: {},
       subagents: [],
       messageHistory: [],
-      stepsRemaining: 12,
+      stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
       output: undefined,
     },
     fileContext,
