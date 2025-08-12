@@ -1044,7 +1044,7 @@ export class Client {
     const cliParams = cli.initialParams
     cli.initialParams = undefined
 
-    // Resolve agent id: if unprefixed and not local, default to codebuff/<name>
+    // Resolve agent id: if unprefixed and not local, default to <DEFAULT_ORG_PREFIX><name>
     const localIds = Object.keys(getLoadedAgentNames())
     const resolvedAgentId = resolveCliAgentId(cliAgent, localIds)
 

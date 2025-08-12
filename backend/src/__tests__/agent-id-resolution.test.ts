@@ -38,8 +38,8 @@ describe('Agent ID Resolution', () => {
         inputSchema: {},
       },
       // Spawnable agents with org prefix
-      'CodebuffAI/git-committer': {
-        id: 'CodebuffAI/git-committer',
+      'codebuff/git-committer': {
+        id: 'codebuff/git-committer',
         displayName: 'Git Committer',
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
@@ -52,8 +52,8 @@ describe('Agent ID Resolution', () => {
         parentPrompt: 'Test',
         inputSchema: {},
       },
-      'CodebuffAI/example-agent': {
-        id: 'CodebuffAI/example-agent',
+      'codebuff/example-agent': {
+        id: 'codebuff/example-agent',
         displayName: 'Example Agent',
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
@@ -97,19 +97,19 @@ describe('Agent ID Resolution', () => {
     })
 
     it('should resolve prefixed agent IDs directly', () => {
-      expect(resolveAgentId('CodebuffAI/git-committer', mockRegistry)).toBe(
-        'CodebuffAI/git-committer',
+      expect(resolveAgentId('codebuff/git-committer', mockRegistry)).toBe(
+        'codebuff/git-committer',
       )
     })
   })
 
   describe('Prefixed ID Resolution', () => {
-    it('should resolve unprefixed spawnable agent IDs by adding CodebuffAI prefix', () => {
+    it('should resolve unprefixed spawnable agent IDs by adding codebuff prefix', () => {
       expect(resolveAgentId('git-committer', mockRegistry)).toBe(
-        'CodebuffAI/git-committer',
+        'codebuff/git-committer',
       )
       expect(resolveAgentId('example-agent', mockRegistry)).toBe(
-        'CodebuffAI/example-agent',
+        'codebuff/example-agent',
       )
     })
 
@@ -123,7 +123,7 @@ describe('Agent ID Resolution', () => {
   describe('Error Cases', () => {
     it('should return null for non-existent agents', () => {
       expect(resolveAgentId('non-existent', mockRegistry)).toBeNull()
-      expect(resolveAgentId('CodebuffAI/non-existent', mockRegistry)).toBeNull()
+      expect(resolveAgentId('codebuff/non-existent', mockRegistry)).toBeNull()
     })
 
     it('should return null for empty agent ID', () => {
@@ -154,7 +154,7 @@ describe('Agent ID Resolution', () => {
         'OtherOrg/special-agent',
       )
 
-      // Should not add CodebuffAI prefix to it
+      // Should not add codebuff prefix to it
       expect(resolveAgentId('special-agent', mockRegistry)).toBeNull()
     })
 

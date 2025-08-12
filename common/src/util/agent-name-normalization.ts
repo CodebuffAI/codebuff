@@ -1,4 +1,4 @@
-export const DEFAULT_ORG_PREFIX = 'CodebuffAI/'
+export const DEFAULT_ORG_PREFIX = 'codebuff/'
 
 /**
  * Resolves an agent ID by trying multiple strategies:
