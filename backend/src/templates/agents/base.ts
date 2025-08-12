@@ -1,6 +1,6 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import z from 'zod'
+import z from 'zod/v4'
 
 import {
   baseAgentAgentStepPrompt,

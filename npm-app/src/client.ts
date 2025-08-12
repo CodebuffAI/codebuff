@@ -49,7 +49,7 @@ import {
   yellow,
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { getLoadedAgentNames, loadLocalAgents } from './agents/load-agents'
 import { resolveCliAgentId } from './agents/resolve'

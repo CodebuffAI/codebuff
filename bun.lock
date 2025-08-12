@@ -5,7 +5,7 @@
       "name": "codebuff-project",
       "dependencies": {
         "@t3-oss/env-nextjs": "^0.7.3",
-        "zod": "4.0.0",
+        "zod": "3.25.67",
       },
       "devDependencies": {
         "@tanstack/react-query": "^5.59.16",
@@ -59,7 +59,7 @@
         "quickjs-emscripten-core": "0.31.0",
         "ts-pattern": "5.3.1",
         "ws": "8.18.0",
-        "zod": "4.0.0",
+        "zod": "3.25.67",
         "zod-from-json-schema": "0.4.2",
       },
       "devDependencies": {
@@ -88,7 +88,7 @@
         "readable-stream": "^4.7.0",
         "seedrandom": "^3.0.5",
         "stripe": "^16.11.0",
-        "zod": "4.0.0",
+        "zod": "3.25.67",
       },
       "devDependencies": {
         "@types/parse-path": "^7.1.0",
@@ -108,7 +108,7 @@
         "async": "^3.2.6",
         "lodash": "^4.17.21",
         "p-limit": "^6.2.0",
-        "zod": "4.0.0",
+        "zod": "3.25.67",
       },
       "devDependencies": {
         "@types/async": "^3.2.24",
@@ -146,7 +146,7 @@
         "ts-pattern": "5.3.1",
         "wrap-ansi": "^9.0.0",
         "ws": "8.18.0",
-        "zod": "4.0.0",
+        "zod": "3.25.67",
       },
     },
     "packages/bigquery": {
@@ -222,10 +222,10 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "dependencies": {
         "ai": "^5.0.0",
-        "zod": "^4.0.0",
+        "zod": "^3.25.67",
       },
       "devDependencies": {
         "@types/bun": "^1.2.11",
@@ -294,7 +294,7 @@
         "three-globe": "^2.42.3",
         "ts-pattern": "^5.7.0",
         "use-debounce": "^10.0.4",
-        "zod": "4.0.0",
+        "zod": "3.25.67",
       },
       "devDependencies": {
         "@commitlint/cli": "^19.8.0",
@@ -338,7 +338,7 @@
     },
   },
   "overrides": {
-    "zod": "4.0.0",
+    "zod": "3.25.67",
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.3", "", {}, "sha512-VQKMkwriZbaOgVCby1UDY/LDk5fIjhQicCvVPFqfe+69fWaPWydbWJ3wRt59/YzIwda1I81loas3oCoHxnqvdA=="],
@@ -3817,7 +3817,7 @@
 
     "zdog": ["zdog@1.1.3", "", {}, "sha512-raRj6r0gPzopFm5XWBJZr/NuV4EEnT4iE+U3dp5FV5pCb588Gmm3zLIp/j9yqqcMiHH8VNQlerLTgOqL7krh6w=="],
 
-    "zod": ["zod@4.0.0", "", {}, "sha512-9diLdTPc/L7w/5jI4C3gHYNiGHDV9IZYxo1e5LSD8cabi65WVTWWb+g2BGPEpUUCOxR4D+6O5B0AzyMdUAXwrw=="],
+    "zod": ["zod@3.25.67", "", {}, "sha512-idA2YXwpCdqUSKRCACDE6ItZD9TZzy3OZMtpfLoh6oPR47lipysRrJfjzMqFxQ3uJuUPyUeWe1r9vLH33xO/Qw=="],
 
     "zod-from-json-schema": ["zod-from-json-schema@0.4.2", "", { "dependencies": { "zod": "^3.25.25" } }, "sha512-U+SIzUUT7P6w1UNAz81Sj0Vko77eQPkZ8LbJeXqQbwLmq1MZlrjB3Gj4LuebqJW25/CzS9WA8SjTgR5lvuv+zA=="],
 

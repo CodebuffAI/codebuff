@@ -2,7 +2,7 @@ import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { escapeString, generateCompactId } from '@codebuff/common/util/string'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
 import { buildSpawnableAgentsDescription } from './prompts'

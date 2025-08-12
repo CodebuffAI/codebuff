@@ -6,7 +6,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getServerSession } from 'next-auth'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 

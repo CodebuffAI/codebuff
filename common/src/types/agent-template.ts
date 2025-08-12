@@ -2,7 +2,7 @@ import type { Model } from '../constants'
 import type { AgentState, AgentTemplateType } from './session-state'
 import type { ToolCall } from '../templates/initial-agents-dir/types/agent-definition'
 import type { ToolName } from '../tools/constants'
-import type { z } from 'zod'
+import type { z } from 'zod/v4'
 
 export type AgentTemplate<
   P = string | undefined,

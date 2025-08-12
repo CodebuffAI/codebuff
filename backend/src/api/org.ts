@@ -1,5 +1,5 @@
 import { findOrganizationForRepository } from '@codebuff/billing'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { logger } from '../util/logger'
 import { getUserIdFromAuthToken } from '../websockets/websocket-action'

@@ -4,7 +4,7 @@ import type { codebuffToolDefs } from './definitions/list'
 import type { FileChange } from '@codebuff/common/actions'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { ToolCallPart } from 'ai'
-import type { z } from 'zod'
+import type { z } from 'zod/v4'
 
 export const globalStopSequence = `${JSON.stringify(endsAgentStepParam)}`
 

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { costModes } from './constants'
 import { GrantTypeValues } from './types/grant'

@@ -1,5 +1,5 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import type { AgentTemplate } from '../types'
 import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'

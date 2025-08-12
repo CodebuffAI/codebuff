@@ -15,7 +15,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { gray, red } from 'picocolors'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { CONFIG_DIR } from './credentials'
 import { logger } from './utils/logger'

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 import { toolNames } from '../tools/constants'

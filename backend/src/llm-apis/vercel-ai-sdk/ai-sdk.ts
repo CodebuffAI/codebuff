@@ -32,7 +32,7 @@ import type {
 import type { CodebuffMessage, Message } from '@codebuff/common/types/message'
 import type { OpenRouterUsageAccounting } from '@openrouter/ai-sdk-provider'
 import type { AssistantModelMessage, UserModelMessage, LanguageModel } from 'ai'
-import type { z } from 'zod'
+import type { z } from 'zod/v4'
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModel => {

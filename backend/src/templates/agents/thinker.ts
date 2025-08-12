@@ -1,6 +1,6 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml } from '@codebuff/common/util/xml'
-import z from 'zod'
+import z from 'zod/v4'
 
 import { PLACEHOLDER } from '../types'
 

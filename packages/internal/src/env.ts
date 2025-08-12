@@ -1,5 +1,5 @@
 import { createEnv } from '@t3-oss/env-nextjs'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 // Only log environment in non-production
 if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
