@@ -56,7 +56,7 @@ import {
   displaySubagentList,
   enterSubagentBuffer,
   isInSubagentBufferMode,
-} from './cli-handlers/subagent'
+} from './cli-handlers/traces'
 import {
   cleanupSubagentListBuffer,
   enterSubagentListBuffer,

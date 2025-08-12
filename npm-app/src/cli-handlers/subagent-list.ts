@@ -2,7 +2,7 @@ import { pluralize } from '@codebuff/common/util/string'
 import { green, yellow, cyan, magenta, bold, gray } from 'picocolors'
 
 import { getSubagentsChronological } from '../subagent-storage'
-import { enterSubagentBuffer } from './subagent'
+import { enterSubagentBuffer } from './traces'
 import {
   ENTER_ALT_BUFFER,
   EXIT_ALT_BUFFER,

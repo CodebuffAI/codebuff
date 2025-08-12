@@ -20,18 +20,19 @@ import {
 
 import type { SubagentData } from '../subagent-storage'
 
+// Add helpers to truncate to first line and reduce sections
+function firstLine(text: string): string {
+  return text.split('\n')[0] || ''
+}
+
 /**
  * Wrap a line to fit within terminal width using robust npm packages
  */
 function wrapLine(line: string, terminalWidth: number): string[] {
   if (!line) return ['']
-
-  // Use string-width to check actual display width
   if (stringWidth(line) <= terminalWidth) {
     return [line]
   }
-
-  // Use wrap-ansi for robust ANSI-aware wrapping
   const wrapped = wrapAnsi(line, terminalWidth, { hard: true })
   return wrapped.split('\n')
 }
@@ -59,9 +60,9 @@ export function displaySubagentList(agents: SubagentData[]) {
   } else {
     agents.forEach((agent) => {
       const status = agent.isActive ? green('●') : gray('○')
-      const promptPreview = agent.prompt
-        ? gray(agent.prompt)
-        : gray('(no prompt)')
+      // Truncate prompt preview to first line
+      const promptFirst = agent.prompt ? firstLine(agent.prompt) : '(no prompt)'
+      const promptPreview = gray(promptFirst)
       console.log(
         `  ${status} ${bold(agent.agentId)} ${gray(`(${agent.agentType})`)}`,
       )
@@ -156,45 +157,35 @@ function updateSubagentContent() {
   }
   lastContentLength = fullContent.length
 
-  // Split content into lines and wrap them properly
-  const terminalWidth = process.stdout.columns || 80
-  const contentBodyLines = fullContent
-    ? fullContent.split('\n')
-    : ['(no content yet)']
+  const contentBodyLines = fullContent ? fullContent.split('\n') : ['(no content yet)']
 
+  const terminalWidth = process.stdout.columns || 80
   const wrappedLines: string[] = []
 
-  // Add prompt if exists (but don't duplicate if it's already in the content)
-  if (
-    agentData.prompt &&
-    !fullContent.includes(`Prompt: ${agentData.prompt}`)
-  ) {
-    const promptLine = bold(gray(`Prompt: ${agentData.prompt}`))
+  // Add prompt if exists (keep prompt line concise)
+  if (agentData.prompt) {
+    const promptLine = bold(gray(`Prompt: ${firstLine(agentData.prompt)}`))
     wrappedLines.push(...wrapLine(promptLine, terminalWidth))
-    wrappedLines.push('') // Add spacing after prompt
+    wrappedLines.push('')
   }
 
   // Wrap each content line, preserving empty lines
   for (let i = 0; i < contentBodyLines.length; i++) {
     const line = contentBodyLines[i]
     if (line === '') {
-      wrappedLines.push('') // Preserve empty lines
+      wrappedLines.push('')
     } else {
       const wrapped = wrapLine(line, terminalWidth)
       wrappedLines.push(...wrapped)
     }
   }
 
-  // Ensure we end with an empty line for spacing
   if (wrappedLines.length > 0 && wrappedLines[wrappedLines.length - 1] !== '') {
     wrappedLines.push('')
   }
 
   contentLines = wrappedLines
-
-  // Always start at the top when entering a new subagent view
   scrollOffset = 0
-
   renderSubagentContent()
 }
 
