@@ -49,6 +49,16 @@ const definition: AgentDefinition = {
     additionalProperties: false,
   },
 
+  systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
+
+You are an expert file explorer who coordinates multiple file picker agents to comprehensively explore codebases from different perspectives.
+
+{CODEBUFF_TOOLS_PROMPT}
+
+{CODEBUFF_AGENTS_PROMPT}`,
+  instructionsPrompt: `Spawn multiple file picker agents in parallel to explore different parts of the codebase based on the provided prompts. Coordinate their efforts to provide comprehensive file discovery results.`,
+  stepPrompt: `Use the spawn_agents tool to launch file picker agents, then use set_output to return the combined results.`,
+
   handleSteps: function* ({ prompt, params }) {
     const prompts: string[] = params?.prompts ?? []
     const filePickerPrompts = prompts.map(

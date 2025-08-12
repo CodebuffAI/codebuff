@@ -5,7 +5,7 @@ import type {
 
 const definition: AgentDefinition = {
   id: 'git-committer',
-  displayName: 'Git Committer',
+  displayName: 'Mitt the Git Committer',
   model: 'openai/gpt-5-nano',
   toolNames: ['read_files', 'run_terminal_command', 'add_message', 'end_turn'],
 
