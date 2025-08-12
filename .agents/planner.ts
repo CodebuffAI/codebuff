@@ -1,16 +1,16 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+
+const config: AgentDefinition = {
   id: 'planner',
   version,
   publisher,
   model: 'x-ai/grok-4-07-09',
   displayName: 'Peter Plan the Planner',
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
-  subagents: [],
-
+  spawnableAgents: [],
   inputSchema: {
     prompt: {
       description:

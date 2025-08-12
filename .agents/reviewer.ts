@@ -1,6 +1,6 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
 const config: AgentConfig = {
   id: 'reviewer',
@@ -24,8 +24,9 @@ const config: AgentConfig = {
     'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
-You are an expert programmer who can articulate very clear feedback on code changes.
 
+const config: AgentDefinition = {
+You are an expert programmer who can articulate very clear feedback on code changes.
 {CODEBUFF_TOOLS_PROMPT}
 
 {CODEBUFF_AGENTS_PROMPT}`,

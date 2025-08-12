@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { validateAgents } from '../templates/agent-validation'
-import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
+import { DynamicAgentDefinitionSchema } from '../types/dynamic-agent-template'
 
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 import type { AgentState } from '../types/session-state'
@@ -87,7 +87,7 @@ describe('handleSteps Parsing Tests', () => {
       },
     }
 
-    const result = DynamicAgentConfigSchema.safeParse(agentConfig)
+    const result = DynamicAgentDefinitionSchema.safeParse(agentConfig)
     expect(result.success).toBe(true)
 
     if (result.success) {

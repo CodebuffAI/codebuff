@@ -12,7 +12,7 @@ import {
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { getInitialSessionState } from '../../common/src/types/session-state'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
 
@@ -119,7 +119,7 @@ export class CodebuffClient {
    * @param previousRun - (Optional) JSON state returned from a previous run() call. Use this to continue a conversation or session with the agent, maintaining context from previous interactions.
    * @param projectFiles - (Optional) All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: { "src/index.ts": "console.log('hi')" }. This helps Codebuff pick good source files for context.
    * @param knowledgeFiles - (Optional) Knowledge files to inject into every run() call. Uses the same schema as projectFiles - keys are file paths and values are file contents. These files are added directly to the agent's context.
-   * @param agentConfigs - (Optional) Array of custom agent configurations. Each object should satisfy the AgentConfig type.
+   * @param agentDefinitions - (Optional) Array of custom agent definitions. Each object should satisfy the AgentDefinition type. You can input the agent's id field into the agent parameter to run that agent.
    * @param maxAgentSteps - (Optional) Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
    *
    * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run.
@@ -132,7 +132,7 @@ export class CodebuffClient {
     previousRun,
     projectFiles,
     knowledgeFiles,
-    agentConfigs,
+    agentDefinitions,
     maxAgentSteps,
   }: {
     agent: string
@@ -142,7 +142,7 @@ export class CodebuffClient {
     previousRun?: RunState
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
-    agentConfigs?: AgentConfig[]
+    agentDefinitions?: AgentDefinition[]
     maxAgentSteps?: number
   }): Promise<RunState> {
     await this.websocketHandler.connect()
@@ -152,7 +152,7 @@ export class CodebuffClient {
       previousRun?.sessionState ??
       initialSessionState(this.cwd, {
         knowledgeFiles,
-        agentConfigs,
+        agentDefinitions,
         projectFiles,
         maxAgentSteps,
       })
@@ -270,15 +270,15 @@ function initialSessionState(
     // TODO: Parse projectFiles into fileTree, fileTokenScores, tokenCallers
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
-    agentConfigs?: AgentConfig[]
+    agentDefinitions?: AgentDefinition[]
     maxAgentSteps?: number
   },
 ) {
-  const { knowledgeFiles = {}, agentConfigs = [] } = options
+  const { knowledgeFiles = {}, agentDefinitions = [] } = options
 
   // Process agentConfigs array and convert handleSteps functions to strings
   const processedAgentTemplates: Record<string, any> = {}
-  agentConfigs.forEach((config) => {
+  agentDefinitions.forEach((config) => {
     const processedConfig = { ...config } as Record<string, any>
     if (
       processedConfig.handleSteps &&

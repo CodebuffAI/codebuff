@@ -27,7 +27,7 @@ import { initAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 
 import type { CliOptions } from './types'
-import { validateAgentConfigsIfAuthenticated } from './utils/agent-validation'
+import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
 
 async function codebuff({
   initialInput,
@@ -57,7 +57,7 @@ async function codebuff({
   // Only load local agents if no specific agent is requested
   const loadLocalAgentsPromise = new Promise<void>((resolve) => {
     loadLocalAgents({ verbose: true }).then((agents) => {
-      validateAgentConfigsIfAuthenticated(Object.values(agents))
+      validateAgentDefinitionsIfAuthenticated(Object.values(agents))
 
       const codebuffConfig = loadCodebuffConfig()
       displayLoadedAgents(codebuffConfig)

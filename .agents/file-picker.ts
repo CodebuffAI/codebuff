@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'file-picker',
   version,
   publisher,

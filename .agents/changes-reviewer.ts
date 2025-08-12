@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig, AgentStepContext } from './types/agent-config'
+import type { AgentDefinition, AgentStepContext } from './types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'changes-reviewer',
   version,
   publisher,

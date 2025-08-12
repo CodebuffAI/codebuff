@@ -1,14 +1,14 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+
+const config: AgentDefinition = {
   id: 'researcher',
   version,
   publisher,
   model: 'gemini-2.5-flash-preview-05-20',
   displayName: 'Reid Searcher the Researcher',
-
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
 
   inputSchema: {

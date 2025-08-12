@@ -1,6 +1,6 @@
-import type { AgentConfig } from '../types/agent-config'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'oss-model-reviewer',
   publisher: 'codebuff',
   model: 'openai/gpt-oss-120b:fast',
@@ -16,7 +16,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
-  subagents: [],
+  spawnableAgents: [],
   systemPrompt: `# Persona: Nit Pick Nick the Reviewer
 
 You are an expert code reviewer with strong reasoning capabilities. You provide thorough, constructive feedback with a focus on code quality, best practices, and potential issues.

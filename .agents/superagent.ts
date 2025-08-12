@@ -1,21 +1,16 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'superagent',
   version,
   publisher,
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Superagent',
 
-  toolNames: [
-    'spawn_agents',
-    'spawn_agents_async',
-    'end_turn',
-    'think_deeply',
-  ],
-  subagents: [
+  toolNames: ['spawn_agents', 'spawn_agents_async', 'end_turn', 'think_deeply'],
+  spawnableAgents: [
     `codebuff/thinker@${version}`,
     `codebuff/base@${version}`,
     `codebuff/ask@${version}`,

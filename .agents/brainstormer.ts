@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'brainstormer',
   version,
   publisher,
@@ -19,7 +19,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
 
   toolNames: ['spawn_agents', 'end_turn'],
-  subagents: [`codebuff/thinker@${version}`, `codebuff/researcher@${version}`],
+  spawnableAgents: [`codebuff/thinker@${version}`, `codebuff/researcher@${version}`],
 
   parentPrompt:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',

@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'base-max',
   version,
   publisher,
@@ -31,7 +31,7 @@ const config: AgentConfig = {
     'think_deeply',
     'update_subgoal',
   ],
-  subagents: [
+  spawnableAgents: [
     `codebuff/file-explorer@${version}`,
     `codebuff/file-picker@${version}`,
     `codebuff/researcher@${version}`,

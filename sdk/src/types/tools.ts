@@ -157,11 +157,11 @@ export interface RunTerminalCommandParams {
   /** CLI command valid for user's OS. */
   command: string
   /** Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC */
-  process_type: 'SYNC' | 'BACKGROUND'
+  process_type?: 'SYNC' | 'BACKGROUND'
   /** The working directory to run the command in. Default is the project root. */
   cwd?: string
   /** Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30 */
-  timeout_seconds: number
+  timeout_seconds?: number
 }
 
 /**

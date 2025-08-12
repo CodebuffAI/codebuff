@@ -1,14 +1,14 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig, AgentStepContext } from './types/agent-config'
+import type { AgentDefinition, AgentStepContext } from './types/agent-definition'
 
-const config: AgentConfig = {
+
+const config: AgentDefinition = {
   id: 'git-committer',
   version,
   publisher,
   displayName: 'Git Committer',
   model: 'anthropic/claude-4-sonnet-20250522',
-
   toolNames: ['read_files', 'run_terminal_command', 'add_message', 'end_turn'],
 
   inputSchema: {

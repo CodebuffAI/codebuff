@@ -81,7 +81,7 @@ const HandleStepsSchema = z
   .optional()
 
 // Validates the Typescript template file.
-export const DynamicAgentConfigSchema = z.object({
+export const DynamicAgentDefinitionSchema = z.object({
   id: z
     .string()
     .regex(
@@ -139,10 +139,14 @@ export const DynamicAgentConfigSchema = z.object({
   // Optional generator function for programmatic agents
   handleSteps: z.union([HandleStepsSchema, z.string()]).optional(),
 })
-export type DynamicAgentConfig = z.input<typeof DynamicAgentConfigSchema>
-export type DynamicAgentConfigParsed = z.infer<typeof DynamicAgentConfigSchema>
+export type DynamicAgentDefinition = z.input<
+  typeof DynamicAgentDefinitionSchema
+>
+export type DynamicAgentDefinitionParsed = z.infer<
+  typeof DynamicAgentDefinitionSchema
+>
 
-export const DynamicAgentTemplateSchema = DynamicAgentConfigSchema.extend({
+export const DynamicAgentTemplateSchema = DynamicAgentDefinitionSchema.extend({
   systemPrompt: z.string(),
   instructionsPrompt: z.string(),
   stepPrompt: z.string(),

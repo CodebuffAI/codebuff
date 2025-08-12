@@ -1,9 +1,9 @@
-import {
-  AgentConfig,
+import type {
+  AgentDefinition,
   AgentStepContext,
-} from '@codebuff/common/util/types/agent-config.d'
+} from '../types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'diff-reviewer-2',
   displayName: 'Diff Reviewer (Level 2)',
   model: 'openai/gpt-5',

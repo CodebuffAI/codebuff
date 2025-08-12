@@ -5,9 +5,9 @@
  * Import these types in your agent files to get full type safety and IntelliSense.
  *
  * Usage in .agents/your-agent.ts:
- *   import { AgentConfig, ToolName, ModelName } from './types/agent-config'
+ *   import { AgentDefinition, ToolName, ModelName } from './types/agent-definition'
  *
- *   const config: AgentConfig = {
+ *   const config: AgentDefinition = {
  *     // ... your agent configuration with full type safety ...
  *   }
  *
@@ -15,10 +15,10 @@
  */
 
 // ============================================================================
-// Core Agent Configuration Types
+// Agent Definition and Utility Types
 // ============================================================================
 
-export interface AgentConfig {
+export interface AgentDefinition {
   /** Unique identifier for this agent. Must contain only lowercase letters, numbers, and hyphens, e.g. 'code-reviewer' */
   id: string
 
@@ -41,7 +41,13 @@ export interface AgentConfig {
   /** Tools this agent can use. */
   toolNames?: ToolName[]
 
-  /** Other agents this agent can spawn. */
+  /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
+   *
+   * Use the fully qualified agent id from the agent store, including publisher and version: 'codebuff/file-picker@0.0.1'
+   * (publisher and version are required!)
+   *
+   * Or, use the agent id from a local agent file in your .agents directory: 'file-picker'.
+   */
   spawnableAgents?: string[]
 
   // ============================================================================
@@ -148,7 +154,7 @@ export interface AgentConfig {
   ) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
-    { agentState: AgentState; toolResult: ToolResult | undefined }
+    { agentState: AgentState; toolResult: string | undefined }
   >
 }
 
@@ -166,9 +172,8 @@ export interface AgentState {
  * Message in conversation history
  */
 export interface Message {
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant'
   content: string
-  timestamp?: number
 }
 
 /**
@@ -189,15 +194,6 @@ export type ToolCall<T extends ToolName = ToolName> = {
     args?: Tools.GetToolParams<K>
   }
 }[T]
-
-/**
- * Result from executing a tool
- */
-export interface ToolResult {
-  toolName: string
-  toolCallId: string
-  result: string
-}
 
 /**
  * JSON Schema definition (for prompt schema or output schema)

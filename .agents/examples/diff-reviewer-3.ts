@@ -1,9 +1,9 @@
-import {
-  AgentConfig,
+import type {
+  AgentDefinition,
   AgentStepContext,
-} from '@codebuff/common/util/types/agent-config.d'
+} from '../types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'diff-reviewer-3',
 
   displayName: 'Diff Reviewer (Level 3)',
@@ -18,7 +18,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
 
   toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
-  subagents: ['james/file-explorer@0.1.3'],
+  spawnableAgents: ['james/file-explorer@0.1.3'],
 
   parentPrompt: 'Spawn when you need to review code changes in the git diff',
 

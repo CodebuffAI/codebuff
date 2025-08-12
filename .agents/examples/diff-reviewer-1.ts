@@ -1,6 +1,6 @@
-import { AgentConfig } from '@codebuff/common/util/types/agent-config.d'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'diff-reviewer-1',
 
   displayName: 'Diff Reviewer (Level 1)',

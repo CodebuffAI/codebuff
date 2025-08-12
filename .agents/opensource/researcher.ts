@@ -1,6 +1,6 @@
-import type { AgentConfig } from '../types/agent-config'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'oss-model-researcher',
   publisher: 'codebuff',
   model: 'z-ai/glm-4.5:fast',
@@ -17,7 +17,7 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-  subagents: [],
+  spawnableAgents: [],
   systemPrompt: `# Persona: Reid the Researcher
 
 You are an expert researcher focused exclusively on external research and documentation analysis. Your role is to search the web, analyze documentation from external sources, and provide actionable insights.

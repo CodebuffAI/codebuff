@@ -4,7 +4,7 @@ import * as path from 'path'
 import {
   AGENT_TEMPLATES_DIR,
   openrouterModels,
-  AGENT_CONFIG_FILE,
+  AGENT_DEFINITION_FILE,
 } from '@codebuff/common/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import z from 'zod/v4'
@@ -15,7 +15,7 @@ import type { ToolName } from '@codebuff/common/tools/constants'
 
 const COMMON_UTIL_PATH = '../../../../common/src/util'
 const TEMPLATE_RELATIVE_PATH =
-  `${COMMON_UTIL_PATH}/types/${AGENT_CONFIG_FILE}` as const
+  `${COMMON_UTIL_PATH}/types/${AGENT_DEFINITION_FILE}` as const
 // Import to validate path exists at compile time
 import(TEMPLATE_RELATIVE_PATH)
 
@@ -23,7 +23,7 @@ const TEMPLATE_PATH = path.join(__dirname, TEMPLATE_RELATIVE_PATH)
 const DEFAULT_MODEL = openrouterModels.openrouter_claude_sonnet_4
 const TYPES_DIR = path.join(AGENT_TEMPLATES_DIR, 'types')
 const EXAMPLES_DIR = path.join(AGENT_TEMPLATES_DIR, 'examples')
-const TEMPLATE_TYPES_PATH = path.join(TYPES_DIR, AGENT_CONFIG_FILE)
+const TEMPLATE_TYPES_PATH = path.join(TYPES_DIR, AGENT_DEFINITION_FILE)
 const TOOL_DEFINITIONS_FILE = 'tools.d.ts'
 const TOOL_DEFINITIONS_PATH = path.join(TYPES_DIR, TOOL_DEFINITIONS_FILE)
 
@@ -37,7 +37,7 @@ export const agentBuilder = (
   try {
     agentTemplateContent = fs.readFileSync(TEMPLATE_PATH, 'utf8')
   } catch (error) {
-    console.warn(`Could not read ${AGENT_CONFIG_FILE}:`, error)
+    console.warn(`Could not read ${AGENT_DEFINITION_FILE}:`, error)
     agentTemplateContent = '// Agent template types not available'
   }
   // Read the tools.d.ts content from common package
@@ -137,7 +137,7 @@ export const agentBuilder = (
       '## Environment Setup Complete',
       '',
       'Your environment has been automatically prepared with:',
-      '- Agent template type definitions in `.agents/types/agent-config.d.ts`',
+      '- Agent template type definitions in `.agents/types/agent-definition.d.ts`',
       '- Tool type definitions in `.agents/types/tools.d.ts`',
       '- Example agent files copied to `.agents/` directory for reference',
       '',
@@ -180,10 +180,10 @@ export const agentBuilder = (
       '3. Write a comprehensive system prompt',
       `4. Create the complete agent template file in ${AGENT_TEMPLATES_DIR}`,
       '5. Ensure the template follows all conventions and best practices',
-      '6. Use the AgentConfig interface for the configuration',
-      '7. Start the file with: import type { AgentConfig } from "./types/agent-config"',
+      '6. Use the AgentDefinition interface for the configuration',
+      '7. Start the file with: import type { AgentDefinition } from "./types/agent-definition.d.ts"',
       '',
-      'Create agent templates that are focused, efficient, and well-documented. Always import the AgentConfig type and export a default configuration object.',
+      'Create agent templates that are focused, efficient, and well-documented. Always import the AgentDefinition type and export a default configuration object.',
     ].join('\n'),
     instructionsPrompt: `You are helping to create or edit an agent template. The user will describe what kind of agent they want to create or how they want to modify an existing agent.
 
@@ -237,7 +237,7 @@ IMPORTANT: Always end your response with the end_turn tool when you have complet
         },
       }
 
-      // Step 2: Write the AGENT_CONFIG_FILE with the template content
+      // Step 2: Write the AGENT_DEFINITION_FILE with the template content
       yield {
         toolName: 'write_file',
         args: {

@@ -1,8 +1,8 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'file-explorer',
   version,
   publisher,
@@ -13,7 +13,7 @@ const config: AgentConfig = {
   outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  subagents: [`file-picker`],
+  spawnableAgents: [`file-picker`],
   inputSchema: {
     prompt: {
       description: 'What you need to accomplish by exploring the codebase',

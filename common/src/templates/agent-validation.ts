@@ -6,7 +6,7 @@ import {
 } from '../util/agent-template-validation'
 import { logger } from '../util/logger'
 import {
-  DynamicAgentConfigSchema,
+  DynamicAgentDefinitionSchema,
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
 import type { AgentTemplate } from '../types/agent-template'
@@ -167,7 +167,7 @@ export function validateSingleAgent(
     // First validate against the Zod schema
     let validatedConfig: DynamicAgentTemplate
     try {
-      const typedAgentConfig = DynamicAgentConfigSchema.parse(template)
+      const typedAgentDefinition = DynamicAgentDefinitionSchema.parse(template)
 
       // Convert handleSteps function to string if present
       let handleStepsString: string | undefined
@@ -176,10 +176,10 @@ export function validateSingleAgent(
       }
 
       validatedConfig = DynamicAgentTemplateSchema.parse({
-        ...typedAgentConfig,
-        systemPrompt: typedAgentConfig.systemPrompt || '',
-        instructionsPrompt: typedAgentConfig.instructionsPrompt || '',
-        stepPrompt: typedAgentConfig.stepPrompt || '',
+        ...typedAgentDefinition,
+        systemPrompt: typedAgentDefinition.systemPrompt || '',
+        instructionsPrompt: typedAgentDefinition.instructionsPrompt || '',
+        stepPrompt: typedAgentDefinition.stepPrompt || '',
         handleSteps: handleStepsString,
       })
     } catch (error: any) {
@@ -195,6 +195,7 @@ export function validateSingleAgent(
         error: `${agentContext}: Schema validation failed: ${error.message}`,
       }
     }
+
     // Validate spawnable agents (skip if requested, e.g., for database agents)
     if (!skipSubagentValidation) {
       const spawnableAgentValidation = validateSpawnableAgents(
@@ -227,7 +228,6 @@ export function validateSingleAgent(
         : filePath
           ? `Agent in ${filePath}`
           : 'Agent'
-
       return {
         success: false,
         error: `${agentContext}: ${

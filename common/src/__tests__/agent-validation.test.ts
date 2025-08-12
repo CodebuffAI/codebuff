@@ -10,7 +10,7 @@ import {
 
 import { validateAgents } from '../templates/agent-validation'
 import { clearMockedModules, mockModule } from '../testing/mock-modules'
-import { DynamicAgentConfigSchema } from '../types/dynamic-agent-template'
+import { DynamicAgentDefinitionSchema } from '../types/dynamic-agent-template'
 import { getStubProjectFileContext } from '../util/file'
 
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
@@ -690,7 +690,7 @@ describe('Agent Validation', () => {
         },
       }
 
-      const result = DynamicAgentConfigSchema.safeParse(agentConfig)
+      const result = DynamicAgentDefinitionSchema.safeParse(agentConfig)
       expect(result.success).toBe(true)
 
       if (result.success) {

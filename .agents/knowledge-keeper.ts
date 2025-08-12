@@ -1,14 +1,14 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
-const config: AgentConfig = {
+
+const config: AgentDefinition = {
   id: 'knowledge-keeper',
   version,
   publisher,
   displayName: 'Kendra the Knowledge Keeper',
   model: 'anthropic/claude-4-sonnet-20250522',
-
   toolNames: [
     'read_files',
     'write_file',
@@ -18,7 +18,7 @@ const config: AgentConfig = {
     'spawn_agents',
     'end_turn',
   ],
-  subagents: [
+  spawnableAgents: [
     `codebuff/file-picker@${version}`,
     `codebuff/researcher@${version}`,
   ],

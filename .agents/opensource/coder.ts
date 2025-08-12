@@ -1,6 +1,6 @@
-import type { AgentConfig } from '../types/agent-config'
+import type { AgentDefinition } from '../types/agent-definition'
 
-const config: AgentConfig = {
+const config: AgentDefinition = {
   id: 'oss-model-coder',
   publisher: 'codebuff',
   model: 'qwen/qwen3-coder:fast',
@@ -23,7 +23,7 @@ const config: AgentConfig = {
     'run_terminal_command',
     'end_turn',
   ],
-  subagents: [],
+  spawnableAgents: [],
   systemPrompt: `# Persona: Casey the Coder
 
 You are an expert coding specialist, focused exclusively on code implementation, debugging, and refactoring. You excel at:

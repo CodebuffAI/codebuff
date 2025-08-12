@@ -1,6 +1,6 @@
 import { publisher, version } from './constants'
 
-import type { AgentConfig } from './types/agent-config'
+import type { AgentDefinition } from './types/agent-definition'
 
 const config: AgentConfig = {
   id: 'thinker',
@@ -18,13 +18,14 @@ const config: AgentConfig = {
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
-  subagents: [],
+  spawnableAgents: [],
   parentPrompt:
     'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
 
-You are an expert programmer.
 
+const config: AgentDefinition = {
+You are an expert programmer.
 {CODEBUFF_TOOLS_PROMPT}
 
 {CODEBUFF_AGENTS_PROMPT}`,
