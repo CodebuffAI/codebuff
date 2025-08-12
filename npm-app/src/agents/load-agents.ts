@@ -1,7 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { getErrorObject } from '@codebuff/common/util/error'
 import { cyan, green } from 'picocolors'
 
 import { getAllTsFiles, getAgentsDirectory } from './agent-utils'
@@ -35,7 +34,9 @@ export async function loadLocalAgents({
         agentModule = await require(fullPath)
       } catch (error: any) {
         if (verbose) {
-          console.error('Error importing agent:', getErrorObject(error))
+          console.error(
+            `Error importing agent: ${error.name} - ${error.message}\n${error.stack}`,
+          )
         }
         continue
       }
