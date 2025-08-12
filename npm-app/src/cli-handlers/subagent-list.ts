@@ -2,7 +2,7 @@ import { pluralize } from '@codebuff/common/util/string'
 import { green, yellow, cyan, magenta, bold, gray } from 'picocolors'
 
 import { getSubagentsChronological } from '../subagent-storage'
-import { enterSubagentBuffer } from './subagent'
+import { enterSubagentBuffer } from './traces'
 import {
   ENTER_ALT_BUFFER,
   EXIT_ALT_BUFFER,
@@ -329,7 +329,8 @@ function renderSubagentList() {
   }
 
   // Display status line at bottom
-  const statusLine = `\n${gray(`Use ↑/↓/j/k to navigate, PgUp/PgDn for fast scroll, Enter to view, ESC to go back`)}`
+  // Update: mention ESC or q
+  const statusLine = `\n${gray(`Use ↑/↓/j/k to navigate, PgUp/PgDn for fast scroll, Enter to view, ESC or q to go back`)}`
 
   process.stdout.write(statusLine)
   process.stdout.write(HIDE_CURSOR)
@@ -345,7 +346,11 @@ function setupSubagentListKeyHandler(rl: any, onExit: () => void) {
 
   // Add our custom handler
   process.stdin.on('keypress', (str: string, key: any) => {
-    if (key && key.name === 'escape') {
+    // Support ESC or 'q' (no ctrl/meta) to go back
+    if (
+      (key && key.name === 'escape') ||
+      (!key?.ctrl && !key?.meta && str === 'q')
+    ) {
       exitSubagentListBuffer(rl)
       onExit()
       return
