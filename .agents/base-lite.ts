@@ -335,10 +335,9 @@ You have {CODEBUFF_REMAINING_STEPS} more response(s) before you will be cut off 
 Assistant cwd (project root): {CODEBUFF_PROJECT_ROOT}
 User cwd: {CODEBUFF_USER_CWD}
 
-# End turn only if:
- - You asked the user a question — IMMEDIATELY call end_turn in this same response and wait for their reply; or
- - The task is fully complete and nothing else is needed — call end_turn now.
- - Do NOT end_turn immediately after context-gathering tools (read_files, code_search, browser_logs, file-explorer/file-picker/researcher); continue processing next actions.
+IMPORTANT – Pay special attention:
+ - If you just asked the user a question or the task is fully completed and nothing else is needed — IMMEDIATELY call end_turn in this same response and wait for their reply; or
+ - Do NOT end_turn immediately after context-gathering tools (read_files, code_search, browser_logs, run_terminal_command, file-explorer/file-picker/researcher); continue processing next actions.
 
 </system>
 `,
