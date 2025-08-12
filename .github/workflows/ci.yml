@@ -130,16 +130,7 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: cd ${{ matrix.package }} && find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} bun test --reporter=junit --reporter-outfile=test-results.xml {}
-
-      - name: Publish Test Results
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: ${{ matrix.package }} Test Results
-          path: ${{ matrix.package }}/test-results.xml
-          reporter: java-junit
-          fail-on-error: true
+          command: cd ${{ matrix.package }} && find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}
@@ -199,16 +190,7 @@ jobs:
         with:
           timeout_minutes: 15
           max_attempts: 3
-          command: cd ${{ matrix.package }} && find src -name '*.integration.test.ts' | sort | xargs -I {} bun test --reporter=junit --reporter-outfile=integration-test-results.xml {}
-
-      - name: Publish Integration Test Results
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: ${{ matrix.package }} Integration Test Results
-          path: ${{ matrix.package }}/integration-test-results.xml
-          reporter: java-junit
-          fail-on-error: true
+          command: cd ${{ matrix.package }} && find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}
