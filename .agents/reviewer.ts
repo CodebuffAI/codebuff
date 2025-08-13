@@ -6,7 +6,7 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'reviewer',
   publisher,
-  ...reviewer('openai/gpt-oss-120b:nitro'),
+  ...reviewer('qwen/qwen3-235b-a22b-thinking-2507:nitro'),
 }
 
 export default definition
