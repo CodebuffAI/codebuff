@@ -1,35 +1,25 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml } from '@codebuff/common/util/xml'
-import z from 'zod/v4'
 
-import { PLACEHOLDER } from '../types'
-
-import type { AgentTemplate } from '../types'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
-
-export const planner = (model: Model): Omit<AgentTemplate, 'id'> => ({
+export const planner = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.planner.displayName,
   spawnerPrompt: AGENT_PERSONAS.planner.purpose,
   inputSchema: {
-    prompt: z
-      .string()
-      .describe(
+    prompt: {
+      type: 'string',
+      description:
         'What problem you to solve and a few ideas and suggestions for the plan',
-      ),
+    },
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['think_deeply', 'spawn_agents', 'end_turn'],
   spawnableAgents: [], // ARCHIVED: [AgentTemplateTypes.dry_run],
 
-  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
-
-You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.
-
-${PLACEHOLDER.TOOLS_PROMPT}
-
-${PLACEHOLDER.AGENTS_PROMPT}`,
+  systemPrompt: `You are an expert software architect. You are good at creating comprehensive plans to tackle the user request.`,
 
   instructionsPrompt: `Steps for your response:
 1. Use the <think_deeply> tool to think through cruxes for the plan, and tricky cases. Consider alternative approaches. Be sure to close the tool call with ${closeXml('think_deeply')}.

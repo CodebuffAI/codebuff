@@ -1,30 +1,54 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import z from 'zod/v4'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
-} from '../base-prompts'
-import { baseAgentSubagents, baseAgentToolNames } from '../types'
+} from '../prompts'
 
-import type { AgentTemplate } from '../types'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
 import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+
+const baseAgentToolNames = [
+  'create_plan',
+  'run_terminal_command',
+  'str_replace',
+  'write_file',
+  'spawn_agents',
+  'add_subgoal',
+  'browser_logs',
+  'code_search',
+  'end_turn',
+  'read_files',
+  'think_deeply',
+  'update_subgoal',
+] as const
+
+const baseAgentSubagents = [
+  AgentTemplateTypes.file_picker,
+  AgentTemplateTypes.researcher,
+  AgentTemplateTypes.thinker,
+  AgentTemplateTypes.reviewer,
+]
 
 export const thinkingBase = (
   model: Model,
   allAvailableAgents?: string[],
-): Omit<AgentTemplate, 'id'> => ({
+): Omit<SecretAgentDefinition, 'id'> => ({
   model,
-  displayName: AGENT_PERSONAS.base_lite.displayName,
-  spawnerPrompt: AGENT_PERSONAS.base_lite.purpose,
+  displayName: AGENT_PERSONAS['base-lite'].displayName,
+  spawnerPrompt: AGENT_PERSONAS['base-lite'].purpose,
   inputSchema: {
-    prompt: z.string().describe('A coding task to complete'),
+    prompt: {
+      type: 'string',
+      description: 'A coding task to complete',
+    },
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: baseAgentToolNames,
+  toolNames: [...baseAgentToolNames],
   spawnableAgents: allAvailableAgents
     ? (allAvailableAgents as any[])
     : baseAgentSubagents,

@@ -1,8 +1,10 @@
+import { publisher } from '../constants'
+
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'oss-model-base',
-  publisher: 'codebuff',
+  publisher,
   model: 'qwen/qwen3-235b-a22b-2507:fast',
   displayName: 'Buffy the Coding Assistant',
   spawnerPrompt:

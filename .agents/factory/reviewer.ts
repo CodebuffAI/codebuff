@@ -1,31 +1,25 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml } from '@codebuff/common/util/xml'
-import z from 'zod/v4'
 
-import { PLACEHOLDER } from '../types'
-
-import type { AgentTemplate } from '../types'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
 
-export const reviewer = (model: Model): Omit<AgentTemplate, 'id'> => ({
+export const reviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.reviewer.displayName,
   spawnerPrompt: AGENT_PERSONAS.reviewer.purpose,
   inputSchema: {
-    prompt: z.string().describe('What should be reviewed. Be brief.'),
+    prompt: {
+      type: 'string',
+      description: 'What should be reviewed. Be brief.',
+    },
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
   spawnableAgents: [],
 
-  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
-
-You are an expert programmer who can articulate very clear feedback on code changes.
-
-${PLACEHOLDER.TOOLS_PROMPT}
-
-${PLACEHOLDER.AGENTS_PROMPT}`,
+  systemPrompt: `You are an expert programmer who can articulate very clear feedback on code changes.`,
 
   instructionsPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.
 

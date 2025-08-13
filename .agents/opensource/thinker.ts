@@ -1,8 +1,10 @@
+import { publisher } from '../constants'
+
 import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'oss-model-thinker',
-  publisher: 'codebuff',
+  publisher,
   model: 'qwen/qwen3-235b-a22b-thinking-2507:fast',
   displayName: 'Theo the Thinker',
   spawnerPrompt:

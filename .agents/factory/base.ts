@@ -1,25 +1,27 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import z from 'zod/v4'
 
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
-} from '../base-prompts'
+} from '../prompts'
+import { AgentTemplateTypes } from '../types/secret-agent-definition'
 
-import type { AgentTemplate } from '../types'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
 
 export const base = (
   model: Model,
   allAvailableAgents?: string[],
-): Omit<AgentTemplate, 'id'> => ({
+): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.base.displayName,
   spawnerPrompt: AGENT_PERSONAS.base.purpose,
   inputSchema: {
-    prompt: z.string().describe('A coding task to complete'),
+    prompt: {
+      type: 'string',
+      description: 'A coding task to complete',
+    },
   },
   outputMode: 'last_message',
   includeMessageHistory: false,

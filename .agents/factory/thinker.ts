@@ -1,31 +1,23 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { closeXml } from '@codebuff/common/util/xml'
-import z from 'zod/v4'
 
-import { PLACEHOLDER } from '../types'
-
-import type { AgentTemplate } from '../types'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
-
-export const thinker = (model: Model): Omit<AgentTemplate, 'id'> => ({
+export const thinker = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.thinker.displayName,
   spawnerPrompt: AGENT_PERSONAS.thinker.purpose,
   inputSchema: {
-    prompt: z.string().describe('The problem you are trying to solve'),
+    prompt: {
+      type: 'string',
+      description: 'The problem you are trying to solve',
+    },
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['end_turn'],
   spawnableAgents: [],
 
-  systemPrompt: `# Persona: ${PLACEHOLDER.AGENT_NAME}
-
-You are an expert programmer.
-
-${PLACEHOLDER.TOOLS_PROMPT}
-
-${PLACEHOLDER.AGENTS_PROMPT}`,
+  systemPrompt: `You are an expert programmer and deep thinker.`,
 
   instructionsPrompt: `
 Think deeply, step by step, about the user request and how best to approach it.
@@ -39,5 +31,5 @@ Try not to be too prescriptive or confident in one solution. Instead, give clear
 You must be extremely concise and to the point.
 `.trim(),
 
-  stepPrompt: `Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+  stepPrompt: `Don't forget to end your response with the end_turn tool.`,
 })

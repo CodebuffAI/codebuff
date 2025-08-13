@@ -46,7 +46,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
   const validName = toolName as T
 
   const processedParameters: Record<string, any> = {}
-  for (const [param, val] of Object.entries(rawToolCall.input)) {
+  for (const [param, val] of Object.entries(rawToolCall.input ?? {})) {
     processedParameters[param] = val
   }
 

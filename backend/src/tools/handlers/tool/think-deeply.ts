@@ -17,5 +17,8 @@ export const handleThinkDeeply = ((params: {
     'Thought deeply',
   )
 
-  return { result: previousToolCallFinished.then(() => ''), state: {} }
+  return {
+    result: previousToolCallFinished.then(() => 'Deep thinking completed.'),
+    state: {},
+  }
 }) satisfies CodebuffToolHandlerFunction<'think_deeply'>

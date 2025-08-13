@@ -116,7 +116,7 @@ export interface AgentDefinition {
   /** Programmatically step the agent forward and run tools.
    *
    * You can either yield:
-   * - A tool call object with toolName and args properties.
+   * - A tool call object with toolName and input properties.
    * - 'STEP' to run agent's model and generate one assistant message.
    * - 'STEP_ALL' to run the agent's model until it uses the end_turn tool or stops includes no tool calls in a message.
    *
@@ -126,7 +126,7 @@ export interface AgentDefinition {
    * function* handleSteps({ agentStep, prompt, params}) {
    *   const { toolResult } = yield {
    *     toolName: 'read_files',
-   *     args: { paths: ['file1.txt', 'file2.txt'] }
+   *     input: { paths: ['file1.txt', 'file2.txt'] }
    *   }
    *   yield 'STEP_ALL'
    * }
@@ -136,7 +136,7 @@ export interface AgentDefinition {
    *   while (true) {
    *     yield {
    *       toolName: 'spawn_agents',
-   *       args: {
+   *       input: {
    *         agents: [
    *         {
    *           agent_type: 'thinker',
@@ -320,3 +320,33 @@ export type ModelName =
 import type * as Tools from './tools'
 export type { Tools }
 type ToolName = Tools.ToolName
+
+// ============================================================================
+// Placeholders (ported from backend/src/templates/types.ts)
+// ============================================================================
+
+const placeholderNames = [
+  'AGENT_NAME',
+  'AGENTS_PROMPT',
+  'CONFIG_SCHEMA',
+  'FILE_TREE_PROMPT',
+  'GIT_CHANGES_PROMPT',
+  'INITIAL_AGENT_PROMPT',
+  'KNOWLEDGE_FILES_CONTENTS',
+  'PROJECT_ROOT',
+  'REMAINING_STEPS',
+  'SYSTEM_INFO_PROMPT',
+  'TOOLS_PROMPT',
+  'USER_CWD',
+  'USER_INPUT_PROMPT',
+] as const
+
+type PlaceholderType<T extends readonly string[]> = {
+  [K in T[number]]: `{CODEBUFF_${K}}`
+}
+
+export const PLACEHOLDER = Object.fromEntries(
+  placeholderNames.map((name) => [name, `{CODEBUFF_${name}}` as const]),
+) as PlaceholderType<typeof placeholderNames>
+export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
+export const placeholderValues = Object.values(PLACEHOLDER)

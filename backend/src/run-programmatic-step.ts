@@ -1,4 +1,5 @@
 import { getToolCallString } from '@codebuff/common/tools/utils'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
@@ -248,7 +249,7 @@ export async function runProgrammaticStep(
     return { agentState: state.agentState, endTurn }
   } catch (error) {
     logger.error(
-      { error, template: template.id },
+      { error: getErrorObject(error), template: template.id },
       'Programmatic agent execution failed',
     )
 

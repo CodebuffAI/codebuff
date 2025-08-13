@@ -1,10 +1,9 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'brainstormer',
-  version,
   publisher,
   displayName: 'Brian the Brainstormer',
   model: 'anthropic/claude-4-sonnet-20250522',
@@ -19,10 +18,7 @@ const definition: AgentDefinition = {
   outputMode: 'last_message',
 
   toolNames: ['spawn_agents', 'end_turn'],
-  spawnableAgents: [
-    `codebuff/thinker@${version}`,
-    `codebuff/researcher@${version}`,
-  ],
+  spawnableAgents: ['thinker', 'researcher'],
 
   spawnerPrompt:
     'Acts as a creative thought partner, generating ideas and exploring alternative viewpoints to help think through problems.',

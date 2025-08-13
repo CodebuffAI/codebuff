@@ -1,21 +1,21 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import z from 'zod/v4'
 
-import { PLACEHOLDER } from '../types'
-
-import type { AgentTemplate } from '../types'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
 
 export const superagent = (
   model: Model,
   allAvailableAgents?: string[],
-): Omit<AgentTemplate, 'id'> => ({
+): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.superagent.displayName,
   spawnerPrompt: AGENT_PERSONAS.superagent.purpose,
   inputSchema: {
-    prompt: z.string().describe('A coding task to complete'),
+    prompt: {
+      type: 'string',
+      description: 'A coding task to complete',
+    },
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
@@ -28,13 +28,7 @@ export const superagent = (
         AgentTemplateTypes.ask,
       ],
 
-  systemPrompt:
-    `You are an expert orchestrator that can solve any problem, including coding tasks.
-
-${PLACEHOLDER.TOOLS_PROMPT}
-
-${PLACEHOLDER.AGENTS_PROMPT}
-`.trim(),
+  systemPrompt: `You are an expert orchestrator that can solve any problem, including coding tasks.`,
   instructionsPrompt: `
 Answer the user's question or complete the task by spawning copies of the base agent.
 
