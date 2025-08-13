@@ -52,7 +52,7 @@ import { match, P } from 'ts-pattern'
 import { z } from 'zod/v4'
 
 import { getLoadedAgentNames, loadLocalAgents } from './agents/load-agents'
-import { resolveCliAgentId } from './agents/resolve'
+
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -1047,15 +1047,11 @@ export class Client {
     const cliParams = cli.initialParams
     cli.initialParams = undefined
 
-    // Resolve agent id: if unprefixed and not local, default to <DEFAULT_ORG_PREFIX><name>
-    const localIds = Object.keys(getLoadedAgentNames())
-    const resolvedAgentId = resolveCliAgentId(cliAgent, localIds)
-
     const action: ClientAction = {
       type: 'prompt',
       promptId: userInputId,
       prompt: cleanPrompt,
-      agentId: resolvedAgentId, // use resolved id here
+      agentId: cliAgent || 'base',
       promptParams: cliParams, // Add parsed params
       sessionState: this.sessionState,
       toolResults,
