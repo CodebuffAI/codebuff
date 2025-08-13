@@ -19,7 +19,10 @@ import type {
 } from 'express'
 
 function createMockReq(query: Record<string, any>): Partial<ExpressRequest> {
-  return { query, headers: {} } as any
+  return { 
+    query, 
+    headers: { 'x-codebuff-api-key': 'test-api-key' } 
+  } as any
 }
 
 function createMockRes() {
@@ -126,5 +129,16 @@ describe('validateAgentNameHandler', () => {
     expect(res.status).toHaveBeenCalledWith(400)
     expect(res.jsonPayload.valid).toBe(false)
     expect(res.jsonPayload.message).toBe('Invalid request')
+  })
+
+  it('returns 403 for requests without API key', async () => {
+    const req = { query: { agentId: 'test' }, headers: {} } as any
+    const res = createMockRes()
+
+    await validateAgentNameHandler(req as any, res as any, noopNext)
+
+    expect(res.status).toHaveBeenCalledWith(403)
+    expect(res.jsonPayload.valid).toBe(false)
+    expect(res.jsonPayload.message).toBe('API key required')
   })
 })
