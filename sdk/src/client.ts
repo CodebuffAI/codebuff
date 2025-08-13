@@ -1,7 +1,7 @@
 import { execFileSync } from 'child_process'
-import os from 'os'
 
 import { CODEBUFF_BINARY } from './constants'
+import { initialSessionState, type RunState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
@@ -11,11 +11,9 @@ import {
   type ServerAction,
 } from '../../common/src/actions'
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
-import { getInitialSessionState } from '../../common/src/types/session-state'
 
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
-import type { SessionState } from '../../common/src/types/session-state'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -37,11 +35,6 @@ export type CodebuffClientOptions = {
       ) => Promise<{ files: Record<string, string | null> }>
     }
   >
-}
-
-type RunState = {
-  sessionState: SessionState
-  toolResults: ServerAction<'prompt-response'>['toolResults']
 }
 
 export class CodebuffClient {
@@ -272,65 +265,4 @@ export class CodebuffClient {
       },
     }
   }
-}
-
-function initialSessionState(
-  cwd: string,
-  options: {
-    // TODO: Parse projectFiles into fileTree, fileTokenScores, tokenCallers
-    projectFiles?: Record<string, string>
-    knowledgeFiles?: Record<string, string>
-    agentDefinitions?: AgentDefinition[]
-    maxAgentSteps?: number
-  },
-) {
-  const { knowledgeFiles = {}, agentDefinitions = [] } = options
-
-  // Process agentDefinitions array and convert handleSteps functions to strings
-  const processedAgentTemplates: Record<string, any> = {}
-  agentDefinitions.forEach((definition) => {
-    const processedConfig = { ...definition } as Record<string, any>
-    if (
-      processedConfig.handleSteps &&
-      typeof processedConfig.handleSteps === 'function'
-    ) {
-      processedConfig.handleSteps = processedConfig.handleSteps.toString()
-    }
-    if (processedConfig.id) {
-      processedAgentTemplates[processedConfig.id] = processedConfig
-    }
-  })
-
-  const initialState = getInitialSessionState({
-    projectRoot: cwd,
-    cwd,
-    fileTree: [],
-    fileTokenScores: {},
-    tokenCallers: {},
-    knowledgeFiles,
-    userKnowledgeFiles: {},
-    agentTemplates: processedAgentTemplates,
-    gitChanges: {
-      status: '',
-      diff: '',
-      diffCached: '',
-      lastCommitMessages: '',
-    },
-    changesSinceLastChat: {},
-    shellConfigFiles: {},
-    systemInfo: {
-      platform: process.platform,
-      shell: process.platform === 'win32' ? 'cmd.exe' : 'bash',
-      nodeVersion: process.version,
-      arch: process.arch,
-      homedir: os.homedir(),
-      cpus: os.cpus().length ?? 1,
-    },
-  })
-
-  if (options.maxAgentSteps) {
-    initialState.mainAgentState.stepsRemaining = options.maxAgentSteps
-  }
-
-  return initialState
 }
