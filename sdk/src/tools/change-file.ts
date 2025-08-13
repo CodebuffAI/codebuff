@@ -1,4 +1,4 @@
-import z from 'zod'
+import z from 'zod/v4'
 import fs from 'fs'
 import path from 'path'
 import { applyPatch } from '../../../common/src/util/patch'

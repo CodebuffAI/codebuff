@@ -3,7 +3,7 @@ import z from 'zod/v4'
 import { logger } from './logger'
 
 /**
- * Convert a Zod/v4 schema to JSON string representation.
+ * Convert a Zod4 schema to JSON string representation.
  */
 export function schemaToJsonStr(
   schema: z.ZodTypeAny | undefined | Record<string, any>,

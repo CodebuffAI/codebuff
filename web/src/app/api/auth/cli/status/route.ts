@@ -4,7 +4,7 @@ import { genAuthCode } from '@codebuff/common/util/credentials'
 import { env } from '@codebuff/internal'
 import { and, eq, gt, or, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { logger } from '@/util/logger'
 

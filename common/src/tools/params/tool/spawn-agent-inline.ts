@@ -16,5 +16,7 @@ export const spawnAgentInlineParams = {
         .optional()
         .describe('Parameters object for the agent (if any)'),
     })
-    .describe(`Spawn a single agent that runs within the current message history.`),
+    .describe(
+      `Spawn a single agent that runs within the current message history.`,
+    ),
 } satisfies ToolParams

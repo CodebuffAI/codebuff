@@ -1,4 +1,4 @@
-import z from 'zod'
+import z from 'zod/v4'
 
 export const printModeErrorSchema = z.object({
   type: z.literal('error'),
@@ -19,14 +19,17 @@ export const printModeToolCallSchema = z.object({
   type: z.literal('tool_call'),
   toolCallId: z.string(),
   toolName: z.string(),
-  args: z.record(z.string(), z.any()),
+  input: z.record(z.string(), z.any()),
 })
 export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
 
 export const printModeToolResultSchema = z.object({
   type: z.literal('tool_result'),
   toolCallId: z.string(),
-  result: z.string(),
+  output: z.object({
+    type: z.literal('text'),
+    value: z.string(),
+  }),
 })
 export type PrintModeToolResult = z.infer<typeof printModeToolResultSchema>
 

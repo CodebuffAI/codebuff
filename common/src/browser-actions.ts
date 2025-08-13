@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 // Default values for browser actions
 export const BROWSER_DEFAULTS = {

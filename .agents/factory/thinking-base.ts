@@ -9,6 +9,7 @@ import {
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
+import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 const baseAgentToolNames = [
   'create_plan',
@@ -60,7 +61,7 @@ export const thinkingBase = (
     while (true) {
       yield {
         toolName: 'spawn_agents',
-        args: {
+        input: {
           agents: [
             {
               agent_type: 'thinker',
@@ -68,7 +69,7 @@ export const thinkingBase = (
             },
           ],
         },
-      }
+      } satisfies ToolCall
       yield 'STEP'
     }
   },

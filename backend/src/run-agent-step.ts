@@ -5,6 +5,7 @@ import {
   supportsCacheControl,
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import {
   getToolCallString,
   renderToolResults,
@@ -37,8 +38,8 @@ import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentResponseTrace } from '@codebuff/bigquery'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -48,7 +49,6 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -186,9 +186,12 @@ export const runAgentStep = async (
     toolResults.push({
       toolName: 'file_updates',
       toolCallId: generateCompactId(),
-      result:
-        `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
-        renderReadFilesResult(updatedFiles, fileContext.tokenCallers ?? {}),
+      output: {
+        type: 'text',
+        value:
+          `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
+          renderReadFilesResult(updatedFiles, fileContext.tokenCallers ?? {}),
+      },
     })
   }
 

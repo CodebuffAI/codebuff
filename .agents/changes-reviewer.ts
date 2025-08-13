@@ -46,7 +46,7 @@ Use the following guidelines to review the changes and suggest improvements:
     // Step 1: Get list of changed files from git diff
     const { toolResult: gitDiffResult } = yield {
       toolName: 'run_terminal_command',
-      args: {
+      input: {
         command: 'git diff HEAD --name-only',
         process_type: 'SYNC',
         timeout_seconds: 30,
@@ -56,7 +56,7 @@ Use the following guidelines to review the changes and suggest improvements:
     // Step 2: Get untracked files from git status
     const { toolResult: gitStatusResult } = yield {
       toolName: 'run_terminal_command',
-      args: {
+      input: {
         command: 'git status --porcelain',
         process_type: 'SYNC',
         timeout_seconds: 30,
@@ -66,7 +66,7 @@ Use the following guidelines to review the changes and suggest improvements:
     // Step 3: Run full git diff to see the actual changes
     yield {
       toolName: 'run_terminal_command',
-      args: {
+      input: {
         command: 'git diff HEAD',
         process_type: 'SYNC',
         timeout_seconds: 30,
@@ -96,7 +96,7 @@ Use the following guidelines to review the changes and suggest improvements:
     if (allFilesToRead.length > 0) {
       yield {
         toolName: 'read_files',
-        args: {
+        input: {
           paths: allFilesToRead,
         },
       }
@@ -105,7 +105,7 @@ Use the following guidelines to review the changes and suggest improvements:
     // Step 5: Put words in the AI's mouth to get it to spawn the file explorer.
     yield {
       toolName: 'add_message',
-      args: {
+      input: {
         role: 'assistant',
         content:
           'Now I will spawn a file explorer to find any missing codebase context, and then review the changes.',

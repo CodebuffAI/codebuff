@@ -2,7 +2,7 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { logger } from '@/util/logger'
 

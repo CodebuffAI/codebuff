@@ -1,3 +1,7 @@
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import { describe, expect, it, afterEach, spyOn, mock } from 'bun:test'
 
 import * as versionUtils from '../version-utils'
@@ -16,6 +20,7 @@ const {
 describe('version-utils', () => {
   afterEach(() => {
     mock.restore()
+    clearMockedModules()
   })
 
   describe('versionOne', () => {
@@ -123,7 +128,7 @@ describe('version-utils', () => {
   describe('getLatestAgentVersion', () => {
     it('should return version 0.0.0 when no agent exists', async () => {
       // Mock the database to return empty result
-      mock.module('@codebuff/common/db', () => ({
+      mockModule('@codebuff/common/db', () => ({
         default: {
           select: () => ({
             from: () => ({
@@ -145,7 +150,7 @@ describe('version-utils', () => {
 
     it('should return latest version when agent exists', async () => {
       // Mock the database to return a version
-      mock.module('@codebuff/common/db', () => ({
+      mockModule('@codebuff/common/db', () => ({
         default: {
           select: () => ({
             from: () => ({
@@ -168,7 +173,7 @@ describe('version-utils', () => {
 
     it('should handle null values in database response', async () => {
       // Mock the database to return null values
-      mock.module('@codebuff/common/db', () => ({
+      mockModule('@codebuff/common/db', () => ({
         default: {
           select: () => ({
             from: () => ({
@@ -263,7 +268,7 @@ describe('version-utils', () => {
   describe('versionExists', () => {
     it('should return true when version exists', async () => {
       // Mock the database to return a result
-      mock.module('@codebuff/common/db', () => ({
+      mockModule('@codebuff/common/db', () => ({
         default: {
           select: () => ({
             from: () => ({
@@ -285,7 +290,7 @@ describe('version-utils', () => {
 
     it('should return false when version does not exist', async () => {
       // Mock the database to return empty result
-      mock.module('@codebuff/common/db', () => ({
+      mockModule('@codebuff/common/db', () => ({
         default: {
           select: () => ({
             from: () => ({

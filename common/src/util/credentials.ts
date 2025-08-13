@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 export const userSchema = z.object({
   id: z.string(),

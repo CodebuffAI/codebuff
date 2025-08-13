@@ -2,6 +2,7 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
+import type { ToolCall } from 'types/agent-definition'
 
 export const filePicker = (
   model: Model,
@@ -29,9 +30,9 @@ In your report, please give an extremely concise analysis that includes the full
 
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
-      toolName: 'find_files' as const,
-      args: { prompt: prompt || '' },
-    }
+      toolName: 'find_files',
+      input: { prompt: prompt ?? '' },
+    } satisfies ToolCall
     yield 'STEP_ALL'
   },
 })

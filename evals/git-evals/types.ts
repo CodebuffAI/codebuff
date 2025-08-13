@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import type { AgentStep } from '../scaffolding'
 import type { PostEvalAnalysis } from './post-eval-analysis'

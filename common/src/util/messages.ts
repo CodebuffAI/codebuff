@@ -1,5 +1,5 @@
 import type { CodebuffMessage, Message } from '../types/message'
-import type { CoreMessage } from 'ai'
+import type { ModelMessage } from 'ai'
 
 interface ScreenshotRef {
   msgIdx: number
@@ -45,13 +45,13 @@ export function limitScreenshots(
   )
 }
 
-export function toContentString(msg: CoreMessage): string {
+export function toContentString(msg: ModelMessage): string {
   const { content } = msg
   if (typeof content === 'string') return content
   return content.map((item) => (item as any)?.text ?? '').join('\n')
 }
 
-export function withCacheControlCore(msg: CodebuffMessage): CodebuffMessage {
+export function withCacheControl(msg: CodebuffMessage): CodebuffMessage {
   const message = { ...msg }
   if (!message.providerOptions) {
     message.providerOptions = {}
@@ -65,43 +65,4 @@ export function withCacheControlCore(msg: CodebuffMessage): CodebuffMessage {
   }
   message.providerOptions.openrouter.cacheControl = { type: 'ephemeral' }
   return message
-}
-
-export function withCacheControl(msg: Message): Message {
-  if (typeof msg.content === 'string') {
-    return {
-      ...msg,
-      content: [
-        {
-          type: 'text',
-          text: msg.content,
-          cache_control: { type: 'ephemeral' as const },
-        },
-      ],
-    }
-  } else {
-    return {
-      ...msg,
-      content: msg.content.map((item, i) =>
-        i === msg.content.length - 1
-          ? { ...item, cache_control: { type: 'ephemeral' as const } }
-          : item,
-      ),
-    }
-  }
-}
-
-export function removeCache(messages: Message[]): Message[] {
-  return messages.map((msg) => {
-    if (typeof msg.content === 'object' && Array.isArray(msg.content)) {
-      return {
-        ...msg,
-        content: msg.content.map((item) => {
-          const { cache_control, ...rest } = item
-          return rest
-        }),
-      }
-    }
-    return msg
-  })
 }

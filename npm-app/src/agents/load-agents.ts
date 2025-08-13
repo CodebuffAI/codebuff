@@ -1,5 +1,4 @@
 import * as fs from 'fs'
-import * as path from 'path'
 
 import { cyan, green } from 'picocolors'
 
@@ -25,25 +24,15 @@ export async function loadLocalAgents({
     const tsFiles = getAllTsFiles(agentsDir)
 
     for (const fullPath of tsFiles) {
-      const relativePath = path.relative(agentsDir, fullPath)
-      const fileName = relativePath.replace(/\.ts$/, '').replace(/[/\\]/g, '-')
-
       let agentDefinition: any
       let agentModule: any
       try {
         agentModule = await require(fullPath)
       } catch (error: any) {
         if (verbose) {
-          const errorMessage =
-            error instanceof Error
-              ? error.stack || error.message
-              : typeof error === 'string'
-                ? error
-                : JSON.stringify(error)
           console.error(
-            'Error importing agent from file:',
+            `Error importing agent: ${error.name} - ${error.message}\n${error.stack}`,
             fullPath,
-            errorMessage,
           )
         }
         continue

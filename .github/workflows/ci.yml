@@ -130,25 +130,7 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 5
-          command: |
-            cd ${{ matrix.package }}
-            echo "🧪 Running ${{ matrix.package }} tests..."
-            TEST_OUTPUT=$(find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} bun test {} 2>&1)
-            echo "$TEST_OUTPUT"
-            
-            # Extract and display failed tests
-            FAILED_TESTS=$(echo "$TEST_OUTPUT" | grep -E "(✗|FAIL|Failed|Error:)" || true)
-            if [ ! -z "$FAILED_TESTS" ]; then
-              echo ""
-              echo "❌ =============== FAILED TESTS SUMMARY ==============="
-              echo "$FAILED_TESTS"
-              echo "====================================================="
-              exit 1
-            else
-              echo "✅ All tests passed!"
-            fi
-
-
+          command: cd ${{ matrix.package }} && find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}
@@ -208,25 +190,7 @@ jobs:
         with:
           timeout_minutes: 15
           max_attempts: 3
-          command: |
-            cd ${{ matrix.package }}
-            echo "🧪 Running ${{ matrix.package }} integration tests..."
-            TEST_OUTPUT=$(find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {} 2>&1)
-            echo "$TEST_OUTPUT"
-            
-            # Extract and display failed tests
-            FAILED_TESTS=$(echo "$TEST_OUTPUT" | grep -E "(✗|FAIL|Failed|Error:)" || true)
-            if [ ! -z "$FAILED_TESTS" ]; then
-              echo ""
-              echo "❌ =============== FAILED TESTS SUMMARY ==============="
-              echo "$FAILED_TESTS"
-              echo "====================================================="
-              exit 1
-            else
-              echo "✅ All integration tests passed!"
-            fi
-
-
+          command: cd ${{ matrix.package }} && find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
 
       # - name: Open interactive debug shell
       #   if: ${{ failure() }}

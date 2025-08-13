@@ -41,30 +41,23 @@ const fileExplorer: SecretAgentDefinition = {
   stepPrompt: '',
 
   handleSteps: function* ({ prompt, params }) {
-    if (!params?.prompts) {
-      return
-    }
-
-    const filePickerPrompts = params.prompts.map(
-      (focusPrompt: string) =>
-        `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`,
-    )
-
-    // Spawn all file pickers in parallel
-    const { toolResult: spawnResult } = yield {
-      toolName: 'spawn_agents' as const,
-      args: {
-        agents: filePickerPrompts.map((promptText: string) => ({
-          agent_type: 'file-picker' as const,
-          prompt: promptText,
-        })),
-      },
-    }
-
-    // Set output with aggregated results
+    const prompts: string[] = params?.prompts ?? []
+    const filePickerPrompts = prompts.map(
+        (focusPrompt) =>
+          `Based on the overall goal "${prompt}", find files related to this specific area: ${focusPrompt}`,
+      ),
+      { toolResult: spawnResult } = yield {
+        toolName: 'spawn_agents',
+        input: {
+          agents: filePickerPrompts.map((promptText) => ({
+            agent_type: 'file-picker',
+            prompt: promptText,
+          })),
+        },
+      }
     yield {
-      toolName: 'set_output' as const,
-      args: {
+      toolName: 'set_output',
+      input: {
         results: spawnResult,
       },
     }

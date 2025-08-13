@@ -30,7 +30,7 @@ export const handleWebSearch = ((params: {
     userInputId,
     state,
   } = params
-  const { query, depth } = toolCall.args
+  const { query, depth } = toolCall.input
   const { userId, fingerprintId, repoId } = state
   if (!fingerprintId) {
     throw new Error(
