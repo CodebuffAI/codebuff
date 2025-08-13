@@ -5,7 +5,8 @@ import {
   askAgentSystemPrompt,
   askAgentUserInputPrompt,
 } from '../prompts'
-import { AgentTemplateTypes, PLACEHOLDER } from '../types/agent-definition'
+import { PLACEHOLDER } from '../types/agent-definition'
+import { AgentTemplateTypes } from '../types/secret-agent-definition'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
@@ -15,7 +16,10 @@ export const ask = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
   displayName: AGENT_PERSONAS.ask.displayName,
   spawnerPrompt: 'Base ask-mode agent that orchestrates the full response.',
   inputSchema: {
-    prompt: { type: 'string', description: 'A question you would like answered about this project.' },
+    prompt: {
+      type: 'string',
+      description: 'A question you would like answered about this project.',
+    },
   },
   outputMode: 'last_message',
   includeMessageHistory: false,

@@ -38,8 +38,8 @@ export const thinkingBase = (
   allAvailableAgents?: string[],
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
-  displayName: AGENT_PERSONAS.base_lite.displayName,
-  spawnerPrompt: AGENT_PERSONAS.base_lite.purpose,
+  displayName: AGENT_PERSONAS['base-lite'].displayName,
+  spawnerPrompt: AGENT_PERSONAS['base-lite'].purpose,
   inputSchema: {
     prompt: {
       type: 'string',

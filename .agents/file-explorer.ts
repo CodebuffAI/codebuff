@@ -5,10 +5,10 @@ import { publisher } from './constants'
 import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
 const paramsSchema = {
-  type: 'object',
+  type: 'object' as const,
   properties: {
     prompts: {
-      type: 'array',
+      type: 'array' as const,
       items: { type: 'string' },
       description:
         'List of 1-4 different parts of the codebase that could be useful to explore',

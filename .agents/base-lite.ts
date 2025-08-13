@@ -1,6 +1,4 @@
 import { publisher } from './constants'
-
-// Add base factory import
 import { base } from './factory/base'
 
 import type { SecretAgentDefinition } from './types/secret-agent-definition'

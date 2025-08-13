@@ -6,7 +6,6 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'file-picker',
   publisher,
-
   ...filePicker('openai/gpt-5'),
 }
 

@@ -1,11 +1,11 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
 } from '../prompts'
+import { AgentTemplateTypes } from '../types/secret-agent-definition'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'

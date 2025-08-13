@@ -16,3 +16,46 @@ export interface SecretAgentDefinition
   /** Tools this agent can use. */
   toolNames?: AllToolNames[]
 }
+
+// ============================================================================
+// Agent Template Types (ported from common/src/types/session-state.ts)
+// ============================================================================
+
+export const AgentTemplateTypeList = [
+  // Base agents
+  'base',
+  'base_lite',
+  'base_max',
+  'base_experimental',
+  'claude4_gemini_thinking',
+  'superagent',
+  'base_agent_builder',
+
+  // Ask mode
+  'ask',
+
+  // Planning / Thinking
+  'planner',
+  'dry_run',
+  'thinker',
+
+  // Other agents
+  'file_picker',
+  'file_explorer',
+  'researcher',
+  'reviewer',
+  'agent_builder',
+  'example_programmatic',
+] as const
+
+type UnderscoreToDash<S extends string> = S extends `${infer L}_${infer R}`
+  ? `${L}-${UnderscoreToDash<R>}`
+  : S
+
+export const AgentTemplateTypes = Object.fromEntries(
+  AgentTemplateTypeList.map((name) => [name, name.replaceAll('_', '-')]),
+) as { [K in (typeof AgentTemplateTypeList)[number]]: UnderscoreToDash<K> }
+
+export type AgentTemplateType =
+  | (typeof AgentTemplateTypeList)[number]
+  | (string & {})

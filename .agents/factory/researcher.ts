@@ -3,14 +3,17 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'
 
-export const researcher = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
+export const researcher = (
+  model: Model,
+): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.researcher.displayName,
   spawnerPrompt: AGENT_PERSONAS.researcher.purpose,
   inputSchema: {
     prompt: {
       type: 'string',
-      description: 'A question you would like answered using web search and documentation',
+      description:
+        'A question you would like answered using web search and documentation',
     },
   },
   outputMode: 'last_message',
@@ -28,7 +31,7 @@ In your report, include key findings, relevant insights, and actionable recommen
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
       toolName: 'web_search' as const,
-      args: { query: prompt || '', depth: 'standard' as const },
+      input: { query: prompt || '', depth: 'standard' as const },
     }
     yield 'STEP_ALL'
   },
