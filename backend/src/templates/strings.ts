@@ -188,7 +188,9 @@ export async function getAgentPrompt<T extends StringField>(
       addendum += '```json\n'
       try {
         // Convert Zod schema to JSON schema for display
-        const jsonSchema = z.toJSONSchema(agentTemplate.outputSchema)
+        const jsonSchema = z.toJSONSchema(agentTemplate.outputSchema, {
+          io: 'input',
+        })
         delete jsonSchema['$schema'] // Remove the $schema field for cleaner display
         addendum += JSON.stringify(jsonSchema, null, 2)
       } catch {

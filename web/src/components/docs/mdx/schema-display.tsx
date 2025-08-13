@@ -7,11 +7,11 @@ import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent
 import { CodeDemo } from './code-demo'
 
 export function SchemaDisplay() {
-  const schemaString = schemaToJsonStr(CodebuffConfigSchema)
+  const schemaString = schemaToJsonStr(CodebuffConfigSchema, {io: 'input'})
   return <CodeDemo language="json">{schemaString}</CodeDemo>
 }
 
 export function AgentTemplateSchemaDisplay() {
-  const schemaString = schemaToJsonStr(DynamicAgentTemplateSchema)
+  const schemaString = schemaToJsonStr(DynamicAgentTemplateSchema, {io: 'input'})
   return <CodeDemo language="json">{schemaString}</CodeDemo>
 }

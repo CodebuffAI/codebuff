@@ -15,7 +15,9 @@ function paramsSection(schema: z.ZodObject, endsAgentStep: boolean) {
           .describe('Easp flag must be set to true'),
       })
     : schema
-  const jsonSchema = z.toJSONSchema(schemaWithEndsAgentStepParam)
+  const jsonSchema = z.toJSONSchema(schemaWithEndsAgentStepParam, {
+    io: 'input',
+  })
   delete jsonSchema.description
   delete jsonSchema['$schema']
   const paramsDescription = Object.keys(jsonSchema.properties ?? {}).length
