@@ -6,7 +6,7 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'base',
   publisher,
-  ...base('anthropic/claude-sonnet-4'),
+  ...base('anthropic/claude-4-sonnet-20250522'),
 }
 
 export default definition

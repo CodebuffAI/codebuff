@@ -8,10 +8,10 @@ import {
 import { AgentTemplateTypes } from '../types/secret-agent-definition'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/constants'
+import { ModelName } from 'types/agent-definition'
 
 export const base = (
-  model: Model,
+  model: ModelName,
   allAvailableAgents?: string[],
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
