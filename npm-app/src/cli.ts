@@ -658,7 +658,7 @@ export class CLI {
               resolvedAgentId || 'base',
               localAgentInfo,
             )
-            console.log(gray(`\nAgent: ${bold(agentDisplayName)}`))
+            console.log(green(`\nAgent: ${bold(agentDisplayName)}`))
           } catch {}
         }
       } else {
