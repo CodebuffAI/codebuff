@@ -5,7 +5,7 @@ import type { AgentDefinition } from '../types/agent-definition'
 const definition: AgentDefinition = {
   id: 'oss-model-coder',
   publisher,
-  model: 'qwen/qwen3-coder:fast',
+  model: 'qwen/qwen3-coder:nitro',
   displayName: 'Casey the Coder',
   spawnerPrompt:
     'Expert coding agent for reliable code implementation, debugging, and refactoring with excellent tool calling capabilities.',

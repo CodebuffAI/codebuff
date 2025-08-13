@@ -296,25 +296,25 @@ export type ModelName =
 
   // Qwen
   | 'qwen/qwen3-coder'
-  | 'qwen/qwen3-coder:fast'
+  | 'qwen/qwen3-coder:nitro'
   | 'qwen/qwen3-235b-a22b-2507'
-  | 'qwen/qwen3-235b-a22b-2507:fast'
+  | 'qwen/qwen3-235b-a22b-2507:nitro'
   | 'qwen/qwen3-235b-a22b-thinking-2507'
-  | 'qwen/qwen3-235b-a22b-thinking-2507:fast'
+  | 'qwen/qwen3-235b-a22b-thinking-2507:nitro'
   | 'qwen/qwen3-30b-a3b'
-  | 'qwen/qwen3-30b-a3b:fast'
+  | 'qwen/qwen3-30b-a3b:nitro'
 
   // DeepSeek
   | 'deepseek/deepseek-chat-v3-0324'
-  | 'deepseek/deepseek-chat-v3-0324:fast'
+  | 'deepseek/deepseek-chat-v3-0324:nitro'
   | 'deepseek/deepseek-r1-0528'
-  | 'deepseek/deepseek-r1-0528:fast'
+  | 'deepseek/deepseek-r1-0528:nitro'
 
   // Other open source models
   | 'moonshotai/kimi-k2'
-  | 'moonshotai/kimi-k2:fast'
+  | 'moonshotai/kimi-k2:nitro'
   | 'z-ai/glm-4.5'
-  | 'z-ai/glm-4.5:fast'
+  | 'z-ai/glm-4.5:nitro'
   | (string & {})
 
 import type * as Tools from './tools'

@@ -5,7 +5,7 @@ import type { AgentDefinition, ToolCall } from '../types/agent-definition'
 const definition: AgentDefinition = {
   id: 'oss-model-file-picker',
   publisher,
-  model: 'openai/gpt-oss-120b:fast',
+  model: 'openai/gpt-oss-120b:nitro',
   displayName: 'Fletcher the File Fetcher',
   spawnerPrompt:
     'Expert at finding relevant files for efficient file discovery with edge-optimized performance.',

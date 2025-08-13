@@ -5,7 +5,7 @@ import type { AgentDefinition } from '../types/agent-definition'
 const definition: AgentDefinition = {
   id: 'oss-model-thinker',
   publisher,
-  model: 'qwen/qwen3-235b-a22b-thinking-2507:fast',
+  model: 'qwen/qwen3-235b-a22b-thinking-2507:nitro',
   displayName: 'Theo the Thinker',
   spawnerPrompt:
     'Deep thinking agent, optimized for complex reasoning and step-by-step analysis.',
