@@ -80,6 +80,7 @@ export const CodebuffConfigSchema = z
       .describe('An array of commands to run on file changes.'),
     maxAgentSteps: z
       .number()
+      .optional()
       .default(12)
       .describe(
         'Maximum number of turns agent will take before being forced to end',

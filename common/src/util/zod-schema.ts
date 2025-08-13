@@ -1,7 +1,5 @@
 import z from 'zod/v4'
 
-import { logger } from './logger'
-
 /**
  * Convert a Zod4 schema to JSON string representation.
  */
@@ -21,14 +19,6 @@ export function schemaToJsonStr(
     // Otherwise, pass on plain object
     return JSON.stringify(schema, null, 2)
   } catch (error) {
-    // Graceful fallback
-    logger.warn(
-      {
-        error,
-        schema,
-      },
-      'Failed to convert schema to JSON',
-    )
     return 'None'
   }
 }
