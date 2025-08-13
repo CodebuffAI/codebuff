@@ -3,7 +3,6 @@ import {
   codebuffConfigFile,
   CodebuffConfigSchema,
 } from '@codebuff/common/json-config/constants'
-import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 import {
   flattenTree,
   getLastReadFilePaths,
@@ -11,6 +10,7 @@ import {
 import { createMarkdownFileBlock } from '@codebuff/common/util/file'
 import { truncateString } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
+import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
@@ -23,7 +23,7 @@ export const configSchemaPrompt = `
 
 The following describes the structure of the \`./${codebuffConfigFile}\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
 
-${stringifySchema(CodebuffConfigSchema)}
+${schemaToJsonStr(CodebuffConfigSchema)}
 
 ## Background Processes
 

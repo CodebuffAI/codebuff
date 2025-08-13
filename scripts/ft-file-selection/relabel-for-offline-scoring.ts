@@ -190,7 +190,7 @@ async function relabelTraceForModel(
     fingerprintId: 'relabel-offline-scoring',
     userInputId: 'relabel-offline-scoring',
     userId: TEST_USER_ID,
-    maxTokens: 1000,
+    maxOutputTokens: 1000,
   })
 
   const newRelabel: Relabel = {

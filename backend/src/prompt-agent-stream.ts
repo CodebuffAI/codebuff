@@ -32,7 +32,7 @@ export const getAgentStreamFromTemplate = (params: {
       fingerprintId,
       userInputId,
       userId,
-      maxTokens: 32_000,
+      maxOutputTokens: 32_000,
     }
 
     // Add Gemini-specific options if needed

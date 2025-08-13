@@ -16,7 +16,7 @@ export const handleSetMessages = (({
 } => {
   return {
     result: previousToolCallFinished.then(() => {
-      getLatestState().messages = toolCall.args.messages
+      getLatestState().messages = toolCall.input.messages
       return undefined
     }),
     state: {},

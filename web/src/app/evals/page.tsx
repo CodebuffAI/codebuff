@@ -3,7 +3,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { utils } from '@codebuff/internal'
 import { desc, eq } from 'drizzle-orm'
 import { getServerSession } from 'next-auth'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { EvalsTable } from './evals-table'
 

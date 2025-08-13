@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { CodebuffConfigSchema } from '../json-config/constants'
 import { DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'

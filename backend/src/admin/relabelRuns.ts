@@ -403,7 +403,7 @@ export async function relabelWithClaudeWithFullFileContext(
     fingerprintId: 'relabel-trace-api',
     userInputId: 'relabel-trace-api',
     userId: TEST_USER_ID,
-    maxTokens: 1000,
+    maxOutputTokens: 1000,
   })
 
   const relabel = {

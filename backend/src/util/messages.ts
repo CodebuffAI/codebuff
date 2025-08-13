@@ -1,7 +1,7 @@
 import { AssertionError } from 'assert'
 
 import { buildArray } from '@codebuff/common/util/array'
-import { withCacheControlCore } from '@codebuff/common/util/messages'
+import { withCacheControl } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { logger } from './logger'
@@ -284,9 +284,9 @@ export function getMessagesSubset(
     if (index <= 0) {
       continue
     }
-    messagesSubset[index - 1] = withCacheControlCore(messagesSubset[index - 1])
+    messagesSubset[index - 1] = withCacheControl(messagesSubset[index - 1])
   }
-  messagesSubset[messagesSubset.length - 1] = withCacheControlCore(lastMessage)
+  messagesSubset[messagesSubset.length - 1] = withCacheControl(lastMessage)
 
   return messagesSubset
 }
@@ -295,16 +295,14 @@ export function expireMessages(
   messages: CodebuffMessage[],
   endOf: 'agentStep' | 'userPrompt',
 ): CodebuffMessage[] {
-  return messages.filter(
-    (m) => {
-      // Keep messages with no timeToLive
-      if (m.timeToLive === undefined) return true
-      
-      // Remove messages that have expired
-      if (m.timeToLive === 'agentStep') return false
-      if (m.timeToLive === 'userPrompt' && endOf === 'userPrompt') return false
-      
-      return true
-    },
-  )
+  return messages.filter((m) => {
+    // Keep messages with no timeToLive
+    if (m.timeToLive === undefined) return true
+
+    // Remove messages that have expired
+    if (m.timeToLive === 'agentStep') return false
+    if (m.timeToLive === 'userPrompt' && endOf === 'userPrompt') return false
+
+    return true
+  })
 }

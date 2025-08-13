@@ -141,7 +141,7 @@ describe('runProgrammaticStep', () => {
   describe('generator lifecycle', () => {
     it('should create new generator when none exists', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -157,7 +157,7 @@ describe('runProgrammaticStep', () => {
       const createGenerator = () => {
         callCount++
         return (function* () {
-          yield { toolName: 'end_turn', args: {} }
+          yield { toolName: 'end_turn', input: {} }
         })() as StepGenerator
       }
 
@@ -204,11 +204,11 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         yield {
           toolName: 'add_message',
-          args: { role: 'user', content: 'Hello world' },
+          input: { role: 'user', content: 'Hello world' },
         }
-        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
-        yield { toolName: 'end_turn', args: {} }
-      })() as StepGenerator
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
+        yield { toolName: 'end_turn', input: {} }
+      })() satisfies StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
       mockTemplate.toolNames = ['add_message', 'read_files', 'end_turn']
@@ -232,7 +232,7 @@ describe('runProgrammaticStep', () => {
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           toolName: 'add_message',
-          args: { role: 'user', content: 'Hello world' },
+          input: { role: 'user', content: 'Hello world' },
         }),
       )
 
@@ -240,7 +240,7 @@ describe('runProgrammaticStep', () => {
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           toolName: 'read_files',
-          args: { paths: ['test.txt'] },
+          input: { paths: ['test.txt'] },
         }),
       )
 
@@ -270,8 +270,8 @@ describe('runProgrammaticStep', () => {
     })
     it('should execute single tool call', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -282,7 +282,7 @@ describe('runProgrammaticStep', () => {
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           toolName: 'read_files',
-          args: expect.any(Object),
+          input: expect.any(Object),
           agentTemplate: mockTemplate,
           fileContext: mockFileContext,
         }),
@@ -292,7 +292,7 @@ describe('runProgrammaticStep', () => {
 
     it('should add find_files tool result to messageHistory', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'find_files', args: { query: 'authentication' } }
+        yield { toolName: 'find_files', input: { query: 'authentication' } }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -304,12 +304,15 @@ describe('runProgrammaticStep', () => {
           const toolResult: ToolResult = {
             toolName: 'find_files',
             toolCallId: 'find-files-call-id',
-            result: JSON.stringify({
-              files: [
-                { path: 'src/auth.ts', relevance: 0.9 },
-                { path: 'src/login.ts', relevance: 0.8 },
-              ],
-            }),
+            output: {
+              type: 'text',
+              value: JSON.stringify({
+                files: [
+                  { path: 'src/auth.ts', relevance: 0.9 },
+                  { path: 'src/login.ts', relevance: 0.8 },
+                ],
+              }),
+            },
           }
           options.toolResults.push(toolResult)
 
@@ -320,7 +323,7 @@ describe('runProgrammaticStep', () => {
               {
                 toolName: toolResult.toolName,
                 toolCallId: toolResult.toolCallId,
-                result: toolResult.result,
+                output: toolResult.output,
               },
             ]),
           )
@@ -338,7 +341,7 @@ describe('runProgrammaticStep', () => {
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           toolName: 'find_files',
-          args: { query: 'authentication' },
+          input: { query: 'authentication' },
           agentTemplate: mockTemplate,
           fileContext: mockFileContext,
         }),
@@ -360,12 +363,12 @@ describe('runProgrammaticStep', () => {
 
     it('should execute multiple tool calls in sequence', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'read_files', args: { paths: ['file1.txt'] } }
+        yield { toolName: 'read_files', input: { paths: ['file1.txt'] } }
         yield {
           toolName: 'write_file',
-          args: { path: 'file2.txt', content: 'test' },
+          input: { path: 'file2.txt', content: 'test' },
         }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -388,7 +391,7 @@ describe('runProgrammaticStep', () => {
         // Step 1: Read files and capture initial state
         const step1 = yield {
           toolName: 'read_files',
-          args: { paths: ['src/auth.ts', 'src/config.ts'] },
+          input: { paths: ['src/auth.ts', 'src/config.ts'] },
         }
         toolResultsReceived.push(step1.toolResult)
         stateSnapshots.push({ ...step1.agentState })
@@ -396,7 +399,7 @@ describe('runProgrammaticStep', () => {
         // Step 2: Search for patterns based on file content
         const step2 = yield {
           toolName: 'code_search',
-          args: { pattern: 'authenticate', flags: '-i' },
+          input: { pattern: 'authenticate', flags: '-i' },
         }
         toolResultsReceived.push(step2.toolResult)
         stateSnapshots.push({ ...step2.agentState })
@@ -404,7 +407,7 @@ describe('runProgrammaticStep', () => {
         // Step 3: Create a plan based on findings
         const step3 = yield {
           toolName: 'create_plan',
-          args: {
+          input: {
             path: 'analysis-plan.md',
             plan: 'Comprehensive analysis of authentication system',
           },
@@ -415,7 +418,7 @@ describe('runProgrammaticStep', () => {
         // Step 4: Add subgoal for tracking
         const step4 = yield {
           toolName: 'add_subgoal',
-          args: {
+          input: {
             id: 'auth-analysis',
             objective: 'Analyze authentication patterns',
             status: 'IN_PROGRESS',
@@ -428,7 +431,7 @@ describe('runProgrammaticStep', () => {
         // Step 5: Write analysis file
         const step5 = yield {
           toolName: 'write_file',
-          args: {
+          input: {
             path: 'auth-analysis.md',
             instructions: 'Create authentication analysis document',
             content: '# Authentication Analysis\n\nBased on code review...',
@@ -440,7 +443,7 @@ describe('runProgrammaticStep', () => {
         // Step 6: Update subgoal status
         const step6 = yield {
           toolName: 'update_subgoal',
-          args: {
+          input: {
             id: 'auth-analysis',
             status: 'COMPLETE',
             log: 'Analysis completed successfully',
@@ -452,7 +455,7 @@ describe('runProgrammaticStep', () => {
         // Step 7: Set final output with comprehensive data
         const step7 = yield {
           toolName: 'set_output',
-          args: {
+          input: {
             status: 'success',
             filesAnalyzed: ['src/auth.ts', 'src/config.ts'],
             patternsFound: 3,
@@ -482,7 +485,7 @@ describe('runProgrammaticStep', () => {
 
       // Mock executeToolCall to simulate realistic tool results and state updates
       executeToolCallSpy.mockImplementation(async (options: any) => {
-        const { toolName, args, toolResults, state } = options
+        const { toolName, input, toolResults, state } = options
 
         let result: string
         switch (toolName) {
@@ -525,7 +528,7 @@ describe('runProgrammaticStep', () => {
             break
           case 'set_output':
             result = 'Output set successfully'
-            state.agentState.output = args
+            state.agentState.output = input
             break
           default:
             result = `${toolName} executed successfully`
@@ -534,7 +537,10 @@ describe('runProgrammaticStep', () => {
         const toolResult: ToolResult = {
           toolName,
           toolCallId: `${toolName}-call-id`,
-          result,
+          output: {
+            type: 'text',
+            value: result,
+          },
         }
         toolResults.push(toolResult)
 
@@ -559,12 +565,12 @@ describe('runProgrammaticStep', () => {
       // Verify tool execution order and arguments
       const toolCalls = executeToolCallSpy.mock.calls
       expect(toolCalls[0][0].toolName).toBe('read_files')
-      expect(toolCalls[0][0].args.paths).toEqual([
+      expect(toolCalls[0][0].input.paths).toEqual([
         'src/auth.ts',
         'src/config.ts',
       ])
       expect(toolCalls[1][0].toolName).toBe('code_search')
-      expect(toolCalls[1][0].args.pattern).toBe('authenticate')
+      expect(toolCalls[1][0].input.pattern).toBe('authenticate')
       expect(toolCalls[2][0].toolName).toBe('create_plan')
       expect(toolCalls[3][0].toolName).toBe('add_subgoal')
       expect(toolCalls[4][0].toolName).toBe('write_file')
@@ -642,10 +648,10 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         const input1 = yield {
           toolName: 'read_files',
-          args: { paths: ['test.txt'] },
+          input: { paths: ['test.txt'] },
         }
         receivedToolResult = input1.toolResult
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -656,7 +662,10 @@ describe('runProgrammaticStep', () => {
           options.toolResults.push({
             toolName: 'read_files',
             toolCallId: 'test-id',
-            result: 'file content',
+            output: {
+              type: 'text',
+              value: 'file content',
+            },
           })
         }
       })
@@ -670,11 +679,11 @@ describe('runProgrammaticStep', () => {
   describe('generator control flow', () => {
     it('should handle STEP value to break execution', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
         yield 'STEP'
         yield {
           toolName: 'write_file',
-          args: { path: 'test.txt', content: 'test' },
+          input: { path: 'test.txt', content: 'test' },
         }
       })() as StepGenerator
 
@@ -688,7 +697,7 @@ describe('runProgrammaticStep', () => {
 
     it('should handle generator completion', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
         return // Generator completes
       })() as StepGenerator
 
@@ -701,11 +710,11 @@ describe('runProgrammaticStep', () => {
 
     it('should end turn when end_turn tool is called', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
+        yield { toolName: 'end_turn', input: {} }
         yield {
           toolName: 'write_file',
-          args: { path: 'test.txt', content: 'test' },
+          input: { path: 'test.txt', content: 'test' },
         } // Should not execute
       })() as StepGenerator
 
@@ -723,9 +732,9 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         yield {
           toolName: 'set_output',
-          args: { status: 'complete' },
+          input: { status: 'complete' },
         }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -745,7 +754,7 @@ describe('runProgrammaticStep', () => {
 
     it('should preserve message history', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -785,8 +794,8 @@ describe('runProgrammaticStep', () => {
 
     it('should handle tool execution errors', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -836,13 +845,13 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         yield {
           toolName: 'set_output',
-          args: {
+          input: {
             message: 'Task completed successfully',
             status: 'success',
             count: 42,
           },
         }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       schemaTemplate.handleSteps = () => mockGenerator
@@ -883,13 +892,13 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         yield {
           toolName: 'set_output',
-          args: {
+          input: {
             message: 'Task completed',
             status: 'invalid_status', // This should fail validation
             extraField: 'not allowed',
           },
         }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       schemaTemplate.handleSteps = () => mockGenerator
@@ -923,12 +932,12 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         yield {
           toolName: 'set_output',
-          args: {
+          input: {
             anyField: 'any value',
             anotherField: 123,
           },
         }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       noSchemaTemplate.handleSteps = () => mockGenerator
@@ -960,12 +969,12 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         yield {
           toolName: 'set_output',
-          args: {
+          input: {
             result: 'success',
             data: { count: 5 },
           },
         }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       schemaWithoutSchemaTemplate.handleSteps = () => mockGenerator
@@ -990,7 +999,7 @@ describe('runProgrammaticStep', () => {
   describe('logging and context', () => {
     it('should log agent execution start', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -1003,7 +1012,7 @@ describe('runProgrammaticStep', () => {
 
     it('should use request context for repo ID', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
@@ -1015,8 +1024,8 @@ describe('runProgrammaticStep', () => {
 
     it('should generate unique agent step ID', async () => {
       const mockGenerator = (function* () {
-        yield { toolName: 'read_files', args: { paths: ['test.txt'] } }
-        yield { toolName: 'end_turn', args: {} }
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator

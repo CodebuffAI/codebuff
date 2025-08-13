@@ -4,7 +4,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { apiKeyTypeEnum, encryptedApiKeys } from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
 import type { NextRequest } from 'next/server'

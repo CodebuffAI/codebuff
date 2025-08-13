@@ -5,7 +5,7 @@ import path from 'path'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { geminiModels, models } from '@codebuff/common/constants'
 import { chunk } from 'lodash'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { CommitSelectionSchema } from './types'

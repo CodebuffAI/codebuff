@@ -1,7 +1,7 @@
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
-import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { escapeString, generateCompactId } from '@codebuff/common/util/string'
+import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
@@ -54,7 +54,7 @@ export async function formatPrompt(
     [PLACEHOLDER.AGENT_NAME]: agentTemplate
       ? agentTemplate.displayName || 'Unknown Agent'
       : 'Buffy',
-    [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
+    [PLACEHOLDER.CONFIG_SCHEMA]: schemaToJsonStr(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
       fileContext,
       20_000,
@@ -90,7 +90,7 @@ export async function formatPrompt(
       }).map(([path, content]) => ({
         toolName: 'read_files',
         toolCallId: generateCompactId(),
-        result: JSON.stringify({ path, content }),
+        output: { type: 'text', value: JSON.stringify({ path, content }) },
       })),
     ),
   }

@@ -324,7 +324,7 @@ User cwd: {CODEBUFF_USER_CWD}
     while (true) {
       yield {
         toolName: 'spawn_agents',
-        args: {
+        input: {
           agents: [
             {
               agent_type: 'thinker',

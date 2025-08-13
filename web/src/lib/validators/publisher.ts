@@ -21,7 +21,10 @@ export function validatePublisherName(name: string): string | null {
 export function validatePublisherId(id: string): string | null {
   const result = PublisherIdSchema.safeParse(id)
   if (!result.success) {
-    return result.error.errors[0]?.message || 'Invalid publisher ID'
+    return (
+      result.error.issues.map((issue) => issue.message).join('\n') ||
+      'Invalid publisher ID'
+    )
   }
 
   if (id.length < 3) {
