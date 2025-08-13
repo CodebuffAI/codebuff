@@ -86,7 +86,6 @@ export async function loadLocalAgents({
           agentDefinition.handleSteps.toString()
       }
 
-      console.log('processedAgentDefinition', processedAgentDefinition.id)
       loadedAgents[processedAgentDefinition.id] = processedAgentDefinition
     }
   } catch (error) {}
