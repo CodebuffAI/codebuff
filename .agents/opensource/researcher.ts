@@ -1,8 +1,10 @@
+import { publisher } from '../constants'
+
 import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'oss-model-researcher',
-  publisher: 'codebuff',
+  publisher,
   model: 'z-ai/glm-4.5:fast',
   displayName: 'Reid the Researcher',
   spawnerPrompt:
