@@ -5,8 +5,10 @@ import {
   askAgentSystemPrompt,
   askAgentUserInputPrompt,
 } from '../prompts'
-import { PLACEHOLDER } from '../types/agent-definition'
-import { AgentTemplateTypes } from '../types/secret-agent-definition'
+import {
+  AgentTemplateTypes,
+  PLACEHOLDER,
+} from '../types/secret-agent-definition'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/constants'

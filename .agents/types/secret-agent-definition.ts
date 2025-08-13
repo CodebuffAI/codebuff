@@ -18,6 +18,36 @@ export interface SecretAgentDefinition
 }
 
 // ============================================================================
+// Placeholders (ported from backend/src/templates/types.ts)
+// ============================================================================
+
+const placeholderNames = [
+  'AGENT_NAME',
+  'AGENTS_PROMPT',
+  'CONFIG_SCHEMA',
+  'FILE_TREE_PROMPT',
+  'GIT_CHANGES_PROMPT',
+  'INITIAL_AGENT_PROMPT',
+  'KNOWLEDGE_FILES_CONTENTS',
+  'PROJECT_ROOT',
+  'REMAINING_STEPS',
+  'SYSTEM_INFO_PROMPT',
+  'TOOLS_PROMPT',
+  'USER_CWD',
+  'USER_INPUT_PROMPT',
+] as const
+
+type PlaceholderType<T extends readonly string[]> = {
+  [K in T[number]]: `{CODEBUFF_${K}}`
+}
+
+export const PLACEHOLDER = Object.fromEntries(
+  placeholderNames.map((name) => [name, `{CODEBUFF_${name}}` as const]),
+) as PlaceholderType<typeof placeholderNames>
+export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
+export const placeholderValues = Object.values(PLACEHOLDER)
+
+// ============================================================================
 // Agent Template Types (ported from common/src/types/session-state.ts)
 // ============================================================================
 
