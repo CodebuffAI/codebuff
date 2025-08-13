@@ -173,7 +173,7 @@ export interface WebSearchParams {
   /** The search query to find relevant web content */
   query: string
   /** Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'. */
-  depth: 'standard' | 'deep'
+  depth?: 'standard' | 'deep'
 }
 
 /**
