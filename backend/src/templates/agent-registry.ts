@@ -11,6 +11,7 @@ import {
   validateSingleAgent,
 } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
+import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
 
 export type AgentRegistry = Record<string, AgentTemplate>
 
@@ -169,6 +170,15 @@ export async function getAgentTemplate(
 
   const parsed = parseAgentId(agentId)
   if (!parsed) {
+    // If agentId doesn't parse as publisher/agent format, try as codebuff/agentId
+    const codebuffParsed = parseAgentId(`${DEFAULT_ORG_PREFIX}${agentId}`)
+    if (codebuffParsed) {
+      const dbAgent = await fetchAgentFromDatabase(codebuffParsed)
+      if (dbAgent) {
+        databaseAgentCache.set(cacheKey, dbAgent)
+        return dbAgent
+      }
+    }
     logger.debug({ agentId }, 'getAgentTemplate: Failed to parse agent ID')
     return null
   }
