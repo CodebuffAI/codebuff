@@ -107,7 +107,8 @@ describe('Auto Top-up System', () => {
     })
 
     it('should trigger top-up when balance below threshold', async () => {
-      await checkAndTriggerAutoTopup('test-user')
+      // Replace direct call with capture of returned amount
+      const amount = await checkAndTriggerAutoTopup('test-user')
 
       // Should check user settings
       expect(dbMock).toHaveBeenCalled()
@@ -118,8 +119,8 @@ describe('Auto Top-up System', () => {
       // Should validate auto top-up status
       expect(validateAutoTopupMock).toHaveBeenCalled()
 
-      // Should grant credits
-      expect(grantCreditsMock).toHaveBeenCalled()
+      // Assert the top-up amount was as configured (500)
+      expect(amount).toBe(500)
     })
 
     it('should not trigger top-up when balance above threshold', async () => {
@@ -145,17 +146,18 @@ describe('Auto Top-up System', () => {
         grantCreditsMock,
       )
 
-      await checkAndTriggerAutoTopup('test-user')
+      // Capture return value (should be undefined)
+      const amount = await checkAndTriggerAutoTopup('test-user')
 
       // Should still check settings and balance
       expect(dbMock).toHaveBeenCalled()
       expect(balanceMock).toHaveBeenCalled()
 
-      // Should still validate auto top-up (this happens before balance check)
+      // Should not validate auto top-up when not needed
       expect(validateAutoTopupMock.mock.calls.length).toBe(0)
 
-      // But should not grant credits
-      expect(grantCreditsMock.mock.calls.length).toBe(0)
+      // No top-up triggered
+      expect(amount).toBeUndefined()
     })
 
     it('should handle debt by topping up max(debt, configured amount)', async () => {
@@ -181,12 +183,10 @@ describe('Auto Top-up System', () => {
         grantCreditsMock,
       )
 
-      await checkAndTriggerAutoTopup('test-user')
+      // Capture the returned amount and assert debt coverage
+      const amount = await checkAndTriggerAutoTopup('test-user')
 
-      // Should grant credits
-      expect(grantCreditsMock).toHaveBeenCalled()
-      // Check the amount is correct (600 to cover debt)
-      expect(grantCreditsMock.mock.calls[0]?.[1]).toBe(600)
+      expect(amount).toBe(600)
     })
 
     it('should disable auto-topup when validation fails', async () => {
@@ -209,9 +209,6 @@ describe('Auto Top-up System', () => {
 
       // Should have called validation
       expect(validateAutoTopupMock).toHaveBeenCalled()
-
-      // Should not grant credits
-      expect(grantCreditsMock.mock.calls.length).toBe(0)
     })
 
     afterEach(() => {

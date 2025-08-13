@@ -1,5 +1,8 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { resolveAgentId } from '@codebuff/common/util/agent-name-normalization'
+import {
+  DEFAULT_ORG_PREFIX,
+  resolveAgentId,
+} from '@codebuff/common/util/agent-name-normalization'
 import { describe, expect, it, beforeEach } from 'bun:test'
 
 import type { AgentTemplate } from '../templates/types'
@@ -38,8 +41,8 @@ describe('Agent ID Resolution', () => {
         inputSchema: {},
       },
       // Spawnable agents with org prefix
-      'CodebuffAI/git-committer': {
-        id: 'CodebuffAI/git-committer',
+      [`${DEFAULT_ORG_PREFIX}git-committer`]: {
+        id: `${DEFAULT_ORG_PREFIX}git-committer`,
         displayName: 'Git Committer',
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
@@ -52,8 +55,8 @@ describe('Agent ID Resolution', () => {
         spawnerPrompt: 'Test',
         inputSchema: {},
       },
-      'CodebuffAI/example-agent': {
-        id: 'CodebuffAI/example-agent',
+      [`${DEFAULT_ORG_PREFIX}example-agent`]: {
+        id: `${DEFAULT_ORG_PREFIX}example-agent`,
         displayName: 'Example Agent',
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
@@ -97,19 +100,19 @@ describe('Agent ID Resolution', () => {
     })
 
     it('should resolve prefixed agent IDs directly', () => {
-      expect(resolveAgentId('CodebuffAI/git-committer', mockRegistry)).toBe(
-        'CodebuffAI/git-committer',
-      )
+      expect(
+        resolveAgentId(`${DEFAULT_ORG_PREFIX}git-committer`, mockRegistry),
+      ).toBe(`${DEFAULT_ORG_PREFIX}git-committer`)
     })
   })
 
   describe('Prefixed ID Resolution', () => {
-    it('should resolve unprefixed spawnable agent IDs by adding CodebuffAI prefix', () => {
+    it('should resolve unprefixed spawnable agent IDs by adding the default org prefix', () => {
       expect(resolveAgentId('git-committer', mockRegistry)).toBe(
-        'CodebuffAI/git-committer',
+        `${DEFAULT_ORG_PREFIX}git-committer`,
       )
       expect(resolveAgentId('example-agent', mockRegistry)).toBe(
-        'CodebuffAI/example-agent',
+        `${DEFAULT_ORG_PREFIX}example-agent`,
       )
     })
 
@@ -123,7 +126,9 @@ describe('Agent ID Resolution', () => {
   describe('Error Cases', () => {
     it('should return null for non-existent agents', () => {
       expect(resolveAgentId('non-existent', mockRegistry)).toBeNull()
-      expect(resolveAgentId('CodebuffAI/non-existent', mockRegistry)).toBeNull()
+      expect(
+        resolveAgentId(`${DEFAULT_ORG_PREFIX}non-existent`, mockRegistry),
+      ).toBeNull()
     })
 
     it('should return null for empty agent ID', () => {
@@ -154,7 +159,7 @@ describe('Agent ID Resolution', () => {
         'OtherOrg/special-agent',
       )
 
-      // Should not add CodebuffAI prefix to it
+      // Should not add default org prefix to it
       expect(resolveAgentId('special-agent', mockRegistry)).toBeNull()
     })
 

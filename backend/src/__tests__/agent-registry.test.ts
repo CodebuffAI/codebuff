@@ -106,10 +106,6 @@ describe('Agent Registry', () => {
       },
     }))
 
-    // Mock static agent templates
-    mockModule('@codebuff/backend/templates/agent-list', () => ({
-      agentTemplates: mockStaticTemplates,
-    }))
   })
   let mockFileContext: ProjectFileContext
 
@@ -159,10 +155,6 @@ describe('Agent Registry', () => {
       },
     }))
 
-    // Mock static agent templates
-    mockModule('@codebuff/backend/templates/agent-list', () => ({
-      agentTemplates: mockStaticTemplates,
-    }))
   })
 
   beforeEach(async () => {
