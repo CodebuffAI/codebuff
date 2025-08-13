@@ -4,6 +4,7 @@ import os from 'os'
 import { CODEBUFF_BINARY } from './constants'
 import { changeFile } from './tools/change-file'
 import { getFiles } from './tools/read-files'
+import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
 import {
   PromptResponseSchema,
@@ -215,7 +216,9 @@ export class CodebuffClient {
     return getFiles(filePath, this.cwd)
   }
 
-  private async handleToolCall(action: ServerAction<'tool-call-request'>) {
+  private async handleToolCall(
+    action: ServerAction<'tool-call-request'>,
+  ): ReturnType<WebSocketHandler['handleToolCall']> {
     const toolName = action.toolName
     const input = action.input
     let result: string
@@ -234,9 +237,11 @@ export class CodebuffClient {
         const r = changeFile(input, this.cwd)
         result = r.toolResultMessage
       } else if (toolName === 'run_terminal_command') {
-        throw new Error(
-          'run_terminal_command not implemented in SDK yet; please provide an override.',
-        )
+        const r = await runTerminalCommand({
+          ...input,
+          cwd: input.cwd ?? this.cwd,
+        } as Parameters<typeof runTerminalCommand>[0])
+        result = r.output
       } else {
         throw new Error(
           `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
@@ -244,22 +249,27 @@ export class CodebuffClient {
       }
     } catch (error) {
       return {
-        type: 'tool-call-response',
-        requestId: action.requestId,
         success: false,
-        result:
-          error && typeof error === 'object' && 'message' in error
-            ? error.message
-            : typeof error === 'string'
-              ? error
-              : 'Unknown error',
+        output: {
+          type: 'text',
+          value:
+            error &&
+            typeof error === 'object' &&
+            'message' in error &&
+            typeof error.message === 'string'
+              ? error.message
+              : typeof error === 'string'
+                ? error
+                : 'Unknown error',
+        },
       }
     }
     return {
-      type: 'tool-call-response',
-      requestId: action.requestId,
       success: true,
-      result,
+      output: {
+        type: 'text',
+        value: result,
+      },
     }
   }
 }
