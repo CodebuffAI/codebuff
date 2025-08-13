@@ -3,7 +3,7 @@
 import { type CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
-import { red, yellow, bold } from 'picocolors'
+import { red, yellow, green, bold } from 'picocolors'
 
 import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
@@ -34,7 +34,7 @@ import type { CliOptions } from './types'
 export async function validateAgent(
   agent: string,
   localAgents?: Record<string, any>,
-): Promise<void> {
+): Promise<string | undefined> {
   const agents = localAgents ?? {}
 
   // if local agents are loaded, they're already validated
@@ -55,9 +55,20 @@ export async function validateAgent(
       method: 'GET',
       headers,
     })
-    const data: { valid?: boolean } = await resp.json().catch(() => ({}) as any)
+    // Include optional fields from backend, notably displayName
+    const data: {
+      valid?: boolean
+      normalizedId?: string
+      displayName?: string
+    } = await resp.json().catch(() => ({}) as any)
 
-    if (resp.ok && data.valid) return
+    if (resp.ok && data.valid) {
+      // Console log the agent name immediately when resolved
+      if (data.displayName) {
+        console.log(green(`\nAgent: ${bold(data.displayName)}`))
+      }
+      return data.displayName
+    }
 
     if (resp.ok && !data.valid) {
       console.error(red(`\nUnknown agent: ${bold(agent)}. Exiting.`))
@@ -72,6 +83,7 @@ export async function validateAgent(
   } finally {
     Spinner.get().stop()
   }
+  return undefined
 }
 
 async function codebuff({
@@ -102,7 +114,7 @@ async function codebuff({
   // Ensure validation runs strictly after local agent load/display
   const loadAndValidatePromise: Promise<void> = loadLocalAgents({
     verbose: true,
-  }).then((agents) => {
+  }).then(async (agents) => {
     validateAgentDefinitionsIfAuthenticated(Object.values(agents))
 
     const codebuffConfig = loadCodebuffConfig()
@@ -111,7 +123,7 @@ async function codebuff({
       return
     }
 
-    return validateAgent(agent, agents)
+    await validateAgent(agent, agents)
   })
 
   const readyPromise = Promise.all([

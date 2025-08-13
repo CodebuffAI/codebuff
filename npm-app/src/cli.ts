@@ -633,17 +633,8 @@ export class CLI {
       if (client.user) {
         displayGreeting(this.costMode, client.user.name)
 
-        // Show selected agent when provided via --agent
-        if (this.agent) {
-          try {
-            const localAgentInfo = await getLocalAgentInfo()
-            const agentDisplayName = getAgentDisplayName(
-              this.agent,
-              localAgentInfo,
-            )
-            console.log(green(`\nAgent: ${bold(agentDisplayName)}`))
-          } catch {}
-        }
+        // Agent name will be displayed by validateAgent when resolved
+        // No need to display here to avoid race conditions
       } else {
         console.log(
           `Welcome to Codebuff! Give us a sec to get your account set up...`,

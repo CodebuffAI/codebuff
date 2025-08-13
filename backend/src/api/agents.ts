@@ -15,7 +15,12 @@ import type {
 const AGENT_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 type CacheEntry = {
-  result: { valid: true; source?: string; normalizedId?: string }
+  result: {
+    valid: true
+    source?: string
+    normalizedId?: string
+    displayName?: string
+  }
   expiresAt: number
 }
 
@@ -35,15 +40,11 @@ export async function validateAgentNameHandler(
   try {
     // Check for x-codebuff-api-key header for authentication
     const apiKey = extractAuthTokenFromHeader(req)
-
-    if (apiKey) {
-      logger.debug(
-        {
-          hasApiKey: true,
-          agentId: req.query.agentId,
-        },
-        'Agent validation request with API key authentication',
-      )
+    if (!apiKey) {
+      return res.status(403).json({
+        valid: false,
+        message: 'API key required',
+      })
     }
 
     // Parse from query instead (GET)
@@ -60,11 +61,13 @@ export async function validateAgentNameHandler(
     }
 
     // Check built-in agents first
-    if (AGENT_PERSONAS[agentId as keyof typeof AGENT_PERSONAS]) {
+    const persona = AGENT_PERSONAS[agentId as keyof typeof AGENT_PERSONAS]
+    if (persona) {
       const result = {
         valid: true as const,
         source: 'builtin',
         normalizedId: agentId,
+        displayName: persona.displayName,
       }
       agentValidationCache.set(agentId, {
         result,
@@ -80,6 +83,7 @@ export async function validateAgentNameHandler(
         valid: true as const,
         source: 'published',
         normalizedId: found.id,
+        displayName: found.displayName,
       }
       agentValidationCache.set(agentId, {
         result,
