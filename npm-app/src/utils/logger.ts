@@ -5,7 +5,7 @@ import { format as stringFormat } from 'util'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { pino } from 'pino'
 
-import { getCurrentChatDir } from '../project-files'
+import { getCurrentChatDir, getProjectRoot } from '../project-files'
 import { flushAnalytics, logError, trackEvent } from './analytics'
 
 export interface LoggerContext {
@@ -64,11 +64,20 @@ function sendAnalyticsAndLog(
     process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
     process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
   ) {
-    setLogPath(
+    const projectRoot = getProjectRoot() || process.cwd()
+
+    const logTarget =
       process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-        ? path.join(__dirname, '../../../debug', 'npm-app.log')
-        : path.join(getCurrentChatDir(), 'log.jsonl'),
-    )
+        ? path.join(projectRoot, 'debug', 'npm-app.log')
+        : (() => {
+            try {
+              return path.join(getCurrentChatDir(), 'log.jsonl')
+            } catch {
+              return path.join(projectRoot, 'debug', 'npm-app.log')
+            }
+          })()
+
+    setLogPath(logTarget)
   }
 
   const toTrack = {
