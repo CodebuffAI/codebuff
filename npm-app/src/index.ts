@@ -99,29 +99,20 @@ async function codebuff({
 
   const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
 
-  // Load local agents, display them, then validate agent using preloaded agents
-  const loadAgentsAndDisplayPromise = loadLocalAgents({ verbose: true }).then(
-    (agents) => {
-      validateAgentDefinitionsIfAuthenticated(Object.values(agents))
-
-      const codebuffConfig = loadCodebuffConfig()
-      if (!agent) {
-        displayLoadedAgents(codebuffConfig)
-      }
-
-      return agents // pass along for next step
-    },
-  )
-
   // Ensure validation runs strictly after local agent load/display
-  const loadAndValidatePromise: Promise<void> =
-    loadAgentsAndDisplayPromise.then(async (agents) => {
-      // Only validate if agent is specified
-      if (!agent) {
-        return
-      }
-      await validateAgent(agent, agents)
-    })
+  const loadAndValidatePromise: Promise<void> = loadLocalAgents({
+    verbose: true,
+  }).then((agents) => {
+    validateAgentDefinitionsIfAuthenticated(Object.values(agents))
+
+    const codebuffConfig = loadCodebuffConfig()
+    if (!agent) {
+      displayLoadedAgents(codebuffConfig)
+      return
+    }
+
+    return validateAgent(agent, agents)
+  })
 
   const readyPromise = Promise.all([
     initFileContextPromise,
