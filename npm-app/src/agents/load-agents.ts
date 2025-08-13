@@ -86,7 +86,8 @@ export async function loadLocalAgents({
           agentDefinition.handleSteps.toString()
       }
 
-      loadedAgents[fileName] = processedAgentDefinition
+      console.log('processedAgentDefinition', processedAgentDefinition.id)
+      loadedAgents[processedAgentDefinition.id] = processedAgentDefinition
     }
   } catch (error) {}
   return loadedAgents
