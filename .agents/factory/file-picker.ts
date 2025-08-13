@@ -1,11 +1,10 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/constants'
-import type { ToolCall } from 'types/agent-definition'
+import type { ModelName, ToolCall } from 'types/agent-definition'
 
 export const filePicker = (
-  model: Model,
+  model: ModelName,
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS['file-picker'].displayName,
