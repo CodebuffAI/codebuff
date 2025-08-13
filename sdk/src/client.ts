@@ -103,6 +103,10 @@ export class CodebuffClient {
     })
   }
 
+  public closeConnection() {
+    this.websocketHandler.close()
+  }
+
   /**
    * Run a Codebuff agent with the specified options.
    *

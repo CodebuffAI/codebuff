@@ -2,6 +2,12 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.1.9] - 2025-08-13
+
+### Added
+
+- `closeConnection` method in `CodebuffClient`
+
 ## [0.1.8] - 2025-08-13
 
 ### Added

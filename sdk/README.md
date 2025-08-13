@@ -99,6 +99,8 @@ const run2 = await client.run({
     },
   ],
 })
+
+client.closeConnection()
 ```
 
 ## API Reference
