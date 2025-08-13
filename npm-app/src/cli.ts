@@ -22,10 +22,13 @@ import {
   gray,
   green,
   magenta,
+  red,
   yellow,
 } from 'picocolors'
 
 import { loadLocalAgents, loadedAgents } from './agents/load-agents'
+import { backendUrl } from './config'
+import { createAuthHeaders } from './utils/auth-headers'
 import {
   killAllBackgroundProcesses,
   sendKillSignalToAllBackgroundProcesses,
@@ -144,6 +147,72 @@ function getCachedLocalAgentInfo(): Record<
   { displayName: string; purpose?: string }
 > {
   return cachedLocalAgentInfo
+}
+
+/**
+ * Validates an agent name against local and remote agents
+ * @param agent The agent name to validate
+ * @param localAgents Optional local agents to check against
+ * @returns The display name of the agent if valid, undefined otherwise
+ */
+export async function validateAgent(
+  agent: string,
+  localAgents?: Record<string, any>,
+): Promise<string | undefined> {
+  const agents = localAgents ?? {}
+
+  // if local agents are loaded, they're already validated
+  const localById = agents?.[agent]
+  const localByDisplay = Object.values(agents ?? {}).find(
+    (a: any) => a?.displayName === agent,
+  )
+  if (localById || localByDisplay) {
+    // Display the resolved agent name for local agents too
+    const displayName = (localById?.displayName ||
+      localByDisplay?.displayName ||
+      localById?.id ||
+      agent) as string
+    // Delete the inline console.log to centralize logging in the caller
+    return displayName
+  }
+
+  Spinner.get().start('Checking agent...')
+  try {
+    const url = `${backendUrl}/api/agents/validate-name?agentId=${encodeURIComponent(agent)}`
+
+    // Use helper to create headers with x-codebuff-api-key
+    const headers = createAuthHeaders()
+
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers,
+    })
+    // Include optional fields from backend, notably displayName
+    const data: {
+      valid?: boolean
+      normalizedId?: string
+      displayName?: string
+    } = await resp.json().catch(() => ({}) as any)
+
+    if (resp.ok && data.valid) {
+      // Delete inline console logging here to centralize in caller
+      return data.displayName
+    }
+
+    if (resp.ok && !data.valid) {
+      console.error(red(`\nUnknown agent: ${bold(agent)}. Exiting.`))
+      process.exit(1)
+    }
+  } catch {
+    console.error(
+      yellow(
+        `\nCould not validate agent due to a network error. Proceeding...`,
+      ),
+    )
+  } finally {
+    Spinner.get().stop()
+  }
+  return undefined
 }
 
 const PROMPT_HISTORY_PATH = path.join(CONFIG_DIR, 'prompt_history.json')
@@ -631,10 +700,16 @@ export class CLI {
     } else {
       // Normal interactive mode
       if (client.user) {
-        displayGreeting(this.costMode, client.user.name)
+        // Validate agent and display name before greeting if agent is specified
+        if (this.agent) {
+          const agents = await loadLocalAgents({ verbose: false })
+          const resolvedName = await validateAgent(this.agent, agents)
+          if (resolvedName) {
+            console.log(green(`\nAgent: ${bold(resolvedName)}`))
+          }
+        }
 
-        // Agent name will be displayed by validateAgent when resolved
-        // No need to display here to avoid race conditions
+        displayGreeting(this.costMode, client.user.name)
       } else {
         console.log(
           `Welcome to Codebuff! Give us a sec to get your account set up...`,

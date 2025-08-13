@@ -8,7 +8,7 @@ import {
   mock,
 } from 'bun:test'
 
-import { validateAgent } from '../index'
+import { validateAgent } from '../cli'
 import * as SpinnerMod from '../utils/spinner'
 
 describe('validateAgent agent pass-through', () => {

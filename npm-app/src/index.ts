@@ -25,66 +25,11 @@ import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
 import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
 import { initAnalytics, trackEvent } from './utils/analytics'
-import { createAuthHeaders } from './utils/auth-headers'
 import { logger } from './utils/logger'
-import { Spinner } from './utils/spinner'
 
 import type { CliOptions } from './types'
 
-export async function validateAgent(
-  agent: string,
-  localAgents?: Record<string, any>,
-): Promise<string | undefined> {
-  const agents = localAgents ?? {}
 
-  // if local agents are loaded, they're already validated
-  if (
-    !!agents?.[agent] ||
-    !!Object.values(agents ?? {}).find((a: any) => a?.displayName === agent)
-  )
-    return
-
-  Spinner.get().start('Checking agent...')
-  try {
-    const url = `${backendUrl}/api/agents/validate-name?agentId=${encodeURIComponent(agent)}`
-
-    // Use helper to create headers with x-codebuff-api-key
-    const headers = createAuthHeaders()
-
-    const resp = await fetch(url, {
-      method: 'GET',
-      headers,
-    })
-    // Include optional fields from backend, notably displayName
-    const data: {
-      valid?: boolean
-      normalizedId?: string
-      displayName?: string
-    } = await resp.json().catch(() => ({}) as any)
-
-    if (resp.ok && data.valid) {
-      // Console log the agent name immediately when resolved
-      if (data.displayName) {
-        console.log(green(`\nAgent: ${bold(data.displayName)}`))
-      }
-      return data.displayName
-    }
-
-    if (resp.ok && !data.valid) {
-      console.error(red(`\nUnknown agent: ${bold(agent)}. Exiting.`))
-      process.exit(1)
-    }
-  } catch {
-    console.error(
-      yellow(
-        `\nCould not validate agent due to a network error. Proceeding...`,
-      ),
-    )
-  } finally {
-    Spinner.get().stop()
-  }
-  return undefined
-}
 
 async function codebuff({
   initialInput,
@@ -111,19 +56,16 @@ async function codebuff({
 
   const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
 
-  // Ensure validation runs strictly after local agent load/display
+  // Load agents and validate definitions
   const loadAndValidatePromise: Promise<void> = loadLocalAgents({
     verbose: true,
-  }).then(async (agents) => {
+  }).then((agents) => {
     validateAgentDefinitionsIfAuthenticated(Object.values(agents))
 
     const codebuffConfig = loadCodebuffConfig()
     if (!agent) {
       displayLoadedAgents(codebuffConfig)
-      return
     }
-
-    await validateAgent(agent, agents)
   })
 
   const readyPromise = Promise.all([
