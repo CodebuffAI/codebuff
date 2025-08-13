@@ -644,7 +644,7 @@ export class CLI {
           try {
             const localAgentInfo = await getLocalAgentInfo()
             const agentDisplayName = getAgentDisplayName(
-              this.agent || 'base',
+              this.agent,
               localAgentInfo,
             )
             console.log(green(`\nAgent: ${bold(agentDisplayName)}`))

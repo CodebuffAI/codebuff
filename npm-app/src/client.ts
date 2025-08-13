@@ -52,7 +52,6 @@ import { match, P } from 'ts-pattern'
 import { z } from 'zod/v4'
 
 import { getLoadedAgentNames, loadLocalAgents } from './agents/load-agents'
-
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
@@ -1051,8 +1050,8 @@ export class Client {
       type: 'prompt',
       promptId: userInputId,
       prompt: cleanPrompt,
-      agentId: cliAgent || 'base',
-      promptParams: cliParams, // Add parsed params
+      agentId: cliAgent,
+      promptParams: cliParams,
       sessionState: this.sessionState,
       toolResults,
       fingerprintId: await this.fingerprintId,
