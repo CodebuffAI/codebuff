@@ -19,7 +19,7 @@ import type {
 } from 'express'
 
 function createMockReq(query: Record<string, any>): Partial<ExpressRequest> {
-  return { query } as any
+  return { query, headers: {} } as any
 }
 
 function createMockRes() {

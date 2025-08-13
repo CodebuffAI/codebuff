@@ -24,8 +24,7 @@ import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
 import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
-import { getUserCredentials } from './credentials'
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
+import { createAuthHeaders } from './utils/auth-headers'
 import { initAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
@@ -36,22 +35,6 @@ export async function validateAgent(
   agent: string,
   localAgents?: Record<string, any>,
 ): Promise<void> {
-  // Check what credentials are available at this point
-  const userCredentials = getUserCredentials()
-  const apiKeyEnvVar = process.env[API_KEY_ENV_VAR]
-  
-  logger.info(
-    {
-      agent,
-      hasUserCredentials: !!userCredentials,
-      hasApiKeyEnvVar: !!apiKeyEnvVar,
-      userId: userCredentials?.id,
-      userEmail: userCredentials?.email,
-      hasAuthToken: !!userCredentials?.authToken,
-    },
-    '[startup] validateAgent: checking available credentials',
-  )
-
   const agents = localAgents ?? {}
 
   // if local agents are loaded, they're already validated
@@ -64,31 +47,10 @@ export async function validateAgent(
   Spinner.get().start('Checking agent...')
   try {
     const url = `${backendUrl}/api/agents/validate-name?agentId=${encodeURIComponent(agent)}`
-    
-    // Add auth headers if available
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-    
-    if (userCredentials?.authToken) {
-      headers.Authorization = `Bearer ${userCredentials.authToken}`
-      logger.debug(
-        { hasAuthHeader: true },
-        '[startup] Adding Authorization header to agent validation request',
-      )
-    } else if (apiKeyEnvVar) {
-      headers['X-API-Key'] = apiKeyEnvVar
-      logger.debug(
-        { hasApiKey: true },
-        '[startup] Adding API key header to agent validation request',
-      )
-    } else {
-      logger.warn(
-        {},
-        '[startup] No authentication credentials available for agent validation',
-      )
-    }
-    
+
+    // Use helper to create headers with x-codebuff-api-key
+    const headers = createAuthHeaders()
+
     const resp = await fetch(url, {
       method: 'GET',
       headers,

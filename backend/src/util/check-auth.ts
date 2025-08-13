@@ -4,6 +4,7 @@ import { utils } from '@codebuff/internal'
 import { eq } from 'drizzle-orm'
 
 import { logger } from './logger'
+import { extractAuthTokenFromHeader } from './auth-helpers'
 
 import type { ServerAction } from '@codebuff/common/actions'
 import type { Request, Response, NextFunction } from 'express'
@@ -49,14 +50,11 @@ export const checkAdmin = async (
   res: Response,
   next: NextFunction,
 ) => {
-  // Extract auth token from Authorization header
-  const authHeader = req.headers.authorization
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res
-      .status(401)
-      .json({ error: 'Missing or invalid Authorization header' })
+  // Extract auth token from x-codebuff-api-key header
+  const authToken = extractAuthTokenFromHeader(req)
+  if (!authToken) {
+    return res.status(401).json({ error: 'Missing x-codebuff-api-key header' })
   }
-  const authToken = authHeader.substring(7) // Remove 'Bearer ' prefix
 
   // Generate a client session ID for this request
   const clientSessionId = `admin-relabel-${Date.now()}`

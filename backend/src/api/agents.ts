@@ -1,12 +1,15 @@
+import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { z } from 'zod/v4'
+
+import { getAgentTemplate } from '../templates/agent-registry'
+import { extractAuthTokenFromHeader } from '../util/auth-helpers'
+import { logger } from '../util/logger'
+
 import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
   NextFunction,
 } from 'express'
-import { logger } from '../util/logger'
-import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { getAgentTemplate } from '../templates/agent-registry'
 
 // Add short-lived cache for positive validations
 const AGENT_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
@@ -30,21 +33,19 @@ export async function validateAgentNameHandler(
   next: NextFunction,
 ): Promise<void | ExpressResponse> {
   try {
-    // Log authentication headers if present (for debugging)
-    const hasAuthHeader = !!req.headers.authorization
-    const hasApiKey = !!req.headers['x-api-key']
-    
-    if (hasAuthHeader || hasApiKey) {
-      logger.info(
-        { 
-          hasAuthHeader,
-          hasApiKey,
+    // Check for x-codebuff-api-key header for authentication
+    const apiKey = extractAuthTokenFromHeader(req)
+
+    if (apiKey) {
+      logger.debug(
+        {
+          hasApiKey: true,
           agentId: req.query.agentId,
         },
-        'Agent validation request with authentication',
+        'Agent validation request with API key authentication',
       )
     }
-    
+
     // Parse from query instead (GET)
     const { agentId } = validateAgentRequestSchema.parse({
       agentId: String((req.query as any)?.agentId ?? ''),
@@ -60,7 +61,11 @@ export async function validateAgentNameHandler(
 
     // Check built-in agents first
     if (AGENT_PERSONAS[agentId as keyof typeof AGENT_PERSONAS]) {
-      const result = { valid: true as const, source: 'builtin', normalizedId: agentId }
+      const result = {
+        valid: true as const,
+        source: 'builtin',
+        normalizedId: agentId,
+      }
       agentValidationCache.set(agentId, {
         result,
         expiresAt: Date.now() + AGENT_VALIDATION_CACHE_TTL_MS,
@@ -90,7 +95,11 @@ export async function validateAgentNameHandler(
       'Error validating agent name',
     )
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ valid: false, message: 'Invalid request', issues: error.issues })
+      return res.status(400).json({
+        valid: false,
+        message: 'Invalid request',
+        issues: error.issues,
+      })
     }
     next(error)
     return

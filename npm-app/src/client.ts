@@ -82,6 +82,7 @@ import {
 } from './subagent-storage'
 import { handleToolCall } from './tool-handlers'
 import { identifyUser, trackEvent } from './utils/analytics'
+import { addAuthHeader } from './utils/auth-headers'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
@@ -1630,10 +1631,10 @@ Go to https://www.codebuff.com/config for more information.`) +
       // Call backend API to check if repo is covered by organization
       const response = await fetch(`${backendUrl}/api/orgs/is-repo-covered`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.user.authToken}`,
-        },
+        headers: addAuthHeader(
+          { 'Content-Type': 'application/json' },
+          this.user.authToken,
+        ),
         body: JSON.stringify({
           owner: owner.toLowerCase(),
           repo: repo.toLowerCase(),
