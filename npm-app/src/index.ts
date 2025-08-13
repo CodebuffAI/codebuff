@@ -3,13 +3,13 @@
 import { type CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
-import { red } from 'picocolors'
+import { red, yellow, bold } from 'picocolors'
 
 import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { handlePublish } from './cli-handlers/publish'
-import { npmAppVersion } from './config'
+import { npmAppVersion, backendUrl } from './config'
 import { createTemplateProject } from './create-template-project'
 import { printModeLog, setPrintMode } from './display/print-mode'
 import { enableSquashNewlines } from './display/squash-newlines'
@@ -23,11 +23,94 @@ import {
 import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
+import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
+import { getUserCredentials } from './credentials'
+import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
 import { initAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
+import { Spinner } from './utils/spinner'
 
 import type { CliOptions } from './types'
-import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
+
+export async function validateAgent(
+  agent: string,
+  localAgents?: Record<string, any>,
+): Promise<void> {
+  // Check what credentials are available at this point
+  const userCredentials = getUserCredentials()
+  const apiKeyEnvVar = process.env[API_KEY_ENV_VAR]
+  
+  logger.info(
+    {
+      agent,
+      hasUserCredentials: !!userCredentials,
+      hasApiKeyEnvVar: !!apiKeyEnvVar,
+      userId: userCredentials?.id,
+      userEmail: userCredentials?.email,
+      hasAuthToken: !!userCredentials?.authToken,
+    },
+    '[startup] validateAgent: checking available credentials',
+  )
+
+  const agents = localAgents ?? {}
+
+  // if local agents are loaded, they're already validated
+  if (
+    !!agents?.[agent] ||
+    !!Object.values(agents ?? {}).find((a: any) => a?.displayName === agent)
+  )
+    return
+
+  Spinner.get().start('Checking agent...')
+  try {
+    const url = `${backendUrl}/api/agents/validate-name?agentId=${encodeURIComponent(agent)}`
+    
+    // Add auth headers if available
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    if (userCredentials?.authToken) {
+      headers.Authorization = `Bearer ${userCredentials.authToken}`
+      logger.debug(
+        { hasAuthHeader: true },
+        '[startup] Adding Authorization header to agent validation request',
+      )
+    } else if (apiKeyEnvVar) {
+      headers['X-API-Key'] = apiKeyEnvVar
+      logger.debug(
+        { hasApiKey: true },
+        '[startup] Adding API key header to agent validation request',
+      )
+    } else {
+      logger.warn(
+        {},
+        '[startup] No authentication credentials available for agent validation',
+      )
+    }
+    
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers,
+    })
+    const data: { valid?: boolean } = await resp.json().catch(() => ({}) as any)
+
+    if (resp.ok && data.valid) return
+
+    if (resp.ok && !data.valid) {
+      console.error(red(`\nUnknown agent: ${bold(agent)}. Exiting.`))
+      process.exit(1)
+    }
+  } catch {
+    console.error(
+      yellow(
+        `\nCould not validate agent due to a network error. Proceeding...`,
+      ),
+    )
+  } finally {
+    Spinner.get().stop()
+  }
+}
 
 async function codebuff({
   initialInput,
@@ -54,22 +137,32 @@ async function codebuff({
 
   const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
 
-  // Only load local agents if no specific agent is requested
-  const loadLocalAgentsPromise = new Promise<void>((resolve) => {
-    loadLocalAgents({ verbose: true }).then((agents) => {
+  // Load local agents, display them, then validate agent using preloaded agents
+  const loadAgentsAndDisplayPromise = loadLocalAgents({ verbose: true }).then(
+    (agents) => {
       validateAgentDefinitionsIfAuthenticated(Object.values(agents))
 
       const codebuffConfig = loadCodebuffConfig()
       displayLoadedAgents(codebuffConfig)
-    })
 
-    resolve()
-  })
+      return agents // pass along for next step
+    },
+  )
+
+  // Ensure validation runs strictly after local agent load/display
+  const loadAndValidatePromise: Promise<void> =
+    loadAgentsAndDisplayPromise.then(async (agents) => {
+      // Only validate if agent is specified
+      if (!agent) {
+        return
+      }
+      await validateAgent(agent, agents)
+    })
 
   const readyPromise = Promise.all([
     initFileContextPromise,
     processCleanupPromise,
-    loadLocalAgentsPromise,
+    loadAndValidatePromise,
   ])
 
   // Initialize the CLI singleton
@@ -84,7 +177,6 @@ async function codebuff({
   })
 
   const cli = CLI.getInstance()
-
   await cli.printInitialPrompt({ initialInput, runInitFlow })
 
   rageDetectors.startupTimeDetector.end()
