@@ -8,8 +8,8 @@ export const filePicker = (
   model: Model,
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
-  displayName: AGENT_PERSONAS.file_picker.displayName,
-  spawnerPrompt: AGENT_PERSONAS.file_picker.purpose,
+  displayName: AGENT_PERSONAS['file-picker'].displayName,
+  spawnerPrompt: AGENT_PERSONAS['file-picker'].purpose,
   inputSchema: {
     prompt: {
       type: 'string',
