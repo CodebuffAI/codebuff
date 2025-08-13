@@ -1,4 +1,4 @@
-import type { AgentDefinition, ToolCall } from '../types/agent-definition'
+import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'advanced-file-explorer',
@@ -54,19 +54,19 @@ const definition: AgentDefinition = {
       ),
       { toolResult: spawnResult } = yield {
         toolName: 'spawn_agents',
-        input: {
+        args: {
           agents: filePickerPrompts.map((promptText) => ({
             agent_type: 'codebuff/file-picker@0.0.1',
             prompt: promptText,
           })),
         },
-      } satisfies ToolCall
+      }
     yield {
       toolName: 'set_output',
-      input: {
+      args: {
         results: spawnResult,
       },
-    } satisfies ToolCall
+    }
   },
 }
 

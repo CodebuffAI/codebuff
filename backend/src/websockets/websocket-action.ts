@@ -86,10 +86,11 @@ export async function genUsageResponse(
     type: 'usage-response' as const,
     usage: 0,
     remainingBalance: 0,
+    balanceBreakdown: {},
     next_quota_reset: null,
-  } satisfies UsageResponse
+  }
 
-  return withLoggerContext<UsageResponse>(logContext, async () => {
+  return withLoggerContext(logContext, async () => {
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
@@ -112,7 +113,7 @@ export async function genUsageResponse(
         remainingBalance: balanceDetails.totalRemaining,
         balanceBreakdown: balanceDetails.breakdown,
         next_quota_reset: user.next_quota_reset,
-      } satisfies UsageResponse
+      }
     } catch (error) {
       logger.error(
         { error, usage: defaultResp },
@@ -256,6 +257,7 @@ const onInit = async (
       sendAction(ws, {
         usage: 0,
         remainingBalance: 0,
+        balanceBreakdown: {},
         next_quota_reset: null,
         type: 'init-response',
       })
@@ -406,28 +408,19 @@ export async function requestOptionalFile(ws: WebSocket, filePath: string) {
  * Requests a tool call execution from the client with timeout support
  * @param ws - The WebSocket connection
  * @param toolName - Name of the tool to execute
- * @param input - Arguments for the tool (can include timeout)
+ * @param args - Arguments for the tool (can include timeout)
  * @returns Promise resolving to the tool execution result
  */
-export async function requestToolCall(
+export async function requestToolCall<T = any>(
   ws: WebSocket,
   userInputId: string,
   toolName: string,
-  input: Record<string, any> & { timeout_seconds?: number },
-): Promise<{
-  success: boolean
-  output?: {
-    type: 'text'
-    value: string
-  }
-  error?: string
-}> {
+  args: Record<string, any> & { timeout_seconds?: number },
+): Promise<{ success: boolean; result?: T; error?: string }> {
   return new Promise((resolve, reject) => {
     const requestId = generateCompactId()
     const timeoutInSeconds =
-      (input.timeout_seconds || 30) < 0
-        ? undefined
-        : input.timeout_seconds || 30
+      (args.timeout_seconds || 30) < 0 ? undefined : args.timeout_seconds || 30
 
     // Set up timeout
     const timeoutHandle =
@@ -452,7 +445,7 @@ export async function requestToolCall(
         unsubscribe()
         resolve({
           success: action.success,
-          output: action.output,
+          result: action.result,
           error: action.error,
         })
       }
@@ -464,7 +457,7 @@ export async function requestToolCall(
       requestId,
       userInputId,
       toolName,
-      input,
+      args,
       timeout:
         timeoutInSeconds === undefined ? undefined : timeoutInSeconds * 1000, // Send timeout in milliseconds
     })

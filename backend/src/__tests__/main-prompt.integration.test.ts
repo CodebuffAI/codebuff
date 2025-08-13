@@ -88,11 +88,11 @@ describe.skip('mainPrompt (Integration)', () => {
         ws: WebSocket,
         userInputId: string,
         toolName: string,
-        input: Record<string, any>,
+        args: Record<string, any>,
       ) => {
         return {
           success: true,
-          result: `Tool call success: ${{ toolName, input }}` as any,
+          result: `Tool call success: ${{ toolName, args }}` as any,
         }
       },
     )

@@ -71,7 +71,7 @@ export async function runFileChangeHooks(
       toolResults.push({
         toolName: hookName,
         toolCallId: hookId,
-        output: { type: 'text', value: result.result },
+        result: result.result,
       })
     } catch (error) {
       logger.error(

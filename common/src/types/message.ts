@@ -1,5 +1,5 @@
-import { modelMessageSchema } from 'ai'
-import { z } from 'zod/v4'
+import { coreMessageSchema } from 'ai'
+import { z } from 'zod'
 
 const MessageContentObjectSchema = z.union([
   z.object({
@@ -56,7 +56,7 @@ export type Message = z.infer<typeof MessageSchema>
 export type MessageContentObject = z.infer<typeof MessageContentObjectSchema>
 
 export const CodebuffMessageSchema = z.intersection(
-  modelMessageSchema,
+  coreMessageSchema,
   z.object({
     timeToLive: z
       .union([z.literal('agentStep'), z.literal('userPrompt')])

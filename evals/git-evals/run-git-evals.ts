@@ -260,10 +260,10 @@ function getCodebuffFileStates(
           for (const toolCall of step.toolCalls) {
             if (
               EDIT_FILE_TOOL_NAMES.includes(toolCall.toolName as any) &&
-              'path' in toolCall.input &&
-              toolCall.input.path
+              'path' in toolCall.args &&
+              toolCall.args.path
             ) {
-              codebuffWrittenFilePaths.add(toolCall.input.path as string)
+              codebuffWrittenFilePaths.add(toolCall.args.path as string)
             }
           }
         }

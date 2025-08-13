@@ -339,7 +339,7 @@ describe('runAgentStep - set_output tool', () => {
         // Yield one tool call
         yield {
           toolName: 'read_files',
-          input: { paths: ['src/test.ts'] },
+          args: { paths: ['src/test.ts'] },
         }
         // Then yield STEP_ALL to continue processing
         yield 'STEP_ALL'
@@ -475,7 +475,7 @@ describe('runAgentStep - set_output tool', () => {
         // Set the updated messages
         yield {
           toolName: 'set_messages',
-          input: { messages },
+          args: { messages },
         }
       },
     }

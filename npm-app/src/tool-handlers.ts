@@ -23,7 +23,7 @@ import { Spinner } from './utils/spinner'
 import { scrapeWebPage } from './web-scraper'
 
 import type { BrowserResponse } from '@codebuff/common/browser-actions'
-import type { ToolCall, ToolResult } from '@codebuff/common/types/session-state'
+import type { ToolCall } from '@codebuff/common/types/session-state'
 
 export type ToolHandler<T extends Record<string, any>> = (
   parameters: T,
@@ -354,16 +354,14 @@ export const toolHandlers: Record<string, ToolHandler<any>> = {
   },
 }
 
-export const handleToolCall = async (
-  toolCall: ToolCall,
-): Promise<ToolResult> => {
-  const { toolName, input, toolCallId } = toolCall
+export const handleToolCall = async (toolCall: ToolCall) => {
+  const { toolName, args, toolCallId } = toolCall
   const handler = toolHandlers[toolName]
   if (!handler) {
     throw new Error(`No handler found for tool: ${toolName}`)
   }
 
-  const content = await handler(input, toolCallId)
+  const content = await handler(args, toolCallId)
 
   if (typeof content !== 'string') {
     throw new Error(
@@ -394,6 +392,6 @@ export const handleToolCall = async (
   return {
     toolName,
     toolCallId,
-    output: { type: 'text', value: content },
+    result: content,
   }
 }

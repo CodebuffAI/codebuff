@@ -1,9 +1,7 @@
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
 import { toolNames } from '../tools/constants'
-
-import type { JSONSchema } from 'zod/v4/core'
 
 // Filter models to only include those that begin with allowed prefixes
 const filteredModels = Object.values(models).filter((model) =>
@@ -15,48 +13,46 @@ if (filteredModels.length === 0) {
 }
 
 // Simplified JSON Schema definition - supports object schemas with nested properties
-const JsonSchemaSchema: z.ZodType<
-  JSONSchema.BaseSchema,
-  JSONSchema.BaseSchema
-> = z.lazy(() =>
-  z.looseObject({
-    type: z
-      .enum([
-        'object',
-        'array',
-        'string',
-        'number',
-        'boolean',
-        'null',
-        'integer',
-      ])
-      .optional(),
-    description: z.string().optional(),
-    properties: z
-      .record(z.string(), JsonSchemaSchema.or(z.boolean()))
-      .optional(),
-    required: z.string().array().optional(),
-    enum: z
-      .union([z.string(), z.number(), z.boolean(), z.null()])
-      .array()
-      .optional(),
-  }),
-)
-const JsonObjectSchemaSchema = z.intersection(
-  JsonSchemaSchema,
-  z.object({ type: z.literal('object') }),
+const JsonSchemaSchema: z.ZodType<any> = z.lazy(() =>
+  z
+    .object({
+      type: z.literal('object'),
+      description: z.string().optional(),
+      properties: z
+        .record(
+          JsonSchemaSchema.or(
+            z
+              .object({
+                type: z.enum([
+                  'string',
+                  'number',
+                  'integer',
+                  'boolean',
+                  'array',
+                ]),
+                description: z.string().optional(),
+                enum: z.array(z.any()).optional(),
+              })
+              .passthrough(),
+          ),
+        )
+        .optional(),
+      required: z.array(z.string()).optional(),
+    })
+    .passthrough(),
 )
 
 // Schema for the combined inputSchema object
 const InputSchemaObjectSchema = z
-  .looseObject({
+  .object({
     prompt: z
-      .looseObject({
+      .object({
         type: z.literal('string'),
         description: z.string().optional(),
       })
+      .passthrough()
       .optional(), // Optional JSON schema for prompt validation
-    params: JsonObjectSchemaSchema.optional(), // Optional JSON schema for params validation
+    params: JsonSchemaSchema.optional(), // Optional JSON schema for params validation
   })
   .optional()
 
@@ -67,25 +63,22 @@ const PromptFieldSchema = z.union([
 ])
 export type PromptField = z.infer<typeof PromptFieldSchema>
 
-const functionSchema = <T extends z.core.$ZodFunction>(schema: T) =>
-  z.custom<Parameters<T['implement']>[0]>((fn: any) => schema.implement(fn))
 // Schema for validating handleSteps function signature
-const HandleStepsSchema = functionSchema(
-  z.function({
-    input: [
-      z.object({
-        agentState: z.object({
-          agentId: z.string(),
-          parentId: z.string(),
-          messageHistory: z.array(z.any()),
-        }),
-        prompt: z.string().optional(),
-        params: z.any().optional(),
+const HandleStepsSchema = z
+  .function()
+  .args(
+    z.object({
+      agentState: z.object({
+        agentId: z.string(),
+        parentId: z.string(),
+        messageHistory: z.array(z.any()),
       }),
-    ],
-    output: z.any(),
-  }),
-).optional()
+      prompt: z.string().optional(),
+      params: z.any().optional(),
+    }),
+  )
+  .returns(z.any())
+  .optional()
 
 // Validates the Typescript template file.
 export const DynamicAgentDefinitionSchema = z.object({
@@ -103,7 +96,30 @@ export const DynamicAgentDefinitionSchema = z.object({
   model: z.string(),
 
   // Tools and spawnable agents
-  toolNames: z.array(z.enum(toolNames)).optional().default([]),
+  toolNames: z
+    .array(z.enum(toolNames))
+    .optional()
+    .default([])
+    .refine(
+      (tools) => {
+        if (!tools) return true
+        const validToolNames = toolNames as readonly string[]
+        const invalidTools = tools.filter(
+          (tool) => !validToolNames.includes(tool),
+        )
+        return invalidTools.length === 0
+      },
+      (tools) => {
+        if (!tools) return { message: 'Tools array is undefined' }
+        const validToolNames = toolNames as readonly string[]
+        const invalidTools = tools.filter(
+          (tool) => !validToolNames.includes(tool),
+        )
+        return {
+          message: `Invalid tool names: ${invalidTools.join(', ')}. Available tools: ${toolNames.join(', ')}`,
+        }
+      },
+    ),
   spawnableAgents: z.array(z.string()).optional().default([]),
 
   // Input and output
@@ -112,7 +128,7 @@ export const DynamicAgentDefinitionSchema = z.object({
   outputMode: z
     .enum(['last_message', 'all_messages', 'structured_output'])
     .default('last_message'),
-  outputSchema: JsonObjectSchemaSchema.optional(), // Optional JSON schema for output validation
+  outputSchema: JsonSchemaSchema.optional(), // Optional JSON schema for output validation
 
   // Prompts
   spawnerPrompt: z.string().optional(),
@@ -121,7 +137,7 @@ export const DynamicAgentDefinitionSchema = z.object({
   stepPrompt: z.string().optional(),
 
   // Optional generator function for programmatic agents
-  handleSteps: z.union([z.string(), HandleStepsSchema]).optional(),
+  handleSteps: z.union([HandleStepsSchema, z.string()]).optional(),
 })
 export type DynamicAgentDefinition = z.input<
   typeof DynamicAgentDefinitionSchema

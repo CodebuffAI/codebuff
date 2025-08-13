@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-import { withCacheControl } from '@codebuff/common/util/messages'
+import { withCacheControlCore } from '@codebuff/common/util/messages'
 
 import { logger } from '../util/logger'
 
@@ -19,7 +19,7 @@ export async function saveAgentRequest(
     const filename = `system-prompt-${messageCount}-${userInputId}.json`
     const filePath = path.join(promptsDir, filename)
 
-    const transformedMessages = messages.map(withCacheControl)
+    const transformedMessages = messages.map(withCacheControlCore)
 
     await fs.promises.writeFile(
       filePath,

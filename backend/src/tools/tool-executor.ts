@@ -21,7 +21,7 @@ import type { WebSocket } from 'ws'
 
 export type ToolCallError = {
   toolName?: string
-  input: Record<string, unknown>
+  args: Record<string, unknown>
   error: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
 
@@ -29,7 +29,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
   rawToolCall: {
     toolName: T
     toolCallId: string
-    input: Record<string, unknown>
+    args: Record<string, unknown>
   },
   autoInsertEndStepParam: boolean = false,
 ): CodebuffToolCall<T> | ToolCallError {
@@ -39,14 +39,14 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
     return {
       toolName,
       toolCallId: rawToolCall.toolCallId,
-      input: rawToolCall.input,
+      args: rawToolCall.args,
       error: `Tool ${toolName} not found`,
     }
   }
   const validName = toolName as T
 
   const processedParameters: Record<string, any> = {}
-  for (const [param, val] of Object.entries(rawToolCall.input)) {
+  for (const [param, val] of Object.entries(rawToolCall.args)) {
     processedParameters[param] = val
   }
 
@@ -72,7 +72,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
     return {
       toolName: validName,
       toolCallId: rawToolCall.toolCallId,
-      input: rawToolCall.input,
+      args: rawToolCall.args,
       error: `Invalid parameters for ${validName}: ${JSON.stringify(
         result.error.issues,
         null,
@@ -87,14 +87,14 @@ export function parseRawToolCall<T extends ToolName = ToolName>(
 
   return {
     toolName: validName,
-    input: result.data,
+    args: result.data,
     toolCallId: rawToolCall.toolCallId,
   } as CodebuffToolCall<T>
 }
 
 export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
   toolName: T
-  input: Record<string, unknown>
+  args: Record<string, unknown>
   toolCalls: CodebuffToolCall[]
   toolResults: ToolResult[]
   previousToolCallFinished: Promise<void>
@@ -113,7 +113,7 @@ export interface ExecuteToolCallParams<T extends ToolName = ToolName> {
 
 export function executeToolCall<T extends ToolName>({
   toolName,
-  input,
+  args,
   toolCalls,
   toolResults,
   previousToolCallFinished,
@@ -133,7 +133,7 @@ export function executeToolCall<T extends ToolName>({
     {
       toolName,
       toolCallId: generateCompactId(),
-      input,
+      args,
     },
     autoInsertEndStepParam,
   )
@@ -141,10 +141,7 @@ export function executeToolCall<T extends ToolName>({
     toolResults.push({
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: {
-        type: 'text',
-        value: toolCall.error,
-      },
+      result: toolCall.error,
     })
     logger.debug(
       { toolCall, error: toolCall.error },
@@ -157,7 +154,7 @@ export function executeToolCall<T extends ToolName>({
     type: 'tool_call',
     toolCallId: toolCall.toolCallId,
     toolName,
-    input: toolCall.input,
+    args: toolCall.args,
   })
 
   logger.debug(
@@ -171,10 +168,7 @@ export function executeToolCall<T extends ToolName>({
     toolResults.push({
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: {
-        type: 'text',
-        value: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-      },
+      result: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
     })
     return previousToolCallFinished
   }
@@ -198,13 +192,13 @@ export function executeToolCall<T extends ToolName>({
         ws,
         userInputId,
         clientToolCall.toolName,
-        clientToolCall.input,
+        clientToolCall.args,
       )
       return (
         clientToolResult.error ??
-        (clientToolResult.output?.type === 'text'
-          ? clientToolResult.output.value
-          : 'undefined')
+        (typeof clientToolResult.result === 'string'
+          ? clientToolResult.result
+          : JSON.stringify(clientToolResult.result))
       )
     },
     toolCall,
@@ -225,10 +219,7 @@ export function executeToolCall<T extends ToolName>({
     const toolResult = {
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: {
-        type: 'text' as const,
-        value: result as string,
-      },
+      result: result as NonNullable<typeof result>,
     }
     logger.debug(
       { toolResult },
@@ -241,7 +232,7 @@ export function executeToolCall<T extends ToolName>({
     onResponseChunk({
       type: 'tool_result',
       toolCallId: toolResult.toolCallId,
-      output: toolResult.output,
+      result: toolResult.result,
     })
 
     toolResults.push(toolResult)

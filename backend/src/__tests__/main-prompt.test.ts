@@ -155,12 +155,12 @@ describe('mainPrompt', () => {
         ws: WebSocket,
         userInputId: string,
         toolName: string,
-        input: Record<string, any>,
+        args: Record<string, any>,
         timeout: number = 30_000,
       ) => {
         return {
           success: true,
-          result: `Tool call success: ${{ toolName, input }}` as any,
+          result: `Tool call success: ${{ toolName, args }}` as any,
         }
       },
     )
@@ -234,11 +234,8 @@ describe('mainPrompt', () => {
         {
           toolCallId: 'prev-read',
           toolName: 'read_files',
-          output: {
-            type: 'text',
-            value:
-              '<read_file>\n<path>test.txt</path>\n<content>old content</content>\n</read_file>',
-          },
+          result:
+            '<read_file>\n<path>test.txt</path>\n<content>old content</content>\n</read_file>',
         },
       ]),
     })

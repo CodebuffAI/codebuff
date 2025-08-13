@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join, resolve } from 'path'
 import { createInterface } from 'readline'
 
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 // Validation schemas
 const WorktreeArgsSchema = z.object({
@@ -86,7 +86,7 @@ function validateArgs(args: WorktreeArgs): ValidationError[] {
   const result = WorktreeArgsSchema.safeParse(args)
 
   if (!result.success) {
-    return result.error.issues.map((err) => ({
+    return result.error.errors.map((err) => ({
       field: err.path.join('.'),
       message: err.message,
     }))

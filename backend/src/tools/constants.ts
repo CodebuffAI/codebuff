@@ -12,7 +12,7 @@ export const globalStopSequence = `${JSON.stringify(endsAgentStepParam)}`
 export type CodebuffToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
-    input: z.infer<(typeof codebuffToolDefs)[K]['parameters']>
+    args: z.infer<(typeof codebuffToolDefs)[K]['parameters']>
   } & Omit<ToolCallPart, 'type'>
 }[T]
 
@@ -20,13 +20,13 @@ export type CodebuffToolCall<T extends ToolName = ToolName> = {
 export type ClientToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
-    input: K extends 'run_terminal_command'
-      ? CodebuffToolCall<'run_terminal_command'>['input'] & {
+    args: K extends 'run_terminal_command'
+      ? CodebuffToolCall<'run_terminal_command'>['args'] & {
           mode: 'assistant' | 'user'
         }
       : K extends 'write_file' | 'str_replace' | 'create_plan'
         ? FileChange
-        : CodebuffToolCall<K>['input']
+        : CodebuffToolCall<K>['args']
   }
 }[T] &
   Omit<ToolCallPart, 'type'>

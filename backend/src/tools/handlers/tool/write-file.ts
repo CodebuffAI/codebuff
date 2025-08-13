@@ -96,7 +96,7 @@ export const handleWriteFile = ((params: {
     getLatestState,
     state,
   } = params
-  const { path, instructions, content } = toolCall.input
+  const { path, instructions, content } = toolCall.args
   const { ws, fingerprintId, userId, fullResponse, prompt } = state
   if (!ws) {
     throw new Error('Internal error for write_file: Missing WebSocket in state')
@@ -232,7 +232,7 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
     const clientToolCall: ClientToolCall<T> = {
       toolCallId: toolCall.toolCallId,
       toolName: toolCall.tool,
-      input: patch
+      args: patch
         ? { type: 'patch' as const, path, content: patch }
         : { type: 'file' as const, path, content },
     } as ClientToolCall<T>

@@ -1,7 +1,6 @@
 import type {
   AgentDefinition,
   AgentStepContext,
-  ToolCall,
 } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
@@ -30,31 +29,31 @@ const definition: AgentDefinition = {
     // Step 1: Run git diff and git log to analyze changes.
     yield {
       toolName: 'run_terminal_command',
-      input: {
+      args: {
         command: 'git diff',
         process_type: 'SYNC',
         timeout_seconds: 30,
       },
-    } satisfies ToolCall
+    }
 
     yield {
       toolName: 'run_terminal_command',
-      input: {
+      args: {
         command: 'git log --oneline -10',
         process_type: 'SYNC',
         timeout_seconds: 30,
       },
-    } satisfies ToolCall
+    }
 
     // Step 2: Put words in AI's mouth so it will read files next.
     yield {
       toolName: 'add_message',
-      input: {
+      args: {
         role: 'assistant',
         content:
           "I've analyzed the git diff and recent commit history. Now I'll read any relevant files to better understand the context of these changes.",
       },
-    } satisfies ToolCall
+    }
 
     // Step 3: Let AI generate a step to decide which files to read.
     yield 'STEP'
@@ -62,12 +61,12 @@ const definition: AgentDefinition = {
     // Step 4: Put words in AI's mouth to analyze the changes and create a commit.
     yield {
       toolName: 'add_message',
-      input: {
+      args: {
         role: 'assistant',
         content:
           "Now I'll analyze the changes and create a commit with a good commit message.",
       },
-    } satisfies ToolCall
+    }
 
     yield 'STEP_ALL'
   },

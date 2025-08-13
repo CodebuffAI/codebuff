@@ -685,7 +685,7 @@ describe('Agent Validation', () => {
         }) {
           yield {
             toolName: 'set_output',
-            input: { message: 'Test completed' },
+            args: { message: 'Test completed' },
           }
         },
       }
@@ -710,7 +710,7 @@ describe('Agent Validation', () => {
       }) {
         yield {
           toolName: 'set_output',
-          input: { message: 'Hello from generator' },
+          args: { message: 'Hello from generator' },
         }
       }
 
@@ -751,7 +751,7 @@ describe('Agent Validation', () => {
         toolNames: ['end_turn'], // Missing set_output
         spawnableAgents: [],
         handleSteps:
-          'function* () { yield { toolName: "set_output", input: {} } }',
+          'function* () { yield { toolName: "set_output", args: {} } }',
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(agentConfig)
@@ -823,7 +823,7 @@ describe('Agent Validation', () => {
       }) {
         yield {
           toolName: 'set_output',
-          input: { message: 'Test output', data: params },
+          args: { message: 'Test output', data: params },
         }
       }
 

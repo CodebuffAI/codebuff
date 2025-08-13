@@ -34,9 +34,7 @@ export async function loadLocalAgents({
         agentModule = await require(fullPath)
       } catch (error: any) {
         if (verbose) {
-          console.error(
-            `Error importing agent: ${error.name} - ${error.message}\n${error.stack}`,
-          )
+          console.error('Error importing agent:', error)
         }
         continue
       }

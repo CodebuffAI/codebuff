@@ -116,7 +116,7 @@ export interface AgentDefinition {
   /** Programmatically step the agent forward and run tools.
    *
    * You can either yield:
-   * - A tool call object with toolName and input properties.
+   * - A tool call object with toolName and args properties.
    * - 'STEP' to run agent's model and generate one assistant message.
    * - 'STEP_ALL' to run the agent's model until it uses the end_turn tool or stops includes no tool calls in a message.
    *
@@ -126,7 +126,7 @@ export interface AgentDefinition {
    * function* handleSteps({ agentStep, prompt, params}) {
    *   const { toolResult } = yield {
    *     toolName: 'read_files',
-   *     input: { paths: ['file1.txt', 'file2.txt'] }
+   *     args: { paths: ['file1.txt', 'file2.txt'] }
    *   }
    *   yield 'STEP_ALL'
    * }
@@ -136,7 +136,7 @@ export interface AgentDefinition {
    *   while (true) {
    *     yield {
    *       toolName: 'spawn_agents',
-   *       input: {
+   *       args: {
    *         agents: [
    *         {
    *           agent_type: 'thinker',
@@ -191,7 +191,7 @@ export interface AgentStepContext {
 export type ToolCall<T extends ToolName = ToolName> = {
   [K in T]: {
     toolName: K
-    input?: Tools.GetToolParams<K>
+    args?: Tools.GetToolParams<K>
   }
 }[T]
 

@@ -49,7 +49,7 @@ import {
   yellow,
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 import { getLoadedAgentNames, loadLocalAgents } from './agents/load-agents'
 import { resolveCliAgentId } from './agents/resolve'
@@ -789,7 +789,7 @@ export class Client {
 
     // Handle backend-initiated tool call requests
     this.webSocket.subscribe('tool-call-request', async (action) => {
-      const { requestId, toolName, input, userInputId } = action
+      const { requestId, toolName, args, userInputId } = action
 
       // Check if the userInputId matches or is from a spawned agent
       const isValidUserInput = ASYNC_AGENTS_ENABLED
@@ -824,7 +824,7 @@ export class Client {
         const toolCall = {
           toolCallId: requestId,
           toolName,
-          input,
+          args,
         }
 
         Spinner.get().stop()
@@ -838,7 +838,7 @@ export class Client {
           type: 'tool-call-response',
           requestId,
           success: true,
-          output: toolResult.output,
+          result: toolResult.result,
         })
       } catch (error) {
         logger.error(
@@ -879,12 +879,12 @@ export class Client {
       if (!parsedAction.success) {
         console.error(
           red('Received invalid usage data from server:'),
-          parsedAction.error.issues,
+          parsedAction.error.errors,
         )
         logger.error(
           {
             errorMessage: 'Received invalid usage data from server',
-            errors: parsedAction.error.issues,
+            errors: parsedAction.error.errors,
           },
           'Invalid usage data from server',
         )
@@ -1035,7 +1035,7 @@ export class Client {
       scrapedContent && {
         toolName: 'web-scraper',
         toolCallId: generateCompactId(),
-        output: { type: 'text' as const, value: scrapedContent },
+        result: scrapedContent,
       },
     )
 
@@ -1291,7 +1291,7 @@ export class Client {
         if (!parsedAction.success) {
           const message = [
             'Received invalid prompt response from server:',
-            JSON.stringify(parsedAction.error.issues),
+            JSON.stringify(parsedAction.error.errors),
             'If this issues persists, please contact support@codebuff.com',
           ].join('\n')
           console.error(message)
@@ -1525,11 +1525,11 @@ Go to https://www.codebuff.com/config for more information.`) +
       )
       // Check if it's a ZodError for more specific feedback
       if (error instanceof z.ZodError) {
-        console.error(red('Data validation failed:'), error.issues)
+        console.error(red('Data validation failed:'), error.errors)
         logger.error(
           {
             errorMessage: 'Data validation failed',
-            errors: error.issues,
+            errors: error.errors,
           },
           'Data validation failed',
         )

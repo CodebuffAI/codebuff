@@ -20,7 +20,7 @@ export const handleSetOutput = ((params: {
   state: { agentState: AgentState }
 } => {
   const { previousToolCallFinished, toolCall, state } = params
-  const output = toolCall.input
+  const output = toolCall.args
   const { agentState, localAgentTemplates } = state
 
   if (!agentState) {

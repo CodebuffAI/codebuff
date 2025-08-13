@@ -13,12 +13,12 @@ export const handleRunTerminalCommand = ((params: {
   const clientToolCall: ClientToolCall<'run_terminal_command'> = {
     toolName: 'run_terminal_command',
     toolCallId: toolCall.toolCallId,
-    input: {
-      command: toolCall.input.command,
+    args: {
+      command: toolCall.args.command,
       mode: 'assistant',
-      process_type: toolCall.input.process_type,
-      timeout_seconds: toolCall.input.timeout_seconds,
-      cwd: toolCall.input.cwd,
+      process_type: toolCall.args.process_type,
+      timeout_seconds: toolCall.args.timeout_seconds,
+      cwd: toolCall.args.cwd,
     },
   }
   return {

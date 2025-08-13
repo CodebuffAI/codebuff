@@ -49,7 +49,7 @@ export const handleFindFiles = ((params: {
     userInputId,
     state,
   } = params
-  const { prompt } = toolCall.input
+  const { prompt } = toolCall.args
   const { ws, fingerprintId, userId, repoId, messages } = state
 
   if (!ws) {

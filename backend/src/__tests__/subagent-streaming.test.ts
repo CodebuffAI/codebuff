@@ -18,7 +18,6 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import * as loggerModule from '../util/logger'
 
 import type { AgentTemplate } from '../templates/types'
-import type { CodebuffToolCall } from '../tools/constants'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 import type { Mock } from 'bun:test'
 import type { WebSocket } from 'ws'
@@ -124,10 +123,10 @@ describe('Subagent Streaming', () => {
       spawnableAgents: ['thinker'],
     } as unknown as AgentTemplate
 
-    const toolCall: CodebuffToolCall<'spawn_agents'> = {
+    const toolCall = {
       toolName: 'spawn_agents' as const,
       toolCallId: 'test-tool-call-id',
-      input: {
+      args: {
         agents: [
           {
             agent_type: 'thinker',
@@ -192,10 +191,10 @@ describe('Subagent Streaming', () => {
       spawnableAgents: ['thinker'],
     } as unknown as AgentTemplate
 
-    const toolCall: CodebuffToolCall<'spawn_agents'> = {
+    const toolCall = {
       toolName: 'spawn_agents' as const,
       toolCallId: 'test-tool-call-id-2',
-      input: {
+      args: {
         agents: [
           {
             agent_type: 'thinker',

@@ -5,7 +5,6 @@ import { PLACEHOLDER } from '../types'
 
 import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
-import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 export const filePicker = (model: Model): Omit<AgentTemplate, 'id'> => ({
   model,
@@ -40,8 +39,8 @@ In your report, please give an extremely concise analysis that includes the full
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
       toolName: 'find_files',
-      input: { prompt: prompt ?? '' },
-    } satisfies ToolCall
+      args: { prompt },
+    }
     yield 'STEP_ALL'
   },
 })

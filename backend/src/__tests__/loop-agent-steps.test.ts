@@ -193,15 +193,15 @@ describe('loopAgentSteps STEP behavior', () => {
 
       if (stepCount === 1) {
         // First call: Execute a tool, then STEP
-        yield { toolName: 'read_files', input: { paths: ['file1.txt'] } }
+        yield { toolName: 'read_files', args: { paths: ['file1.txt'] } }
         yield 'STEP' // Should pause here
       } else if (stepCount === 2) {
         // Second call: Should continue from here, not call LLM
         yield {
           toolName: 'write_file',
-          input: { path: 'output.txt', content: 'test' },
+          args: { path: 'output.txt', content: 'test' },
         }
-        yield { toolName: 'end_turn', input: {} }
+        yield { toolName: 'end_turn', args: {} }
       }
     })() as StepGenerator
 
@@ -258,12 +258,12 @@ describe('loopAgentSteps STEP behavior', () => {
     // it should complete without calling the LLM at all (since it ends with end_turn)
 
     const mockGenerator = (function* () {
-      yield { toolName: 'read_files', input: { paths: ['file1.txt'] } }
+      yield { toolName: 'read_files', args: { paths: ['file1.txt'] } }
       yield {
         toolName: 'write_file',
-        input: { path: 'output.txt', content: 'test' },
+        args: { path: 'output.txt', content: 'test' },
       }
-      yield { toolName: 'end_turn', input: {} }
+      yield { toolName: 'end_turn', args: {} }
     })() as StepGenerator
 
     mockTemplate.handleSteps = () => mockGenerator

@@ -1,4 +1,4 @@
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 import { costModes } from './constants'
 import { GrantTypeValues } from './types/grant'
@@ -50,12 +50,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('tool-call-response'),
     requestId: z.string(),
     success: z.boolean(),
-    output: z
-      .object({
-        type: z.literal('text'),
-        value: z.string(),
-      })
-      .optional(), // Tool execution result
+    result: z.any().optional(), // Tool execution result
     error: z.string().optional(), // Error message if execution failed
   }),
   z.object({
@@ -139,7 +134,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     userInputId: z.string(),
     requestId: z.string(),
     toolName: z.string(),
-    input: z.record(z.string(), z.any()),
+    args: z.record(z.any()),
     timeout: z.number().optional(),
   }),
   InitResponseSchema,

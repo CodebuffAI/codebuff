@@ -10,7 +10,6 @@ import { baseAgentSubagents, baseAgentToolNames } from '../types'
 
 import type { AgentTemplate } from '../types'
 import type { Model } from '@codebuff/common/constants'
-import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 export const thinkingBase = (
   model: Model,
@@ -37,7 +36,7 @@ export const thinkingBase = (
     while (true) {
       yield {
         toolName: 'spawn_agents',
-        input: {
+        args: {
           agents: [
             {
               agent_type: 'thinker',
@@ -45,7 +44,7 @@ export const thinkingBase = (
             },
           ],
         },
-      } satisfies ToolCall
+      }
       yield 'STEP'
     }
   },

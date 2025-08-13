@@ -14,25 +14,25 @@ export const handleUpdateSubgoal = ((params: {
   const agentContext = state.agentContext ?? {}
 
   let messages: string[] = []
-  if (!agentContext[toolCall.input.id]) {
+  if (!agentContext[toolCall.args.id]) {
     messages.push(
-      `Subgoal with id ${toolCall.input.id} not found. Creating new subgoal.`,
+      `Subgoal with id ${toolCall.args.id} not found. Creating new subgoal.`,
     )
-    agentContext[toolCall.input.id] = {
+    agentContext[toolCall.args.id] = {
       objective: undefined,
       status: undefined,
       plan: undefined,
       logs: [],
     }
   }
-  if (toolCall.input.status) {
-    agentContext[toolCall.input.id].status = toolCall.input.status
+  if (toolCall.args.status) {
+    agentContext[toolCall.args.id].status = toolCall.args.status
   }
-  if (toolCall.input.plan) {
-    agentContext[toolCall.input.id].plan = toolCall.input.plan
+  if (toolCall.args.plan) {
+    agentContext[toolCall.args.id].plan = toolCall.args.plan
   }
-  if (toolCall.input.log) {
-    agentContext[toolCall.input.id].logs.push(toolCall.input.log)
+  if (toolCall.args.log) {
+    agentContext[toolCall.args.id].logs.push(toolCall.args.log)
   }
   messages.push('Successfully updated subgoal.')
   return {

@@ -48,7 +48,7 @@ export const handleSpawnAgentInline = ((params: {
     agent_type: agentTypeStr,
     prompt,
     params: agentParams,
-  } = toolCall.input
+  } = toolCall.args
   const {
     ws,
     fingerprintId,

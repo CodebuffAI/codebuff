@@ -42,7 +42,7 @@ ${toolResults
   .map(
     (result) => `<tool_result>
 <tool>${result.toolName}${closeXml('tool')}
-<result>${result.output.value}${closeXml('result')}
+<result>${result.result}${closeXml('result')}
 ${closeXml('tool_result')}`,
   )
   .join('\n\n')}

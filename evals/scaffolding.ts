@@ -68,14 +68,14 @@ export function createFileReadingMock(projectRoot: string) {
       ws: WebSocket,
       userInputId: string,
       toolName: string,
-      input: Record<string, any>,
+      args: Record<string, any>,
       timeout: number = 30_000,
-    ): ReturnType<typeof originalRequestToolCall> => {
+    ): ReturnType<typeof originalRequestToolCall<string>> => {
       // Execute the tool call using existing tool handlers
       const toolCall = {
         toolCallId: generateCompactId(),
         toolName,
-        input,
+        args,
       }
       toolCalls.push(toolCall as ClientToolCall)
       try {
@@ -83,13 +83,13 @@ export function createFileReadingMock(projectRoot: string) {
         toolResults.push({
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
-          output: toolResult.output,
+          result: toolResult.result,
         })
 
         // Send successful response back to backend
         return {
           success: true,
-          output: toolResult.output,
+          result: toolResult.result,
         }
       } catch (error) {
         // Send error response back to backend
@@ -98,14 +98,14 @@ export function createFileReadingMock(projectRoot: string) {
         toolResults.push({
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
-          output: { type: 'text', value: resultString },
+          result: resultString,
         })
         return {
           success: false,
           error: resultString,
         }
       }
-    }) satisfies typeof originalRequestToolCall,
+    }) satisfies typeof originalRequestToolCall<string>,
   }))
 }
 
