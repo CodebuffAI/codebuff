@@ -1,6 +1,6 @@
 import { publisher, version } from './constants'
 
-import type { AgentDefinition } from './types/agent-definition'
+import type { AgentDefinition, ToolCall } from './types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'file-picker',
@@ -37,8 +37,8 @@ In your report, please give an analysis that includes the full paths of files th
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
       toolName: 'find_files',
-      args: { prompt: prompt ?? '' },
-    }
+      input: { prompt: prompt ?? '' },
+    } satisfies ToolCall
     yield 'STEP_ALL'
   },
 }

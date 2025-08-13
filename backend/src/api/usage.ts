@@ -2,7 +2,7 @@ import { getOrganizationUsageResponse } from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { checkAuth } from '../util/check-auth'
 import { logger } from '../util/logger'
@@ -98,7 +98,7 @@ async function usageHandler(
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ message: 'Invalid request body', issues: error.errors })
+        .json({ message: 'Invalid request body', issues: error.issues })
     }
     next(error)
     return

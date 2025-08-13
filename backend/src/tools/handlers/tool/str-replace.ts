@@ -35,7 +35,7 @@ export const handleStrReplace = ((params: {
     getLatestState,
     state,
   } = params
-  const { path, replacements } = toolCall.args
+  const { path, replacements } = toolCall.input
   const { ws } = state
   if (ws === undefined) {
     throw new Error(

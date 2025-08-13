@@ -63,5 +63,5 @@ export type ToolParams<T extends ToolName = ToolName> = {
 }
 
 export type StringToolResultPart = Omit<ToolResultPart, 'type'> & {
-  result: string
+  output: { type: 'text' }
 }

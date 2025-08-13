@@ -1,5 +1,5 @@
 import { findOrganizationForRepository } from '@codebuff/billing'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { logger } from '../util/logger'
 import { getUserIdFromAuthToken } from '../websockets/websocket-action'
@@ -55,7 +55,7 @@ async function isRepoCoveredHandler(
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: 'Invalid request body', issues: error.errors })
+        .json({ error: 'Invalid request body', issues: error.issues })
     }
     next(error)
     return

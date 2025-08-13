@@ -2,7 +2,7 @@ import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/
 import { countTokens } from '@codebuff/backend/util/token-counter'
 import { geminiModels } from '@codebuff/common/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import type { FullEvalLog } from './types'
 

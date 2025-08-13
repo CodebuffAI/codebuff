@@ -1,5 +1,6 @@
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 
 import { checkTerminalCommand } from './check-terminal-command'
@@ -83,11 +84,21 @@ export const mainPrompt = async (
         },
       )
 
-      const toolResult = response.success ? response.result : response.error
+      const toolResult: ToolResult['output'] = {
+        type: 'text',
+        value:
+          (response.success ? response.output?.value : response.error) || '',
+      }
       if (response.success) {
         mainAgentState.messageHistory.push({
           role: 'user',
-          content: renderToolResults([toolResult]),
+          content: renderToolResults([
+            {
+              toolName: 'run_terminal_command',
+              toolCallId: generateCompactId(),
+              output: toolResult,
+            },
+          ]),
         })
       }
 

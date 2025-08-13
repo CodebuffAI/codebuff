@@ -58,7 +58,7 @@ const definition: AgentDefinition = {
       ),
       { toolResult: spawnResult } = yield {
         toolName: 'spawn_agents',
-        args: {
+        input: {
           agents: filePickerPrompts.map((promptText) => ({
             agent_type: 'file-picker',
             prompt: promptText,
@@ -67,7 +67,7 @@ const definition: AgentDefinition = {
       }
     yield {
       toolName: 'set_output',
-      args: {
+      input: {
         results: spawnResult,
       },
     }

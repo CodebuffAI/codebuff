@@ -40,7 +40,7 @@ export const handleCreatePlan = ((params: {
     getLatestState,
     state,
   } = params
-  const { path, plan } = toolCall.args
+  const { path, plan } = toolCall.input
   const {
     agentStepId,
     clientSessionId,

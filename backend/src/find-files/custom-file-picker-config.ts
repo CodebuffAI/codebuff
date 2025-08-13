@@ -3,7 +3,7 @@ import {
   costModes,
   type CostMode,
 } from '@codebuff/common/constants'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 // Create the customFileCounts shape using the centralized costModes
 const customFileCountsShape = costModes.reduce(

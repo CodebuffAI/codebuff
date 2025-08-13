@@ -8,7 +8,7 @@ export const handleThinkDeeply = ((params: {
   toolCall: CodebuffToolCall<'think_deeply'>
 }): { result: Promise<string>; state: {} } => {
   const { previousToolCallFinished, toolCall } = params
-  const { thought } = toolCall.args
+  const { thought } = toolCall.input
 
   logger.debug(
     {

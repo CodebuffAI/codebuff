@@ -1,6 +1,6 @@
 import { publisher, version } from './constants'
 
-import type { AgentDefinition } from './types/agent-definition'
+import type { AgentDefinition, ToolCall } from './types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'researcher',
@@ -37,8 +37,8 @@ Always end your response with the end_turn tool.`,
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
       toolName: 'web_search',
-      args: { query: prompt ?? '', depth: 'standard' },
-    }
+      input: { query: prompt ?? '', depth: 'standard' },
+    } satisfies ToolCall
     yield 'STEP_ALL'
   },
 }

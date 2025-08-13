@@ -97,7 +97,7 @@ export function loadCodebuffConfig(): CodebuffConfig {
       console.warn(
         yellow(
           `Warning: Invalid ${codebuffConfigFile} configuration. Please check the schema:\n` +
-            result.error.errors
+            result.error.issues
               .map((err) => `- ${err.path.join('.')}: ${err.message}`)
               .join('\n'),
         ),
