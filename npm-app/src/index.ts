@@ -24,8 +24,8 @@ import { rageDetectors } from './rage-detectors'
 import { logAndHandleStartup } from './startup-process-handler'
 import { recreateShell } from './terminal/run-command'
 import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
-import { createAuthHeaders } from './utils/auth-headers'
 import { initAnalytics, trackEvent } from './utils/analytics'
+import { createAuthHeaders } from './utils/auth-headers'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 
@@ -105,7 +105,9 @@ async function codebuff({
       validateAgentDefinitionsIfAuthenticated(Object.values(agents))
 
       const codebuffConfig = loadCodebuffConfig()
-      displayLoadedAgents(codebuffConfig)
+      if (!agent) {
+        displayLoadedAgents(codebuffConfig)
+      }
 
       return agents // pass along for next step
     },
