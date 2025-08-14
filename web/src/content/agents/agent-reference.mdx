@@ -12,9 +12,13 @@ Complete reference for all agent configuration fields and tools.
 ## Key Terms
 
 **Agent Template:** JSON file defining agent behavior
+
 **Spawnable Agents:** Sub-agents this agent can create
+
 **Tool Names:** Capabilities (read files, run commands, etc.)
+
 **Output Mode:** Response format (last message, report, all messages)
+
 **Prompt Schema:** Input validation rules
 
 ## Agent Configuration
@@ -206,13 +210,15 @@ Programmatically control the agent's execution using a TypeScript generator func
 
 **What You Can Yield:**
 
+<MarkdownTable>
 | Yield Value | What It Does |
 |------------|-------------|
 | Tool call object | Execute a specific tool and get its result |
-| `'STEP'` | Run agent's LLM for one generation step |
-| `'STEP_ALL'` | Let agent run until completion |
-| `return` | End the agent's turn immediately |
-  
+| 'STEP' | Run agent's LLM for one generation step |
+| 'STEP_ALL' | Let agent run until completion |
+| return | End the agent's turn immediately |
+</MarkdownTable>
+
 **Tool Call Pattern:**
 ```typescript
 const { toolResult, toolError } = yield {
@@ -240,7 +246,7 @@ handleSteps: function* ({ agentState, prompt, params }) {
       }]
     }
   }
-  
+
   // Let the agent take over from here
   yield 'STEP_ALL'
 }
@@ -282,7 +288,7 @@ JSON Schema definitions for validating prompt and params when spawning the agent
       toolName: 'read_files',
       input: { paths: files.slice(0, 10) }
   }
-    
+
     // 3. Conditionally spawn different agents based on content
     if (fileContents?.includes('security')) {
       yield {

@@ -21,28 +21,7 @@ Create specialized agents from scratch using TypeScript files in the `.agents/` 
 
 Agents adapt to your specific workflow and project needs.
 
-Keep in mind you'll get the most value from agents if you treat them as context window managers. Design them to orchestrate and sequence work so the right files, facts, and decisions are in scope at each step. Break tasks into steps and build agents around controlling that flow — instead of trying to replicate human specialties.
-
-<MarkdownTable>
-| Aspect | Context manager agents | Specialty reviewer agents |
-| --- | --- | --- |
-| Primary job | Orchestrate multi-step workflows and manage context | Perform deep, targeted reviews or focused changes |
-| Best for | Cross-cutting tasks across many files/systems | Narrow audits or checks inside a workflow |
-| Spawns others | ✅ Often (researchers, reviewers, fixers) | ➖ Usually spawned by a manager |
-| State & checkpoints | Owns plan, state, and checkpoints | Stateless or minimal state |
-| Typical tools | read_files, code_search, spawn_agents, run_terminal_command, end_turn | read_files, code_search, str_replace (surgical diffs) |
-| Output style | Plans, orchestrated diffs, verification steps | Findings, specific diffs, pass/fail signals |
-| Examples | Migration Coordinator, PR Shepherd, Incident Triage Conductor, Release Cut Captain | Accessibility Reviewer, API Contract Enforcer, Performance Auditor, Security Reviewer |
-| When to use | Complex multi-file changes needing coordination | Precise validation or localized refactors |
-</MarkdownTable>
-
-Design checklist (use this to shape agents around task breakdown and context control):
-- Define the end state: what must be true when done?
-- List concrete steps; group them into phases (plan → edit → verify)
-- For each step: what files/data must be in context? how will you prove success?
-- Decide which steps spawn subagents (reviewer, researcher, fixer) vs. inline logic
-- Capture state and checkpoints so you can resume/recover deterministically
-- Prefer small, surgical diffs; verify before moving to the next phase
+Keep in mind you'll get the most value from agents if you treat them as context window managers. Design them to orchestrate and sequence work so the right files, facts, and decisions are in scope at each step. Break tasks into steps and build agents around controlling that flow instead of trying to replicate human specialties.
 
 **Tip:** Use specialty reviewers as spawnable subagents that your context-manager agent calls at the right time in the workflow.
 
