@@ -21,7 +21,7 @@ export async function validateAgentDefinitionsIfAuthenticated(
     }
 
     const response = await fetch(`${websiteUrl}/api/agents/validate`, {
-      method: 'POST',
+      method: 'GET',
       headers,
       body: JSON.stringify({ agentDefinitions }),
     })
