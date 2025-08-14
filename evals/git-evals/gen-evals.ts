@@ -3,167 +3,63 @@ import fs from 'fs'
 import path from 'path'
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { geminiModels, models } from '@codebuff/common/constants'
-import { chunk } from 'lodash'
+import { models } from '@codebuff/common/constants'
 import { z } from 'zod/v4'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
-import { CommitSelectionSchema } from './types'
 
-import type {
-  CommitFileState,
-  CommitInfo,
-  EvalCommit,
-  GitRepoEvalData,
-} from './types'
-
-const COMMIT_SELECTION_PROMPT = `You are an expert at identifying substantial and complete code changes in git commits.
-
-Given a list of commits, identify which ones represent substantial and complete changes that would make good evaluation examples for an AI coding assistant. Please choose as many as you can that are reasonable choices, like 10+.
-
-A good evaluation commit should:
-1. Make a meaningful, self-contained change
-2. Have a clear purpose that can be described without implementation details
-3. Represent a change that a skilled developer could implement given a description
-
-You should select a range of commits from simple changes, even 1 line changes, to more complex features, like a big feature or a refactoring. Please order the commits you chose from least complex to most complex.
-
-For each commit you select, briefly explain why it makes a good evaluation example.
-
-Format your response as a JSON object with a "commits" array containing objects with "sha" and "reason" fields.
-Example:
-{
-  "commits": [
-    {
-      "sha": "abc123",
-      "reason": "Adds a new feature X that is well-scoped and could be implemented different ways"
-    }
-  ]
+// Types for the evaluation data structure
+export interface Diff {
+  path: string
+  preContent: string
+  postContent: string
 }
-`
 
-const SPEC_GENERATION_PROMPT = `Given a git commit that made a specific change to a codebase, write a clear specification describing WHAT changed.
+export interface EvalCommit {
+  sha: string
+  spec: string
+  diffs: Diff[]
+}
 
-First, use <thinking> tags to describe the change in detail and what should go into the spec.
+export interface EvalData {
+  repoUrl: string
+  generationDate: string
+  evalCommits: EvalCommit[]
+}
+
+// Input structure for creating evaluations
+export interface EvalInput {
+  commitSha: string // Required - defines the codebase state to load for the task
+  diffs?: Diff[] // Optional - if not provided, will compute diff from commit parent
+}
+
+const SPEC_GENERATION_PROMPT = `Given a set of file changes and an optional description, write a clear specification describing WHAT needs to be implemented.
+
+First, use <thinking> tags to analyze the changes and determine what should go into the spec.
 
 Then, generate the spec.
 
 The spec should:
-1. Focus on the observable behavior or structure that changed
-2. Not include implementation details or code
+1. Focus on the observable behavior or structure that needs to be implemented
+2. Not include implementation details or specific code
 3. Not prescribe HOW to make the change
-4. Be clear enough that a skilled developer or AI could implement it
-5. Be phrased as what needs to be done, not what is already done.
+4. Be clear enough that a skilled developer or AI could implement it from scratch
+5. Be phrased as what needs to be done, not what was already done
+6. Cover all the changes shown across multiple files
 
-The spec will be used to test an AI coding assistant's ability to implement the change from scratch.
+The spec will be used to test an AI coding assistant's ability to implement the described functionality.
 
-Format your response as a clear, concise paragraph describing what is to be changed (based on what was changed in this commit).`
+Format your response as a clear, concise description of what needs to be implemented.`
 
-const fingerprintId = 'evals'
-const userInputId = 'evals'
+const fingerprintId = 'evals-v2'
+const userInputId = 'evals-v2'
 
-function getCommits(repoPath: string, limit: number): CommitInfo[] {
-  const gitLogCommand = `git log --pretty=format:"%H|%an|%ad|%s" --date=iso -n ${limit}`
-  const gitLogOutput = execSync(gitLogCommand, { cwd: repoPath }).toString()
-
-  // Filter out empty lines to handle trailing newlines
-  const lines = gitLogOutput.split('\n').filter((line) => line.trim() !== '')
-
-  return lines.map((line) => {
-    const [sha, author, date, ...messageParts] = line.split('|')
-    const message = messageParts.join('|') // Rejoin message parts in case it contained |
-
-    // Get stats for this commit
-    const statsCommand = `git show --stat ${sha}`
-    const statsOutput = execSync(statsCommand, { cwd: repoPath }).toString()
-    const stats = parseGitStats(statsOutput)
-
-    return {
-      sha,
-      author,
-      date,
-      message,
-      stats,
-    }
-  })
-}
-
-function parseGitStats(statsOutput: string): {
-  filesChanged: number
-  insertions: number
-  deletions: number
-} {
-  // Example stats line:
-  // " 2 files changed, 25 insertions(+), 12 deletions(-)"
-  const statsLine = statsOutput
-    .split('\n')
-    .find((line) => line.includes('files changed'))
-
-  if (!statsLine) {
-    return { filesChanged: 0, insertions: 0, deletions: 0 }
-  }
-
-  const filesChanged = parseInt(
-    statsLine.match(/(\d+) files? changed/)?.[1] || '0',
-  )
-  const insertions = parseInt(statsLine.match(/(\d+) insertions?/)?.[1] || '0')
-  const deletions = parseInt(statsLine.match(/(\d+) deletions?/)?.[1] || '0')
-
-  return { filesChanged, insertions, deletions }
-}
-
-async function selectSubstantialCommits(
-  commits: CommitInfo[],
-  clientSessionId: string,
-): Promise<Array<CommitInfo & { selectionReason: string }>> {
-  const commitsInfo = commits
-    .map(
-      (c) =>
-        `${c.sha.substring(0, 8)}: ${c.message}\n` +
-        `Author: ${c.author}, Date: ${c.date}\n` +
-        `Stats: ${c.stats.filesChanged} files changed, +${c.stats.insertions} -${c.stats.deletions}\n`,
-    )
-    .join('\n\n')
-
-  const prompt = `${COMMIT_SELECTION_PROMPT}\n\nCommits to evaluate:\n\n${commitsInfo}`
-
-  const response = await promptAiSdkStructured({
-    messages: [{ role: 'user', content: prompt }],
-    schema: CommitSelectionSchema,
-    model: models.openrouter_claude_sonnet_4,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId: undefined,
-  })
-
-  try {
-    return commits
-      .filter((commit) =>
-        response.commits.some((selected: { sha: string }) =>
-          commit.sha.startsWith(selected.sha),
-        ),
-      )
-      .map((commit) => ({
-        ...commit,
-        selectionReason: response.commits.find(
-          (selected: { sha: string; reason: string }) =>
-            commit.sha.startsWith(selected.sha),
-        )!.reason,
-      }))
-  } catch (e) {
-    console.error('Failed to parse commit selection response:', e)
-    return []
-  }
-}
-
-async function generateSpecForCommit(
-  commit: CommitInfo & { selectionReason: string },
+async function generateDiffFromCommit(
   repoPath: string,
-  clientSessionId: string,
-): Promise<{ spec: string; fileStates: CommitFileState[] }> {
+  commitSha: string,
+): Promise<Diff[]> {
   // Get list of files changed in this commit
-  const filesCommand = `git show --name-only --pretty=format:"" ${commit.sha}`
+  const filesCommand = `git show --name-only --pretty=format:"" ${commitSha}`
   const changedFiles = execSync(filesCommand, { cwd: repoPath })
     .toString()
     .trim()
@@ -171,179 +67,235 @@ async function generateSpecForCommit(
     .filter(Boolean)
 
   // Get the content of each file before and after the commit
-  const fileStates: CommitFileState[] = []
+  const diffs: Diff[] = []
   for (const file of changedFiles) {
     try {
       // Get content from parent commit (commit^)
-      const preCommand = `git show ${commit.sha}^:${file}`
+      const preCommand = `git show ${commitSha}^:${file}`
       const preContent = execSync(preCommand, { cwd: repoPath }).toString()
 
       // Get content after commit
-      const postCommand = `git show ${commit.sha}:${file}`
+      const postCommand = `git show ${commitSha}:${file}`
       const postContent = execSync(postCommand, { cwd: repoPath }).toString()
 
-      fileStates.push({
+      diffs.push({
         path: file,
         preContent,
         postContent,
       })
-    } catch (e) {
-      // File might not exist in parent commit (new file)
-      // Or might be deleted in this commit
-      const isNewFile = !execSync(
-        `git show ${commit.sha}^:${file} 2>/dev/null || true`,
-        { cwd: repoPath },
-      ).toString()
-      const isDeletedFile = !execSync(
-        `git show ${commit.sha}:${file} 2>/dev/null || true`,
-        { cwd: repoPath },
-      ).toString()
-
-      fileStates.push({
-        path: file,
-        preContent: isNewFile
-          ? '[NEW FILE]'
-          : execSync(`git show ${commit.sha}^:${file}`, {
-              cwd: repoPath,
-            }).toString(),
-        postContent: isDeletedFile
-          ? '[DELETED]'
-          : execSync(`git show ${commit.sha}:${file}`, {
-              cwd: repoPath,
-            }).toString(),
-      })
+    } catch (error) {
+      // File might not exist in parent commit (new file) or might be deleted
+      try {
+        const postContent = execSync(`git show ${commitSha}:${file}`, {
+          cwd: repoPath,
+        }).toString()
+        diffs.push({
+          path: file,
+          preContent: '[NEW FILE]',
+          postContent,
+        })
+      } catch {
+        try {
+          const preContent = execSync(`git show ${commitSha}^:${file}`, {
+            cwd: repoPath,
+          }).toString()
+          diffs.push({
+            path: file,
+            preContent,
+            postContent: '[DELETED]',
+          })
+        } catch {
+          console.warn(`Could not process file ${file} for commit ${commitSha}`)
+        }
+      }
     }
   }
 
-  // Get the full commit diff for context
-  const diffCommand = `git show ${commit.sha}`
-  const diff = execSync(diffCommand, { cwd: repoPath }).toString()
+  return diffs
+}
 
-  // Build the prompt with pre-commit file contents
-  const preCommitContext = fileStates
-    .map(
-      ({ path, preContent }) =>
-        `File: ${path}\nPre-commit content:\n${preContent}\n`,
-    )
+async function generateSpecForDiffs(
+  diffs: Diff[],
+  clientSessionId: string,
+): Promise<string> {
+  // Build context from the diffs
+  const diffContext = diffs
+    .map(({ path, preContent, postContent }) => {
+      let diffDescription = `File: ${path}\n`
+
+      if (preContent === '[NEW FILE]') {
+        diffDescription += `New file created with content:\n${postContent}\n`
+      } else if (postContent === '[DELETED]') {
+        diffDescription += `File deleted (previous content):\n${preContent}\n`
+      } else {
+        diffDescription += `Before:\n${preContent}\n\nAfter:\n${postContent}\n`
+      }
+
+      return diffDescription
+    })
     .join('\n---\n')
 
   const prompt = `${SPEC_GENERATION_PROMPT}
 
-Pre-commit files:
-${preCommitContext}
-
-Commit Message: ${commit.message}
-
-Changes Made:
-${diff}`
+File Changes:\n${diffContext}`
 
   const { spec } = await promptAiSdkStructured({
     messages: [{ role: 'user', content: prompt }],
     schema: z.object({ spec: z.string() }),
-    model: geminiModels.gemini2_5_pro_preview,
+    model: models.openrouter_claude_sonnet_4,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId: undefined,
   })
-  return { spec, fileStates }
+
+  return spec
 }
 
 export async function generateEvalFile({
   repoUrl,
+  evalInputs,
   outputPath,
   clientSessionId,
-  numberOfCommits,
 }: {
   repoUrl: string
-  outputPath: string | undefined
+  evalInputs: EvalInput[]
+  outputPath?: string
   clientSessionId: string
-  numberOfCommits: number
 }): Promise<void> {
-  // Extract repo name from URL if not provided
+  // Extract repo name from URL
   const actualRepoName = extractRepoNameFromUrl(repoUrl)
 
-  // Setup the test repository using the generic function
+  // Setup the test repository (needed for the commitSha reference)
   console.log(`Setting up test repository from: ${repoUrl}`)
   const clonedRepoName = await setupTestRepo(repoUrl, actualRepoName)
-
   const repoPath = path.join(__dirname, '../test-repos', clonedRepoName)
 
-  // Get commits
-  const commits = getCommits(repoPath, numberOfCommits)
-  console.log(`Found ${commits.length} commits`)
+  console.log(`Processing ${evalInputs.length} evaluation inputs...`)
 
-  // Select substantial commits
-  const selectedCommits = await selectSubstantialCommits(
-    commits,
-    clientSessionId,
-  )
-
-  console.log('Selected commits:', selectedCommits)
-
-  const chunkedCommits = chunk(selectedCommits, 5)
-
-  // Generate specs for selected commits
+  // Process each eval input
   const evalCommits: EvalCommit[] = []
-  for (const commitChunk of chunkedCommits) {
-    const results = await Promise.all(
-      commitChunk.map((commit) =>
-        generateSpecForCommit(commit, repoPath, clientSessionId),
-      ),
-    )
-    console.log('Generated specs and captured file states')
-    evalCommits.push(
-      ...commitChunk.map((commit, index) => ({
-        ...commit,
-        spec: results[index].spec,
-        fileStates: results[index].fileStates,
-      })),
+
+  for (const evalInput of evalInputs) {
+    console.log(`Processing eval input ${evalInput.commitSha}...`)
+
+    // Verify the commit exists in the repository (validates the codebase state reference)
+    try {
+      execSync(`git cat-file -e ${evalInput.commitSha}`, {
+        cwd: repoPath,
+        stdio: 'ignore',
+      })
+    } catch (error) {
+      console.warn(
+        `Warning: Commit ${evalInput.commitSha} not found in repository. Proceeding anyway.`,
+      )
+    }
+
+    // Get diffs - either provided or computed from commit
+    const diffs =
+      evalInput.diffs ??
+      (await generateDiffFromCommit(repoPath, evalInput.commitSha))
+
+    // Generate spec from diffs
+    const spec = await generateSpecForDiffs(diffs, clientSessionId)
+
+    evalCommits.push({
+      sha: evalInput.commitSha,
+      spec,
+      diffs,
+    })
+
+    console.log(
+      `Generated spec for ${evalInput.commitSha}: ${spec.substring(0, 100)}...`,
     )
   }
 
   // Create output data
-  const evalData: GitRepoEvalData = {
+  const evalData: EvalData = {
     repoUrl,
     generationDate: new Date().toISOString(),
-    evalCommits: evalCommits,
+    evalCommits,
   }
 
   const generatedOutputPath =
     outputPath ||
-    path.join(__dirname, `../git-evals/eval-${actualRepoName}.json`)
+    path.join(__dirname, `../git-evals/eval-${actualRepoName}-v2.json`)
 
   // Write to file
   fs.writeFileSync(generatedOutputPath, JSON.stringify(evalData, null, 2))
+  console.log(`Eval data written to ${generatedOutputPath}`)
 }
 
-// CLI handling
+// Example usage function
+export function createExampleEvalInput(): EvalInput {
+  return {
+    commitSha: 'abc123def456', // Reference commit that defines the codebase state
+    diffs: [
+      {
+        path: 'src/auth.ts',
+        preContent: '[NEW FILE]',
+        postContent: `export interface User {
+  id: string
+  email: string
+}
+
+export function authenticateUser(token: string): User | null {
+  // Implementation here
+  return null
+}`,
+      },
+      {
+        path: 'src/middleware.ts',
+        preContent: `export function middleware() {
+  // Basic middleware
+}`,
+        postContent: `import { authenticateUser } from './auth'
+
+export function middleware() {
+  // Basic middleware
+}
+
+export function authMiddleware(req: Request) {
+  const token = req.headers.authorization
+  if (!token) {
+    throw new Error('No token provided')
+  }
+  
+  const user = authenticateUser(token)
+  if (!user) {
+    throw new Error('Invalid token')
+  }
+  
+  return user
+}`,
+      },
+    ],
+  }
+}
+
+// CLI handling for backwards compatibility and testing
 if (require.main === module) {
   const args = process.argv.slice(2)
-  console.info(
-    'Usage: bun run generate-git-evals <repo-url> [output-path] [number-of-commits]',
-  )
 
-  const repoUrl = args[0]
-  if (!repoUrl) {
-    console.error('Error: repo-url is required')
-    process.exit(1)
-  }
+  if (args[0] === '--example') {
+    // Generate an example eval file for testing
+    const sessionId = Math.random().toString(36).substring(2)
+    const exampleInput = createExampleEvalInput()
 
-  const outputPath = args[1]
-  const numberOfCommits = Number(args[2] || 100)
-
-  // Generate random ID for this run
-  const sessionId = Math.random().toString(36).substring(2)
-
-  generateEvalFile({
-    repoUrl,
-    outputPath,
-    clientSessionId: sessionId,
-    numberOfCommits,
-  })
-    .then(() => console.log(`Eval data written to ${outputPath}`))
-    .catch((err) => {
-      console.error('Error generating eval data:', err)
-      process.exit(1)
+    generateEvalFile({
+      repoUrl: 'https://github.com/example/test-repo',
+      evalInputs: [exampleInput],
+      outputPath: 'eval-example-v2.json',
+      clientSessionId: sessionId,
     })
+      .then(() => console.log('Example eval file generated'))
+      .catch(console.error)
+  } else {
+    console.log('Usage:')
+    console.log('  --example  Generate an example evaluation file')
+    console.log('')
+    console.log(
+      'For programmatic usage, import and use generateEvalFile() function',
+    )
+  }
 }
