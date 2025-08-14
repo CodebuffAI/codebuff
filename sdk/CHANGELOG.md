@@ -15,6 +15,7 @@ All notable changes to the @codebuff/sdk package will be documented in this file
 ### Fixed
 
 - `maxAgentSteps` resets every run
+- `CodebuffClient` no longer requires binary to be installed
 
 ## [0.1.8] - 2025-08-13
 

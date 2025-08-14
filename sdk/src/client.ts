@@ -1,6 +1,3 @@
-import { execFileSync } from 'child_process'
-
-import { CODEBUFF_BINARY } from './constants'
 import { initialSessionState, type RunState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { getFiles } from './tools/read-files'
@@ -57,17 +54,6 @@ export class CodebuffClient {
   > = {}
 
   constructor({ apiKey, cwd, onError, overrideTools }: CodebuffClientOptions) {
-    // TODO: download binary automatically
-    const isWindows = process.platform === 'win32'
-    if (
-      execFileSync(isWindows ? 'where' : 'which', [CODEBUFF_BINARY])
-        .toString()
-        .trim() === ''
-    ) {
-      throw new Error(
-        `Could not find ${CODEBUFF_BINARY} in PATH. Please run "npm i -g codebuff" to install codebuff.`,
-      )
-    }
     const foundApiKey = apiKey ?? process.env[API_KEY_ENV_VAR]
     if (!foundApiKey) {
       throw new Error(
