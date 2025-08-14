@@ -12,7 +12,8 @@
     "packages/*",
     "scripts",
     "evals",
-    "sdk"
+    "sdk",
+    ".agents"
   ],
   "scripts": {
     "dev": "bash scripts/dev.sh",

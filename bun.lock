@@ -31,6 +31,10 @@
         "typescript-eslint": "^7.17.0",
       },
     },
+    ".agents": {
+      "name": "@codebuff/agents",
+      "version": "0.0.0",
+    },
     "backend": {
       "name": "@codebuff/backend",
       "version": "1.0.0",
@@ -222,7 +226,7 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "dependencies": {
         "ai": "^5.0.0",
         "zod": "^3.25.67",
@@ -552,6 +556,8 @@
     "@chevrotain/types": ["@chevrotain/types@11.0.3", "", {}, "sha512-gsiM3G8b58kZC2HaWR50gu6Y1440cHiJ+i3JUvcp/35JchYejb2+5MVeJK0iKThYpAa/P2PYFV4hoi44HD+aHQ=="],
 
     "@chevrotain/utils": ["@chevrotain/utils@11.0.3", "", {}, "sha512-YslZMgtJUyuMbZ+aKvfF3x1f5liK4mWNxghFRv7jqRR9C3R3fAOGTTKvxXDa2Y1s9zSbcpuO0cAxDYsc9SrXoQ=="],
+
+    "@codebuff/agents": ["@codebuff/agents@workspace:.agents"],
 
     "@codebuff/backend": ["@codebuff/backend@workspace:backend"],
 
