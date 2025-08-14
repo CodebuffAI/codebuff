@@ -21,9 +21,9 @@ export const reviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
 
   systemPrompt: `You are an expert programmer who can articulate very clear feedback on code changes.`,
 
-  instructionsPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant. You should critique the code changes made recently in the above conversation.
+  instructionsPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant.
 
-IMPORTANT: After analyzing the file changes, you should:
+IMPORTANT: Before analyzing the file changes, you should first:
 1. Run file change hooks to validate the changes using the run_file_change_hooks tool
 2. Include the hook results in your feedback - if any hooks fail, mention the specific failures and suggest how to fix them
 3. If hooks pass and no issues are found, mention that validation was successful
@@ -31,7 +31,7 @@ IMPORTANT: After analyzing the file changes, you should:
 
 NOTE: You cannot make any changes directly! You can only suggest changes.
 
-Provide specific feedback on the file changes made by the assistant, file-by-file.
+Next, you should critique the code changes made recently in the above conversation. Provide specific feedback on the file changes made by the assistant, file-by-file.
 
 - Focus on getting to a complete and correct solution as the top priority.
 - Try to keep any changes to the codebase as minimal as possible.
