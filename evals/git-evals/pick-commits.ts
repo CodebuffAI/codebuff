@@ -202,12 +202,16 @@ async function screenCommitsWithGpt5(
   clientSessionId: string,
 ): Promise<FilteredCommit[]> {
   const batchSize = 25
+  const concurrency = 6
   const selectedCommits: FilteredCommit[] = []
 
-  for (let i = 0; i < commits.length; i += batchSize) {
-    const batch = commits.slice(i, i + batchSize)
+  // Process batches with limited concurrency
+  async function processBatch(
+    batch: CommitInfo[],
+    batchIndex: number,
+  ): Promise<FilteredCommit[]> {
     console.log(
-      `Screening batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(commits.length / batchSize)} (${batch.length} commits)...`,
+      `Screening batch ${batchIndex + 1}/${Math.ceil(commits.length / batchSize)} (${batch.length} commits)...`,
     )
 
     const commitsInfo = batch
@@ -240,9 +244,9 @@ async function screenCommitsWithGpt5(
         !Array.isArray(response.selectedCommits)
       ) {
         console.log(
-          `No valid response from GPT-5 for batch ${Math.floor(i / batchSize) + 1}, skipping...`,
+          `No valid response from GPT-5 for batch ${batchIndex + 1}, skipping...`,
         )
-        continue
+        return []
       }
 
       // Map selected commits back to full commit info with GitHub URLs
@@ -264,18 +268,35 @@ async function screenCommitsWithGpt5(
           }
         })
 
-      selectedCommits.push(...batchSelected)
-      console.log(`Selected ${batchSelected.length} commits from this batch`)
-    } catch (error) {
-      console.error(
-        `Error screening batch ${Math.floor(i / batchSize) + 1}:`,
-        error,
+      console.log(
+        `Selected ${batchSelected.length} commits from batch ${batchIndex + 1}`,
       )
-      // Continue with next batch on error
+      return batchSelected
+    } catch (error) {
+      console.error(`Error screening batch ${batchIndex + 1}:`, error)
+      return []
     }
+  }
 
-    // Add small delay between batches to be respectful
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+  // Create batches
+  const batches: CommitInfo[][] = []
+  for (let i = 0; i < commits.length; i += batchSize) {
+    batches.push(commits.slice(i, i + batchSize))
+  }
+
+  // Process batches with limited concurrency
+  for (let i = 0; i < batches.length; i += concurrency) {
+    const batchPromises = batches
+      .slice(i, i + concurrency)
+      .map((batch, idx) => processBatch(batch, i + idx))
+
+    const results = await Promise.all(batchPromises)
+    results.forEach((result) => selectedCommits.push(...result))
+
+    // Add small delay between concurrency groups to be respectful
+    if (i + concurrency < batches.length) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
   }
 
   return selectedCommits
@@ -284,7 +305,7 @@ export async function pickCommits({
   repoUrl,
   outputPath,
   clientSessionId,
-  limit = 100,
+  limit = 200,
 }: {
   repoUrl: string
   outputPath?: string
@@ -384,7 +405,7 @@ if (require.main === module) {
 
   const repoUrl = args[0]
   const outputPath = args[1]
-  const limit = args[2] ? parseInt(args[2]) : 100
+  const limit = args[2] ? parseInt(args[2]) : 200
 
   if (!repoUrl) {
     console.error('Error: repo-url is required')
