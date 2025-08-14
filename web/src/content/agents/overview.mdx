@@ -17,6 +17,10 @@ Codebuff uses specialized agents that collaborate instead of one agent doing eve
 - **Planning** - Break down complex requirements
 - **File Discovery** - Navigate large codebases
 
+## What Makes Codebuff Agents Unique?
+
+> **💡 Key Innovation:** Unlike other AI coding assistants, Codebuff agents can be **programmatically controlled** using TypeScript generator functions. This means you can write actual code to orchestrate complex workflows, make dynamic decisions based on file contents, and ensure deterministic execution paths. It's the difference between hoping an LLM understands your instructions vs. guaranteeing specific behavior.
+
 ## Agent Workflow
 
 A typical call to Codebuff may result in the following flow:
@@ -66,13 +70,13 @@ Agents adapt to your specific workflow and project needs. You can create special
 
 ### Agent Coordination
 
-Agents can coordinate with each other using **parent instructions** - a powerful feature that allows one agent to provide specific guidance to the agents it spawns. This creates intelligent workflows where:
+Agents coordinate through the `spawnerPrompt` field, which helps other agents understand when and why to spawn them. This creates intelligent workflows where:
 
-- A security-focused agent ensures all spawned reviewers check for vulnerabilities
-- A frontend coordinator guides file pickers to find React components
-- A documentation agent instructs researchers to prioritize official docs
+- Specialized agents are spawned for specific tasks
+- Each agent clearly describes its purpose and capabilities
+- The system automatically matches tasks to the right agents
 
-This coordination happens automatically without requiring complex overrides or manual configuration.
+Agents can spawn other agents listed in their `spawnableAgents` field, creating a hierarchy of specialized helpers.
 
 ## Quick Start
 
