@@ -5,8 +5,8 @@ import { searchWeb } from '../../../llm-apis/linkup-api'
 import { PROFIT_MARGIN } from '../../../llm-apis/message-cost-tracker'
 import { logger } from '../../../util/logger'
 
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 
 export const handleWebSearch = ((params: {
   previousToolCallFinished: Promise<void>

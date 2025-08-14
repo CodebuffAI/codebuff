@@ -1,5 +1,8 @@
-import type { ClientToolCall, CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type {
+  ClientToolCall,
+  CodebuffToolCall,
+} from '@codebuff/common/tools/list'
 
 export const handleCodeSearch = ((params: {
   previousToolCallFinished: Promise<void>

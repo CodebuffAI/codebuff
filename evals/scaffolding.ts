@@ -20,12 +20,12 @@ import {
   getProjectFileTree,
 } from '../common/src/project-file-tree'
 
-import type { ClientToolCall } from '@codebuff/backend/tools/constants'
 import type {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
 } from '@codebuff/backend/websockets/websocket-action'
 import type { FileChanges } from '@codebuff/common/actions'
+import type { ClientToolCall } from '@codebuff/common/tools/list'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -192,13 +192,6 @@ export async function runAgentStepScaffolding(
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
   const toolResults: ToolResult[] = []
   for (const toolCall of toolCalls) {
-    if (
-      toolCall.toolName === 'spawn_agents' ||
-      toolCall.toolName === 'set_output'
-    ) {
-      // should never happen
-      continue
-    }
     const toolResult = await handleToolCall(toolCall)
     toolResults.push(toolResult)
   }

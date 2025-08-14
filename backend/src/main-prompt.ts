@@ -11,7 +11,6 @@ import { expireMessages } from './util/messages'
 import { requestToolCall } from './websockets/websocket-action'
 
 import type { AgentTemplate } from './templates/types'
-import type { ClientToolCall } from './tools/constants'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/constants'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -35,8 +34,8 @@ export const mainPrompt = async (
   options: MainPromptOptions,
 ): Promise<{
   sessionState: SessionState
-  toolCalls: Array<ClientToolCall>
-  toolResults: Array<ToolResult>
+  toolCalls: []
+  toolResults: ToolResult[]
 }> => {
   const { userId, clientSessionId, onResponseChunk, localAgentTemplates } =
     options

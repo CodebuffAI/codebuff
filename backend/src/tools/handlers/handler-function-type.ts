@@ -1,5 +1,9 @@
-import type { ClientToolCall, CodebuffToolCall } from '../constants'
 import type { ToolName } from '@codebuff/common/tools/constants'
+import type {
+  ClientToolCall,
+  ClientToolName,
+  CodebuffToolCall,
+} from '@codebuff/common/tools/list'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
@@ -24,7 +28,9 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     state: { [K in string]?: any }
   } & PresentOrAbsent<
     'requestClientToolCall',
-    (toolCall: ClientToolCall<T>) => Promise<string>
+    (
+      toolCall: ClientToolCall<T extends ClientToolName ? T : never>,
+    ) => Promise<string>
   >,
 ) => {
   result: Promise<string | undefined>

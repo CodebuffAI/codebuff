@@ -3,12 +3,15 @@ import { processStrReplace } from '../../../process-str-replace'
 import { logger } from '../../../util/logger'
 import { requestOptionalFile } from '../../../websockets/websocket-action'
 
-import type { ClientToolCall, CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   FileProcessingState,
   OptionalFileProcessingState,
 } from './write-file'
+import type {
+  ClientToolCall,
+  CodebuffToolCall,
+} from '@codebuff/common/tools/list'
 import type { WebSocket } from 'ws'
 
 export const handleStrReplace = ((params: {

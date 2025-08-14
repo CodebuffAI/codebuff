@@ -4,8 +4,11 @@ import { processFileBlock } from '../../../process-file-block'
 import { logger } from '../../../util/logger'
 import { requestOptionalFile } from '../../../websockets/websocket-action'
 
-import type { ClientToolCall, CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type {
+  ClientToolCall,
+  CodebuffToolCall,
+} from '@codebuff/common/tools/list'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { WebSocket } from 'ws'
 

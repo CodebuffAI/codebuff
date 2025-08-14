@@ -1,5 +1,5 @@
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 
 export const handleUpdateSubgoal = ((params: {

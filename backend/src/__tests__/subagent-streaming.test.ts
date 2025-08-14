@@ -18,8 +18,8 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import * as loggerModule from '../util/logger'
 
 import type { AgentTemplate } from '../templates/types'
-import type { CodebuffToolCall } from '../tools/constants'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Mock } from 'bun:test'
 import type { WebSocket } from 'ws'
 

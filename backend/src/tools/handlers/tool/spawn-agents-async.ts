@@ -1,4 +1,5 @@
 import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { handleSpawnAgents } from './spawn-agents'
@@ -6,10 +7,10 @@ import { asyncAgentManager } from '../../../async-agent-manager'
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { SendSubagentChunk } from './spawn-agents'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -18,7 +19,6 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 
 export const handleSpawnAgentsAsync = ((params: {
   previousToolCallFinished: Promise<void>

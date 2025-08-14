@@ -7,9 +7,9 @@ import { sendAction } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
 import { executeToolCall } from './tool-executor'
 
-import type { CodebuffToolCall } from './constants'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {

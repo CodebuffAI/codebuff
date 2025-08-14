@@ -7,7 +7,7 @@ import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
 import { sendAction } from './websockets/websocket-action'
 
-import type { CodebuffToolCall } from './tools/constants'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
   AgentTemplate,
   StepGenerator,

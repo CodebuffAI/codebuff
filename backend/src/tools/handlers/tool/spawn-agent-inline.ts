@@ -1,11 +1,12 @@
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 import { expireMessages } from '../../../util/messages'
 
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -15,7 +16,6 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 
 export const handleSpawnAgentInline = ((params: {
   previousToolCallFinished: Promise<void>

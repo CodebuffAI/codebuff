@@ -10,10 +10,14 @@ import { requestToolCall } from '../websockets/websocket-action'
 import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
 
-import type { ClientToolCall, CodebuffToolCall } from './constants'
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
+import type {
+  ClientToolCall,
+  ClientToolName,
+  CodebuffToolCall,
+} from '@codebuff/common/tools/list'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ToolResult } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -189,7 +193,9 @@ export function executeToolCall<T extends ToolName>({
     userInputId,
     fullResponse,
     writeToClient: onResponseChunk,
-    requestClientToolCall: async (clientToolCall: ClientToolCall<T>) => {
+    requestClientToolCall: async (
+      clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
+    ) => {
       if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
         return ''
       }
