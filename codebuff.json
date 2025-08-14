@@ -67,8 +67,8 @@
     },
     {
       "name": "agents-typecheck",
-      "command": "bun x tsc --noEmit -p .agents/tsconfig.json",
-      "cwd": ".",
+      "command": "bun run typecheck",
+      "cwd": ".agents",
       "filePattern": ".agents/**/*.ts"
     }
   ]
