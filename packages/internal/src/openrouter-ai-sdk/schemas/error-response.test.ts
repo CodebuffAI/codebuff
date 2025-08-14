@@ -1,4 +1,6 @@
-import { OpenRouterErrorResponseSchema } from './error-response';
+import { describe, expect, it } from 'bun:test'
+
+import { OpenRouterErrorResponseSchema } from './error-response'
 
 describe('OpenRouterErrorResponseSchema', () => {
   it('should be valid without a type, code, and param', () => {
@@ -8,11 +10,11 @@ describe('OpenRouterErrorResponseSchema', () => {
         metadata: { provider_name: 'Morph' },
       },
       user_id: 'example_1',
-    };
+    }
 
     const result = OpenRouterErrorResponseSchema.parse(
       errorWithoutTypeCodeAndParam,
-    );
+    )
 
     expect(result).toEqual({
       error: {
@@ -21,8 +23,8 @@ describe('OpenRouterErrorResponseSchema', () => {
         type: null,
         param: null,
       },
-    });
-  });
+    })
+  })
 
   it('should be invalid with a type', () => {
     const errorWithType = {
@@ -33,9 +35,9 @@ describe('OpenRouterErrorResponseSchema', () => {
         param: 'canBeAnything',
         metadata: { provider_name: 'Morph' },
       },
-    };
+    }
 
-    const result = OpenRouterErrorResponseSchema.parse(errorWithType);
+    const result = OpenRouterErrorResponseSchema.parse(errorWithType)
 
     expect(result).toEqual({
       error: {
@@ -44,6 +46,6 @@ describe('OpenRouterErrorResponseSchema', () => {
         type: 'invalid_request_error',
         param: 'canBeAnything',
       },
-    });
-  });
-});
+    })
+  })
+})

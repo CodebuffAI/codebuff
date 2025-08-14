@@ -1,15 +1,16 @@
-import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
+import { createTestServer } from '@ai-sdk/provider-utils/test'
+import { describe, expect, it } from 'bun:test'
 
-import { createTestServer } from '@ai-sdk/provider-utils/test';
-import { describe, expect, it } from 'vitest';
-import { OpenRouterChatLanguageModel } from '../chat';
+import { OpenRouterChatLanguageModel } from '../chat'
+
+import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings'
 
 describe('OpenRouter Usage Accounting', () => {
   const server = createTestServer({
     'https://api.openrouter.ai/chat/completions': {
       response: { type: 'json-value', body: {} },
     },
-  });
+  })
 
   function prepareJsonResponse(includeUsage = true) {
     const response = {
@@ -42,21 +43,21 @@ describe('OpenRouter Usage Accounting', () => {
             },
           }
         : undefined,
-    };
+    }
 
     server.urls['https://api.openrouter.ai/chat/completions']!.response = {
       type: 'json-value',
       body: response,
-    };
+    }
   }
 
   it('should include usage parameter in the request when enabled', async () => {
-    prepareJsonResponse();
+    prepareJsonResponse()
 
     // Create model with usage accounting enabled
     const settings: OpenRouterChatSettings = {
       usage: { include: true },
-    };
+    }
 
     const model = new OpenRouterChatLanguageModel('test-model', settings, {
       provider: 'openrouter.chat',
@@ -64,7 +65,7 @@ describe('OpenRouter Usage Accounting', () => {
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
-    });
+    })
 
     // Call the model
     await model.doGenerate({
@@ -75,22 +76,22 @@ describe('OpenRouter Usage Accounting', () => {
         },
       ],
       maxOutputTokens: 100,
-    });
+    })
 
     // Check request contains usage parameter
-    const requestBody = await server.calls[0]!.requestBodyJson;
-    expect(requestBody).toBeDefined();
-    expect(requestBody).toHaveProperty('usage');
-    expect(requestBody.usage).toEqual({ include: true });
-  });
+    const requestBody = await server.calls[0]!.requestBodyJson
+    expect(requestBody).toBeDefined()
+    expect(requestBody).toHaveProperty('usage')
+    expect(requestBody.usage).toEqual({ include: true })
+  })
 
   it('should include provider-specific metadata in response when usage accounting is enabled', async () => {
-    prepareJsonResponse();
+    prepareJsonResponse()
 
     // Create model with usage accounting enabled
     const settings: OpenRouterChatSettings = {
       usage: { include: true },
-    };
+    }
 
     const model = new OpenRouterChatLanguageModel('test-model', settings, {
       provider: 'openrouter.chat',
@@ -98,7 +99,7 @@ describe('OpenRouter Usage Accounting', () => {
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
-    });
+    })
 
     // Call the model
     const result = await model.doGenerate({
@@ -109,18 +110,18 @@ describe('OpenRouter Usage Accounting', () => {
         },
       ],
       maxOutputTokens: 100,
-    });
+    })
 
     // Check result contains provider metadata
-    expect(result.providerMetadata).toBeDefined();
-    const providerData = result.providerMetadata;
+    expect(result.providerMetadata).toBeDefined()
+    const providerData = result.providerMetadata
 
     // Check for OpenRouter usage data
-    expect(providerData?.openrouter).toBeDefined();
-    const openrouterData = providerData?.openrouter as Record<string, unknown>;
-    expect(openrouterData.usage).toBeDefined();
+    expect(providerData?.openrouter).toBeDefined()
+    const openrouterData = providerData?.openrouter as Record<string, unknown>
+    expect(openrouterData.usage).toBeDefined()
 
-    const usage = openrouterData.usage;
+    const usage = openrouterData.usage
     expect(usage).toMatchObject({
       promptTokens: 10,
       completionTokens: 20,
@@ -132,16 +133,16 @@ describe('OpenRouter Usage Accounting', () => {
       completionTokensDetails: {
         reasoningTokens: 8,
       },
-    });
-  });
+    })
+  })
 
   it('should not include provider-specific metadata when usage accounting is disabled', async () => {
-    prepareJsonResponse();
+    prepareJsonResponse()
 
     // Create model with usage accounting disabled
     const settings: OpenRouterChatSettings = {
       // No usage property
-    };
+    }
 
     const model = new OpenRouterChatLanguageModel('test-model', settings, {
       provider: 'openrouter.chat',
@@ -149,7 +150,7 @@ describe('OpenRouter Usage Accounting', () => {
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
-    });
+    })
 
     // Call the model
     const result = await model.doGenerate({
@@ -160,7 +161,7 @@ describe('OpenRouter Usage Accounting', () => {
         },
       ],
       maxOutputTokens: 100,
-    });
+    })
 
     // Verify that OpenRouter metadata is not included
     expect(result.providerMetadata?.openrouter?.usage).toStrictEqual({
@@ -177,6 +178,6 @@ describe('OpenRouter Usage Accounting', () => {
       completionTokensDetails: {
         reasoningTokens: 8,
       },
-    });
-  });
-});
+    })
+  })
+})

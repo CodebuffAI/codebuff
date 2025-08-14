@@ -1,78 +1,78 @@
-import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details'
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
-export type OpenRouterCacheControl = { type: 'ephemeral' };
+export type OpenRouterCacheControl = { type: 'ephemeral' }
 
-export type OpenRouterChatCompletionsInput = Array<ChatCompletionMessageParam>;
+export type OpenRouterChatCompletionsInput = Array<ChatCompletionMessageParam>
 
 export type ChatCompletionMessageParam =
   | ChatCompletionSystemMessageParam
   | ChatCompletionUserMessageParam
   | ChatCompletionAssistantMessageParam
-  | ChatCompletionToolMessageParam;
+  | ChatCompletionToolMessageParam
 
 export interface ChatCompletionSystemMessageParam {
-  role: 'system';
-  content: string;
-  cache_control?: OpenRouterCacheControl;
+  role: 'system'
+  content: string
+  cache_control?: OpenRouterCacheControl
 }
 
 export interface ChatCompletionUserMessageParam {
-  role: 'user';
-  content: string | Array<ChatCompletionContentPart>;
-  cache_control?: OpenRouterCacheControl;
+  role: 'user'
+  content: string | Array<ChatCompletionContentPart>
+  cache_control?: OpenRouterCacheControl
 }
 
 export type ChatCompletionContentPart =
   | ChatCompletionContentPartText
   | ChatCompletionContentPartImage
-  | ChatCompletionContentPartFile;
+  | ChatCompletionContentPartFile
 
 export interface ChatCompletionContentPartFile {
-  type: 'file';
+  type: 'file'
   file: {
-    filename: string;
-    file_data: string;
-  };
-  cache_control?: OpenRouterCacheControl;
+    filename: string
+    file_data: string
+  }
+  cache_control?: OpenRouterCacheControl
 }
 
 export interface ChatCompletionContentPartImage {
-  type: 'image_url';
+  type: 'image_url'
   image_url: {
-    url: string;
-  };
-  cache_control?: OpenRouterCacheControl;
+    url: string
+  }
+  cache_control?: OpenRouterCacheControl
 }
 
 export interface ChatCompletionContentPartText {
-  type: 'text';
-  text: string;
-  reasoning?: string | null;
-  cache_control?: OpenRouterCacheControl;
+  type: 'text'
+  text: string
+  reasoning?: string | null
+  cache_control?: OpenRouterCacheControl
 }
 
 export interface ChatCompletionAssistantMessageParam {
-  role: 'assistant';
-  content?: string | null;
-  reasoning?: string | null;
-  reasoning_details?: ReasoningDetailUnion[];
-  tool_calls?: Array<ChatCompletionMessageToolCall>;
-  cache_control?: OpenRouterCacheControl;
+  role: 'assistant'
+  content?: string | null
+  reasoning?: string | null
+  reasoning_details?: ReasoningDetailUnion[]
+  tool_calls?: Array<ChatCompletionMessageToolCall>
+  cache_control?: OpenRouterCacheControl
 }
 
 export interface ChatCompletionMessageToolCall {
-  type: 'function';
-  id: string;
+  type: 'function'
+  id: string
   function: {
-    arguments: string;
-    name: string;
-  };
+    arguments: string
+    name: string
+  }
 }
 
 export interface ChatCompletionToolMessageParam {
-  role: 'tool';
-  content: string;
-  tool_call_id: string;
-  cache_control?: OpenRouterCacheControl;
+  role: 'tool'
+  content: string
+  tool_call_id: string
+  cache_control?: OpenRouterCacheControl
 }

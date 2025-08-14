@@ -1,24 +1,25 @@
-import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
-
 import {
   convertReadableStreamToArray,
   createTestServer,
-} from '@ai-sdk/provider-utils/test';
-import { describe, expect, it } from 'vitest';
-import { OpenRouterChatLanguageModel } from '../chat';
+} from '@ai-sdk/provider-utils/test'
+import { describe, expect, it } from 'bun:test'
+
+import { OpenRouterChatLanguageModel } from '../chat'
+
+import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings'
 
 describe('OpenRouter Streaming Usage Accounting', () => {
   const server = createTestServer({
     'https://api.openrouter.ai/chat/completions': {
       response: { type: 'stream-chunks', chunks: [] },
     },
-  });
+  })
 
   function prepareStreamResponse(includeUsage = true) {
     const chunks = [
       `data: {"id":"test-id","model":"test-model","choices":[{"delta":{"content":"Hello"},"index":0}]}\n\n`,
       `data: {"choices":[{"finish_reason":"stop","index":0}]}\n\n`,
-    ];
+    ]
 
     if (includeUsage) {
       chunks.push(
@@ -36,24 +37,24 @@ describe('OpenRouter Streaming Usage Accounting', () => {
           },
           choices: [],
         })}\n\n`,
-      );
+      )
     }
 
-    chunks.push('data: [DONE]\n\n');
+    chunks.push('data: [DONE]\n\n')
 
     server.urls['https://api.openrouter.ai/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks,
-    };
+    }
   }
 
   it('should include stream_options.include_usage in request when enabled', async () => {
-    prepareStreamResponse();
+    prepareStreamResponse()
 
     // Create model with usage accounting enabled
     const settings: OpenRouterChatSettings = {
       usage: { include: true },
-    };
+    }
 
     const model = new OpenRouterChatLanguageModel('test-model', settings, {
       provider: 'openrouter.chat',
@@ -61,7 +62,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
-    });
+    })
 
     // Call the model with streaming
     await model.doStream({
@@ -72,24 +73,24 @@ describe('OpenRouter Streaming Usage Accounting', () => {
         },
       ],
       maxOutputTokens: 100,
-    });
+    })
 
     // Verify stream options
-    const requestBody = await server.calls[0]!.requestBodyJson;
-    expect(requestBody).toBeDefined();
-    expect(requestBody.stream).toBe(true);
+    const requestBody = await server.calls[0]!.requestBodyJson
+    expect(requestBody).toBeDefined()
+    expect(requestBody.stream).toBe(true)
     expect(requestBody.stream_options).toEqual({
       include_usage: true,
-    });
-  });
+    })
+  })
 
   it('should include provider-specific metadata in finish event when usage accounting is enabled', async () => {
-    prepareStreamResponse(true);
+    prepareStreamResponse(true)
 
     // Create model with usage accounting enabled
     const settings: OpenRouterChatSettings = {
       usage: { include: true },
-    };
+    }
 
     const model = new OpenRouterChatLanguageModel('test-model', settings, {
       provider: 'openrouter.chat',
@@ -97,7 +98,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
-    });
+    })
 
     // Call the model with streaming
     const result = await model.doStream({
@@ -108,21 +109,21 @@ describe('OpenRouter Streaming Usage Accounting', () => {
         },
       ],
       maxOutputTokens: 100,
-    });
+    })
 
     // Read all chunks from the stream
-    const chunks = await convertReadableStreamToArray(result.stream);
+    const chunks = await convertReadableStreamToArray(result.stream)
 
     // Find the finish chunk
-    const finishChunk = chunks.find((chunk) => chunk.type === 'finish');
-    expect(finishChunk).toBeDefined();
+    const finishChunk = chunks.find((chunk) => chunk.type === 'finish')
+    expect(finishChunk).toBeDefined()
 
     // Verify metadata is included
-    expect(finishChunk?.providerMetadata).toBeDefined();
-    const openrouterData = finishChunk?.providerMetadata?.openrouter;
-    expect(openrouterData).toBeDefined();
+    expect(finishChunk?.providerMetadata).toBeDefined()
+    const openrouterData = finishChunk?.providerMetadata?.openrouter
+    expect(openrouterData).toBeDefined()
 
-    const usage = openrouterData?.usage;
+    const usage = openrouterData?.usage
     expect(usage).toMatchObject({
       promptTokens: 10,
       completionTokens: 20,
@@ -133,16 +134,16 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       },
       promptTokensDetails: { cachedTokens: 5 },
       completionTokensDetails: { reasoningTokens: 8 },
-    });
-  });
+    })
+  })
 
   it('should not include provider-specific metadata when usage accounting is disabled', async () => {
-    prepareStreamResponse(false);
+    prepareStreamResponse(false)
 
     // Create model with usage accounting disabled
     const settings: OpenRouterChatSettings = {
       // No usage property
-    };
+    }
 
     const model = new OpenRouterChatLanguageModel('test-model', settings, {
       provider: 'openrouter.chat',
@@ -150,7 +151,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
-    });
+    })
 
     // Call the model with streaming
     const result = await model.doStream({
@@ -161,18 +162,18 @@ describe('OpenRouter Streaming Usage Accounting', () => {
         },
       ],
       maxOutputTokens: 100,
-    });
+    })
 
     // Read all chunks from the stream
-    const chunks = await convertReadableStreamToArray(result.stream);
+    const chunks = await convertReadableStreamToArray(result.stream)
 
     // Find the finish chunk
-    const finishChunk = chunks.find((chunk) => chunk.type === 'finish');
-    expect(finishChunk).toBeDefined();
+    const finishChunk = chunks.find((chunk) => chunk.type === 'finish')
+    expect(finishChunk).toBeDefined()
 
     // Verify that provider metadata is not included
     expect(finishChunk?.providerMetadata?.openrouter).toStrictEqual({
       usage: {},
-    });
-  });
-});
+    })
+  })
+})

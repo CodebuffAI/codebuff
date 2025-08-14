@@ -1,16 +1,18 @@
-import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
-import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
-
 import {
   convertReadableStreamToArray,
   createTestServer,
-} from '@ai-sdk/provider-utils/test';
-import { createOpenRouter } from '../provider';
-import { ReasoningDetailType } from '../schemas/reasoning-details';
+} from '@ai-sdk/provider-utils/test'
+import { describe, expect, it } from 'bun:test'
+
+import { createOpenRouter } from '../provider'
+import { ReasoningDetailType } from '../schemas/reasoning-details'
+
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details'
+import type { LanguageModelV2Prompt } from '@ai-sdk/provider'
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
-];
+]
 
 const TEST_LOGPROBS = {
   content: [
@@ -105,21 +107,21 @@ const TEST_LOGPROBS = {
       ],
     },
   ],
-};
+}
 
 const provider = createOpenRouter({
   apiKey: 'test-api-key',
   compatibility: 'strict',
-});
+})
 
-const model = provider.chat('anthropic/claude-3.5-sonnet');
+const model = provider.chat('anthropic/claude-3.5-sonnet')
 
 describe('doGenerate', () => {
   const server = createTestServer({
     'https://openrouter.ai/api/v1/chat/completions': {
       response: { type: 'json-value', body: {} },
     },
-  });
+  })
 
   function prepareJsonResponse({
     content = '',
@@ -133,24 +135,24 @@ describe('doGenerate', () => {
     logprobs = null,
     finish_reason = 'stop',
   }: {
-    content?: string;
-    reasoning?: string;
-    reasoning_details?: Array<ReasoningDetailUnion>;
+    content?: string
+    reasoning?: string
+    reasoning_details?: Array<ReasoningDetailUnion>
     usage?: {
-      prompt_tokens: number;
-      total_tokens: number;
-      completion_tokens: number;
-    };
+      prompt_tokens: number
+      total_tokens: number
+      completion_tokens: number
+    }
     logprobs?: {
       content:
         | {
-            token: string;
-            logprob: number;
-            top_logprobs: { token: string; logprob: number }[];
+            token: string
+            logprob: number
+            top_logprobs: { token: string; logprob: number }[]
           }[]
-        | null;
-    } | null;
-    finish_reason?: string;
+        | null
+    } | null
+    finish_reason?: string
   } = {}) {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'json-value',
@@ -175,31 +177,31 @@ describe('doGenerate', () => {
         usage,
         system_fingerprint: 'fp_3bc1b5746c',
       },
-    };
+    }
   }
 
   it('should extract text response', async () => {
-    prepareJsonResponse({ content: 'Hello, World!' });
+    prepareJsonResponse({ content: 'Hello, World!' })
 
     const result = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(result.content[0]).toStrictEqual({
       type: 'text',
       text: 'Hello, World!',
-    });
-  });
+    })
+  })
 
   it('should extract usage', async () => {
     prepareJsonResponse({
       content: '',
       usage: { prompt_tokens: 20, total_tokens: 25, completion_tokens: 5 },
-    });
+    })
 
     const { usage } = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(usage).toStrictEqual({
       inputTokens: 20,
@@ -207,55 +209,55 @@ describe('doGenerate', () => {
       totalTokens: 25,
       reasoningTokens: 0,
       cachedInputTokens: 0,
-    });
-  });
+    })
+  })
 
   it('should extract logprobs', async () => {
     prepareJsonResponse({
       logprobs: TEST_LOGPROBS,
-    });
+    })
 
     await provider.chat('openai/gpt-3.5-turbo', { logprobs: 1 }).doGenerate({
       prompt: TEST_PROMPT,
-    });
-  });
+    })
+  })
 
   it('should extract finish reason', async () => {
     prepareJsonResponse({
       content: '',
       finish_reason: 'stop',
-    });
+    })
 
     const response = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
-    expect(response.finishReason).toStrictEqual('stop');
-  });
+    expect(response.finishReason).toStrictEqual('stop')
+  })
 
   it('should support unknown finish reason', async () => {
     prepareJsonResponse({
       content: '',
       finish_reason: 'eos',
-    });
+    })
 
     const response = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
-    expect(response.finishReason).toStrictEqual('unknown');
-  });
+    expect(response.finishReason).toStrictEqual('unknown')
+  })
 
   it('should extract reasoning content from reasoning field', async () => {
     prepareJsonResponse({
       content: 'Hello!',
       reasoning:
         'I need to think about this... The user said hello, so I should respond with a greeting.',
-    });
+    })
 
     const result = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(result.content).toStrictEqual([
       {
@@ -266,8 +268,8 @@ describe('doGenerate', () => {
         type: 'text',
         text: 'Hello!',
       },
-    ]);
-  });
+    ])
+  })
 
   it('should extract reasoning content from reasoning_details', async () => {
     prepareJsonResponse({
@@ -282,11 +284,11 @@ describe('doGenerate', () => {
           summary: 'The user wants a greeting response.',
         },
       ],
-    });
+    })
 
     const result = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(result.content).toStrictEqual([
       {
@@ -301,8 +303,8 @@ describe('doGenerate', () => {
         type: 'text',
         text: 'Hello!',
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle encrypted reasoning details', async () => {
     prepareJsonResponse({
@@ -313,11 +315,11 @@ describe('doGenerate', () => {
           data: 'encrypted_reasoning_data_here',
         },
       ],
-    });
+    })
 
     const result = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(result.content).toStrictEqual([
       {
@@ -328,8 +330,8 @@ describe('doGenerate', () => {
         type: 'text',
         text: 'Hello!',
       },
-    ]);
-  });
+    ])
+  })
 
   it('should prioritize reasoning_details over reasoning when both are present', async () => {
     prepareJsonResponse({
@@ -345,11 +347,11 @@ describe('doGenerate', () => {
           summary: 'Summary from reasoning_details',
         },
       ],
-    });
+    })
 
     const result = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(result.content).toStrictEqual([
       {
@@ -364,48 +366,48 @@ describe('doGenerate', () => {
         type: 'text',
         text: 'Hello!',
       },
-    ]);
+    ])
 
     // Verify that the reasoning field content is not included
     expect(result.content).not.toContainEqual({
       type: 'reasoning',
       text: 'This should be ignored when reasoning_details is present',
-    });
-  });
+    })
+  })
 
   it('should pass the model and the messages', async () => {
-    prepareJsonResponse({ content: '' });
+    prepareJsonResponse({ content: '' })
 
     await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: 'Hello' }],
-    });
-  });
+    })
+  })
 
   it('should pass the models array when provided', async () => {
-    prepareJsonResponse({ content: '' });
+    prepareJsonResponse({ content: '' })
 
     const customModel = provider.chat('anthropic/claude-3.5-sonnet', {
       models: ['anthropic/claude-2', 'gryphe/mythomax-l2-13b'],
-    });
+    })
 
     await customModel.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       models: ['anthropic/claude-2', 'gryphe/mythomax-l2-13b'],
       messages: [{ role: 'user', content: 'Hello' }],
-    });
-  });
+    })
+  })
 
   it('should pass settings', async () => {
-    prepareJsonResponse();
+    prepareJsonResponse()
 
     await provider
       .chat('openai/gpt-3.5-turbo', {
@@ -416,7 +418,7 @@ describe('doGenerate', () => {
       })
       .doGenerate({
         prompt: TEST_PROMPT,
-      });
+      })
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'openai/gpt-3.5-turbo',
@@ -426,11 +428,11 @@ describe('doGenerate', () => {
       logit_bias: { 50256: -100 },
       parallel_tool_calls: false,
       user: 'test-user-id',
-    });
-  });
+    })
+  })
 
   it('should pass tools and toolChoice', async () => {
-    prepareJsonResponse({ content: '' });
+    prepareJsonResponse({ content: '' })
 
     await model.doGenerate({
       prompt: TEST_PROMPT,
@@ -452,7 +454,7 @@ describe('doGenerate', () => {
         type: 'tool',
         toolName: 'test-tool',
       },
-    });
+    })
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
@@ -477,38 +479,38 @@ describe('doGenerate', () => {
         type: 'function',
         function: { name: 'test-tool' },
       },
-    });
-  });
+    })
+  })
 
   it('should pass headers', async () => {
-    prepareJsonResponse({ content: '' });
+    prepareJsonResponse({ content: '' })
 
     const provider = createOpenRouter({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
       },
-    });
+    })
 
     await provider.chat('openai/gpt-3.5-turbo').doGenerate({
       prompt: TEST_PROMPT,
       headers: {
         'Custom-Request-Header': 'request-header-value',
       },
-    });
+    })
 
-    const requestHeaders = server.calls[0]!.requestHeaders;
+    const requestHeaders = server.calls[0]!.requestHeaders
 
     expect(requestHeaders).toStrictEqual({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-    });
-  });
+    })
+  })
 
   it('should pass responseFormat for JSON schema structured outputs', async () => {
-    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' })
 
     const testSchema = {
       type: 'object',
@@ -518,17 +520,17 @@ describe('doGenerate', () => {
       },
       required: ['name', 'age'],
       additionalProperties: false,
-    };
+    }
 
     await model.doGenerate({
       prompt: TEST_PROMPT,
       responseFormat: {
         type: 'json',
-        schema: testSchema,
+        schema: testSchema as any,
         name: 'PersonResponse',
         description: 'A person object',
       },
-    });
+    })
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
@@ -542,11 +544,11 @@ describe('doGenerate', () => {
           description: 'A person object',
         },
       },
-    });
-  });
+    })
+  })
 
   it('should use default name when name is not provided in responseFormat', async () => {
-    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' })
 
     const testSchema = {
       type: 'object',
@@ -556,15 +558,15 @@ describe('doGenerate', () => {
       },
       required: ['name', 'age'],
       additionalProperties: false,
-    };
+    }
 
     await model.doGenerate({
       prompt: TEST_PROMPT,
       responseFormat: {
         type: 'json',
-        schema: testSchema,
+        schema: testSchema as any,
       },
-    });
+    })
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
@@ -577,16 +579,16 @@ describe('doGenerate', () => {
           name: 'response',
         },
       },
-    });
-  });
-});
+    })
+  })
+})
 
 describe('doStream', () => {
   const server = createTestServer({
     'https://openrouter.ai/api/v1/chat/completions': {
       response: { type: 'json-value', body: {} },
     },
-  });
+  })
 
   function prepareStreamResponse({
     content,
@@ -598,22 +600,22 @@ describe('doStream', () => {
     logprobs = null,
     finish_reason = 'stop',
   }: {
-    content: string[];
+    content: string[]
     usage?: {
-      prompt_tokens: number;
-      total_tokens: number;
-      completion_tokens: number;
-    };
+      prompt_tokens: number
+      total_tokens: number
+      completion_tokens: number
+    }
     logprobs?: {
       content:
         | {
-            token: string;
-            logprob: number;
-            top_logprobs: { token: string; logprob: number }[];
+            token: string
+            logprob: number
+            top_logprobs: { token: string; logprob: number }[]
           }[]
-        | null;
-    } | null;
-    finish_reason?: string;
+        | null
+    } | null
+    finish_reason?: string
   }) {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
@@ -621,7 +623,7 @@ describe('doStream', () => {
         `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
           `"system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n`,
         ...content.flatMap((text) => {
-          return `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`;
+          return `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`
         }),
         `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}","logprobs":${JSON.stringify(
           logprobs,
@@ -631,7 +633,7 @@ describe('doStream', () => {
         )}}\n\n`,
         'data: [DONE]\n\n',
       ],
-    };
+    }
   }
 
   it('should stream text deltas', async () => {
@@ -644,14 +646,14 @@ describe('doStream', () => {
         completion_tokens: 227,
       },
       logprobs: TEST_LOGPROBS,
-    });
+    })
 
     const { stream } = await model.doStream({
       prompt: TEST_PROMPT,
-    });
+    })
 
     // note: space moved to last chunk bc of trimming
-    const elements = await convertReadableStreamToArray(stream);
+    const elements = await convertReadableStreamToArray(stream)
     expect(elements).toStrictEqual([
       {
         type: 'response-metadata',
@@ -720,7 +722,7 @@ describe('doStream', () => {
               promptTokens: 17,
               totalTokens: 244,
               cost: undefined,
-            },
+            } as any,
           },
         },
         usage: {
@@ -731,8 +733,8 @@ describe('doStream', () => {
           cachedInputTokens: Number.NaN,
         },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {
     // This test verifies that when the API returns both 'reasoning' and 'reasoning_details' fields,
@@ -769,13 +771,13 @@ describe('doStream', () => {
           `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
         'data: [DONE]\n\n',
       ],
-    };
+    }
 
     const { stream } = await model.doStream({
       prompt: TEST_PROMPT,
-    });
+    })
 
-    const elements = await convertReadableStreamToArray(stream);
+    const elements = await convertReadableStreamToArray(stream)
 
     // Filter for reasoning-related elements
     const reasoningElements = elements.filter(
@@ -783,7 +785,7 @@ describe('doStream', () => {
         el.type === 'reasoning-start' ||
         el.type === 'reasoning-delta' ||
         el.type === 'reasoning-end',
-    );
+    )
 
     // Debug output to see what we're getting
     // console.log('Reasoning elements count:', reasoningElements.length);
@@ -791,7 +793,7 @@ describe('doStream', () => {
 
     // We should get reasoning content from reasoning_details when present, not reasoning field
     // start + 4 deltas (text, summary, encrypted, reasoning-only) + end = 6
-    expect(reasoningElements).toHaveLength(6);
+    expect(reasoningElements).toHaveLength(6)
 
     // Verify the content comes from reasoning_details, not reasoning field
     const reasoningDeltas = reasoningElements
@@ -799,19 +801,19 @@ describe('doStream', () => {
       .map(
         (el) =>
           (el as { type: 'reasoning-delta'; delta: string; id: string }).delta,
-      );
+      )
 
     expect(reasoningDeltas).toEqual([
       'Let me think about this...', // from reasoning_details text
       'User wants a greeting', // from reasoning_details summary
       '[REDACTED]', // from reasoning_details encrypted
       'This reasoning is used', // from reasoning field (no reasoning_details)
-    ]);
+    ])
 
     // Verify that "This should be ignored..." and "Also ignored" are NOT in the output
-    expect(reasoningDeltas).not.toContain('This should be ignored...');
-    expect(reasoningDeltas).not.toContain('Also ignored');
-  });
+    expect(reasoningDeltas).not.toContain('This should be ignored...')
+    expect(reasoningDeltas).not.toContain('Also ignored')
+  })
 
   it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
     // This test reproduces the issue where reasoning appears first but then gets "pushed down"
@@ -850,13 +852,13 @@ describe('doStream', () => {
           `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
         'data: [DONE]\n\n',
       ],
-    };
+    }
 
     const { stream } = await model.doStream({
       prompt: TEST_PROMPT,
-    });
+    })
 
-    const elements = await convertReadableStreamToArray(stream);
+    const elements = await convertReadableStreamToArray(stream)
 
     // The expected order should be:
     // 1. reasoning-start
@@ -866,38 +868,35 @@ describe('doStream', () => {
     // 5. text-delta (2 times)
     // 6. text-end (when stream finishes)
 
-    const streamOrder = elements.map(el => el.type);
-    
+    const streamOrder = elements.map((el) => el.type)
+
     // Find the positions of key events
-    const reasoningStartIndex = streamOrder.indexOf('reasoning-start');
-    const reasoningEndIndex = streamOrder.indexOf('reasoning-end');
-    const textStartIndex = streamOrder.indexOf('text-start');
+    const reasoningStartIndex = streamOrder.indexOf('reasoning-start')
+    const reasoningEndIndex = streamOrder.indexOf('reasoning-end')
+    const textStartIndex = streamOrder.indexOf('text-start')
 
     // Reasoning should come before text and end before text starts
-    expect(reasoningStartIndex).toBeLessThan(textStartIndex);
-    expect(reasoningEndIndex).toBeLessThan(textStartIndex);
+    expect(reasoningStartIndex).toBeLessThan(textStartIndex)
+    expect(reasoningEndIndex).toBeLessThan(textStartIndex)
 
     // Verify reasoning content
     const reasoningDeltas = elements
       .filter((el) => el.type === 'reasoning-delta')
-      .map((el) => (el as { type: 'reasoning-delta'; delta: string }).delta);
+      .map((el) => (el as { type: 'reasoning-delta'; delta: string }).delta)
 
     expect(reasoningDeltas).toEqual([
       'I need to think about this step by step...',
       ' First, I should analyze the request.',
       ' Then I should provide a helpful response.',
-    ]);
+    ])
 
     // Verify text content
     const textDeltas = elements
       .filter((el) => el.type === 'text-delta')
-      .map((el) => (el as { type: 'text-delta'; delta: string }).delta);
+      .map((el) => (el as { type: 'text-delta'; delta: string }).delta)
 
-    expect(textDeltas).toEqual([
-      'Hello! ',
-      'How can I help you today?',
-    ]);
-  });
+    expect(textDeltas).toEqual(['Hello! ', 'How can I help you today?'])
+  })
 
   it('should stream tool deltas', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
@@ -934,7 +933,7 @@ describe('doStream', () => {
           `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
         'data: [DONE]\n\n',
       ],
-    };
+    }
 
     const { stream } = await model.doStream({
       tools: [
@@ -951,7 +950,7 @@ describe('doStream', () => {
         },
       ],
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
       {
@@ -1090,7 +1089,7 @@ describe('doStream', () => {
               promptTokens: 53,
               totalTokens: 70,
               cost: undefined,
-            },
+            } as any,
           },
         },
         usage: {
@@ -1101,8 +1100,8 @@ describe('doStream', () => {
           cachedInputTokens: Number.NaN,
         },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should stream tool call that is sent in one chunk', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
@@ -1118,7 +1117,7 @@ describe('doStream', () => {
           `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
         'data: [DONE]\n\n',
       ],
-    };
+    }
 
     const { stream } = await model.doStream({
       tools: [
@@ -1135,9 +1134,9 @@ describe('doStream', () => {
         },
       ],
       prompt: TEST_PROMPT,
-    });
+    })
 
-    const elements = await convertReadableStreamToArray(stream);
+    const elements = await convertReadableStreamToArray(stream)
     expect(elements).toStrictEqual([
       {
         type: 'response-metadata',
@@ -1193,7 +1192,7 @@ describe('doStream', () => {
               promptTokens: 53,
               totalTokens: 70,
               cost: undefined,
-            },
+            } as any,
           },
         },
         usage: {
@@ -1204,8 +1203,8 @@ describe('doStream', () => {
           cachedInputTokens: Number.NaN,
         },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle error stream parts', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
@@ -1215,11 +1214,11 @@ describe('doStream', () => {
           `help center at help.openrouter.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
         'data: [DONE]\n\n',
       ],
-    };
+    }
 
     const { stream } = await model.doStream({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
       {
@@ -1250,23 +1249,23 @@ describe('doStream', () => {
           cachedInputTokens: Number.NaN,
         },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle unparsable stream parts', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
-    };
+    }
 
     const { stream } = await model.doStream({
       prompt: TEST_PROMPT,
-    });
+    })
 
-    const elements = await convertReadableStreamToArray(stream);
+    const elements = await convertReadableStreamToArray(stream)
 
-    expect(elements.length).toBe(2);
-    expect(elements[0]?.type).toBe('error');
+    expect(elements.length).toBe(2)
+    expect(elements[0]?.type).toBe('error')
     expect(elements[1]).toStrictEqual({
       finishReason: 'error',
 
@@ -1283,53 +1282,53 @@ describe('doStream', () => {
         reasoningTokens: Number.NaN,
         cachedInputTokens: Number.NaN,
       },
-    });
-  });
+    })
+  })
 
   it('should pass the messages and the model', async () => {
-    prepareStreamResponse({ content: [] });
+    prepareStreamResponse({ content: [] })
 
     await model.doStream({
       prompt: TEST_PROMPT,
-    });
+    })
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: 'Hello' }],
-    });
-  });
+    })
+  })
 
   it('should pass headers', async () => {
-    prepareStreamResponse({ content: [] });
+    prepareStreamResponse({ content: [] })
 
     const provider = createOpenRouter({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
       },
-    });
+    })
 
     await provider.chat('openai/gpt-3.5-turbo').doStream({
       prompt: TEST_PROMPT,
       headers: {
         'Custom-Request-Header': 'request-header-value',
       },
-    });
+    })
 
-    const requestHeaders = server.calls[0]!.requestHeaders;
+    const requestHeaders = server.calls[0]!.requestHeaders
 
     expect(requestHeaders).toStrictEqual({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-    });
-  });
+    })
+  })
 
   it('should pass extra body', async () => {
-    prepareStreamResponse({ content: [] });
+    prepareStreamResponse({ content: [] })
 
     const provider = createOpenRouter({
       apiKey: 'test-api-key',
@@ -1341,23 +1340,23 @@ describe('doStream', () => {
           },
         },
       },
-    });
+    })
 
     await provider.chat('anthropic/claude-3.5-sonnet').doStream({
       prompt: TEST_PROMPT,
-    });
+    })
 
-    const requestBody = await server.calls[0]!.requestBodyJson;
+    const requestBody = await server.calls[0]!.requestBodyJson
 
-    expect(requestBody).toHaveProperty('custom_field', 'custom_value');
+    expect(requestBody).toHaveProperty('custom_field', 'custom_value')
     expect(requestBody).toHaveProperty(
       'providers.anthropic.custom_field',
       'custom_value',
-    );
-  });
+    )
+  })
 
   it('should pass responseFormat for JSON schema structured outputs', async () => {
-    prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
+    prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] })
 
     const testSchema = {
       type: 'object',
@@ -1367,17 +1366,17 @@ describe('doStream', () => {
       },
       required: ['name', 'age'],
       additionalProperties: false,
-    };
+    }
 
     await model.doStream({
       prompt: TEST_PROMPT,
       responseFormat: {
         type: 'json',
-        schema: testSchema,
+        schema: testSchema as any,
         name: 'PersonResponse',
         description: 'A person object',
       },
-    });
+    })
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       stream: true,
@@ -1393,6 +1392,6 @@ describe('doStream', () => {
           description: 'A person object',
         },
       },
-    });
-  });
-});
+    })
+  })
+})

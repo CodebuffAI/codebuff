@@ -1,14 +1,15 @@
-import type { ModelMessage } from 'ai';
+import { createTestServer } from '@ai-sdk/provider-utils/test'
+import { streamText } from 'ai'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
 
-import { createTestServer } from '@ai-sdk/provider-utils/test';
-import { streamText } from 'ai';
-import { describe, expect, it, vi } from 'vitest';
-import { createOpenRouter } from '../provider';
+import { createOpenRouter } from '../provider'
+
+import type { ModelMessage } from 'ai'
 
 // Add type assertions for the mocked classes
 const TEST_MESSAGES: ModelMessage[] = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
-];
+]
 
 describe('providerOptions', () => {
   const server = createTestServer({
@@ -18,17 +19,17 @@ describe('providerOptions', () => {
         chunks: [],
       },
     },
-  });
+  })
 
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
+    mock.clearAllMocks()
+  })
 
   it('should set providerOptions openrouter to extra body', async () => {
     const openrouter = createOpenRouter({
       apiKey: 'test',
-    });
-    const model = openrouter('anthropic/claude-3.7-sonnet');
+    })
+    const model = openrouter('anthropic/claude-3.7-sonnet')
 
     await streamText({
       model: model,
@@ -40,7 +41,7 @@ describe('providerOptions', () => {
           },
         },
       },
-    }).consumeStream();
+    }).consumeStream()
 
     expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       messages: [
@@ -54,6 +55,6 @@ describe('providerOptions', () => {
       },
       model: 'anthropic/claude-3.7-sonnet',
       stream: true,
-    });
-  });
-});
+    })
+  })
+})
