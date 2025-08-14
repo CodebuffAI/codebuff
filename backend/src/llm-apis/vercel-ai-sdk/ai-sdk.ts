@@ -181,11 +181,9 @@ export const promptAiSdkStream = async function* (
         openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
       inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
 
-      // Note (James): This seemed to be forcing 0 cost openrouter models where we use keys
-      // so I disabled the cost override for now.
-      costOverrideDollars = undefined
-      // (openrouterUsage.cost ?? 0) +
-      // (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+      costOverrideDollars =
+        (openrouterUsage.cost ?? 0) +
+        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
     }
   }
 
