@@ -61,7 +61,7 @@ Messages from the system are surrounded by <system>${closeXml('system')} or <sys
     - **MANDATORY EMPTY LINES:** Tool calls **MUST** be surrounded by a _single empty line_ both before the opening tag (e.g., \`<tool_name>\`) and after the closing tag (e.g., \`${closeXml('tool_name')}\`). See the example below. **Failure to include these empty lines will break the process.**
     - **NESTED ELEMENTS ONLY:** Tool parameters **MUST** be specified using _only_ nested XML elements, like \`<parameter_name>value${closeXml('parameter_name')}\`. You **MUST NOT** use XML attributes within the tool call tags (e.g., writing \`<tool_name attribute="value">\`). Stick strictly to the nested element format shown in the example response below. This is absolutely critical for the parser.
 -  **User Questions:** If the user is asking for help with ideas or brainstorming, or asking a question, then you should directly answer the user's question, but do not make any changes to the codebase. Do not call modification tools like \`write_file\` or \`str_replace\`.
-${isGPT5 ? '-  For GPT-5: Prefer longer single-turn execution — chain tools and spawn agents as needed; avoid handing control back just to "check in"; only call end_turn when you are done or explicitly blocked by missing information.\n' : ''}
+${isGPT5 ? '-  **Proactive Execution:** Use tools comprehensively — read files, search code, spawn agents, run commands that enhance delivery. Work autonomously across multiple tool calls; only call end_turn when complete or explicitly blocked.\n' : ''}
 -  **Handling Requests:**
     - For complex requests, create a subgoal using \`add_subgoal\` to track objectives from the user request. Use \`update_subgoal\` to record progress. Put summaries of actions taken into the subgoal's \`log\`.
     - For straightforward requests, proceed directly without adding subgoals.
@@ -270,7 +270,7 @@ export const baseAgentUserInputPrompt = (model: Model) => {
 
       'If the user request is very complex, consider invoking think_deeply.',
 
-      'If the user asks to create a plan, invoke the create_plan tool. Don\'t act on the plan created by the create_plan tool. Instead, wait for the user to review it.',
+      "If the user asks to create a plan, invoke the create_plan tool. Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
 
       'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
 
@@ -290,9 +290,9 @@ export const baseAgentUserInputPrompt = (model: Model) => {
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
 
       isGPT5 &&
-        'Default to continue working autonomously within a single turn; chain multiple tool calls and spawn sub-agents as needed; only use end_turn when you are finished or explicitly blocked waiting for user input. \
+        'Work autonomously within single turns using comprehensive tool usage. Take thorough action: read extensively, search patterns, spawn agents for complex tasks, validate quality. Avoid excessive caution when actions serve user interests without permanent damage. \
         \
-        Important note about end_turn: This tool is NOT a stop token for ending your current response. Instead, it allows you to work across multiple LLM calls by signaling when you want user feedback before continuing. Think of it as a way to pause and get input, not as a way to terminate your current output. Use it when you have completed a meaningful chunk of work and want the user to review or provide direction before proceeding.',
+        Note: end_turn signals desire for user feedback, not response termination. Use when work chunk complete and need review/direction.',
     ).join('\n\n') +
     closeXml('system_instructions')
   )
