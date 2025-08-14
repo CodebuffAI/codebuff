@@ -1,7 +1,7 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "target": "es6",
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "baseUrl": ".",
     "types": ["@testing-library/jest-dom"],
