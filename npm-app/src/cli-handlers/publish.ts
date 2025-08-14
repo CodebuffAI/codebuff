@@ -63,14 +63,12 @@ import { pluralize } from '@codebuff/common/util/string'
       return
     }
 
-    const matchingTemplates: Record<string, DynamicAgentTemplate> = {}
+    const matchingTemplates: Record<string, any> = {}
     for (const agentId of agentIds) {
       // Find the specific agent
-      const matchingTemplate = Object.entries(agentTemplates).find(
-        ([key, template]) =>
-          key === agentId ||
-          template.id === agentId ||
-          template.displayName === agentId,
+      const matchingTemplate = Object.values(agentTemplates).find(
+        (template) =>
+          template.id === agentId || template.displayName === agentId,
       )
 
       if (!matchingTemplate) {
@@ -81,10 +79,10 @@ import { pluralize } from '@codebuff/common/util/string'
         return
       }
 
-      matchingTemplates[matchingTemplate[0]] = matchingTemplate[1]
+      matchingTemplates[matchingTemplate.id] = matchingTemplate
     }
     console.log(yellow(`Publishing:`))
-    for (const [key, template] of Object.entries(matchingTemplates)) {
+    for (const template of Object.values(matchingTemplates)) {
       console.log(`  - ${template.displayName} (${template.id})`)
     }
 
@@ -154,7 +152,7 @@ import { pluralize } from '@codebuff/common/util/string'
  * Publish agent templates to the backend
  */
 async function publishAgentTemplates(
-  data: DynamicAgentTemplate[],
+  data: Record<string, any>[],
   authToken: string,
 ): Promise<PublishAgentsResponse & { statusCode?: number }> {
   try {

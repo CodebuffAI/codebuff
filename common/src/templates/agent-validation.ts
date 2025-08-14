@@ -54,9 +54,11 @@ export function collectAgentIds(
  */
 export function validateAgents(agentTemplates: Record<string, any> = {}): {
   templates: Record<string, AgentTemplate>
+  dynamicTemplates: Record<string, DynamicAgentTemplate>
   validationErrors: DynamicAgentValidationError[]
 } {
   const templates: Record<string, AgentTemplate> = {}
+  const dynamicTemplates: Record<string, DynamicAgentTemplate> = {}
   const validationErrors: DynamicAgentValidationError[] = []
 
   const hasAgentTemplates = Object.keys(agentTemplates).length > 0
@@ -64,6 +66,7 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
   if (!hasAgentTemplates) {
     return {
       templates,
+      dynamicTemplates,
       validationErrors,
     }
   }
@@ -107,6 +110,8 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
       }
       templates[validationResult.agentTemplate!.id] =
         validationResult.agentTemplate!
+      dynamicTemplates[validationResult.dynamicAgentTemplate!.id] =
+        validationResult.dynamicAgentTemplate!
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
@@ -130,6 +135,7 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
 
   return {
     templates,
+    dynamicTemplates,
     validationErrors,
   }
 }
@@ -155,6 +161,7 @@ export function validateSingleAgent(
 ): {
   success: boolean
   agentTemplate?: AgentTemplate
+  dynamicAgentTemplate?: DynamicAgentTemplate
   error?: string
 } {
   const {
@@ -276,6 +283,9 @@ export function validateSingleAgent(
     // Convert to internal AgentTemplate format
     const agentTemplate: AgentTemplate = {
       ...validatedConfig,
+      systemPrompt: validatedConfig.systemPrompt ?? '',
+      instructionsPrompt: validatedConfig.instructionsPrompt ?? '',
+      stepPrompt: validatedConfig.stepPrompt ?? '',
       outputSchema,
       inputSchema,
     }
@@ -283,6 +293,7 @@ export function validateSingleAgent(
     return {
       success: true,
       agentTemplate,
+      dynamicAgentTemplate: validatedConfig,
     }
   } catch (error) {
     const errorMessage =

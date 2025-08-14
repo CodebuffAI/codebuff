@@ -1,9 +1,7 @@
 import { z } from 'zod/v4'
 
-import { DynamicAgentTemplateSchema } from '../../../types/dynamic-agent-template'
-
 export const publishAgentsRequestSchema = z.object({
-  data: DynamicAgentTemplateSchema.array(),
+  data: z.record(z.string(), z.any()).array(),
   authToken: z.string(),
 })
 export type PublishAgentsRequest = z.infer<typeof publishAgentsRequestSchema>

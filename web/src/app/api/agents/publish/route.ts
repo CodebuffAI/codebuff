@@ -59,7 +59,32 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, authToken } = parseResult.data
-    const agents = data as DynamicAgentTemplate[] // data is now an array of agents
+    const agentDefinitions = data
+
+    // First use validateAgents to convert to DynamicAgentTemplate types
+    const agentMap = agentDefinitions.reduce(
+      (acc: Record<string, any>, agent: any) => {
+        acc[agent.id] = agent
+        return acc
+      },
+      {} as Record<string, any>
+    )
+
+    const { validationErrors, dynamicTemplates } = validateAgents(agentMap)
+    const agents = Object.values(dynamicTemplates)
+
+    if (validationErrors.length > 0) {
+      const errorDetails = validationErrors.map((err) => err.message).join('\n')
+
+      return NextResponse.json(
+        {
+          error: 'Agent config validation failed',
+          details: errorDetails,
+          validationErrors,
+        },
+        { status: 400 }
+      )
+    }
 
     // Try cookie-based auth first, then fall back to authToken validation using proper function
     let userId: string | undefined
@@ -107,34 +132,6 @@ export async function POST(request: NextRequest) {
 
     const requestedPublisherId = publisherIds[0]!
 
-    // Validate all agents
-    const agentMap = agents.reduce(
-      (
-        acc: Record<string, DynamicAgentTemplate>,
-        agent: DynamicAgentTemplate
-      ) => {
-        acc[agent.id] = agent
-        return acc
-      },
-      {} as Record<string, DynamicAgentTemplate>
-    )
-
-    const validationResult = validateAgents(agentMap)
-
-    if (validationResult.validationErrors.length > 0) {
-      const errorDetails = validationResult.validationErrors
-        .map((err) => err.message)
-        .join('\n')
-
-      return NextResponse.json(
-        {
-          error: 'Agent config validation failed',
-          details: errorDetails,
-          validationErrors: validationResult.validationErrors,
-        },
-        { status: 400 }
-      )
-    }
 
     // Verify user has access to the requested publisher
     const publisherResult = await db
