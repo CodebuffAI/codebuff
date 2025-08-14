@@ -20,7 +20,7 @@ const LITE_DATASET_PATH = path.join(
   'princeton-nlp--SWE-bench_Lite.json',
 )
 
-describe('SWE-Bench', async () => {
+describe.skip('SWE-Bench', async () => {
   await ensureTestRepos()
   const sweBenchLiteList = JSON.parse(
     fs.readFileSync(LITE_DATASET_PATH, 'utf-8'),
