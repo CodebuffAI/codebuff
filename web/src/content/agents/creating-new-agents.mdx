@@ -6,82 +6,24 @@ order: 2
 ---
 
 # Creating New Agents
-
 Create specialized agents from scratch using TypeScript files in the `.agents/` directory.
 
 **Types:**
 
-- **LLM-based** - Use prompts and language models
-- **Programmatic** - Use TypeScript generator functions with `handleSteps`
-
-## Basic Structure
-
-Create a new TypeScript file in `.agents/` directory:
-
-**.agents/code-analyzer.ts**
-```typescript
-import { AgentDefinition } from './types/agent-definition'
-
-const definition: AgentDefinition = {
-  id: "code-analyzer",
-  displayName: "Code Analysis Expert",
-  spawnerPrompt: "Spawn for deep code analysis and refactoring suggestions",
-  model: "anthropic/claude-4-sonnet-20250522",
-
-  toolNames: ["read_files", "code_search", "spawn_agents", "write_file"],
-  spawnableAgents: ["codebuff/thinker@0.0.1", "codebuff/reviewer@0.0.1"],
-
-  handleSteps: function* ({ agentState, prompt, params }) {
-    // First, find relevant files
-    const { toolResult: files } = yield {
-      toolName: 'find_files',
-      input: { query: prompt }
-    }
-
-    // Read the most important files
-    if (files) {
-      const filePaths = JSON.parse(files).slice(0, 5)
-
-      const { toolResult } = yield {
-        toolName: 'read_files',
-        input: { paths: ['file1.ts', 'file2.ts'] }
-      }
-    }
-
-    // Spawn a thinker for deep analysis
-    yield {
-      toolName: 'spawn_agents',
-      input: {
-        agents: [{
-          agent_type: 'thinker',
-          prompt: `Analyze the code structure and suggest improvements for: ${prompt}`
-        }]
-      }
-    }
-
-    // Let the agent generate its response
-    yield 'STEP_ALL'
-
-export default definition
-```
-
-```
+  - **LLM-based** - Use prompts and language models
+  - **Programmatic** - Use TypeScript generator functions with `handleSteps`
 
 **Control Flow:**
-- `yield 'STEP'` - Run one LLM generation step
-- `yield 'STEP_ALL'` - Run until completion
-- `return` - End the agent's turn
+
+  - `yield 'STEP'` - Run one LLM generation step
+  - `yield 'STEP_ALL'` - Run until completion
+  - `return` - End the agent's turn
 
 **Accessing Context:**
-- `agentState` - Current agent state and message history
-- `prompt` - User's prompt to the agent
-- `params` - Additional parameters passed to the agent
-# Creating New Agents
-Create specialized agents from scratch using TypeScript files in the `.agents/` directory.
-**Types:**
 
-- **LLM-based** - Use prompts and language models
-- **Programmatic** - Use TypeScript generator functions with `handleSteps`
+  - `agentState` - Current agent state and message history
+  - `prompt` - User's prompt to the agent
+  - `params` - Additional parameters passed to the agent
 
 ## Basic Structure
 
@@ -118,22 +60,8 @@ const definition: AgentDefinition = {
 
 export default definition
 ```
-**.agents/templates/doc-writer-system.md**
 
-```markdown
-# Documentation Writer
-
-Create clear, comprehensive documentation for codebases.
-
-## Guidelines
-
-- Research codebase first
-- Use clear, concise language
-- Include practical examples
-- Test examples for accuracy
-```
-
-## More Domain-Specific Examples
+## Domain-Specific Examples
 
 ### API Documentation Agent
 
@@ -208,133 +136,16 @@ const definition: AgentDefinition = {
 
 export default definition
 ```
-**.agents/templates/migration-guidelines.md**
-
-```markdown
-# Database Migration Guidelines
-
-## Safety First
-
-- Always create reversible migrations (up and down)
-- Test migrations on a copy of production data
-- Add indexes for new foreign keys
-- Use transactions where supported
-
-## Performance Considerations
-
-- Avoid locking tables during peak hours
-- Use `ADD COLUMN` with defaults carefully
-- Consider batching large data changes
-- Monitor migration execution time
-
-## Best Practices
-
-- Include descriptive migration names
-- Add comments explaining complex changes
-- Validate data integrity after migration
-- Keep migrations atomic and focused
-```
-
-## Advanced Examples
-
-### Frontend Development Coordinator
-
-**.agents/frontend-coordinator.ts**
-```typescript
-import { AgentDefinition } from './types/agent-definition'
-
-const definition: AgentDefinition = {
-  id: "frontend-coordinator",
-  version: "1.0.0",
-  displayName: "Frontend Development Coordinator",
-  spawnerPrompt: "Spawn this agent to coordinate frontend development tasks with React best practices and component architecture",
-  model: "anthropic/claude-4-sonnet-20250522",
-  outputMode: "last_message",
-  includeMessageHistory: true,
-  toolNames: ["read_files", "write_file", "code_search", "spawn_agents", "end_turn"],
-  spawnableAgents: ["codebuff/reviewer@0.0.1", "codebuff/researcher@0.0.1", "codebuff/file-picker@0.0.1"],
-  inputSchema: {
-    prompt: {
-      type: "string",
-      description: "Frontend development task to coordinate"
-    }
-  },
-  systemPrompt: "You are a frontend development coordinator specializing in React best practices. Guide development workflows and ensure code quality.",
-  instructionsPrompt: "Coordinate the frontend development task, spawning appropriate agents as needed.",
-  stepPrompt: "Continue coordinating the frontend development workflow. Use end_turn when complete."
-}
-
-export default definition
-```
-
-### API Development Specialist
-
-**.agents/api-specialist.ts**
-```typescript
-import { AgentDefinition } from './types/agent-definition'
-
-const definition: AgentDefinition = {
-  id: "api-specialist",
-  version: "1.0.0",
-  displayName: "API Development Specialist",
-  spawnerPrompt: "Spawn this agent for REST API development, OpenAPI compliance, and endpoint documentation",
-  model: "anthropic/claude-4-sonnet-20250522",
-  outputMode: "last_message",
-  includeMessageHistory: true,
-  toolNames: ["read_files", "write_file", "code_search", "spawn_agents", "run_terminal_command", "end_turn"],
-  spawnableAgents: ["codebuff/reviewer@0.0.1", "codebuff/researcher@0.0.1", "codebuff/file-picker@0.0.1"],
-  inputSchema: {
-    prompt: {
-      type: "string",
-      description: "API development or documentation task"
-    }
-  },
-  systemPrompt: "You are an API development specialist focused on creating robust, well-documented REST APIs following industry standards.",
-  instructionsPrompt: "Handle the API development task, ensuring proper design patterns and documentation.",
-  stepPrompt: "Continue working on the API development task. Use end_turn when complete."
-}
-
-export default definition
-```
-
-### DevOps Automation Agent
-
-**.agents/devops-automator.ts**
-```typescript
-import { AgentDefinition } from './types/agent-definition'
-
-const definition: AgentDefinition = {
-  id: "devops-automator",
-  version: "1.0.0",
-  displayName: "DevOps Automation Specialist",
-  spawnerPrompt: "Spawn this agent for infrastructure automation, CI/CD pipelines, and deployment configuration",
-  model: "anthropic/claude-4-sonnet-20250522",
-  outputMode: "last_message",
-  includeMessageHistory: true,
-  toolNames: ["read_files", "write_file", "code_search", "spawn_agents", "run_terminal_command", "end_turn"],
-  spawnableAgents: ["codebuff/reviewer@0.0.1", "codebuff/researcher@0.0.1", "codebuff/file-picker@0.0.1"],
-  inputSchema: {
-    prompt: {
-      type: "string",
-      description: "Infrastructure or deployment automation task"
-    }
-  },
-  systemPrompt: "You are a DevOps automation specialist focused on secure, scalable infrastructure and deployment pipelines.",
-  instructionsPrompt: "Handle the infrastructure or deployment automation task with security and reliability in mind.",
-  stepPrompt: "Continue working on the DevOps automation task. Use end_turn when complete."
-}export default definition
-```
 
 ## Programmatic Agents (Advanced)
 
-**🎯 This is where Codebuff agents become truly powerful!** While LLM-based agents work well for many tasks, programmatic agents give you precise control over complex workflows.
+**🎯 This is where Codebuff agents become truly powerful!** While LLM-based agents work well for many tasks, programmatic agents give you precise control over complex workflows, while still letting you tap into LLMs when you want them.
 
 ### Why Use Programmatic Agents?
 
 - **Deterministic workflows** - Guarantee specific steps happen in order
-- **Dynamic decision making** - Branch based on actual file contents or tool results
+- **Dynamic decision making** - Branch based on your own logic
 - **Complex orchestration** - Coordinate multiple agents and tools with logic
-- **Error handling** - Catch and handle tool errors programmatically
 - **State management** - Maintain state across multiple agent steps
 
 ### How It Works
@@ -397,9 +208,9 @@ Your `handleSteps` function receives context and yields actions:
 
 ```typescript
 handleSteps: function* ({ agentState, prompt, params }) {
-  // agentState - Current conversation and agent state
-  // prompt - What the user asked this agent to do
-  // params - Additional parameters passed to the agent
+  // agentState: Current conversation and agent state
+  // prompt: What the user asked this agent to do
+  // params: Additional parameters passed to the agent
 
   // Your logic here...
 }
@@ -426,11 +237,10 @@ if (toolError) {
 
 #### 3. Control Flow Options
 
-| Command | Purpose | When to Use |
-|---------|---------|------------|
-| `yield 'STEP'` | Run one LLM generation | Need single response |
-| `yield 'STEP_ALL'` | Run until completion | Let LLM finish the task |
-| `return` | End immediately | Task complete or error |
+**Control Flow:**
+- `yield 'STEP'` - Run one LLM generation step
+- `yield 'STEP_ALL'` - Run until completion
+- `return` - End the agent's turn
 
 #### 4. Advanced Example: Conditional Workflow
 

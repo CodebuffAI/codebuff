@@ -19,7 +19,16 @@ Codebuff uses specialized agents that collaborate instead of one agent doing eve
 
 ## What Makes Codebuff Agents Unique?
 
-> **💡 Key Innovation:** Unlike other AI coding assistants, Codebuff agents can be **programmatically controlled** using TypeScript generator functions. This means you can write actual code to orchestrate complex workflows, make dynamic decisions based on file contents, and ensure deterministic execution paths. It's the difference between hoping an LLM understands your instructions vs. guaranteeing specific behavior.
+Codebuff agents can be **programmatically controlled** using TypeScript generator functions. You can write actual code to orchestrate complex workflows, make decisions based on file contents, and add in determinism as you see fit. Instead of hoping an LLM understands your instructions you can guarantee specific behavior.
+
+## Built-in Agents
+
+- `codebuff/base` - Main coding assistant
+- `codebuff/reviewer` - Code review
+- `codebuff/thinker` - Deep thinking
+- `codebuff/researcher` - Research & docs
+- `codebuff/planner` - Planning & architecture
+- `codebuff/file-picker` - File discovery
 
 ## Agent Workflow
 
@@ -59,14 +68,6 @@ If you say "refactor this authentication system", Codebuff might break down the 
 3. **Planning** creates step-by-step plan
 4. **Base** implements changes informed by the previous agents
 5. **Reviewer** checks for security issues
-
-### Domain-Specific Customization
-
-Agents adapt to your specific workflow and project needs. You can create specialized agents tailored to your domain or build new ones for unique tasks, like the following:
-
-- **Frontend**: React component reviewer
-- **Backend**: API security reviewer
-- **DevOps**: Infrastructure deployment agent
 
 ### Agent Coordination
 

@@ -2,7 +2,7 @@
 
 import { Menu } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 import { DocSidebar, sections } from '@/components/docs/doc-sidebar'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,23 @@ export default function DocsLayout({
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+
+  // New: Smoothly scroll to hash target on back/forward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const id = window.location.hash.slice(1)
+      if (id) {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+
+    // If landing with a hash, ensure smooth scroll to target
+    handleHashChange()
+
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
   return (
     <div className="pt-8">
       <div className="container flex md:space-x-8 overflow-x-hidden">

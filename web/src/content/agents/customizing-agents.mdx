@@ -16,6 +16,21 @@ Create specialized agents from scratch using TypeScript files in the `.agents/` 
 └── types/
     └── agent-definition.ts
 ```
+
+### Domain-Specific Customization
+
+Agents adapt to your specific workflow and project needs.
+
+Keep in mind you'll get the most value from agents if you see them as a means of managing your context window. Think about how you want to break down tasks and build your agents around that, as opposed to replicating engineering specialties.
+
+Comparison: Context managers vs. specialty replicas
+
+<MarkdownTable>
+
+</MarkdownTable>
+
+**Tip:** Use specialty reviewers as spawnable subagents that your context-manager agent calls at the right time in the workflow.
+
 ## Example: Security Coordinator Agent
 
 Create a specialized agent for security-focused workflows:
@@ -61,17 +76,17 @@ Make your agent even more powerful with programmatic control:
 const definition: AgentDefinition = {
   id: "security-coordinator",
   // ... other fields ...
-  
+
   handleSteps: function* ({ prompt, params }) {
     // 1. Scan for security vulnerabilities
     const { toolResult: scanResults } = yield {
       toolName: 'code_search',
-      input: { 
+      input: {
         pattern: '(eval|exec|dangerouslySetInnerHTML|process\.env)',
         flags: '-i'
       }
     }
-    
+
     // 2. If vulnerabilities found, spawn security reviewer
     if (scanResults) {
       yield {
@@ -84,7 +99,7 @@ const definition: AgentDefinition = {
         }
       }
     }
-    
+
     // 3. Let the agent handle the rest
     yield 'STEP_ALL'
   }
@@ -99,31 +114,43 @@ With `handleSteps`, your agent can:
 
 ## Available Fields
 
-**Core:** `id`, `displayName`, `model`, `version`, `publisher`
-**Tools:** `toolNames`, `spawnableAgents`
-**Prompts:** `spawnerPrompt`, `systemPrompt`, `instructionsPrompt`, `stepPrompt`
-**Input/Output:** `inputSchema`, `outputMode`, `outputSchema`, `includeMessageHistory`
-**Programmatic:** `handleSteps`
+**Core:**
+  - `id`
+  - `displayName`
+  - `model`
+  - `version`
+  - `publisher`
 
-## Built-in Agents
+**Tools:**
+  - `toolNames`
+  - `spawnableAgents`
 
-- `codebuff/base` - Main coding assistant
-- `codebuff/reviewer` - Code review
-- `codebuff/thinker` - Deep thinking
-- `codebuff/researcher` - Research & docs
-- `codebuff/planner` - Planning & architecture
-- `codebuff/file-picker` - File discovery
+**Prompts:**
+  - `spawnerPrompt`
+  - `systemPrompt`
+  - `instructionsPrompt`
+  - `stepPrompt`
+
+**Input/Output:**
+  - `inputSchema`
+  - `outputMode`
+  - `outputSchema`
+  - `includeMessageHistory`
+
+**Programmatic:**
+  - `handleSteps`
+
 
 ## Troubleshooting
 
 **Agent not loading:** Check TypeScript syntax, file must export default AgentDefinition
+
 **Type errors:** Import types from `'./types/agent-definition'`
+
 **Prompts not applying:** Verify file paths are relative to `.agents/` directory
 
-
-**Debug tips:**
+**Running specific agents:**
 
 1. Check TypeScript: `bun run typecheck` in `.agents/` directory
 2. Restart Codebuff to see errors
 3. Test with `--agent <agent-id>` to debug specific agents
-**Next:** [Create new agents](/docs/agents/creating-new-agents) or see [troubleshooting guide](/docs/agents/troubleshooting)

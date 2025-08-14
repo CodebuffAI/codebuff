@@ -29,10 +29,11 @@ export function CopyHeading({
         {...props}
         id={id}
         className="inline-block hover:cursor-pointer hover:underline -mb-4 scroll-mt-24 font-serif"
-        onClick={() =>
-          id &&
+        onClick={() => {
+          if (!id) return
+          history.pushState(null, '', `${window.location.pathname}#${id}`)
           document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
-        }
+        }}
       >
         {title}
         <button

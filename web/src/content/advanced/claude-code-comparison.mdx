@@ -25,22 +25,36 @@ Codebuff might be a better choice if you value:
 - Codebase Analysis: Codebuff pulls more context from scanning your entire codebase, rather than file-by-file. Codebuff also [blends different models](/docs/advanced#what-models-do-you-use?) based on their strengths to provide more accurate results.
 - Staying in Flow: Codebuff requires fewer confirmation prompts for file edits and command execution.
 - Focused changes: Codebuff does just what you asked for, while Claude Code will often get carried away editing more and more files.
+- SDK and Programmatic Access: Codebuff provides a full TypeScript SDK for programmatic integration, allowing you to create custom workflows and embed AI coding capabilities into your own tools.
+- Advanced Agent System: Create custom agents with TypeScript generator functions, spawn subagents, and orchestrate complex multi-step workflows that go far beyond simple chat interactions.
 
 ## When to Choose Claude Code
 
 Claude Code might be a better choice if you:
 
-- Can't use an intermediary provider, need to use the API directly from Anthropic
+- You require first-party Anthropic integration (no intermediary/proxy) for procurement, data handling, or legal reasons
+- You need enterprise security/compliance controls directly from Anthropic (e.g., SOC 2/ISO programs, data-retention controls, private/VPC networking options)
+- Your org needs centralized admin controls within Anthropic's ecosystem (SSO, RBAC, governance, auditability)
+- You prioritize early access to Anthropic model capabilities and first-party tooling
+
 
 ## Feature Comparison
 
 <MarkdownTable>
-  | Feature | Codebuff | Claude Code | | --- | --- | --- | | CLI-based
-  interaction | ✅ | ✅ | | Natural language commands | ✅ | ✅ | | Autonomous
-  test execution | ✅ | ✅ | | Deep, targeted context awareness | ✅ | ❌ | |
-  Large context window | ✅ (200k - 1M) | ✅ (200k) | | Fast diff edits (no full
-  rewrites) | ✅ | ❌ | | Accuracy at scale | ✅ | ❌ | | Cost | $ | $$$ | |
-  Polished UI | ❌ | ✅ | | Minimal interruptions | ✅ | ❌ |
+| Feature | Codebuff | Claude Code |
+| --- | --- | --- |
+| CLI-based interaction | ✅ | ✅ |
+| Natural language commands | ✅ | ✅ |
+| Autonomous test execution | ✅ | ✅ |
+| Large context window | ✅ (200k-1M) | ✅ (200k-1M) |
+| Directory-specific context awareness | ✅ | 🔄 |
+| Fast diff edits (no full rewrites) | ✅ | ❌ |
+| Cost | $ | $$ |
+| Polished UI | ❌ | ✅ |
+| Minimal interruptions | ✅ | ❌ |
+| Full-featured SDK | ✅ | ❌ |
+| Programmatic agent creation | ✅ | ❌ |
+| Project templates | ✅ | ❌ |
 </MarkdownTable>
 
 ## Summary
