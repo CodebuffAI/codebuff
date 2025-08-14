@@ -11,6 +11,7 @@ import {
   type ServerAction,
 } from '../../common/src/actions'
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
+import { DEFAULT_MAX_AGENT_STEPS } from '../../common/src/json-config/constants'
 
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
@@ -131,7 +132,7 @@ export class CodebuffClient {
     projectFiles,
     knowledgeFiles,
     agentDefinitions,
-    maxAgentSteps,
+    maxAgentSteps = DEFAULT_MAX_AGENT_STEPS,
   }: {
     agent: string
     prompt: string
@@ -154,6 +155,7 @@ export class CodebuffClient {
         projectFiles,
         maxAgentSteps,
       })
+    sessionState.mainAgentState.stepsRemaining = maxAgentSteps
     const toolResults = previousRun?.toolResults ?? []
     if (handleEvent) {
       this.promptIdToHandleEvent[promptId] = handleEvent

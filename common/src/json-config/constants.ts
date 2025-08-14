@@ -64,6 +64,8 @@ export const FileChangeHook = z
   })
   .describe('Defines a single file change hook.')
 
+export const DEFAULT_MAX_AGENT_STEPS = 12
+
 export const CodebuffConfigSchema = z
   .object({
     description: z
@@ -81,7 +83,7 @@ export const CodebuffConfigSchema = z
     maxAgentSteps: z
       .number()
       .optional()
-      .default(12)
+      .default(DEFAULT_MAX_AGENT_STEPS)
       .describe(
         'Maximum number of turns agent will take before being forced to end',
       ),

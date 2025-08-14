@@ -12,6 +12,10 @@ All notable changes to the @codebuff/sdk package will be documented in this file
 
 - Automatic parsing of `knowledgeFiles` if not provided
 
+### Fixed
+
+- `maxAgentSteps` resets every run
+
 ## [0.1.8] - 2025-08-13
 
 ### Added
