@@ -22,7 +22,26 @@ export function initialSessionState(
     maxAgentSteps?: number
   },
 ) {
-  const { knowledgeFiles = {}, agentDefinitions = [] } = options
+  const { projectFiles = {}, agentDefinitions = [] } = options
+  let { knowledgeFiles } = options
+
+  if (knowledgeFiles === undefined) {
+    knowledgeFiles = {}
+    for (const [filePath, fileContents] of Object.entries(projectFiles)) {
+      if (filePath in projectFiles) {
+        continue
+      }
+      const lowercasePathName = filePath.toLowerCase()
+      if (
+        !lowercasePathName.endsWith('knowledge.md') &&
+        !lowercasePathName.endsWith('claude.md')
+      ) {
+        continue
+      }
+
+      knowledgeFiles[filePath] = fileContents
+    }
+  }
 
   // Process agentDefinitions array and convert handleSteps functions to strings
   const processedAgentTemplates: Record<string, any> = {}

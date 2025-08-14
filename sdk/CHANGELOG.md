@@ -8,6 +8,10 @@ All notable changes to the @codebuff/sdk package will be documented in this file
 
 - `closeConnection` method in `CodebuffClient`
 
+### Changed
+
+- Automatic parsing of `knowledgeFiles` if not provided
+
 ## [0.1.8] - 2025-08-13
 
 ### Added
