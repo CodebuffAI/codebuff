@@ -1,0 +1,50 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: codebuff
+      POSTGRES_PASSWORD: codebuff
+      POSTGRES_DB: codebuff
+    command: [
+      "postgres",
+      "-c", "fsync=off",
+      "-c", "synchronous_commit=off", 
+      "-c", "full_page_writes=off"
+    ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codebuff -d codebuff"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ..
+      dockerfile: ./evals/backend.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
+      PORT: "4242"
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4242:4242"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4242/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  seeder:
+    image: oven/bun:1.1.34
+    working_dir: /app
+    volumes:
+      - ..:/app:ro
+    environment:
+      DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
+    entrypoint: ["bun", "run", "evals/seeds/seed-evals.ts"]
+    depends_on:
+      db:
+        condition: service_healthy

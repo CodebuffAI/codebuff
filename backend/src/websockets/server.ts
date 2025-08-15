@@ -14,6 +14,7 @@ import type { Server as HttpServer } from 'node:http'
 import type { RawData, WebSocket } from 'ws'
 
 export const SWITCHBOARD = new Switchboard()
+export let WS_READY = false
 
 // if a connection doesn't ping for this long, we assume the other side is toast
 const CONNECTION_TIMEOUT_MS = 60 * 1000
@@ -87,6 +88,7 @@ export function listen(server: HttpServer, path: string) {
   let deadConnectionCleaner: NodeJS.Timeout | undefined
   wss.on('listening', () => {
     logger.info(`Web socket server listening on ${path}.`)
+    WS_READY = true
     deadConnectionCleaner = setInterval(function ping() {
       const now = Date.now()
       try {
@@ -174,4 +176,8 @@ export function sendRequestReconnect() {
 
 export function waitForAllClientsDisconnected() {
   return SWITCHBOARD.waitForAllClientsDisconnected()
+}
+
+export function isWebsocketReady() {
+  return WS_READY
 }
