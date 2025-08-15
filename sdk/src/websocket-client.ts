@@ -4,6 +4,15 @@ import { APIRealtimeClient } from '../../common/src/websockets/websocket-client'
 import type { ServerAction, ClientAction } from '../../common/src/actions'
 import type { WebSocket } from 'ws'
 
+// Add env-gated SDK debug helper
+function isSdkDebugEnabled() {
+  const v =
+    process.env.CODEBUFF_SDK_DEBUG ?? process.env.CODEBUFF_GITHUB_ACTIONS
+  if (typeof v !== 'string') return !!v
+  const low = v.toLowerCase()
+  return low === 'true' || v === '1'
+}
+
 export type WebSocketHandlerOptions = {
   onWebsocketError?: (error: WebSocket.ErrorEvent) => void
   onWebsocketReconnect?: () => void
@@ -83,9 +92,13 @@ export class WebSocketHandler {
 
   public async connect() {
     if (!this.isConnected) {
+      // Add debug logs around connection lifecycle
+      if (isSdkDebugEnabled())
+        console.log('[sdk][ws] connecting', { url: WEBSOCKET_URL })
       await this.cbWebSocket.connect()
       this.setupSubscriptions()
       this.isConnected = true
+      if (isSdkDebugEnabled()) console.log('[sdk][ws] connected')
     }
   }
 
@@ -98,44 +111,76 @@ export class WebSocketHandler {
   }
 
   private setupSubscriptions() {
-    this.cbWebSocket.subscribe('action-error', this.onResponseError)
+    // action-error
+    this.cbWebSocket.subscribe('action-error', async (a) => {
+      if (isSdkDebugEnabled())
+        console.error('[sdk][cb] action-error', (a as any)?.error?.message ?? a)
+      await this.onResponseError(a as any)
+    })
 
+    // read-files
     this.cbWebSocket.subscribe('read-files', async (a) => {
+      if (isSdkDebugEnabled())
+        console.log('[sdk][cb] read-files request', {
+          count: (a as any)?.filePaths?.length,
+        })
       const { filePaths, requestId } = a
       const files = await this.readFiles(filePaths)
-
       this.cbWebSocket.sendAction({
         type: 'read-files-response',
         files,
         requestId,
       })
+      if (isSdkDebugEnabled())
+        console.log('[sdk][cb] read-files response', {
+          keys: Object.keys(files || {}),
+        })
     })
 
     // Handle backend-initiated tool call requests
     this.cbWebSocket.subscribe('tool-call-request', async (action) => {
+      if (isSdkDebugEnabled())
+        console.log('[sdk][cb] tool-call-request', {
+          tool: (action as any)?.toolName,
+        })
       const toolCallResult = await this.handleToolCall(action)
-
       this.cbWebSocket.sendAction({
         type: 'tool-call-response',
         requestId: action.requestId,
         ...toolCallResult,
       })
+      if (isSdkDebugEnabled())
+        console.log('[sdk][cb] tool-call-response', {
+          success: (toolCallResult as any)?.success,
+        })
     })
 
-    this.cbWebSocket.subscribe('message-cost-response', this.onCostResponse)
+    this.cbWebSocket.subscribe('message-cost-response', async (a) => {
+      if (isSdkDebugEnabled()) console.log('[sdk][cb] message-cost-response')
+      await this.onCostResponse(a as any)
+    })
 
     // Used to handle server restarts gracefully
-    this.cbWebSocket.subscribe('request-reconnect', this.onRequestReconnect)
+    this.cbWebSocket.subscribe('request-reconnect', async () => {
+      if (isSdkDebugEnabled()) console.log('[sdk][cb] request-reconnect')
+      await this.onRequestReconnect()
+    })
 
     // Handle streaming messages
-    this.cbWebSocket.subscribe('response-chunk', this.onResponseChunk)
-    this.cbWebSocket.subscribe(
-      'subagent-response-chunk',
-      this.onSubagentResponseChunk,
-    )
+    this.cbWebSocket.subscribe('response-chunk', async (a) => {
+      if (isSdkDebugEnabled()) console.log('[sdk][cb] response-chunk')
+      await this.onResponseChunk(a as any)
+    })
+    this.cbWebSocket.subscribe('subagent-response-chunk', async (a) => {
+      if (isSdkDebugEnabled()) console.log('[sdk][cb] subagent-response-chunk')
+      await this.onSubagentResponseChunk(a as any)
+    })
 
     // Handle full response from prompt
-    this.cbWebSocket.subscribe('prompt-response', this.onPromptResponse)
+    this.cbWebSocket.subscribe('prompt-response', async (a) => {
+      if (isSdkDebugEnabled()) console.log('[sdk][cb] prompt-response')
+      await this.onPromptResponse(a as any)
+    })
   }
 
   private getInputDefaultOptions() {
@@ -153,6 +198,11 @@ export class WebSocketHandler {
       keyof ReturnType<typeof this.getInputDefaultOptions>
     >,
   ) {
+    if (isSdkDebugEnabled()) {
+      const pid = (action as any)?.promptId
+      const agentId = (action as any)?.agentId
+      console.log('[sdk][cb] sendAction prompt', { promptId: pid, agentId })
+    }
     this.cbWebSocket.sendAction({
       ...action,
       ...this.getInputDefaultOptions(),
@@ -160,6 +210,8 @@ export class WebSocketHandler {
   }
 
   public cancelInput({ promptId }: { promptId: string }) {
+    if (isSdkDebugEnabled())
+      console.log('[sdk][cb] cancel-user-input', { promptId })
     this.cbWebSocket.sendAction({
       type: 'cancel-user-input',
       authToken: this.apiKey,
