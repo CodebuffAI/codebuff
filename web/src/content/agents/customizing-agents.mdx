@@ -25,6 +25,25 @@ Keep in mind you'll get the most value from agents if you treat them as context 
 
 **Tip:** Use specialty reviewers as spawnable subagents that your context-manager agent calls at the right time in the workflow.
 
+### Reasoning Options (optional)
+
+For models that support it, you can enable and tune reasoning directly on your agent:
+
+```ts
+const definition = {
+  id: 'reviewer',
+  // ... other fields ...
+  reasoningOptions: {
+    enabled: true,      // turn on reasoning if supported
+    exclude: false,     // include reasoning traces when available
+    effort: 'medium',   // low | medium | high
+  },
+}
+```
+
+- Effort roughly corresponds to a larger internal "max tokens for reasoning."
+- If the selected model doesn't support reasoning, these options are safely ignored.
+
 ## Example: Security Coordinator Agent
 
 Create a specialized agent for security-focused workflows:

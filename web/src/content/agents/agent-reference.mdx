@@ -66,6 +66,36 @@ The model to use, which can be any model string from [Openrouter](https://openro
 "model": "anthropic/claude-4-sonnet-20250522"
 ```
 
+#### Reasoning Options (`reasoningOptions`, object, optional)
+
+Controls model reasoning behavior using OpenRouter-style settings.
+
+Fields:
+
+- `enabled` (boolean, default: false) — Turn reasoning mode on for supported models.
+- `exclude` (boolean, default: false) — If true, omit model-revealed reasoning content from responses (when available), returning only the final answer.
+- `effort` ("low" | "medium" | "high") — Increase or decrease how much the model "thinks" before answering. Higher effort typically improves quality for hard tasks at the cost of more reasoning tokens.
+
+Notes:
+
+- Patterned after OpenRouter's "max tokens for reasoning." Higher effort maps to a higher internal reasoning token budget. See OpenRouter docs for background.
+- Only supported by models that expose reasoning features. When unsupported, these options are ignored.
+
+Example:
+
+```ts
+// .agents/thinker.ts
+const definition = {
+  id: 'thinker',
+  // ... other fields ...
+  reasoningOptions: {
+    enabled: true,
+    exclude: false,
+    effort: 'high',
+  },
+}
+```
+
 ### Behavior Configuration
 
 #### `outputMode` (string, optional, default: "last_message")
