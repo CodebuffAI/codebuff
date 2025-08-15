@@ -62,9 +62,13 @@ jobs:
           echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Run evals
+      - name: Make scripts executable
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
-        run: cd evals && bun run-eval-set --concurrency 10 --email --title "Git Eval (${{ github.sha }} ${{ github.event.head_commit.message }}})"
+        run: chmod +x evals/scripts/*.sh
+
+      - name: Run remote eval
+        if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
+        run: evals/scripts/run-remote.sh --prompt "Say hi from CI and print the working directory" --max-steps 10
 
       - name: Workflow completed
         run: echo "Evals workflow completed successfully"
