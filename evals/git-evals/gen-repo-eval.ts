@@ -1,31 +1,41 @@
 import { generateEvalFile } from './gen-evals'
 import fs from 'fs'
+import { pickCommits } from './pick-commits'
 
-const main = async (filteredCommitsJsonPath: string) => {
-  // Load makeplane-commits.json
-  const makeplaneRepoCommits = JSON.parse(
-    fs.readFileSync(filteredCommitsJsonPath, 'utf8'),
+const main = async (repoUrl: string) => {
+  console.log(`STEP 1: Picking commits for ${repoUrl}`)
+
+  const selectedCommitsOutputPath = './selected-commits.json'
+  const clientSessionId = `gen-repo-eval-${repoUrl}`
+  await pickCommits({
+    repoUrl,
+    outputPath: selectedCommitsOutputPath,
+    clientSessionId,
+  })
+
+  const selectedCommitsData = JSON.parse(
+    fs.readFileSync(selectedCommitsOutputPath, 'utf8'),
   )
-  const { repoUrl, selectedCommits, repoName } = makeplaneRepoCommits
-  const outputPath = `${repoName}-eval.json`
+  const { repoUrl: gitRepoUrl, selectedCommits, repoName } = selectedCommitsData
+
+  const outputPath = `eval-${repoName}.json`
   const evalInputs = selectedCommits.map((c: any) => ({
     commitSha: c.sha,
   }))
-  const clientSessionId = `gen-repo-eval-${repoName}`
 
   console.log(
-    `Generating eval file for ${repoUrl} with ${evalInputs.length} commits`,
+    `STEP 2: Generating eval file for ${repoUrl} with ${evalInputs.length} commits`,
   )
 
   await generateEvalFile({
     clientSessionId,
-    repoUrl,
+    repoUrl: gitRepoUrl,
     evalInputs,
     outputPath,
   })
 }
 
 if (require.main === module) {
-  const filteredCommitsJsonPath = './makeplane-commits.json'
-  main(filteredCommitsJsonPath)
+  const repoUrl = process.argv[2]
+  main(repoUrl)
 }
