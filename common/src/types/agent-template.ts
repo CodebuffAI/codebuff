@@ -12,7 +12,7 @@ export type AgentTemplate<
   id: AgentTemplateType
   displayName: string
   model: Model
-  reasoningOptions: OpenRouterProviderOptions['reasoning']
+  reasoningOptions?: OpenRouterProviderOptions['reasoning']
 
   toolNames: ToolName[]
   spawnableAgents: AgentTemplateType[]
