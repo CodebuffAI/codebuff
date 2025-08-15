@@ -25,18 +25,6 @@ export async function getUserIdFromAuthToken(
 export async function getUserInfoFromAuthToken(
   authToken: string,
 ): Promise<UserInfo | undefined> {
-  // Test-only bypass for remote evals
-  if (process.env.NODE_ENV === 'test') {
-    const bypass = process.env.CODEBUFF_TEST_AUTH_TOKEN
-    if (bypass && authToken === bypass) {
-      return {
-        id: 'test-user',
-        email: 'evals@test.local',
-        discord_id: null,
-      }
-    }
-  }
-
   const user = await db
     .select({
       id: schema.user.id,
