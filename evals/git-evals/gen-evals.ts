@@ -2,11 +2,11 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
-import { z } from 'zod/v4'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
+import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 
 // Types for the evaluation data structure
 export interface Diff {
@@ -49,7 +49,7 @@ The spec should:
 
 The spec will be used to test an AI coding assistant's ability to implement the described functionality.
 
-Format your response as a clear, concise description of what needs to be implemented.`
+Please wrap your final specification in <spec></spec> tags.`
 
 const fingerprintId = 'evals-v2'
 const userInputId = 'evals-v2'
@@ -70,43 +70,41 @@ async function generateDiffFromCommit(
   const diffs: Diff[] = []
   for (const file of changedFiles) {
     try {
-      // Get content from parent commit (commit^)
-      const preCommand = `git show ${commitSha}^:${file}`
-      const preContent = execSync(preCommand, { cwd: repoPath }).toString()
-
-      // Get content after commit
+      // Get content after commit first
       const postCommand = `git show ${commitSha}:${file}`
       const postContent = execSync(postCommand, { cwd: repoPath }).toString()
 
-      diffs.push({
-        path: file,
-        preContent,
-        postContent,
-      })
-    } catch (error) {
-      // File might not exist in parent commit (new file) or might be deleted
       try {
-        const postContent = execSync(`git show ${commitSha}:${file}`, {
-          cwd: repoPath,
-        }).toString()
+        // Try to get content from parent commit (commit^)
+        const preCommand = `git show ${commitSha}^:${file}`
+        const preContent = execSync(preCommand, { cwd: repoPath }).toString()
+
+        diffs.push({
+          path: file,
+          preContent,
+          postContent,
+        })
+      } catch {
+        // File doesn't exist in parent commit (new file)
         diffs.push({
           path: file,
           preContent: '[NEW FILE]',
           postContent,
         })
+      }
+    } catch {
+      // File doesn't exist in this commit (deleted file)
+      try {
+        const preContent = execSync(`git show ${commitSha}^:${file}`, {
+          cwd: repoPath,
+        }).toString()
+        diffs.push({
+          path: file,
+          preContent,
+          postContent: '[DELETED]',
+        })
       } catch {
-        try {
-          const preContent = execSync(`git show ${commitSha}^:${file}`, {
-            cwd: repoPath,
-          }).toString()
-          diffs.push({
-            path: file,
-            preContent,
-            postContent: '[DELETED]',
-          })
-        } catch {
-          console.warn(`Could not process file ${file} for commit ${commitSha}`)
-        }
+        console.warn(`Could not process file ${file} for commit ${commitSha}`)
       }
     }
   }
@@ -139,17 +137,26 @@ async function generateSpecForDiffs(
 
 File Changes:\n${diffContext}`
 
-  const { spec } = await promptAiSdkStructured({
-    messages: [{ role: 'user', content: prompt }],
-    schema: z.object({ spec: z.string() }),
-    model: models.openrouter_claude_sonnet_4,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId: undefined,
-  })
+  try {
+    disableLiveUserInputCheck()
+    const response = await promptAiSdk({
+      messages: [{ role: 'user', content: prompt }],
+      model: models.openrouter_claude_sonnet_4,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId: undefined,
+    })
 
-  return spec
+    // Extract spec from <spec></spec> tags
+    const specMatch = response.match(/<spec>(.*?)<\/spec>/s)
+    const spec = specMatch ? specMatch[1].trim() : response.trim()
+    
+    return spec || 'Failed to generate specification'
+  } catch (error) {
+    console.error('Error generating spec:', error)
+    return 'Failed to generate specification due to error'
+  }
 }
 
 export async function generateEvalFile({
@@ -168,8 +175,7 @@ export async function generateEvalFile({
 
   // Setup the test repository (needed for the commitSha reference)
   console.log(`Setting up test repository from: ${repoUrl}`)
-  const clonedRepoName = await setupTestRepo(repoUrl, actualRepoName)
-  const repoPath = path.join(__dirname, '../test-repos', clonedRepoName)
+  const repoPath = await setupTestRepo(repoUrl, actualRepoName, 'HEAD')
 
   console.log(`Processing ${evalInputs.length} evaluation inputs...`)
 
