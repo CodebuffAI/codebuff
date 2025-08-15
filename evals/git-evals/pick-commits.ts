@@ -12,6 +12,12 @@ import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 
 // Types for commit data
+export interface CommitDiff {
+  path: string
+  preContent: string
+  postContent: string
+}
+
 export interface CommitInfo {
   sha: string
   author: string
@@ -52,7 +58,7 @@ const CommitSelectionSchema = z.object({
 
 const COMMIT_SCREENING_PROMPT = `You are an expert at identifying substantial and well-scoped code changes in git commits that would make good evaluation examples for an AI coding assistant.
 
-Given a list of commits, identify which ones represent substantial, complete, and clear changes that would make good coding tasks. Choose approximately 8-15 commits from this batch that meet the criteria.
+Given a commit with its actual file changes and diffs, determine if it represents a substantial, complete, and clear change that would make a good coding task.
 
 A good evaluation commit should:
 1. Make a meaningful, self-contained change (not just typo fixes or formatting)
@@ -61,6 +67,8 @@ A good evaluation commit should:
 4. Show interesting coding patterns or solve real problems
 5. Not be auto-generated, trivial refactoring, or pure dependency updates
 6. Have reasonable scope (not too small like 1-line fixes, not too large like massive refactors)
+7. Show coherent changes that work together toward a common goal
+8. Demonstrate meaningful logic or functionality changes, not just cosmetic edits
 
 Avoid commits that are:
 - Dependency updates (package.json, lock files)
@@ -70,10 +78,19 @@ Avoid commits that are:
 - Merge commits or reverts
 - Trivial one-line fixes
 - Mass renaming or file moves without logic changes
+- Incoherent changes that seem unrelated or incomplete
+- Changes that only modify comments or whitespace
+
+When evaluating, pay special attention to:
+- The actual code changes shown in the diffs
+- Whether the changes form a coherent, complete feature or fix
+- The complexity and educational value of the implementation
+- Whether the changes would be implementable from a specification
 
 For each commit you select:
 - Provide a clear reason why it makes a good evaluation example
 - Write a short description (1-2 sentences) of what the commit accomplishes
+- Reference specific aspects of the code changes that make it valuable
 
 Return your response as JSON with the selected commits.`
 
@@ -138,6 +155,99 @@ function parseGitStats(statsOutput: string): {
   return { filesChanged, insertions, deletions }
 }
 
+async function generateDiffFromCommit(
+  repoPath: string,
+  commitSha: string,
+): Promise<CommitDiff[]> {
+  // Get list of files changed in this commit
+  const changedFiles = execFileSync(
+    'git',
+    ['show', '--name-only', '--pretty=format:', commitSha],
+    {
+      cwd: repoPath,
+    },
+  )
+    .toString()
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+
+  // Limit number of files to avoid overwhelming the LLM
+  const MAX_FILES_PER_COMMIT = 30
+  const filesToProcess = changedFiles.slice(0, MAX_FILES_PER_COMMIT)
+
+  if (changedFiles.length > MAX_FILES_PER_COMMIT) {
+    console.log(
+      `Commit ${commitSha}: Processing ${MAX_FILES_PER_COMMIT} of ${changedFiles.length} changed files`,
+    )
+  }
+
+  // Get the content of each file before and after the commit
+  const diffs: CommitDiff[] = []
+  for (const file of filesToProcess) {
+    try {
+      // Get content from parent commit (commit^)
+      const preContent = execFileSync(
+        'git',
+        ['show', `${commitSha}^:${file}`],
+        {
+          cwd: repoPath,
+        },
+      ).toString()
+
+      // Get content after commit
+      const postContent = execFileSync(
+        'git',
+        ['show', `${commitSha}:${file}`],
+        {
+          cwd: repoPath,
+        },
+      ).toString()
+
+      diffs.push({
+        path: file,
+        preContent,
+        postContent,
+      })
+    } catch (error) {
+      // File might not exist in parent commit (new file) or might be deleted
+      try {
+        const postContent = execFileSync(
+          'git',
+          ['show', `${commitSha}:${file}`],
+          {
+            cwd: repoPath,
+          },
+        ).toString()
+        diffs.push({
+          path: file,
+          preContent: '[NEW FILE]',
+          postContent,
+        })
+      } catch {
+        try {
+          const preContent = execFileSync(
+            'git',
+            ['show', `${commitSha}^:${file}`],
+            {
+              cwd: repoPath,
+            },
+          ).toString()
+          diffs.push({
+            path: file,
+            preContent,
+            postContent: '[DELETED]',
+          })
+        } catch {
+          console.warn(`Could not process file ${file} for commit ${commitSha}`)
+        }
+      }
+    }
+  }
+
+  return diffs
+}
+
 function basicFilter(commits: CommitInfo[]): CommitInfo[] {
   return commits.filter((commit) => {
     const { message, stats } = commit
@@ -199,31 +309,64 @@ function createGithubUrl(repoUrl: string, sha: string): string {
 async function screenCommitsWithGpt5(
   commits: CommitInfo[],
   repoUrl: string,
+  repoPath: string,
   clientSessionId: string,
 ): Promise<FilteredCommit[]> {
-  const batchSize = 25
-  const concurrency = 6
   const selectedCommits: FilteredCommit[] = []
+  const concurrency = 8
 
-  // Process batches with limited concurrency
-  async function processBatch(
-    batch: CommitInfo[],
-    batchIndex: number,
-  ): Promise<FilteredCommit[]> {
+  // Process each commit individually
+  async function processCommit(
+    commit: CommitInfo,
+    index: number,
+  ): Promise<FilteredCommit | null> {
     console.log(
-      `Screening batch ${batchIndex + 1}/${Math.ceil(commits.length / batchSize)} (${batch.length} commits)...`,
+      `Screening commit ${index + 1}/${commits.length}: ${commit.sha.substring(0, 8)}...`,
     )
 
-    const commitsInfo = batch
-      .map(
-        (c) =>
-          `${c.sha.substring(0, 8)}: ${c.message}\n` +
-          `Author: ${c.author}, Date: ${c.date}\n` +
-          `Stats: ${c.stats.filesChanged} files changed, +${c.stats.insertions} -${c.stats.deletions}\n`,
-      )
-      .join('\n\n')
+    // Get detailed commit information including diffs
+    let diffs: CommitDiff[] = []
+    try {
+      diffs = await generateDiffFromCommit(repoPath, commit.sha)
+    } catch (error) {
+      console.warn(`Failed to get diffs for commit ${commit.sha}:`, error)
+    }
 
-    const prompt = `${COMMIT_SCREENING_PROMPT}\n\nCommits to evaluate:\n\n${commitsInfo}`
+    let commitInfo =
+      `${commit.sha.substring(0, 8)}: ${commit.message}\n` +
+      `Author: ${commit.author}, Date: ${commit.date}\n` +
+      `Stats: ${commit.stats.filesChanged} files changed, +${commit.stats.insertions} -${commit.stats.deletions}\n`
+
+    if (diffs.length > 0) {
+      commitInfo += `\nFile Changes:\n`
+      for (const diff of diffs) {
+        commitInfo += `\n--- ${diff.path} ---\n`
+
+        if (diff.preContent === '[NEW FILE]') {
+          commitInfo += `New file:\n${diff.postContent}\n`
+        } else if (diff.postContent === '[DELETED]') {
+          commitInfo += `File deleted\n`
+        } else {
+          // Show a simplified diff for existing files
+          const preLines = diff.preContent.split('\n')
+          const postLines = diff.postContent.split('\n')
+
+          let hasChanges = false
+          for (let i = 0; i < preLines.length; i++) {
+            if (preLines[i] !== postLines[i]) {
+              commitInfo += `Line ${i + 1}:\n- ${preLines[i]}\n+ ${postLines[i]}\n`
+              hasChanges = true
+            }
+          }
+
+          if (!hasChanges && preLines.length !== postLines.length) {
+            commitInfo += `File length changed from ${preLines.length} to ${postLines.length} lines\n`
+          }
+        }
+      }
+    }
+
+    const prompt = `${COMMIT_SCREENING_PROMPT}\n\nCommit to evaluate:\n\n${commitInfo}`
 
     try {
       disableLiveUserInputCheck()
@@ -241,60 +384,49 @@ async function screenCommitsWithGpt5(
       if (
         !response ||
         !response.selectedCommits ||
-        !Array.isArray(response.selectedCommits)
+        !Array.isArray(response.selectedCommits) ||
+        response.selectedCommits.length === 0
       ) {
-        console.log(
-          `No valid response from GPT-5 for batch ${batchIndex + 1}, skipping...`,
-        )
-        return []
+        console.log(`Commit ${commit.sha.substring(0, 8)} not selected`)
+        return null
       }
 
-      // Map selected commits back to full commit info with GitHub URLs
-      const batchSelected = batch
-        .filter((commit) =>
-          response.selectedCommits.some((selected) =>
-            commit.sha.startsWith(selected.sha),
-          ),
-        )
-        .map((commit) => {
-          const selected = response.selectedCommits.find((s) =>
-            commit.sha.startsWith(s.sha),
-          )!
-          return {
-            ...commit,
-            githubUrl: createGithubUrl(repoUrl, commit.sha),
-            reason: selected.reason,
-            shortDescription: selected.shortDescription,
-          }
-        })
+      // Since we're processing one commit at a time, there should only be one result
+      const selected = response.selectedCommits[0]
+      if (!selected || !commit.sha.startsWith(selected.sha)) {
+        console.log(`Commit ${commit.sha.substring(0, 8)} not selected`)
+        return null
+      }
 
-      console.log(
-        `Selected ${batchSelected.length} commits from batch ${batchIndex + 1}`,
-      )
-      return batchSelected
+      console.log(`✓ Selected commit ${commit.sha.substring(0, 8)}`)
+      return {
+        ...commit,
+        githubUrl: createGithubUrl(repoUrl, commit.sha),
+        reason: selected.reason,
+        shortDescription: selected.shortDescription,
+      }
     } catch (error) {
-      console.error(`Error screening batch ${batchIndex + 1}:`, error)
-      return []
+      console.error(
+        `Error screening commit ${commit.sha.substring(0, 8)}:`,
+        error,
+      )
+      return null
     }
   }
 
-  // Create batches
-  const batches: CommitInfo[][] = []
-  for (let i = 0; i < commits.length; i += batchSize) {
-    batches.push(commits.slice(i, i + batchSize))
-  }
-
-  // Process batches with limited concurrency
-  for (let i = 0; i < batches.length; i += concurrency) {
-    const batchPromises = batches
+  // Process commits with limited concurrency
+  for (let i = 0; i < commits.length; i += concurrency) {
+    const commitPromises = commits
       .slice(i, i + concurrency)
-      .map((batch, idx) => processBatch(batch, i + idx))
+      .map((commit, idx) => processCommit(commit, i + idx))
 
-    const results = await Promise.all(batchPromises)
-    results.forEach((result) => selectedCommits.push(...result))
+    const results = await Promise.all(commitPromises)
+    results.forEach((result) => {
+      if (result) selectedCommits.push(result)
+    })
 
     // Add small delay between concurrency groups to be respectful
-    if (i + concurrency < batches.length) {
+    if (i + concurrency < commits.length) {
       await new Promise((resolve) => setTimeout(resolve, 1000))
     }
   }
@@ -343,6 +475,7 @@ export async function pickCommits({
   const selectedCommits = await screenCommitsWithGpt5(
     filteredCommits,
     repoUrl,
+    repoPath,
     clientSessionId,
   )
   console.log(`\nFinal selection: ${selectedCommits.length} commits`)
