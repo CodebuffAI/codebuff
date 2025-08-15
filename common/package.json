@@ -6,6 +6,7 @@
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
+    "./db/schema": "./src/db/schema.ts",
     "./db": {
       "bun": "./src/db/index.ts",
       "import": "./src/db/index.ts",

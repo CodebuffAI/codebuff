@@ -2,8 +2,13 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "types": ["bun", "node"],
-    "baseUrl": "."
+    "baseUrl": ".",
+    // Ensure modern resolution for package subpaths like @codebuff/common/db/schema
+    "moduleResolution": "Bundler",
+    // Quiet third-party .d.ts issues from bun/drizzle
+    "skipLibCheck": true,
+    // Keep interop friendly for CJS/ESM bridges
+    "esModuleInterop": true
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "test-repos"]
+  "include": ["seeds/**/*.ts"]
 }

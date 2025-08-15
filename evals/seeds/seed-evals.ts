@@ -1,8 +1,9 @@
 import 'dotenv/config'
-import crypto from 'node:crypto'
-import { Client } from 'pg'
+import * as crypto from 'node:crypto'
+
+import * as schema from '@codebuff/common/db/schema'
 import { drizzle } from 'drizzle-orm/node-postgres'
-import * as schema from '../../common/db/schema'
+import { Client } from 'pg'
 
 async function main() {
   const DATABASE_URL = process.env.DATABASE_URL
@@ -20,7 +21,6 @@ async function main() {
 
   // Upsert user (adjust to match schema fields)
   try {
-    // @ts-ignore - schema types may vary; keep robust
     await db
       .insert(schema.user)
       .values({
@@ -28,14 +28,12 @@ async function main() {
         email,
         // Optional common columns; ignore if not present
         created_at: new Date(),
-        updated_at: new Date(),
       })
       .onConflictDoNothing()
   } catch {}
 
   // Upsert session/api token (sessionToken + userId)
   try {
-    // @ts-ignore - schema types may vary; keep robust
     await db
       .insert(schema.session)
       .values({
@@ -43,7 +41,6 @@ async function main() {
         userId,
         // Optional: expire in 24h if column exists
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        created_at: new Date(),
       })
       .onConflictDoNothing()
   } catch {}
