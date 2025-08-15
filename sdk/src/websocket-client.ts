@@ -34,6 +34,7 @@ export type WebSocketHandlerOptions = {
   ) => Promise<void>
 
   onPromptResponse?: (action: ServerAction<'prompt-response'>) => Promise<void>
+  onPromptError?: (action: ServerAction<'prompt-error'>) => Promise<void>
 
   apiKey: string
 }
@@ -51,6 +52,7 @@ export class WebSocketHandler {
   private onResponseChunk: WebSocketHandlerOptionsWithDefaults['onResponseChunk']
   private onSubagentResponseChunk: WebSocketHandlerOptionsWithDefaults['onSubagentResponseChunk']
   private onPromptResponse: WebSocketHandlerOptionsWithDefaults['onPromptResponse']
+  private onPromptError: Required<WebSocketHandlerOptions>['onPromptError']
   private apiKey: string
   private isConnected = false
 
@@ -67,6 +69,7 @@ export class WebSocketHandler {
     onSubagentResponseChunk = async () => {},
 
     onPromptResponse = async () => {},
+    onPromptError = async () => {},
 
     apiKey,
   }: WebSocketHandlerOptions) {
@@ -86,6 +89,7 @@ export class WebSocketHandler {
     this.onSubagentResponseChunk = onSubagentResponseChunk
 
     this.onPromptResponse = onPromptResponse
+    this.onPromptError = onPromptError
 
     this.apiKey = apiKey
   }
@@ -114,7 +118,7 @@ export class WebSocketHandler {
     // action-error
     this.cbWebSocket.subscribe('action-error', async (a) => {
       if (isSdkDebugEnabled())
-        console.error('[sdk][cb] action-error', (a as any)?.error?.message ?? a)
+        console.error('[sdk][cb] action-error', (a as any)?.message ?? a)
       await this.onResponseError(a as any)
     })
 
@@ -180,6 +184,15 @@ export class WebSocketHandler {
     this.cbWebSocket.subscribe('prompt-response', async (a) => {
       if (isSdkDebugEnabled()) console.log('[sdk][cb] prompt-response')
       await this.onPromptResponse(a as any)
+    })
+
+    this.cbWebSocket.subscribe('prompt-error', async (a) => {
+      if (isSdkDebugEnabled())
+        console.error('[sdk][cb] prompt-error', {
+          message: (a as any)?.message,
+          userInputId: (a as any)?.userInputId,
+        })
+      await this.onPromptError(a as any)
     })
   }
 

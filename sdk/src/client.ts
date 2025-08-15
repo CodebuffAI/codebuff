@@ -87,6 +87,7 @@ export class CodebuffClient {
       onSubagentResponseChunk: async () => {},
 
       onPromptResponse: this.handlePromptResponse.bind(this),
+      onPromptError: this.handlePromptError.bind(this),
     })
   }
 
@@ -189,6 +190,16 @@ export class CodebuffClient {
 
       delete this.promptIdToResolveResponse[action.promptId]
       delete this.promptIdToHandleEvent[action.promptId]
+    }
+  }
+
+  private async handlePromptError(action: ServerAction<'prompt-error'>) {
+    const promptId = action.userInputId
+    const promiseActions = this.promptIdToResolveResponse[promptId]
+    if (promiseActions) {
+      promiseActions.reject(new Error(action.message ?? 'Prompt failed'))
+      delete this.promptIdToResolveResponse[promptId]
+      delete this.promptIdToHandleEvent[promptId]
     }
   }
 
