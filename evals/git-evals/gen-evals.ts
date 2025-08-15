@@ -73,12 +73,12 @@ async function generateDiffFromCommit(
     try {
       // Get content after commit first
       const postCommand = `git show ${commitSha}:${JSON.stringify(file)}`
-      const postContent = execSync(postCommand, { cwd: repoPath }).toString()
+      const postContent = execSync(postCommand, { cwd: repoPath, stdio: ['ignore', 'pipe', 'ignore'] }).toString()
 
       try {
         // Try to get content from parent commit (commit^)
         const preCommand = `git show ${commitSha}^:${JSON.stringify(file)}`
-        const preContent = execSync(preCommand, { cwd: repoPath }).toString()
+        const preContent = execSync(preCommand, { cwd: repoPath, stdio: ['ignore', 'pipe', 'ignore'] }).toString()
 
         diffs.push({
           path: file,
@@ -100,6 +100,7 @@ async function generateDiffFromCommit(
           `git show ${commitSha}^:${JSON.stringify(file)}`,
           {
             cwd: repoPath,
+            stdio: ['ignore', 'pipe', 'ignore'],
           },
         ).toString()
         diffs.push({
@@ -227,10 +228,9 @@ export async function generateEvalFile({
     }
   }
 
-  // Process commits in batches
+  // Process commits in parallel
   const batchResults = await mapLimit(evalInputs, BATCH_SIZE, processCommit)
   evalCommits.push(...(batchResults.filter(Boolean) as EvalCommit[]))
-  console.log(`Completed batch with ${batchResults.length} commits`)
 
   // Create output data
   const evalData: EvalData = {
