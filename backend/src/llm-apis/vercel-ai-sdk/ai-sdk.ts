@@ -23,7 +23,6 @@ import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 import type { System } from '../claude'
-import type { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import type {
   GeminiModel,
   Model,
@@ -98,14 +97,6 @@ export const promptAiSdkStream = async function* (
     ...options,
     model: aiSDKModel,
     maxRetries: options.maxRetries,
-    providerOptions: {
-      google: {
-        thinkingConfig: {
-          includeThoughts: false,
-          thinkingBudget: options.thinkingBudget ?? 128,
-        },
-      } satisfies GoogleGenerativeAIProviderOptions,
-    },
   })
 
   let content = ''

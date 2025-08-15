@@ -34,6 +34,23 @@ export interface AgentDefinition {
   /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
 
+  /**
+   * https://openrouter.ai/docs/use-cases/reasoning-tokens
+   * One of `max_tokens` or `effort` is required.
+   * If `exclude` is true, reasoning will be removed from the response. Default is false.
+   */
+  reasoningOptions?: {
+    enabled?: boolean
+    exclude?: boolean
+  } & (
+    | {
+        max_tokens: number
+      }
+    | {
+        effort: 'high' | 'medium' | 'low'
+      }
+  )
+
   // ============================================================================
   // Tools and Subagents
   // ============================================================================

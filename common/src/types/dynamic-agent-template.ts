@@ -101,6 +101,18 @@ export const DynamicAgentDefinitionSchema = z.object({
   // Required fields for new agents
   displayName: z.string(),
   model: z.string(),
+  reasoningOptions: z
+    .object({
+      enabled: z.boolean().optional(),
+      exclude: z.boolean().optional(),
+    })
+    .and(
+      z.union([
+        z.object({ max_tokens: z.number() }),
+        z.object({ effort: z.enum(['high', 'medium', 'low']) }),
+      ]),
+    )
+    .optional(),
 
   // Tools and spawnable agents
   toolNames: z.array(z.enum(toolNames)).optional().default([]),

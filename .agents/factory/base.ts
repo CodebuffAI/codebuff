@@ -8,7 +8,7 @@ import {
 import { AgentTemplateTypes } from '../types/secret-agent-definition'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import { ModelName } from 'types/agent-definition'
+import type { ModelName } from 'types/agent-definition'
 
 export const base = (
   model: ModelName,
