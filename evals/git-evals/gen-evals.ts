@@ -72,12 +72,12 @@ async function generateDiffFromCommit(
   for (const file of changedFiles) {
     try {
       // Get content after commit first
-      const postCommand = `git show ${commitSha}:${file}`
+      const postCommand = `git show ${commitSha}:${JSON.stringify(file)}`
       const postContent = execSync(postCommand, { cwd: repoPath }).toString()
 
       try {
         // Try to get content from parent commit (commit^)
-        const preCommand = `git show ${commitSha}^:${file}`
+        const preCommand = `git show ${commitSha}^:${JSON.stringify(file)}`
         const preContent = execSync(preCommand, { cwd: repoPath }).toString()
 
         diffs.push({
@@ -96,9 +96,12 @@ async function generateDiffFromCommit(
     } catch {
       // File doesn't exist in this commit (deleted file)
       try {
-        const preContent = execSync(`git show ${commitSha}^:${file}`, {
-          cwd: repoPath,
-        }).toString()
+        const preContent = execSync(
+          `git show ${commitSha}^:${JSON.stringify(file)}`,
+          {
+            cwd: repoPath,
+          },
+        ).toString()
         diffs.push({
           path: file,
           preContent,
@@ -225,11 +228,7 @@ export async function generateEvalFile({
   }
 
   // Process commits in batches
-  const batchResults = await mapLimit(
-    evalInputs,
-    BATCH_SIZE,
-    processCommit,
-  )
+  const batchResults = await mapLimit(evalInputs, BATCH_SIZE, processCommit)
   evalCommits.push(...(batchResults.filter(Boolean) as EvalCommit[]))
   console.log(`Completed batch with ${batchResults.length} commits`)
 
