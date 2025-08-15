@@ -55,12 +55,10 @@ jobs:
         run: |
           set -euo pipefail
           VAR_NAMES=$(node scripts/generate-ci-env.js)
-          mkdir -p evals
-
-          # 1) Write filtered secrets to evals/.env.ci
+          # 1) Write filtered secrets to .env.ci at repo root
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
-          ' > evals/.env.ci
+          ' > .env.ci
 
           # 2) Append additional CI variables
           {
@@ -69,10 +67,10 @@ jobs:
             echo "NEXT_PUBLIC_INFISICAL_UP=true"
             echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}"
             echo "CODEBUFF_SDK_DEBUG=true"
-          } >> evals/.env.ci
+          } >> .env.ci
 
           # 3) Export everything to the job environment
-          cat evals/.env.ci >> $GITHUB_ENV
+          cat .env.ci >> $GITHUB_ENV
 
       - name: Make scripts executable
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
