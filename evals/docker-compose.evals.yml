@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   db:
     image: postgres:16-alpine
@@ -25,6 +24,7 @@ services:
     environment:
       DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
       PORT: "4242"
+      NEXT_PUBLIC_CB_ENVIRONMENT: "test"
       NODE_ENV: production
     depends_on:
       db:
