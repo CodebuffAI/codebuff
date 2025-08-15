@@ -53,14 +53,25 @@ jobs:
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
+          set -euo pipefail
           VAR_NAMES=$(node scripts/generate-ci-env.js)
+          mkdir -p evals
+
+          # 1) Write filtered secrets to evals/.env.ci
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
-          ' >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+          ' > evals/.env.ci
+
+          # 2) Append additional CI variables
+          {
+            echo "CODEBUFF_GITHUB_ACTIONS=true"
+            echo "NEXT_PUBLIC_CB_ENVIRONMENT=test"
+            echo "NEXT_PUBLIC_INFISICAL_UP=true"
+            echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}"
+          } >> evals/.env.ci
+
+          # 3) Export everything to the job environment
+          cat evals/.env.ci >> $GITHUB_ENV
 
       - name: Make scripts executable
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
@@ -70,10 +81,10 @@ jobs:
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         run: evals/scripts/run-remote.sh --prompt "Say hi from CI and print the working directory" --max-steps 10
 
-      - name: Open interactive debug shell
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15 # optional guard
+      # - name: Open interactive debug shell
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15 # optional guard
 
       - name: Workflow completed
         run: echo "Evals workflow completed successfully"

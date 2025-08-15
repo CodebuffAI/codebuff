@@ -21,6 +21,8 @@ services:
     build:
       context: ..
       dockerfile: ./evals/backend.Dockerfile
+    env_file:
+      - .env.ci
     environment:
       DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
       PORT: "4242"
@@ -42,6 +44,8 @@ services:
     working_dir: /app
     volumes:
       - ..:/app:ro
+    env_file:
+      - .env.ci
     environment:
       DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
     entrypoint: ["bun", "run", "evals/seeds/seed-evals.ts"]
