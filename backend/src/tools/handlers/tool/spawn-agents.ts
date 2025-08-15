@@ -1,7 +1,10 @@
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { generateCompactId } from '@codebuff/common/util/string'
 
-import { getAgentTemplate } from '../../../templates/agent-registry'
+import {
+  getAgentTemplate,
+  parseAgentId,
+} from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -113,9 +116,8 @@ export const handleSpawnAgents = ((params: {
     }
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-        const agentType = agentTypeStr as AgentTemplateType
         const agentTemplate = await getAgentTemplate(
-          agentType,
+          agentTypeStr,
           localAgentTemplates,
         )
 
@@ -123,9 +125,13 @@ export const handleSpawnAgents = ((params: {
           throw new Error(`Agent type ${agentTypeStr} not found.`)
         }
 
-        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
+        const agentType = getMatchingSpawn(
+          parentAgentTemplate.spawnableAgents,
+          agentTypeStr,
+        )
+        if (!agentType) {
           throw new Error(
-            `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`,
+            `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentTypeStr}.`,
           )
         }
 
@@ -277,3 +283,56 @@ export const handleSpawnAgents = ((params: {
     state: {},
   }
 }) satisfies CodebuffToolHandlerFunction<'spawn_agents'>
+
+const getMatchingSpawn = (
+  spawnableAgents: AgentTemplateType[],
+  childFullAgentId: string,
+) => {
+  const parsedChildAgentId = parseAgentId(childFullAgentId)
+  if (!parsedChildAgentId) return null
+  const {
+    publisherId: childPublisherId,
+    agentId: childAgentId,
+    version: childVersion,
+  } = parsedChildAgentId
+
+  for (const spawnableAgent of spawnableAgents) {
+    const parsedSpawnableAgent = parseAgentId(spawnableAgent)
+    if (!parsedSpawnableAgent) continue
+    const {
+      publisherId: spawnablePublisherId,
+      agentId: spawnableAgentId,
+      version: spawnableVersion,
+    } = parsedSpawnableAgent
+    if (
+      spawnableAgentId === childAgentId &&
+      spawnablePublisherId === childPublisherId &&
+      spawnableVersion === childVersion
+    ) {
+      return spawnableAgent
+    }
+    if (!childVersion && childPublisherId) {
+      if (
+        spawnablePublisherId === childPublisherId &&
+        spawnableAgentId === childAgentId
+      ) {
+        return spawnableAgent
+      }
+    }
+    if (!childPublisherId && childVersion) {
+      if (
+        spawnableAgentId === childAgentId &&
+        spawnableVersion === childVersion
+      ) {
+        return spawnableAgent
+      }
+    }
+
+    if (!childVersion && !childPublisherId) {
+      if (spawnableAgentId === childAgentId) {
+        return spawnableAgent
+      }
+    }
+  }
+  return null
+}
