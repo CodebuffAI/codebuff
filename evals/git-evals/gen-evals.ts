@@ -1,6 +1,7 @@
 import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+import { mapLimit } from 'async'
 
 import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
@@ -151,7 +152,7 @@ File Changes:\n${diffContext}`
     // Extract spec from <spec></spec> tags
     const specMatch = response.match(/<spec>(.*?)<\/spec>/s)
     const spec = specMatch ? specMatch[1].trim() : response.trim()
-    
+
     return spec || 'Failed to generate specification'
   } catch (error) {
     console.error('Error generating spec:', error)
@@ -177,12 +178,18 @@ export async function generateEvalFile({
   console.log(`Setting up test repository from: ${repoUrl}`)
   const repoPath = await setupTestRepo(repoUrl, actualRepoName, 'HEAD')
 
-  console.log(`Processing ${evalInputs.length} evaluation inputs...`)
+  console.log(
+    `Processing ${evalInputs.length} evaluation inputs in parallel...`,
+  )
 
-  // Process each eval input
+  // Process commits in parallel with controlled concurrency
+  const BATCH_SIZE = 5 // Process 5 commits at a time to avoid overwhelming the LLM API
   const evalCommits: EvalCommit[] = []
 
-  for (const evalInput of evalInputs) {
+  // Helper function to process a single commit
+  const processCommit = async (
+    evalInput: EvalInput,
+  ): Promise<EvalCommit | null> => {
     console.log(`Processing eval input ${evalInput.commitSha}...`)
 
     // Verify the commit exists in the repository (validates the codebase state reference)
@@ -195,6 +202,7 @@ export async function generateEvalFile({
       console.warn(
         `Warning: Commit ${evalInput.commitSha} not found in repository. Proceeding anyway.`,
       )
+      return null
     }
 
     // Get diffs - either provided or computed from commit
@@ -205,16 +213,25 @@ export async function generateEvalFile({
     // Generate spec from diffs
     const spec = await generateSpecForDiffs(diffs, clientSessionId)
 
-    evalCommits.push({
-      sha: evalInput.commitSha,
-      spec,
-      diffs,
-    })
-
     console.log(
       `Generated spec for ${evalInput.commitSha}: ${spec.substring(0, 100)}...`,
     )
+
+    return {
+      sha: evalInput.commitSha,
+      spec,
+      diffs,
+    }
   }
+
+  // Process commits in batches
+  const batchResults = await mapLimit(
+    evalInputs,
+    BATCH_SIZE,
+    processCommit,
+  )
+  evalCommits.push(...(batchResults.filter(Boolean) as EvalCommit[]))
+  console.log(`Completed batch with ${batchResults.length} commits`)
 
   // Create output data
   const evalData: EvalData = {
