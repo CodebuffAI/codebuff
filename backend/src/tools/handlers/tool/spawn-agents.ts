@@ -282,7 +282,7 @@ export const handleSpawnAgents = ((params: {
   }
 }) satisfies CodebuffToolHandlerFunction<'spawn_agents'>
 
-const getMatchingSpawn = (
+export const getMatchingSpawn = (
   spawnableAgents: AgentTemplateType[],
   childFullAgentId: string,
 ) => {
