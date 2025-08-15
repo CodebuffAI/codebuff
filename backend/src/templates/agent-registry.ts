@@ -12,37 +12,12 @@ import {
 } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
+import { parsePublishedAgentId } from '@codebuff/common/util/agent-id-parsing'
 
 export type AgentRegistry = Record<string, AgentTemplate>
 
 // Global database cache - only state in the system
 const databaseAgentCache = new Map<string, AgentTemplate | null>()
-
-/**
- * Parse agent ID to extract publisher, agent name, and version
- */
-export function parseAgentId(fullAgentId: string): {
-  publisherId: string
-  agentId: string
-  version?: string
-} | null {
-  // Check if it's in the publisher/agent-id[@version] format
-  const parts = fullAgentId.split('/')
-  if (parts.length !== 2) {
-    return null
-  }
-
-  const [publisherId, agentNameWithVersion] = parts
-
-  // Check for version suffix
-  const versionMatch = agentNameWithVersion.match(/^(.+)@(.+)$/)
-  if (versionMatch) {
-    const [, agentId, version] = versionMatch
-    return { publisherId, agentId, version }
-  }
-
-  return { publisherId, agentId: agentNameWithVersion }
-}
 
 /**
  * Fetch an agent from the database by publisher/agent-id[@version] format
@@ -168,10 +143,12 @@ export async function getAgentTemplate(
     return databaseAgentCache.get(cacheKey) || null
   }
 
-  const parsed = parseAgentId(agentId)
+  const parsed = parsePublishedAgentId(agentId)
   if (!parsed) {
     // If agentId doesn't parse as publisher/agent format, try as codebuff/agentId
-    const codebuffParsed = parseAgentId(`${DEFAULT_ORG_PREFIX}${agentId}`)
+    const codebuffParsed = parsePublishedAgentId(
+      `${DEFAULT_ORG_PREFIX}${agentId}`,
+    )
     if (codebuffParsed) {
       const dbAgent = await fetchAgentFromDatabase(codebuffParsed)
       if (dbAgent) {

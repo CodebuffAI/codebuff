@@ -1,10 +1,8 @@
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 
-import {
-  getAgentTemplate,
-  parseAgentId,
-} from '../../../templates/agent-registry'
+import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -288,22 +286,27 @@ const getMatchingSpawn = (
   spawnableAgents: AgentTemplateType[],
   childFullAgentId: string,
 ) => {
-  const parsedChildAgentId = parseAgentId(childFullAgentId)
-  if (!parsedChildAgentId) return null
   const {
     publisherId: childPublisherId,
     agentId: childAgentId,
     version: childVersion,
-  } = parsedChildAgentId
+  } = parseAgentId(childFullAgentId)
+
+  if (!childAgentId) {
+    return null
+  }
 
   for (const spawnableAgent of spawnableAgents) {
-    const parsedSpawnableAgent = parseAgentId(spawnableAgent)
-    if (!parsedSpawnableAgent) continue
     const {
       publisherId: spawnablePublisherId,
       agentId: spawnableAgentId,
       version: spawnableVersion,
-    } = parsedSpawnableAgent
+    } = parseAgentId(spawnableAgent)
+
+    if (!spawnableAgentId) {
+      continue
+    }
+
     if (
       spawnableAgentId === childAgentId &&
       spawnablePublisherId === childPublisherId &&
