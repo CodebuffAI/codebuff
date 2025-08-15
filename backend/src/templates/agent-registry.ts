@@ -21,7 +21,7 @@ const databaseAgentCache = new Map<string, AgentTemplate | null>()
 /**
  * Parse agent ID to extract publisher, agent name, and version
  */
-export function parseAgentId(fullAgentId: string): {
+function parseAgentId(fullAgentId: string): {
   publisherId: string
   agentId: string
   version?: string
