@@ -1,7 +1,6 @@
 import { z } from 'zod/v4'
 
 import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
-import { toolNames } from '../tools/constants'
 
 import type { JSONSchema } from 'zod/v4/core'
 
@@ -115,7 +114,7 @@ export const DynamicAgentDefinitionSchema = z.object({
     .optional(),
 
   // Tools and spawnable agents
-  toolNames: z.array(z.enum(toolNames)).optional().default([]),
+  toolNames: z.string().array().optional().default([]),
   spawnableAgents: z.array(z.string()).optional().default([]),
 
   // Input and output

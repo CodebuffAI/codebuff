@@ -1,11 +1,13 @@
 import * as os from 'os'
 
+import { type CustomToolDefinition } from './custom-tool'
 import { getInitialSessionState } from '../../common/src/types/session-state'
 
 import type { ServerAction } from '../../common/src/actions'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type { CodebuffMessage } from '../../common/src/types/message'
 import type { SessionState } from '../../common/src/types/session-state'
+import type { CustomToolDefinitions } from '../../common/src/util/file'
 
 export type RunState = {
   sessionState: SessionState
@@ -19,6 +21,7 @@ export function initialSessionState(
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentDefinitions?: AgentDefinition[]
+    customToolDefinitions?: CustomToolDefinition[]
     maxAgentSteps?: number
   },
 ) {
@@ -58,6 +61,21 @@ export function initialSessionState(
     }
   })
 
+  const processedCustomToolDefinitions: Record<
+    string,
+    Pick<CustomToolDefinition, keyof NonNullable<CustomToolDefinitions>[string]>
+  > = Object.fromEntries(
+    (options.customToolDefinitions ?? []).map((toolDefinition) => [
+      toolDefinition.toolName,
+      {
+        inputJsonSchema: toolDefinition.inputJsonSchema,
+        description: toolDefinition.description,
+        endsAgentStep: toolDefinition.endsAgentStep,
+        exampleInputs: toolDefinition.exampleInputs,
+      },
+    ]),
+  )
+
   const initialState = getInitialSessionState({
     projectRoot: cwd,
     cwd,
@@ -67,6 +85,7 @@ export function initialSessionState(
     knowledgeFiles,
     userKnowledgeFiles: {},
     agentTemplates: processedAgentTemplates,
+    customToolDefinitions: processedCustomToolDefinitions,
     gitChanges: {
       status: '',
       diff: '',
@@ -97,12 +116,14 @@ export function generateInitialRunState({
   projectFiles,
   knowledgeFiles,
   agentDefinitions,
+  customToolDefinitions,
   maxAgentSteps,
 }: {
   cwd: string
   projectFiles?: Record<string, string>
   knowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
+  customToolDefinitions?: CustomToolDefinition[]
   maxAgentSteps?: number
 }): RunState {
   return {
@@ -110,6 +131,7 @@ export function generateInitialRunState({
       projectFiles,
       knowledgeFiles,
       agentDefinitions,
+      customToolDefinitions,
       maxAgentSteps,
     }),
     toolResults: [],

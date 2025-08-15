@@ -56,8 +56,8 @@ const mockFileContext: ProjectFileContext = {
     homedir: '/home/test',
     cpus: 1,
   },
-  fileVersions: [],
   agentTemplates: {},
+  customToolDefinitions: {},
 }
 
 // --- Integration Test with Real LLM Call ---

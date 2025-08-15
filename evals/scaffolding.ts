@@ -136,13 +136,13 @@ export async function getProjectFileContext(
       lastCommitMessages: '',
     },
     changesSinceLastChat: {},
-    fileVersions: [],
     systemInfo: getSystemInfo(),
     shellConfigFiles: {},
     knowledgeFiles,
     fileTokenScores,
     fileTree,
     agentTemplates: {},
+    customToolDefinitions: {},
   }
 }
 

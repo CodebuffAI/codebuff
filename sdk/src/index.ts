@@ -1,4 +1,5 @@
 export { CodebuffClient } from './client'
+export { getCustomToolDefinintion } from './custom-tool'
 export {
   generateInitialRunState,
   initialSessionState,

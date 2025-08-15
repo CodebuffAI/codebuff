@@ -151,8 +151,8 @@ describe('runAgentStep - set_output tool', () => {
       homedir: '/home/test',
       cpus: 1,
     },
-    fileVersions: [],
     agentTemplates: {},
+    customToolDefinitions: {},
   }
 
   it('should set output with simple key-value pair', async () => {

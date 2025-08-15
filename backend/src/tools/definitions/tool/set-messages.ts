@@ -8,17 +8,17 @@ export const setMessagesTool = {
   toolName,
   description: `
 Example:
-    ${getToolCallString(toolName, {
-      messages: [
-        {
-          role: 'user',
-          content: 'Hello, how are you?',
-        },
-        {
-          role: 'assistant',
-          content: 'I am fine, thank you.',
-        },
-      ],
-    })}
+${getToolCallString(toolName, {
+  messages: [
+    {
+      role: 'user',
+      content: 'Hello, how are you?',
+    },
+    {
+      role: 'assistant',
+      content: 'I am fine, thank you.',
+    },
+  ],
+})}
   `.trim(),
 } satisfies ToolDescription

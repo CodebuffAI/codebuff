@@ -9,8 +9,11 @@ import {
 } from '../../common/src/actions'
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { DEFAULT_MAX_AGENT_STEPS } from '../../common/src/json-config/constants'
+import { toolNames } from '../../common/src/tools/constants'
 
+import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
+import type { ToolName } from '../../common/src/tools/constants'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
@@ -51,6 +54,10 @@ export class CodebuffClient {
   private readonly promptIdToResolveResponse: Record<
     string,
     { resolve: (response: any) => void; reject: (error: any) => void }
+  > = {}
+  private readonly promptIdToCustomToolHandler: Record<
+    string,
+    WebSocketHandler['handleToolCall']
   > = {}
 
   constructor({ apiKey, cwd, onError, overrideTools }: CodebuffClientOptions) {
@@ -118,6 +125,7 @@ export class CodebuffClient {
     projectFiles,
     knowledgeFiles,
     agentDefinitions,
+    customToolDefinitions,
     maxAgentSteps = DEFAULT_MAX_AGENT_STEPS,
   }: {
     agent: string
@@ -128,6 +136,7 @@ export class CodebuffClient {
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentDefinitions?: AgentDefinition[]
+    customToolDefinitions?: CustomToolDefinition[]
     maxAgentSteps?: number
   }): Promise<RunState> {
     await this.websocketHandler.connect()
@@ -138,6 +147,7 @@ export class CodebuffClient {
       initialSessionState(this.cwd, {
         knowledgeFiles,
         agentDefinitions,
+        customToolDefinitions,
         projectFiles,
         maxAgentSteps,
       })
@@ -145,6 +155,47 @@ export class CodebuffClient {
     const toolResults = previousRun?.toolResults ?? []
     if (handleEvent) {
       this.promptIdToHandleEvent[promptId] = handleEvent
+    }
+    if (customToolDefinitions) {
+      this.promptIdToCustomToolHandler[promptId] = async ({
+        toolName,
+        input,
+      }) => {
+        const toolDefs = customToolDefinitions.filter(
+          (def) => def.toolName === toolName,
+        )
+        if (toolDefs.length === 0) {
+          throw new Error(
+            `Implementation for custom tool ${toolName} not found.`,
+          )
+        }
+        const handler = toolDefs[toolDefs.length - 1].handler
+        try {
+          return {
+            success: true,
+            output: {
+              type: 'text',
+              value: (await handler(input)).toolResultMessage,
+            },
+          }
+        } catch (error) {
+          return {
+            success: false,
+            output: {
+              type: 'text',
+              value:
+                error &&
+                typeof error === 'object' &&
+                'message' in error &&
+                typeof error.message === 'string'
+                  ? error.message
+                  : typeof error === 'string'
+                    ? error
+                    : 'Unknown error',
+            },
+          }
+        }
+      }
     }
     this.websocketHandler.sendInput({
       promptId,
@@ -189,6 +240,7 @@ export class CodebuffClient {
 
       delete this.promptIdToResolveResponse[action.promptId]
       delete this.promptIdToHandleEvent[action.promptId]
+      delete this.promptIdToCustomToolHandler[action.promptId]
     }
   }
 
@@ -206,7 +258,12 @@ export class CodebuffClient {
   ): ReturnType<WebSocketHandler['handleToolCall']> {
     const toolName = action.toolName
     const input = action.input
+
     let result: string
+    if (!toolNames.includes(toolName as ToolName)) {
+      return this.promptIdToCustomToolHandler[action.userInputId](action)
+    }
+
     try {
       let override = this.overrideTools[toolName as ClientToolName]
       if (!override && toolName === 'str_replace') {

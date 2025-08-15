@@ -56,7 +56,7 @@ export interface AgentDefinition {
   // ============================================================================
 
   /** Tools this agent can use. */
-  toolNames?: ToolName[]
+  toolNames?: (ToolName | (string & {}))[]
 
   /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
    *

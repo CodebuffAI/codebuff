@@ -14,7 +14,7 @@ export type AgentTemplate<
   model: Model
   reasoningOptions?: OpenRouterProviderOptions['reasoning']
 
-  toolNames: ToolName[]
+  toolNames: (ToolName | (string & {}))[]
   spawnableAgents: AgentTemplateType[]
 
   spawnerPrompt?: string

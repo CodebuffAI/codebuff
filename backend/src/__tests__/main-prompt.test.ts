@@ -214,6 +214,7 @@ describe('mainPrompt', () => {
     changesSinceLastChat: {},
     shellConfigFiles: {},
     agentTemplates: {},
+    customToolDefinitions: {},
     systemInfo: {
       platform: 'test',
       shell: 'test',
@@ -222,7 +223,6 @@ describe('mainPrompt', () => {
       homedir: '/home/test',
       cpus: 1,
     },
-    fileVersions: [],
   }
 
   it('should add file updates to tool results in message history', async () => {

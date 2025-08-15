@@ -19,7 +19,6 @@ import {
 import { parseUserMessage } from '../util/messages'
 
 import type { AgentTemplate, PlaceholderValue } from './types'
-import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
   AgentState,
   AgentTemplateType,
@@ -30,7 +29,7 @@ export async function formatPrompt(
   prompt: string,
   fileContext: ProjectFileContext,
   agentState: AgentState,
-  tools: ToolName[],
+  tools: readonly string[],
   spawnableAgents: AgentTemplateType[],
   agentTemplates: Record<string, AgentTemplate>,
   intitialAgentPrompt?: string,
@@ -64,7 +63,10 @@ export async function formatPrompt(
     [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
-    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
+    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(
+      tools,
+      fileContext.customToolDefinitions,
+    ),
     [PLACEHOLDER.AGENTS_PROMPT]: await buildSpawnableAgentsDescription(
       spawnableAgents,
       agentTemplates,
@@ -161,7 +163,10 @@ export async function getAgentPrompt<T extends StringField>(
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
     addendum +=
       '\n\n' +
-      getShortToolInstructions(agentTemplate.toolNames) +
+      getShortToolInstructions(
+        agentTemplate.toolNames,
+        fileContext.customToolDefinitions,
+      ) +
       '\n\n' +
       (await buildSpawnableAgentsDescription(
         agentTemplate.spawnableAgents,

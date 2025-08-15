@@ -229,7 +229,7 @@
       "version": "0.1.9",
       "dependencies": {
         "ai": "^5.0.0",
-        "zod": "^3.25.67",
+        "zod": "^4.0.0",
       },
       "devDependencies": {
         "@types/bun": "^1.2.11",

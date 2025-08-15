@@ -310,13 +310,13 @@ export const getProjectFileContext = async (
       tokenCallers,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
       agentTemplates: await loadLocalAgents({ verbose: false }),
+      customToolDefinitions: {},
       codebuffConfig,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       gitChanges,
       changesSinceLastChat,
-      fileVersions: [],
     }
   }
 
