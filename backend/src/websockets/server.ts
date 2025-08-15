@@ -172,6 +172,12 @@ export function sendRequestReconnect() {
   }
 }
 
+export function sendRequestRestart() {
+  for (const ws of SWITCHBOARD.clients.keys()) {
+    sendMessage(ws, { type: 'action', data: { type: 'request-restart' } })
+  }
+}
+
 export function waitForAllClientsDisconnected() {
   return SWITCHBOARD.waitForAllClientsDisconnected()
 }

@@ -909,6 +909,13 @@ export class Client {
       this.reconnectWhenNextIdle()
     })
 
+    // Used to handle server requests to restart codebuff
+    this.webSocket.subscribe('request-restart', () => {
+      console.log('\n' + yellow('🔄 Codebuff needs to be restarted. Please restart the application.'))
+      console.log(red('Exiting...'))
+      this.exit()
+    })
+
     // Handle subagent streaming messages
     this.webSocket.subscribe('subagent-response-chunk', (action) => {
       const { userInputId, agentId, agentType, chunk, prompt } = action

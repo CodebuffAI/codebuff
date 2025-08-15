@@ -162,6 +162,10 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     // The server is imminently going to shutdown, and the client should reconnect
     type: z.literal('request-reconnect'),
   }),
+  z.object({
+    // The server is requesting the client to restart codebuff
+    type: z.literal('request-restart'),
+  }),
 ])
 
 type ServerActionAny = z.infer<typeof SERVER_ACTION_SCHEMA>
