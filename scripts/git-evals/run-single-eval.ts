@@ -81,15 +81,22 @@ async function main() {
   // Add: derive default WS URL from NEXT_PUBLIC_CB_ENVIRONMENT if not explicitly set
   if (!process.env.CODEBUFF_WEBSOCKET_URL) {
     const envPref = (process.env.NEXT_PUBLIC_CB_ENVIRONMENT || '').toLowerCase()
-    const inferred =
-      envPref === 'test'
-        ? 'ws://127.0.0.1:4242/ws'
-        : envPref === 'dev' || envPref === ''
-          ? 'ws://localhost:4242/ws'
-          : undefined
-    if (inferred) {
-      process.env.CODEBUFF_WEBSOCKET_URL = inferred
+    if (!process.env.CODEBUFF_WS_HOST) {
+      process.env.CODEBUFF_WS_HOST =
+        envPref === 'test' ? '127.0.0.1' : 'localhost'
     }
+  }
+
+  const WS_HOST = process.env.CODEBUFF_WS_HOST ?? '127.0.0.1'
+  const WS_PORT = process.env.CODEBUFF_WS_PORT ?? '4242'
+  const WS_SCHEME = process.env.CODEBUFF_WS_SCHEME ?? 'ws'
+  const wsUrl =
+    process.env.CODEBUFF_WEBSOCKET_URL ??
+    `${WS_SCHEME}://${WS_HOST}:${WS_PORT}/ws`
+
+  // Ensure the SDK reads the URL from env if it wasn't already set
+  if (!process.env.CODEBUFF_WEBSOCKET_URL) {
+    process.env.CODEBUFF_WEBSOCKET_URL = wsUrl
   }
 
   const client = new CodebuffClient({

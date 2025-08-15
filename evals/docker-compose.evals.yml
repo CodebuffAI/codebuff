@@ -28,16 +28,16 @@ services:
     env_file:
       - ../.env.ci
     environment:
-      DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
-      PORT: '4242'
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: ${BACKEND_PORT:-4242}
       NEXT_PUBLIC_CB_ENVIRONMENT: 'test'
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - '127.0.0.1:4242:4242'
+      - '127.0.0.1:${BACKEND_PORT:-4242}:${BACKEND_PORT:-4242}'
     healthcheck:
-      test: ['CMD', 'curl', '-fsS', 'http://localhost:4242/healthz']
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:$PORT/healthz']
       interval: 5s
       timeout: 3s
       retries: 30
@@ -50,7 +50,7 @@ services:
     env_file:
       - ../.env.ci
     environment:
-      DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
+      DATABASE_URL: ${DATABASE_URL}
     entrypoint: ['bun', 'run', 'evals/seeds/seed-evals.ts']
     depends_on:
       db:

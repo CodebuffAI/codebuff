@@ -8,7 +8,8 @@ import { sleep } from '@codebuff/common/util/promise'
 
 import type { ChildProcess } from 'child_process'
 
-const BACKEND_PORT = 3001
+const BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? '3001')
+const BACKEND_URL = process.env.CODEBUFF_BACKEND_URL
 const BACKEND_READY_TIMEOUT = 30000 // 30 seconds
 const CLI_READY_TIMEOUT = 10000 // 10 seconds
 const TASK_COMPLETION_TIMEOUT = 120000 // 2 minutes
@@ -122,7 +123,7 @@ export class E2ETestRunner {
     const startTime = Date.now()
     while (Date.now() - startTime < BACKEND_READY_TIMEOUT) {
       try {
-        const response = await fetch(`http://localhost:${BACKEND_PORT}/healthz`)
+        const response = await fetch(`${BACKEND_URL}/healthz`)
         if (response.ok) {
           console.log('✅ Backend is ready!')
           return true
@@ -236,7 +237,7 @@ export class E2ETestRunner {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        CODEBUFF_BACKEND_URL: `http://localhost:${BACKEND_PORT}`,
+        CODEBUFF_BACKEND_URL: BACKEND_URL,
       },
     })
 
