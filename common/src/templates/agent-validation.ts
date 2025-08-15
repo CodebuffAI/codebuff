@@ -288,6 +288,7 @@ export function validateSingleAgent(
       stepPrompt: validatedConfig.stepPrompt ?? '',
       outputSchema,
       inputSchema,
+      reasoningOptions: validatedConfig.reasoningOptions ?? undefined,
     }
 
     return {
