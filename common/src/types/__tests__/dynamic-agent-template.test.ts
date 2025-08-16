@@ -9,7 +9,7 @@ type DynamicAgentDefinitionHandleSteps = Omit<
   'handleSteps' | 'toolNames'
 > & {
   handleSteps?: AgentDefinition['handleSteps']
-  toolNames?: (typeof publishedTools)[number][]
+  toolNames?: (typeof publishedTools | (string & {}))[number][]
 }
 // Don't remove these lines! And don't change the values away from true!
 const _typecheck1: DynamicAgentDefinitionHandleSteps = {} as AgentDefinition
