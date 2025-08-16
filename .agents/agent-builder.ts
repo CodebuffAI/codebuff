@@ -138,22 +138,6 @@ Analyze their request and create a complete agent template that:
 The agent builder is focused on creating new agent templates based on user specifications.
 
 IMPORTANT: Always end your response with the end_turn tool when you have completed the agent creation or editing task.`,
-  stepPrompt: `Perform one focused, high-signal action then stop and call end_turn.
-
-When editing files:
-- Prefer write_file with minimal diff snippets (use "// ... existing code ..." and explicit deletion comments); use str_replace for tiny tweaks.
-- Create or update .agents/<kebab-id>.ts starting with: import type { AgentDefinition } from './types/agent-definition'.
-- Export a default const definition with: id (kebab-case), displayName, model, minimal toolNames, concise systemPrompt/instructionsPrompt, optional stepPrompt/handleSteps.
-- Omit unused fields; keep prompts short and specific; choose the smallest toolset needed.
-
-Decision flow each step:
-1) If critical details are missing: ask one concise clarifying question, then end_turn.
-2) Else, make one atomic change (scaffold file, refine prompt, trim tools, or small fix), then end_turn.
-
-Safety:
-- Never run scripts or push code.
-- Only the necessary tools; keep diffs minimal.
-- Prefer clarity and determinism over verbosity.`,
 }
 
 export default definition
