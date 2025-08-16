@@ -10,7 +10,7 @@ import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 
 // Types for the evaluation data structure
-export interface Diff {
+export interface FileState {
   path: string
   preContent: string
   postContent: string
@@ -19,7 +19,7 @@ export interface Diff {
 export interface EvalCommit {
   sha: string
   spec: string
-  diffs: Diff[]
+  fileStates: FileState[]
 }
 
 export interface EvalData {
@@ -31,7 +31,7 @@ export interface EvalData {
 // Input structure for creating evaluations
 export interface EvalInput {
   commitSha: string // Required - defines the codebase state to load for the task
-  diffs?: Diff[] // Optional - if not provided, will compute diff from commit parent
+  fileStates?: FileState[] // Optional - if not provided, will compute from commit parent
 }
 
 const SPEC_GENERATION_PROMPT = `Given a set of file changes and an optional description, write a clear specification describing WHAT needs to be implemented.
@@ -55,10 +55,10 @@ Please wrap your final specification in <spec></spec> tags.`
 const fingerprintId = 'evals-v2'
 const userInputId = 'evals-v2'
 
-async function generateDiffFromCommit(
+async function generateFileStateFromCommit(
   repoPath: string,
   commitSha: string,
-): Promise<Diff[]> {
+): Promise<FileState[]> {
   // Get list of files changed in this commit
   const filesCommand = `git show --name-only --pretty=format:"" ${commitSha}`
   const changedFiles = execSync(filesCommand, { cwd: repoPath })
@@ -68,7 +68,7 @@ async function generateDiffFromCommit(
     .filter(Boolean)
 
   // Get the content of each file before and after the commit
-  const diffs: Diff[] = []
+  const fileStates: FileState[] = []
   for (const file of changedFiles) {
     try {
       // Get content after commit first
@@ -80,14 +80,14 @@ async function generateDiffFromCommit(
         const preCommand = `git show ${commitSha}^:${JSON.stringify(file)}`
         const preContent = execSync(preCommand, { cwd: repoPath, stdio: ['ignore', 'pipe', 'ignore'] }).toString()
 
-        diffs.push({
+        fileStates.push({
           path: file,
           preContent,
           postContent,
         })
       } catch {
         // File doesn't exist in parent commit (new file)
-        diffs.push({
+        fileStates.push({
           path: file,
           preContent: '[NEW FILE]',
           postContent,
@@ -103,7 +103,7 @@ async function generateDiffFromCommit(
             stdio: ['ignore', 'pipe', 'ignore'],
           },
         ).toString()
-        diffs.push({
+        fileStates.push({
           path: file,
           preContent,
           postContent: '[DELETED]',
@@ -114,15 +114,15 @@ async function generateDiffFromCommit(
     }
   }
 
-  return diffs
+  return fileStates
 }
 
-async function generateSpecForDiffs(
-  diffs: Diff[],
+async function generateSpecForFileStates(
+  fileStates: FileState[],
   clientSessionId: string,
 ): Promise<string> {
-  // Build context from the diffs
-  const diffContext = diffs
+  // Build context from the file states
+  const fileContext = fileStates
     .map(({ path, preContent, postContent }) => {
       let diffDescription = `File: ${path}\n`
 
@@ -140,7 +140,7 @@ async function generateSpecForDiffs(
 
   const prompt = `${SPEC_GENERATION_PROMPT}
 
-File Changes:\n${diffContext}`
+File Changes:\n${fileContext}`
 
   try {
     disableLiveUserInputCheck()
@@ -209,13 +209,13 @@ export async function generateEvalFile({
       return null
     }
 
-    // Get diffs - either provided or computed from commit
-    const diffs =
-      evalInput.diffs ??
-      (await generateDiffFromCommit(repoPath, evalInput.commitSha))
+    // Get file states - either provided or computed from commit
+    const fileStates =
+      evalInput.fileStates ??
+      (await generateFileStateFromCommit(repoPath, evalInput.commitSha))
 
-    // Generate spec from diffs
-    const spec = await generateSpecForDiffs(diffs, clientSessionId)
+    // Generate spec from file states
+    const spec = await generateSpecForFileStates(fileStates, clientSessionId)
 
     console.log(
       `Generated spec for ${evalInput.commitSha}: ${spec.substring(0, 100)}...`,
@@ -224,7 +224,7 @@ export async function generateEvalFile({
     return {
       sha: evalInput.commitSha,
       spec,
-      diffs,
+      fileStates,
     }
   }
 
@@ -252,7 +252,7 @@ export async function generateEvalFile({
 export function createExampleEvalInput(): EvalInput {
   return {
     commitSha: 'abc123def456', // Reference commit that defines the codebase state
-    diffs: [
+    fileStates: [
       {
         path: 'src/auth.ts',
         preContent: '[NEW FILE]',
