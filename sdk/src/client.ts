@@ -116,7 +116,7 @@ export class CodebuffClient {
    *
    * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run.
    */
-  public async run({
+  public async run<A extends string = string, B = any, C = any>({
     agent,
     prompt,
     params,
@@ -136,7 +136,7 @@ export class CodebuffClient {
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentDefinitions?: AgentDefinition[]
-    customToolDefinitions?: CustomToolDefinition[]
+    customToolDefinitions?: CustomToolDefinition<A, B, C>[]
     maxAgentSteps?: number
   }): Promise<RunState> {
     await this.websocketHandler.connect()
@@ -169,13 +169,15 @@ export class CodebuffClient {
             `Implementation for custom tool ${toolName} not found.`,
           )
         }
-        const handler = toolDefs[toolDefs.length - 1].handler
+        const toolDef = toolDefs[toolDefs.length - 1]
+        const handler = toolDef.handler
         try {
           return {
             success: true,
             output: {
               type: 'text',
-              value: (await handler(input)).toolResultMessage,
+              value: (await handler(toolDef.zodSchema.parse(input)))
+                .toolResultMessage,
             },
           }
         } catch (error) {

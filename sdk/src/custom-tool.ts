@@ -13,7 +13,7 @@ export type CustomToolDefinition<
   description?: string
   endsAgentStep: boolean
   exampleInputs: Input[]
-  handler: (params: Input) => Promise<{
+  handler: (params: Output) => Promise<{
     toolResultMessage: string
   }>
 }
@@ -35,7 +35,7 @@ export function getCustomToolDefinintion<
   description?: string
   endsAgentStep?: boolean
   exampleInputs?: Input[]
-  handler: (params: Input) => Promise<{
+  handler: (params: Output) => Promise<{
     toolResultMessage: string
   }>
 }): CustomToolDefinition<ToolName, Output, Input> {

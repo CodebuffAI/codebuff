@@ -335,13 +335,13 @@ export function parseRawCustomToolCall(
     }
   }
 
-  if (endsAgentStepParam in result.data) {
-    delete result.data[endsAgentStepParam]
+  const input = JSON.parse(JSON.stringify(rawToolCall.input))
+  if (endsAgentStepParam in input) {
+    delete input[endsAgentStepParam]
   }
-
   return {
     toolName: toolName,
-    input: result.data,
+    input,
     toolCallId: rawToolCall.toolCallId,
   }
 }
