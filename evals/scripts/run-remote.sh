@@ -19,37 +19,59 @@ HEALTHZ_URL="${CODEBUFF_HTTP_SCHEME}://${CODEBUFF_WS_HOST}:${CODEBUFF_WS_PORT}/h
 # Add: preserve previous behavior to bypass local binary check in eval flow
 export CODEBUFF_SKIP_BINARY_CHECK=1
 
-# Add: compute backend URLs for host and for docker network, and echo for diagnostics
+# Compute URLs for host and docker network
 export CODEBUFF_BACKEND_URL="${CODEBUFF_HTTP_SCHEME}://${CODEBUFF_WS_HOST}:${CODEBUFF_WS_PORT}"
-BACKEND_DNS_HOST="${CODEBUFF_BACKEND_DNS_HOST:-backend}"
-BACKEND_DOCKER_URL="${CODEBUFF_HTTP_SCHEME}://${BACKEND_DNS_HOST}:${CODEBUFF_WS_PORT}"
-WS_DOCKER_URL="${CODEBUFF_WS_SCHEME}://${BACKEND_DNS_HOST}:${CODEBUFF_WS_PORT}/ws"
+DOCKER_HOST_ALIAS="${DOCKER_HOST_ALIAS:-host.docker.internal}"
+BACKEND_DOCKER_URL="${CODEBUFF_HTTP_SCHEME}://${DOCKER_HOST_ALIAS}:${CODEBUFF_WS_PORT}"
+WS_DOCKER_URL="${CODEBUFF_WS_SCHEME}://${DOCKER_HOST_ALIAS}:${CODEBUFF_WS_PORT}/ws"
 
+# Diagnostics: print what we will use on host
 echo "[evals] Host BACKEND_URL:   ${CODEBUFF_BACKEND_URL}"
-echo "[evals] Docker BACKEND_URL: ${BACKEND_DOCKER_URL}"
 echo "[evals] Host WS URL:        ${CODEBUFF_WEBSOCKET_URL}"
-echo "[evals] Docker WS URL:      ${WS_DOCKER_URL}"
 echo "[evals] Healthz URL:        ${HEALTHZ_URL}"
+# Diagnostics: relevant env presence (mask secrets)
+[[ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]] && echo "[evals] GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}" || echo "[evals] GOOGLE_APPLICATION_CREDENTIALS: (unset)"
+if [[ -n "${GOOGLE_APPLICATION_CREDENTIALS_JSON:-}" ]]; then
+  echo "[evals] GOOGLE_APPLICATION_CREDENTIALS_JSON: present (len=${#GOOGLE_APPLICATION_CREDENTIALS_JSON})"
+else
+  echo "[evals] GOOGLE_APPLICATION_CREDENTIALS_JSON: (unset)"
+fi
+[[ -n "${NEXT_PUBLIC_CB_ENVIRONMENT:-}" ]] && echo "[evals] NEXT_PUBLIC_CB_ENVIRONMENT=${NEXT_PUBLIC_CB_ENVIRONMENT}" || true
 
-# Start services
-docker compose -f "$COMPOSE_FILE" up -d --build db backend
-# Add: show container status for quick visibility
-docker compose -f "$COMPOSE_FILE" ps backend || true
+# Start only DB in docker
+docker compose -f "$COMPOSE_FILE" up -d --build db
+
+# Start backend locally on host (adjust command if needed)
+BACKEND_CMD="${BACKEND_CMD:-bun --cwd backend dev}"
+echo "[evals] Starting backend locally: $BACKEND_CMD"
+$BACKEND_CMD >"${SCRIPT_DIR}/../backend.log" 2>&1 &
+BACKEND_PID=$!
+trap 'kill -TERM "$BACKEND_PID" 2>/dev/null || true; docker compose -f "$COMPOSE_FILE" down -v' EXIT
+
+# Wait for backend to be healthy
 "$SCRIPT_DIR/wait-for-healthz.sh" "$HEALTHZ_URL" 90 || {
   echo "Backend not healthy at $HEALTHZ_URL after timeout" >&2
-  # Add: on failure, dump recent backend logs
-  docker compose -f "$COMPOSE_FILE" logs backend --tail=200 || true
+  echo "[evals] Last 200 lines of backend.log:" >&2
+  tail -n 200 "${SCRIPT_DIR}/../backend.log" || true
   exit 1
 }
 
-# Drizzle seed (prints CODEBUFF_API_KEY=...)
-# Add: pass compose-network URLs so the seeder can reach backend from within the docker network
+echo "[evals] Backend is healthy."
+
+# Print env inside seeder container for verification
+echo "[evals] Seeder container env (filtered):"
+docker compose -f "$COMPOSE_FILE" run --rm \
+  -e CODEBUFF_BACKEND_URL="$BACKEND_DOCKER_URL" \
+  -e CODEBUFF_WEBSOCKET_URL="$WS_DOCKER_URL" \
+  seeder /usr/bin/env | grep -E 'CODEBUFF|GOOGLE|NEXT_PUBLIC|BACKEND|PORT' || true
+
+# Run seeder (prints CODEBUFF_API_KEY=...)
 KEY_LINE=$(docker compose -f "$COMPOSE_FILE" run --rm \
   -e CODEBUFF_BACKEND_URL="$BACKEND_DOCKER_URL" \
   -e CODEBUFF_WEBSOCKET_URL="$WS_DOCKER_URL" \
   seeder | tail -n1) || {
-  echo "[evals] Seeder failed. Dumping backend logs:" >&2
-  docker compose -f "$COMPOSE_FILE" logs backend --tail=200 || true
+  echo "[evals] Seeder failed. Dumping backend.log tail:" >&2
+  tail -n 200 "${SCRIPT_DIR}/../backend.log" || true
   docker compose -f "$COMPOSE_FILE" ps || true
   exit 1
 }

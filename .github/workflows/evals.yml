@@ -81,10 +81,10 @@ jobs:
         run: evals/scripts/run-remote.sh --prompt "Say hi from CI and print the working directory" --max-steps 10
 
       # Enable SSH (tmate) debug session when the job fails
-      - name: Open interactive debug shell
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15 # optional guard
+      # - name: Open interactive debug shell
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15 # optional guard
 
       - name: Workflow completed
         run: echo "Evals workflow completed successfully"
