@@ -3,6 +3,7 @@
 import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+import { mapLimit } from 'async'
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
@@ -414,22 +415,19 @@ async function screenCommitsWithGpt5(
     }
   }
 
-  // Process commits with limited concurrency
-  for (let i = 0; i < commits.length; i += concurrency) {
-    const commitPromises = commits
-      .slice(i, i + concurrency)
-      .map((commit, idx) => processCommit(commit, i + idx))
+  // Process commits with limited concurrency using mapLimit
+  const results = await mapLimit(
+    commits,
+    concurrency,
+    async (commit: CommitInfo) => {
+      const index = commits.indexOf(commit)
+      return processCommit(commit, index)
+    },
+  )
 
-    const results = await Promise.all(commitPromises)
-    results.forEach((result) => {
-      if (result) selectedCommits.push(result)
-    })
-
-    // Add small delay between concurrency groups to be respectful
-    if (i + concurrency < commits.length) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
-  }
+  results.forEach((result) => {
+    if (result) selectedCommits.push(result)
+  })
 
   return selectedCommits
 }
