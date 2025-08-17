@@ -30,6 +30,9 @@ type MiddlewareCallback = (
   userInfo: UserInfo | undefined,
 ) => Promise<void | ServerAction>
 
+// Limit length of client-facing error messages to avoid leaking details
+const CLIENT_ERROR_MAX_LEN = 300
+
 function getServerErrorAction<T extends ClientAction>(
   action: T,
   error: T extends { type: 'prompt' }
@@ -118,7 +121,7 @@ export class WebSocketMiddleware {
               message: (error instanceof Error
                 ? error.message
                 : String(error)
-              ).slice(0, 300),
+              ).slice(0, CLIENT_ERROR_MAX_LEN),
             }),
           )
         }
@@ -178,7 +181,7 @@ export class WebSocketMiddleware {
                     message: (error instanceof Error
                       ? error.message
                       : String(error)
-                    ).slice(0, 300),
+                    ).slice(0, CLIENT_ERROR_MAX_LEN),
                   }),
                 )
               }

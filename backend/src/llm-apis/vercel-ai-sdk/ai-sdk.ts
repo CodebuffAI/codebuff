@@ -208,43 +208,58 @@ export const promptAiSdkStream = async function* (
   let content = ''
   let reasoning = false
 
-  for await (const chunk of response.fullStream) {
-    if (chunk.type === 'error') {
-      logger.error(
-        {
-          chunk: { ...chunk, error: undefined },
-          error: errorToObject(chunk.error),
-          model: options.model,
-        },
-        'Error from AI SDK',
-      )
+  try {
+    for await (const chunk of response.fullStream) {
+      if (chunk.type === 'error') {
+        logger.error(
+          {
+            chunk: { ...chunk, error: undefined },
+            error: errorToObject(chunk.error),
+            model: options.model,
+          },
+          'Error from AI SDK',
+        )
 
-      const errorMessage = buildProviderErrorMessage(
-        chunk.error,
-        provider,
-        options.model,
-      )
-      throw new Error(errorMessage, {
-        cause: chunk.error,
-      })
-    }
-    if (chunk.type === 'reasoning-delta') {
-      if (!reasoning) {
-        reasoning = true
-        yield `${startToolTag}{
+        const errorMessage = buildProviderErrorMessage(
+          chunk.error,
+          provider,
+          options.model,
+        )
+        throw new Error(errorMessage, {
+          cause: chunk.error,
+        })
+      }
+      if (chunk.type === 'reasoning-delta') {
+        if (!reasoning) {
+          reasoning = true
+          yield `${startToolTag}{
   ${JSON.stringify(toolNameParam)}: "think_deeply",
   "thought": "`
+        }
+        yield JSON.stringify(chunk.text).slice(1, -1)
       }
-      yield JSON.stringify(chunk.text).slice(1, -1)
-    }
-    if (chunk.type === 'text-delta') {
-      if (reasoning) {
-        reasoning = false
-        yield `"\n}${endToolTag}\n\n`
+      if (chunk.type === 'text-delta') {
+        if (reasoning) {
+          reasoning = false
+          yield `"\n}${endToolTag}\n\n`
+        }
+        content += chunk.text
+        yield chunk.text
       }
-      content += chunk.text
-      yield chunk.text
     }
+  } catch (err) {
+    logger.error(
+      {
+        provider,
+        model: options.model,
+        userId: options.userId,
+        clientSessionId: options.clientSessionId,
+        userInputId: options.userInputId,
+        error: errorToObject(err),
+      },
+      'LLM streaming iteration failed',
+    )
+    throw new Error(buildProviderErrorMessage(err, provider, options.model))
   }
 
   const messageId = (await response.response).id

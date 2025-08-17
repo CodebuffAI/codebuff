@@ -402,10 +402,11 @@ export const onWebsocketAction = async (
         'Got error running subscribeToAction callback',
       )
       // Surface an explicit error to the client instead of hanging
-      const message =
+      const rawMessage =
         e && typeof e === 'object' && 'message' in e
           ? String((e as any).message)
           : String(e)
+      const message = rawMessage.slice(0, CLIENT_ERROR_MAX_LEN)
       if (msg.data.type === 'prompt') {
         sendAction(ws, {
           type: 'prompt-error',
@@ -421,6 +422,9 @@ export const onWebsocketAction = async (
     }
   })
 }
+
+// Limit length of client-facing error messages to avoid leaking details
+const CLIENT_ERROR_MAX_LEN = 300
 
 // Register action handlers
 subscribeToAction('prompt', protec.run(onPrompt))
