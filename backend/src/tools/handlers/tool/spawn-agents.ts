@@ -104,10 +104,14 @@ export const handleSpawnAgents = ((params: {
   }
 
   const triggerSpawnAgents = async () => {
+    // Filter out system messages from conversation history to avoid including parent's system prompt
+    const messagesWithoutSystem = getLatestState().messages.filter(
+      (message) => message.role !== 'system',
+    )
     const conversationHistoryMessage: CodebuffMessage = {
       role: 'user',
       content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
-        getLatestState().messages,
+        messagesWithoutSystem,
         null,
         2,
       )}`,
