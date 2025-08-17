@@ -15,6 +15,7 @@ import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { APICallError, generateObject, generateText, streamText } from 'ai'
+import { env } from '@codebuff/internal'
 
 import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { logger } from '../../util/logger'
@@ -76,6 +77,37 @@ function getProviderForModel(model: Model): string {
   return 'openrouter'
 }
 
+// Provider preflight: return actionable error before attempting the call
+function valueForEnv(key: string): string | undefined {
+  // Prefer typed env if available, fall back to process.env
+  return ((env as any)?.[key] ?? process.env[key]) as string | undefined
+}
+
+function getMissingProviderEnvKeys(provider: string): string[] {
+  switch (provider) {
+    case 'openrouter':
+      return ['OPEN_ROUTER_API_KEY'].filter((k) => !valueForEnv(k))
+    case 'openai':
+    case 'openai-responses':
+      return ['OPENAI_API_KEY'].filter((k) => !valueForEnv(k))
+    case 'google':
+      return ['GOOGLE_GENERATIVE_AI_API_KEY'].filter((k) => !valueForEnv(k))
+    default:
+      return [] // Skip strict checks for vertex/others to avoid false negatives
+  }
+}
+
+function assertProviderConfigured(provider: string, model: Model) {
+  const missing = getMissingProviderEnvKeys(provider)
+  if (missing.length > 0) {
+    const providerName = provider === 'google' ? 'Gemini' : provider
+    const plural = missing.length > 1 ? 's' : ''
+    throw new Error(
+      `Provider not configured (${providerName}) for model "${model}": missing ${missing.join(', ')} environment variable${plural}.`,
+    )
+  }
+}
+
 // TODO: Add retries & fallbacks: likely by allowing this to instead of "model"
 // also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
@@ -125,6 +157,9 @@ export const promptAiSdkStream = async function* (
     },
     'LLM request start',
   )
+
+  // Preflight provider configuration
+  assertProviderConfigured(provider, options.model)
 
   let aiSDKModel = modelToAiSDKModel(options.model)
   let response: any
@@ -305,6 +340,9 @@ export const promptAiSdk = async function (
     'LLM request start',
   )
 
+  // Preflight provider configuration
+  assertProviderConfigured(provider, options.model)
+
   let response: any
   try {
     response = await generateText({
@@ -409,6 +447,9 @@ export const promptAiSdkStructured = async function <T>(options: {
     },
     'LLM request start',
   )
+
+  // Preflight provider configuration
+  assertProviderConfigured(provider, options.model)
 
   const responsePromise = generateObject<z.ZodType<T>, 'object'>({
     ...options,
