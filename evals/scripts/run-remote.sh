@@ -19,6 +19,9 @@ HEALTHZ_URL="${CODEBUFF_HTTP_SCHEME}://${CODEBUFF_WS_HOST}:${CODEBUFF_WS_PORT}/h
 # Add: preserve previous behavior to bypass local binary check in eval flow
 export CODEBUFF_SKIP_BINARY_CHECK=1
 
+# Add: disable BigQuery during eval runs
+export CODEBUFF_DISABLE_BIGQUERY=1
+
 # Compute URLs for host and docker network
 export CODEBUFF_BACKEND_URL="${CODEBUFF_HTTP_SCHEME}://${CODEBUFF_WS_HOST}:${CODEBUFF_WS_PORT}"
 DOCKER_HOST_ALIAS="${DOCKER_HOST_ALIAS:-host.docker.internal}"
@@ -63,12 +66,14 @@ echo "[evals] Seeder container env (filtered):"
 docker compose -f "$COMPOSE_FILE" run --rm \
   -e CODEBUFF_BACKEND_URL="$BACKEND_DOCKER_URL" \
   -e CODEBUFF_WEBSOCKET_URL="$WS_DOCKER_URL" \
-  seeder /usr/bin/env | grep -E 'CODEBUFF|GOOGLE|NEXT_PUBLIC|BACKEND|PORT' || true
+  -e DATABASE_URL="postgres://codebuff:codebuff@db:5432/codebuff" \
+  seeder /usr/bin/env | grep -E 'CODEBUFF|GOOGLE|NEXT_PUBLIC|BACKEND|PORT|DATABASE_URL' || true
 
 # Run seeder (prints CODEBUFF_API_KEY=...)
 KEY_LINE=$(docker compose -f "$COMPOSE_FILE" run --rm \
   -e CODEBUFF_BACKEND_URL="$BACKEND_DOCKER_URL" \
   -e CODEBUFF_WEBSOCKET_URL="$WS_DOCKER_URL" \
+  -e DATABASE_URL="postgres://codebuff:codebuff@db:5432/codebuff" \
   seeder | tail -n1) || {
   echo "[evals] Seeder failed. Dumping backend.log tail:" >&2
   tail -n 200 "${SCRIPT_DIR}/../backend.log" || true

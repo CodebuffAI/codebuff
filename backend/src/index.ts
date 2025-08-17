@@ -73,19 +73,24 @@ app.use(
 )
 
 // Initialize BigQuery before starting the server
-setupBigQuery().catch((err) => {
-  logger.error(
-    {
-      error: err,
-      stack: err.stack,
-      message: err.message,
-      name: err.name,
-      code: err.code,
-      details: err.details,
-    },
-    'Failed to initialize BigQuery client',
-  )
-})
+// Delete: unconditional BigQuery initialization replaced by guarded init (skipped in evals)
+if (process.env.CODEBUFF_DISABLE_BIGQUERY === '1') {
+  logger.info('BigQuery initialization skipped (CODEBUFF_DISABLE_BIGQUERY=1)')
+} else {
+  setupBigQuery().catch((err: any) => {
+    logger.error(
+      {
+        error: err,
+        stack: err?.stack,
+        message: err?.message,
+        name: err?.name,
+        code: err?.code,
+        details: err?.details,
+      },
+      'Failed to initialize BigQuery client',
+    )
+  })
+}
 
 initAnalytics()
 
