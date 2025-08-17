@@ -15,7 +15,7 @@ import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 
-import type { EvalCommit, GitRepoEvalData, ModelConfig } from './types'
+import type { EvalCommit, EvalData, ModelConfig } from './types'
 
 class RunSingleEvalCommand extends Command {
   static description = 'Run a single git evaluation task'
@@ -95,9 +95,7 @@ async function runSingleEvalTask(options: {
     throw new Error(`Eval file not found: ${evalFile}`)
   }
 
-  const evalData = JSON.parse(
-    fs.readFileSync(evalFile, 'utf-8'),
-  ) as GitRepoEvalData
+  const evalData = JSON.parse(fs.readFileSync(evalFile, 'utf-8')) as EvalData
   console.log(`Repository: ${evalData.repoUrl}`)
   console.log(`Total commits available: ${evalData.evalCommits.length}`)
 
@@ -125,7 +123,7 @@ async function runSingleEvalTask(options: {
   }
 
   console.log(
-    `Commit: ${evalCommit.sha.slice(0, 8)} - ${evalCommit.message.split('\n')[0]}`,
+    `Commit: ${evalCommit.sha.slice(0, 8)} - ${evalCommit.spec.split('\n')[0]}`,
   )
 
   // Parse model config

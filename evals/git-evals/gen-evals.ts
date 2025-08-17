@@ -9,33 +9,8 @@ import { models } from '@codebuff/common/constants'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 
-// Types for the evaluation data structure
-export interface FileState {
-  path: string
-  preContent: string
-  postContent: string
-}
-
-export interface EvalCommit {
-  sha: string
-  spec: string
-  fileStates: FileState[]
-}
-
-export interface EvalData {
-  repoUrl: string
-  generationDate: string
-  evalCommits: EvalCommit[]
-}
-
-// Input structure for creating evaluations
-export interface EvalInput {
-  commitSha: string // Required - defines the codebase state to load for the task
-  fileStates?: FileState[] // Optional - if not provided, will compute from commit parent
-}
-
+import type { EvalData, EvalInput, FileState, EvalCommit } from './types'
 const SPEC_GENERATION_PROMPT = `Given a set of file changes and an optional description, write a clear specification describing WHAT needs to be implemented.
-
 First, use <thinking> tags to analyze the changes and determine what should go into the spec.
 
 Then, generate the spec.
@@ -73,12 +48,18 @@ async function generateFileStateFromCommit(
     try {
       // Get content after commit first
       const postCommand = `git show ${commitSha}:${JSON.stringify(file)}`
-      const postContent = execSync(postCommand, { cwd: repoPath, stdio: ['ignore', 'pipe', 'ignore'] }).toString()
+      const postContent = execSync(postCommand, {
+        cwd: repoPath,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString()
 
       try {
         // Try to get content from parent commit (commit^)
         const preCommand = `git show ${commitSha}^:${JSON.stringify(file)}`
-        const preContent = execSync(preCommand, { cwd: repoPath, stdio: ['ignore', 'pipe', 'ignore'] }).toString()
+        const preContent = execSync(preCommand, {
+          cwd: repoPath,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).toString()
 
         fileStates.push({
           path: file,

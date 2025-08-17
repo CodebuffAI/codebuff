@@ -66,7 +66,7 @@ Overall Performance Metrics:
       const durationSeconds = (run.durationMs / 1000).toFixed(1)
 
       return `
-=== Eval Run ${index + 1}: ${run.eval_commit.message} ===
+=== Eval Run ${index + 1}: ${run.eval_commit.spec.split('\n')[0]} ===
 Spec: ${run.eval_commit.spec}
 Duration: ${durationSeconds}s
 Error: ${run.error || 'None'}
