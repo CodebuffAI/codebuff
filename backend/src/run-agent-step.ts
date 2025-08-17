@@ -3,6 +3,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 import {
   ASYNC_AGENTS_ENABLED,
   supportsCacheControl,
+  providerModelNames,
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
@@ -49,6 +50,7 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -372,30 +374,52 @@ export const runAgentStep = async (
 
   const stream = getStream(messagesWithSystem(agentMessages, system))
 
-  const {
-    toolCalls,
-    toolResults: newToolResults,
-    state,
-    fullResponse: fullResponseAfterStream,
-    fullResponseChunks,
-  } = await processStreamWithTools({
-    stream,
-    ws,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    agentState,
-    repoId,
-    messages: agentMessages,
-    agentTemplate,
-    localAgentTemplates,
-    fileContext,
-    agentContext,
-    onResponseChunk,
-    fullResponse,
-  })
+  // Wrap streaming in try/catch to enrich generic connection errors with provider/model context
+  let toolCalls: CodebuffToolCall[] = []
+  let newToolResults: ToolResult[] = []
+  let state: any
+  let fullResponseAfterStream = ''
+  let fullResponseChunks: string[] = []
+
+  try {
+    const res = await processStreamWithTools({
+      stream,
+      ws,
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      agentState,
+      repoId,
+      messages: agentMessages,
+      agentTemplate,
+      localAgentTemplates,
+      fileContext,
+      agentContext,
+      onResponseChunk,
+      fullResponse,
+    })
+    toolCalls = res.toolCalls
+    newToolResults = res.toolResults
+    state = res.state
+    fullResponseAfterStream = res.fullResponse
+    fullResponseChunks = res.fullResponseChunks
+  } catch (e) {
+    const primaryModel = Array.isArray(agentTemplate.model)
+      ? agentTemplate.model[0]
+      : agentTemplate.model
+    const provider =
+      (providerModelNames as any)[
+        primaryModel as keyof typeof providerModelNames
+      ] ?? 'unknown'
+    const main = e instanceof Error ? e.message : String(e)
+    const enriched = main.startsWith('LLM request failed (')
+      ? main
+      : `LLM request failed (provider=${provider}, model=${primaryModel}): ${main}`
+    throw new Error(enriched)
+  }
+
   toolResults.push(...newToolResults)
 
   fullResponse = fullResponseAfterStream
