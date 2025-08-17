@@ -103,6 +103,10 @@ export function listen(server: HttpServer, path: string) {
   const wss = new WebSocketServer({ server, path })
   let deadConnectionCleaner: NodeJS.Timeout | undefined
 
+  // Set WS readiness immediately upon attaching WS route to HTTP server
+  WS_READY = true
+  logger.info(`Web socket route '${path}' attached; readiness set to true.`)
+
   // Add: mark listening immediately if HTTP server already listening; otherwise, wait for 'listening'
   const markListening = () => {
     if (deadConnectionCleaner) return
