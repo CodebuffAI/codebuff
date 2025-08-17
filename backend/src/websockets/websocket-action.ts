@@ -3,6 +3,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 import {
   ASYNC_AGENTS_ENABLED,
   toOptionalFile,
+  providerModelNames,
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
@@ -10,6 +11,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 import { asyncAgentManager } from '../async-agent-manager'
 import {
@@ -21,7 +23,10 @@ import {
 import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendMessage } from './server'
-import { assembleLocalAgentTemplates } from '../templates/agent-registry'
+import {
+  assembleLocalAgentTemplates,
+  getAgentTemplate,
+} from '../templates/agent-registry'
 import { logger, withLoggerContext } from '../util/logger'
 
 import type {
@@ -168,6 +173,65 @@ export async function genUsageResponse(
   })
 }
 
+// Final-guard enrichment: ensure generic connection errors surface provider/model
+async function enrichPromptErrorMessage(
+  action: ClientAction<'prompt'>,
+  message: string,
+): Promise<string> {
+  try {
+    if (message.startsWith('LLM request failed (')) return message
+    const lower = message.toLowerCase()
+    const likelyConn =
+      lower.includes('failed to connect') ||
+      lower.includes('fetch failed') ||
+      lower.includes('network') ||
+      lower.includes('econn') ||
+      lower.includes('timeout')
+    if (!likelyConn) return message
+
+    const fileContext = action.sessionState?.fileContext
+    if (!fileContext) return message
+
+    const { agentTemplates } = assembleLocalAgentTemplates(fileContext)
+
+    let agentType: string | undefined
+    if (action.agentId) {
+      const tpl = await getAgentTemplate(action.agentId, agentTemplates)
+      if (tpl) agentType = action.agentId
+    }
+    if (!agentType) {
+      const configBaseAgent = fileContext.codebuffConfig?.baseAgent
+      if (configBaseAgent) {
+        const tpl = await getAgentTemplate(configBaseAgent, agentTemplates)
+        if (tpl) agentType = configBaseAgent
+      }
+    }
+    if (!agentType) {
+      const map = {
+        ask: AgentTemplateTypes.ask,
+        lite: AgentTemplateTypes.base_lite,
+        normal: AgentTemplateTypes.base,
+        max: AgentTemplateTypes.base_max,
+        experimental: AgentTemplateTypes.base_experimental,
+      } as Record<string, string>
+      agentType = map[(action as any).costMode] ?? AgentTemplateTypes.base
+    }
+
+    const template = await getAgentTemplate(agentType as any, agentTemplates)
+    if (!template) return message
+
+    const primaryModel = Array.isArray(template.model)
+      ? template.model[0]
+      : template.model
+    const provider =
+      (providerModelNames as any)[primaryModel as any] ?? 'unknown'
+
+    return `LLM request failed (provider=${provider}, model=${primaryModel}): ${message}`
+  } catch {
+    return message
+  }
+}
+
 /**
  * Handles prompt actions from the client
  * @param action - The prompt action from the client
@@ -214,7 +278,11 @@ const onPrompt = async (
       } catch (e) {
         logger.error(e, 'Error in mainPrompt')
         let response =
-          e && typeof e === 'object' && 'message' in e ? `${e.message}` : `${e}`
+          e && typeof e === 'object' && 'message' in e
+            ? `${(e as any).message}`
+            : `${e}`
+        // Enrich generic connection errors with provider/model context as a final guard
+        response = await enrichPromptErrorMessage(action, response)
 
         sendAction(ws, {
           type: 'prompt-error',
@@ -402,12 +470,14 @@ export const onWebsocketAction = async (
         'Got error running subscribeToAction callback',
       )
       // Surface an explicit error to the client instead of hanging
-      const rawMessage =
+      let rawMessage =
         e && typeof e === 'object' && 'message' in e
           ? String((e as any).message)
           : String(e)
-      const message = rawMessage.slice(0, CLIENT_ERROR_MAX_LEN)
+      let message = rawMessage.slice(0, CLIENT_ERROR_MAX_LEN)
       if (msg.data.type === 'prompt') {
+        // Final enrichment guard even at the action dispatcher level
+        message = await enrichPromptErrorMessage(msg.data as any, message)
         sendAction(ws, {
           type: 'prompt-error',
           userInputId: (msg.data as any).promptId,
