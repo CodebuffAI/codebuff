@@ -108,6 +108,27 @@ function assertProviderConfigured(provider: string, model: Model) {
   }
 }
 
+// Build a concise, user-facing error message with provider/model context
+function buildProviderErrorMessage(
+  err: unknown,
+  provider: string,
+  model: Model,
+) {
+  const main =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'string'
+        ? err
+        : JSON.stringify(err)
+  const status =
+    (APICallError.isInstance(err) &&
+      ((err as any).statusCode ?? (err as any).status)) ||
+    (typeof err === 'object' && err && (err as any).status) ||
+    (typeof err === 'object' && err && (err as any).statusCode)
+  const statusPart = status ? `, status=${status}` : ''
+  return `LLM request failed (provider=${provider}, model=${model}${statusPart}): ${main}`
+}
+
 // TODO: Add retries & fallbacks: likely by allowing this to instead of "model"
 // also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
@@ -181,7 +202,7 @@ export const promptAiSdkStream = async function* (
       },
       'LLM streamText init failed',
     )
-    throw err
+    throw new Error(buildProviderErrorMessage(err, provider, options.model))
   }
 
   let content = ''
@@ -198,16 +219,11 @@ export const promptAiSdkStream = async function* (
         'Error from AI SDK',
       )
 
-      const errorBody = APICallError.isInstance(chunk.error)
-        ? chunk.error.responseBody
-        : undefined
-      const mainErrorMessage =
-        chunk.error instanceof Error
-          ? chunk.error.message
-          : typeof chunk.error === 'string'
-            ? chunk.error
-            : JSON.stringify(chunk.error)
-      const errorMessage = `Error from AI SDK (model ${options.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
+      const errorMessage = buildProviderErrorMessage(
+        chunk.error,
+        provider,
+        options.model,
+      )
       throw new Error(errorMessage, {
         cause: chunk.error,
       })
@@ -361,7 +377,7 @@ export const promptAiSdk = async function (
       },
       'LLM generateText failed',
     )
-    throw error
+    throw new Error(buildProviderErrorMessage(error, provider, options.model))
   }
 
   const content = response.text
@@ -474,7 +490,7 @@ export const promptAiSdkStructured = async function <T>(options: {
       },
       'LLM generateObject failed',
     )
-    throw error
+    throw new Error(buildProviderErrorMessage(error, provider, options.model))
   }
 
   const content = response.object
