@@ -102,7 +102,51 @@ async function processMessage(
 export function listen(server: HttpServer, path: string) {
   const wss = new WebSocketServer({ server, path })
   let deadConnectionCleaner: NodeJS.Timeout | undefined
+
+  // Add: mark listening immediately if HTTP server already listening; otherwise, wait for 'listening'
+  const markListening = () => {
+    if (deadConnectionCleaner) return
+    logger.info(`Web socket server listening on ${path}.`)
+    WS_READY = true
+    deadConnectionCleaner = setInterval(function ping() {
+      const now = Date.now()
+      try {
+        for (const ws of wss.clients) {
+          try {
+            const client = SWITCHBOARD.getClient(ws)
+            if (!client) {
+              logger.warn(
+                'Client not found in switchboard, terminating connection',
+              )
+              ws.terminate()
+              continue
+            }
+
+            const lastSeen = client.lastSeen
+            if (lastSeen < now - CONNECTION_TIMEOUT_MS) {
+              ws.terminate()
+            }
+          } catch (err) {
+            // logger.error(
+            //   { error: err },
+            //   'Error checking individual connection in deadConnectionCleaner'
+            // )
+          }
+        }
+      } catch (error) {
+        logger.error({ error }, 'Error in deadConnectionCleaner outer loop')
+      }
+    }, CONNECTION_TIMEOUT_MS)
+  }
+
+  if (server.listening) {
+    markListening()
+  } else {
+    server.on('listening', markListening)
+  }
+
   wss.on('listening', () => {
+    // existing behavior remains as a fallback; guarded by deadConnectionCleaner to avoid double init
     logger.info(`Web socket server listening on ${path}.`)
     WS_READY = true
     deadConnectionCleaner = setInterval(function ping() {

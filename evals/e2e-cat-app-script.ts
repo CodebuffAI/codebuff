@@ -9,7 +9,8 @@ import { sleep } from '@codebuff/common/util/promise'
 import type { ChildProcess } from 'child_process'
 
 const BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? '3001')
-const BACKEND_URL = process.env.CODEBUFF_BACKEND_URL
+const BACKEND_URL = 
+  process.env.CODEBUFF_BACKEND_URL ?? `http://127.0.0.1:${BACKEND_PORT}`
 const BACKEND_READY_TIMEOUT = 30000 // 30 seconds
 const CLI_READY_TIMEOUT = 10000 // 10 seconds
 const TASK_COMPLETION_TIMEOUT = 120000 // 2 minutes
@@ -189,8 +190,8 @@ export class E2ETestRunner {
         NODE_ENV: 'development',
         // Set environment to dev to avoid production database requirements
         NEXT_PUBLIC_CB_ENVIRONMENT: 'dev',
-        // Disable BigQuery for testing
-        DISABLE_BIGQUERY: 'true',
+        // Disable BigQuery for testing (backend expects this key/value)
+        CODEBUFF_DISABLE_BIGQUERY: '1',
       },
     })
 
