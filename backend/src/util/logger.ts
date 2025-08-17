@@ -69,6 +69,21 @@ const pinoLogger = pino(
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
 
+// Detect CI/GitHub Actions explicitly
+const IN_CI = process.env.GITHUB_ACTIONS === 'true' || process.env.CI === 'true'
+
+// Add a simple subscriber so other modules (like websockets) can mirror logs to clients for debugging
+let logSubscriber:
+  | undefined
+  | ((entry: {
+      level: 'debug' | 'info' | 'warn' | 'error'
+      msg: string
+      data?: any
+    }) => void)
+export function onLog(cb: typeof logSubscriber) {
+  logSubscriber = cb
+}
+
 function splitAndLog(
   level: LogLevel,
   data: any,
@@ -106,3 +121,57 @@ export const logger: Record<LogLevel, pino.LogFn> =
           ]
         }),
       ) as Record<LogLevel, pino.LogFn>)
+
+const orig = logger
+logger.debug = (...args: any[]) => {
+  try {
+    IN_CI && console.debug('[backend][debug]', ...args)
+  } catch {}
+  try {
+    logSubscriber?.({
+      level: 'debug',
+      msg: String(args[args.length - 1] ?? ''),
+      data: args[0],
+    })
+  } catch {}
+  return orig.debug.apply(orig, args as any)
+}
+logger.info = (...args: any[]) => {
+  try {
+    IN_CI && console.info('[backend][info]', ...args)
+  } catch {}
+  try {
+    logSubscriber?.({
+      level: 'info',
+      msg: String(args[args.length - 1] ?? ''),
+      data: args[0],
+    })
+  } catch {}
+  return orig.info.apply(orig, args as any)
+}
+logger.warn = (...args: any[]) => {
+  try {
+    IN_CI && console.warn('[backend][warn]', ...args)
+  } catch {}
+  try {
+    logSubscriber?.({
+      level: 'warn',
+      msg: String(args[args.length - 1] ?? ''),
+      data: args[0],
+    })
+  } catch {}
+  return orig.warn.apply(orig, args as any)
+}
+logger.error = (...args: any[]) => {
+  try {
+    IN_CI && console.error('[backend][error]', ...args)
+  } catch {}
+  try {
+    logSubscriber?.({
+      level: 'error',
+      msg: String(args[args.length - 1] ?? ''),
+      data: args[0],
+    })
+  } catch {}
+  return orig.error.apply(orig, args as any)
+}

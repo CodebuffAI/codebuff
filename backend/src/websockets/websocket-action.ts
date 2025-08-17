@@ -27,7 +27,11 @@ import {
   assembleLocalAgentTemplates,
   getAgentTemplate,
 } from '../templates/agent-registry'
-import { logger, withLoggerContext } from '../util/logger'
+import {
+  logger,
+  withLoggerContext,
+  onLog as onBackendLog,
+} from '../util/logger'
 
 import type {
   ClientAction,
@@ -248,6 +252,8 @@ const onPrompt = async (
   await withLoggerContext(
     { fingerprintId, clientRequestId: promptId, costMode },
     async () => {
+      // Opt this session into log streaming while prompt is active
+      sessionsForLogStreaming.add(clientSessionId)
       const userId = await getUserIdFromAuthToken(authToken)
       if (!userId) {
         sendAction(ws, {
@@ -256,6 +262,7 @@ const onPrompt = async (
           message:
             'Authentication failed: invalid API key or session. Please ensure CODEBUFF_API_KEY is valid.',
         })
+        sessionsForLogStreaming.delete(clientSessionId)
         return
       }
 
@@ -291,6 +298,7 @@ const onPrompt = async (
         })
       } finally {
         endUserInput(userId, promptId)
+        sessionsForLogStreaming.delete(clientSessionId)
         const usageResponse = await genUsageResponse(
           fingerprintId,
           userId,
@@ -455,6 +463,13 @@ export const onWebsocketAction = async (
   clientSessionId: string,
   msg: ClientMessage & { type: 'action' },
 ) => {
+  // Ensure log forwarder is registered and bound to this ws
+  initLogForwarder(({ clientSessionId: csid, action }) => {
+    if (csid === clientSessionId) {
+      sendAction(ws, action)
+    }
+  })
+
   await withLoggerContext({ clientSessionId }, async () => {
     const callbacks = callbacksByAction[msg.data.type] ?? []
     try {
@@ -495,6 +510,30 @@ export const onWebsocketAction = async (
 
 // Limit length of client-facing error messages to avoid leaking details
 const CLIENT_ERROR_MAX_LEN = 300
+
+// Track which sessions want log mirroring (enabled if a prompt starts)
+const sessionsForLogStreaming = new Set<string>()
+
+// Register a single log forwarder
+let logForwarderInitialized = false
+function initLogForwarder(
+  send: (payload: { clientSessionId: string; action: ServerAction }) => void,
+) {
+  if (logForwarderInitialized) return
+  logForwarderInitialized = true
+  onBackendLog?.((entry) => {
+    // Broadcast only to sessions that opted-in during active runs
+    for (const sessionId of sessionsForLogStreaming) {
+      try {
+        const snippet = String(entry.msg).slice(0, 300)
+        send({
+          clientSessionId: sessionId,
+          action: { type: 'server-log', level: entry.level, message: snippet },
+        } as any)
+      } catch {}
+    }
+  })
+}
 
 // Register action handlers
 subscribeToAction('prompt', protec.run(onPrompt))
