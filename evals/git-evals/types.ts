@@ -4,36 +4,29 @@ import type { AgentStep } from '../scaffolding'
 import type { PostEvalAnalysis } from './post-eval-analysis'
 import type { Model } from '@codebuff/common/constants'
 
-// Base commit types
-export interface CommitInfo {
-  sha: string
-  author: string
-  date: string
-  message: string
-  stats: {
-    filesChanged: number
-    insertions: number
-    deletions: number
-  }
-}
-
-export interface CommitFileState {
+export interface FileState {
   path: string
   preContent: string // Content before the commit
   postContent: string // Content after the commit
 }
 
-export interface EvalCommit extends CommitInfo {
+export interface EvalCommit {
+  sha: string
   spec: string
-  selectionReason: string // Why Sonnet chose this commit
-  fileStates: CommitFileState[] // Ground truth file states
+  fileStates: FileState[] // Ground truth file states
 }
 
-export interface GitRepoEvalData {
+export interface EvalData {
   repoUrl: string // URL of the git repository to clone
   testRepoName?: string // Optional - can be inferred from repoUrl
   generationDate: string
   evalCommits: EvalCommit[]
+}
+
+// Input structure for creating evaluations (from gen-evals)
+export interface EvalInput {
+  commitSha: string // Required - defines the codebase state to load for the task
+  fileStates?: FileState[] // Optional - if not provided, will compute from commit parent
 }
 
 // Agent interaction types
@@ -49,7 +42,7 @@ export interface EvalRunLog {
   eval_commit: EvalCommit
   trace: CodebuffTrace[]
   error?: string
-  fileStates: CommitFileState[] // Files Codebuff changed
+  fileStates: FileState[] // Files Codebuff changed
   durationMs: number
 }
 
@@ -72,7 +65,6 @@ export interface FullEvalLog {
     failed_runs: number
   }
 }
-
 // Zod schemas
 export const AgentDecisionSchema = z.object({
   decision: z.enum(['continue', 'complete', 'halt']),

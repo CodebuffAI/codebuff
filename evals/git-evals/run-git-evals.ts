@@ -25,12 +25,12 @@ import type { AgentStep } from '../scaffolding'
 import type {
   AgentDecision,
   CodebuffTrace,
-  CommitFileState,
   EvalCommit,
   EvalRunJudged,
   EvalRunLog,
+  FileState,
   FullEvalLog,
-  GitRepoEvalData,
+  EvalData,
 } from './types'
 
 disableLiveUserInputCheck()
@@ -250,7 +250,7 @@ function getCodebuffFileStates(
   trace: CodebuffTrace[],
   evalCommitSha: string,
   projectPath: string,
-): CommitFileState[] {
+): FileState[] {
   const codebuffWrittenFilePaths = new Set<string>()
   if (trace) {
     // trace might be undefined or empty if error occurred very early
@@ -271,7 +271,7 @@ function getCodebuffFileStates(
     }
   }
 
-  const fileStates: CommitFileState[] = []
+  const fileStates: FileState[] = []
 
   if (codebuffWrittenFilePaths.size > 0) {
     for (const filePath of codebuffWrittenFilePaths) {
@@ -327,7 +327,7 @@ export async function runGitEvals(
   console.log(`Loading eval data from: ${evalDataPath}`)
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
-  ) as GitRepoEvalData
+  ) as EvalData
 
   console.log(
     `Loaded ${evalData.evalCommits.length} eval commits from ${evalDataPath}`,
@@ -388,10 +388,10 @@ export async function runGitEvals(
             )
 
             console.log(
-              `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.message}...`,
+              `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.spec.split('\n')[0]}...`,
             )
 
-            const safeMessage = evalCommit.message
+            const safeMessage = evalCommit.spec
               .split('\n')[0]
               .replace(/[^a-zA-Z0-9]/g, '_')
               .slice(0, 30)
@@ -441,7 +441,7 @@ export async function runGitEvals(
                 }
                 if (message.type === 'result' && message.result) {
                   console.log(
-                    `Completed eval for commit ${testRepoName} - ${evalCommit.message}`,
+                    `Completed eval for commit ${testRepoName} - ${evalCommit.spec.split('\n')[0]}`,
                   )
                   if (!logToStdout) {
                     console.log(`${JSON.stringify(message.result, null, 2)}`)
