@@ -72,12 +72,6 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
           userInputId: (action as any).userInputId,
         }
         break
-      case 'tool-call-response':
-        details = {
-          requestId: (action as any).requestId,
-          success: (action as any).success,
-        }
-        break
       default:
         details = undefined
     }
@@ -407,6 +401,23 @@ export const onWebsocketAction = async (
         },
         'Got error running subscribeToAction callback',
       )
+      // Surface an explicit error to the client instead of hanging
+      const message =
+        e && typeof e === 'object' && 'message' in e
+          ? String((e as any).message)
+          : String(e)
+      if (msg.data.type === 'prompt') {
+        sendAction(ws, {
+          type: 'prompt-error',
+          userInputId: (msg.data as any).promptId,
+          message,
+        })
+      } else {
+        sendAction(ws, {
+          type: 'action-error',
+          message,
+        })
+      }
     }
   })
 }

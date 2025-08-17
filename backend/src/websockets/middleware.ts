@@ -73,24 +73,51 @@ export class WebSocketMiddleware {
         ? await getUserInfoFromAuthToken(action.authToken)
         : undefined
 
-    for (const middleware of this.middlewares) {
-      const actionOrContinue = await middleware(
-        action,
+    // Add lightweight debug for correlation with SDK logs
+    logger.debug(
+      {
+        actionType: action.type,
         clientSessionId,
-        ws,
-        userInfo,
-      )
-      if (actionOrContinue) {
-        logger.warn(
-          {
-            actionType: action.type,
-            middlewareResp: actionOrContinue.type,
-            clientSessionId,
-          },
-          'Middleware execution halted.',
+        hasUser: !!(userInfo && (userInfo as any).id),
+      },
+      'WS middleware.execute start',
+    )
+
+    for (const middleware of this.middlewares) {
+      try {
+        const actionOrContinue = await middleware(
+          action,
+          clientSessionId,
+          ws,
+          userInfo,
+        )
+        if (actionOrContinue) {
+          logger.warn(
+            {
+              actionType: action.type,
+              middlewareResp: actionOrContinue.type,
+              clientSessionId,
+            },
+            'Middleware execution halted.',
+          )
+          if (!options.silent) {
+            sendAction(ws, actionOrContinue)
+          }
+          return false
+        }
+      } catch (error) {
+        logger.error(
+          { error, actionType: action.type, clientSessionId },
+          'Middleware threw error',
         )
         if (!options.silent) {
-          sendAction(ws, actionOrContinue)
+          sendAction(
+            ws,
+            getServerErrorAction(action, {
+              error: 'Internal error',
+              message: error instanceof Error ? error.message : String(error),
+            }),
+          )
         }
         return false
       }
@@ -133,7 +160,24 @@ export class WebSocketMiddleware {
             options,
           )
           if (shouldContinue) {
-            baseAction(action, clientSessionId, ws)
+            try {
+              baseAction(action, clientSessionId, ws)
+            } catch (error) {
+              logger.error(
+                { error, actionType: action.type, clientSessionId },
+                'Base action threw error',
+              )
+              if (!options.silent) {
+                sendAction(
+                  ws,
+                  getServerErrorAction(action, {
+                    error: 'Internal error',
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  }),
+                )
+              }
+            }
           }
         },
       )
