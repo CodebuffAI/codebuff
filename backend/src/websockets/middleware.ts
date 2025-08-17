@@ -78,7 +78,7 @@ export class WebSocketMiddleware {
       {
         actionType: action.type,
         clientSessionId,
-        hasUser: !!(userInfo && (userInfo as any).id),
+        hasUser: !!userInfo?.id,
       },
       'WS middleware.execute start',
     )
@@ -115,7 +115,10 @@ export class WebSocketMiddleware {
             ws,
             getServerErrorAction(action, {
               error: 'Internal error',
-              message: error instanceof Error ? error.message : String(error),
+              message: (error instanceof Error
+                ? error.message
+                : String(error)
+              ).slice(0, 300),
             }),
           )
         }
@@ -172,8 +175,10 @@ export class WebSocketMiddleware {
                   ws,
                   getServerErrorAction(action, {
                     error: 'Internal error',
-                    message:
-                      error instanceof Error ? error.message : String(error),
+                    message: (error instanceof Error
+                      ? error.message
+                      : String(error)
+                    ).slice(0, 300),
                   }),
                 )
               }

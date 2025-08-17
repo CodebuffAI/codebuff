@@ -55,6 +55,27 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
   return openRouterLanguageModel(model)
 }
 
+// Add provider helper to improve logging context (no behavior change)
+function getProviderForModel(model: Model): string {
+  if (
+    Object.values(finetunedVertexModels as Record<string, string>).includes(
+      model,
+    )
+  ) {
+    return 'vertex-finetuned'
+  }
+  if (Object.values(geminiModels).includes(model as GeminiModel)) {
+    return 'google'
+  }
+  if (model === openaiModels.o3pro || model === openaiModels.o3) {
+    return 'openai-responses'
+  }
+  if (Object.values(openaiModels).includes(model as OpenAIModel)) {
+    return 'openai'
+  }
+  return 'openrouter'
+}
+
 // TODO: Add retries & fallbacks: likely by allowing this to instead of "model"
 // also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
@@ -90,14 +111,43 @@ export const promptAiSdkStream = async function* (
     return
   }
   const startTime = Date.now()
+  const provider = getProviderForModel(options.model)
+  logger.debug(
+    {
+      provider,
+      model: options.model,
+      streaming: true,
+      userId: options.userId,
+      clientSessionId: options.clientSessionId,
+      userInputId: options.userInputId,
+      messages: options.messages.length,
+      maxRetries: options.maxRetries,
+    },
+    'LLM request start',
+  )
 
   let aiSDKModel = modelToAiSDKModel(options.model)
-
-  const response = streamText({
-    ...options,
-    model: aiSDKModel,
-    maxRetries: options.maxRetries,
-  })
+  let response: any
+  try {
+    response = streamText({
+      ...options,
+      model: aiSDKModel,
+      maxRetries: options.maxRetries,
+    })
+  } catch (err) {
+    logger.error(
+      {
+        provider,
+        model: options.model,
+        userId: options.userId,
+        clientSessionId: options.clientSessionId,
+        userInputId: options.userInputId,
+        error: errorToObject(err),
+      },
+      'LLM streamText init failed',
+    )
+    throw err
+  }
 
   let content = ''
   let reasoning = false
@@ -196,6 +246,17 @@ export const promptAiSdkStream = async function* (
     chargeUser: options.chargeUser ?? true,
     costOverrideDollars,
   })
+
+  logger.debug(
+    {
+      provider,
+      model: options.model,
+      inputTokens,
+      outputTokens,
+      latencyMs: Date.now() - startTime,
+    },
+    'LLM stream finished',
+  )
 }
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
@@ -230,11 +291,40 @@ export const promptAiSdk = async function (
 
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
+  const provider = getProviderForModel(options.model)
+  logger.debug(
+    {
+      provider,
+      model: options.model,
+      streaming: false,
+      userId: options.userId,
+      clientSessionId: options.clientSessionId,
+      userInputId: options.userInputId,
+      messages: options.messages.length,
+    },
+    'LLM request start',
+  )
 
-  const response = await generateText({
-    ...options,
-    model: aiSDKModel,
-  })
+  let response: any
+  try {
+    response = await generateText({
+      ...options,
+      model: aiSDKModel,
+    })
+  } catch (error) {
+    logger.error(
+      {
+        provider,
+        model: options.model,
+        userId: options.userId,
+        clientSessionId: options.clientSessionId,
+        userInputId: options.userInputId,
+        error: errorToObject(error),
+      },
+      'LLM generateText failed',
+    )
+    throw error
+  }
 
   const content = response.text
   const inputTokens = response.usage.inputTokens || 0
@@ -255,6 +345,17 @@ export const promptAiSdk = async function (
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
   })
+
+  logger.debug(
+    {
+      provider,
+      model: options.model,
+      inputTokens,
+      outputTokens,
+      latencyMs: Date.now() - startTime,
+    },
+    'LLM request finished',
+  )
 
   return content
 }
@@ -292,6 +393,22 @@ export const promptAiSdkStructured = async function <T>(options: {
   }
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
+  const provider = getProviderForModel(options.model)
+  logger.debug(
+    {
+      provider,
+      model: options.model,
+      structured: true,
+      userId: options.userId,
+      clientSessionId: options.clientSessionId,
+      userInputId: options.userInputId,
+      messages: options.messages.length,
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+      timeout: options.timeout,
+    },
+    'LLM request start',
+  )
 
   const responsePromise = generateObject<z.ZodType<T>, 'object'>({
     ...options,
@@ -299,9 +416,25 @@ export const promptAiSdkStructured = async function <T>(options: {
     output: 'object',
   })
 
-  const response = await (options.timeout === undefined
-    ? responsePromise
-    : withTimeout(responsePromise, options.timeout))
+  let response: any
+  try {
+    response = await (options.timeout === undefined
+      ? responsePromise
+      : withTimeout(responsePromise, options.timeout))
+  } catch (error) {
+    logger.error(
+      {
+        provider,
+        model: options.model,
+        userId: options.userId,
+        clientSessionId: options.clientSessionId,
+        userInputId: options.userInputId,
+        error: errorToObject(error),
+      },
+      'LLM generateObject failed',
+    )
+    throw error
+  }
 
   const content = response.object
   const inputTokens = response.usage.inputTokens || 0
@@ -322,6 +455,17 @@ export const promptAiSdkStructured = async function <T>(options: {
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
   })
+
+  logger.debug(
+    {
+      provider,
+      model: options.model,
+      inputTokens,
+      outputTokens,
+      latencyMs: Date.now() - startTime,
+    },
+    'LLM structured request finished',
+  )
 
   return content
 }

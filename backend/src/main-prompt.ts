@@ -187,6 +187,17 @@ export const mainPrompt = async (
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
+  logger.debug(
+    {
+      agentType,
+      costMode,
+      promptLen: prompt ? prompt.length : 0,
+      availableAgentsCount: availableAgents.length,
+      promptId,
+    },
+    'Starting loopAgentSteps',
+  )
+
   const { agentState } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,

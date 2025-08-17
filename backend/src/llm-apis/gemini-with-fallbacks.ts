@@ -62,7 +62,11 @@ export async function promptFlashWithFallbacks(
   if (useFinetunedModel) {
     try {
       logger.info(
-        { model: useFinetunedModel },
+        {
+          model: useFinetunedModel,
+          clientSessionId: options.clientSessionId,
+          userInputId: options.userInputId,
+        },
         'Using finetuned model for file-picker!',
       )
       return await promptAiSdk({
@@ -72,7 +76,11 @@ export async function promptFlashWithFallbacks(
       })
     } catch (error) {
       logger.warn(
-        { error },
+        {
+          error,
+          clientSessionId: options.clientSessionId,
+          userInputId: options.userInputId,
+        },
         'Error calling finetuned model, falling back to Gemini API',
       )
     }
@@ -83,7 +91,11 @@ export async function promptFlashWithFallbacks(
     return await promptAiSdk({ ...geminiOptions, messages })
   } catch (error) {
     logger.warn(
-      { error },
+      {
+        error,
+        clientSessionId: options.clientSessionId,
+        userInputId: options.userInputId,
+      },
       `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`,
     )
     return await promptAiSdk({
