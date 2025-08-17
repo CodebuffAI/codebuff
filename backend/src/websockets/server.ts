@@ -51,6 +51,15 @@ async function processMessage(
   try {
     const msg = CLIENT_MESSAGE_SCHEMA.parse(messageObj)
     const { type, txid } = msg
+    logger.debug(
+      {
+        msgType: type,
+        txid,
+        clientSessionId,
+        actionType: type === 'action' ? (msg as any)?.data?.type : undefined,
+      },
+      'WS received message',
+    )
     switch (type) {
       case 'subscribe': {
         SWITCHBOARD.subscribe(ws, ...msg.topics)
@@ -65,6 +74,13 @@ async function processMessage(
         break
       }
       case 'action': {
+        logger.debug(
+          {
+            actionType: (msg as any)?.data?.type,
+            clientSessionId,
+          },
+          'Dispatching WS action to handlers',
+        )
         onWebsocketAction(ws, clientSessionId, msg)
         break
       }
@@ -124,7 +140,7 @@ export function listen(server: HttpServer, path: string) {
   })
   wss.on('connection', (ws: WebSocket) => {
     // todo: should likely kill connections that haven't sent any ping for a long time
-    // logger.info('WS client connected.')
+    logger.debug('WS client connected.')
     SWITCHBOARD.connect(ws)
     const clientSessionId =
       SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'

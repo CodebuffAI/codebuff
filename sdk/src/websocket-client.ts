@@ -73,10 +73,20 @@ export class WebSocketHandler {
 
     apiKey,
   }: WebSocketHandlerOptions) {
+    // Wrap ws callbacks to add debug logs
     this.cbWebSocket = new APIRealtimeClient(
       WEBSOCKET_URL,
-      onWebsocketError,
-      onWebsocketReconnect,
+      (err) => {
+        if (isSdkDebugEnabled())
+          console.error('[sdk][ws] error', {
+            message: (err as any)?.message,
+          })
+        onWebsocketError(err as any)
+      },
+      () => {
+        if (isSdkDebugEnabled()) console.log('[sdk][ws] reconnecting')
+        onWebsocketReconnect()
+      },
     )
     this.onRequestReconnect = onRequestReconnect
 
@@ -101,6 +111,7 @@ export class WebSocketHandler {
         console.log('[sdk][ws] connecting', { url: WEBSOCKET_URL })
       await this.cbWebSocket.connect()
       this.setupSubscriptions()
+      if (isSdkDebugEnabled()) console.log('[sdk][ws] subscriptions-ready')
       this.isConnected = true
       if (isSdkDebugEnabled()) console.log('[sdk][ws] connected')
     }
@@ -127,6 +138,7 @@ export class WebSocketHandler {
       if (isSdkDebugEnabled())
         console.log('[sdk][cb] read-files request', {
           count: (a as any)?.filePaths?.length,
+          first: ((a as any)?.filePaths ?? []).slice(0, 3),
         })
       const { filePaths, requestId } = a
       const files = await this.readFiles(filePaths)
@@ -146,6 +158,8 @@ export class WebSocketHandler {
       if (isSdkDebugEnabled())
         console.log('[sdk][cb] tool-call-request', {
           tool: (action as any)?.toolName,
+          requestId: (action as any)?.requestId,
+          userInputId: (action as any)?.userInputId,
         })
       const toolCallResult = await this.handleToolCall(action)
       this.cbWebSocket.sendAction({
@@ -156,11 +170,15 @@ export class WebSocketHandler {
       if (isSdkDebugEnabled())
         console.log('[sdk][cb] tool-call-response', {
           success: (toolCallResult as any)?.success,
+          requestId: (action as any)?.requestId,
         })
     })
 
     this.cbWebSocket.subscribe('message-cost-response', async (a) => {
-      if (isSdkDebugEnabled()) console.log('[sdk][cb] message-cost-response')
+      if (isSdkDebugEnabled())
+        console.log('[sdk][cb] message-cost-response', {
+          hasCost: !!(a as any),
+        })
       await this.onCostResponse(a as any)
     })
 
@@ -172,17 +190,30 @@ export class WebSocketHandler {
 
     // Handle streaming messages
     this.cbWebSocket.subscribe('response-chunk', async (a) => {
-      if (isSdkDebugEnabled()) console.log('[sdk][cb] response-chunk')
+      if (isSdkDebugEnabled())
+        console.log('[sdk][cb] response-chunk', {
+          userInputId: (a as any)?.userInputId,
+          kind: typeof (a as any)?.chunk,
+        })
       await this.onResponseChunk(a as any)
     })
     this.cbWebSocket.subscribe('subagent-response-chunk', async (a) => {
-      if (isSdkDebugEnabled()) console.log('[sdk][cb] subagent-response-chunk')
+      if (isSdkDebugEnabled())
+        console.log('[sdk][cb] subagent-response-chunk', {
+          userInputId: (a as any)?.userInputId,
+          kind: typeof (a as any)?.chunk,
+        })
       await this.onSubagentResponseChunk(a as any)
     })
 
     // Handle full response from prompt
     this.cbWebSocket.subscribe('prompt-response', async (a) => {
-      if (isSdkDebugEnabled()) console.log('[sdk][cb] prompt-response')
+      if (isSdkDebugEnabled())
+        console.log('[sdk][cb] prompt-response', {
+          promptId: (a as any)?.promptId,
+          toolResults: ((a as any)?.toolResults || []).length,
+          hasSessionState: !!(a as any)?.sessionState,
+        })
       await this.onPromptResponse(a as any)
     })
 
@@ -214,7 +245,16 @@ export class WebSocketHandler {
     if (isSdkDebugEnabled()) {
       const pid = (action as any)?.promptId
       const agentId = (action as any)?.agentId
-      console.log('[sdk][cb] sendAction prompt', { promptId: pid, agentId })
+      const promptLen = ((action as any)?.prompt ?? '').length
+      const filesCount = Object.keys(
+        ((action as any)?.sessionState?.fileContext?.projectFiles as any) || {},
+      ).length
+      console.log('[sdk][cb] sendAction prompt', {
+        promptId: pid,
+        agentId,
+        promptLen,
+        filesCount,
+      })
     }
     this.cbWebSocket.sendAction({
       ...action,

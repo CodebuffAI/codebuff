@@ -38,6 +38,56 @@ import type { WebSocket } from 'ws'
  * @param action - The server action to send
  */
 export const sendAction = (ws: WebSocket, action: ServerAction) => {
+  try {
+    let details: Record<string, any> | undefined
+    switch (action.type) {
+      case 'response-chunk':
+        details = {
+          userInputId: (action as any).userInputId,
+          chunkType: typeof (action as any).chunk,
+        }
+        break
+      case 'prompt-response':
+        details = {
+          promptId: (action as any).promptId,
+          toolResults: ((action as any).toolResults || []).length,
+        }
+        break
+      case 'prompt-error':
+        details = {
+          userInputId: (action as any).userInputId,
+          message: String((action as any).message || '').slice(0, 140),
+        }
+        break
+      case 'read-files':
+        details = {
+          requestId: (action as any).requestId,
+          count: ((action as any).filePaths || []).length,
+        }
+        break
+      case 'tool-call-request':
+        details = {
+          tool: (action as any).toolName,
+          requestId: (action as any).requestId,
+          userInputId: (action as any).userInputId,
+        }
+        break
+      case 'tool-call-response':
+        details = {
+          requestId: (action as any).requestId,
+          success: (action as any).success,
+        }
+        break
+      default:
+        details = undefined
+    }
+    logger.debug(
+      { actionType: action.type, ...((details as any) || {}) },
+      'WS send action',
+    )
+  } catch (e) {
+    logger.error({ error: e }, 'Failed to log WS send action')
+  }
   sendMessage(ws, {
     type: 'action',
     data: action,
@@ -142,7 +192,13 @@ const onPrompt = async (
     async () => {
       const userId = await getUserIdFromAuthToken(authToken)
       if (!userId) {
-        throw new Error('User not found')
+        sendAction(ws, {
+          type: 'prompt-error',
+          userInputId: promptId,
+          message:
+            'Authentication failed: invalid API key or session. Please ensure CODEBUFF_API_KEY is valid.',
+        })
+        return
       }
 
       if (prompt) {
