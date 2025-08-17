@@ -51,6 +51,8 @@ services:
       - ../.env.ci
     environment:
       DATABASE_URL: ${DATABASE_URL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     entrypoint: ['bun', 'run', 'evals/seeds/seed-evals.ts']
     depends_on:
       db:

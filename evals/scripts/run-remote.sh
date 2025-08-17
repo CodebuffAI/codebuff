@@ -60,13 +60,13 @@ echo "[evals] Backend is healthy."
 
 # Print env inside seeder container for verification
 echo "[evals] Seeder container env (filtered):"
-docker compose -f "$COMPOSE_FILE" run --rm --add-host=host.docker.internal:host-gateway \
+docker compose -f "$COMPOSE_FILE" run --rm \
   -e CODEBUFF_BACKEND_URL="$BACKEND_DOCKER_URL" \
   -e CODEBUFF_WEBSOCKET_URL="$WS_DOCKER_URL" \
   seeder /usr/bin/env | grep -E 'CODEBUFF|GOOGLE|NEXT_PUBLIC|BACKEND|PORT' || true
 
 # Run seeder (prints CODEBUFF_API_KEY=...)
-KEY_LINE=$(docker compose -f "$COMPOSE_FILE" run --rm --add-host=host.docker.internal:host-gateway \
+KEY_LINE=$(docker compose -f "$COMPOSE_FILE" run --rm \
   -e CODEBUFF_BACKEND_URL="$BACKEND_DOCKER_URL" \
   -e CODEBUFF_WEBSOCKET_URL="$WS_DOCKER_URL" \
   seeder | tail -n1) || {
