@@ -42,7 +42,7 @@ fi
 docker compose -f "$COMPOSE_FILE" up -d --build db
 
 # Start backend locally on host (adjust command if needed)
-BACKEND_CMD="${BACKEND_CMD:-bun --cwd backend dev}"
+BACKEND_CMD="${BACKEND_CMD:-bun run --cwd backend dev}"
 echo "[evals] Starting backend locally: $BACKEND_CMD"
 $BACKEND_CMD >"${SCRIPT_DIR}/../backend.log" 2>&1 &
 BACKEND_PID=$!
@@ -60,13 +60,13 @@ echo "[evals] Backend is healthy."
 
 # Print env inside seeder container for verification
 echo "[evals] Seeder container env (filtered):"
-docker compose -f "$COMPOSE_FILE" run --rm \
+docker compose -f "$COMPOSE_FILE" run --rm --add-host=host.docker.internal:host-gateway \
   -e CODEBUFF_BACKEND_URL="$BACKEND_DOCKER_URL" \
   -e CODEBUFF_WEBSOCKET_URL="$WS_DOCKER_URL" \
   seeder /usr/bin/env | grep -E 'CODEBUFF|GOOGLE|NEXT_PUBLIC|BACKEND|PORT' || true
 
 # Run seeder (prints CODEBUFF_API_KEY=...)
-KEY_LINE=$(docker compose -f "$COMPOSE_FILE" run --rm \
+KEY_LINE=$(docker compose -f "$COMPOSE_FILE" run --rm --add-host=host.docker.internal:host-gateway \
   -e CODEBUFF_BACKEND_URL="$BACKEND_DOCKER_URL" \
   -e CODEBUFF_WEBSOCKET_URL="$WS_DOCKER_URL" \
   seeder | tail -n1) || {
