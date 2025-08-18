@@ -29,7 +29,10 @@ import type {
   OpenAIModel,
 } from '@codebuff/common/constants'
 import type { CodebuffMessage, Message } from '@codebuff/common/types/message'
-import type { OpenRouterUsageAccounting } from '@openrouter/ai-sdk-provider'
+import type {
+  OpenRouterProviderOptions,
+  OpenRouterUsageAccounting,
+} from '@openrouter/ai-sdk-provider'
 import type { AssistantModelMessage, UserModelMessage, LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
 
@@ -128,6 +131,15 @@ export const promptAiSdkStream = async function* (
       })
     }
     if (chunk.type === 'reasoning-delta') {
+      if (
+        (
+          options.providerOptions?.openrouter as
+            | OpenRouterProviderOptions
+            | undefined
+        )?.reasoning?.exclude
+      ) {
+        continue
+      }
       if (!reasoning) {
         reasoning = true
         yield `${startToolTag}{

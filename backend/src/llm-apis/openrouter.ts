@@ -37,7 +37,6 @@ export function openRouterLanguageModel(model: Model) {
     extraBody,
   }).languageModel(model, {
     usage: { include: true },
-    includeReasoning: true,
     logprobs: true,
   })
 }
