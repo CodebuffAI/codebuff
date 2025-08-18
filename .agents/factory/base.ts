@@ -19,6 +19,15 @@ export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
       type: 'string',
       description: 'A coding task to complete',
     },
+    params: {
+      type: 'object',
+      properties: {
+        maxContextLength: {
+          type: 'number',
+        },
+      },
+      required: [],
+    },
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
@@ -50,13 +59,14 @@ export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
   instructionsPrompt: baseAgentUserInputPrompt(model),
   stepPrompt: baseAgentAgentStepPrompt(model),
 
-  handleSteps: function* ({ agentState }) {
+  handleSteps: function* ({ params }) {
     while (true) {
       // Run context-pruner before each step
       yield {
         toolName: 'spawn_agent_inline',
         input: {
           agent_type: 'context-pruner',
+          params,
         },
       } as any
 

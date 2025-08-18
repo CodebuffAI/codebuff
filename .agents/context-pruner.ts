@@ -1,4 +1,5 @@
 import { publisher } from './constants'
+
 import type { AgentDefinition, Message } from './types/agent-definition'
 
 const definition: AgentDefinition = {
@@ -11,11 +12,21 @@ const definition: AgentDefinition = {
 
   spawnerPrompt: `Spawn this agent between steps to prune context, starting with old tool results and then old messages.`,
 
-  inputSchema: {},
+  inputSchema: {
+    params: {
+      type: 'object',
+      properties: {
+        maxContextLength: {
+          type: 'number',
+        },
+      },
+      required: [],
+    },
+  },
 
   includeMessageHistory: true,
 
-  handleSteps: function* ({ agentState }) {
+  handleSteps: function* ({ agentState, params }) {
     const messages = agentState.messageHistory
 
     const countTokensJson = (obj: any): number => {
@@ -23,7 +34,7 @@ const definition: AgentDefinition = {
       return Math.ceil(JSON.stringify(obj).length / 3)
     }
 
-    const maxMessageTokens = 200_000
+    const maxMessageTokens: number = params?.maxContextLength ?? 200_000
     const numTerminalCommandsToKeep = 5
 
     // Remove the last assistant message if it contains the spawn call that invoked this context-pruner
