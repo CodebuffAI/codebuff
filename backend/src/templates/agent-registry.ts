@@ -138,9 +138,8 @@ export async function getAgentTemplate(
     return localAgentTemplates[agentId]
   }
   // 2. Check database cache
-  const cacheKey = agentId
-  if (databaseAgentCache.has(cacheKey)) {
-    return databaseAgentCache.get(cacheKey) || null
+  if (databaseAgentCache.has(agentId)) {
+    return databaseAgentCache.get(agentId) || null
   }
 
   const parsed = parsePublishedAgentId(agentId)
@@ -152,7 +151,7 @@ export async function getAgentTemplate(
     if (codebuffParsed) {
       const dbAgent = await fetchAgentFromDatabase(codebuffParsed)
       if (dbAgent) {
-        databaseAgentCache.set(cacheKey, dbAgent)
+        databaseAgentCache.set(dbAgent.id, dbAgent)
         return dbAgent
       }
     }
@@ -164,7 +163,7 @@ export async function getAgentTemplate(
   const dbAgent = await fetchAgentFromDatabase(parsed)
   if (dbAgent && parsed.version && parsed.version !== 'latest') {
     // Cache only specific versions to avoid stale 'latest' results
-    databaseAgentCache.set(cacheKey, dbAgent)
+    databaseAgentCache.set(dbAgent.id, dbAgent)
   }
   return dbAgent
 }
