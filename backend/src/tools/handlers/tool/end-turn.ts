@@ -1,5 +1,5 @@
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 
 export const handleEndTurn = ((params: {
   previousToolCallFinished: Promise<any>

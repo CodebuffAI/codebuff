@@ -26,7 +26,12 @@ npm install @codebuff/sdk
 ```typescript
 import * as fs from 'fs'
 import * as os from 'os'
-import { CodebuffClient } from '@codebuff/sdk'
+
+import {
+  CodebuffClient,
+  generateInitialRunState,
+  withAdditionalMessage,
+} from '@codebuff/sdk'
 
 // Available after running `codebuff login`
 const apiKey = JSON.parse(
@@ -34,31 +39,53 @@ const apiKey = JSON.parse(
     .readFileSync(os.homedir() + '/.config/manicode/credentials.json')
     .toString(),
 ).default.authToken
+const cwd = process.cwd()
 
 const client = new CodebuffClient({
   apiKey,
-  cwd: process.cwd(),
+  cwd,
   onError: (e) => console.error('Codebuff error:', e.message),
   // Optional: Override the implementation of specific tools.
   overrideTools: {},
 })
 
 // Single run
+const emptyRun = generateInitialRunState({ cwd })
+
+const runWithExampleImage = withAdditionalMessage({
+  runState: emptyRun,
+  message: {
+    role: 'user',
+    content: [
+      {
+        type: 'image',
+        image: new URL(
+          'https://upload.wikimedia.org/wikipedia/en/a/a9/Example.jpg',
+        ),
+      },
+    ],
+  },
+})
+
 const run1 = await client.run({
   agent: 'base',
-  prompt: 'Add console.log("Hello from Codebuff") to src/index.ts',
+  prompt: 'What is depicted in the attached image?',
+  previousRun: runWithExampleImage,
+  handleEvent: (event) => {
+    console.log('event from run1:', { event })
+  },
 })
 
 // Continue same session with follow‑up
 const run2 = await client.run({
   agent: 'base',
-  prompt: 'Create a basic test file for it',
+  prompt: 'What about the text? (ignoring the pictures)',
   previousRun: run1,
 
   // Stream events (optional)
   handleEvent: (event) => {
     // event includes streamed updates like assistant messages and tool calls
-    console.log('event:', event)
+    console.log('event from run2:', event)
   },
 
   // Custom agents (optional)
@@ -66,12 +93,14 @@ const run2 = await client.run({
     {
       id: 'my-awesome-agent',
       model: 'openai/gpt-5',
-      displayName: 'My awesome agent'
-      instructionsPrompt: 'Do something awesome'
+      displayName: 'My awesome agent',
+      instructionsPrompt: 'Do something awesome',
       // ... other AgentDefinition properties
     },
   ],
 })
+
+client.closeConnection()
 ```
 
 ## API Reference

@@ -20,6 +20,7 @@ describe('handleSteps Parsing Tests', () => {
       fileTokenScores: {},
       knowledgeFiles: {},
       agentTemplates: {},
+      customToolDefinitions: {},
       gitChanges: {
         status: '',
         diff: '',

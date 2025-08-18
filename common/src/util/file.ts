@@ -2,10 +2,9 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { CodebuffConfigSchema } from '../json-config/constants'
-import { DynamicAgentTemplateSchema } from '../types/dynamic-agent-template'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
   name: z.string(),
@@ -39,6 +38,19 @@ export const FileVersionSchema = z.object({
 
 export type FileVersion = z.infer<typeof FileVersionSchema>
 
+export const customToolDefinitionsSchema = z
+  .record(
+    z.string(),
+    z.object({
+      inputJsonSchema: z.any(),
+      endsAgentStep: z.boolean().optional().default(false),
+      description: z.string().optional(),
+      exampleInputs: z.record(z.string(), z.any()).array().optional(),
+    }),
+  )
+  .default({})
+export type CustomToolDefinitions = z.input<typeof customToolDefinitionsSchema>
+
 export const ProjectFileContextSchema = z.object({
   projectRoot: z.string(),
   cwd: z.string(),
@@ -50,6 +62,7 @@ export const ProjectFileContextSchema = z.object({
   knowledgeFiles: z.record(z.string(), z.string()),
   userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
   agentTemplates: z.record(z.string(), z.any()).default({}),
+  customToolDefinitions: customToolDefinitionsSchema,
   codebuffConfig: CodebuffConfigSchema.optional(),
   gitChanges: z.object({
     status: z.string(),
@@ -67,7 +80,6 @@ export const ProjectFileContextSchema = z.object({
     homedir: z.string(),
     cpus: z.number(),
   }),
-  fileVersions: z.array(z.array(FileVersionSchema)).optional(), // Keep temporarily for migration
 })
 
 export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
@@ -96,6 +108,7 @@ export const getStubProjectFileContext = (): ProjectFileContext => ({
   knowledgeFiles: {},
   userKnowledgeFiles: {},
   agentTemplates: {},
+  customToolDefinitions: {},
   codebuffConfig: undefined,
   gitChanges: {
     status: '',

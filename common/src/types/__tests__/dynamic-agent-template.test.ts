@@ -9,19 +9,11 @@ type DynamicAgentDefinitionHandleSteps = Omit<
   'handleSteps' | 'toolNames'
 > & {
   handleSteps?: AgentDefinition['handleSteps']
-  toolNames?: (typeof publishedTools)[number][]
+  toolNames?: (typeof publishedTools | (string & {}))[number][]
 }
 // Don't remove these lines! And don't change the values away from true!
-const _typecheck1: AgentDefinition extends DynamicAgentDefinitionHandleSteps
-  ? true
-  : false = true
-const _typecheck2: DynamicAgentDefinitionHandleSteps extends AgentDefinition
-  ? true
-  : false = true
-// These two give nicer to read type errors. Let's keep them.
-const a: DynamicAgentDefinitionHandleSteps =
-  {} as DynamicAgentDefinitionHandleSteps
-const b: AgentDefinition = {} as DynamicAgentDefinitionHandleSteps
+const _typecheck1: DynamicAgentDefinitionHandleSteps = {} as AgentDefinition
+const _typecheck2: AgentDefinition = {} as DynamicAgentDefinitionHandleSteps
 const _keyTypecheck1: keyof AgentDefinition =
   {} as keyof DynamicAgentDefinitionHandleSteps
 const _keyTypecheck2: keyof DynamicAgentDefinitionHandleSteps =

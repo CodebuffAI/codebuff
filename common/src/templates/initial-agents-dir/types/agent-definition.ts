@@ -34,12 +34,29 @@ export interface AgentDefinition {
   /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
   model: ModelName
 
+  /**
+   * https://openrouter.ai/docs/use-cases/reasoning-tokens
+   * One of `max_tokens` or `effort` is required.
+   * If `exclude` is true, reasoning will be removed from the response. Default is false.
+   */
+  reasoningOptions?: {
+    enabled?: boolean
+    exclude?: boolean
+  } & (
+    | {
+        max_tokens: number
+      }
+    | {
+        effort: 'high' | 'medium' | 'low'
+      }
+  )
+
   // ============================================================================
   // Tools and Subagents
   // ============================================================================
 
   /** Tools this agent can use. */
-  toolNames?: ToolName[]
+  toolNames?: (ToolName | (string & {}))[]
 
   /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
    *
@@ -62,7 +79,7 @@ export interface AgentDefinition {
    */
   inputSchema?: {
     prompt?: { type: 'string'; description?: string }
-    params?: JsonSchema
+    params?: JsonObjectSchema
   }
 
   /** Whether to include conversation history from the parent agent in context.
@@ -83,7 +100,7 @@ export interface AgentDefinition {
   outputMode?: 'last_message' | 'all_messages' | 'structured_output'
 
   /** JSON schema for structured output (when outputMode is 'structured_output') */
-  outputSchema?: JsonSchema
+  outputSchema?: JsonObjectSchema
 
   // ============================================================================
   // Prompts
@@ -116,7 +133,7 @@ export interface AgentDefinition {
   /** Programmatically step the agent forward and run tools.
    *
    * You can either yield:
-   * - A tool call object with toolName and args properties.
+   * - A tool call object with toolName and input properties.
    * - 'STEP' to run agent's model and generate one assistant message.
    * - 'STEP_ALL' to run the agent's model until it uses the end_turn tool or stops includes no tool calls in a message.
    *
@@ -126,7 +143,7 @@ export interface AgentDefinition {
    * function* handleSteps({ agentStep, prompt, params}) {
    *   const { toolResult } = yield {
    *     toolName: 'read_files',
-   *     args: { paths: ['file1.txt', 'file2.txt'] }
+   *     input: { paths: ['file1.txt', 'file2.txt'] }
    *   }
    *   yield 'STEP_ALL'
    * }
@@ -136,7 +153,7 @@ export interface AgentDefinition {
    *   while (true) {
    *     yield {
    *       toolName: 'spawn_agents',
-   *       args: {
+   *       input: {
    *         agents: [
    *         {
    *           agent_type: 'thinker',
@@ -191,19 +208,29 @@ export interface AgentStepContext {
 export type ToolCall<T extends ToolName = ToolName> = {
   [K in T]: {
     toolName: K
-    args?: Tools.GetToolParams<K>
+    input: Tools.GetToolParams<K>
   }
 }[T]
 
 /**
  * JSON Schema definition (for prompt schema or output schema)
  */
-export interface JsonSchema {
-  type: string
-  properties?: Record<string, any>
+export type JsonSchema = {
+  type?:
+    | 'object'
+    | 'array'
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'null'
+    | 'integer'
+  description?: string
+  properties?: Record<string, JsonSchema | boolean>
   required?: string[]
-  [key: string]: any
+  enum?: Array<string | number | boolean | null>
+  [k: string]: unknown
 }
+export type JsonObjectSchema = JsonSchema & { type: 'object' }
 
 // ============================================================================
 // Available Tools
@@ -286,25 +313,25 @@ export type ModelName =
 
   // Qwen
   | 'qwen/qwen3-coder'
-  | 'qwen/qwen3-coder:fast'
+  | 'qwen/qwen3-coder:nitro'
   | 'qwen/qwen3-235b-a22b-2507'
-  | 'qwen/qwen3-235b-a22b-2507:fast'
+  | 'qwen/qwen3-235b-a22b-2507:nitro'
   | 'qwen/qwen3-235b-a22b-thinking-2507'
-  | 'qwen/qwen3-235b-a22b-thinking-2507:fast'
+  | 'qwen/qwen3-235b-a22b-thinking-2507:nitro'
   | 'qwen/qwen3-30b-a3b'
-  | 'qwen/qwen3-30b-a3b:fast'
+  | 'qwen/qwen3-30b-a3b:nitro'
 
   // DeepSeek
   | 'deepseek/deepseek-chat-v3-0324'
-  | 'deepseek/deepseek-chat-v3-0324:fast'
+  | 'deepseek/deepseek-chat-v3-0324:nitro'
   | 'deepseek/deepseek-r1-0528'
-  | 'deepseek/deepseek-r1-0528:fast'
+  | 'deepseek/deepseek-r1-0528:nitro'
 
   // Other open source models
   | 'moonshotai/kimi-k2'
-  | 'moonshotai/kimi-k2:fast'
+  | 'moonshotai/kimi-k2:nitro'
   | 'z-ai/glm-4.5'
-  | 'z-ai/glm-4.5:fast'
+  | 'z-ai/glm-4.5:nitro'
   | (string & {})
 
 import type * as Tools from './tools'

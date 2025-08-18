@@ -1,9 +1,9 @@
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
@@ -20,7 +20,7 @@ export const handleSetOutput = ((params: {
   state: { agentState: AgentState }
 } => {
   const { previousToolCallFinished, toolCall, state } = params
-  const output = toolCall.args
+  const output = toolCall.input
   const { agentState, localAgentTemplates } = state
 
   if (!agentState) {

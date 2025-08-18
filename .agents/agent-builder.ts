@@ -1,13 +1,24 @@
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+import { publisher } from './constants'
+
 import type { AgentDefinition } from './types/agent-definition'
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import agentDefinitionContent from './types/agent-definition' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import toolsDefinitionContent from './types/tools' with { type: 'text' }
+
+const agentDefinitionContent = readFileSync(
+  join(__dirname, 'types', 'agent-definition.ts'),
+  'utf8',
+)
+const toolsDefinitionContent = readFileSync(
+  join(__dirname, 'types', 'tools.ts'),
+  'utf8',
+)
 
 const definition: AgentDefinition = {
   id: 'agent-builder',
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Bob the Agent Builder',
+  publisher,
   spawnerPrompt:
     'Enhanced base agent that can create custom agents and handle all coding tasks with deterministic agent creation behavior',
 

@@ -7,9 +7,9 @@ export const addMessageTool = {
   toolName,
   description: `
 Example:
-    ${getToolCallString(toolName, {
-      role: 'user',
-      content: 'Hello, how are you?',
-    })}
+${getToolCallString(toolName, {
+  role: 'user',
+  content: 'Hello, how are you?',
+})}
   `.trim(),
 } satisfies ToolDescription

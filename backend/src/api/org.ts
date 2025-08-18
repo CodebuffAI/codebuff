@@ -1,7 +1,8 @@
 import { findOrganizationForRepository } from '@codebuff/billing'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { logger } from '../util/logger'
+import { extractAuthTokenFromHeader } from '../util/auth-helpers'
 import { getUserIdFromAuthToken } from '../websockets/websocket-action'
 
 import type {
@@ -26,15 +27,13 @@ async function isRepoCoveredHandler(
       req.body,
     )
 
-    // Get user ID from Authorization header
-    const authHeader = req.headers.authorization
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Get user ID from x-codebuff-api-key header
+    const authToken = extractAuthTokenFromHeader(req)
+    if (!authToken) {
       return res
         .status(401)
-        .json({ error: 'Missing or invalid authorization header' })
+        .json({ error: 'Missing x-codebuff-api-key header' })
     }
-
-    const authToken = authHeader.substring(7) // Remove 'Bearer ' prefix
     const userId = await getUserIdFromAuthToken(authToken)
 
     if (!userId) {
@@ -55,7 +54,7 @@ async function isRepoCoveredHandler(
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: 'Invalid request body', issues: error.errors })
+        .json({ error: 'Invalid request body', issues: error.issues })
     }
     next(error)
     return

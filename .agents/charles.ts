@@ -1,4 +1,4 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
 
 import type { AgentDefinition } from './types/agent-definition'
 
@@ -11,7 +11,6 @@ import type { AgentDefinition } from './types/agent-definition'
  */
 const definition: AgentDefinition = {
   id: 'charles',
-  version,
   publisher,
   displayName: 'Charles - Deep Sea Tuna Researcher',
   model: 'anthropic/claude-4-sonnet-20250522',
@@ -27,7 +26,7 @@ const definition: AgentDefinition = {
   ],
 
   // Subagents for specialized research tasks
-  spawnableAgents: [`codebuff/researcher@0.0.1`, 'codebuff/thinker@0.0.1'],
+  spawnableAgents: ['researcher', 'thinker'],
 
   // Input schema for research requests
   inputSchema: {

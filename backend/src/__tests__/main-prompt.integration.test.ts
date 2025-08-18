@@ -56,8 +56,8 @@ const mockFileContext: ProjectFileContext = {
     homedir: '/home/test',
     cpus: 1,
   },
-  fileVersions: [],
   agentTemplates: {},
+  customToolDefinitions: {},
 }
 
 // --- Integration Test with Real LLM Call ---
@@ -88,11 +88,11 @@ describe.skip('mainPrompt (Integration)', () => {
         ws: WebSocket,
         userInputId: string,
         toolName: string,
-        args: Record<string, any>,
+        input: Record<string, any>,
       ) => {
         return {
           success: true,
-          result: `Tool call success: ${{ toolName, args }}` as any,
+          result: `Tool call success: ${{ toolName, input }}` as any,
         }
       },
     )

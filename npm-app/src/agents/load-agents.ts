@@ -1,5 +1,4 @@
 import * as fs from 'fs'
-import * as path from 'path'
 
 import { cyan, green } from 'picocolors'
 
@@ -25,16 +24,16 @@ export async function loadLocalAgents({
     const tsFiles = getAllTsFiles(agentsDir)
 
     for (const fullPath of tsFiles) {
-      const relativePath = path.relative(agentsDir, fullPath)
-      const fileName = relativePath.replace(/\.ts$/, '').replace(/[/\\]/g, '-')
-
       let agentDefinition: any
       let agentModule: any
       try {
         agentModule = await require(fullPath)
       } catch (error: any) {
         if (verbose) {
-          console.error('Error importing agent:', error)
+          console.error(
+            `Error importing agent: ${error.name} - ${error.message}\n${error.stack}`,
+            fullPath,
+          )
         }
         continue
       }
@@ -43,11 +42,30 @@ export async function loadLocalAgents({
       try {
         agentDefinition = agentModule.default
       } catch (error: any) {
-        console.error('Error loading agent from file:', fullPath, error)
+        const errorMessage =
+          error instanceof Error
+            ? error.stack || error.message
+            : typeof error === 'string'
+              ? error
+              : JSON.stringify(error)
+        console.error('Error loading agent from file:', fullPath, errorMessage)
         continue
       }
 
       if (!agentDefinition) continue
+
+      // Validate that agent has required attributes
+      if (!agentDefinition.id || !agentDefinition.model) {
+        if (verbose) {
+          console.error(
+            'Agent definition missing required attributes (id, model):',
+            fullPath,
+            'Found:',
+            { id: agentDefinition.id, model: agentDefinition.model },
+          )
+        }
+        continue
+      }
 
       // Convert handleSteps function to string if present
       let processedAgentDefinition = { ...agentDefinition }
@@ -57,7 +75,7 @@ export async function loadLocalAgents({
           agentDefinition.handleSteps.toString()
       }
 
-      loadedAgents[fileName] = processedAgentDefinition
+      loadedAgents[processedAgentDefinition.id] = processedAgentDefinition
     }
   } catch (error) {}
   return loadedAgents

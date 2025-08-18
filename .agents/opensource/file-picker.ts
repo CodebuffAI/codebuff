@@ -1,9 +1,11 @@
-import type { AgentDefinition } from '../types/agent-definition'
+import { publisher } from '../constants'
+
+import type { AgentDefinition, ToolCall } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'oss-model-file-picker',
-  publisher: 'codebuff',
-  model: 'openai/gpt-oss-120b:fast',
+  publisher,
+  model: 'openai/gpt-oss-120b:nitro',
   displayName: 'Fletcher the File Fetcher',
   spawnerPrompt:
     'Expert at finding relevant files for efficient file discovery with edge-optimized performance.',
@@ -36,8 +38,8 @@ In your report, please give an analysis that includes the full paths of files th
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {
       toolName: 'find_files',
-      args: { prompt: prompt ?? "Find files related to the user's request" },
-    }
+      input: { prompt: prompt ?? "Find files related to the user's request" },
+    } satisfies ToolCall
     yield 'STEP_ALL'
   },
 }

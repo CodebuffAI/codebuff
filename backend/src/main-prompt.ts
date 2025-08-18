@@ -1,5 +1,6 @@
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 
 import { checkTerminalCommand } from './check-terminal-command'
@@ -10,7 +11,6 @@ import { expireMessages } from './util/messages'
 import { requestToolCall } from './websockets/websocket-action'
 
 import type { AgentTemplate } from './templates/types'
-import type { ClientToolCall } from './tools/constants'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/constants'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -34,8 +34,8 @@ export const mainPrompt = async (
   options: MainPromptOptions,
 ): Promise<{
   sessionState: SessionState
-  toolCalls: Array<ClientToolCall>
-  toolResults: Array<ToolResult>
+  toolCalls: []
+  toolResults: ToolResult[]
 }> => {
   const { userId, clientSessionId, onResponseChunk, localAgentTemplates } =
     options
@@ -83,11 +83,21 @@ export const mainPrompt = async (
         },
       )
 
-      const toolResult = response.success ? response.result : response.error
+      const toolResult: ToolResult['output'] = {
+        type: 'text',
+        value:
+          (response.success ? response.output?.value : response.error) || '',
+      }
       if (response.success) {
         mainAgentState.messageHistory.push({
           role: 'user',
-          content: renderToolResults([toolResult]),
+          content: renderToolResults([
+            {
+              toolName: 'run_terminal_command',
+              toolCallId: generateCompactId(),
+              output: toolResult,
+            },
+          ]),
         })
       }
 

@@ -5,6 +5,7 @@ import { globalStopSequence } from './tools/constants'
 
 import type { AgentTemplate } from './templates/types'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 
 export const getAgentStreamFromTemplate = (params: {
   clientSessionId: string
@@ -32,7 +33,7 @@ export const getAgentStreamFromTemplate = (params: {
       fingerprintId,
       userInputId,
       userId,
-      maxTokens: 32_000,
+      maxOutputTokens: 32_000,
     }
 
     // Add Gemini-specific options if needed
@@ -40,10 +41,10 @@ export const getAgentStreamFromTemplate = (params: {
     const provider =
       providerModelNames[primaryModel as keyof typeof providerModelNames]
 
+    if (!options.providerOptions) {
+      options.providerOptions = {}
+    }
     if (provider === 'gemini') {
-      if (!options.providerOptions) {
-        options.providerOptions = {}
-      }
       if (!options.providerOptions.gemini) {
         options.providerOptions.gemini = {}
       }
@@ -51,6 +52,12 @@ export const getAgentStreamFromTemplate = (params: {
         options.providerOptions.gemini.thinkingConfig = { thinkingBudget: 128 }
       }
     }
+    if (!options.providerOptions.openrouter) {
+      options.providerOptions.openrouter = {}
+    }
+    ;(
+      options.providerOptions.openrouter as OpenRouterProviderOptions
+    ).reasoning = template.reasoningOptions
 
     return promptAiSdkStream(options)
   }

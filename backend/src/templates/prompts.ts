@@ -4,6 +4,7 @@ import { getAgentTemplate } from './agent-registry'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
+import { buildArray } from '@codebuff/common/util/array'
 
 export async function buildSpawnableAgentsDescription(
   spawnableAgents: AgentTemplateType[],
@@ -31,15 +32,19 @@ prompt: {"description": "A coding task to complete", "type": "string"}
 params: None`
       }
       const { inputSchema } = agentTemplate
-      if (!inputSchema) {
-        return `- ${agentType}: ${agentTemplate.spawnerPrompt}
-prompt: None
-params: None`
-      }
-      const { prompt, params } = inputSchema
-      return `- ${agentType}: ${agentTemplate.spawnerPrompt}
-prompt: ${schemaToJsonStr(prompt)}
-params: ${schemaToJsonStr(params)}`
+      const inputSchemaStr = inputSchema
+        ? [
+            `prompt: ${schemaToJsonStr(inputSchema.prompt)}`,
+            `params: ${schemaToJsonStr(inputSchema.params)}`,
+          ].join('\n')
+        : ['prompt: None', 'params: None'].join('\n')
+
+      return buildArray(
+        `- ${agentType}: ${agentTemplate.spawnerPrompt}`,
+        agentTemplate.includeMessageHistory &&
+          'This agent can see the current message history.',
+        inputSchemaStr,
+      ).join('\n')
     })
     .filter(Boolean)
     .join('\n\n')

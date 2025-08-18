@@ -49,7 +49,7 @@ import {
   yellow,
 } from 'picocolors'
 import { match, P } from 'ts-pattern'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { getLoadedAgentNames, loadLocalAgents } from './agents/load-agents'
 import { getBackgroundProcessUpdates } from './background-process-manager'
@@ -57,7 +57,7 @@ import { activeBrowserRunner } from './browser-runner'
 import { setMessages } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CLI } from './cli'
-import { refreshSubagentDisplay } from './cli-handlers/subagent'
+import { refreshSubagentDisplay } from './cli-handlers/traces'
 import { backendUrl, npmAppVersion, websiteUrl } from './config'
 import { CREDENTIALS_PATH, userFromJson } from './credentials'
 import { DiffManager } from './diff-manager'
@@ -82,6 +82,7 @@ import {
 } from './subagent-storage'
 import { handleToolCall } from './tool-handlers'
 import { identifyUser, trackEvent } from './utils/analytics'
+import { addAuthHeader } from './utils/auth-headers'
 import { getRepoMetrics, gitCommandIsAvailable } from './utils/git'
 import { logger, loggerContext } from './utils/logger'
 import { Spinner } from './utils/spinner'
@@ -788,7 +789,7 @@ export class Client {
 
     // Handle backend-initiated tool call requests
     this.webSocket.subscribe('tool-call-request', async (action) => {
-      const { requestId, toolName, args, userInputId } = action
+      const { requestId, toolName, input, userInputId } = action
 
       // Check if the userInputId matches or is from a spawned agent
       const isValidUserInput = ASYNC_AGENTS_ENABLED
@@ -823,7 +824,7 @@ export class Client {
         const toolCall = {
           toolCallId: requestId,
           toolName,
-          args,
+          input,
         }
 
         Spinner.get().stop()
@@ -837,7 +838,7 @@ export class Client {
           type: 'tool-call-response',
           requestId,
           success: true,
-          result: toolResult.result,
+          output: toolResult.output,
         })
       } catch (error) {
         logger.error(
@@ -878,12 +879,12 @@ export class Client {
       if (!parsedAction.success) {
         console.error(
           red('Received invalid usage data from server:'),
-          parsedAction.error.errors,
+          parsedAction.error.issues,
         )
         logger.error(
           {
             errorMessage: 'Received invalid usage data from server',
-            errors: parsedAction.error.errors,
+            errors: parsedAction.error.issues,
           },
           'Invalid usage data from server',
         )
@@ -1034,7 +1035,7 @@ export class Client {
       scrapedContent && {
         toolName: 'web-scraper',
         toolCallId: generateCompactId(),
-        result: scrapedContent,
+        output: { type: 'text' as const, value: scrapedContent },
       },
     )
 
@@ -1050,8 +1051,8 @@ export class Client {
       type: 'prompt',
       promptId: userInputId,
       prompt: cleanPrompt,
-      agentId: cliAgent, // Add explicit agent selection
-      promptParams: cliParams, // Add parsed params
+      agentId: cliAgent,
+      promptParams: cliParams,
       sessionState: this.sessionState,
       toolResults,
       fingerprintId: await this.fingerprintId,
@@ -1224,6 +1225,10 @@ export class Client {
     }
 
     const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
+      if (!streamStarted) {
+        streamStarted = true
+        onStreamStart()
+      }
       onChunk(chunk)
     })
 
@@ -1253,13 +1258,6 @@ export class Client {
           }
         }
 
-        if (chunk && chunk.trim()) {
-          if (!streamStarted && chunk.trim()) {
-            streamStarted = true
-            onStreamStart()
-          }
-        }
-
         try {
           xmlStreamParser.write(chunk, 'utf8')
         } catch (e) {
@@ -1286,7 +1284,7 @@ export class Client {
         if (!parsedAction.success) {
           const message = [
             'Received invalid prompt response from server:',
-            JSON.stringify(parsedAction.error.errors),
+            JSON.stringify(parsedAction.error.issues),
             'If this issues persists, please contact support@codebuff.com',
           ].join('\n')
           console.error(message)
@@ -1520,11 +1518,11 @@ Go to https://www.codebuff.com/config for more information.`) +
       )
       // Check if it's a ZodError for more specific feedback
       if (error instanceof z.ZodError) {
-        console.error(red('Data validation failed:'), error.errors)
+        console.error(red('Data validation failed:'), error.issues)
         logger.error(
           {
             errorMessage: 'Data validation failed',
-            errors: error.errors,
+            errors: error.issues,
           },
           'Data validation failed',
         )
@@ -1630,10 +1628,10 @@ Go to https://www.codebuff.com/config for more information.`) +
       // Call backend API to check if repo is covered by organization
       const response = await fetch(`${backendUrl}/api/orgs/is-repo-covered`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.user.authToken}`,
-        },
+        headers: addAuthHeader(
+          { 'Content-Type': 'application/json' },
+          this.user.authToken,
+        ),
         body: JSON.stringify({
           owner: owner.toLowerCase(),
           repo: repo.toLowerCase(),

@@ -117,7 +117,7 @@ describe('DynamicAgentDefinitionSchema', () => {
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.outputMode).toBe('last_message')
-        expect(result.data.includeMessageHistory).toBe(true)
+        expect(result.data.includeMessageHistory).toBe(false)
         expect(result.data.toolNames).toEqual([])
         expect(result.data.spawnableAgents).toEqual([])
       }

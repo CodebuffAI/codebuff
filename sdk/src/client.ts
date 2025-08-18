@@ -1,20 +1,20 @@
-import { execFileSync } from 'child_process'
-import os from 'os'
-
-import { CODEBUFF_BINARY } from './constants'
+import { initialSessionState, type RunState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { getFiles } from './tools/read-files'
+import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
 import {
   PromptResponseSchema,
   type ServerAction,
 } from '../../common/src/actions'
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
-import { getInitialSessionState } from '../../common/src/types/session-state'
+import { DEFAULT_MAX_AGENT_STEPS } from '../../common/src/json-config/constants'
+import { toolNames } from '../../common/src/tools/constants'
 
-import type { PrintModeEvent } from '../../common/src/types/print-mode'
-import type { SessionState } from '../../common/src/types/session-state'
+import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
+import type { ToolName } from '../../common/src/tools/constants'
+import type { PrintModeEvent } from '../../common/src/types/print-mode'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -27,7 +27,7 @@ export type CodebuffClientOptions = {
     Record<
       ClientToolName,
       (
-        args: ServerAction<'tool-call-request'>['args'],
+        input: ServerAction<'tool-call-request'>['input'],
       ) => Promise<{ toolResultMessage: string }>
     > & {
       // Include read_files separately, since it has a different signature.
@@ -36,11 +36,6 @@ export type CodebuffClientOptions = {
       ) => Promise<{ files: Record<string, string | null> }>
     }
   >
-}
-
-type RunState = {
-  sessionState: SessionState
-  toolResults: ServerAction<'prompt-response'>['toolResults']
 }
 
 export class CodebuffClient {
@@ -60,19 +55,12 @@ export class CodebuffClient {
     string,
     { resolve: (response: any) => void; reject: (error: any) => void }
   > = {}
+  private readonly promptIdToCustomToolHandler: Record<
+    string,
+    WebSocketHandler['handleToolCall']
+  > = {}
 
   constructor({ apiKey, cwd, onError, overrideTools }: CodebuffClientOptions) {
-    // TODO: download binary automatically
-    const isWindows = process.platform === 'win32'
-    if (
-      execFileSync(isWindows ? 'where' : 'which', [CODEBUFF_BINARY])
-        .toString()
-        .trim() === ''
-    ) {
-      throw new Error(
-        `Could not find ${CODEBUFF_BINARY} in PATH. Please run "npm i -g codebuff" to install codebuff.`,
-      )
-    }
     const foundApiKey = apiKey ?? process.env[API_KEY_ENV_VAR]
     if (!foundApiKey) {
       throw new Error(
@@ -109,6 +97,10 @@ export class CodebuffClient {
     })
   }
 
+  public closeConnection() {
+    this.websocketHandler.close()
+  }
+
   /**
    * Run a Codebuff agent with the specified options.
    *
@@ -124,7 +116,7 @@ export class CodebuffClient {
    *
    * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run.
    */
-  public async run({
+  public async run<A extends string = string, B = any, C = any>({
     agent,
     prompt,
     params,
@@ -133,7 +125,8 @@ export class CodebuffClient {
     projectFiles,
     knowledgeFiles,
     agentDefinitions,
-    maxAgentSteps,
+    customToolDefinitions,
+    maxAgentSteps = DEFAULT_MAX_AGENT_STEPS,
   }: {
     agent: string
     prompt: string
@@ -143,6 +136,7 @@ export class CodebuffClient {
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentDefinitions?: AgentDefinition[]
+    customToolDefinitions?: CustomToolDefinition<A, B, C>[]
     maxAgentSteps?: number
   }): Promise<RunState> {
     await this.websocketHandler.connect()
@@ -150,15 +144,60 @@ export class CodebuffClient {
     const promptId = Math.random().toString(36).substring(2, 15)
     const sessionState =
       previousRun?.sessionState ??
-      initialSessionState(this.cwd, {
+      (await initialSessionState(this.cwd, {
         knowledgeFiles,
         agentDefinitions,
+        customToolDefinitions,
         projectFiles,
         maxAgentSteps,
-      })
+      }))
+    sessionState.mainAgentState.stepsRemaining = maxAgentSteps
     const toolResults = previousRun?.toolResults ?? []
     if (handleEvent) {
       this.promptIdToHandleEvent[promptId] = handleEvent
+    }
+    if (customToolDefinitions) {
+      this.promptIdToCustomToolHandler[promptId] = async ({
+        toolName,
+        input,
+      }) => {
+        const toolDefs = customToolDefinitions.filter(
+          (def) => def.toolName === toolName,
+        )
+        if (toolDefs.length === 0) {
+          throw new Error(
+            `Implementation for custom tool ${toolName} not found.`,
+          )
+        }
+        const toolDef = toolDefs[toolDefs.length - 1]
+        const handler = toolDef.handler
+        try {
+          return {
+            success: true,
+            output: {
+              type: 'text',
+              value: (await handler(toolDef.zodSchema.parse(input)))
+                .toolResultMessage,
+            },
+          }
+        } catch (error) {
+          return {
+            success: false,
+            output: {
+              type: 'text',
+              value:
+                error &&
+                typeof error === 'object' &&
+                'message' in error &&
+                typeof error.message === 'string'
+                  ? error.message
+                  : typeof error === 'string'
+                    ? error
+                    : 'Unknown error',
+            },
+          }
+        }
+      }
     }
     this.websocketHandler.sendInput({
       promptId,
@@ -184,7 +223,7 @@ export class CodebuffClient {
     if (!parsedAction.success) {
       const message = [
         'Received invalid prompt response from server:',
-        JSON.stringify(parsedAction.error.errors),
+        JSON.stringify(parsedAction.error.issues),
         'If this issues persists, please contact support@codebuff.com',
       ].join('\n')
       if (promiseActions) {
@@ -203,6 +242,7 @@ export class CodebuffClient {
 
       delete this.promptIdToResolveResponse[action.promptId]
       delete this.promptIdToHandleEvent[action.promptId]
+      delete this.promptIdToCustomToolHandler[action.promptId]
     }
   }
 
@@ -215,10 +255,17 @@ export class CodebuffClient {
     return getFiles(filePath, this.cwd)
   }
 
-  private async handleToolCall(action: ServerAction<'tool-call-request'>) {
+  private async handleToolCall(
+    action: ServerAction<'tool-call-request'>,
+  ): ReturnType<WebSocketHandler['handleToolCall']> {
     const toolName = action.toolName
-    const args = action.args
+    const input = action.input
+
     let result: string
+    if (!toolNames.includes(toolName as ToolName)) {
+      return this.promptIdToCustomToolHandler[action.userInputId](action)
+    }
+
     try {
       let override = this.overrideTools[toolName as ClientToolName]
       if (!override && toolName === 'str_replace') {
@@ -226,17 +273,19 @@ export class CodebuffClient {
         override = this.overrideTools['write_file']
       }
       if (override) {
-        const overrideResult = await override(args)
+        const overrideResult = await override(input)
         result = overrideResult.toolResultMessage
       } else if (toolName === 'end_turn') {
         result = ''
       } else if (toolName === 'write_file' || toolName === 'str_replace') {
-        const r = changeFile(args, this.cwd)
+        const r = changeFile(input, this.cwd)
         result = r.toolResultMessage
       } else if (toolName === 'run_terminal_command') {
-        throw new Error(
-          'run_terminal_command not implemented in SDK yet; please provide an override.',
-        )
+        const r = await runTerminalCommand({
+          ...input,
+          cwd: input.cwd ?? this.cwd,
+        } as Parameters<typeof runTerminalCommand>[0])
+        result = r.output
       } else {
         throw new Error(
           `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
@@ -244,83 +293,27 @@ export class CodebuffClient {
       }
     } catch (error) {
       return {
-        type: 'tool-call-response',
-        requestId: action.requestId,
         success: false,
-        result:
-          error && typeof error === 'object' && 'message' in error
-            ? error.message
-            : typeof error === 'string'
-              ? error
-              : 'Unknown error',
+        output: {
+          type: 'text',
+          value:
+            error &&
+            typeof error === 'object' &&
+            'message' in error &&
+            typeof error.message === 'string'
+              ? error.message
+              : typeof error === 'string'
+                ? error
+                : 'Unknown error',
+        },
       }
     }
     return {
-      type: 'tool-call-response',
-      requestId: action.requestId,
       success: true,
-      result,
+      output: {
+        type: 'text',
+        value: result,
+      },
     }
   }
-}
-
-function initialSessionState(
-  cwd: string,
-  options: {
-    // TODO: Parse projectFiles into fileTree, fileTokenScores, tokenCallers
-    projectFiles?: Record<string, string>
-    knowledgeFiles?: Record<string, string>
-    agentDefinitions?: AgentDefinition[]
-    maxAgentSteps?: number
-  },
-) {
-  const { knowledgeFiles = {}, agentDefinitions = [] } = options
-
-  // Process agentDefinitions array and convert handleSteps functions to strings
-  const processedAgentTemplates: Record<string, any> = {}
-  agentDefinitions.forEach((definition) => {
-    const processedConfig = { ...definition } as Record<string, any>
-    if (
-      processedConfig.handleSteps &&
-      typeof processedConfig.handleSteps === 'function'
-    ) {
-      processedConfig.handleSteps = processedConfig.handleSteps.toString()
-    }
-    if (processedConfig.id) {
-      processedAgentTemplates[processedConfig.id] = processedConfig
-    }
-  })
-
-  const initialState = getInitialSessionState({
-    projectRoot: cwd,
-    cwd,
-    fileTree: [],
-    fileTokenScores: {},
-    tokenCallers: {},
-    knowledgeFiles,
-    userKnowledgeFiles: {},
-    agentTemplates: processedAgentTemplates,
-    gitChanges: {
-      status: '',
-      diff: '',
-      diffCached: '',
-      lastCommitMessages: '',
-    },
-    changesSinceLastChat: {},
-    shellConfigFiles: {},
-    systemInfo: {
-      platform: process.platform,
-      shell: process.platform === 'win32' ? 'cmd.exe' : 'bash',
-      nodeVersion: process.version,
-      arch: process.arch,
-      homedir: os.homedir(),
-      cpus: os.cpus().length ?? 1,
-    },
-  })
-
-  if (options.maxAgentSteps) {
-    initialState.mainAgentState.stepsRemaining = options.maxAgentSteps
-  }
-
-  return initialState
 }

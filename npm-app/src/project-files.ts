@@ -310,13 +310,13 @@ export const getProjectFileContext = async (
       tokenCallers,
       knowledgeFiles: knowledgeFilesWithScrapedContent,
       agentTemplates: await loadLocalAgents({ verbose: false }),
+      customToolDefinitions: {},
       codebuffConfig,
       shellConfigFiles,
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       gitChanges,
       changesSinceLastChat,
-      fileVersions: [],
     }
   }
 
@@ -589,21 +589,27 @@ function findKnowledgeFilesInDir(dir: string): Record<string, string> {
   return result
 }
 
-export function getFilesAbsolutePath(filePaths: string[]) {
+export function getFilesAbsolutePath(
+  filePaths: string[],
+  options: { silent?: boolean } = {},
+) {
   const result: Record<string, string | null> = {}
   for (const filePath of filePaths) {
     try {
       const content = fs.readFileSync(filePath, 'utf8')
       result[filePath] = content
     } catch (error) {
-      logger.error(
-        {
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
-          filePath,
-        },
-        'Error reading file by absolute path',
-      )
+      if (!options.silent) {
+        logger.error(
+          {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            filePath,
+          },
+          'Error reading file by absolute path',
+        )
+      }
       result[filePath] = null
     }
   }
@@ -627,7 +633,7 @@ const loadShellConfigFiles = () => {
     path.join(homeDir, '.zshrc'),
     path.join(homeDir, '.kshrc'),
   ]
-  const files = getFilesAbsolutePath(configFiles)
+  const files = getFilesAbsolutePath(configFiles, { silent: true })
   return filterObject(files, (value) => value !== null) as Record<
     string,
     string

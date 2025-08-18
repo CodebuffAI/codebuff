@@ -1,8 +1,8 @@
 import { fetchContext7LibraryDocumentation } from '../../../llm-apis/context7-api'
 import { logger } from '../../../util/logger'
 
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 
 export const handleReadDocs = (({
   previousToolCallFinished,
@@ -28,7 +28,7 @@ export const handleReadDocs = (({
   result: Promise<string>
   state: {}
 } => {
-  const { libraryTitle, topic, max_tokens } = toolCall.args
+  const { libraryTitle, topic, max_tokens } = toolCall.input
   const { userId, fingerprintId, repoId } = state
   if (!userId) {
     throw new Error('Internal error for read_docs: Missing userId in state')

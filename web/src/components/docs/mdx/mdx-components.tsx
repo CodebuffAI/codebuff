@@ -97,6 +97,8 @@ const createHeadingWithCopyLink = (
 
     const handleClick = () => {
       if (id) {
+        // Add a history entry with the new hash and smoothly scroll
+        history.pushState(null, '', `${window.location.pathname}#${id}`)
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
       }
 

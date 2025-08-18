@@ -7,70 +7,165 @@ order: 1
 
 # Customizing Agents
 
-Create specialized agents from scratch using JSON templates in `.agents/templates/`:
+Create specialized agents from scratch using TypeScript files in the `.agents/` directory:
 
 ```markdown
-.agents/templates/
-├── my-custom-agent.json
-└── security-coordinator.json
+.agents/
+├── my-custom-agent.ts
+├── security-coordinator.ts
+└── types/
+    └── agent-definition.ts
 ```
 
-## Example: Security Coordinator Agent
+### Domain-Specific Customization
 
-Create a specialized agent that provides guidance to other agents when spawning them:
+Agents adapt to your specific workflow and project needs.
 
-**.agents/templates/security-coordinator.json**
+Keep in mind you'll get the most value from agents if you treat them as context window managers. Design them to orchestrate and sequence work so the right files, facts, and decisions are in scope at each step. Break tasks into steps and build agents around controlling that flow instead of trying to replicate human specialties.
 
-```json
-{
-  "id": "security-coordinator",
-  "version": "1.0.0",
+**Tip:** Use specialty reviewers as spawnable subagents that your context-manager agent calls at the right time in the workflow.
 
-  "name": "Security Coordinator",
-  "purpose": "Coordinates security-focused development workflows",
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "outputMode": "last_message",
-  "includeMessageHistory": true,
+### Reasoning Options (optional)
 
-  "toolNames": ["read_files", "spawn_agents", "code_search", "end_turn"],
-  "spawnableAgents": ["reviewer", "researcher", "file_picker"],
+For models that support it, you can enable and tune reasoning directly on your agent:
 
-  "inputSchema": {
-    "prompt": {
-      "type": "string",
-      "description": "Security analysis or coordination task"
-    }
+```ts
+const definition = {
+  id: 'reviewer',
+  // ... other fields ...
+  reasoningOptions: {
+    enabled: true,      // turn on reasoning if supported
+    exclude: false,     // include reasoning traces when available
+    effort: 'medium',   // low | medium | high
   },
-
-  "systemPrompt": "You are a security coordinator responsible for ensuring secure development practices.",
-  "instructionsPrompt": "Analyze the security implications of the request and coordinate appropriate security-focused agents.",
 }
 ```
 
+- Effort roughly corresponds to a larger internal "max tokens for reasoning."
+- If the selected model doesn't support reasoning, these options are safely ignored.
+
+## Example: Security Coordinator Agent
+
+Create a specialized agent for security-focused workflows:
+
+**.agents/security-coordinator.ts**
+
+```typescript
+import { AgentDefinition } from './types/agent-definition'
+
+const definition: AgentDefinition = {
+  id: "security-coordinator",
+  version: "1.0.0",
+
+  displayName: "Security Coordinator",
+  spawnerPrompt: "Spawn this agent to coordinate security-focused development workflows and ensure secure coding practices",
+  model: "anthropic/claude-4-sonnet-20250522",
+  outputMode: "last_message",
+  includeMessageHistory: true,
+
+  toolNames: ["read_files", "spawn_agents", "code_search", "end_turn"],
+  spawnableAgents: ["codebuff/reviewer@0.0.1", "codebuff/researcher@0.0.1", "codebuff/file-picker@0.0.1"],
+
+  inputSchema: {
+    prompt: {
+      type: "string",
+      description: "Security analysis or coordination task"
+    }
+  },
+
+  systemPrompt: "You are a security coordinator responsible for ensuring secure development practices.",
+  instructionsPrompt: "Analyze the security implications of the request and coordinate appropriate security-focused agents.",
+  stepPrompt: "Continue analyzing security requirements and coordinating the workflow. Use end_turn when complete."
+}
+
+export default definition
+```
+
+## Advanced: Adding Programmatic Control
+
+Make your agent even more powerful with programmatic control:
+
+```typescript
+const definition: AgentDefinition = {
+  id: "security-coordinator",
+  // ... other fields ...
+
+  handleSteps: function* ({ prompt, params }) {
+    // 1. Scan for security vulnerabilities
+    const { toolResult: scanResults } = yield {
+      toolName: 'code_search',
+      input: {
+        pattern: '(eval|exec|dangerouslySetInnerHTML|process\.env)',
+        flags: '-i'
+      }
+    }
+
+    // 2. If vulnerabilities found, spawn security reviewer
+    if (scanResults) {
+      yield {
+        toolName: 'spawn_agents',
+        input: {
+          agents: [{
+            agent_type: 'security-reviewer',
+            prompt: `Review these potential security issues: ${scanResults}`
+          }]
+        }
+      }
+    }
+
+    // 3. Let the agent handle the rest
+    yield 'STEP_ALL'
+  }
+}
+```
+
+With `handleSteps`, your agent can:
+- Make decisions based on actual code analysis
+- Orchestrate multiple tools in sequence
+- Handle errors gracefully
+- Implement complex conditional logic
+
 ## Available Fields
 
-**Core:** `model`, `toolNames`, `spawnableAgents`
-**Prompts:** `systemPrompt`, `instructionsPrompt`, `stepPrompt`
+**Core:**
+  - `id`
+  - `displayName`
+  - `model`
+  - `version`
+  - `publisher`
 
-## Built-in Agents
+**Tools:**
+  - `toolNames`
+  - `spawnableAgents`
 
-- `CodebuffAI/base` - Main coding assistant
-- `CodebuffAI/reviewer` - Code review
-- `CodebuffAI/thinker` - Deep thinking
-- `CodebuffAI/researcher` - Research & docs
-- `CodebuffAI/planner` - Planning & architecture
-- `CodebuffAI/file-picker` - File discovery
+**Prompts:**
+  - `spawnerPrompt`
+  - `systemPrompt`
+  - `instructionsPrompt`
+  - `stepPrompt`
+
+**Input/Output:**
+  - `inputSchema`
+  - `outputMode`
+  - `outputSchema`
+  - `includeMessageHistory`
+
+**Programmatic:**
+  - `handleSteps`
+
 
 ## Troubleshooting
 
-**Agent not loading:** Check JSON syntax, file location in `.agents/templates/`
-**Prompts not applying:** Verify file paths are relative to project root
-**Path errors:** Use `.agents/templates/my-file.md` format
+**Agent not loading:** Check TypeScript syntax, file must export default AgentDefinition
 
-**Debug tips:**
+**Type errors:** Import types from `'./types/agent-definition'`
 
-1. Validate JSON: `cat file.json | jq`
+**Prompts not applying:** Verify file paths are relative to `.agents/` directory
+
+**Running specific agents:**
+
+1. Check TypeScript: `bun run typecheck` in `.agents/` directory
 2. Restart Codebuff to see errors
 3. Test with `--agent <agent-id>` to debug specific agents
 
-**Next:** [Create new agents](/docs/agents/creating-new-agents) or see [troubleshooting guide](/docs/agents/troubleshooting)
+**Tip:** Use specialty reviewers as spawnable subagents that your context-manager agent calls at the right time in the workflow.

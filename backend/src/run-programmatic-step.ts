@@ -1,17 +1,17 @@
 import { getToolCallString } from '@codebuff/common/tools/utils'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
-import { asUserMessage } from './util/messages'
 import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
 import { sendAction } from './websockets/websocket-action'
 
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
   AgentTemplate,
   StepGenerator,
 } from '@codebuff/common/types/agent-template'
-import type { CodebuffToolCall } from './tools/constants'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -188,17 +188,18 @@ export async function runProgrammaticStep(
         `${toolCall.toolName} tool call from programmatic agent`,
       )
 
-      // Add user message with the tool call before executing it
+      // Add assistant message with the tool call before executing it
       // Exception: don't add tool call message for add_message since it adds its own message
       if (toolCall.toolName !== 'add_message') {
         const toolCallString = getToolCallString(
           toolCall.toolName,
-          toolCall.args,
+          toolCall.input,
         )
         state.messages.push({
-          role: 'user' as const,
-          content: asUserMessage(toolCallString),
+          role: 'assistant' as const,
+          content: toolCallString,
         })
+        onResponseChunk(toolCallString)
         state.sendSubagentChunk({
           userInputId,
           agentId: agentState.agentId,
@@ -210,7 +211,7 @@ export async function runProgrammaticStep(
       // Execute the tool synchronously and get the result immediately
       await executeToolCall({
         toolName: toolCall.toolName,
-        args: toolCall.args,
+        input: toolCall.input,
         toolCalls,
         toolResults,
         previousToolCallFinished: Promise.resolve(),
@@ -232,7 +233,7 @@ export async function runProgrammaticStep(
       state.agentState.messageHistory = state.messages
 
       // Get the latest tool result
-      toolResult = toolResults[toolResults.length - 1]?.result
+      toolResult = toolResults[toolResults.length - 1]?.output.value
 
       if (toolCall.toolName === 'end_turn') {
         endTurn = true
@@ -248,7 +249,7 @@ export async function runProgrammaticStep(
     return { agentState: state.agentState, endTurn }
   } catch (error) {
     logger.error(
-      { error, template: template.id },
+      { error: getErrorObject(error), template: template.id },
       'Programmatic agent execution failed',
     )
 

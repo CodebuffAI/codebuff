@@ -12,9 +12,13 @@ Complete reference for all agent configuration fields and tools.
 ## Key Terms
 
 **Agent Template:** JSON file defining agent behavior
+
 **Spawnable Agents:** Sub-agents this agent can create
+
 **Tool Names:** Capabilities (read files, run commands, etc.)
+
 **Output Mode:** Response format (last message, report, all messages)
+
 **Prompt Schema:** Input validation rules
 
 ## Agent Configuration
@@ -24,6 +28,33 @@ When creating agent templates, you define all aspects of the agent from scratch.
 ### Agent Schema
 
 <AgentTemplateSchemaDisplay />
+
+### Core Configuration
+
+#### `id` (string, required)
+
+Unique identifier for this agent. Must contain only lowercase letters, numbers, and hyphens.
+
+```json
+"id": "code-reviewer"
+```
+
+#### `displayName` (string, required)
+
+Human-readable name for the agent.
+
+```json
+"displayName": "Code Review Specialist"
+```
+
+#### `spawnerPrompt` (string, optional)
+
+Prompt for when and why to spawn this agent. Include the main purpose and use cases.
+This field is key if the agent is intended to be spawned by other agents.
+
+```json
+"spawnerPrompt": "Spawn this agent for thorough code review, focusing on bugs, security issues, and best practices"
+```
 
 ### Model Configuration
 
@@ -35,6 +66,36 @@ The model to use, which can be any model string from [Openrouter](https://openro
 "model": "anthropic/claude-4-sonnet-20250522"
 ```
 
+#### Reasoning Options (`reasoningOptions`, object, optional)
+
+Controls model reasoning behavior using OpenRouter-style settings.
+
+Fields:
+
+- `enabled` (boolean, default: false) — Turn reasoning mode on for supported models.
+- `exclude` (boolean, default: false) — If true, omit model-revealed reasoning content from responses (when available), returning only the final answer.
+- `effort` ("low" | "medium" | "high") — Increase or decrease how much the model "thinks" before answering. Higher effort typically improves quality for hard tasks at the cost of more reasoning tokens.
+
+Notes:
+
+- Patterned after OpenRouter's "max tokens for reasoning." Higher effort maps to a higher internal reasoning token budget. See OpenRouter docs for background.
+- Only supported by models that expose reasoning features. When unsupported, these options are ignored.
+
+Example:
+
+```ts
+// .agents/thinker.ts
+const definition = {
+  id: 'thinker',
+  // ... other fields ...
+  reasoningOptions: {
+    enabled: true,
+    exclude: false,
+    effort: 'high',
+  },
+}
+```
+
 ### Behavior Configuration
 
 #### `outputMode` (string, optional, default: "last_message")
@@ -43,20 +104,40 @@ How the agent's output is handled.
 
 **Options:**
 
-- `"last_message"` - Return only the final message
-- `"report"` - Return a structured report
+- `"last_message"` - Return only the final message (default)
 - `"all_messages"` - Return all messages from the conversation
+- `"structured_output"` - Return a structured JSON object (use with `outputSchema`)
 
 ```json
 "outputMode": "last_message"
 ```
 
-#### `includeMessageHistory` (boolean, optional, default: true)
+#### `includeMessageHistory` (boolean, optional, default: false)
 
-Whether to include conversation history when spawning this agent.
+Whether to include conversation history from the parent agent when spawning this agent.
 
 ```json
 "includeMessageHistory": true
+```
+
+#### `outputSchema` (object, optional)
+
+JSON Schema for structured output (when `outputMode` is `"structured_output"`). Defines the expected shape of the JSON object the agent will return.
+
+```json
+"outputMode": "structured_output",
+"outputSchema": {
+  "type": "object",
+  "properties": {
+    "summary": { "type": "string" },
+    "issues": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "score": { "type": "number" }
+  },
+  "required": ["summary", "issues"]
+}
 ```
 
 ### Tools and Capabilities
@@ -91,19 +172,24 @@ List of tools the agent can use.
 
 #### `spawnableAgents` (array, optional, default: [])
 
-Other agents this agent can spawn.
+Other agents this agent can spawn. Use the fully qualified agent ID from the agent store (publisher/name@version) or the agent ID from a local agent file.
+
+> **⚠️ Important:** When referencing built-in agents, you **must** specify both publisher and version (e.g., `codebuff/reviewer@0.0.1`). Omit publisher/version only for local agents defined in your `.agents/` directory.
+
+**Referencing Agents:**
+- Published/built-in agents: `"codebuff/file-picker@0.0.1"` (publisher and version required!)
+- Local agents: `"my-custom-agent"` (just the agent ID)
 
 **Available Built-in Agents:**
-
-- `CodebuffAI/base` - Main coding assistant
-- `CodebuffAI/reviewer` - Code review agent
-- `CodebuffAI/thinker` - Deep thinking agent
-- `CodebuffAI/researcher` - Research and documentation agent
-- `CodebuffAI/planner` - Planning and architecture agent
-- `CodebuffAI/file_picker` - File discovery agent
+- `codebuff/base` - Main coding assistant
+- `codebuff/reviewer` - Code review agent
+- `codebuff/thinker` - Deep thinking agent
+- `codebuff/researcher` - Research and documentation agent
+- `codebuff/planner` - Planning and architecture agent
+- `codebuff/file-picker` - File discovery agent
 
 ```json
-"spawnableAgents": ["CodebuffAI/researcher", "CodebuffAI/reviewer"]
+"spawnableAgents": ["codebuff/researcher@0.0.1", "my-local-agent"]
 ```
 
 ### Prompt Configuration
@@ -124,19 +210,77 @@ All prompt fields support two formats:
 }
 ```
 
-#### Required Prompts
+#### Prompt Fields (all optional)
 
-#### `systemPrompt` (string or object, required)
+#### `systemPrompt` (string or object, optional)
 
-Core instructions that define the agent's behavior and personality.
+Background information for the agent. Fairly optional - prefer using `instructionsPrompt` for agent instructions.
 
-#### `instructionsPrompt` (string or object, required)
+#### `instructionsPrompt` (string or object, optional)
 
-Instructions for how to process user input.
+Instructions for the agent. **This is the best way to shape the agent's behavior** and is inserted after each user input.
 
-#### `stepPrompt` (string or object, required)
+#### `stepPrompt` (string or object, optional)
 
-Instructions for each step of the agent's execution.
+Prompt inserted at each agent step. Powerful for changing behavior but usually not necessary for smart models.
+
+### Programmatic Control
+
+#### `handleSteps` (generator function, optional)
+
+**🚀 This is what makes Codebuff agents truly powerful!** Unlike traditional prompt-based agents, `handleSteps` lets you write actual code to control agent behavior.
+
+Programmatically control the agent's execution using a TypeScript generator function. This enables:
+- **Dynamic decision making** based on tool results
+- **Complex orchestration** between multiple tools and agents
+- **Conditional branching** based on file contents or agent responses
+- **Iterative refinement** until desired results are achieved
+- **State management** across multiple steps
+
+
+**What You Can Yield:**
+
+<MarkdownTable>
+| Yield Value | What It Does |
+|------------|-------------|
+| Tool call object | Execute a specific tool and get its result |
+| 'STEP' | Run agent's LLM for one generation step |
+| 'STEP_ALL' | Let agent run until completion |
+| return | End the agent's turn immediately |
+</MarkdownTable>
+
+**Tool Call Pattern:**
+```typescript
+const { toolResult, toolError } = yield {
+  toolName: 'read_files',
+  input: { paths: ['file.ts'] }
+}
+// Now you can use toolResult to make decisions!
+```
+
+**Example:**
+```typescript
+handleSteps: function* ({ agentState, prompt, params }) {
+  // First, read some files
+  const { toolResult } = yield {
+    toolName: 'read_files',
+    input: { paths: ['src/index.ts', 'src/config.ts'] }
+  }
+  // Then spawn a thinker agent
+  yield {
+    toolName: 'spawn_agents',
+    input: {
+      agents: [{
+        agent_type: 'thinker',
+        prompt: 'Analyze this code structure'
+      }]
+    }
+  }
+
+  // Let the agent take over from here
+  yield 'STEP_ALL'
+}
+```
 
 ### Schema Validation
 
@@ -157,86 +301,81 @@ JSON Schema definitions for validating prompt and params when spawning the agent
         "type": "string",
         "enum": ["markdown", "html"]
       }
+```
+
+**Real-World Example:**
+```typescript
+  // 1. Dynamically find relevant files
+  const { toolResult: searchResults } = yield {
+    toolName: 'code_search',
+    input: { pattern: params.searchPattern || 'TODO' }
     }
+
+  // 2. Parse results and decide what to read
+  const files = JSON.parse(searchResults || '[]')
+  if (files.length > 0) {
+    const { toolResult: fileContents } = yield {
+      toolName: 'read_files',
+      input: { paths: files.slice(0, 10) }
   }
+
+    // 3. Conditionally spawn different agents based on content
+    if (fileContents?.includes('security')) {
+      yield {
+        toolName: 'spawn_agents',
+        input: {
+          agents: [{
+            agent_type: 'security-reviewer',
+            prompt: `Review security implications in: ${files.join(', ')}`
+          }]
+        }
+      }
+    }
 }
-```
 
-### Parent Instructions
-
-#### `parentInstructions` (object, optional)
-
-Defines instructions that this agent provides to other agents when they are spawned. This allows agents to guide the behavior of their sub-agents without creating full overrides.
-
-**How it works:**
-
-- When an agent spawns another agent, the system looks for any `parentInstructions` targeting that agent type
-- These instructions are automatically injected into the spawned agent's `userInputPrompt`
-- Multiple agents can provide instructions for the same target agent - all will be included
-
-**Structure:**
-
-```json
-"parentInstructions": {
-  "researcher": "Instruction text for researcher to know when to spawn your agent",
-  "another-agent": "Different instruction for another-agent to know when to spawn your agent"
-}
-```
-
-**When to use:**
-
-- **Conditional guidance**: Provide context-specific instructions based on the spawning scenario
-- **Workflow coordination**: Ensure spawned agents follow specific patterns or requirements
-- **Domain expertise**: Share specialized knowledge with relevant sub-agents
-- **Quality control**: Add validation or review requirements for specific agent types
-
-**Validation:**
-
-- Agent types in `parentInstructions` must be valid (either built-in or custom agents)
-- Invalid agent types will cause validation errors during agent loading
-
-**Best practices:**
-
-- Keep instructions concise and actionable
-- Focus on behavior modifications rather than complete workflow changes
-- Test instructions with different spawning scenarios
-- Consider the cumulative effect when multiple agents provide instructions for the same target
-- Remember that `parentInstructions` can only be defined in new agent templates, not in override files
+  // 4. Let the LLM handle the rest with context
+**Why This Matters:**
+- Traditional agents rely solely on prompts and hope the LLM makes the right decisions
+- With `handleSteps`, you have **deterministic control** over the agent's workflow
+- You can implement complex logic that would be impossible with prompts alone
+- Results from one tool directly inform the next action programmatically
 
 ### Agent Example
+**.agents/documentation-writer.ts**
+import { AgentDefinition } from './types/agent-definition'
+const definition: AgentDefinition = {
+  id: "documentation-writer",
+  version: "1.0.0",
+  publisher: "mycompany",
 
-```json
-{
-  "id": "documentation-writer",
-  "version": "1.0.0",
-  "override": false,
+  displayName: "Documentation Writer",
+  spawnerPrompt: "Spawn this agent for creating comprehensive documentation, API docs, or user guides",
+  model: "anthropic/claude-4-sonnet-20250522",
+  outputMode: "last_message",
+  includeMessageHistory: true,
 
-  "name": "Documentation Writer",
-  "purpose": "Specialized agent for creating comprehensive documentation",
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "outputMode": "last_message",
-  "includeMessageHistory": true,
-
-  "toolNames": [
+  toolNames: [
     "read_files",
     "write_file",
     "code_search",
     "spawn_agents",
     "end_turn"
   ],
-  "spawnableAgents": ["CodebuffAI/researcher"],
+  spawnableAgents: ["codebuff/researcher@0.0.1"],
 
-  "inputSchema": {
-    "prompt": {
-      "type": "string",
-      "description": "What documentation to create or update"
+  inputSchema: {
+    prompt: {
+      type: "string",
+      description: "What documentation to create or update"
     }
   },
 
-  "systemPrompt": {
-    "path": "./doc-writer-system.md"
+  systemPrompt: {
+    path: "./prompts/doc-writer-system.md"
   },
-  "instructionsPrompt": "Create comprehensive documentation based on the user's request. Research existing code first.",
-  "stepPrompt": "Continue working on the documentation. Use end_turn when complete."
+  instructionsPrompt: "Create comprehensive documentation based on the user's request. Research existing code first.",
+  stepPrompt: "Continue working on the documentation. Use end_turn when complete."
 }
+
+export default definition
 ```

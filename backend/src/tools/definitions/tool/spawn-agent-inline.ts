@@ -10,6 +10,8 @@ Spawn a single agent that runs within the current message history.
 The spawned agent sees all previous messages and any messages it adds 
 are preserved when control returns to you.
 
+You should prefer to use the spawn_agents tool unless instructed otherwise. This tool is only for special cases.
+
 This is useful for:
 - Delegating specific tasks while maintaining context
 - Having specialized agents process information inline

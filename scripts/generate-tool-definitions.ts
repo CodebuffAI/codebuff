@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
-import { writeFileSync } from 'fs'
-import { join } from 'path'
+import { writeFileSync, mkdirSync } from 'fs'
+import { join, dirname } from 'path'
 import { execSync } from 'child_process'
 
 import { compileToolDefinitions } from '@codebuff/common/tools/compile-tool-definitions'
@@ -15,7 +15,14 @@ function main() {
 
   try {
     const content = compileToolDefinitions()
-    const outputPath = join(process.cwd(), 'common/src/util/types/tools.d.ts')
+    // Write to the templates path (common/src/templates/initial-agents-dir/types)
+    const outputPath = join(
+      process.cwd(),
+      'common/src/templates/initial-agents-dir/types/tools.ts',
+    )
+
+    // Create the directory if it does not exist
+    mkdirSync(dirname(outputPath), { recursive: true })
 
     writeFileSync(outputPath, content, 'utf8')
 
@@ -23,7 +30,7 @@ function main() {
     console.log('🎨 Formatting generated file...')
     execSync(`npx prettier --write "${outputPath}"`, { stdio: 'inherit' })
 
-    console.log('✅ Successfully generated tools.d.ts')
+    console.log('✅ Successfully generated tools.ts')
     console.log(`📁 Output: ${outputPath}`)
   } catch (error) {
     console.error('❌ Failed to generate tool definitions:', error)

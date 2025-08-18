@@ -1,54 +1,44 @@
-import { publisher, version } from './constants'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
-import type { AgentDefinition } from './types/agent-definition'
+import { publisher } from './constants'
 
-const definition: AgentDefinition = {
-  id: 'file-explorer',
-  version,
-  publisher,
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
+
+const paramsSchema = {
+  type: 'object' as const,
+  properties: {
+    prompts: {
+      type: 'array' as const,
+      items: { type: 'string' },
+      description:
+        'List of 1-4 different parts of the codebase that could be useful to explore',
+    },
+  },
+  required: ['prompts'],
+}
+
+const fileExplorer: SecretAgentDefinition = {
+  id: AgentTemplateTypes.file_explorer,
   displayName: 'Dora the File Explorer',
-  model: 'anthropic/claude-4-sonnet-20250522',
-
   spawnerPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
-
+  model: 'anthropic/claude-4-sonnet-20250522',
+  publisher,
+  outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: [`file-picker`],
-
-  outputMode: 'structured_output',
+  spawnableAgents: ['file-picker'],
   inputSchema: {
     prompt: {
-      description: 'What you need to accomplish by exploring the codebase',
       type: 'string',
+      description: 'What you need to accomplish by exploring the codebase',
     },
-    params: {
-      type: 'object',
-      properties: {
-        prompts: {
-          description:
-            'List of 1-4 different parts of the codebase that could be useful to explore',
-          type: 'array',
-          items: {
-            type: 'string',
-          },
-        },
-      },
-      required: ['prompts'],
-      additionalProperties: false,
-    },
+    params: paramsSchema,
   },
-  outputSchema: {
-    type: 'object',
-    properties: {
-      results: {
-        type: 'string',
-        description: 'The results of the file exploration',
-      },
-    },
-    required: ['results'],
-    additionalProperties: false,
-  },
+  systemPrompt:
+    'You are a file explorer agent that spawns multiple file picker agents in parallel to comprehensively explore the codebase.',
+  instructionsPrompt: '',
+  stepPrompt: '',
 
   handleSteps: function* ({ prompt, params }) {
     const prompts: string[] = params?.prompts ?? []
@@ -58,7 +48,7 @@ const definition: AgentDefinition = {
       ),
       { toolResult: spawnResult } = yield {
         toolName: 'spawn_agents',
-        args: {
+        input: {
           agents: filePickerPrompts.map((promptText) => ({
             agent_type: 'file-picker',
             prompt: promptText,
@@ -67,11 +57,11 @@ const definition: AgentDefinition = {
       }
     yield {
       toolName: 'set_output',
-      args: {
+      input: {
         results: spawnResult,
       },
     }
   },
 }
 
-export default definition
+export default fileExplorer

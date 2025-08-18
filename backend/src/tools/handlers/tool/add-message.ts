@@ -1,5 +1,5 @@
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 
 export const handleAddMessage = (({
@@ -16,7 +16,7 @@ export const handleAddMessage = (({
 } => {
   return {
     result: previousToolCallFinished.then(() => {
-      getLatestState().messages.push(toolCall.args)
+      getLatestState().messages.push(toolCall.input)
       return undefined
     }),
     state: {},

@@ -2,6 +2,7 @@ import type { Model } from '../constants'
 import type { AgentState, AgentTemplateType } from './session-state'
 import type { ToolCall } from '../templates/initial-agents-dir/types/agent-definition'
 import type { ToolName } from '../tools/constants'
+import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 import type { z } from 'zod/v4'
 
 export type AgentTemplate<
@@ -11,8 +12,9 @@ export type AgentTemplate<
   id: AgentTemplateType
   displayName: string
   model: Model
+  reasoningOptions?: OpenRouterProviderOptions['reasoning']
 
-  toolNames: ToolName[]
+  toolNames: (ToolName | (string & {}))[]
   spawnableAgents: AgentTemplateType[]
 
   spawnerPrompt?: string

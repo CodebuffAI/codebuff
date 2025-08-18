@@ -1,3 +1,6 @@
+import z from 'zod/v4'
+
+import { FileChangeSchema } from '../actions'
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
 import { browserLogsParams } from './params/tool/browser-logs'
@@ -11,9 +14,9 @@ import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
 import { setMessagesParams } from './params/tool/set-messages'
 import { setOutputParams } from './params/tool/set-output'
+import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { spawnAgentsParams } from './params/tool/spawn-agents'
 import { spawnAgentsAsyncParams } from './params/tool/spawn-agents-async'
-import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { strReplaceParams } from './params/tool/str-replace'
 import { thinkDeeplyParams } from './params/tool/think-deeply'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
@@ -21,6 +24,7 @@ import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
 
 import type { ToolName, ToolParams } from './constants'
+import type { ToolCallPart } from 'ai'
 
 export const llmToolCallSchema = {
   add_message: addMessageParams,
@@ -48,44 +52,52 @@ export const llmToolCallSchema = {
   [K in ToolName]: ToolParams<K>
 }
 
-export const clientToolCallSchema = {
-  // Tools that require an id and objective
-  add_subgoal: ['id', 'objective', 'status', 'plan', 'log'],
-  update_subgoal: ['id', 'status', 'plan', 'log'],
+// Tool call from LLM
+export type CodebuffToolCall<T extends ToolName = ToolName> = {
+  [K in ToolName]: {
+    toolName: K
+    input: z.infer<(typeof llmToolCallSchema)[K]['parameters']>
+  } & Omit<ToolCallPart, 'type'>
+}[T]
 
-  // File operations
-  write_file: ['path', 'instructions', 'content'],
-  str_replace: ['path', 'replacements'],
-  read_files: ['paths'],
-  find_files: ['prompt'],
+// Tool call to send to client
+export type ClientToolName = (typeof clientToolNames)[number]
+const clientToolCallSchema = z.discriminatedUnion('toolName', [
+  z.object({
+    toolName: z.literal('browser_logs'),
+    input: llmToolCallSchema.browser_logs.parameters,
+  }),
+  z.object({
+    toolName: z.literal('code_search'),
+    input: llmToolCallSchema.code_search.parameters,
+  }),
+  z.object({
+    toolName: z.literal('create_plan'),
+    input: FileChangeSchema,
+  }),
+  z.object({
+    toolName: z.literal('run_file_change_hooks'),
+    input: llmToolCallSchema.run_file_change_hooks.parameters,
+  }),
+  z.object({
+    toolName: z.literal('run_terminal_command'),
+    input: llmToolCallSchema.run_terminal_command.parameters.and(
+      z.object({ mode: z.enum(['assistant', 'user']) }),
+    ),
+  }),
+  z.object({
+    toolName: z.literal('str_replace'),
+    input: FileChangeSchema,
+  }),
+  z.object({
+    toolName: z.literal('write_file'),
+    input: FileChangeSchema,
+  }),
+])
+export const clientToolNames = clientToolCallSchema.def.options.map(
+  (opt) => opt.shape.toolName.value,
+) satisfies ToolName[]
 
-  // Search and terminal
-  code_search: ['pattern', 'flags', 'cwd'],
-  run_terminal_command: ['command', 'process_type', 'cwd', 'timeout_seconds'],
-
-  // Planning tools
-  think_deeply: ['thought'],
-  create_plan: ['path', 'plan'],
-
-  browser_logs: ['type', 'url', 'waitUntil'],
-
-  spawn_agents: ['agents'],
-  spawn_agents_async: ['agents'],
-  spawn_agent_inline: ['agent_type', 'prompt', 'params'],
-  set_output: [],
-
-  // Documentation tool
-  read_docs: ['libraryTitle', 'topic', 'max_tokens'],
-
-  // Web search tool
-  web_search: ['query', 'depth'],
-
-  // File change hooks tool
-  run_file_change_hooks: ['files'],
-
-  // Tools that change the conversation history
-  add_message: ['role', 'content'],
-  set_messages: ['messages'],
-
-  end_turn: [],
-} as const satisfies Record<ToolName, string[]>
+export type ClientToolCall<T extends ClientToolName = ClientToolName> = z.infer<
+  typeof clientToolCallSchema
+> & { toolName: T } & Omit<ToolCallPart, 'type'>

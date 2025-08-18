@@ -5,44 +5,19 @@ import { and, desc, eq } from 'drizzle-orm'
 
 import { ProjectFileContext } from '@codebuff/common/util/file'
 import { logger } from '../util/logger'
-import { agentTemplates as staticTemplates } from './agent-list'
 import {
   DynamicAgentValidationError,
   validateAgents,
   validateSingleAgent,
 } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
+import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
+import { parsePublishedAgentId } from '@codebuff/common/util/agent-id-parsing'
 
 export type AgentRegistry = Record<string, AgentTemplate>
 
 // Global database cache - only state in the system
 const databaseAgentCache = new Map<string, AgentTemplate | null>()
-
-/**
- * Parse agent ID to extract publisher, agent name, and version
- */
-function parseAgentId(fullAgentId: string): {
-  publisherId: string
-  agentId: string
-  version?: string
-} | null {
-  // Check if it's in the publisher/agent-id[@version] format
-  const parts = fullAgentId.split('/')
-  if (parts.length !== 2) {
-    return null
-  }
-
-  const [publisherId, agentNameWithVersion] = parts
-
-  // Check for version suffix
-  const versionMatch = agentNameWithVersion.match(/^(.+)@(.+)$/)
-  if (versionMatch) {
-    const [, agentId, version] = versionMatch
-    return { publisherId, agentId, version }
-  }
-
-  return { publisherId, agentId: agentNameWithVersion }
-}
 
 /**
  * Fetch an agent from the database by publisher/agent-id[@version] format
@@ -163,13 +138,23 @@ export async function getAgentTemplate(
     return localAgentTemplates[agentId]
   }
   // 2. Check database cache
-  const cacheKey = agentId
-  if (databaseAgentCache.has(cacheKey)) {
-    return databaseAgentCache.get(cacheKey) || null
+  if (databaseAgentCache.has(agentId)) {
+    return databaseAgentCache.get(agentId) || null
   }
 
-  const parsed = parseAgentId(agentId)
+  const parsed = parsePublishedAgentId(agentId)
   if (!parsed) {
+    // If agentId doesn't parse as publisher/agent format, try as codebuff/agentId
+    const codebuffParsed = parsePublishedAgentId(
+      `${DEFAULT_ORG_PREFIX}${agentId}`,
+    )
+    if (codebuffParsed) {
+      const dbAgent = await fetchAgentFromDatabase(codebuffParsed)
+      if (dbAgent) {
+        databaseAgentCache.set(dbAgent.id, dbAgent)
+        return dbAgent
+      }
+    }
     logger.debug({ agentId }, 'getAgentTemplate: Failed to parse agent ID')
     return null
   }
@@ -178,7 +163,7 @@ export async function getAgentTemplate(
   const dbAgent = await fetchAgentFromDatabase(parsed)
   if (dbAgent && parsed.version && parsed.version !== 'latest') {
     // Cache only specific versions to avoid stale 'latest' results
-    databaseAgentCache.set(cacheKey, dbAgent)
+    databaseAgentCache.set(dbAgent.id, dbAgent)
   }
   return dbAgent
 }
@@ -195,9 +180,9 @@ export function assembleLocalAgentTemplates(fileContext: ProjectFileContext): {
     fileContext.agentTemplates || {},
   )
 
-  // Combine static and dynamic templates
-  const agentTemplates = { ...staticTemplates, ...dynamicTemplates }
+  // Use dynamic templates only
 
+  const agentTemplates = { ...dynamicTemplates }
   return { agentTemplates, validationErrors }
 }
 

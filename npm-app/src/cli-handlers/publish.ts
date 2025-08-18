@@ -12,6 +12,7 @@ import type {
   PublishAgentsResponse,
 } from '@codebuff/common/types/api/agents/publish'
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
+import { pluralize } from '@codebuff/common/util/string'
 
 /**
  * Handle the publish command to upload agent templates to the backend
@@ -62,14 +63,12 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
       return
     }
 
-    const matchingTemplates: Record<string, DynamicAgentTemplate> = {}
+    const matchingTemplates: Record<string, any> = {}
     for (const agentId of agentIds) {
       // Find the specific agent
-      const matchingTemplate = Object.entries(agentTemplates).find(
-        ([key, template]) =>
-          key === agentId ||
-          template.id === agentId ||
-          template.displayName === agentId,
+      const matchingTemplate = Object.values(agentTemplates).find(
+        (template) =>
+          template.id === agentId || template.displayName === agentId,
       )
 
       if (!matchingTemplate) {
@@ -80,10 +79,10 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
         return
       }
 
-      matchingTemplates[matchingTemplate[0]] = matchingTemplate[1]
+      matchingTemplates[matchingTemplate.id] = matchingTemplate
     }
     console.log(yellow(`Publishing:`))
-    for (const [key, template] of Object.entries(matchingTemplates)) {
+    for (const template of Object.values(matchingTemplates)) {
       console.log(`  - ${template.displayName} (${template.id})`)
     }
 
@@ -105,7 +104,9 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
         return
       }
 
-      console.log(red(`❌ Failed to publish agents: ${result.error}`))
+      console.log(red(`❌ Failed to publish your agents`))
+      if (result.details) console.log(red(`\n${result.details}`))
+      if (result.hint) console.log(yellow(`\nHint: ${result.hint}`))
 
       // Show helpful guidance based on error type
       if (result.error?.includes('Publisher field required')) {
@@ -151,7 +152,7 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
  * Publish agent templates to the backend
  */
 async function publishAgentTemplates(
-  data: DynamicAgentTemplate[],
+  data: Record<string, any>[],
   authToken: string,
 ): Promise<PublishAgentsResponse & { statusCode?: number }> {
   try {
@@ -179,31 +180,13 @@ async function publishAgentTemplates(
 
     if (!response.ok) {
       result = result as PublishAgentsErrorResponse
-      // Extract detailed error information from the response
-      let errorMessage =
-        result.error || `HTTP ${response.status}: ${response.statusText}`
-
-      // If there are validation details, include them
-      if (result.details) {
-        errorMessage += `\n\nDetails: ${result.details}`
-      }
-
-      // If there are specific validation errors, format them nicely
-      if (result.validationErrors && Array.isArray(result.validationErrors)) {
-        const formattedErrors = result.validationErrors
-          .map((err: any) => {
-            const path =
-              err.path && err.path.length > 0 ? `${err.path.join('.')}: ` : ''
-            return `  • ${path}${err.message}`
-          })
-          .join('\n')
-        errorMessage += `\n\nValidation errors:\n${formattedErrors}`
-      }
-
+      // Build clean error object without duplicating details into the error string
       return {
         success: false,
-        error: errorMessage,
+        error:
+          result.error || `HTTP ${response.status}: ${response.statusText}`,
         details: result.details,
+        hint: result.hint,
         statusCode: response.status,
         availablePublishers: result.availablePublishers,
         validationErrors: result.validationErrors,
@@ -214,18 +197,31 @@ async function publishAgentTemplates(
       ...result,
       statusCode: response.status,
     }
-  } catch (error) {
+  } catch (err: any) {
     // Handle network errors, timeouts, etc.
-    if (error instanceof TypeError && error.message.includes('fetch')) {
+    if (err instanceof TypeError && err.message.includes('fetch')) {
       return {
         success: false,
         error: `Network error: Unable to connect to ${websiteUrl}. Please check your internet connection and try again.`,
       }
     }
 
+    const body = err?.responseBody || err?.body || err
+    const error = body?.error || body?.message || 'Failed to publish'
+    const details = body?.details
+    const hint = body?.hint
+
+    // Log for visibility
+    console.error(`❌ Failed to publish: ${error}`)
+    if (details) console.error(`\nDetails: ${details}`)
+    if (hint) console.error(`\nHint: ${hint}`)
+
+    // Return a valid error object so callers can display the hint
     return {
       success: false,
-      error: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
-    }
+      error,
+      details,
+      hint,
+    } as PublishAgentsResponse
   }
 }

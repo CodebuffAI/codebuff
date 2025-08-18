@@ -3,7 +3,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 

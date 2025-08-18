@@ -23,7 +23,8 @@ export function getAllTsFiles(dir: string): string[] {
       } else if (
         entry.isFile() &&
         entry.name.endsWith('.ts') &&
-        !entry.name.endsWith('.d.ts')
+        !entry.name.endsWith('.d.ts') &&
+        !entry.name.endsWith('.test.ts')
       ) {
         files.push(fullPath)
       }

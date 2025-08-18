@@ -133,3 +133,31 @@
 .terminal-code::-webkit-scrollbar-thumb:hover {
   @apply bg-zinc-600;
 }
+
+/* Enhanced docs sidebar scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-border/60 rounded-full;
+  transition: background-color 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-border;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  @apply bg-foreground/20;
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border) / 0.6) transparent;
+}

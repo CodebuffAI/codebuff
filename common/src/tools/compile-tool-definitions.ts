@@ -1,7 +1,7 @@
 import z from 'zod/v4'
 
-import { llmToolCallSchema } from './list'
 import { publishedTools } from './constants'
+import { llmToolCallSchema } from './list'
 
 /**
  * Compiles all tool definitions into a single TypeScript definition file content.
@@ -19,7 +19,7 @@ export function compileToolDefinitions(): string {
       // Convert Zod schema to TypeScript interface using JSON schema
       let typeDefinition: string
       try {
-        const jsonSchema = z.toJSONSchema(parameterSchema)
+        const jsonSchema = z.toJSONSchema(parameterSchema, { io: 'input' })
         typeDefinition = jsonSchemaToTypeScript(jsonSchema)
       } catch (error) {
         console.warn(`Failed to convert schema for ${toolName}:`, error)

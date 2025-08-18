@@ -1,7 +1,7 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 
 export const handleAddSubgoal = ((params: {
@@ -15,11 +15,11 @@ export const handleAddSubgoal = ((params: {
   const { previousToolCallFinished, toolCall, state } = params
   const agentContext = state.agentContext ?? {}
 
-  agentContext[toolCall.args.id] = {
-    objective: toolCall.args.objective,
-    status: toolCall.args.status,
-    plan: toolCall.args.plan,
-    logs: buildArray([toolCall.args.log]),
+  agentContext[toolCall.input.id] = {
+    objective: toolCall.input.objective,
+    status: toolCall.input.status,
+    plan: toolCall.input.plan,
+    logs: buildArray([toolCall.input.log]),
   }
 
   return {

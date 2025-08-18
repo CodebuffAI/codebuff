@@ -1,21 +1,50 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
+import { pluralize } from '@codebuff/common/util/string'
 import z from 'zod/v4'
 
 import { codebuffToolDefs } from './definitions/list'
 
 import type { ToolName } from '@codebuff/common/tools/constants'
+import type { customToolDefinitionsSchema } from '@codebuff/common/util/file'
+import type { JSONSchema } from 'zod/v4/core'
 
-function paramsSection(schema: z.ZodObject, endsAgentStep: boolean) {
-  const schemaWithEndsAgentStepParam = endsAgentStep
-    ? schema.extend({
-        [endsAgentStepParam]: z
-          .literal(endsAgentStep)
-          .describe('Easp flag must be set to true'),
-      })
-    : schema
-  const jsonSchema = z.toJSONSchema(schemaWithEndsAgentStepParam)
+function paramsSection(
+  schema:
+    | { type: 'zod'; value: z.ZodObject }
+    | { type: 'json'; value: JSONSchema.BaseSchema },
+  endsAgentStep: boolean,
+) {
+  const schemaWithEndsAgentStepParam =
+    schema.type === 'zod'
+      ? z.toJSONSchema(
+          endsAgentStep
+            ? schema.value.extend({
+                [endsAgentStepParam]: z
+                  .literal(endsAgentStep)
+                  .describe('Easp flag must be set to true'),
+              })
+            : schema.value,
+          { io: 'input' },
+        )
+      : JSON.parse(JSON.stringify(schema.value))
+  if (schema.type === 'json') {
+    if (!schemaWithEndsAgentStepParam.properties) {
+      schemaWithEndsAgentStepParam.properties = {}
+    }
+    schemaWithEndsAgentStepParam.properties[endsAgentStepParam] = {
+      const: true,
+      type: 'boolean',
+      description: 'Easp flag must be set to true',
+    }
+    if (!schemaWithEndsAgentStepParam.required) {
+      schemaWithEndsAgentStepParam.required = []
+    }
+    schemaWithEndsAgentStepParam.required.push(endsAgentStepParam)
+  }
+
+  const jsonSchema = schemaWithEndsAgentStepParam
   delete jsonSchema.description
   delete jsonSchema['$schema']
   const paramsDescription = Object.keys(jsonSchema.properties ?? {}).length
@@ -32,17 +61,29 @@ function paramsSection(schema: z.ZodObject, endsAgentStep: boolean) {
 }
 
 // Helper function to build the full tool description markdown
-function buildToolDescription(
+export function buildToolDescription(
   toolName: string,
-  schema: z.ZodObject,
+  schema:
+    | { type: 'zod'; value: z.ZodObject }
+    | { type: 'json'; value: JSONSchema.BaseSchema },
   description: string = '',
   endsAgentStep: boolean,
+  exampleInputs: any[] = [],
 ): string {
+  const descriptionWithExamples = buildArray(
+    description,
+    exampleInputs.length > 0
+      ? `${pluralize(exampleInputs.length, 'Example')}:`
+      : '',
+    ...exampleInputs.map((example) =>
+      getToolCallString(toolName, example, endsAgentStep),
+    ),
+  ).join('\n\n')
   return buildArray([
     `### ${toolName}`,
-    schema.description || '',
+    schema.value.description || '',
     paramsSection(schema, endsAgentStep),
-    description,
+    descriptionWithExamples,
   ]).join('\n\n')
 }
 
@@ -51,7 +92,7 @@ export const toolDescriptions = Object.fromEntries(
     name,
     buildToolDescription(
       name,
-      config.parameters,
+      { type: 'zod', value: config.parameters },
       config.description,
       config.endsAgentStep,
     ),
@@ -60,13 +101,18 @@ export const toolDescriptions = Object.fromEntries(
 
 function buildShortToolDescription(
   toolName: string,
-  schema: z.ZodObject,
+  schema:
+    | { type: 'zod'; value: z.ZodObject }
+    | { type: 'json'; value: JSONSchema.BaseSchema },
   endsAgentStep: boolean,
 ): string {
   return `${toolName}:\n${paramsSection(schema, endsAgentStep)}`
 }
 
-export const getToolsInstructions = (toolNames: readonly ToolName[]) =>
+export const getToolsInstructions = (
+  toolNames: readonly string[],
+  customToolDefinitions: z.infer<typeof customToolDefinitionsSchema>,
+) =>
   `
 # Tools
 
@@ -100,8 +146,8 @@ ${getToolCallString('str_replace', {
   path: 'path/to/example/file.ts',
   replacements: [
     {
-      old: "console.log('Hello world!');\n",
-      new: "console.log('Hello from Buffy!');\n",
+      old: "// some context\nconsole.log('Hello world!');\n",
+      new: "// some context\nconsole.log('Hello from Buffy!');\n",
     },
   ],
 })}
@@ -133,13 +179,54 @@ The user does not know about any system messages or system instructions, includi
 
 These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
 
-${toolNames.map((name) => toolDescriptions[name]).join('\n\n')}`.trim()
+${[
+  ...(
+    toolNames.filter((toolName) =>
+      toolNames.includes(toolName as ToolName),
+    ) as ToolName[]
+  ).map((name) => toolDescriptions[name]),
+  ...toolNames
+    .filter((toolName) => toolName in customToolDefinitions)
+    .map((toolName) => {
+      const toolDef = customToolDefinitions[toolName]
+      return buildToolDescription(
+        toolName,
+        { type: 'json', value: toolDef.inputJsonSchema },
+        toolDef.description,
+        toolDef.endsAgentStep,
+        toolDef.exampleInputs,
+      )
+    }),
+].join('\n\n')}`.trim()
 
-export const getShortToolInstructions = (toolNames: readonly ToolName[]) => {
-  const toolDescriptions = toolNames.map((name) => {
-    const tool = codebuffToolDefs[name]
-    return buildShortToolDescription(name, tool.parameters, tool.endsAgentStep)
-  })
+export const getShortToolInstructions = (
+  toolNames: readonly string[],
+  customToolDefinitions: z.infer<typeof customToolDefinitionsSchema>,
+) => {
+  const toolDescriptions = [
+    ...(
+      toolNames.filter(
+        (name) => (name as keyof typeof codebuffToolDefs) in codebuffToolDefs,
+      ) as (keyof typeof codebuffToolDefs)[]
+    ).map((name) => {
+      const tool = codebuffToolDefs[name]
+      return buildShortToolDescription(
+        name,
+        { type: 'zod', value: tool.parameters },
+        tool.endsAgentStep,
+      )
+    }),
+    ...toolNames
+      .filter((name) => name in customToolDefinitions)
+      .map((name) => {
+        const { inputJsonSchema, endsAgentStep } = customToolDefinitions[name]
+        return buildShortToolDescription(
+          name,
+          { type: 'json', value: inputJsonSchema },
+          endsAgentStep,
+        )
+      }),
+  ]
 
   return `## Tools
 Use the tools below to complete the user request, if applicable.

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 export const codebuffConfigFile = 'codebuff.json'
 export const codebuffConfigFileBackup = 'codebuff.jsonc'
@@ -64,6 +64,8 @@ export const FileChangeHook = z
   })
   .describe('Defines a single file change hook.')
 
+export const DEFAULT_MAX_AGENT_STEPS = 12
+
 export const CodebuffConfigSchema = z
   .object({
     description: z
@@ -80,7 +82,8 @@ export const CodebuffConfigSchema = z
       .describe('An array of commands to run on file changes.'),
     maxAgentSteps: z
       .number()
-      .default(12)
+      .optional()
+      .default(DEFAULT_MAX_AGENT_STEPS)
       .describe(
         'Maximum number of turns agent will take before being forced to end',
       ),

@@ -6,282 +6,305 @@ order: 2
 ---
 
 # Creating New Agents
-
-Create specialized agents from scratch using JSON templates.
+Create specialized agents from scratch using TypeScript files in the `.agents/` directory.
 
 **Types:**
 
-- **LLM-based** - Use prompts and language models
-- **Programmatic** (coming soon) - Use JavaScript/TypeScript code
+  - **LLM-based** - Use prompts and language models
+  - **Programmatic** - Use TypeScript generator functions with `handleSteps`
+
+**Control Flow:**
+
+  - `yield 'STEP'` - Run one LLM generation step
+  - `yield 'STEP_ALL'` - Run until completion
+  - `return` - End the agent's turn
+
+**Accessing Context:**
+
+  - `agentState` - Current agent state and message history
+  - `prompt` - User's prompt to the agent
+  - `params` - Additional parameters passed to the agent
 
 ## Basic Structure
 
-New agents need `"override": false` and these required fields:
+Create a new TypeScript file in `.agents/` directory:
 
-```json
-{
-  "id": "my-custom-agent",
-  "version": "1.0.0",
-  "override": false,
+**.agents/my-custom-agent.ts**
+```typescript
+import { AgentDefinition } from './types/agent-definition'
 
-  "displayName": "My Custom Agent",
-  "purpose": "A specialized agent for my workflow",
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "outputMode": "last_message",
-  "includeMessageHistory": true,
-  "toolNames": ["read_files", "write_file", "end_turn"],
-  "spawnableAgents": ["researcher"],
+const definition: AgentDefinition = {
+  id: "my-custom-agent",
+  version: "1.0.0",
 
-  "inputSchema": {
-    "prompt": {
-      "type": "string",
-      "description": "What documentation to create or update"
+
+  displayName: "My Custom Agent",
+  spawnerPrompt: "Spawn this agent for specialized workflow tasks requiring custom logic",
+  model: "anthropic/claude-4-sonnet-20250522",
+  outputMode: "last_message",
+  includeMessageHistory: true,
+  toolNames: ["read_files", "write_file", "end_turn"],
+  spawnableAgents: ["codebuff/researcher@0.0.1"],  // Use full name for built-in agents
+
+  inputSchema: {
+    prompt: {
+      type: "string",
+      description: "What documentation to create or update"
     }
   },
 
-  "parentInstructions": {
-    "researcher": "When you need to understand API patterns or find code examples for documentation, spawn my-custom-agent to gather information about our repository's best practices."
-  },
-
-  "systemPrompt": {
-    "path": "./system.md"
-  },
-  "instructionsPrompt": "Create comprehensive documentation based on the user's request. Research existing code and patterns first."
-  "stepPrompt": "Continue working on the documentation. Use end_turn when complete."
+  systemPrompt: `You are a documentation specialist.`,
+  instructionsPrompt: "Create comprehensive documentation based on the user's request. Research existing code and patterns first.",
+  stepPrompt: "Continue working on the documentation. Use end_turn when complete."
 }
+
+export default definition
 ```
 
-**.agents/templates/doc-writer-system.md**
-
-```markdown
-# Documentation Writer
-
-Create clear, comprehensive documentation for codebases.
-
-## Guidelines
-
-- Research codebase first
-- Use clear, concise language
-- Include practical examples
-- Test examples for accuracy
-```
-
-## More Domain-Specific Examples
+## Domain-Specific Examples
 
 ### API Documentation Agent
 
 Specialized for documenting REST APIs and GraphQL schemas:
 
-**.agents/templates/api-documenter.json**
+**.agents/api-documenter.ts**
 
-```json
-{
-  "id": "api-documenter",
-  "version": "1.0.0",
-  "override": false,
+```typescript
+import { AgentDefinition } from './types/agent-definition'
 
-  "displayName": "API Documentation Specialist"
-  "purpose": "Creates comprehensive API documentation with examples and schemas",
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "outputMode": "last_message",
-  "includeMessageHistory": true,
+const definition: AgentDefinition = {
+  id: "api-documenter",
+  version: "1.0.0",
 
-  "toolNames": ["read_files", "code_search", "write_file", "spawn_agents", "end_turn"],
-  "spawnableAgents": ["researcher"],
 
-  "inputSchema": {
-    "prompt": {
-      "type": "string",
-      "description": "What API endpoints or schemas to document"
+  displayName: "API Documentation Specialist",
+  spawnerPrompt: "Spawn this agent to create comprehensive API documentation with examples, schemas, and error codes",
+  model: "anthropic/claude-4-sonnet-20250522",
+  outputMode: "last_message",
+  includeMessageHistory: true,
+
+  toolNames: ["read_files", "code_search", "write_file", "spawn_agents", "end_turn"],
+  spawnableAgents: ["codebuff/researcher@0.0.1"],  // Use full name for built-in agents
+
+  inputSchema: {
+    prompt: {
+      type: "string",
+      description: "What API endpoints or schemas to document"
     }
   },
 
-  "systemPrompt": "You are an API documentation specialist. Create clear, comprehensive documentation for REST APIs and GraphQL schemas with examples, request/response formats, and error codes.",
-  "instructionsPrompt": "Analyze the specified API endpoints and create detailed documentation including examples, parameters, and response schemas."
-  "stepPrompt": "Continue documenting the API. Include practical examples and edge cases. Use end_turn when complete."
+  systemPrompt: "You are an API documentation specialist. Create clear, comprehensive documentation for REST APIs and GraphQL schemas with examples, request/response formats, and error codes.",
+  instructionsPrompt: "Analyze the specified API endpoints and create detailed documentation including examples, parameters, and response schemas.",
+  stepPrompt: "Continue documenting the API. Include practical examples and edge cases. Use end_turn when complete."
 }
-```
 
+export default definition
+```
 ### Database Migration Agent
 
 Specialized for creating and reviewing database migrations:
 
-**.agents/templates/migration-specialist.json**
+**.agents/migration-specialist.ts**
 
-```json
-{
-  "id": "migration-specialist",
-  "version": "1.0.0",
-  "override": false,
+```typescript
+import { AgentDefinition } from './types/agent-definition'
 
-  "displayName": "Database Migration Specialist"
-  "purpose": "Creates safe, reversible database migrations with proper indexing",
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "outputMode": "last_message",
-  "includeMessageHistory": true,
+const definition: AgentDefinition = {
+  id: "migration-specialist",
+  version: "1.0.0",
 
-  "toolNames": ["read_files", "write_file", "code_search", "run_terminal_command", "end_turn"],
-  "spawnableAgents": ["reviewer"],
 
-  "parentInstructions": {
-    "reviewer": "When database migrations are created or modified, spawn migration-specialist to review for data loss risks, locking issues, rollback procedures, and performance impact."
-  },
+  displayName: "Database Migration Specialist",
+  spawnerPrompt: "Spawn this agent to create safe, reversible database migrations with proper indexing and rollback procedures",
+  model: "anthropic/claude-4-sonnet-20250522",
+  outputMode: "last_message",
+  includeMessageHistory: true,
 
-  "systemPrompt": {
-    "path": "./migration-guidelines.md"
-  },
-  "instructionsPrompt": "Create a database migration for the requested schema changes. Ensure it's reversible and includes proper indexing."
-  "stepPrompt": "Continue working on the migration. Test it if possible and spawn a reviewer to check for issues."
+  toolNames: [
+    "read_files",
+    "write_file",
+    "code_search",
+    "run_terminal_command",
+    "end_turn"
+  ],
+  spawnableAgents: ["codebuff/reviewer@0.0.1"],
+
+  systemPrompt: "You are a database migration specialist. Your goal is to create safe, reversible database migrations with proper indexing and rollback procedures.",
+  instructionsPrompt: "Create a database migration for the requested schema changes. Ensure it's reversible and includes proper indexing.",
+  stepPrompt: "Continue working on the migration. Test it if possible and spawn a reviewer to check for issues."
 }
+
+export default definition
 ```
 
-**.agents/templates/migration-guidelines.md**
+## Programmatic Agents (Advanced)
 
-```markdown
-# Database Migration Guidelines
+**🎯 This is where Codebuff agents become truly powerful!** While LLM-based agents work well for many tasks, programmatic agents give you precise control over complex workflows, while still letting you tap into LLMs when you want them.
 
-## Safety First
+### Why Use Programmatic Agents?
 
-- Always create reversible migrations (up and down)
-- Test migrations on a copy of production data
-- Add indexes for new foreign keys
-- Use transactions where supported
+- **Deterministic workflows** - Guarantee specific steps happen in order
+- **Dynamic decision making** - Branch based on your own logic
+- **Complex orchestration** - Coordinate multiple agents and tools with logic
+- **State management** - Maintain state across multiple agent steps
 
-## Performance Considerations
+### How It Works
 
-- Avoid locking tables during peak hours
-- Use `ADD COLUMN` with defaults carefully
-- Consider batching large data changes
-- Monitor migration execution time
+Use TypeScript generator functions with the `handleSteps` field to control execution:
 
-## Best Practices
+**.agents/code-analyzer.ts**
+```typescript
+import { AgentDefinition } from './types/agent-definition'
 
-- Include descriptive migration names
-- Add comments explaining complex changes
-- Validate data integrity after migration
-- Keep migrations atomic and focused
-```
+const definition: AgentDefinition = {
+  id: "code-analyzer",
+  displayName: "Code Analysis Expert",
+  spawnerPrompt: "Spawn for deep code analysis and refactoring suggestions",
+  model: "anthropic/claude-4-sonnet-20250522",
 
-## Parent Instructions
+  toolNames: ["read_files", "code_search", "spawn_agents", "write_file"],
+  spawnableAgents: ["codebuff/thinker@0.0.1", "codebuff/reviewer@0.0.1"],
 
-Parent instructions allow your agent to provide specific guidance to other agents when spawning them. This creates a hierarchical coordination system without requiring full agent overrides.
-
-### When to Use Parent Instructions
-
-- **Workflow Coordination**: Ensure spawned agents follow specific patterns
-- **Domain Expertise**: Share specialized knowledge with sub-agents
-- **Context Preservation**: Pass important context from parent to child agents
-- **Quality Control**: Add specific validation requirements
-
-### Real-World Examples
-
-#### Frontend Development Coordinator
-
-```json
-{
-  "id": "frontend-coordinator",
-  "version": "1.0.0",
-  "override": false,
-  "displayName": "Frontend Development Coordinator"
-  "purpose": "Coordinates frontend development with React best practices",
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "outputMode": "last_message",
-  "includeMessageHistory": true,
-  "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "end_turn"],
-  "spawnableAgents": ["reviewer", "researcher", "file_picker"],
-  "inputSchema": {
-    "prompt": {
-      "type": "string",
-      "description": "Frontend development task to coordinate"
+  handleSteps: function* ({ agentState, prompt, params }) {
+    // First, find relevant files
+    const { toolResult: files } = yield {
+      toolName: 'find_files',
+      input: { query: prompt }
     }
-  },
-  "parentInstructions": {
-    "reviewer": "Spawn frontend-coordinator when you are looking at changes to React components or hooks to ensure proper hook usage, component composition, accessibility, and performance.",
-    "researcher": "Need React patterns or component library info? Spawn frontend-coordinator to research official React docs and modern frontend practices.",
-    "file_picker": "To understand the React codebase structure, spawn frontend-coordinator to find components, hooks, styles, and configuration files."
-  },
-  "systemPrompt": "You are a frontend development coordinator specializing in React best practices. Guide development workflows and ensure code quality.",
-  "instructionsPrompt": "Coordinate the frontend development task, spawning appropriate agents as needed."
-  "stepPrompt": "Continue coordinating the frontend development workflow. Use end_turn when complete."
-}
-```
 
-#### API Development Specialist
-
-```json
-{
-  "id": "api-specialist",
-  "version": "1.0.0",
-  "override": false,
-  "displayName": "API Development Specialist"
-  "purpose": "Specialized for REST API development and documentation",
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "outputMode": "last_message",
-  "includeMessageHistory": true,
-  "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "run_terminal_command", "end_turn"],
-  "spawnableAgents": ["reviewer", "researcher", "file_picker"],
-  "inputSchema": {
-    "prompt": {
-      "type": "string",
-      "description": "API development or documentation task"
+    // Read the most important files
+    if (files) {
+      const filePaths = JSON.parse(files).slice(0, 5)
+      yield {
+        toolName: 'read_files',
+        input: { paths: filePaths }
+      }
     }
-  },
-  "parentInstructions": {
-    "reviewer": "When API endpoints are created or modified, spawn api-specialist to review HTTP methods, status codes, error handling, and OpenAPI compliance.",
-    "researcher": "For API design patterns or authentication strategies, spawn api-specialist to research industry standards and best practices.",
-    "file_picker": "Understanding API structure requires spawning api-specialist to locate route definitions, middleware, controllers, and schema files."
-  },
-  "systemPrompt": "You are an API development specialist focused on creating robust, well-documented REST APIs following industry standards.",
-  "instructionsPrompt": "Handle the API development task, ensuring proper design patterns and documentation."
-  "stepPrompt": "Continue working on the API development task. Use end_turn when complete."
-}
-```
 
-#### DevOps Automation Agent
-
-```json
-{
-  "id": "devops-automator",
-  "version": "1.0.0",
-  "override": false,
-  "displayName": "DevOps Automation Specialist"
-  "purpose": "Handles infrastructure and deployment automation",
-  "model": "anthropic/claude-4-sonnet-20250522",
-  "outputMode": "last_message",
-  "includeMessageHistory": true,
-  "toolNames": ["read_files", "write_file", "code_search", "spawn_agents", "run_terminal_command", "end_turn"],
-  "spawnableAgents": ["reviewer", "researcher", "file_picker"],
-  "inputSchema": {
-    "prompt": {
-      "type": "string",
-      "description": "Infrastructure or deployment automation task"
+    // Spawn a thinker for deep analysis
+    yield {
+      toolName: 'spawn_agents',
+      input: {
+        agents: [{
+          agent_type: 'thinker',
+          prompt: `Analyze the code structure and suggest improvements for: ${prompt}`
+        }]
+      }
     }
-  },
-  "parentInstructions": {
-    "reviewer": "Infrastructure code changes should be sent to devops-automator for review, security, resource optimization, deployment safety, and secrets management.",
-    "researcher": "Cloud best practices or CI/CD patterns needed? Spawn devops-automator to apply container orchestration and disaster recovery best practices.",
-    "file_picker": "Spawn devops-automator when infrastructure setup understanding is needed - it excels at finding Docker files, CI/CD configs, and deployment scripts."
-  },
-  "systemPrompt": "You are a DevOps automation specialist focused on secure, scalable infrastructure and deployment pipelines.",
-  "instructionsPrompt": "Handle the infrastructure or deployment automation task with security and reliability in mind."
-  "stepPrompt": "Continue working on the DevOps automation task. Use end_turn when complete."
+
+    // Let the agent generate its response
+    yield 'STEP_ALL'
+  }
+}
+
+export default definition
+```
+
+### Key Concepts for Programmatic Agents
+
+#### 1. Generator Function Basics
+
+Your `handleSteps` function receives context and yields actions:
+
+```typescript
+handleSteps: function* ({ agentState, prompt, params }) {
+  // agentState: Current conversation and agent state
+  // prompt: What the user asked this agent to do
+  // params: Additional parameters passed to the agent
+
+  // Your logic here...
 }
 ```
 
-### Best Practices for Parent Instructions
+#### 2. Yielding Tool Calls
 
-1. **Stay Focused**: Each instruction should relate to the target agent's core purpose.
-2. **Avoid Conflicts**: Consider how multiple parent instructions might interact. Each instruction across all your agents are added to the parent agent.
-3. **Test Thoroughly**: Verify instructions work across different scenarios. Start Codebuff with the option `--agent <agent-id>` to talk with a specific agent to debug.
+Execute tools and get their results:
 
-## Programmatic Agents
+```typescript
+const { toolResult, toolError } = yield {
+  toolName: 'read_files',
+  input: { paths: ['file1.ts', 'file2.ts'] }
+}
 
-**Coming Soon** - Use JavaScript/TypeScript for complex orchestration logic.
+if (toolError) {
+  // Handle error case
+  console.error('Failed to read files:', toolError)
+} else {
+  // Use the result
+  const fileContent = JSON.parse(toolResult)
+}
+```
 
-## Best Practices
+#### 3. Control Flow Options
 
-1. **Start small** - Begin with simple agents before complex ones
-2. **Experiment** - Try different tool/prompt combinations
-3. **Share** - Version control your `.agents/` directory
-4. **Iterate** - Improve based on usage
-5. **Leverage `parentInstructions`** - Coordinate agent behavior effectively
+**Control Flow:**
+- `yield 'STEP'` - Run one LLM generation step
+- `yield 'STEP_ALL'` - Run until completion
+- `return` - End the agent's turn
+
+#### 4. Advanced Example: Conditional Workflow
+
+```typescript
+handleSteps: function* ({ agentState, prompt, params }) {
+  // Step 1: Analyze the codebase
+  const { toolResult: analysis } = yield {
+    toolName: 'spawn_agents',
+    input: {
+      agents: [{
+        agent_type: 'thinker',
+        prompt: `Analyze: ${prompt}`
+      }]
+    }
+  }
+
+  // Step 2: Based on analysis, choose action
+  if (analysis?.includes('refactor')) {
+    // Get all files that need refactoring
+    const { toolResult: files } = yield {
+      toolName: 'find_files',
+      input: { query: 'needs refactoring' }
+    }
+
+    // Step 3: Refactor each file
+    for (const file of JSON.parse(files || '[]')) {
+      yield {
+        toolName: 'write_file',
+        input: {
+          path: file,
+          instructions: 'Refactor for better performance',
+          content: '// ... refactored code ...'
+        }
+      }
+    }
+  }
+
+  // Step 4: Final review
+  yield {
+    toolName: 'spawn_agents',
+    input: {
+      agents: [{
+        agent_type: 'reviewer',
+        prompt: 'Review all changes'
+      }]
+    }
+  }
+
+  // Let the agent summarize
+  yield 'STEP_ALL'
+}
+```
+
+### When to Choose Programmatic vs LLM-based
+
+**Use Programmatic (`handleSteps`) when:**
+- You need guaranteed execution order
+- Decisions depend on specific file contents
+- Complex multi-step workflows with branching
+- Integration with external systems
+- Error recovery is critical
+
+**Use LLM-based (prompts only) when:**
+- Task is straightforward
+- Agent needs creative freedom
+- Natural language understanding is key
+- Workflow is simple and linear

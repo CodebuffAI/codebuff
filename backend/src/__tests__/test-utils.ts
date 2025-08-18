@@ -15,6 +15,7 @@ export const mockFileContext: ProjectFileContext = {
   knowledgeFiles: {},
   userKnowledgeFiles: {},
   agentTemplates: {},
+  customToolDefinitions: {},
   gitChanges: {
     status: '',
     diff: '',
@@ -31,5 +32,4 @@ export const mockFileContext: ProjectFileContext = {
     homedir: '/home/test',
     cpus: 1,
   },
-  fileVersions: [],
 }

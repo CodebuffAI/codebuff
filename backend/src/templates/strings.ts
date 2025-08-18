@@ -1,7 +1,7 @@
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
-import { stringifySchema } from '@codebuff/common/json-config/stringify-schema'
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { escapeString, generateCompactId } from '@codebuff/common/util/string'
+import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
@@ -19,7 +19,6 @@ import {
 import { parseUserMessage } from '../util/messages'
 
 import type { AgentTemplate, PlaceholderValue } from './types'
-import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
   AgentState,
   AgentTemplateType,
@@ -30,7 +29,7 @@ export async function formatPrompt(
   prompt: string,
   fileContext: ProjectFileContext,
   agentState: AgentState,
-  tools: ToolName[],
+  tools: readonly string[],
   spawnableAgents: AgentTemplateType[],
   agentTemplates: Record<string, AgentTemplate>,
   intitialAgentPrompt?: string,
@@ -54,7 +53,7 @@ export async function formatPrompt(
     [PLACEHOLDER.AGENT_NAME]: agentTemplate
       ? agentTemplate.displayName || 'Unknown Agent'
       : 'Buffy',
-    [PLACEHOLDER.CONFIG_SCHEMA]: stringifySchema(CodebuffConfigSchema),
+    [PLACEHOLDER.CONFIG_SCHEMA]: schemaToJsonStr(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
       fileContext,
       20_000,
@@ -64,7 +63,10 @@ export async function formatPrompt(
     [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
-    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(tools),
+    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(
+      tools,
+      fileContext.customToolDefinitions,
+    ),
     [PLACEHOLDER.AGENTS_PROMPT]: await buildSpawnableAgentsDescription(
       spawnableAgents,
       agentTemplates,
@@ -90,7 +92,7 @@ export async function formatPrompt(
       }).map(([path, content]) => ({
         toolName: 'read_files',
         toolCallId: generateCompactId(),
-        result: JSON.stringify({ path, content }),
+        output: { type: 'text', value: JSON.stringify({ path, content }) },
       })),
     ),
   }
@@ -157,11 +159,14 @@ export async function getAgentPrompt<T extends StringField>(
 
   let addendum = ''
 
-  // Add parent instructions for instructionsPrompt
+  // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
     addendum +=
       '\n\n' +
-      getShortToolInstructions(agentTemplate.toolNames) +
+      getShortToolInstructions(
+        agentTemplate.toolNames,
+        fileContext.customToolDefinitions,
+      ) +
       '\n\n' +
       (await buildSpawnableAgentsDescription(
         agentTemplate.spawnableAgents,
@@ -188,7 +193,9 @@ export async function getAgentPrompt<T extends StringField>(
       addendum += '```json\n'
       try {
         // Convert Zod schema to JSON schema for display
-        const jsonSchema = z.toJSONSchema(agentTemplate.outputSchema)
+        const jsonSchema = z.toJSONSchema(agentTemplate.outputSchema, {
+          io: 'input',
+        })
         delete jsonSchema['$schema'] // Remove the $schema field for cleaner display
         addendum += JSON.stringify(jsonSchema, null, 2)
       } catch {

@@ -20,12 +20,12 @@ import {
   getProjectFileTree,
 } from '../common/src/project-file-tree'
 
-import type { ClientToolCall } from '@codebuff/backend/tools/constants'
 import type {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
 } from '@codebuff/backend/websockets/websocket-action'
 import type { FileChanges } from '@codebuff/common/actions'
+import type { ClientToolCall } from '@codebuff/common/tools/list'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -68,14 +68,14 @@ export function createFileReadingMock(projectRoot: string) {
       ws: WebSocket,
       userInputId: string,
       toolName: string,
-      args: Record<string, any>,
+      input: Record<string, any>,
       timeout: number = 30_000,
-    ): ReturnType<typeof originalRequestToolCall<string>> => {
+    ): ReturnType<typeof originalRequestToolCall> => {
       // Execute the tool call using existing tool handlers
       const toolCall = {
         toolCallId: generateCompactId(),
         toolName,
-        args,
+        input,
       }
       toolCalls.push(toolCall as ClientToolCall)
       try {
@@ -83,13 +83,13 @@ export function createFileReadingMock(projectRoot: string) {
         toolResults.push({
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
-          result: toolResult.result,
+          output: toolResult.output,
         })
 
         // Send successful response back to backend
         return {
           success: true,
-          result: toolResult.result,
+          output: toolResult.output,
         }
       } catch (error) {
         // Send error response back to backend
@@ -98,14 +98,14 @@ export function createFileReadingMock(projectRoot: string) {
         toolResults.push({
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
-          result: resultString,
+          output: { type: 'text', value: resultString },
         })
         return {
           success: false,
           error: resultString,
         }
       }
-    }) satisfies typeof originalRequestToolCall<string>,
+    }) satisfies typeof originalRequestToolCall,
   }))
 }
 
@@ -136,13 +136,13 @@ export async function getProjectFileContext(
       lastCommitMessages: '',
     },
     changesSinceLastChat: {},
-    fileVersions: [],
     systemInfo: getSystemInfo(),
     shellConfigFiles: {},
     knowledgeFiles,
     fileTokenScores,
     fileTree,
     agentTemplates: {},
+    customToolDefinitions: {},
   }
 }
 
@@ -192,13 +192,6 @@ export async function runAgentStepScaffolding(
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
   const toolResults: ToolResult[] = []
   for (const toolCall of toolCalls) {
-    if (
-      toolCall.toolName === 'spawn_agents' ||
-      toolCall.toolName === 'set_output'
-    ) {
-      // should never happen
-      continue
-    }
     const toolResult = await handleToolCall(toolCall)
     toolResults.push(toolResult)
   }

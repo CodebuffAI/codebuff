@@ -6,11 +6,14 @@ const toolName = 'end_turn'
 export const endTurnTool = {
   toolName,
   description: `
-Purpose: Use this tool if you have fully responded to the user and want to get their feedback. This ignores any tool results (from write_file, run_terminal_command, etc.), so be sure you are done before using it.
+Only use this tool to hand control back to the user.
 
-Make sure to use this tool if you want a response from the user and not the system. Otherwise, you may receive tool results from the previous tools. e.g. "Let me know if you need xyz!${getToolCallString(toolName, {})}"
+- When to use: after you have completed a meaningful chunk of work and you are either (a) fully done, or (b) explicitly waiting for the user's next message.
+- Do NOT use: as a stop token mid-work, to pause between tool calls, to wait for tool results, or to "check in" unnecessarily.
+- Before calling: finish all pending steps, resolve tool results, and include any outputs the user needs to review.
+- Effect: Signals the UI to wait for the user's reply; any pending tool results will be ignored.
 
-Example:
+Correct usage:
 ${getToolCallString(toolName, {})}
     `.trim(),
 } satisfies ToolDescription

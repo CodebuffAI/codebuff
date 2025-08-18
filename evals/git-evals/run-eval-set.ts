@@ -102,13 +102,25 @@ async function runEvalSet(options: {
   const evalConfigs: EvalConfig[] = [
     {
       name: 'codebuff',
-      evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
+      evalDataPath: path.join(__dirname, 'eval-codebuff2.json'),
       outputDir,
       agentType: undefined,
     },
     {
       name: 'manifold',
-      evalDataPath: path.join(__dirname, 'eval-manifold.json'),
+      evalDataPath: path.join(__dirname, 'eval-manifold2.json'),
+      outputDir,
+      agentType: undefined,
+    },
+    {
+      name: 'plane',
+      evalDataPath: path.join(__dirname, 'eval-plane.json'),
+      outputDir,
+      agentType: undefined,
+    },
+    {
+      name: 'saleor',
+      evalDataPath: path.join(__dirname, 'eval-saleor.json'),
       outputDir,
       agentType: undefined,
     },

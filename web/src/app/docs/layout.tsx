@@ -2,7 +2,7 @@
 
 import { Menu } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 import { DocSidebar, sections } from '@/components/docs/doc-sidebar'
 import { Button } from '@/components/ui/button'
@@ -15,13 +15,69 @@ export default function DocsLayout({
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [showTopFade, setShowTopFade] = useState(false)
+  const [showBottomFade, setShowBottomFade] = useState(false)
+  const sidebarRef = useRef<HTMLDivElement>(null)
+
+  // New: Smoothly scroll to hash target on back/forward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const id = window.location.hash.slice(1)
+      if (id) {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+
+    // If landing with a hash, ensure smooth scroll to target
+    handleHashChange()
+
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
+  // Handle sidebar scroll for dynamic fade effects
+  useEffect(() => {
+    const sidebarElement = sidebarRef.current
+    if (!sidebarElement) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = sidebarElement
+      const isAtTop = scrollTop === 0
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1
+
+      setShowTopFade(!isAtTop)
+      setShowBottomFade(!isAtBottom)
+    }
+
+    // Check initial state
+    handleScroll()
+
+    sidebarElement.addEventListener('scroll', handleScroll)
+    return () => sidebarElement.removeEventListener('scroll', handleScroll)
+  }, [])
+
   return (
     <div className="pt-8">
       <div className="container flex md:space-x-8 overflow-x-hidden">
-        <DocSidebar
-          className="hidden lg:block w-64 shrink-0 sticky top-[24px] h-[calc(100vh-24px)] overflow-y-auto pr-4"
-          onNavigate={() => setOpen(false)}
-        />
+        <div className="hidden lg:block w-64 shrink-0">
+          <div className="fixed top-24 w-64 h-[calc(100vh-12rem)] z-40">
+            {/* Dynamic gradient fade indicators */}
+            {showTopFade && (
+              <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-background to-transparent pointer-events-none z-10 rounded-t-lg transition-opacity duration-200" />
+            )}
+            {showBottomFade && (
+              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none z-10 rounded-b-lg transition-opacity duration-200" />
+            )}
+
+            {/* Enhanced scrollable container */}
+            <div
+              ref={sidebarRef}
+              className="relative h-full overflow-y-auto pr-4 pl-4 pt-6 pb-6 custom-scrollbar bg-background/95 backdrop-blur-sm rounded-lg border border-border/50 shadow-lg"
+            >
+              <DocSidebar className="" onNavigate={() => setOpen(false)} />
+            </div>
+          </div>
+        </div>
         <main className="flex-1 mx-auto pb-36 md:px-8 min-w-0">{children}</main>
       </div>
       <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-background/80 backdrop-blur-sm container p-4 rounded-t-lg border-t">

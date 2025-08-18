@@ -5,11 +5,12 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { expireMessages } from '../util/messages'
 import { sendAction } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
-import { executeToolCall } from './tool-executor'
+import { executeCustomToolCall, executeToolCall } from './tool-executor'
 
-import type { CodebuffToolCall } from './constants'
+import type { CustomToolCall } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -66,7 +67,7 @@ export async function processStreamWithTools<T extends string>(options: {
   const messages = [...options.messages]
 
   const toolResults: ToolResult[] = []
-  const toolCalls: CodebuffToolCall[] = []
+  const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
   const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
@@ -98,11 +99,36 @@ export async function processStreamWithTools<T extends string>(options: {
   function toolCallback<T extends ToolName>(toolName: T) {
     return {
       onTagStart: () => {},
-      onTagEnd: async (_: string, args: Record<string, string>) => {
+      onTagEnd: async (_: string, input: Record<string, string>) => {
         // delegated to reusable helper
         previousToolCallFinished = executeToolCall({
           toolName,
-          args,
+          input,
+          toolCalls,
+          toolResults,
+          previousToolCallFinished,
+          ws,
+          agentTemplate,
+          fileContext,
+          agentStepId,
+          clientSessionId,
+          userInputId,
+          fullResponse: fullResponseChunks.join(''),
+          onResponseChunk,
+          state,
+          userId,
+        })
+      },
+    }
+  }
+  function customToolCallback(toolName: string) {
+    return {
+      onTagStart: () => {},
+      onTagEnd: async (_: string, input: Record<string, string>) => {
+        // delegated to reusable helper
+        previousToolCallFinished = executeCustomToolCall({
+          toolName,
+          input,
           toolCalls,
           toolResults,
           previousToolCallFinished,
@@ -123,14 +149,18 @@ export async function processStreamWithTools<T extends string>(options: {
 
   const streamWithTags = processStreamWithTags(
     stream,
-    Object.fromEntries(
-      toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
-    ),
+    Object.fromEntries([
+      ...toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
+      ...Object.keys(fileContext.customToolDefinitions).map((toolName) => [
+        toolName,
+        customToolCallback(toolName),
+      ]),
+    ]),
     (toolName, error) => {
       toolResults.push({
         toolName,
         toolCallId: generateCompactId(),
-        result: error,
+        output: { type: 'text', value: error },
       })
     },
     onResponseChunk,

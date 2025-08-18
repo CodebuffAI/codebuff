@@ -1,5 +1,5 @@
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 
 export const handleUpdateSubgoal = ((params: {
@@ -14,25 +14,25 @@ export const handleUpdateSubgoal = ((params: {
   const agentContext = state.agentContext ?? {}
 
   let messages: string[] = []
-  if (!agentContext[toolCall.args.id]) {
+  if (!agentContext[toolCall.input.id]) {
     messages.push(
-      `Subgoal with id ${toolCall.args.id} not found. Creating new subgoal.`,
+      `Subgoal with id ${toolCall.input.id} not found. Creating new subgoal.`,
     )
-    agentContext[toolCall.args.id] = {
+    agentContext[toolCall.input.id] = {
       objective: undefined,
       status: undefined,
       plan: undefined,
       logs: [],
     }
   }
-  if (toolCall.args.status) {
-    agentContext[toolCall.args.id].status = toolCall.args.status
+  if (toolCall.input.status) {
+    agentContext[toolCall.input.id].status = toolCall.input.status
   }
-  if (toolCall.args.plan) {
-    agentContext[toolCall.args.id].plan = toolCall.args.plan
+  if (toolCall.input.plan) {
+    agentContext[toolCall.input.id].plan = toolCall.input.plan
   }
-  if (toolCall.args.log) {
-    agentContext[toolCall.args.id].logs.push(toolCall.args.log)
+  if (toolCall.input.log) {
+    agentContext[toolCall.input.id].logs.push(toolCall.input.log)
   }
   messages.push('Successfully updated subgoal.')
   return {

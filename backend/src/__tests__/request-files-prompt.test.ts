@@ -92,6 +92,7 @@ describe('requestRelevantFiles', () => {
       cpus: 8,
     },
     agentTemplates: {},
+    customToolDefinitions: {},
   }
   const mockAssistantPrompt = null
   const mockAgentStepId = 'step1'

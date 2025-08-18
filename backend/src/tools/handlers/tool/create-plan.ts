@@ -4,12 +4,15 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getFileProcessingValues, postStreamProcessing } from './write-file'
 import { logger } from '../../../util/logger'
 
-import type { ClientToolCall, CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   FileProcessingState,
   OptionalFileProcessingState,
 } from './write-file'
+import type {
+  ClientToolCall,
+  CodebuffToolCall,
+} from '@codebuff/common/tools/list'
 
 export const handleCreatePlan = ((params: {
   previousToolCallFinished: Promise<void>
@@ -40,7 +43,7 @@ export const handleCreatePlan = ((params: {
     getLatestState,
     state,
   } = params
-  const { path, plan } = toolCall.args
+  const { path, plan } = toolCall.input
   const {
     agentStepId,
     clientSessionId,

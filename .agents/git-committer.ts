@@ -1,0 +1,82 @@
+import { publisher } from './constants'
+
+import type {
+  AgentDefinition,
+  AgentStepContext,
+} from './types/agent-definition'
+
+const definition: AgentDefinition = {
+  id: 'git-committer',
+  displayName: 'Mitt the Git Committer',
+  model: 'openai/gpt-5-nano',
+
+  publisher,
+  toolNames: ['read_files', 'run_terminal_command', 'add_message', 'end_turn'],
+
+  inputSchema: {
+    prompt: {
+      type: 'string',
+      description: 'What changes to commit',
+    },
+  },
+
+  spawnerPrompt:
+    'Spawn when you need to commit code changes to git with an appropriate commit message',
+
+  systemPrompt:
+    'You are an expert software developer. Your job is to create a git commit with a really good commit message.',
+
+  instructionsPrompt:
+    'Follow the steps to create a good commit: analyze changes with git diff and git log, read relevant files for context, stage appropriate files, analyze changes, and create a commit with proper formatting.',
+
+  stepPrompt:
+    'Continue the commit workflow: if needed, read relevant files for context; decide which files to stage and stage only related changes; draft a concise, imperative commit message focusing on why, then create a single commit including the Codebuff footer. Do not push and use end_turn when the commit is created.',
+
+  handleSteps: function* ({ agentState, prompt, params }: AgentStepContext) {
+    // Step 1: Run git diff and git log to analyze changes.
+    yield {
+      toolName: 'run_terminal_command',
+      input: {
+        command: 'git diff',
+        process_type: 'SYNC',
+        timeout_seconds: 30,
+      },
+    }
+
+    yield {
+      toolName: 'run_terminal_command',
+      input: {
+        command: 'git log --oneline -10',
+        process_type: 'SYNC',
+        timeout_seconds: 30,
+      },
+    }
+
+    // Step 2: Put words in AI's mouth so it will read files next.
+    yield {
+      toolName: 'add_message',
+      input: {
+        role: 'assistant',
+        content:
+          "I've analyzed the git diff and recent commit history. Now I'll read any relevant files to better understand the context of these changes.",
+      },
+    }
+
+    // Step 3: Let AI generate a step to decide which files to read.
+    yield 'STEP'
+
+    // Step 4: Put words in AI's mouth to analyze the changes and create a commit.
+    yield {
+      toolName: 'add_message',
+      input: {
+        role: 'assistant',
+        content:
+          "Now I'll analyze the changes and create a commit with a good commit message.",
+      },
+    }
+
+    yield 'STEP_ALL'
+  },
+}
+
+export default definition

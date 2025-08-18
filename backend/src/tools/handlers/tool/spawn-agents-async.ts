@@ -1,21 +1,25 @@
 import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
-import { generateCompactId } from '@codebuff/common/util/string'
 
 import { handleSpawnAgents } from './spawn-agents'
+import {
+  validateSpawnState,
+  validateAndGetAgentTemplate,
+  validateAgentInput,
+  createConversationHistoryMessage,
+  createAgentState,
+  logAgentSpawn,
+  executeAgent,
+} from './spawn-agent-utils'
 import { asyncAgentManager } from '../../../async-agent-manager'
-import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { SendSubagentChunk } from './spawn-agents'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type {
-  AgentState,
-  AgentTemplateType,
-} from '@codebuff/common/types/session-state'
+import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -59,52 +63,20 @@ export const handleSpawnAgentsAsync = ((params: {
     getLatestState,
     state,
   } = params
-  const { agents } = toolCall.args
+  const { agents } = toolCall.input
   const {
     ws,
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
-    sendSubagentChunk,
-    messages,
-  } = state
-  let { agentState } = state
+    agentState,
+  } = validateSpawnState(state, 'spawn_agents_async')
+  const { sendSubagentChunk } = state
 
-  if (!ws) {
-    throw new Error(
-      'Internal error for spawn_agents_async: Missing WebSocket in state',
-    )
-  }
-  if (!fingerprintId) {
-    throw new Error(
-      'Internal error for spawn_agents_async: Missing fingerprintId in state',
-    )
-  }
-  if (!parentAgentTemplate) {
-    throw new Error(
-      'Internal error for spawn_agents_async: Missing agentTemplate in state',
-    )
-  }
-  if (!messages) {
-    throw new Error(
-      'Internal error for spawn_agents_async: Missing messages in state',
-    )
-  }
-  if (!agentState) {
-    throw new Error(
-      'Internal error for spawn_agents: Missing agentState in state',
-    )
-  }
   if (!sendSubagentChunk) {
     throw new Error(
       'Internal error for spawn_agents_async: Missing sendSubagentChunk in state',
-    )
-  }
-
-  if (!localAgentTemplates) {
-    throw new Error(
-      'Internal error for spawn_agents_async: Missing localAgentTemplates in state',
     )
   }
 
@@ -116,96 +88,54 @@ export const handleSpawnAgentsAsync = ((params: {
       error?: string
     }> = []
 
-    const conversationHistoryMessage: CodebuffMessage = {
-      role: 'user',
-      content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
-        getLatestState().messages,
-        null,
-        2,
-      )}`,
-    }
+    const conversationHistoryMessage = createConversationHistoryMessage(
+      getLatestState().messages,
+    )
 
     // Validate and spawn agents asynchronously
     for (const { agent_type: agentTypeStr, prompt, params } of agents) {
       try {
-        const agentType = agentTypeStr as AgentTemplateType
-        const agentTemplate = await getAgentTemplate(
-          agentType,
+        const { agentTemplate, agentType } = await validateAndGetAgentTemplate(
+          agentTypeStr,
+          parentAgentTemplate,
           localAgentTemplates,
         )
 
-        if (!agentTemplate) {
-          throw new Error(`Agent type ${agentTypeStr} not found.`)
-        }
-
-        if (!parentAgentTemplate.spawnableAgents.includes(agentType)) {
-          throw new Error(
-            `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentType}.`,
-          )
-        }
-
-        // Validate prompt and params against agent's schema
-        const { inputSchema } = agentTemplate
-
-        // Validate prompt requirement
-        if (inputSchema.prompt) {
-          const result = inputSchema.prompt.safeParse(prompt)
-          if (!result.success) {
-            throw new Error(
-              `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
-            )
-          }
-        }
-
-        // Validate params if schema exists
-        if (inputSchema.params) {
-          const result = inputSchema.params.safeParse(params)
-          if (!result.success) {
-            throw new Error(
-              `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
-            )
-          }
-        }
-
-        logger.debug(
-          { agentTemplate, prompt, params },
-          `Spawning async agent — ${agentType}`,
-        )
+        validateAgentInput(agentTemplate, agentType, prompt, params)
 
         const subAgentMessages: CodebuffMessage[] = []
         if (agentTemplate.includeMessageHistory) {
           subAgentMessages.push(conversationHistoryMessage)
         }
 
-        const agentId = generateCompactId()
-        agentState = {
-          agentId,
+        const asyncAgentState = createAgentState(
           agentType,
-          agentContext: {},
-          subagents: [],
-          messageHistory: subAgentMessages,
-          stepsRemaining: 20, // MAX_AGENT_STEPS
-          output: undefined,
-          // Add parent ID to agent state for communication
-          parentId: agentState!.agentId,
-        }
+          agentState,
+          subAgentMessages,
+        )
+
+        logAgentSpawn(
+          agentTemplate,
+          agentType,
+          asyncAgentState.agentId,
+          asyncAgentState.parentId,
+          prompt,
+          params,
+        )
 
         // Start the agent asynchronously
         const agentPromise = (async () => {
           try {
-            // Import loopAgentSteps dynamically to avoid circular dependency
-            const { loopAgentSteps } = await import('../../../run-agent-step')
-
-            const result = await loopAgentSteps(ws, {
-              userInputId: `${userInputId}-async-${agentType}-${agentId}`,
+            const result = await executeAgent({
+              ws,
+              userInputId: `${userInputId}-async-${agentType}-${asyncAgentState.agentId}`,
               prompt: prompt || '',
               params,
-              agentType: agentTemplate.id,
-              agentState,
-              fingerprintId: fingerprintId!,
+              agentTemplate,
+              agentState: asyncAgentState,
+              fingerprintId,
               fileContext,
-              localAgentTemplates: localAgentTemplates,
-              toolResults: [],
+              localAgentTemplates,
               userId,
               clientSessionId,
               onResponseChunk: (chunk: string | PrintModeEvent) => {
@@ -214,7 +144,7 @@ export const handleSpawnAgentsAsync = ((params: {
                 }
                 sendSubagentChunk({
                   userInputId,
-                  agentId,
+                  agentId: asyncAgentState.agentId,
                   agentType,
                   chunk,
                   prompt,
@@ -223,7 +153,7 @@ export const handleSpawnAgentsAsync = ((params: {
             })
 
             // Send completion message to parent if agent has appropriate output mode
-            if (agentState.parentId) {
+            if (asyncAgentState.parentId) {
               const { outputMode } = agentTemplate
               if (
                 outputMode === 'last_message' ||
@@ -264,12 +194,12 @@ export const handleSpawnAgentsAsync = ((params: {
                     '../../../async-agent-manager'
                   )
                   asyncAgentManager.sendMessage({
-                    fromAgentId: agentId,
-                    toAgentId: agentState.parentId,
+                    fromAgentId: asyncAgentState.agentId,
+                    toAgentId: asyncAgentState.parentId,
                     prompt: `Agent ${agentType} completed with output:\n\n${messageContent}`,
                     params: {
                       agentType,
-                      agentId,
+                      agentId: asyncAgentState.agentId,
                       outputMode,
                       completed: true,
                     },
@@ -278,8 +208,8 @@ export const handleSpawnAgentsAsync = ((params: {
 
                   logger.debug(
                     {
-                      agentId,
-                      parentId: agentState.parentId,
+                      agentId: asyncAgentState.agentId,
+                      parentId: asyncAgentState.parentId,
                       agentType,
                       outputMode,
                       messageContent,
@@ -289,8 +219,8 @@ export const handleSpawnAgentsAsync = ((params: {
                 } catch (error) {
                   logger.error(
                     {
-                      agentId,
-                      parentId: agentState.parentId,
+                      agentId: asyncAgentState.agentId,
+                      parentId: asyncAgentState.parentId,
                       error,
                     },
                     'Failed to send completion message to parent agent',
@@ -301,18 +231,25 @@ export const handleSpawnAgentsAsync = ((params: {
 
             return result
           } catch (error) {
-            logger.error({ agentId, error }, 'Async agent failed')
+            logger.error(
+              { agentId: asyncAgentState.agentId, error },
+              'Async agent failed',
+            )
             throw error
           }
         })()
 
         // Store the promise in the agent info
-        const agentInfo = asyncAgentManager.getAgent(agentId)
+        const agentInfo = asyncAgentManager.getAgent(asyncAgentState.agentId)
         if (agentInfo) {
           agentInfo.promise = agentPromise
         }
 
-        results.push({ agentType: agentTypeStr, success: true, agentId })
+        results.push({
+          agentType: agentTypeStr,
+          success: true,
+          agentId: asyncAgentState.agentId,
+        })
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error)

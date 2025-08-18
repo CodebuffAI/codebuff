@@ -2,8 +2,8 @@ import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 
-import type { CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -38,7 +38,7 @@ export const handleReadFiles = ((params: {
     state,
   } = params
   const { ws, fingerprintId, userId, repoId, messages } = state
-  const { paths } = toolCall.args
+  const { paths } = toolCall.input
   if (!ws) {
     throw new Error('Internal error for read_files: Missing WebSocket in state')
   }

@@ -11,7 +11,7 @@ import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
 
 import { cliArguments, cliOptions } from './cli-definitions'
 import { handlePublish } from './cli-handlers/publish'
-import { npmAppVersion } from './config'
+import { npmAppVersion, backendUrl } from './config'
 import { createTemplateProject } from './create-template-project'
 import { printModeLog, setPrintMode } from './display/print-mode'
 import { initializeProjectRootAndWorkingDir } from './project-files'

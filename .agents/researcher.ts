@@ -1,46 +1,12 @@
-import { publisher, version } from './constants'
+import { publisher } from './constants'
+import { researcher as researcherFactory } from './factory/researcher'
 
-import type { AgentDefinition } from './types/agent-definition'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
-const definition: AgentDefinition = {
+const definition: SecretAgentDefinition = {
   id: 'researcher',
-  version,
   publisher,
-  model: 'gemini-2.5-flash-preview-05-20',
-  displayName: 'Reid Searcher the Researcher',
-  toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
-
-  inputSchema: {
-    prompt: {
-      description:
-        'A question you would like answered using web search and documentation',
-      type: 'string',
-    },
-  },
-  outputMode: 'last_message',
-  includeMessageHistory: false,
-
-  spawnerPrompt:
-    'Expert at researching topics using web search and documentation.',
-  systemPrompt: `# Persona: {CODEBUFF_AGENT_NAME}
-
-You are an expert researcher who can search the web and read documentation to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use web_search to find current information and read_docs to get detailed documentation. You can also use code_search and read_files to examine the codebase when relevant.
-
-In your report, provide a thorough analysis that includes:
-- Key findings from web searches
-- Relevant documentation insights
-- Code examples or patterns when applicable
-- Actionable recommendations
-
-Always end your response with the end_turn tool.`,
-  stepPrompt: "Don't forget to end your response with the end_turn tool.",
-  handleSteps: function* ({ agentState, prompt, params }) {
-    yield {
-      toolName: 'web_search',
-      args: { query: prompt ?? '', depth: 'standard' },
-    }
-    yield 'STEP_ALL'
-  },
+  ...researcherFactory('google/gemini-2.5-pro'),
 }
 
 export default definition

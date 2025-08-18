@@ -151,8 +151,8 @@ describe('runAgentStep - set_output tool', () => {
       homedir: '/home/test',
       cpus: 1,
     },
-    fileVersions: [],
     agentTemplates: {},
+    customToolDefinitions: {},
   }
 
   it('should set output with simple key-value pair', async () => {
@@ -339,7 +339,7 @@ describe('runAgentStep - set_output tool', () => {
         // Yield one tool call
         yield {
           toolName: 'read_files',
-          args: { paths: ['src/test.ts'] },
+          input: { paths: ['src/test.ts'] },
         }
         // Then yield STEP_ALL to continue processing
         yield 'STEP_ALL'
@@ -410,7 +410,7 @@ describe('runAgentStep - set_output tool', () => {
         content: expect.stringContaining('Test instructions prompt'),
       },
       {
-        role: 'user',
+        role: 'assistant',
         content: expect.stringContaining('read_files'),
       },
       {
@@ -475,7 +475,7 @@ describe('runAgentStep - set_output tool', () => {
         // Set the updated messages
         yield {
           toolName: 'set_messages',
-          args: { messages },
+          input: { messages },
         }
       },
     }

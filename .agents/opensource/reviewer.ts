@@ -1,9 +1,11 @@
+import { publisher } from '../constants'
+
 import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'oss-model-reviewer',
-  publisher: 'codebuff',
-  model: 'openai/gpt-oss-120b:fast',
+  publisher,
+  model: 'openai/gpt-oss-120b:nitro',
   displayName: 'Nit Pick Nick the Reviewer',
   spawnerPrompt:
     'Expert code reviewer, specialized for thorough code analysis and feedback.',

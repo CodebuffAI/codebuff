@@ -4,8 +4,11 @@ import { processFileBlock } from '../../../process-file-block'
 import { logger } from '../../../util/logger'
 import { requestOptionalFile } from '../../../websockets/websocket-action'
 
-import type { ClientToolCall, CodebuffToolCall } from '../../constants'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type {
+  ClientToolCall,
+  CodebuffToolCall,
+} from '@codebuff/common/tools/list'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { WebSocket } from 'ws'
 
@@ -96,7 +99,7 @@ export const handleWriteFile = ((params: {
     getLatestState,
     state,
   } = params
-  const { path, instructions, content } = toolCall.args
+  const { path, instructions, content } = toolCall.input
   const { ws, fingerprintId, userId, fullResponse, prompt } = state
   if (!ws) {
     throw new Error('Internal error for write_file: Missing WebSocket in state')
@@ -232,7 +235,7 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
     const clientToolCall: ClientToolCall<T> = {
       toolCallId: toolCall.toolCallId,
       toolName: toolCall.tool,
-      args: patch
+      input: patch
         ? { type: 'patch' as const, path, content: patch }
         : { type: 'file' as const, path, content },
     } as ClientToolCall<T>

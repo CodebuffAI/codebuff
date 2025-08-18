@@ -1,3 +1,3 @@
-export * from './openrouter-facade'
-export * from './openrouter-provider'
-export * from './types'
+export * from './facade';
+export * from './provider';
+export * from './types';

@@ -7,19 +7,19 @@ export const AGENT_PERSONAS = {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
   } as const,
-  base_lite: {
+  'base-lite': {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
   } as const,
-  base_max: {
+  'base-max': {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
   } as const,
-  base_experimental: {
+  'base-experimental': {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
   } as const,
-  claude4_gemini_thinking: {
+  'claude4-gemini-thinking': {
     displayName: 'Buffy the Enthusiastic Coding Assistant',
     purpose: 'Base agent that orchestrates the full response.',
   } as const,
@@ -42,11 +42,11 @@ export const AGENT_PERSONAS = {
     purpose:
       'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   } as const,
-  file_explorer: {
+  'file-explorer': {
     displayName: 'Dora The File Explorer',
     purpose: 'Expert at exploring a codebase and finding relevant files.',
   } as const,
-  file_picker: {
+  'file-picker': {
     displayName: 'Fletcher the File Fetcher',
     purpose: 'Expert at finding relevant files in a codebase.',
   } as const,
@@ -59,7 +59,7 @@ export const AGENT_PERSONAS = {
     purpose: 'Agent that formulates a comprehensive plan to a prompt.',
     hidden: true,
   } as const,
-  dry_run: {
+  'dry-run': {
     displayName: 'Sketch the Dry Runner',
     purpose: 'Agent that takes a plan and try to implement it in a dry run.',
     hidden: true,
@@ -69,14 +69,14 @@ export const AGENT_PERSONAS = {
     purpose:
       'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase.',
   } as const,
-  agent_builder: {
+  'agent-builder': {
     displayName: 'Bob the Agent Builder',
     purpose: 'Creates new agent templates for the codebuff multi-agent system',
     hidden: false,
   } as const,
 } as const satisfies Partial<
   Record<
-    keyof typeof AgentTemplateTypes,
+    (typeof AgentTemplateTypes)[keyof typeof AgentTemplateTypes],
     { displayName: string; purpose: string; hidden?: boolean }
   >
 >
@@ -118,3 +118,5 @@ export const AGENT_NAME_TO_TYPES = Object.entries(AGENT_NAMES).reduce(
   },
   {} as Record<string, string[]>,
 )
+
+export const MAX_AGENT_STEPS_DEFAULT = 25
