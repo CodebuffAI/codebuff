@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "bun x tsc --noEmit -p tsconfig.json"
+    "typecheck": "bun x tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
   }
 }

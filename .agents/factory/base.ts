@@ -10,10 +10,7 @@ import { AgentTemplateTypes } from '../types/secret-agent-definition'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { ModelName } from 'types/agent-definition'
 
-export const base = (
-  model: ModelName,
-  allAvailableAgents?: string[],
-): Omit<SecretAgentDefinition, 'id'> => ({
+export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.base.displayName,
   spawnerPrompt: AGENT_PERSONAS.base.purpose,
@@ -31,6 +28,7 @@ export const base = (
     'str_replace',
     'write_file',
     'spawn_agents',
+    'spawn_agent_inline',
     'add_subgoal',
     'browser_logs',
     'code_search',
@@ -39,17 +37,30 @@ export const base = (
     'think_deeply',
     'update_subgoal',
   ],
-  spawnableAgents: allAvailableAgents
-    ? (allAvailableAgents as any[])
-    : [
-        AgentTemplateTypes.file_explorer,
-        AgentTemplateTypes.file_picker,
-        AgentTemplateTypes.researcher,
-        AgentTemplateTypes.thinker,
-        AgentTemplateTypes.reviewer,
-      ],
+  spawnableAgents: [
+    AgentTemplateTypes.file_explorer,
+    AgentTemplateTypes.file_picker,
+    AgentTemplateTypes.researcher,
+    AgentTemplateTypes.thinker,
+    AgentTemplateTypes.reviewer,
+    'context-pruner',
+  ],
 
   systemPrompt: baseAgentSystemPrompt(model),
   instructionsPrompt: baseAgentUserInputPrompt(model),
   stepPrompt: baseAgentAgentStepPrompt(model),
+
+  handleSteps: function* ({ agentState }) {
+    while (true) {
+      // Run context-pruner before each step
+      yield {
+        toolName: 'spawn_agent_inline',
+        input: {
+          agent_type: 'context-pruner',
+        },
+      } as any
+
+      yield 'STEP'
+    }
+  },
 })

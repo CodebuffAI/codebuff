@@ -1225,6 +1225,10 @@ export class Client {
     }
 
     const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
+      if (!streamStarted) {
+        streamStarted = true
+        onStreamStart()
+      }
       onChunk(chunk)
     })
 
@@ -1251,13 +1255,6 @@ export class Client {
             process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
             this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
             return
-          }
-        }
-
-        if (chunk && chunk.trim()) {
-          if (!streamStarted && chunk.trim()) {
-            streamStarted = true
-            onStreamStart()
           }
         }
 
