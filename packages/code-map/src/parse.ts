@@ -27,6 +27,7 @@ export interface FileTokenData {
 export async function getFileTokenScores(
   projectRoot: string,
   filePaths: string[],
+  readFile?: (filePath: string) => string | null,
 ): Promise<FileTokenData> {
   const startTime = Date.now()
   const tokenScores: { [filePath: string]: { [token: string]: number } } = {}
@@ -38,9 +39,10 @@ export async function getFileTokenScores(
     const fullPath = path.join(projectRoot, filePath)
     const languageConfig = await getLanguageConfig(fullPath)
     if (languageConfig) {
-      const { identifiers, calls, numLines } = await parseTokens(
-        fullPath,
+      const { identifiers, calls, numLines } = parseTokens(
+        filePath,
         languageConfig,
+        readFile,
       )
 
       const tokenScoresForFile: { [token: string]: number } = {}
@@ -146,14 +148,22 @@ export async function getFileTokenScores(
   return { tokenScores, tokenCallers }
 }
 
-export async function parseTokens(
+export function parseTokens(
   filePath: string,
   languageConfig: LanguageConfig,
+  readFile?: (filePath: string) => string | null,
 ) {
   const { parser, query } = languageConfig
 
   try {
-    const sourceCode = fs.readFileSync(filePath, 'utf8')
+    const sourceCode = readFile ? readFile(filePath) : fs.readFileSync(filePath, 'utf8')
+    if (sourceCode === null) {
+      return {
+        numLines: 0,
+        identifiers: [] as string[],
+        calls: [] as string[],
+      }
+    }
     const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
     if (!parser || !query) {
       throw new Error('Parser or query not found')

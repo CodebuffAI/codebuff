@@ -144,13 +144,13 @@ export class CodebuffClient {
     const promptId = Math.random().toString(36).substring(2, 15)
     const sessionState =
       previousRun?.sessionState ??
-      initialSessionState(this.cwd, {
+      (await initialSessionState(this.cwd, {
         knowledgeFiles,
         agentDefinitions,
         customToolDefinitions,
         projectFiles,
         maxAgentSteps,
-      })
+      }))
     sessionState.mainAgentState.stepsRemaining = maxAgentSteps
     const toolResults = previousRun?.toolResults ?? []
     if (handleEvent) {

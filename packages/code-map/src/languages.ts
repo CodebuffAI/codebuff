@@ -1,5 +1,8 @@
 import * as path from 'path'
 
+// Import some types for wasm & .scm files
+import './types.d.ts'
+
 /* ------------------------------------------------------------------ */
 /* 1 .  WASM files
 /* ------------------------------------------------------------------ */
@@ -129,8 +132,13 @@ export async function getLanguageConfig(
       const parser = new Parser()
       // NOTE (James): For some reason, Bun gives the wrong path to the imported WASM file,
       // so we need to delete one level of ../.
-      const actualPath = cfg.wasmFile.replace('../', '')
-      const lang = await Language.load(actualPath)
+      let lang
+      try {
+        const actualPath = cfg.wasmFile.replace('../', '')
+        lang = await Language.load(actualPath)
+      } catch (err) {
+        lang = await Language.load(cfg.wasmFile)
+      }
       parser.setLanguage(lang)
 
       cfg.language = lang
