@@ -2,7 +2,7 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "MIT",
   "type": "module",
@@ -18,7 +18,8 @@
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "../packages/code-map/src/tree-sitter-queries"
   ],
   "scripts": {
     "build": "tsc",
