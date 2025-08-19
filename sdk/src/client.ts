@@ -1,3 +1,5 @@
+import { buildArray } from '@codebuff/common/util/array'
+
 import { initialSessionState, type RunState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { getFiles } from './tools/read-files'
@@ -94,6 +96,7 @@ export class CodebuffClient {
       onSubagentResponseChunk: async () => {},
 
       onPromptResponse: this.handlePromptResponse.bind(this),
+      onPromptError: this.handlePromptResponse.bind(this),
     })
   }
 
@@ -216,9 +219,12 @@ export class CodebuffClient {
     })
   }
 
-  private async handlePromptResponse(action: ServerAction<'prompt-response'>) {
-    const promiseActions =
-      this.promptIdToResolveResponse[action?.promptId ?? '']
+  private async handlePromptResponse(
+    action: ServerAction<'prompt-response'> | ServerAction<'prompt-error'>,
+  ) {
+    const promptId =
+      action.type === 'prompt-response' ? action.promptId : action.userInputId
+    const promiseActions = this.promptIdToResolveResponse[promptId]
 
     const parsedAction = PromptResponseSchema.safeParse(action)
     if (!parsedAction.success) {
@@ -232,19 +238,25 @@ export class CodebuffClient {
       }
       return
     }
-
-    if (promiseActions) {
-      const { sessionState, toolResults } = parsedAction.data
-      const state: RunState = {
-        sessionState,
-        toolResults,
+    if (action.type === 'prompt-error') {
+      promiseActions.reject(new Error(action.error))
+      const message = buildArray([action.message, action.error]).join('\n\n')
+      if (promiseActions) {
+        promiseActions.reject(new Error(message))
       }
-      promiseActions.resolve(state)
-
-      delete this.promptIdToResolveResponse[action.promptId]
-      delete this.promptIdToHandleEvent[action.promptId]
-      delete this.promptIdToCustomToolHandler[action.promptId]
+    } else {
+      if (promiseActions) {
+        const { sessionState, toolResults } = parsedAction.data
+        const state: RunState = {
+          sessionState,
+          toolResults,
+        }
+        promiseActions.resolve(state)
+      }
     }
+    delete this.promptIdToResolveResponse[promptId]
+    delete this.promptIdToHandleEvent[promptId]
+    delete this.promptIdToCustomToolHandler[promptId]
   }
 
   private async readFiles(filePath: string[]) {

@@ -25,6 +25,7 @@ export type WebSocketHandlerOptions = {
   ) => Promise<void>
 
   onPromptResponse?: (action: ServerAction<'prompt-response'>) => Promise<void>
+  onPromptError?: (action: ServerAction<'prompt-error'>) => Promise<void>
 
   apiKey: string
 }
@@ -42,6 +43,7 @@ export class WebSocketHandler {
   private onResponseChunk: WebSocketHandlerOptionsWithDefaults['onResponseChunk']
   private onSubagentResponseChunk: WebSocketHandlerOptionsWithDefaults['onSubagentResponseChunk']
   private onPromptResponse: WebSocketHandlerOptionsWithDefaults['onPromptResponse']
+  private onPromptError: WebSocketHandlerOptionsWithDefaults['onPromptError']
   private apiKey: string
   private isConnected = false
 
@@ -58,6 +60,7 @@ export class WebSocketHandler {
     onSubagentResponseChunk = async () => {},
 
     onPromptResponse = async () => {},
+    onPromptError = async () => {},
 
     apiKey,
   }: WebSocketHandlerOptions) {
@@ -77,6 +80,7 @@ export class WebSocketHandler {
     this.onSubagentResponseChunk = onSubagentResponseChunk
 
     this.onPromptResponse = onPromptResponse
+    this.onPromptError = onPromptError
 
     this.apiKey = apiKey
   }
@@ -136,6 +140,7 @@ export class WebSocketHandler {
 
     // Handle full response from prompt
     this.cbWebSocket.subscribe('prompt-response', this.onPromptResponse)
+    this.cbWebSocket.subscribe('prompt-error', this.onPromptError)
   }
 
   private getInputDefaultOptions() {
