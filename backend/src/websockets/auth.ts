@@ -11,6 +11,12 @@ export interface UserInfo {
 export async function getUserIdFromAuthToken(
   authToken: string,
 ): Promise<string | undefined> {
+  // Test-only auth bypass
+  const bypass = process.env.CODEBUFF_TEST_AUTH_TOKEN
+  if (process.env.NODE_ENV === 'test' && bypass && authToken === bypass) {
+    return 'test-user'
+  }
+
   const user = await db
     .select({ id: schema.user.id })
     .from(schema.user)
@@ -25,6 +31,12 @@ export async function getUserIdFromAuthToken(
 export async function getUserInfoFromAuthToken(
   authToken: string,
 ): Promise<UserInfo | undefined> {
+  // Test-only auth bypass
+  const bypass = process.env.CODEBUFF_TEST_AUTH_TOKEN
+  if (process.env.NODE_ENV === 'test' && bypass && authToken === bypass) {
+    return { id: 'test-user', email: 'evals@test.local', discord_id: null }
+  }
+
   const user = await db
     .select({
       id: schema.user.id,

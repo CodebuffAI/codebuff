@@ -19,6 +19,7 @@ import {
   sendRequestReconnect,
   waitForAllClientsDisconnected,
   listen as webSocketListen,
+  isWebSocketReady,
 } from './websockets/server'
 
 const app = express()
@@ -31,7 +32,11 @@ app.get('/', (req, res) => {
 })
 
 app.get('/healthz', (req, res) => {
-  res.send('ok')
+  if (isWebSocketReady()) {
+    res.send('ok')
+  } else {
+    res.status(503).send('starting')
+  }
 })
 
 app.post('/api/usage', usageHandler)

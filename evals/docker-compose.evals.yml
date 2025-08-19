@@ -1,0 +1,88 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: codebuff
+      POSTGRES_PASSWORD: codebuff
+      POSTGRES_DB: codebuff
+    command: [
+      "postgres",
+      "-c", "fsync=off",
+      "-c", "synchronous_commit=off",
+      "-c", "full_page_writes=off"
+    ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codebuff -d codebuff"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ..                 # project root
+      dockerfile: ./evals/backend.Dockerfile
+    environment:
+      # Database
+      DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
+      NODE_ENV: test
+      PORT: 4242
+      
+      # Required API keys (dummy values for testing)
+      ANTHROPIC_API_KEY: test-key
+      ANTHROPIC_API_KEY2: test-key
+      HELICONE_API_KEY: test-key
+      OPEN_AI_KEY: test-key
+      GEMINI_API_KEY: test-key
+      GOOGLE_GENERATIVE_AI_API_KEY: test-key
+      DEEPSEEK_API_KEY: test-key
+      OPEN_ROUTER_API_KEY: test-key
+      RELACE_API_KEY: test-key
+      LINKUP_API_KEY: test-key
+      GOOGLE_CLOUD_PROJECT_ID: test-project
+      
+      # Auth/Web variables
+      CODEBUFF_GITHUB_ID: test-id
+      CODEBUFF_GITHUB_SECRET: test-secret
+      NEXTAUTH_SECRET: test-secret-32-chars-long-minimum
+      STRIPE_SECRET_KEY: sk_test_dummy
+      STRIPE_WEBHOOK_SECRET_KEY: whsec_dummy
+      STRIPE_USAGE_PRICE_ID: price_dummy
+      STRIPE_TEAM_FEE_PRICE_ID: price_dummy
+      LOOPS_API_KEY: test-key
+      DISCORD_PUBLIC_KEY: test-key
+      DISCORD_BOT_TOKEN: test-token
+      DISCORD_APPLICATION_ID: test-id
+      API_KEY_ENCRYPTION_SECRET: 1234567890123456789012345678901a
+      
+      # Public variables
+      NEXT_PUBLIC_CB_ENVIRONMENT: test
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:4242
+      NEXT_PUBLIC_SUPPORT_EMAIL: test@example.com
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_dummy
+      NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: https://dummy.stripe.com
+      
+      # Optional test-only bypass
+      CODEBUFF_TEST_AUTH_TOKEN: ${CODEBUFF_TEST_AUTH_TOKEN}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4242:4242"     # loopback only
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4242/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  seeder:
+    image: oven/bun:1.1.34
+    working_dir: /app
+    volumes:
+      - ..:/app:ro
+    environment:
+      DATABASE_URL: postgresql://codebuff:codebuff@db:5432/codebuff
+    entrypoint: ["bun", "run", "evals/seeds/seed-evals.ts"]
+    depends_on:
+      db:
+        condition: service_healthy

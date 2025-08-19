@@ -1,3 +1,5 @@
+import { execFileSync } from 'child_process'
+
 import { initialSessionState, type RunState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { getFiles } from './tools/read-files'
@@ -10,6 +12,8 @@ import {
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { DEFAULT_MAX_AGENT_STEPS } from '../../common/src/json-config/constants'
 import { toolNames } from '../../common/src/tools/constants'
+
+import { CODEBUFF_BINARY } from './constants'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
@@ -66,6 +70,22 @@ export class CodebuffClient {
       throw new Error(
         `Codebuff API key not found. Please provide an apiKey in the constructor of CodebuffClient or set the ${API_KEY_ENV_VAR} environment variable.`,
       )
+    }
+
+    // Check for codebuff binary unless skip flag is set
+    const SKIP = process.env.CODEBUFF_SKIP_BINARY_CHECK === '1'
+    if (!SKIP) {
+      try {
+        const isWindows = process.platform === 'win32'
+        const result = execFileSync(isWindows ? 'where' : 'which', [CODEBUFF_BINARY])
+          .toString()
+          .trim()
+        if (result === '') {
+          throw new Error(`Missing codebuff binary in PATH. Please install with 'npm install -g codebuff' or set CODEBUFF_SKIP_BINARY_CHECK=1 to skip this check.`)
+        }
+      } catch (error) {
+        throw new Error(`Missing codebuff binary in PATH. Please install with 'npm install -g codebuff' or set CODEBUFF_SKIP_BINARY_CHECK=1 to skip this check.`)
+      }
     }
 
     this.cwd = cwd
