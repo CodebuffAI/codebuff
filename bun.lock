@@ -127,7 +127,7 @@
       "dependencies": {
         "@codebuff/code-map": "workspace:*",
         "@codebuff/common": "workspace:*",
-        "@codebuff/sdk": "0.1.10",
+        "@codebuff/sdk": "0.1.14",
         "@types/diff": "5.2.1",
         "@types/micromatch": "^4.0.9",
         "@vscode/ripgrep": "1.15.9",
@@ -3868,7 +3868,7 @@
 
     "@codebuff/common/ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
 
-    "@codebuff/npm-app/@codebuff/sdk": ["@codebuff/sdk@0.1.10", "", { "dependencies": { "@vscode/tree-sitter-wasm": "0.1.4", "ai": "^5.0.0", "web-tree-sitter": "0.25.6", "zod": "^4.0.0" } }, "sha512-17qEQl5r+Md9qSDf9hWtdUPapEmnY3Mc7I8uZuaNiAjiNouDBetfjY/bETcsiUdQ14yhgqMEzELtla5px9ur6g=="],
+    "@codebuff/npm-app/@codebuff/sdk": ["@codebuff/sdk@0.1.14", "", { "dependencies": { "@vscode/tree-sitter-wasm": "0.1.4", "ai": "^5.0.0", "web-tree-sitter": "0.25.6", "zod": "^4.0.0" } }, "sha512-hApQdfAyggfUxWb1HDPnXIjGIqb0eCUA6xFgk8wD5THL+c2YOM9ru8LMFIkax5c3s9wrhXyoAjUoTmpgOqaeVQ=="],
 
     "@codebuff/npm-app/@types/diff": ["@types/diff@5.2.1", "", {}, "sha512-uxpcuwWJGhe2AR1g8hD9F5OYGCqjqWnBUQFD8gMZsDbv8oPHzxJF6iMO6n8Tk0AdzlxoaaoQhOYlIg/PukVU8g=="],
 
