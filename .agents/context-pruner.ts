@@ -37,23 +37,28 @@ const definition: AgentDefinition = {
     const maxMessageTokens: number = params?.maxContextLength ?? 200_000
     const numTerminalCommandsToKeep = 5
 
-    // Remove the last assistant message if it contains the spawn call that invoked this context-pruner
     let currentMessages = [...messages]
-    if (currentMessages.length > 0) {
-      const lastMessage = currentMessages[currentMessages.length - 1]
-      if (
-        lastMessage.role === 'assistant' &&
-        typeof lastMessage.content === 'string'
-      ) {
-        // Check if this message contains a spawn_agent_inline call for context-pruner
-        if (
-          lastMessage.content.includes('spawn_agent_inline') &&
-          lastMessage.content.includes('context-pruner')
-        ) {
-          // Remove the entire message
-          currentMessages.pop()
-        }
-      }
+    const lastAssistantMessageIndex = currentMessages.findLastIndex(
+      (message) => message.role === 'assistant',
+    )
+    const lastAssistantMessage = currentMessages[lastAssistantMessageIndex]
+    const lastAssistantMessageIsToolCall =
+      typeof lastAssistantMessage?.content === 'string' &&
+      lastAssistantMessage.content.includes('spawn_agent_inline') &&
+      lastAssistantMessage.content.includes('context-pruner')
+    const inputMessage = currentMessages[lastAssistantMessageIndex + 1]
+    const userInstructionsToolsMessage =
+      currentMessages[lastAssistantMessageIndex + 2]
+    if (
+      lastAssistantMessageIsToolCall &&
+      inputMessage &&
+      userInstructionsToolsMessage
+    ) {
+      // Remove these messages:
+      // - assistant message with spawn_agent_inline call
+      // - input message with params object for this agent
+      // - user instructions message with tools description
+      currentMessages.splice(lastAssistantMessageIndex, 3)
     }
 
     // Initial check - if already under limit, return (with inline agent tool call removed)

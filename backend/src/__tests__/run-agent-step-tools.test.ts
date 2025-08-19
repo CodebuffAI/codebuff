@@ -456,7 +456,7 @@ describe('runAgentStep - set_output tool', () => {
         // Delete the last two assistant messages by doing two iterations
         const messages = [...agentState.messageHistory]
 
-        // First iteration: find and remove the last assistant message
+        // First iteration: find and remove the last assistant message, which is the tool call to this agent
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role === 'assistant') {
             messages.splice(i, 1)
@@ -465,6 +465,14 @@ describe('runAgentStep - set_output tool', () => {
         }
 
         // Second iteration: find and remove the next-to-last assistant message
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'assistant') {
+            messages.splice(i, 1)
+            break
+          }
+        }
+
+        // Third iteration: find and remove the third assistant message
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role === 'assistant') {
             messages.splice(i, 1)
@@ -551,7 +559,7 @@ describe('runAgentStep - set_output tool', () => {
       { role: 'user', content: 'Hello' },
       { role: 'assistant', content: 'Hi there!' },
       { role: 'user', content: 'How are you?' },
-      { role: 'assistant', content: 'I am doing well, thank you!' },
+      // { role: 'assistant', content: 'I am doing well, thank you!' },
       { role: 'user', content: 'Can you help me?' },
       {
         role: 'user',
@@ -564,6 +572,11 @@ describe('runAgentStep - set_output tool', () => {
         content: expect.stringContaining(
           'Delete the last two assistant messages',
         ),
+      },
+      {
+        role: 'user',
+        content: expect.stringContaining('Delete messages instructions prompt'),
+        timeToLive: 'userPrompt',
       },
     ]
 

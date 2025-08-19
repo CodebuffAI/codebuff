@@ -112,9 +112,6 @@ export const handleSpawnAgentInline = ((params: {
     // Since we share the same message array reference, this should already be updated
     let finalMessages = result.agentState?.messageHistory || state.messages
 
-    // Expire messages with timeToLive: 'userPrompt' to clean up inline agent's temporary messages
-    finalMessages = expireMessages(finalMessages, 'userPrompt')
-
     state.messages = finalMessages
 
     // Update parent agent state to reflect shared message history

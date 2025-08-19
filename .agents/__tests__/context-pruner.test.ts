@@ -47,10 +47,12 @@ describe('context-pruner handleSteps', () => {
     })
   })
 
-  test('removes spawn_agent_inline call for context-pruner from last assistant message', () => {
+  test('removes spawn_agent_inline call for context-pruner and following messages', () => {
     const messages = [
       createMessage('user', 'Hello'),
       createMessage('assistant', 'I will spawn the context-pruner agent.\n\n<codebuff_tool_call>\n{\n  "cb_tool_name": "spawn_agent_inline",\n  "agent_type": "context-pruner"\n}\n</codebuff_tool_call>'),
+      createMessage('user', '{"params": {"maxContextLength": 100000}}'),
+      createMessage('user', 'Tools and instructions'),
     ]
 
     const results = runHandleSteps(messages)
@@ -60,16 +62,31 @@ describe('context-pruner handleSteps', () => {
     expect(results[0].input.messages[0]).toEqual(createMessage('user', 'Hello'))
   })
 
-  test('does not remove last message if it does not contain context-pruner spawn call', () => {
+  test('does not remove messages if assistant message does not contain context-pruner spawn call', () => {
     const messages = [
       createMessage('user', 'Hello'),
       createMessage('assistant', 'Regular response without spawn call'),
+      createMessage('user', 'Follow up'),
+    ]
+
+    const results = runHandleSteps(messages)
+    expect(results).toHaveLength(1)
+    expect(results[0].input.messages).toHaveLength(3)
+  })
+
+  test('handles context-pruner spawn call without enough following messages', () => {
+    const messages = [
+      createMessage('user', 'Hello'),
+      createMessage('assistant', 'I will spawn the context-pruner agent.\n\n<codebuff_tool_call>\n{\n  "cb_tool_name": "spawn_agent_inline",\n  "agent_type": "context-pruner"\n}\n</codebuff_tool_call>'),
+      createMessage('user', '{"params": {"maxContextLength": 100000}}'),
     ]
 
     const results = runHandleSteps(messages)
 
     expect(results).toHaveLength(1)
-    expect(results[0].input.messages).toHaveLength(2)
+    // Should preserve all messages since there aren't 3 messages to remove
+    expect(results[0].input.messages).toHaveLength(3)
+
   })
 
   test('removes old terminal command results while keeping recent 5', () => {
@@ -389,26 +406,41 @@ describe('context-pruner edge cases', () => {
 
   test('handles spawn_agent_inline detection with variations', () => {
     const testCases = [
-      'Regular message with spawn_agent_inline but not for context-pruner',
-      'spawn_agent_inline call for "context-pruner" with quotes',
-      'spawn_agent_inline\n  "agent_type": "context-pruner"',
-      'Multiple spawn_agent_inline calls, one for context-pruner',
+      {
+        content: 'Regular message with spawn_agent_inline but not for other-agent',
+        shouldRemove: false,
+      },
+      {
+        content: 'spawn_agent_inline call for "context-pruner" with quotes',
+        shouldRemove: true, // Has context-pruner and 3 total messages
+      },
+      {
+        content: 'spawn_agent_inline\n  "agent_type": "context-pruner"',
+        shouldRemove: true, // Has context-pruner and 3 total messages
+      },
+      {
+        content: 'Multiple spawn_agent_inline calls, one for context-pruner',
+        shouldRemove: true, // Has context-pruner and 3 total messages
+      },
     ]
 
-    testCases.forEach((content, index) => {
+    testCases.forEach(({ content, shouldRemove }, index) => {
       const messages = [
         createMessage('user', 'Hello'),
         createMessage('assistant', content),
+        createMessage('user', 'Follow up'),
+        createMessage('user', 'Tools and instructions'),
       ]
 
       const results = runHandleSteps(messages)
 
-      if (content.includes('context-pruner')) {
-        // Should remove the message containing context-pruner spawn
+      if (shouldRemove) {
+        // Should remove the assistant message and following 2 user messages
         expect(results[0].input.messages).toHaveLength(1)
+        expect(results[0].input.messages[0]).toEqual(createMessage('user', 'Hello'))
       } else {
-        // Should preserve the message
-        expect(results[0].input.messages).toHaveLength(2)
+        // Should preserve all messages
+        expect(results[0].input.messages).toHaveLength(4)
       }
     })
   })
