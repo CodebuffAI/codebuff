@@ -1,7 +1,7 @@
-import type { OpenRouterSharedSettings } from '..';
+import type { OpenRouterSharedSettings } from '..'
 
 // https://openrouter.ai/api/v1/models
-export type OpenRouterChatModelId = string;
+export type OpenRouterChatModelId = string
 
 export type OpenRouterChatSettings = {
   /**
@@ -15,10 +15,10 @@ The exact effect will vary per model, but values between -1 and 1 should
 decrease or increase likelihood of selection; values like -100 or 100
 should result in a ban or exclusive selection of the relevant token.
 
-As an example, you can pass {"50256": -100} to prevent the <|endoftext|>
+As an example, you can pass {"50256": -100} to prevent the <|end-of-text|>
 token from being generated.
 */
-  logitBias?: Record<number, number>;
+  logitBias?: Record<number, number>
 
   /**
 Return the log probabilities of the tokens. Including logprobs will increase
@@ -31,33 +31,33 @@ were generated.
 Setting to a number will return the log probabilities of the top n
 tokens that were generated.
 */
-  logprobs?: boolean | number;
+  logprobs?: boolean | number
 
   /**
 Whether to enable parallel function calling during tool use. Default to true.
    */
-  parallelToolCalls?: boolean;
+  parallelToolCalls?: boolean
 
   /**
 A unique identifier representing your end-user, which can help OpenRouter to
 monitor and detect abuse. Learn more.
 */
-  user?: string;
+  user?: string
 
   /**
    * Web search plugin configuration for enabling web search capabilities
    */
   plugins?: Array<{
-    id: 'web';
+    id: 'web'
     /**
      * Maximum number of search results to include (default: 5)
      */
-    max_results?: number;
+    max_results?: number
     /**
      * Custom search prompt to guide the search query
      */
-    search_prompt?: string;
-  }>;
+    search_prompt?: string
+  }>
 
   /**
    * Built-in web search options for models that support native web search
@@ -66,12 +66,12 @@ monitor and detect abuse. Learn more.
     /**
      * Maximum number of search results to include
      */
-    max_results?: number;
+    max_results?: number
     /**
      * Custom search prompt to guide the search query
      */
-    search_prompt?: string;
-  };
+    search_prompt?: string
+  }
 
   /**
    * Provider routing preferences to control request routing behavior
@@ -80,27 +80,27 @@ monitor and detect abuse. Learn more.
     /**
      * List of provider slugs to try in order (e.g. ["anthropic", "openai"])
      */
-    order?: string[];
+    order?: string[]
     /**
      * Whether to allow backup providers when primary is unavailable (default: true)
      */
-    allow_fallbacks?: boolean;
+    allow_fallbacks?: boolean
     /**
      * Only use providers that support all parameters in your request (default: false)
      */
-    require_parameters?: boolean;
+    require_parameters?: boolean
     /**
      * Control whether to use providers that may store data
      */
-    data_collection?: 'allow' | 'deny';
+    data_collection?: 'allow' | 'deny'
     /**
      * List of provider slugs to allow for this request
      */
-    only?: string[];
+    only?: string[]
     /**
      * List of provider slugs to skip for this request
      */
-    ignore?: string[];
+    ignore?: string[]
     /**
      * List of quantization levels to filter by (e.g. ["int4", "int8"])
      */
@@ -114,20 +114,20 @@ monitor and detect abuse. Learn more.
       | 'bf16'
       | 'fp32'
       | 'unknown'
-    >;
+    >
     /**
      * Sort providers by price, throughput, or latency
      */
-    sort?: 'price' | 'throughput' | 'latency';
+    sort?: 'price' | 'throughput' | 'latency'
     /**
      * Maximum pricing you want to pay for this request
      */
     max_price?: {
-      prompt?: number | string;
-      completion?: number | string;
-      image?: number | string;
-      audio?: number | string;
-      request?: number | string;
-    };
-  };
-} & OpenRouterSharedSettings;
+      prompt?: number | string
+      completion?: number | string
+      image?: number | string
+      audio?: number | string
+      request?: number | string
+    }
+  }
+} & OpenRouterSharedSettings
