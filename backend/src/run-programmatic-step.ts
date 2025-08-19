@@ -76,7 +76,8 @@ export async function runProgrammaticStep(
 
   logger.info(
     {
-      template: template.id,
+      templateId: template.id,
+      template,
       agentType,
       prompt,
       params,
