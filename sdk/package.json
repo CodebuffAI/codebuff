@@ -2,7 +2,7 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.1.10",
+  "version": "0.1.14",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "MIT",
   "type": "module",
@@ -18,10 +18,12 @@
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "../packages/code-map/src/tree-sitter-queries"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-scm-files",
+    "copy-scm-files": "mkdir -p dist/packages/code-map/src/tree-sitter-queries && cp -r ../packages/code-map/src/tree-sitter-queries/*.scm dist/packages/code-map/src/tree-sitter-queries/ && cp ../packages/code-map/src/tree-sitter-queries/readme.md dist/packages/code-map/src/tree-sitter-queries/",
     "clean": "rm -rf dist",
     "prepare-dist": "node scripts/publish.js --dry-run",
     "publish-sdk": "node scripts/publish.js --public",

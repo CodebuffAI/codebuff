@@ -66,7 +66,7 @@ export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
         toolName: 'spawn_agent_inline',
         input: {
           agent_type: 'context-pruner',
-          params,
+          params: params ?? {},
         },
       } as any
 
