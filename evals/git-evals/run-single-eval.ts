@@ -47,7 +47,7 @@ class RunSingleEvalCommand extends Command {
   }
 
   async run(): Promise<void> {
-    const { flags } = await this.parse(RunSingleEvalSDKCommand)
+    const { flags } = await this.parse(RunSingleEvalCommand)
 
     // Validate that either commit-index or commit-sha is provided
     if (
