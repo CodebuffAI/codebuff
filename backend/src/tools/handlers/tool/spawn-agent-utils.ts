@@ -209,7 +209,7 @@ export function validateAgentInput(
 
   // Validate params if schema exists
   if (inputSchema.params) {
-    const result = inputSchema.params.safeParse(params)
+    const result = inputSchema.params.safeParse(params ?? {})
     if (!result.success) {
       throw new Error(
         `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
