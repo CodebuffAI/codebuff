@@ -28,6 +28,13 @@ export const strReplaceParams = {
                 .describe(
                   `The string to replace the corresponding old string with. Can be empty to delete.`,
                 ),
+              allowMultiple: z
+                .boolean()
+                .optional()
+                .default(false)
+                .describe(
+                  'Whether to allow multiple replacements of old string.',
+                ),
             })
             .describe('Pair of old and new strings.'),
         )
