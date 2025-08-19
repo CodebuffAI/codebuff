@@ -73,6 +73,7 @@ import {
   CodebuffClient,
   generateInitialRunState,
   withAdditionalMessage,
+  getCustomToolDefinition,
 } from '@codebuff/sdk'
 
 // Available after running `codebuff login`
@@ -124,23 +125,30 @@ const result = await client.run({
 
   // Custom tool definitions
   customToolDefinitions: [
-    {
+    getCustomToolDefinition({
       toolName: 'fetch_api_data',
-      zodSchema: z
-        .object({
-          url: z.string().url(),
-          method: z.enum(['GET', 'POST']).default('GET'),
-          headers: z.record(z.string()).optional(),
-        })
-        .describe('Fetch data from an API endpoint'),
+      description: 'Fetch data from an API endpoint',
+      inputSchema: z.object({
+        url: z.string().url(),
+        method: z.enum(['GET', 'POST']).default('GET'),
+        headers: z.record(z.string()).optional(),
+      }),
+      exampleInputs: [
+        { url: 'https://api.example.com/data', method: 'GET' },
+        {
+          url: 'https://api.example.com/submit',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ],
       handler: async ({ url, method, headers }) => {
         const response = await fetch(url, { method, headers })
         const data = await response.text()
         return {
-          toolResultMessage: `API Response: ${data.slice(0, 500)}...`,
+          toolResultMessage: `API Response: ${data.slice(0, 5000)}...`,
         }
       },
-    },
+    }),
   ],
 
   handleEvent: (event) => {

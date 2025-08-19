@@ -10,7 +10,7 @@ export type CustomToolDefinition<
   toolName: N
   zodSchema: z.ZodType<Output, Input>
   inputJsonSchema: JSONSchema.BaseSchema
-  description?: string
+  description: string
   endsAgentStep: boolean
   exampleInputs: Input[]
   handler: (params: Output) => Promise<{
@@ -18,7 +18,7 @@ export type CustomToolDefinition<
   }>
 }
 
-export function getCustomToolDefinintion<
+export function getCustomToolDefinition<
   ToolName extends string,
   Output,
   Input,
@@ -26,13 +26,13 @@ export function getCustomToolDefinintion<
   toolName,
   inputSchema,
   description,
-  endsAgentStep = false,
+  endsAgentStep = true,
   exampleInputs = [],
   handler,
 }: {
   toolName: ToolName
   inputSchema: z.ZodType<Output, Input>
-  description?: string
+  description: string
   endsAgentStep?: boolean
   exampleInputs?: Input[]
   handler: (params: Output) => Promise<{
