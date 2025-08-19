@@ -6,7 +6,7 @@ import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/
 import { models } from '@codebuff/common/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { withTimeout } from '@codebuff/common/util/promise'
-import { CodebuffClient } from '@codebuff/sdk'
+import { CodebuffClient } from '../../sdk/src/client'
 import pLimit from 'p-limit'
 
 import {

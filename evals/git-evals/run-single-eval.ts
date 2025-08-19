@@ -3,7 +3,7 @@
 import fs from 'fs'
 
 import { generateCompactId } from '@codebuff/common/util/string'
-import { CodebuffClient } from '@codebuff/sdk'
+import { CodebuffClient } from '../../sdk/src/client'
 import { Command, Flags } from '@oclif/core'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
