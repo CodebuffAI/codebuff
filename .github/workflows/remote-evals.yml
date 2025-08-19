@@ -1,4 +1,9 @@
-name: Remote Evaluations
+name: Remote Evaluations (SDK)
+
+# This workflow runs Codebuff evaluations using the public SDK exclusively.
+# It creates a containerized backend environment and runs evaluations via CodebuffClient.
+# Trigger: Add [remote-eval] to commit message or use workflow_dispatch
+# Matrix mode: Add [remote-eval-all] to commit message for parallel evaluations
 
 on:
   push:
@@ -57,14 +62,28 @@ jobs:
         if: steps.check_commit.outputs.should_run_evals == 'true'
         run: bun install --frozen-lockfile
 
+      - name: Validate environment for SDK evaluation
+        if: steps.check_commit.outputs.should_run_evals == 'true'
+        run: |
+          echo "🔍 Validating SDK evaluation environment..."
+          echo "  Checking for required files..."
+          test -f evals/scripts/run-remote-parameterized.sh || { echo "❌ Missing run-remote-parameterized.sh"; exit 1; }
+          test -f evals/git-evals/run-single-eval.ts || { echo "❌ Missing run-single-eval.ts"; exit 1; }
+          test -f evals/docker-compose.evals.yml || { echo "❌ Missing docker-compose.evals.yml"; exit 1; }
+          echo "  Checking SDK package..."
+          bun --version
+          echo "✅ Environment validation passed"
+
       - name: Run remote evaluation
         if: steps.check_commit.outputs.should_run_evals == 'true'
         env:
           EVAL_FILE: ${{ inputs.eval_file || 'eval-codebuff.json' }}
           COMMIT_INDEX: ${{ inputs.commit_index || '0' }}
           MODE: ${{ inputs.mode || 'bypass' }}
+          CODEBUFF_WEBSOCKET_URL: "ws://127.0.0.1:4242/ws"
+          CODEBUFF_SKIP_BINARY_CHECK: "1"
         run: |
-          echo "🚀 Remote Evaluation Starting"
+          echo "🚀 Remote Evaluation Starting (SDK Mode)"
           echo "📋 GitHub Actions Environment:"
           echo "  Runner: ${{ runner.os }}"
           echo "  SHA: ${{ github.sha }}"
@@ -78,13 +97,17 @@ jobs:
           docker compose version
           echo "💾 Disk Space:"
           df -h
-          echo "🔧 Starting evaluation..."
+          echo "🔧 Starting SDK-based evaluation..."
           bash evals/scripts/run-remote-parameterized.sh "$MODE" "$EVAL_FILE" "$COMMIT_INDEX"
 
       - name: Dump logs on failure
         if: failure() && steps.check_commit.outputs.should_run_evals == 'true'
         run: |
-          echo "❌ Evaluation failed - dumping diagnostic information"
+          echo "❌ SDK Evaluation failed - dumping diagnostic information"
+          echo "🔧 SDK Environment:"
+          echo "  CODEBUFF_WEBSOCKET_URL: ${CODEBUFF_WEBSOCKET_URL:-not set}"
+          echo "  CODEBUFF_SKIP_BINARY_CHECK: ${CODEBUFF_SKIP_BINARY_CHECK:-not set}"
+          echo "  CODEBUFF_API_KEY: ${CODEBUFF_API_KEY:+[SET]}${CODEBUFF_API_KEY:-[NOT SET]}"
           echo "🐳 Docker containers status:"
           docker ps -a || true
           echo "📋 Backend container logs:"
@@ -95,6 +118,9 @@ jobs:
           df -h || true
           echo "🧠 Memory usage:"
           free -h || true
+          echo "📁 Evaluation files:"
+          ls -la evals/git-evals/ || true
+          ls -la evals/scripts/ || true
 
       - name: Upload evaluation logs
         if: always() && steps.check_commit.outputs.should_run_evals == 'true'
@@ -119,7 +145,7 @@ jobs:
   remote-evals-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    if: contains(github.event.head_commit.message, '[remote-eval-all]') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'matrix')
+    if: contains(github.event.head_commit.message, '[remote-eval-all]')
     
     strategy:
       fail-fast: false
@@ -141,13 +167,33 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Validate environment for SDK evaluation
+        run: |
+          echo "🔍 Validating SDK evaluation environment for matrix job..."
+          test -f evals/scripts/run-remote-parameterized.sh || { echo "❌ Missing run-remote-parameterized.sh"; exit 1; }
+          test -f evals/git-evals/run-single-eval.ts || { echo "❌ Missing run-single-eval.ts"; exit 1; }
+          test -f evals/docker-compose.evals.yml || { echo "❌ Missing docker-compose.evals.yml"; exit 1; }
+          echo "✅ Matrix environment validation passed"
+
       - name: Run evaluation matrix
         env:
           EVAL_FILE: ${{ matrix.eval.file }}
           COMMIT_INDEX: ${{ matrix.eval.index }}
+          CODEBUFF_WEBSOCKET_URL: "ws://127.0.0.1:4242/ws"
+          CODEBUFF_SKIP_BINARY_CHECK: "1"
         run: |
-          echo "🚀 Running matrix evaluation..."
+          echo "🚀 Running matrix evaluation (SDK Mode)..."
           bash evals/scripts/run-remote-parameterized.sh "bypass" "$EVAL_FILE" "$COMMIT_INDEX"
+
+      - name: Dump matrix logs on failure
+        if: failure()
+        run: |
+          echo "❌ Matrix SDK Evaluation failed - dumping diagnostic information"
+          echo "🔧 Matrix job details: File=$EVAL_FILE, Index=$COMMIT_INDEX"
+          echo "🐳 Docker containers status:"
+          docker ps -a || true
+          echo "📋 Container logs:"
+          docker compose -f evals/docker-compose.evals.yml logs --tail=100 || true
 
       - name: Upload matrix evaluation results
         if: always()

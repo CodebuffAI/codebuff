@@ -5,9 +5,10 @@ Briefing (Read First)
 
 - SDK connectivity + auth
   - Today the SDK hard-requires the `codebuff` CLI in PATH (constructor checks with `which/where`). Install with `npm i -g codebuff` OR implement the skip flag below.
-  - Add an optional skip flag (recommended): if `CODEBUFF_SKIP_BINARY_CHECK=1`, skip the CLI presence check.
-  - Default WS URL depends on env. In CI/remote, explicitly set `CODEBUFF_WEBSOCKET_URL=ws://127.0.0.1:4242/ws` so the SDK connects to your ephemeral backend (and not prod/dev defaults).
-  - Provide an API key as `CODEBUFF_API_KEY`. In seed mode, this comes from Drizzle seed output. In bypass mode, reuse `CODEBUFF_TEST_AUTH_TOKEN`.
+  - ✅ IMPLEMENTED: Add an optional skip flag (recommended): if `CODEBUFF_SKIP_BINARY_CHECK=1`, skip the CLI presence check.
+  - ✅ IMPLEMENTED: Default WS URL depends on env. In CI/remote, explicitly set `CODEBUFF_WEBSOCKET_URL=ws://127.0.0.1:4242/ws` so the SDK connects to your ephemeral backend (and not prod/dev defaults).
+  - ✅ IMPLEMENTED: Provide an API key as `CODEBUFF_API_KEY`. In seed mode, this comes from Drizzle seed output. In bypass mode, reuse `CODEBUFF_TEST_AUTH_TOKEN`.
+  - ✅ NEW: SDK-based evaluation scripts created: `run-single-eval-sdk.ts`, `run-single-eval-simple-sdk.ts`, and `run-git-evals-sdk.ts`
 
 - Docker containment (backend stays Docker‑agnostic)
   - All infra (Compose, Dockerfile, scripts, seeding) lives under `evals/`. The backend does not reference Docker.
@@ -40,12 +41,39 @@ Briefing (Read First)
   - No `codebuff` in PATH → SDK throws. Install it or use the skip flag once implemented.
 
 - Quick execution checklist
-  - `npm i -g codebuff` (or set `CODEBUFF_SKIP_BINARY_CHECK=1` after we add it)
-  - `docker compose -f evals/docker-compose.evals.yml up -d --build db backend`
-  - Wait for `http://127.0.0.1:4242/healthz` OK (WS-ready semantics)
-  - Seed (Drizzle) → capture `CODEBUFF_API_KEY` OR set bypass envs
-  - `CODEBUFF_WEBSOCKET_URL=ws://127.0.0.1:4242/ws bun scripts/git-evals/run-single-eval.ts --prompt "..."`
-  - `docker compose -f evals/docker-compose.evals.yml down -v`
+  - ✅ IMPLEMENTED: `npm i -g codebuff` (or set `CODEBUFF_SKIP_BINARY_CHECK=1` after we add it)
+  - ✅ IMPLEMENTED: `docker compose -f evals/docker-compose.evals.yml up -d --build db backend`
+  - ✅ IMPLEMENTED: Wait for `http://127.0.0.1:4242/healthz` OK (WS-ready semantics)
+  - ✅ IMPLEMENTED: Seed (Drizzle) → capture `CODEBUFF_API_KEY` OR set bypass envs
+  - ✅ UPDATED: SDK-only: `bash evals/scripts/run-remote-parameterized.sh bypass eval-codebuff.json 0`
+  - ✅ IMPLEMENTED: `docker compose -f evals/docker-compose.evals.yml down -v`
+
+## SDK-Only Evaluation Infrastructure
+
+The evaluation infrastructure now uses the public Codebuff SDK exclusively:
+
+### SDK Mode (Only Option)
+- Uses public `CodebuffClient` from `@codebuff/sdk`
+- Clean separation from internal backend APIs
+- Reliable and consistent for CI/CD environments
+- Usage: `bash evals/scripts/run-remote-parameterized.sh bypass eval-codebuff.json 0`
+
+### Available Scripts:
+- `evals/git-evals/run-single-eval.ts` - Main SDK evaluation command
+- `evals/git-evals/run-git-evals.ts` - Batch SDK evaluations  
+- `evals/git-evals/run-single-eval-simple-sdk.ts` - Simplified SDK evaluation (direct execution)
+- `evals/scripts/run-remote.sh` - Basic remote evaluation script
+- `evals/scripts/run-remote-parameterized.sh` - Parameterized remote evaluation script
+
+### Legacy Files (Preserved for Reference):
+- `evals/git-evals/run-single-eval-legacy.ts` - Original internal API version
+- `evals/git-evals/run-git-evals-legacy.ts` - Original internal API version
+- `evals/git-evals/run-single-eval-process-legacy.ts` - Original process wrapper
+
+### GitHub Actions Support:
+- Simplified workflow using SDK-only approach
+- No mode selection needed (always uses SDK)
+- Matrix jobs use SDK consistently
 
 ---
 

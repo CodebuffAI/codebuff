@@ -11,7 +11,7 @@ MODE="${1:-seed}"              # 'seed' (Drizzle) or 'bypass'
 EVAL_FILE="${2:-eval-codebuff.json}"    # eval file name
 COMMIT_INDEX="${3:-0}"         # commit index
 
-log "🚀 Remote Evaluation Infrastructure Starting"
+log "🚀 Remote Evaluation Infrastructure Starting (SDK Mode)"
 log "📋 Parameters:"
 log "  Mode: $MODE"
 log "  Eval File: $EVAL_FILE"
@@ -58,10 +58,11 @@ else
   log "  Extracted API key: ${CODEBUFF_API_KEY:0:8}..."
 fi
 
-# Run evaluation
-log "🤖 Starting evaluation..."
+# Run evaluation (SDK mode only)
+log "🤖 Starting evaluation (SDK mode)..."
 log "  File: evals/git-evals/$EVAL_FILE"
 log "  Commit Index: $COMMIT_INDEX"
+log "  Using: CodebuffClient from SDK"
 log "  Environment: CODEBUFF_WEBSOCKET_URL=$CODEBUFF_WEBSOCKET_URL"
 log "  This may take 10-30 minutes depending on task complexity..."
 

@@ -2,20 +2,26 @@ import { execSync, fork } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
+import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
-import { generateCompactId } from '@codebuff/common/util/string'
+import { getDefaultConfig } from '@codebuff/common/json-config/default'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
-import { CodebuffClient } from '@codebuff/sdk'
+import { generateCompactId } from '@codebuff/common/util/string'
 import pLimit from 'p-limit'
 
 import {
+  createFileReadingMock,
+  loopMainPrompt,
   resetRepoToCommit,
 } from '../scaffolding'
-import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
+import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
+import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
 
+import type { AgentStep } from '../scaffolding'
 import type {
   AgentDecision,
   CodebuffTrace,
@@ -27,6 +33,11 @@ import type {
   EvalData,
 } from './types'
 
+disableLiveUserInputCheck()
+
+// Try Gemini!
+const AGENT_TYPE = AgentTemplateTypes.base
+
 const EDIT_FILE_TOOL_NAMES = ['write_file', 'str_replace'] as const
 
 export async function runSingleEval(
@@ -34,7 +45,7 @@ export async function runSingleEval(
   projectPath: string,
   clientSessionId: string,
   fingerprintId: string,
-  agentType: string = 'base',
+  agentType: string = AGENT_TYPE,
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -59,24 +70,17 @@ export async function runSingleEval(
   process.on('uncaughtException', uncaughtHandler)
   process.on('unhandledRejection', unhandledHandler)
 
-  let client: CodebuffClient | undefined
-
   try {
     // Reset to the commit before the target commit
     resetRepoToCommit(projectPath, `${evalCommit.sha}^`)
 
-    // Initialize SDK client
-    client = new CodebuffClient({
-      cwd: projectPath,
-      onError: (error) => {
-        console.error('SDK error:', error.message)
-      },
-    })
+    // Initialize agent state
+    createFileReadingMock(projectPath)
+    let sessionState = await createInitialSessionState(projectPath)
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
     const MAX_ATTEMPTS = 5
-    let previousRun: any = undefined
 
     while (currentDecision === 'continue' && attempts < MAX_ATTEMPTS) {
       // Check for process-level errors
@@ -84,7 +88,7 @@ export async function runSingleEval(
         throw new Error(processError)
       }
 
-      function renderAgentStep(step: any): string {
+      function renderAgentStep(step: AgentStep): string {
         const { response, toolCalls, toolResults } = step
         return [
           `\`\`\`text_response\n${response}\n\`\`\``,
@@ -92,7 +96,6 @@ export async function runSingleEval(
           `\`\`\`tool_results\n${JSON.stringify(toolResults, null, 2)}\n\`\`\``,
         ].join('\n\n')
       }
-
       const renderedTrace = trace
         .map(
           ({ prompt, steps }) =>
@@ -140,16 +143,8 @@ Explain your reasoning in detail.`,
         )
       }
 
-      console.log('Agent response:', JSON.stringify(agentResponse, null, 2))
       console.log('Agent decision:', agentResponse.decision)
       console.log('Agent reasoning:', agentResponse.reasoning)
-
-      // Handle undefined decision
-      if (!agentResponse.decision) {
-        console.warn('Agent decision is undefined, defaulting to halt')
-        agentResponse.decision = 'halt'
-        agentResponse.reasoning = 'Agent failed to provide a decision'
-      }
 
       if (agentResponse.decision === 'continue' && !agentResponse.next_prompt) {
         agentResponse.next_prompt = 'continue'
@@ -159,77 +154,35 @@ Explain your reasoning in detail.`,
       if (agentResponse.decision === 'continue') {
         const prompt = agentResponse.next_prompt!
 
-        // Use SDK client with timeout wrapper
+        // Use loopMainPrompt with timeout wrapper
         const codeBuffResult = await withTimeout(
-          client.run({
-            agent: agentType,
+          loopMainPrompt({
+            sessionState,
             prompt,
-            previousRun,
+            projectPath,
+            maxIterations: 20,
+            agentType: agentType as any,
           }),
           // Timeout after 30 minutes
           60_000 * 30,
         )
 
-        // Convert SDK results to expected trace format
-        const toolResults = codeBuffResult.toolResults || []
-        const steps = []
-        
-        // Group tool results by response chunks if available
-        if (toolResults.length > 0) {
-          let currentResponse = ''
-          let currentToolCalls = []
-          let currentToolResults = []
-          
-          for (const result of toolResults) {
-            if (result.toolCall) {
-              currentToolCalls.push(result.toolCall)
-            }
-            currentToolResults.push(result)
-            if (result.output?.value) {
-              currentResponse += result.output.value
-            }
-          }
-          
-          steps.push({
-            response: currentResponse || prompt, // Fallback to prompt if no response
-            toolCalls: currentToolCalls,
-            toolResults: currentToolResults
-          })
-        } else {
-          // No tool results, likely just a text response
-          steps.push({
-            response: 'Processing completed',
-            toolCalls: [],
-            toolResults: []
-          })
-        }
-        
-        trace.push({ prompt, steps })
-
-        // Update previousRun for next iteration
-        previousRun = codeBuffResult
+        sessionState.mainAgentState = codeBuffResult.agentState
+        sessionState.mainAgentState.stepsRemaining =
+          getDefaultConfig().maxAgentSteps
+        trace.push({ prompt, steps: codeBuffResult.steps })
       }
 
       currentDecision = agentResponse.decision
       attempts++
     }
   } catch (e) {
-    console.error('Error in runSingleEvalSDK:', e)
+    console.error('Error in runSingleEval:', e)
     error =
       e instanceof Error
         ? `${e.message}\n${e.stack}`
         : `Unknown error: ${String(e)}`
   } finally {
-    // Close SDK client connection safely
-    if (client) {
-      try {
-        client.closeConnection()
-      } catch (closeError) {
-        // WebSocket might not be connected yet, so just log and continue
-        console.debug('Note: SDK client close error (likely not connected):', closeError)
-      }
-    }
-
     // Clean up process-level error handlers
     process.removeListener('uncaughtException', uncaughtHandler)
     process.removeListener('unhandledRejection', unhandledHandler)
@@ -351,6 +304,12 @@ function getCodebuffFileStates(
   return fileStates
 }
 
+export function mockRunGitEvals(path: string) {
+  const result = JSON.parse(fs.readFileSync(path, 'utf-8')) as FullEvalLog
+
+  return result
+}
+
 // Global concurrency limiter that can be shared across multiple repository evaluations
 let globalConcurrencyLimiter: ReturnType<typeof pLimit> | null = null
 
@@ -361,7 +320,7 @@ export function setGlobalConcurrencyLimit(limit: number) {
 export async function runGitEvals(
   evalDataPath: string,
   outputDir: string,
-  agentType: string = 'base',
+  agentType: string = AGENT_TYPE,
   limit?: number,
   logToStdout: boolean = false,
 ): Promise<FullEvalLog> {
@@ -602,12 +561,12 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
 if (require.main === module) {
   const args = process.argv.slice(2)
   console.info(
-    'Usage: bun run run-git-eval-sdk [eval-data-path] [output-dir] [agent-type]',
+    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]',
   )
 
   const evalDataPath = args[0] || 'git-evals/git-evals.json'
   const outputDir = args[1] || 'git-evals'
-  const agentType = args[2] || 'base'
+  const agentType = args[2] || AGENT_TYPE
 
   runGitEvals(evalDataPath, outputDir, agentType)
     .then(() => {

@@ -7,7 +7,7 @@ log() {
 }
 
 MODE="${1:-seed}"  # 'seed' (Drizzle) or 'bypass'
-log "🚀 Starting remote evaluation infrastructure"
+log "🚀 Starting remote evaluation infrastructure (SDK mode)"
 log "Mode: $MODE"
 
 export CODEBUFF_WEBSOCKET_URL="ws://127.0.0.1:4242/ws"
@@ -42,9 +42,10 @@ else
   log "  Extracted API key: ${CODEBUFF_API_KEY:0:8}..."
 fi
 
-log "🤖 Starting evaluation..."
+log "🤖 Starting evaluation (SDK mode)..."
 log "  Eval file: evals/git-evals/eval-codebuff.json"
 log "  Commit index: 0"
+log "  Using: CodebuffClient from SDK"
 log "  This may take 10-30 minutes depending on task complexity..."
 
 bun evals/git-evals/run-single-eval.ts \

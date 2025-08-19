@@ -3,16 +3,22 @@
 import fs from 'fs'
 
 import { generateCompactId } from '@codebuff/common/util/string'
-import { CodebuffClient } from '@codebuff/sdk'
+import {
+  setProjectRoot,
+  setWorkingDirectory,
+} from '@codebuff/npm-app/project-files'
+import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 import { Command, Flags } from '@oclif/core'
 
-import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
+import { createFileReadingMock } from '../scaffolding'
+import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
+import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 
 import type { EvalCommit, EvalData, ModelConfig } from './types'
 
 class RunSingleEvalCommand extends Command {
-  static description = 'Run a single git evaluation task using the Codebuff SDK'
+  static description = 'Run a single git evaluation task'
 
   static examples = [
     '$ bun run-single-eval --eval-file eval-codebuff.json --commit-index 0',
@@ -47,7 +53,7 @@ class RunSingleEvalCommand extends Command {
   }
 
   async run(): Promise<void> {
-    const { flags } = await this.parse(RunSingleEvalSDKCommand)
+    const { flags } = await this.parse(RunSingleEvalCommand)
 
     // Validate that either commit-index or commit-sha is provided
     if (
@@ -128,6 +134,10 @@ async function runSingleEvalTask(options: {
     throw new Error(`Invalid model config JSON: ${error}`)
   }
 
+  // Setup test environment
+  console.log('🔧 Setting up test environment...')
+  setupTestEnvironmentVariables()
+
   // Setup test repository
   const testRepoName =
     evalData.testRepoName || extractRepoNameFromUrl(evalData.repoUrl)
@@ -139,6 +149,12 @@ async function runSingleEvalTask(options: {
     evalCommit.sha,
   )
   console.log(`Repository cloned to: ${projectPath}`)
+
+  // Setup project context
+  setProjectRoot(projectPath)
+  createFileReadingMock(projectPath)
+  recreateShell(projectPath)
+  setWorkingDirectory(projectPath)
 
   // Generate session identifiers
   const clientSessionId = generateCompactId()
@@ -152,7 +168,7 @@ async function runSingleEvalTask(options: {
   const startTime = Date.now()
 
   try {
-    // Run the evaluation using SDK
+    // Run the evaluation
     const result = await runSingleEval(
       evalCommit,
       projectPath,

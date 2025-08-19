@@ -1,79 +1,40 @@
+#!/usr/bin/env bun
+
 import fs from 'fs'
-
-import {
-  setProjectRoot,
-  setWorkingDirectory,
-} from '@codebuff/npm-app/project-files'
-import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
-
-import { createFileReadingMock } from '../scaffolding'
-import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
-
 import type { EvalCommit } from './types'
 
+process.on('message', () => {})
+
 async function main() {
-  const [
-    evalCommitFilePath,
-    projectPath,
-    clientSessionId,
-    fingerprintId,
-    agentType,
-  ] = process.argv.slice(2)
-
-  if (
-    !evalCommitFilePath ||
-    !projectPath ||
-    !clientSessionId ||
-    !fingerprintId ||
-    !agentType
-  ) {
-    console.error('Missing required arguments for single eval process')
-    process.exit(1)
-  }
-
-  let evalCommit: EvalCommit
   try {
-    const evalCommitStr = fs.readFileSync(evalCommitFilePath, 'utf-8')
-    evalCommit = JSON.parse(evalCommitStr)
-  } catch (error) {
-    console.error('Failed to read evalCommit from file:', error)
-    process.exit(1)
-  }
+    const [tempEvalCommitPath, projectPath, clientSessionId, fingerprintId, agentType] = process.argv.slice(2)
+    
+    if (!tempEvalCommitPath || !projectPath || !clientSessionId || !fingerprintId) {
+      throw new Error('Missing required arguments: tempEvalCommitPath, projectPath, clientSessionId, fingerprintId')
+    }
 
-  try {
-    // Setup environment for this process
-    setProjectRoot(projectPath)
-    setupTestEnvironmentVariables()
-    createFileReadingMock(projectPath)
-    recreateShell(projectPath)
-    setWorkingDirectory(projectPath)
-
+    // Load eval commit from temp file
+    const evalCommit = JSON.parse(fs.readFileSync(tempEvalCommitPath, 'utf-8')) as EvalCommit
+    
     const result = await runSingleEval(
       evalCommit,
       projectPath,
       clientSessionId,
       fingerprintId,
-      agentType,
+      agentType || 'base'
     )
-    console.log('Final result:', { result })
+
+    // Send result back to parent process
     if (process.send) {
       process.send({ type: 'result', result })
     }
   } catch (error) {
+    console.error('Error in run-single-eval-process-sdk:', error)
     if (process.send) {
-      process.send({
-        type: 'error',
-        error:
-          error instanceof Error
-            ? { message: error.message, stack: error.stack }
-            : { message: String(error) },
-      })
+      process.send({ type: 'error', error: { message: (error as Error).message, stack: (error as Error).stack } })
     }
-  } finally {
-    setTimeout(() => {
-      process.exit(0)
-    }, 2000)
+    process.exit(1)
   }
 }
 
