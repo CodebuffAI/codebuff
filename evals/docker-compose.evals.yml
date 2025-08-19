@@ -9,13 +9,21 @@ services:
       "postgres",
       "-c", "fsync=off",
       "-c", "synchronous_commit=off",
-      "-c", "full_page_writes=off"
+      "-c", "full_page_writes=off",
+      "-c", "log_statement=all",
+      "-c", "log_destination=stderr",
+      "-c", "logging_collector=off"
     ]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U codebuff -d codebuff"]
       interval: 5s
       timeout: 3s
       retries: 20
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   backend:
     build:
@@ -74,6 +82,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   seeder:
     image: oven/bun:1.1.34

@@ -64,8 +64,37 @@ jobs:
           COMMIT_INDEX: ${{ inputs.commit_index || '0' }}
           MODE: ${{ inputs.mode || 'bypass' }}
         run: |
-          echo "🚀 Starting remote evaluation..."
+          echo "🚀 Remote Evaluation Starting"
+          echo "📋 GitHub Actions Environment:"
+          echo "  Runner: ${{ runner.os }}"
+          echo "  SHA: ${{ github.sha }}"
+          echo "  Ref: ${{ github.ref }}"
+          echo "  Event: ${{ github.event_name }}"
+          echo "  Eval File: $EVAL_FILE"
+          echo "  Commit Index: $COMMIT_INDEX"
+          echo "  Mode: $MODE"
+          echo "🐳 Docker Info:"
+          docker --version
+          docker compose version
+          echo "💾 Disk Space:"
+          df -h
+          echo "🔧 Starting evaluation..."
           bash evals/scripts/run-remote-parameterized.sh "$MODE" "$EVAL_FILE" "$COMMIT_INDEX"
+
+      - name: Dump logs on failure
+        if: failure() && steps.check_commit.outputs.should_run_evals == 'true'
+        run: |
+          echo "❌ Evaluation failed - dumping diagnostic information"
+          echo "🐳 Docker containers status:"
+          docker ps -a || true
+          echo "📋 Backend container logs:"
+          docker compose -f evals/docker-compose.evals.yml logs backend --tail=200 || true
+          echo "📋 Database container logs:"
+          docker compose -f evals/docker-compose.evals.yml logs db --tail=100 || true
+          echo "💾 Disk usage:"
+          df -h || true
+          echo "🧠 Memory usage:"
+          free -h || true
 
       - name: Upload evaluation logs
         if: always() && steps.check_commit.outputs.should_run_evals == 'true'
@@ -75,14 +104,16 @@ jobs:
           path: |
             evals/test-repos/
             debug/
+            ~/.cache/bun/
           retention-days: 7
 
       - name: Cleanup containers
         if: always() && steps.check_commit.outputs.should_run_evals == 'true'
         run: |
-          echo "🧹 Cleaning up Docker containers..."
+          echo "🧹 Final cleanup - removing all containers and volumes..."
           docker compose -f evals/docker-compose.evals.yml down -v || true
           docker system prune -f || true
+          echo "✅ Cleanup completed"
 
   # Optional: Matrix job to run multiple evaluations in parallel
   remote-evals-matrix:
