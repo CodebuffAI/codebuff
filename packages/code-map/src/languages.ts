@@ -1,7 +1,7 @@
 import * as path from 'path'
 
 // Import some types for wasm & .scm files
-import './types.d.ts'
+import './types.ts'
 
 /* ------------------------------------------------------------------ */
 /* 1 .  WASM files
