@@ -166,12 +166,14 @@ export interface AgentDefinition {
    * }
    * }
    */
-  handleSteps?: (
-    context: AgentStepContext,
-  ) => Generator<
+  handleSteps?: (context: AgentStepContext) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
-    { agentState: AgentState; toolResult: string | undefined }
+    {
+      agentState: AgentState
+      toolResult: string | undefined
+      stepsComplete: boolean
+    }
   >
 }
 
