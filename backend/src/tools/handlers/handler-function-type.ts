@@ -4,6 +4,7 @@ import type {
   ClientToolName,
   CodebuffToolCall,
 } from '@codebuff/common/tools/list'
+import { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
@@ -22,7 +23,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
 
     fullResponse: string
 
-    writeToClient: (chunk: string) => void
+    writeToClient: (chunk: string | PrintModeEvent) => void
 
     getLatestState: () => any
     state: { [K in string]?: any }

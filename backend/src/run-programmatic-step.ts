@@ -200,7 +200,6 @@ export async function runProgrammaticStep(
           role: 'assistant' as const,
           content: toolCallString,
         })
-        onResponseChunk(toolCallString)
         state.sendSubagentChunk({
           userInputId,
           agentId: agentState.agentId,
