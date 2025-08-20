@@ -5,21 +5,20 @@ import path from 'path'
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
-import { DEFAULT_MAX_AGENT_STEPS } from '@codebuff/common/json-config/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import pLimit from 'p-limit'
 
-import { createFileReadingMock, resetRepoToCommit } from '../scaffolding'
+import { resetRepoToCommit } from '../scaffolding'
 import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
+import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
-import { CodebuffClient } from '../../sdk/src/index'
 
-import type { RunState } from '../../sdk/src/index'
 import type { AgentStep } from '../scaffolding'
+import type { Runner } from './runners/runner'
 import type {
   AgentDecision,
   CodebuffTrace,
@@ -30,8 +29,6 @@ import type {
   FullEvalLog,
   EvalData,
 } from './types'
-import type { ClientToolCall } from '@codebuff/common/tools/list'
-import type { ToolResult } from '@codebuff/common/types/session-state'
 
 disableLiveUserInputCheck()
 
@@ -46,6 +43,7 @@ export async function runSingleEval(
   clientSessionId: string,
   fingerprintId: string,
   agentType: string = AGENT_TYPE,
+  codingAgent: 'codebuff' | 'claude' = 'codebuff',
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -74,16 +72,19 @@ export async function runSingleEval(
     // Reset to the commit before the target commit
     resetRepoToCommit(projectPath, `${evalCommit.sha}^`)
 
-    // Initialize agent state
-    createFileReadingMock(projectPath)
-    let sessionState = await createInitialSessionState(projectPath)
-    let runState: RunState = { sessionState, toolResults: [] }
-    const client = new CodebuffClient({
-      cwd: projectPath,
-      onError: (error) => {
-        throw new Error(error.message)
-      },
-    })
+    // Initialize state
+    let runner: Runner
+    if (codingAgent === 'codebuff') {
+      runner = new CodebuffRunner({
+        sessionState: await createInitialSessionState(projectPath),
+        toolResults: [],
+      })
+    } else if (codingAgent === 'claude') {
+      throw new Error('Claude runner not implemented')
+    } else {
+      codingAgent satisfies never
+      throw new Error('Unknown coding agent')
+    }
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
@@ -158,56 +159,17 @@ Explain your reasoning in detail.`,
       }
 
       // If continuing, run CodeBuff with the agent's prompt
-      const steps: AgentStep[] = []
       if (agentResponse.decision === 'continue') {
         const prompt = agentResponse.next_prompt!
 
-        let responseText = ''
-        let toolCalls: ClientToolCall[] = []
-        let toolResults: ToolResult[] = []
-        function flushStep() {
-          steps.push({ response: responseText, toolCalls, toolResults })
-          responseText = ''
-          toolCalls = []
-          toolResults = []
-        }
-
         // Use loopMainPrompt with timeout wrapper
-        const codeBuffResult = await withTimeout(
-          client.run({
-            agent: agentType,
-            previousRun: runState,
-            prompt,
-            handleEvent: (event) => {
-              if (event.type === 'error') {
-                throw new Error(event.message)
-              }
-              if (event.type === 'text') {
-                if (toolResults.length > 0) {
-                  flushStep()
-                  console.log('\n')
-                }
-                responseText += event.text
-              } else if (event.type === 'tool_call') {
-                toolCalls.push(event as any)
-              } else if (event.type === 'tool_result') {
-                toolResults.push(event as any)
-                console.log('\n\n' + JSON.stringify(event, null, 2))
-              }
-            },
-            handleStreamChunk: (chunk) => {
-              process.stdout.write(chunk)
-            },
-            maxAgentSteps: 20,
-          }),
+        const codebuffResult = await withTimeout(
+          runner.run(prompt),
           // Timeout after 30 minutes
           60_000 * 30,
         )
-        flushStep()
 
-        sessionState.mainAgentState = codeBuffResult.sessionState.mainAgentState
-        sessionState.mainAgentState.stepsRemaining = DEFAULT_MAX_AGENT_STEPS
-        trace.push({ prompt, steps })
+        trace.push({ prompt, steps: codebuffResult.steps })
       }
 
       currentDecision = agentResponse.decision

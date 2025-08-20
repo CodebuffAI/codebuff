@@ -1,0 +1,69 @@
+import { CodebuffClient } from '../../../sdk/src/index'
+
+import type { Runner } from './runner'
+import type { RunState } from '../../../sdk/src/index'
+import type { AgentStep } from '../../scaffolding'
+import type { ClientToolCall } from '@codebuff/common/tools/list'
+import type { ToolResult } from '@codebuff/common/types/session-state'
+
+export class CodebuffRunner implements Runner {
+  private client: CodebuffClient | null
+  private runState: RunState
+
+  constructor(runState: RunState) {
+    this.client = null
+    this.runState = runState
+  }
+
+  async run(prompt: string): Promise<{ steps: AgentStep[] }> {
+    const steps: AgentStep[] = []
+    let responseText = ''
+    let toolCalls: ClientToolCall[] = []
+    let toolResults: ToolResult[] = []
+    function flushStep() {
+      steps.push({ response: responseText, toolCalls, toolResults })
+      responseText = ''
+      toolCalls = []
+      toolResults = []
+    }
+
+    if (!this.client) {
+      this.client = new CodebuffClient({
+        cwd: process.cwd(),
+        onError: (error) => {
+          throw new Error(error.message)
+        },
+      })
+    }
+
+    this.runState = await this.client.run({
+      agent: 'base',
+      previousRun: this.runState,
+      prompt,
+      handleEvent: (event) => {
+        if (event.type === 'error') {
+          throw new Error(event.message)
+        }
+        if (event.type === 'text') {
+          if (toolResults.length > 0) {
+            flushStep()
+            console.log('\n')
+          }
+          responseText += event.text
+        } else if (event.type === 'tool_call') {
+          toolCalls.push(event as any)
+        } else if (event.type === 'tool_result') {
+          toolResults.push(event as any)
+          console.log('\n\n' + JSON.stringify(event, null, 2))
+        }
+      },
+      handleStreamChunk: (chunk) => {
+        process.stdout.write(chunk)
+      },
+      maxAgentSteps: 20,
+    })
+    flushStep()
+
+    return { steps }
+  }
+}
