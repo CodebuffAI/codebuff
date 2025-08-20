@@ -262,7 +262,6 @@ describe('processStrReplace', () => {
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
       if ('content' in result) {
-
         expect(result.content).toBe('FOO bar FOO baz FOO')
       }
     })
@@ -305,8 +304,9 @@ describe('processStrReplace', () => {
         // Should have applied foo->FOO and qux qux->QUX, but not baz->BAZ
 
         expect(result.content).toBe('FOO bar FOO\nbaz baz baz\nQUX')
-        expect(result.messages).toContain('Found 3 occurrences of "baz"')
-        expect(result.messages).toContain('set allowMultiple to true')
+        expect(result.messages).toHaveLength(1)
+        expect(result.messages[0]).toContain('Found 3 occurrences of "baz"')
+        expect(result.messages[0]).toContain('set allowMultiple to true')
       }
     })
 
@@ -321,7 +321,7 @@ function test3() {
   console.log('info');
 }`
       const oldStr = "console.log('debug');"
-      const newStr = "// removed debug log"
+      const newStr = '// removed debug log'
 
       const result = await processStrReplace(
         'test.ts',
@@ -334,7 +334,9 @@ function test3() {
       if ('content' in result) {
         expect(result.content).toContain('// removed debug log')
         // Should have replaced both debug logs but not the info log
-        expect((result.content.match(/removed debug log/g) || []).length).toBe(2)
+        expect((result.content.match(/removed debug log/g) || []).length).toBe(
+          2,
+        )
         expect(result.content).toContain("console.log('info');")
       }
     })
