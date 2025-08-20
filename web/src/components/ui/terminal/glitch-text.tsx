@@ -19,13 +19,14 @@ export function GlitchText({
   const [glitchText, setGlitchText] = useState(children)
 
   const glitchChars = '!@#$%^&*(){}[]<>?/\\|~`'
-  
+
   useEffect(() => {
     if (triggerOnMount) {
       setIsGlitching(true)
       const timer = setTimeout(() => setIsGlitching(false), 200)
       return () => clearTimeout(timer)
     }
+    return
   }, [triggerOnMount])
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export function GlitchText({
           return char
         })
         .join('')
-      
+
       setGlitchText(glitched)
     }, 50)
 
@@ -58,7 +59,8 @@ export function GlitchText({
   }, [isGlitching, children, glitchIntensity])
 
   const handleMouseEnter = () => {
-    if (Math.random() < 0.15) { // 15% chance on hover
+    if (Math.random() < 0.15) {
+      // 15% chance on hover
       setIsGlitching(true)
       setTimeout(() => setIsGlitching(false), 150)
     }
@@ -72,15 +74,19 @@ export function GlitchText({
         className
       )}
       onMouseEnter={handleMouseEnter}
-      animate={isGlitching ? {
-        x: [0, -1, 1, 0],
-        textShadow: [
-          '0 0 0px rgba(255,0,0,0)',
-          '2px 0 0px rgba(255,0,0,0.8)',
-          '-2px 0 0px rgba(0,255,255,0.8)',
-          '0 0 0px rgba(255,0,0,0)',
-        ]
-      } : {}}
+      animate={
+        isGlitching
+          ? {
+              x: [0, -1, 1, 0],
+              textShadow: [
+                '0 0 0px rgba(255,0,0,0)',
+                '2px 0 0px rgba(255,0,0,0.8)',
+                '-2px 0 0px rgba(0,255,255,0.8)',
+                '0 0 0px rgba(255,0,0,0)',
+              ],
+            }
+          : {}
+      }
       transition={{ duration: 0.1, repeat: isGlitching ? 2 : 0 }}
     >
       {glitchText}
