@@ -131,6 +131,10 @@ const tryMatchOldStr = (
       error: `Found ${count} occurrences of ${JSON.stringify(oldStr)} in the file. Please try again with a longer (more specified) old string or set allowMultiple to true.`,
     }
   }
+  if (allowMultiple && count > 1) {
+    // For allowMultiple=true with multiple occurrences, use the original oldStr
+    return { success: true, oldStr }
+  }
 
   const newChange = tryToDoStringReplacementWithExtraIndentation(
     initialContent,
