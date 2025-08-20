@@ -49,6 +49,10 @@ class RunSingleEvalCommand extends Command {
       description: 'JSON string with model configuration (optional)',
       default: '{}',
     }),
+    'coding-agent': Flags.string({
+      description: 'Coding agent to use',
+      default: 'codebuff',
+    }),
     help: Flags.help({ char: 'h' }),
   }
 
@@ -78,6 +82,7 @@ async function runSingleEvalTask(options: {
   'commit-sha'?: string
   output?: string
   'model-config': string
+  'coding-agent': string
 }): Promise<void> {
   const {
     'eval-file': evalFile,
@@ -85,7 +90,13 @@ async function runSingleEvalTask(options: {
     'commit-sha': commitSha,
     output: outputFile,
     'model-config': modelConfigStr,
+    'coding-agent': codingAgentStr,
   } = options
+
+  if (!['codebuff', 'claude'].includes(codingAgentStr)) {
+    throw new Error(`Invalid coding agent: ${codingAgentStr}`)
+  }
+  const codingAgent = codingAgentStr as 'codebuff' | 'claude'
 
   console.log('🚀 Starting single git eval...')
   console.log(`Eval file: ${evalFile}`)
@@ -174,6 +185,7 @@ async function runSingleEvalTask(options: {
       projectPath,
       clientSessionId,
       fingerprintId,
+      codingAgent,
     )
 
     const duration = Date.now() - startTime
@@ -206,7 +218,6 @@ async function runSingleEvalTask(options: {
         }
       }
 
-      console.log(`  Files modified: ${result.fileStates.length}`)
       console.log(`  Conversation turns: ${result.trace.length}`)
     }
 

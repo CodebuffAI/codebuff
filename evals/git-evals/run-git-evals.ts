@@ -1,4 +1,4 @@
-import { execSync, fork } from 'child_process'
+import { execFileSync, fork } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
@@ -13,6 +13,7 @@ import pLimit from 'p-limit'
 import { resetRepoToCommit } from '../scaffolding'
 import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
+import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
@@ -25,7 +26,6 @@ import type {
   EvalCommit,
   EvalRunJudged,
   EvalRunLog,
-  FileState,
   FullEvalLog,
   EvalData,
 } from './types'
@@ -42,8 +42,7 @@ export async function runSingleEval(
   projectPath: string,
   clientSessionId: string,
   fingerprintId: string,
-  agentType: string = AGENT_TYPE,
-  codingAgent: 'codebuff' | 'claude' = 'codebuff',
+  codingAgent: 'codebuff' | 'claude',
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -80,7 +79,7 @@ export async function runSingleEval(
         toolResults: [],
       })
     } else if (codingAgent === 'claude') {
-      throw new Error('Claude runner not implemented')
+      runner = new ClaudeRunner(projectPath)
     } else {
       codingAgent satisfies never
       throw new Error('Unknown coding agent')
@@ -213,7 +212,7 @@ Explain your reasoning in detail.`,
     eval_commit: evalCommit,
     trace,
     error,
-    fileStates,
+    gitDiff: fileStates,
     durationMs,
   }
 
@@ -249,58 +248,11 @@ function getCodebuffFileStates(
   trace: CodebuffTrace[],
   evalCommitSha: string,
   projectPath: string,
-): FileState[] {
-  const codebuffWrittenFilePaths = new Set<string>()
-  if (trace) {
-    // trace might be undefined or empty if error occurred very early
-    for (const traceEntry of trace) {
-      for (const step of traceEntry.steps) {
-        if (step.toolCalls) {
-          for (const toolCall of step.toolCalls) {
-            if (
-              EDIT_FILE_TOOL_NAMES.includes(toolCall.toolName as any) &&
-              'path' in toolCall.input &&
-              toolCall.input.path
-            ) {
-              codebuffWrittenFilePaths.add(toolCall.input.path as string)
-            }
-          }
-        }
-      }
-    }
-  }
-
-  const fileStates: FileState[] = []
-
-  if (codebuffWrittenFilePaths.size > 0) {
-    for (const filePath of codebuffWrittenFilePaths) {
-      // Capture "after" state
-      const fullPath = path.join(projectPath, filePath)
-      let postContent: string
-      try {
-        postContent = fs.existsSync(fullPath)
-          ? fs.readFileSync(fullPath, 'utf-8')
-          : '[FILE_NOT_FOUND_POST_RUN]'
-      } catch (e) {
-        console.error(`Error reading file ${fullPath} for after state:`, e)
-        postContent = '[ERROR_READING_AFTER_STATE]'
-      }
-
-      // Capture "before" state
-      let preContent: string
-      try {
-        preContent = execSync(`git show ${evalCommitSha}^:"${filePath}"`, {
-          cwd: projectPath,
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).toString()
-      } catch (e) {
-        preContent = '[FILE_DID_NOT_EXIST_PRIOR_TO_CODEBUFF_CHANGES]'
-      }
-
-      fileStates.push({ path: filePath, preContent, postContent })
-    }
-  }
-  return fileStates
+): string {
+  return execFileSync('git', ['diff', `${evalCommitSha}^`], {
+    cwd: projectPath,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).toString()
 }
 
 export function mockRunGitEvals(path: string) {
@@ -319,7 +271,7 @@ export function setGlobalConcurrencyLimit(limit: number) {
 export async function runGitEvals(
   evalDataPath: string,
   outputDir: string,
-  agentType: string = AGENT_TYPE,
+  codingAgent: 'codebuff' | 'claude',
   limit?: number,
   logToStdout: boolean = false,
 ): Promise<FullEvalLog> {
@@ -414,7 +366,7 @@ export async function runGitEvals(
                 projectPath,
                 clientSessionId,
                 fingerprintId,
-                agentType,
+                codingAgent,
               ],
               { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] },
             )
@@ -560,14 +512,17 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
 if (require.main === module) {
   const args = process.argv.slice(2)
   console.info(
-    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]',
+    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [coding-agent]',
   )
 
   const evalDataPath = args[0] || 'git-evals/git-evals.json'
   const outputDir = args[1] || 'git-evals'
-  const agentType = args[2] || AGENT_TYPE
+  const codingAgent = args[2] || 'codebuff'
+  if (!['codebuff', 'claude'].includes(codingAgent)) {
+    throw new Error(`Invalid coding agent: ${codingAgent}`)
+  }
 
-  runGitEvals(evalDataPath, outputDir, agentType)
+  runGitEvals(evalDataPath, outputDir, codingAgent as 'codebuff' | 'claude')
     .then(() => {
       console.log('Done!')
       process.exit(0)

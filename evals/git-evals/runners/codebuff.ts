@@ -3,8 +3,6 @@ import { CodebuffClient } from '../../../sdk/src/index'
 import type { Runner } from './runner'
 import type { RunState } from '../../../sdk/src/index'
 import type { AgentStep } from '../../scaffolding'
-import type { ClientToolCall } from '@codebuff/common/tools/list'
-import type { ToolResult } from '@codebuff/common/types/session-state'
 
 export class CodebuffRunner implements Runner {
   private client: CodebuffClient | null
@@ -18,8 +16,8 @@ export class CodebuffRunner implements Runner {
   async run(prompt: string): Promise<{ steps: AgentStep[] }> {
     const steps: AgentStep[] = []
     let responseText = ''
-    let toolCalls: ClientToolCall[] = []
-    let toolResults: ToolResult[] = []
+    let toolCalls: AgentStep['toolCalls'] = []
+    let toolResults: AgentStep['toolResults'] = []
     function flushStep() {
       steps.push({ response: responseText, toolCalls, toolResults })
       responseText = ''

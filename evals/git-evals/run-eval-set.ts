@@ -65,6 +65,10 @@ class RunEvalSetCommand extends Command {
       description: 'Number of concurrent evals to run',
       min: 1,
     }),
+    'coding-agent': Flags.string({
+      description: 'Coding agent to use',
+      default: 'codebuff',
+    }),
     help: Flags.help({ char: 'h' }),
   }
 
@@ -83,6 +87,7 @@ async function runEvalSet(options: {
   insert: boolean
   title?: string
   concurrency?: number
+  'coding-agent': string
 }): Promise<void> {
   const {
     'output-dir': outputDir,
@@ -91,7 +96,13 @@ async function runEvalSet(options: {
     mock: mockEval,
     insert: shouldInsert,
     title,
+    'coding-agent': codingAgentstr,
   } = options
+
+  if (!['codebuff', 'claude'].includes(codingAgentstr)) {
+    throw new Error(`Invalid coding agent: ${codingAgentstr}`)
+  }
+  const codingAgent = codingAgentstr as 'codebuff' | 'claude'
 
   console.log('Starting eval set run...')
   console.log(`Output directory: ${outputDir}`)
@@ -105,26 +116,25 @@ async function runEvalSet(options: {
       evalDataPath: path.join(__dirname, 'eval-codebuff2.json'),
       outputDir,
       agentType: undefined,
-      limit: 1,
     },
-    // {
-    //   name: 'manifold',
-    //   evalDataPath: path.join(__dirname, 'eval-manifold2.json'),
-    //   outputDir,
-    //   agentType: undefined,
-    // },
-    // {
-    //   name: 'plane',
-    //   evalDataPath: path.join(__dirname, 'eval-plane.json'),
-    //   outputDir,
-    //   agentType: undefined,
-    // },
-    // {
-    //   name: 'saleor',
-    //   evalDataPath: path.join(__dirname, 'eval-saleor.json'),
-    //   outputDir,
-    //   agentType: undefined,
-    // },
+    {
+      name: 'manifold',
+      evalDataPath: path.join(__dirname, 'eval-manifold2.json'),
+      outputDir,
+      agentType: undefined,
+    },
+    {
+      name: 'plane',
+      evalDataPath: path.join(__dirname, 'eval-plane.json'),
+      outputDir,
+      agentType: undefined,
+    },
+    {
+      name: 'saleor',
+      evalDataPath: path.join(__dirname, 'eval-saleor.json'),
+      outputDir,
+      agentType: undefined,
+    },
   ]
 
   console.log(`Running ${evalConfigs.length} evaluations:`)
@@ -149,7 +159,7 @@ async function runEvalSet(options: {
         : await runGitEvals(
             config.evalDataPath,
             config.outputDir,
-            config.agentType,
+            codingAgent,
             config.limit,
             options.concurrency === 1,
           )
