@@ -52,6 +52,7 @@ import {
 } from './cli-handlers/checkpoint'
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
+import { showTerminalConfetti, showCodeRain, typewriterEffect } from './cli-handlers/confetti-demo'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
 import { cleanupMiniChat } from './cli-handlers/mini-chat'
 import {
@@ -986,6 +987,25 @@ export class CLI {
     }
     if (this.isCommandOrAlias(cleanInput, 'konami')) {
       showEasterEgg(this.freshPrompt.bind(this))
+      return null
+    }
+    if (cleanInput === 'confetti' || cleanInput === 'party') {
+      showTerminalConfetti('🎉 CREATIVE CATALYST ACTIVATED! 🎉').then(() => {
+        this.freshPrompt()
+      })
+      return null
+    }
+    if (cleanInput === 'matrix' || cleanInput === 'rain') {
+      showCodeRain(3000).then(() => {
+        this.freshPrompt()
+      })
+      return null
+    }
+    if (cleanInput.startsWith('type ')) {
+      const message = cleanInput.substring(5)
+      typewriterEffect(message, 75).then(() => {
+        this.freshPrompt()
+      })
       return null
     }
 
