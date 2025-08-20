@@ -49,17 +49,17 @@ export class CodebuffClient {
   >
   private readonly fingerprintId = `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
 
-  private readonly promptIdToHandleEvent: Record<
+  private readonly promptIdValues: Record<
     string,
-    (event: PrintModeEvent) => void
-  > = {}
-  private readonly promptIdToResolveResponse: Record<
-    string,
-    { resolve: (response: any) => void; reject: (error: any) => void }
-  > = {}
-  private readonly promptIdToCustomToolHandler: Record<
-    string,
-    WebSocketHandler['handleToolCall']
+    {
+      handleEvent?: (event: PrintModeEvent) => void
+      handleStreamChunk?: (chunk: string) => void
+      resolveResponse?: {
+        resolve: (response: any) => void
+        reject: (error: any) => void
+      }
+      customToolHandler?: WebSocketHandler['handleToolCall']
+    }
   > = {}
 
   constructor({ apiKey, cwd, onError, overrideTools }: CodebuffClientOptions) {
@@ -88,9 +88,17 @@ export class CodebuffClient {
 
       onResponseChunk: async (action) => {
         const { userInputId, chunk } = action
-        const handleEvent = this.promptIdToHandleEvent[userInputId]
-        if (handleEvent && typeof chunk === 'object') {
-          handleEvent(chunk)
+        if (typeof chunk === 'string') {
+          const handleStreamChunk =
+            this.promptIdValues[userInputId]?.handleStreamChunk
+          if (handleStreamChunk) {
+            handleStreamChunk(chunk)
+          }
+        } else {
+          const handleEvent = this.promptIdValues[userInputId]?.handleEvent
+          if (handleEvent) {
+            handleEvent(chunk)
+          }
         }
       },
       onSubagentResponseChunk: async () => {},
@@ -125,6 +133,7 @@ export class CodebuffClient {
     prompt,
     params,
     handleEvent,
+    handleStreamChunk,
     previousRun,
     projectFiles,
     knowledgeFiles,
@@ -136,6 +145,7 @@ export class CodebuffClient {
     prompt: string
     params?: Record<string, any>
     handleEvent?: (event: PrintModeEvent) => void
+    handleStreamChunk?: (chunk: string) => void
     previousRun?: RunState
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
@@ -157,11 +167,12 @@ export class CodebuffClient {
       }))
     sessionState.mainAgentState.stepsRemaining = maxAgentSteps
     const toolResults = previousRun?.toolResults ?? []
-    if (handleEvent) {
-      this.promptIdToHandleEvent[promptId] = handleEvent
+    this.promptIdValues[promptId] = {
+      handleEvent,
+      handleStreamChunk,
     }
     if (customToolDefinitions) {
-      this.promptIdToCustomToolHandler[promptId] = async ({
+      this.promptIdValues[promptId].customToolHandler = async ({
         toolName,
         input,
       }) => {
@@ -215,7 +226,7 @@ export class CodebuffClient {
     })
 
     return new Promise<RunState>((resolve, reject) => {
-      this.promptIdToResolveResponse[promptId] = { resolve, reject }
+      this.promptIdValues[promptId].resolveResponse = { resolve, reject }
     })
   }
 
@@ -224,7 +235,10 @@ export class CodebuffClient {
   ) {
     const promptId =
       action.type === 'prompt-response' ? action.promptId : action.userInputId
-    const promiseActions = this.promptIdToResolveResponse[promptId]
+    const promiseActions = this.promptIdValues[promptId]?.resolveResponse
+    if (!promiseActions) {
+      return
+    }
 
     const parsedAction = PromptResponseSchema.safeParse(action)
     if (!parsedAction.success) {
@@ -254,9 +268,7 @@ export class CodebuffClient {
         promiseActions.resolve(state)
       }
     }
-    delete this.promptIdToResolveResponse[promptId]
-    delete this.promptIdToHandleEvent[promptId]
-    delete this.promptIdToCustomToolHandler[promptId]
+    delete this.promptIdValues[promptId]
   }
 
   private async readFiles(filePath: string[]) {
@@ -276,7 +288,14 @@ export class CodebuffClient {
 
     let result: string
     if (!toolNames.includes(toolName as ToolName)) {
-      return this.promptIdToCustomToolHandler[action.userInputId](action)
+      const customToolHandler =
+        this.promptIdValues[action.userInputId].customToolHandler
+      if (!customToolHandler) {
+        throw new Error(
+          `Custom tool handler not found for user input ID ${action.userInputId}`,
+        )
+      }
+      return customToolHandler(action)
     }
 
     try {

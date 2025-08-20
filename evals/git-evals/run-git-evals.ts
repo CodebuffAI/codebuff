@@ -5,22 +5,20 @@ import path from 'path'
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
-import { getDefaultConfig } from '@codebuff/common/json-config/default'
+import { DEFAULT_MAX_AGENT_STEPS } from '@codebuff/common/json-config/constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import pLimit from 'p-limit'
 
-import {
-  createFileReadingMock,
-  loopMainPrompt,
-  resetRepoToCommit,
-} from '../scaffolding'
+import { createFileReadingMock, resetRepoToCommit } from '../scaffolding'
 import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
+import { CodebuffClient } from '../../sdk/src/index'
 
+import type { RunState } from '../../sdk/src/index'
 import type { AgentStep } from '../scaffolding'
 import type {
   AgentDecision,
@@ -32,6 +30,8 @@ import type {
   FullEvalLog,
   EvalData,
 } from './types'
+import type { ClientToolCall } from '@codebuff/common/tools/list'
+import type { ToolResult } from '@codebuff/common/types/session-state'
 
 disableLiveUserInputCheck()
 
@@ -77,6 +77,13 @@ export async function runSingleEval(
     // Initialize agent state
     createFileReadingMock(projectPath)
     let sessionState = await createInitialSessionState(projectPath)
+    let runState: RunState = { sessionState, toolResults: [] }
+    const client = new CodebuffClient({
+      cwd: projectPath,
+      onError: (error) => {
+        throw new Error(error.message)
+      },
+    })
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
@@ -151,26 +158,56 @@ Explain your reasoning in detail.`,
       }
 
       // If continuing, run CodeBuff with the agent's prompt
+      const steps: AgentStep[] = []
       if (agentResponse.decision === 'continue') {
         const prompt = agentResponse.next_prompt!
 
+        let responseText = ''
+        let toolCalls: ClientToolCall[] = []
+        let toolResults: ToolResult[] = []
+        function flushStep() {
+          steps.push({ response: responseText, toolCalls, toolResults })
+          responseText = ''
+          toolCalls = []
+          toolResults = []
+        }
+
         // Use loopMainPrompt with timeout wrapper
         const codeBuffResult = await withTimeout(
-          loopMainPrompt({
-            sessionState,
+          client.run({
+            agent: agentType,
+            previousRun: runState,
             prompt,
-            projectPath,
-            maxIterations: 20,
-            agentType: agentType as any,
+            handleEvent: (event) => {
+              if (event.type === 'error') {
+                throw new Error(event.message)
+              }
+              if (event.type === 'text') {
+                if (toolResults.length > 0) {
+                  flushStep()
+                  console.log('\n')
+                }
+                responseText += event.text
+              } else if (event.type === 'tool_call') {
+                toolCalls.push(event as any)
+              } else if (event.type === 'tool_result') {
+                toolResults.push(event as any)
+                console.log('\n\n' + JSON.stringify(event, null, 2))
+              }
+            },
+            handleStreamChunk: (chunk) => {
+              process.stdout.write(chunk)
+            },
+            maxAgentSteps: 20,
           }),
           // Timeout after 30 minutes
           60_000 * 30,
         )
+        flushStep()
 
-        sessionState.mainAgentState = codeBuffResult.agentState
-        sessionState.mainAgentState.stepsRemaining =
-          getDefaultConfig().maxAgentSteps
-        trace.push({ prompt, steps: codeBuffResult.steps })
+        sessionState.mainAgentState = codeBuffResult.sessionState.mainAgentState
+        sessionState.mainAgentState.stepsRemaining = DEFAULT_MAX_AGENT_STEPS
+        trace.push({ prompt, steps })
       }
 
       currentDecision = agentResponse.decision
