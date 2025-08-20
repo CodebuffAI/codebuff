@@ -146,6 +146,14 @@ export interface AgentDefinition {
    *     input: { paths: ['file1.txt', 'file2.txt'] }
    *   }
    *   yield 'STEP_ALL'
+   *
+   *   // Optionally do a post-processing step here...
+   *   yield {
+   *     toolName: 'set_output',
+   *     input: {
+   *       output: 'The files were read successfully.',
+   *     },
+   *   }
    * }
    *
    * Example 2:
@@ -162,7 +170,8 @@ export interface AgentDefinition {
    *       ],
    *     },
    *   }
-   *   yield 'STEP'
+   *   const { stepsComplete } = yield 'STEP'
+   *   if (stepsComplete) break
    * }
    * }
    */
@@ -171,7 +180,11 @@ export interface AgentDefinition {
   ) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
-    { agentState: AgentState; toolResult: string | undefined }
+    {
+      agentState: AgentState
+      toolResult: string | undefined
+      stepsComplete: boolean
+    }
   >
 }
 

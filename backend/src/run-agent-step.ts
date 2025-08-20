@@ -11,6 +11,7 @@ import {
   renderToolResults,
 } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { asyncAgentManager } from './async-agent-manager'
@@ -119,35 +120,35 @@ export const runAgentStep = async (
       ]
     : messageHistory
 
-  // Check number of assistant messages since last user message with prompt
-  if (agentState.stepsRemaining <= 0) {
+  // Check if we need to warn about too many consecutive responses
+  const needsStepWarning = agentState.stepsRemaining <= 0
+  let stepWarningMessage = ''
+
+  if (needsStepWarning) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`,
     )
 
-    const warningString = [
+    stepWarningMessage = [
       "I've made quite a few responses in a row.",
       "Let me pause here to make sure we're still on the right track.",
       "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
     ].join(' ')
 
-    onResponseChunk(`${warningString}\n\n`)
+    onResponseChunk(`${stepWarningMessage}\n\n`)
 
-    return {
-      agentState: {
-        ...agentState,
-        messageHistory: [
-          ...expireMessages(messagesWithUserPrompt, 'userPrompt'),
-          {
-            role: 'user',
-            content: asSystemMessage(
-              `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`,
-            ),
-          },
-        ],
-      },
-      fullResponse: warningString,
-      shouldEndTurn: true,
+    // Update message history to include the warning
+    agentState = {
+      ...agentState,
+      messageHistory: [
+        ...expireMessages(messagesWithUserPrompt, 'userPrompt'),
+        {
+          role: 'user',
+          content: asSystemMessage(
+            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`,
+          ),
+        },
+      ],
     }
   }
 
@@ -299,15 +300,25 @@ export const runAgentStep = async (
         ws,
         template: agentTemplate,
         localAgentTemplates,
+        stepsComplete: needsStepWarning,
       },
     )
     agentState = newAgentState
     if (endTurn) {
       return {
         agentState,
-        fullResponse: '',
+        fullResponse: needsStepWarning ? stepWarningMessage : '',
         shouldEndTurn: true,
       }
+    }
+  }
+
+  // Early return for step warning case
+  if (needsStepWarning) {
+    return {
+      agentState,
+      fullResponse: stepWarningMessage,
+      shouldEndTurn: true,
     }
   }
 
@@ -448,8 +459,51 @@ export const runAgentStep = async (
     toolResults.filter(
       (result) => !TOOLS_WHICH_WONT_FORCE_NEXT_STEP.includes(result.toolName),
     ).length === 0
-  const shouldEndTurn =
+  let shouldEndTurn =
     toolCalls.some((call) => call.toolName === 'end_turn') || hasNoToolResults
+
+  agentState = {
+    ...agentState,
+    messageHistory: finalMessageHistoryWithToolResults,
+    stepsRemaining: agentState.stepsRemaining - 1,
+    agentContext: newAgentContext,
+  }
+
+  // If we're ending the turn and this is a programmatic agent, give it a final chance to react, and continue
+  if (agentTemplate.handleSteps && shouldEndTurn) {
+    try {
+      const { agentState: updatedAgentState, endTurn } =
+        await runProgrammaticStep(agentState, {
+          userId,
+          userInputId,
+          clientSessionId,
+          fingerprintId,
+          onResponseChunk,
+          agentType,
+          fileContext,
+          ws,
+          template: agentTemplate,
+          localAgentTemplates,
+          prompt: undefined,
+          params: undefined,
+          stepsComplete: true,
+        })
+
+      agentState = updatedAgentState
+      shouldEndTurn = endTurn
+    } catch (error) {
+      logger.error(
+        { error: getErrorObject(error), agentId: agentState.agentId },
+        'Error during programmatic agent finalization',
+      )
+      // Continue with turn ending even if finalization fails
+    }
+  }
+
+  // Mark agent as completed if it should end turn
+  if (ASYNC_AGENTS_ENABLED && shouldEndTurn) {
+    asyncAgentManager.updateAgentState(agentState, 'completed')
+  }
 
   logger.debug(
     {
@@ -460,26 +514,16 @@ export const runAgentStep = async (
       shouldEndTurn,
       duration: Date.now() - startTime,
       fullResponse,
-      finalMessageHistoryWithToolResults,
+      finalMessageHistoryWithToolResults: agentState.messageHistory,
       toolCalls,
       toolResults,
       agentContext: newAgentContext,
     },
     `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
-  const newAgentState = {
-    ...agentState,
-    messageHistory: finalMessageHistoryWithToolResults,
-    stepsRemaining: agentState.stepsRemaining - 1,
-    agentContext: newAgentContext,
-  }
-  // Mark agent as completed if it should end turn
-  if (ASYNC_AGENTS_ENABLED && shouldEndTurn) {
-    asyncAgentManager.updateAgentState(newAgentState, 'completed')
-  }
 
   return {
-    agentState: newAgentState,
+    agentState,
     fullResponse,
     shouldEndTurn,
   }

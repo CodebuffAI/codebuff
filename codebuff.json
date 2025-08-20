@@ -57,7 +57,7 @@
     },
     {
       "name": "prettier-format",
-      "command": "git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|json|md)$' | xargs -r npx prettier --write",
+      "command": "set -o pipefail && CHANGED=\"$(git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|json|md)$' | xargs -r npx prettier --list-different || true)\"; [ -n \"$CHANGED\" ] && echo \"$CHANGED\" | xargs -r npx prettier --write --log-level=warn && printf '%s\\n' \"$CHANGED\" || true",
       "filePattern": "**/*.{ts,tsx,json,md}"
     },
     {
@@ -70,6 +70,11 @@
       "command": "bun run typecheck",
       "cwd": ".agents",
       "filePattern": ".agents/**/*.ts"
+    },
+    {
+      "name": "eslint-fix-imports",
+      "command": "set -o pipefail && git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx)$' | xargs -r npx eslint --fix --quiet",
+      "filePattern": "**/*.{ts,tsx,js,jsx}"
     }
   ]
 }
