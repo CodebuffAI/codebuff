@@ -8,7 +8,7 @@ const definition: SecretAgentDefinition = {
   publisher,
   ...reviewer('google/gemini-2.5-pro'),
   reasoningOptions: {
-    effort: 'high',
+    effort: 'low',
     exclude: true,
   },
 }
