@@ -63,6 +63,60 @@ Principles:
 - Ensure correctness
 - IMPORTANT: Make as few changes as possible to satisfy the user request!
 - IMPORTANT: When you edit files, you must make all your edits in a single message. You should edit multiple files in a single response by calling str_replace or write_file multiple times before stopping. Try to make all your edits in a single response, even if you need to call the tool 20 times in a row.`,
+
+  handleSteps: function* () {
+    // 1. Run to completion
+    const { agentState } = yield 'STEP_ALL'
+
+    // 2. Collect all the edits
+    const { messageHistory } = agentState
+    const editToolResults: string[] = []
+    for (const message of messageHistory) {
+      if (
+        message.role === 'user' &&
+        message.content.includes('<tool_result>')
+      ) {
+        // Parse out tool results for write_file and str_replace
+        const writeFileMatches = message.content.match(
+          /<tool_result>\s*<tool>write_file<\/tool>\s*<result>([\s\S]*?)<\/result>\s*<\/tool_result>/g,
+        )
+        const strReplaceMatches = message.content.match(
+          /<tool_result>\s*<tool>str_replace<\/tool>\s*<result>([\s\S]*?)<\/result>\s*<\/tool_result>/g,
+        )
+
+        // Extract inner <result> content from write_file matches
+        if (writeFileMatches) {
+          for (const match of writeFileMatches) {
+            const resultMatch = match.match(/<result>([\s\S]*?)<\/result>/)
+            if (resultMatch) {
+              editToolResults.push(resultMatch[1])
+            }
+          }
+        }
+
+        // Extract inner <result> content from str_replace matches
+        if (strReplaceMatches) {
+          for (const match of strReplaceMatches) {
+            const resultMatch = match.match(/<result>([\s\S]*?)<\/result>/)
+            if (resultMatch) {
+              editToolResults.push(resultMatch[1])
+            }
+          }
+        }
+      }
+    }
+    const lastAssistantMessage =
+      messageHistory.findLast((message) => message.role === 'assistant')
+        ?.content ?? ''
+
+    yield {
+      toolName: 'set_output',
+      input: {
+        message: lastAssistantMessage,
+        edits: editToolResults,
+      },
+    }
+  },
 }
 
 export default editor

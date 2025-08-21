@@ -6,7 +6,7 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'reviewer',
   publisher,
-  ...reviewer('qwen/qwen3-235b-a22b-thinking-2507:nitro'),
+  ...reviewer('google/gemini-2.5-pro'),
   reasoningOptions: {
     effort: 'high',
     exclude: true,
