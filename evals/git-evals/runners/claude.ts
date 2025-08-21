@@ -64,9 +64,8 @@ export class ClaudeRunner implements Runner {
               `\n\nAssistant tool use: ${JSON.stringify(content, null, 2)}`,
             )
             toolCalls.push(content)
-          } else if (content.type === 'thinking') {
-            console.log(`\n\nAssistant thinking: ${content.thinking}`)
           } else {
+            content satisfies never
             console.log(
               `\n\nUnprocessed assistant content: ${JSON.stringify(content, null, 2)}`,
             )
