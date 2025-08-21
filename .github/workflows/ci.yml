@@ -72,10 +72,10 @@ jobs:
       # - name: Build npm-app
       #   run: cd npm-app && bun run build
 
-      # - name: Open interactive debug shell
-      #   if: ${{ failure() }}
-      #   uses: mxschmitt/action-tmate@v3
-      #   timeout-minutes: 15 # optional guard
+      - name: Open interactive debug shell
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard
 
   # Template for test jobs
   test:
@@ -206,7 +206,7 @@ jobs:
               find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
             fi
 
-      - name: Open interactive debug shell
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15 # optional guard
+      # - name: Open interactive debug shell
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15 # optional guard
