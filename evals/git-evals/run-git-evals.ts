@@ -373,7 +373,7 @@ export async function runGitEvals(
                 fingerprintId,
                 codingAgent,
               ],
-              { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] },
+              { stdio: ['pipe', 'pipe', 'pipe', 'ipc'], env: process.env },
             )
 
             child.stdout?.pipe(logStream)
