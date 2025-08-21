@@ -69,7 +69,8 @@ Workflow:
         },
       } as any
 
-      yield 'STEP'
+      const { stepsComplete } = yield 'STEP'
+      if (stepsComplete) break
     }
   },
 })
