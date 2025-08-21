@@ -33,6 +33,7 @@ const editor: SecretAgentDefinition = {
     'run_terminal_command',
     'code_search',
     'spawn_agents',
+    'add_message',
     'end_turn',
   ],
   spawnableAgents: ['file-explorer'],
@@ -64,11 +65,40 @@ Principles:
 - IMPORTANT: Make as few changes as possible to satisfy the user request!
 - IMPORTANT: When you edit files, you must make all your edits in a single message. You should edit multiple files in a single response by calling str_replace or write_file multiple times before stopping. Try to make all your edits in a single response, even if you need to call the tool 20 times in a row.`,
 
-  handleSteps: function* () {
-    // 1. Run to completion
-    const { agentState } = yield 'STEP_ALL'
+  handleSteps: function* ({ agentState: initialAgentState }) {
+    const stepLimit = 15
+    let stepCount = 0
+    let agentState = initialAgentState
 
-    // 2. Collect all the edits
+    while (true) {
+      stepCount++
+
+      const stepResult = yield 'STEP'
+      agentState = stepResult.agentState // Capture the latest state
+
+      if (stepResult.stepsComplete) {
+        break
+      }
+
+      // If we've reached within one of the step limit, ask LLM to summarize progress
+      if (stepCount === stepLimit - 1) {
+        yield {
+          toolName: 'add_message',
+          input: {
+            role: 'user',
+            content:
+              'You have reached the step limit. Please summarize your progress so far, what you still need to solve, and provide any insights that could help complete the remaining work. Please end your turn after producing this summary with the end_turn tool.',
+          },
+        }
+
+        // One final step to produce the summary
+        const finalStepResult = yield 'STEP'
+        agentState = finalStepResult.agentState
+        break
+      }
+    }
+
+    // Collect all the edits from the conversation
     const { messageHistory } = agentState
     const editToolResults: string[] = []
     for (const message of messageHistory) {
