@@ -2,6 +2,7 @@ import { query } from '@anthropic-ai/claude-code'
 
 import type { Runner } from './runner'
 import type { AgentStep } from '../../scaffolding'
+import type { Query } from '@anthropic-ai/claude-code'
 
 export class ClaudeRunner implements Runner {
   private cwd: string
@@ -13,7 +14,7 @@ export class ClaudeRunner implements Runner {
   }
 
   async run(prompt: string): Promise<{ steps: AgentStep[] }> {
-    const response = query({
+    const response: Query = query({
       prompt,
       options: {
         continue: !this.firstRun,
