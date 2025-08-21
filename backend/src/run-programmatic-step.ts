@@ -77,6 +77,13 @@ export async function runProgrammaticStep(
 
   logger.info(
     {
+      stepsComplete,
+    },
+    `HIII Running programmatic step: stepsComplete: ${stepsComplete}`,
+  )
+
+  logger.info(
+    {
       templateId: template.id,
       template,
       agentType,

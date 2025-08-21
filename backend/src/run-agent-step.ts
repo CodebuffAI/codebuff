@@ -67,7 +67,6 @@ export interface AgentOptions {
   params: Record<string, any> | undefined
 }
 
-// Hi!
 export const runAgentStep = async (
   ws: WebSocket,
   options: AgentOptions,
