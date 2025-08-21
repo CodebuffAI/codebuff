@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.86",
+    "@anthropic-ai/sdk": "^0.60.0",
     "@codebuff/backend": "workspace:*",
     "@codebuff/code-map": "workspace:*",
     "@codebuff/common": "workspace:*",
