@@ -6,12 +6,8 @@ import {
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
-import {
-  getToolCallString,
-  renderToolResults,
-} from '@codebuff/common/tools/utils'
+import { renderToolResults } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
-import { getErrorObject } from '@codebuff/common/util/error'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { asyncAgentManager } from './async-agent-manager'
@@ -109,16 +105,6 @@ export const runAgentStep = async (
   })
 
   let messageHistory = agentState.messageHistory
-  const messagesWithUserPrompt = prompt
-    ? [
-        ...messageHistory.map((m) => ({ ...m, keepDuringTruncation: false })),
-        {
-          role: 'user' as const,
-          content: asUserMessage(prompt),
-          keepDuringTruncation: true,
-        },
-      ]
-    : messageHistory
 
   // Check if we need to warn about too many consecutive responses
   const needsStepWarning = agentState.stepsRemaining <= 0
@@ -141,7 +127,7 @@ export const runAgentStep = async (
     agentState = {
       ...agentState,
       messageHistory: [
-        ...expireMessages(messagesWithUserPrompt, 'userPrompt'),
+        ...expireMessages(messageHistory, 'userPrompt'),
         {
           role: 'user',
           content: asSystemMessage(
@@ -153,7 +139,7 @@ export const runAgentStep = async (
   }
 
   const { addedFiles, updatedFilePaths, clearReadFileToolResults } =
-    await getFileReadingUpdates(ws, messagesWithUserPrompt, fileContext, {
+    await getFileReadingUpdates(ws, messageHistory, fileContext, {
       agentStepId,
       clientSessionId,
       fingerprintId,
@@ -196,8 +182,6 @@ export const runAgentStep = async (
     })
   }
 
-  const hasPrompt = Boolean(prompt || params)
-
   if (ASYNC_AGENTS_ENABLED) {
     // Register this agent in the async manager so it can receive messages
     const isRegistered = asyncAgentManager.getAgent(agentState.agentId)
@@ -234,51 +218,12 @@ export const runAgentStep = async (
     localAgentTemplates,
   )
 
-  // Extract instructions prompt to match hasPrompt && {...} pattern
-  const instructionsPrompt = hasPrompt
-    ? await getAgentPrompt(
-        agentTemplate,
-        { type: 'instructionsPrompt' },
-        fileContext,
-        agentState,
-        localAgentTemplates,
-      )
-    : undefined
-
   const agentMessagesUntruncated = buildArray<CodebuffMessage>(
-    ...expireMessages(messageHistory, prompt ? 'userPrompt' : 'agentStep').map(
-      (m) => (prompt ? { ...m, keepDuringTruncation: false } : m),
-    ),
+    ...expireMessages(messageHistory, 'agentStep'),
 
     toolResults.length > 0 && {
       role: 'user' as const,
       content: asSystemMessage(renderToolResults(toolResults)),
-    },
-
-    hasPrompt && [
-      {
-        // Actual user prompt!
-        role: 'user' as const,
-        content: asUserMessage(
-          `${prompt ?? ''}${params ? `\n\n${JSON.stringify(params, null, 2)}` : ''}`,
-        ),
-      },
-      prompt &&
-        prompt in additionalSystemPrompts && {
-          role: 'user' as const,
-          content: asSystemInstruction(
-            additionalSystemPrompts[
-              prompt as keyof typeof additionalSystemPrompts
-            ],
-          ),
-        },
-    ],
-
-    instructionsPrompt && {
-      role: 'user' as const,
-      content: instructionsPrompt,
-      timeToLive: 'userPrompt' as const,
-      keepDuringTruncation: true,
     },
 
     stepPrompt && {
@@ -290,28 +235,6 @@ export const runAgentStep = async (
   )
 
   agentState.messageHistory = agentMessagesUntruncated
-
-  const { handleSteps } = agentTemplate
-  if (handleSteps) {
-    const { agentState: newAgentState, endTurn } = await runProgrammaticStep(
-      agentState,
-      {
-        ...options,
-        ws,
-        template: agentTemplate,
-        localAgentTemplates,
-        stepsComplete: needsStepWarning,
-      },
-    )
-    agentState = newAgentState
-    if (endTurn) {
-      return {
-        agentState,
-        fullResponse: needsStepWarning ? stepWarningMessage : '',
-        shouldEndTurn: true,
-      }
-    }
-  }
 
   // Early return for step warning case
   if (needsStepWarning) {
@@ -469,37 +392,6 @@ export const runAgentStep = async (
     agentContext: newAgentContext,
   }
 
-  // If we're ending the turn and this is a programmatic agent, give it a final chance to react, and continue
-  if (agentTemplate.handleSteps && shouldEndTurn) {
-    try {
-      const { agentState: updatedAgentState, endTurn } =
-        await runProgrammaticStep(agentState, {
-          userId,
-          userInputId,
-          clientSessionId,
-          fingerprintId,
-          onResponseChunk,
-          agentType,
-          fileContext,
-          ws,
-          template: agentTemplate,
-          localAgentTemplates,
-          prompt: undefined,
-          params: undefined,
-          stepsComplete: true,
-        })
-
-      agentState = updatedAgentState
-      shouldEndTurn = endTurn
-    } catch (error) {
-      logger.error(
-        { error: getErrorObject(error), agentId: agentState.agentId },
-        'Error during programmatic agent finalization',
-      )
-      // Continue with turn ending even if finalization fails
-    }
-  }
-
   // Mark agent as completed if it should end turn
   if (ASYNC_AGENTS_ENABLED && shouldEndTurn) {
     asyncAgentManager.updateAgentState(agentState, 'completed')
@@ -565,50 +457,130 @@ export const loopAgentSteps = async (
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
 
+  // Initialize message history with user prompt and instructions on first iteration
+  const hasPrompt = Boolean(prompt || params)
+
+  // Get the instructions prompt if we have a prompt/params
+  const instructionsPrompt = hasPrompt
+    ? await getAgentPrompt(
+        agentTemplate,
+        { type: 'instructionsPrompt' },
+        fileContext,
+        agentState,
+        localAgentTemplates,
+      )
+    : undefined
+
+  // Build the initial message history with user prompt and instructions
+  const initialMessages = buildArray<CodebuffMessage>(
+    ...agentState.messageHistory.map((m) => ({
+      ...m,
+      keepDuringTruncation: false,
+    })),
+
+    toolResults.length > 0 && {
+      role: 'user' as const,
+      content: asSystemMessage(renderToolResults(toolResults)),
+    },
+
+    hasPrompt && [
+      {
+        // Actual user prompt!
+        role: 'user' as const,
+        content: asUserMessage(
+          `${prompt ?? ''}${params ? `\n\n${JSON.stringify(params, null, 2)}` : ''}`,
+        ),
+        keepDuringTruncation: true,
+      },
+      prompt &&
+        prompt in additionalSystemPrompts && {
+          role: 'user' as const,
+          content: asSystemInstruction(
+            additionalSystemPrompts[
+              prompt as keyof typeof additionalSystemPrompts
+            ],
+          ),
+        },
+    ],
+
+    instructionsPrompt && {
+      role: 'user' as const,
+      content: instructionsPrompt,
+      timeToLive: 'userPrompt' as const,
+      keepDuringTruncation: true,
+    },
+  )
+
+  let currentAgentState = {
+    ...agentState,
+    messageHistory: initialMessages,
+  }
+  let shouldEndTurn = false
   let currentPrompt = prompt
   let currentParams = params
-  let currentAgentState = agentState
+
   while (checkLiveUserInput(userId, userInputId, clientSessionId)) {
-    const {
-      agentState: newAgentState,
-      fullResponse,
-      shouldEndTurn,
-    } = await runAgentStep(ws, {
-      userId,
-      userInputId,
-      clientSessionId,
-      fingerprintId,
-      onResponseChunk,
-      localAgentTemplates,
-      agentType,
-      fileContext,
-      agentState: currentAgentState,
-      prompt: currentPrompt,
-      params: currentParams,
-    })
+    // 1. Run programmatic step first if it exists
+    if (agentTemplate.handleSteps) {
+      const { agentState: programmaticAgentState, endTurn } =
+        await runProgrammaticStep(currentAgentState, {
+          userId,
+          userInputId,
+          clientSessionId,
+          fingerprintId,
+          onResponseChunk,
+          agentType,
+          fileContext,
+          ws,
+          template: agentTemplate,
+          localAgentTemplates,
+          prompt: currentPrompt,
+          params: currentParams,
+          stepsComplete: false,
+        })
+      currentAgentState = programmaticAgentState
+
+      if (endTurn) {
+        shouldEndTurn = true
+      }
+    }
 
     if (ASYNC_AGENTS_ENABLED) {
       const hasMessages =
-        asyncAgentManager.getMessages(newAgentState.agentId).length > 0
+        asyncAgentManager.getMessages(agentState.agentId).length > 0
       if (hasMessages) {
-        continue
+        shouldEndTurn = false
       }
     }
 
+    // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
     if (shouldEndTurn) {
-      const hasEndTurn = fullResponse.includes(
-        getToolCallString('end_turn', {}),
-      )
       return {
-        agentState: newAgentState,
-        hasEndTurn,
+        agentState: currentAgentState,
       }
     }
+
+    const { agentState: newAgentState, shouldEndTurn: llmShouldEndTurn } =
+      await runAgentStep(ws, {
+        userId,
+        userInputId,
+        clientSessionId,
+        fingerprintId,
+        onResponseChunk,
+        localAgentTemplates,
+        agentType,
+        fileContext,
+        agentState: currentAgentState,
+        prompt: currentPrompt,
+        params: currentParams,
+      })
+
+    currentAgentState = newAgentState
+    shouldEndTurn = llmShouldEndTurn
 
     currentPrompt = undefined
     currentParams = undefined
-    currentAgentState = newAgentState
   }
 
-  return { agentState }
+  return { agentState: currentAgentState }
 }
