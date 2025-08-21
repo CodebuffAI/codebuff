@@ -24,7 +24,7 @@ const editor: SecretAgentDefinition = {
       required: [],
     },
   },
-  outputMode: 'last_message',
+  outputMode: 'structured_output',
   includeMessageHistory: true,
   toolNames: [
     'read_files',
@@ -34,6 +34,7 @@ const editor: SecretAgentDefinition = {
     'code_search',
     'spawn_agents',
     'add_message',
+    'set_output',
     'end_turn',
   ],
   spawnableAgents: ['file-explorer'],
