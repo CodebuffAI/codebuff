@@ -53,6 +53,8 @@ Workflow:
 2. Spawn editor-v2 to implement the changes
 3. Spawn reviewer to validate the implementation
 4. Iterate if needed based on feedback by calling the editor-v2 again, or if you need to make significant changes, spawn the planner-v2 again
+
+When prompting an agent, realize that they can already see the entire conversation history, so you can be brief on what they should do.
 `,
 
   stepPrompt:
