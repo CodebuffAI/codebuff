@@ -29,7 +29,7 @@
     "bun": ">=1.2.11"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^1.0.85",
+    "@anthropic-ai/claude-code": "^1.0.86",
     "@codebuff/backend": "workspace:*",
     "@codebuff/code-map": "workspace:*",
     "@codebuff/common": "workspace:*",
