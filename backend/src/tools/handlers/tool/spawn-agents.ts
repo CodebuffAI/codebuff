@@ -130,7 +130,14 @@ export const handleSpawnAgents = ((params: {
           userId,
           clientSessionId,
           onResponseChunk: (chunk: string | PrintModeEvent) => {
-            if (agents.length === 1 && agents[0].agent_type === 'editor') {
+            const agentsThatShouldStreamToClient = [
+              'editor',
+              'editor-gpt-5-high',
+            ]
+            if (
+              agents.length === 1 &&
+              agentsThatShouldStreamToClient.includes(agents[0].agent_type)
+            ) {
               writeToClient(chunk)
             }
             if (typeof chunk !== 'string') {
