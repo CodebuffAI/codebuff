@@ -276,6 +276,13 @@ export async function runProgrammaticStep(
     }`
     onResponseChunk(errorMessage)
 
+    state.agentState.messageHistory = [
+      ...state.messages,
+      {
+        role: 'user' as const,
+        content: errorMessage,
+      },
+    ]
     state.agentState.output = {
       ...state.agentState.output,
       error: errorMessage,
