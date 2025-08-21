@@ -64,7 +64,7 @@ jobs:
 
       - name: Run evals
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
-        run: cd evals && bun run-eval-set --coding-agent claude --concurrency 10 --email --title "Git Eval (${{ github.sha }} ${{ github.event.head_commit.message }}})"
+        run: NEXT_PUBLIC_CB_ENVIRONMENT=prod CODEBUFF_API_KEY="xYB5P0yYgERNORdbuSUCLWHVFEBbpj1D" cd evals && bun run-eval-set --concurrency 10 --email --title "Git Eval (${{ github.sha }} ${{ github.event.head_commit.message }}})"
 
       - name: Workflow completed
         run: echo "Evals workflow completed successfully"
