@@ -246,6 +246,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
           ws,
@@ -277,6 +278,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
           ws,
@@ -310,6 +312,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
           ws,
@@ -342,6 +345,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
           ws,
@@ -373,6 +377,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
           ws,
@@ -407,6 +412,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
           ws,
@@ -450,6 +456,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
           ws,
