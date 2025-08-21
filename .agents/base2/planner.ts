@@ -3,7 +3,7 @@ import { plannerFactory } from './planner-factory'
 
 const definition: SecretAgentDefinition = {
   id: 'planner',
-  ...plannerFactory('google/gemini-2.5-pro', 'gemini-thinker-high'),
+  ...plannerFactory('google/gemini-2.5-pro'),
 }
 
 export default definition

@@ -7,7 +7,6 @@ import {
 
 export const plannerFactory = (
   model: ModelName,
-  thinkerAgent: string,
 ): Omit<SecretAgentDefinition, 'id'> => ({
   publisher,
 
@@ -24,7 +23,7 @@ export const plannerFactory = (
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['spawn_agents', 'end_turn'],
-  spawnableAgents: ['file-explorer', 'researcher', thinkerAgent],
+  spawnableAgents: ['file-explorer', 'researcher', 'gemini-thinker-high'],
 
   systemPrompt: `You are a strategic planner who creates comprehensive plans for coding tasks.
 You should spawn agents to help you gather information and think through the problem before creating your plan.
@@ -67,7 +66,7 @@ Your plan should be specific, actionable, and account for the current codebase s
       input: {
         agents: [
           {
-            agent_type: thinkerAgent,
+            agent_type: 'gemini-thinker-high',
             prompt: `Create a clear implementation plan for the following task, with a focus on simplicity and making the minimal changes necessary for an awesome implementation. Prompt: ${prompt}`,
           },
         ],
