@@ -66,8 +66,9 @@ export class ClaudeRunner implements Runner {
             toolCalls.push(content)
           } else {
             content satisfies never
+            const contentAny = content as any
             console.log(
-              `\n\nUnprocessed assistant content: ${JSON.stringify(content, null, 2)}`,
+              `\n\nUnprocessed assistant content: ${JSON.stringify(contentAny, null, 2)}`,
             )
           }
         })
