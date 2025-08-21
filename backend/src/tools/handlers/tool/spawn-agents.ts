@@ -130,7 +130,7 @@ export const handleSpawnAgents = ((params: {
           userId,
           clientSessionId,
           onResponseChunk: (chunk: string | PrintModeEvent) => {
-            if (agents.length === 1) {
+            if (agents.length === 1 && agents[0].agent_type === 'editor') {
               writeToClient(chunk)
             }
             if (typeof chunk !== 'string') {

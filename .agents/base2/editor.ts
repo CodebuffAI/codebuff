@@ -3,7 +3,7 @@ import { publisher } from '../constants'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const editor: SecretAgentDefinition = {
-  id: 'editor-v2',
+  id: 'editor',
   publisher,
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Code Editor',
