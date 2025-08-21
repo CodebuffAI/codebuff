@@ -97,7 +97,7 @@ Key files:
 ### Workflow
 
 1. Users get unique referral codes upon account creation
-2. Share referral links: `${env.NEXT_PUBLIC_APP_URL}/redeem?referral_code=${referralCode}`
+2. Share referral links: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/redeem?referral_code=${referralCode}`
 3. New users redeem codes during signup/onboarding
 4. Both referrer and referred user receive `CREDITS_REFERRAL_BONUS` credits
 5. Referrals tracked in database with limits

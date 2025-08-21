@@ -10,7 +10,8 @@ import { logger } from '@/util/logger'
 
 // Helper to construct backend URL
 function getBackendUrl() {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'localhost:4242'
+  const backendUrl =
+    process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL || 'localhost:4242'
   const protocol = backendUrl.startsWith('localhost') ? 'http://' : 'https://'
   return `${protocol}${backendUrl}`
 }

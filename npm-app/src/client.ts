@@ -382,7 +382,7 @@ export class Client {
     Spinner.get().start('Storing API Key...')
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
+        `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/api-keys`,
         {
           method: 'POST',
           headers: {
@@ -429,7 +429,7 @@ export class Client {
     if (this.user) {
       try {
         const redeemReferralResp = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL}/api/referrals`,
+          `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/referrals`,
           {
             method: 'POST',
             headers: {
@@ -449,7 +449,7 @@ export class Client {
               green(
                 `Noice, you've earned an extra ${(respJson as any).credits_redeemed} credits!`,
               ),
-              `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
+              `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/referrals)`,
             ].join('\n'),
           )
           this.getUsage()
@@ -673,7 +673,7 @@ export class Client {
             mkdirSync(credentialsPathDir, { recursive: true })
             writeFileSync(CREDENTIALS_PATH, JSON.stringify({ default: user }))
 
-            const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
+            const referralLink = `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/referrals`
             const responseToUser = [
               'Authentication successful! 🎉',
               bold(`Hey there, ${user.name}.`),
@@ -746,7 +746,7 @@ export class Client {
           'Action error insufficient credits',
         )
         console.error(
-          `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`,
+          `Visit ${blue(bold(process.env.NEXT_PUBLIC_CODEBUFF_APP_URL + '/usage'))} to add credits.`,
         )
       } else if (action.error === 'Auto top-up disabled') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
@@ -758,7 +758,7 @@ export class Client {
         )
         console.error(
           yellow(
-            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to update your payment settings.`,
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_CODEBUFF_APP_URL + '/usage'))} to update your payment settings.`,
           ),
         )
       } else {

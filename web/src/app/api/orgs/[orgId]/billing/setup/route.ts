@@ -195,8 +195,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         },
       ],
       allow_promotion_codes: true,
-      success_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}/billing/purchase?subscription_success=true`,
-      cancel_url: `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?subscription_canceled=true`,
+      success_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}/billing/purchase?subscription_success=true`,
+      cancel_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?subscription_canceled=true`,
       metadata: {
         organization_id: orgId,
         type: 'subscription_setup',

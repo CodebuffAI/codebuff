@@ -15,7 +15,7 @@ export const siteConfig = {
     'React',
     'TypeScript',
   ],
-  url: () => env.NEXT_PUBLIC_APP_URL,
+  url: () => env.NEXT_PUBLIC_CODEBUFF_APP_URL,
   googleSiteVerificationId: () =>
     env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID || '',
 }
