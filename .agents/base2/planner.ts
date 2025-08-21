@@ -6,7 +6,7 @@ import {
 } from '../types/secret-agent-definition'
 
 const planner: SecretAgentDefinition = {
-  id: 'planner-v2',
+  id: 'planner',
   publisher,
 
   model: 'google/gemini-2.5-pro',
