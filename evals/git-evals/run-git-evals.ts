@@ -196,6 +196,10 @@ Explain your reasoning in detail.`,
         process.on('unhandledRejection', handler)
       }
     })
+
+    if (fs.existsSync(projectPath) && fs.statSync(projectPath).isDirectory()) {
+      fs.rmSync(projectPath, { recursive: true, force: true })
+    }
   }
 
   // If we caught a process-level error, use that
@@ -336,6 +340,7 @@ export async function runGitEvals(
               repoUrl,
               testRepoName,
               evalCommit.sha,
+              true,
             )
 
             console.log(

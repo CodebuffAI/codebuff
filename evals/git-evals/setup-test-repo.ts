@@ -4,6 +4,8 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
+import { generateCompactId } from '@codebuff/common/util/string'
+
 import { TEST_REPOS_DIR } from '../test-setup'
 
 /**
@@ -37,11 +39,15 @@ export async function setupTestRepo(
   repoUrl: string,
   customRepoName: string,
   commitSha: string = 'HEAD',
+  addRandomSuffix: boolean = false,
 ): Promise<string> {
   const repoName = customRepoName || extractRepoNameFromUrl(repoUrl)
   console.log(`Setting up test repository: ${repoName}...`)
 
-  const repoDir = path.join(TEST_REPOS_DIR, `${repoName}-${commitSha}`)
+  const repoBaseDir = path.join(TEST_REPOS_DIR, `${repoName}-${commitSha}`)
+  const repoDir = addRandomSuffix
+    ? `${repoBaseDir}-${generateCompactId()}`
+    : repoBaseDir
 
   // Create test-repos directory if it doesn't exist
   if (!fs.existsSync(TEST_REPOS_DIR)) {
