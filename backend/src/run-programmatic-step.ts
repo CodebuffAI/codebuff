@@ -75,24 +75,6 @@ export async function runProgrammaticStep(
     throw new Error('No step handler found for agent template ' + template.id)
   }
 
-  logger.info(
-    {
-      stepsComplete,
-    },
-    `HIII Running programmatic step: stepsComplete: ${stepsComplete}`,
-  )
-
-  logger.info(
-    {
-      templateId: template.id,
-      template,
-      agentType,
-      prompt,
-      params,
-    },
-    'Running programmatic step',
-  )
-
   // Run with either a generator or a sandbox.
   let generator = agentIdToGenerator[agentState.agentId]
   let sandbox = sandboxManager.getSandbox(agentState.agentId)
@@ -200,11 +182,6 @@ export async function runProgrammaticStep(
         toolCallId: crypto.randomUUID(),
       } as CodebuffToolCall
 
-      logger.debug(
-        { toolCall },
-        `${toolCall.toolName} tool call from programmatic agent`,
-      )
-
       // Add assistant message with the tool call before executing it
       // Exception: don't add tool call message for add_message since it adds its own message
       if (toolCall.toolName !== 'add_message') {
@@ -256,11 +233,6 @@ export async function runProgrammaticStep(
         break
       }
     } while (true)
-
-    logger.info(
-      { output: state.agentState.output },
-      'Programmatic agent execution completed',
-    )
 
     return { agentState: state.agentState, endTurn }
   } catch (error) {

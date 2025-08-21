@@ -201,17 +201,17 @@ export async function requestRelevantFiles(
 
   const candidateFiles = (await keyPromise).files
 
-  const files = validateFilePaths(uniq(candidateFiles))
+  validateFilePaths(uniq(candidateFiles))
 
-  logger.info(
-    {
-      files,
-      customFilePickerConfig: customFilePickerConfig,
-      modelName: customFilePickerConfig?.modelName,
-      orgId,
-    },
-    'requestRelevantFiles: results',
-  )
+  // logger.info(
+  //   {
+  //     files,
+  //     customFilePickerConfig: customFilePickerConfig,
+  //     modelName: customFilePickerConfig?.modelName,
+  //     orgId,
+  //   },
+  //   'requestRelevantFiles: results',
+  // )
 
   return candidateFiles.slice(0, maxFilesPerRequest)
 }
