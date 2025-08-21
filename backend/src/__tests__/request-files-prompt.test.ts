@@ -8,8 +8,6 @@ import {
   it,
 } from 'bun:test'
 
-// Import the entire module to spy on its exports
-import * as checkNewFilesNecessaryModule from '../find-files/check-new-files-necessary'
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
 
@@ -17,17 +15,6 @@ import type { CostMode } from '@codebuff/common/constants'
 import type { CodebuffMessage } from '@codebuff/common/types/message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { Mock } from 'bun:test'
-
-// Restore module-level mocks using bunMockFn for the mock implementations
-bunMockFn.module('../find-files/check-new-files-necessary', () => ({
-  checkNewFilesNecessary: bunMockFn(() =>
-    Promise.resolve({
-      newFilesNecessary: true,
-      response: 'YES',
-      duration: 100,
-    }),
-  ),
-}))
 
 bunMockFn.module('../llm-apis/gemini-with-fallbacks', () => ({
   promptFlashWithFallbacks: bunMockFn(() =>
@@ -120,18 +107,6 @@ describe('requestRelevantFiles', () => {
       OriginalRequestFilesPromptModule,
       'getCustomFilePickerConfigForOrg',
     ).mockResolvedValue(null)
-
-    // Reset behavior and clear call history for module mocks
-    const checkNewFilesNecessaryMock =
-      checkNewFilesNecessaryModule.checkNewFilesNecessary as Mock<
-        typeof checkNewFilesNecessaryModule.checkNewFilesNecessary
-      >
-    checkNewFilesNecessaryMock.mockResolvedValue({
-      newFilesNecessary: true,
-      response: 'YES',
-      duration: 100,
-    })
-    checkNewFilesNecessaryMock.mockClear()
 
     const promptFlashWithFallbacksMock =
       geminiWithFallbacksModule.promptFlashWithFallbacks as Mock<
@@ -263,37 +238,6 @@ describe('requestRelevantFiles', () => {
         useFinetunedModel: expectedModel,
       }),
     )
-    expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
-  })
-
-  it('should return null if checkNewFilesNecessary returns false', async () => {
-    // Override the module mock for this specific test case
-    ;(
-      checkNewFilesNecessaryModule.checkNewFilesNecessary as Mock<
-        typeof checkNewFilesNecessaryModule.checkNewFilesNecessary
-      >
-    ).mockResolvedValue({
-      newFilesNecessary: false,
-      response: 'NO',
-      duration: 50,
-    })
-
-    const result = await OriginalRequestFilesPromptModule.requestRelevantFiles(
-      { messages: mockMessages, system: mockSystem },
-      mockFileContext,
-      mockAssistantPrompt,
-      mockAgentStepId,
-      mockClientSessionId,
-      mockFingerprintId,
-      mockUserInputId,
-      mockUserId,
-      mockRepoId,
-    )
-
-    expect(result).toBeNull()
-    expect(
-      geminiWithFallbacksModule.promptFlashWithFallbacks,
-    ).not.toHaveBeenCalled()
     expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
 })
