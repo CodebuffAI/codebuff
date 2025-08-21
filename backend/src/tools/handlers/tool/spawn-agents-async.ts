@@ -30,6 +30,7 @@ export const handleSpawnAgentsAsync = ((params: {
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
+  writeToClient: (chunk: string | PrintModeEvent) => void
 
   getLatestState: () => { messages: CodebuffMessage[] }
   state: {

@@ -65,7 +65,6 @@ export const AgentTemplateTypeList = [
   'ask',
 
   // Planning / Thinking
-  'planner',
   'dry_run',
   'thinker',
 
