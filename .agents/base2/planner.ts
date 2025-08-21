@@ -10,7 +10,7 @@ const planner: SecretAgentDefinition = {
   publisher,
 
   model: 'google/gemini-2.5-pro',
-  displayName: 'Strategic Planner',
+  displayName: 'Peter Plan',
   spawnerPrompt:
     'Creates comprehensive plans by exploring the codebase and deep thinking',
   inputSchema: {
