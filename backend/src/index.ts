@@ -21,6 +21,9 @@ import {
   listen as webSocketListen,
 } from './websockets/server'
 
+// Grace period for graceful shutdown
+const SHUTDOWN_GRACE_PERIOD_MS = 30 * 60 * 1000
+
 const app = express()
 const port = env.PORT
 
@@ -91,12 +94,11 @@ server.listen(port, () => {
   logger.debug(`🚀 Server is running on port ${port}`)
   console.log(`🚀 Server is running on port ${port}`)
 })
-
 webSocketListen(server, '/ws')
 
 let shutdownInProgress = false
 // Graceful shutdown handler for both SIGTERM and SIGINT
-function handleShutdown(signal: string) {
+async function handleShutdown(signal: string) {
   flushAnalytics()
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
     server.close((error) => {
@@ -109,7 +111,9 @@ function handleShutdown(signal: string) {
     return
   }
   shutdownInProgress = true
-  console.log(`\nReceived ${signal}. Starting graceful shutdown...`)
+  console.log(
+    `\nReceived ${signal}. Starting ${SHUTDOWN_GRACE_PERIOD_MS / 60000} minute graceful shutdown period...`,
+  )
 
   // Don't shutdown, instead ask clients to disconnect from us
   sendRequestReconnect()
@@ -119,14 +123,12 @@ function handleShutdown(signal: string) {
     process.exit(0)
   })
 
-  // If graceful shutdown is not achieved after 5 minutes,
-  // force exit the process
-  setTimeout(() => {
-    console.error(
-      'Could not close connections in time, forcefully shutting down',
-    )
-    process.exit(1)
-  }, 300000).unref()
+  // Wait for the grace period to allow clients to switch to new instances
+  await new Promise((resolve) => setTimeout(resolve, SHUTDOWN_GRACE_PERIOD_MS))
+
+  console.log('Grace period over. Proceeding with final shutdown...')
+
+  process.exit(1)
 }
 
 process.on('SIGTERM', () => handleShutdown('SIGTERM'))
