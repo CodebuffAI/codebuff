@@ -244,7 +244,7 @@ export default function AffiliatesPage() {
                   <Link
                     href={`/${userHandle}`}
                     className="underline"
-                  >{`${env.NEXT_PUBLIC_APP_URL}/${userHandle}`}</Link>
+                  >{`${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/${userHandle}`}</Link>
                 </p>
               </div>
             )}

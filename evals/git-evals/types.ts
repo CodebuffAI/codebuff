@@ -42,7 +42,7 @@ export interface EvalRunLog {
   eval_commit: EvalCommit
   trace: CodebuffTrace[]
   error?: string
-  fileStates: FileState[] // Files Codebuff changed
+  gitDiff: string
   durationMs: number
 }
 

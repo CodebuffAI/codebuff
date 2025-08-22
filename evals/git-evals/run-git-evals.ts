@@ -1,51 +1,44 @@
-import { execSync, fork } from 'child_process'
+import { execFileSync, fork } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
-import { getDefaultConfig } from '@codebuff/common/json-config/default'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import pLimit from 'p-limit'
 
-import {
-  createFileReadingMock,
-  loopMainPrompt,
-  resetRepoToCommit,
-} from '../scaffolding'
+import { resetRepoToCommit } from '../scaffolding'
 import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
+import { ClaudeRunner } from './runners/claude'
+import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
 
 import type { AgentStep } from '../scaffolding'
+import type { Runner } from './runners/runner'
 import type {
   AgentDecision,
   CodebuffTrace,
   EvalCommit,
   EvalRunJudged,
   EvalRunLog,
-  FileState,
   FullEvalLog,
   EvalData,
 } from './types'
+import type { z } from 'zod/v4'
 
 disableLiveUserInputCheck()
-
-// Try Gemini!
-const AGENT_TYPE = AgentTemplateTypes.base
-
-const EDIT_FILE_TOOL_NAMES = ['write_file', 'str_replace'] as const
 
 export async function runSingleEval(
   evalCommit: EvalCommit,
   projectPath: string,
   clientSessionId: string,
   fingerprintId: string,
-  agentType: string = AGENT_TYPE,
+  codingAgent: 'codebuff' | 'claude',
+  agent?: string,
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -74,9 +67,22 @@ export async function runSingleEval(
     // Reset to the commit before the target commit
     resetRepoToCommit(projectPath, `${evalCommit.sha}^`)
 
-    // Initialize agent state
-    createFileReadingMock(projectPath)
-    let sessionState = await createInitialSessionState(projectPath)
+    // Initialize state
+    let runner: Runner
+    if (codingAgent === 'codebuff') {
+      runner = new CodebuffRunner(
+        {
+          sessionState: await createInitialSessionState(projectPath),
+          toolResults: [],
+        },
+        agent,
+      )
+    } else if (codingAgent === 'claude') {
+      runner = new ClaudeRunner(projectPath)
+    } else {
+      codingAgent satisfies never
+      throw new Error('Unknown coding agent')
+    }
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
@@ -104,7 +110,7 @@ export async function runSingleEval(
         .join('\n\n')
 
       // Get next prompt from Sonnet agent with timeout
-      let agentResponse: any
+      let agentResponse: z.infer<typeof AgentDecisionSchema>
       try {
         agentResponse = await promptAiSdkStructured({
           messages: [
@@ -145,6 +151,7 @@ Explain your reasoning in detail.`,
 
       console.log('Agent decision:', agentResponse.decision)
       console.log('Agent reasoning:', agentResponse.reasoning)
+      console.log('Agent prompt:', agentResponse.next_prompt)
 
       if (agentResponse.decision === 'continue' && !agentResponse.next_prompt) {
         agentResponse.next_prompt = 'continue'
@@ -155,22 +162,13 @@ Explain your reasoning in detail.`,
         const prompt = agentResponse.next_prompt!
 
         // Use loopMainPrompt with timeout wrapper
-        const codeBuffResult = await withTimeout(
-          loopMainPrompt({
-            sessionState,
-            prompt,
-            projectPath,
-            maxIterations: 20,
-            agentType: agentType as any,
-          }),
+        const codebuffResult = await withTimeout(
+          runner.run(prompt),
           // Timeout after 30 minutes
           60_000 * 30,
         )
 
-        sessionState.mainAgentState = codeBuffResult.agentState
-        sessionState.mainAgentState.stepsRemaining =
-          getDefaultConfig().maxAgentSteps
-        trace.push({ prompt, steps: codeBuffResult.steps })
+        trace.push({ prompt, steps: codebuffResult.steps })
       }
 
       currentDecision = agentResponse.decision
@@ -208,13 +206,17 @@ Explain your reasoning in detail.`,
   const endTime = new Date()
   const durationMs = endTime.getTime() - startTime.getTime()
 
-  const fileStates = getCodebuffFileStates(trace, evalCommit.sha, projectPath)
+  const fileStates = getCodebuffFileStates(evalCommit.sha, projectPath)
+
+  if (fs.existsSync(projectPath) && fs.statSync(projectPath).isDirectory()) {
+    fs.rmSync(projectPath, { recursive: true, force: true })
+  }
 
   const evalRun: EvalRunLog = {
     eval_commit: evalCommit,
     trace,
     error,
-    fileStates,
+    gitDiff: fileStates,
     durationMs,
   }
 
@@ -247,61 +249,20 @@ Explain your reasoning in detail.`,
 }
 
 function getCodebuffFileStates(
-  trace: CodebuffTrace[],
   evalCommitSha: string,
   projectPath: string,
-): FileState[] {
-  const codebuffWrittenFilePaths = new Set<string>()
-  if (trace) {
-    // trace might be undefined or empty if error occurred very early
-    for (const traceEntry of trace) {
-      for (const step of traceEntry.steps) {
-        if (step.toolCalls) {
-          for (const toolCall of step.toolCalls) {
-            if (
-              EDIT_FILE_TOOL_NAMES.includes(toolCall.toolName as any) &&
-              'path' in toolCall.input &&
-              toolCall.input.path
-            ) {
-              codebuffWrittenFilePaths.add(toolCall.input.path as string)
-            }
-          }
-        }
-      }
-    }
-  }
-
-  const fileStates: FileState[] = []
-
-  if (codebuffWrittenFilePaths.size > 0) {
-    for (const filePath of codebuffWrittenFilePaths) {
-      // Capture "after" state
-      const fullPath = path.join(projectPath, filePath)
-      let postContent: string
-      try {
-        postContent = fs.existsSync(fullPath)
-          ? fs.readFileSync(fullPath, 'utf-8')
-          : '[FILE_NOT_FOUND_POST_RUN]'
-      } catch (e) {
-        console.error(`Error reading file ${fullPath} for after state:`, e)
-        postContent = '[ERROR_READING_AFTER_STATE]'
-      }
-
-      // Capture "before" state
-      let preContent: string
-      try {
-        preContent = execSync(`git show ${evalCommitSha}^:"${filePath}"`, {
-          cwd: projectPath,
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).toString()
-      } catch (e) {
-        preContent = '[FILE_DID_NOT_EXIST_PRIOR_TO_CODEBUFF_CHANGES]'
-      }
-
-      fileStates.push({ path: filePath, preContent, postContent })
-    }
-  }
-  return fileStates
+): string {
+  // Stage all changes (including new files) before generating diff
+  execFileSync('git', ['add', '.'], {
+    cwd: projectPath,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  
+  // Get diff of staged files to include new files
+  return execFileSync('git', ['diff', '--staged'], {
+    cwd: projectPath,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).toString()
 }
 
 export function mockRunGitEvals(path: string) {
@@ -320,7 +281,7 @@ export function setGlobalConcurrencyLimit(limit: number) {
 export async function runGitEvals(
   evalDataPath: string,
   outputDir: string,
-  agentType: string = AGENT_TYPE,
+  codingAgent: 'codebuff' | 'claude',
   limit?: number,
   logToStdout: boolean = false,
 ): Promise<FullEvalLog> {
@@ -385,6 +346,7 @@ export async function runGitEvals(
               repoUrl,
               testRepoName,
               evalCommit.sha,
+              true,
             )
 
             console.log(
@@ -415,9 +377,9 @@ export async function runGitEvals(
                 projectPath,
                 clientSessionId,
                 fingerprintId,
-                agentType,
+                codingAgent,
               ],
-              { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] },
+              { stdio: ['pipe', 'pipe', 'pipe', 'ipc'], env: process.env },
             )
 
             child.stdout?.pipe(logStream)
@@ -561,14 +523,17 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
 if (require.main === module) {
   const args = process.argv.slice(2)
   console.info(
-    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [agent-type]',
+    'Usage: bun run run-git-eval [eval-data-path] [output-dir] [coding-agent]',
   )
 
   const evalDataPath = args[0] || 'git-evals/git-evals.json'
   const outputDir = args[1] || 'git-evals'
-  const agentType = args[2] || AGENT_TYPE
+  const codingAgent = args[2] || 'codebuff'
+  if (!['codebuff', 'claude'].includes(codingAgent)) {
+    throw new Error(`Invalid coding agent: ${codingAgent}`)
+  }
 
-  runGitEvals(evalDataPath, outputDir, agentType)
+  runGitEvals(evalDataPath, outputDir, codingAgent as 'codebuff' | 'claude')
     .then(() => {
       console.log('Done!')
       process.exit(0)

@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     }
 
     // Generate login URL without modifying the fingerprint record
-    const loginUrl = `${env.NEXT_PUBLIC_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${
+    const loginUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${
       referralCode ? `&referral_code=${referralCode}` : ''
     }`
 

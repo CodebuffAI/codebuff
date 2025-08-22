@@ -94,7 +94,7 @@ const nextConfig = {
           },
         ],
         permanent: false,
-        destination: `${process.env.NEXT_PUBLIC_APP_URL}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/:path*`,
       },
       {
         source: '/discord',

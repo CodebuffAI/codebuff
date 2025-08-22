@@ -82,7 +82,7 @@ Judge Analysis: ${judging.analysis}
 Strengths: ${judging.strengths.join('; ')}
 Weaknesses: ${judging.weaknesses.join('; ')}
 
-Files Changed by Codebuff: ${run.fileStates.map((f) => f.path).join(', ') || 'None'}
+Files Changed by Codebuff: ${run.gitDiff || 'None'}
 Ground Truth Files: ${run.eval_commit.fileStates.map((f) => f.path).join(', ')}
 
 Trace Summary: ${run.trace.length} conversation turns

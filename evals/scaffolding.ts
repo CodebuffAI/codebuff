@@ -21,6 +21,10 @@ import {
 } from '../common/src/project-file-tree'
 
 import type {
+  SDKAssistantMessage,
+  SDKUserMessage,
+} from '@anthropic-ai/claude-code'
+import type {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
 } from '@codebuff/backend/websockets/websocket-action'
@@ -38,10 +42,19 @@ import type { WebSocket } from 'ws'
 
 const DEBUG_MODE = true
 
+export type ToolResultBlockParam = Extract<
+  SDKUserMessage['message']['content'][number],
+  { type: 'tool_result' }
+>
+export type ToolUseBlock = Extract<
+  SDKAssistantMessage['message']['content'][number],
+  { type: 'tool_use' }
+>
+
 export type AgentStep = {
   response: string
-  toolCalls: ClientToolCall[]
-  toolResults: ToolResult[]
+  toolCalls: (ClientToolCall | ToolUseBlock)[]
+  toolResults: (ToolResult | ToolResultBlockParam)[]
 }
 
 function readMockFile(projectRoot: string, filePath: string): string | null {

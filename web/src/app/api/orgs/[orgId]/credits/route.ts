@@ -230,8 +230,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Fall back to checkout session if direct charge failed or no valid payment method
-    const successUrl = `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?purchase_success=true`
-    const cancelUrl = `${env.NEXT_PUBLIC_APP_URL}/orgs/${organization.slug}?purchase_canceled=true`
+    const successUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?purchase_success=true`
+    const cancelUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?purchase_canceled=true`
 
     const checkoutSession = await stripeServer.checkout.sessions.create({
       payment_method_types: ['card', 'link'],

@@ -176,8 +176,8 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&purchase=credits&amt=${credits}`,
-      cancel_url: `${env.NEXT_PUBLIC_APP_URL}/usage?purchase_canceled=true`,
+      success_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&purchase=credits&amt=${credits}`,
+      cancel_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage?purchase_canceled=true`,
       metadata: {
         userId: userId,
         credits: credits.toString(),

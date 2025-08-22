@@ -1,2 +1,2 @@
 export const getReferralLink = (referralCode: string): string =>
-  `${process.env.NEXT_PUBLIC_APP_URL}/referrals/${referralCode}`
+  `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/referrals/${referralCode}`

@@ -18,7 +18,7 @@ async function main() {
     projectPath,
     clientSessionId,
     fingerprintId,
-    agentType,
+    codingAgent,
   ] = process.argv.slice(2)
 
   if (
@@ -26,7 +26,7 @@ async function main() {
     !projectPath ||
     !clientSessionId ||
     !fingerprintId ||
-    !agentType
+    !codingAgent
   ) {
     console.error('Missing required arguments for single eval process')
     process.exit(1)
@@ -54,7 +54,7 @@ async function main() {
       projectPath,
       clientSessionId,
       fingerprintId,
-      agentType,
+      codingAgent as any,
     )
     console.log('Final result:', { result })
     if (process.send) {
