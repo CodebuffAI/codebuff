@@ -29,6 +29,7 @@ import type {
   EvalData,
 } from './types'
 import type { z } from 'zod/v4'
+import type { ChildProcess } from 'child_process'
 
 disableLiveUserInputCheck()
 
@@ -257,7 +258,7 @@ function getCodebuffFileStates(
     cwd: projectPath,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
-  
+
   // Get diff of staged files to include new files
   return execFileSync('git', ['diff', '--staged'], {
     cwd: projectPath,
@@ -274,8 +275,68 @@ export function mockRunGitEvals(path: string) {
 // Global concurrency limiter that can be shared across multiple repository evaluations
 let globalConcurrencyLimiter: ReturnType<typeof pLimit> | null = null
 
+// Track all active child processes for cleanup
+const activeChildProcesses = new Set<ChildProcess>()
+let isCleaningUp = false
+
 export function setGlobalConcurrencyLimit(limit: number) {
   globalConcurrencyLimiter = pLimit(limit)
+}
+
+/**
+ * Terminates all active evaluation child processes
+ */
+export async function terminateAllEvalChildren(): Promise<void> {
+  if (isCleaningUp || activeChildProcesses.size === 0) {
+    return
+  }
+
+  isCleaningUp = true
+  console.log(
+    `\nTerminating ${activeChildProcesses.size} active evaluation processes...`,
+  )
+
+  const killPromises = Array.from(activeChildProcesses).map(async (child) => {
+    if (!child.pid || child.killed) {
+      return
+    }
+
+    try {
+      // First try graceful termination
+      if (process.platform === 'win32') {
+        // Windows: kill process tree
+        execFileSync('taskkill', ['/PID', String(child.pid), '/T'], {
+          stdio: 'ignore',
+          timeout: 3000,
+        })
+      } else {
+        // POSIX: kill process group
+        process.kill(-child.pid, 'SIGTERM')
+      }
+
+      // Wait a bit for graceful shutdown
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      // Force kill if still alive
+      if (!child.killed) {
+        if (process.platform === 'win32') {
+          execFileSync('taskkill', ['/F', '/PID', String(child.pid), '/T'], {
+            stdio: 'ignore',
+            timeout: 1000,
+          })
+        } else {
+          process.kill(-child.pid, 'SIGKILL')
+        }
+      }
+    } catch (error) {
+      // Process may have already exited
+      console.warn(`Failed to kill process ${child.pid}:`, error)
+    }
+  })
+
+  await Promise.allSettled(killPromises)
+  activeChildProcesses.clear()
+  isCleaningUp = false
 }
 
 export async function runGitEvals(
@@ -285,6 +346,17 @@ export async function runGitEvals(
   limit?: number,
   logToStdout: boolean = false,
 ): Promise<FullEvalLog> {
+  // Set up signal handlers if this is the main module
+  if (require.main === module) {
+    const signalHandler = async (signal: string) => {
+      console.log(`\nReceived ${signal}, cleaning up...`)
+      await terminateAllEvalChildren()
+      process.exit(signal === 'SIGINT' ? 130 : 143)
+    }
+
+    process.on('SIGINT', () => signalHandler('SIGINT'))
+    process.on('SIGTERM', () => signalHandler('SIGTERM'))
+  }
   console.log(`Loading eval data from: ${evalDataPath}`)
   const evalData = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
@@ -379,8 +451,15 @@ export async function runGitEvals(
                 fingerprintId,
                 codingAgent,
               ],
-              { stdio: ['pipe', 'pipe', 'pipe', 'ipc'], env: process.env },
+              {
+                stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+                env: process.env,
+                detached: true, // Create new process group for proper signal handling
+              },
             )
+
+            // Track child process for cleanup
+            activeChildProcesses.add(child)
 
             child.stdout?.pipe(logStream)
             child.stderr?.pipe(logStream)
@@ -421,7 +500,13 @@ export async function runGitEvals(
             )
 
             child.on('exit', (code) => {
-              logStream.end()
+              // Remove from tracking
+              activeChildProcesses.delete(child)
+
+              if (!logToStdout && logStream !== process.stdout) {
+                logStream.end()
+              }
+
               if (code !== 0) {
                 console.error(
                   `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`,

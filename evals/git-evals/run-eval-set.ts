@@ -10,6 +10,7 @@ import {
   mockRunGitEvals,
   runGitEvals,
   setGlobalConcurrencyLimit,
+  terminateAllEvalChildren,
 } from './run-git-evals'
 
 import type { EvalConfig, EvalResult } from './types'
@@ -106,6 +107,17 @@ async function runEvalSet(options: {
 
   console.log('Starting eval set run...')
   console.log(`Output directory: ${outputDir}`)
+
+  // Set up signal handlers to clean up child processes
+  const signalHandler = async (signal: string) => {
+    console.log(`\nReceived ${signal}, cleaning up evaluation processes...`)
+    await terminateAllEvalChildren()
+    console.log('Cleanup complete.')
+    process.exit(signal === 'SIGINT' ? 130 : 143)
+  }
+
+  process.on('SIGINT', () => signalHandler('SIGINT'))
+  process.on('SIGTERM', () => signalHandler('SIGTERM'))
 
   setGlobalConcurrencyLimit(options.concurrency ?? 5)
 
