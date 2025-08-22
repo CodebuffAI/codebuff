@@ -70,7 +70,9 @@ export const thinkingBase = (
           ],
         },
       } satisfies ToolCall
-      yield 'STEP'
+
+      const { stepsComplete } = yield 'STEP'
+      if (stepsComplete) break
     }
   },
 })

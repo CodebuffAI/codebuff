@@ -1,5 +1,4 @@
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
-import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -70,16 +69,6 @@ export const handleReadFiles = ((params: {
         userId,
         repoId,
       },
-    )
-
-    logger.debug(
-      {
-        content: paths,
-        paths,
-        addedFilesPaths: addedFiles.map((f) => f.path),
-        updatedFilePaths,
-      },
-      'read_files tool call',
     )
 
     return renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})

@@ -37,6 +37,7 @@ export const handleSpawnAgents = ((params: {
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
+  writeToClient: (chunk: string | PrintModeEvent) => void
 
   getLatestState: () => { messages: CodebuffMessage[] }
   state: {
@@ -59,6 +60,7 @@ export const handleSpawnAgents = ((params: {
     userInputId,
     getLatestState,
     state,
+    writeToClient,
   } = params
   const { agents } = toolCall.input
   const validatedState = validateSpawnState(state, 'spawn_agents')
@@ -128,6 +130,16 @@ export const handleSpawnAgents = ((params: {
           userId,
           clientSessionId,
           onResponseChunk: (chunk: string | PrintModeEvent) => {
+            const agentsThatShouldStreamToClient = [
+              'editor',
+              'editor-gpt-5-high',
+            ]
+            if (
+              agents.length === 1 &&
+              agentsThatShouldStreamToClient.includes(agents[0].agent_type)
+            ) {
+              writeToClient(chunk)
+            }
             if (typeof chunk !== 'string') {
               return
             }

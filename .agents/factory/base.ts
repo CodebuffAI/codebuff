@@ -70,7 +70,8 @@ export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
         },
       } as any
 
-      yield 'STEP'
+      const { stepsComplete } = yield 'STEP'
+      if (stepsComplete) break
     }
   },
 })

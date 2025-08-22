@@ -38,6 +38,8 @@ const definition: AgentDefinition = {
     const numTerminalCommandsToKeep = 5
 
     let currentMessages = [...messages]
+
+    // Find and remove context-pruner spawn_agent_inline call and following messages
     const lastAssistantMessageIndex = currentMessages.findLastIndex(
       (message) => message.role === 'assistant',
     )
@@ -46,19 +48,12 @@ const definition: AgentDefinition = {
       typeof lastAssistantMessage?.content === 'string' &&
       lastAssistantMessage.content.includes('spawn_agent_inline') &&
       lastAssistantMessage.content.includes('context-pruner')
-    const inputMessage = currentMessages[lastAssistantMessageIndex + 1]
-    const userInstructionsToolsMessage =
-      currentMessages[lastAssistantMessageIndex + 2]
-    if (
-      lastAssistantMessageIsToolCall &&
-      inputMessage &&
-      userInstructionsToolsMessage
-    ) {
-      // Remove these messages:
-      // - assistant message with spawn_agent_inline call
-      // - input message with params object for this agent
-      // - user instructions message with tools description
-      currentMessages.splice(lastAssistantMessageIndex, 3)
+
+    if (lastAssistantMessageIsToolCall && lastAssistantMessageIndex >= 0) {
+      // Remove tool call and any following messages.
+      const messagesToRemove =
+        currentMessages.length - lastAssistantMessageIndex
+      currentMessages.splice(lastAssistantMessageIndex, messagesToRemove)
     }
 
     // Initial check - if already under limit, return (with inline agent tool call removed)

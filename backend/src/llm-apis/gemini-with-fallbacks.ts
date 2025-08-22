@@ -61,10 +61,6 @@ export async function promptFlashWithFallbacks(
   // Try finetuned model first if enabled
   if (useFinetunedModel) {
     try {
-      logger.info(
-        { model: useFinetunedModel },
-        'Using finetuned model for file-picker!',
-      )
       return await promptAiSdk({
         ...geminiOptions,
         messages,

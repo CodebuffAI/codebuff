@@ -6,7 +6,6 @@ import {
   executeAgent,
 } from './spawn-agent-utils'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { expireMessages } from '../../../util/messages'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
@@ -24,6 +23,7 @@ export const handleSpawnAgentInline = ((params: {
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
+  writeToClient: (chunk: string | PrintModeEvent) => void
 
   getLatestState: () => { messages: CodebuffMessage[] }
   state: {
@@ -44,6 +44,7 @@ export const handleSpawnAgentInline = ((params: {
     userInputId,
     getLatestState,
     state,
+    writeToClient,
   } = params
   const {
     agent_type: agentTypeStr,
@@ -102,10 +103,8 @@ export const handleSpawnAgentInline = ((params: {
       localAgentTemplates,
       userId,
       clientSessionId,
-      onResponseChunk: (chunk: string | PrintModeEvent) => {
-        // Child agent output is streamed directly to parent's output
-        // No need for special handling since we share message history
-      },
+      // Inherits parent's onResponseChunk
+      onResponseChunk: writeToClient,
     })
 
     // Update parent's message history with child's final state

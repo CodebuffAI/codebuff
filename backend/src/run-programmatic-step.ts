@@ -25,16 +25,15 @@ import type { WebSocket } from 'ws'
 const sandboxManager = new SandboxManager()
 
 // Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
-const agentIdToGenerator: Record<
-  string,
-  StepGenerator | 'STEP_ALL' | undefined
-> = {}
+const agentIdToGenerator: Record<string, StepGenerator | undefined> = {}
+export const agentIdToStepAll: Set<string> = new Set()
 
 // Function to clear the generator cache for testing purposes
 export function clearAgentGeneratorCache() {
   for (const key in agentIdToGenerator) {
     delete agentIdToGenerator[key]
   }
+  agentIdToStepAll.clear()
   // Clean up QuickJS sandboxes
   sandboxManager.dispose()
 }
@@ -55,6 +54,7 @@ export async function runProgrammaticStep(
     fileContext,
     ws,
     localAgentTemplates,
+    stepsComplete,
   }: {
     template: AgentTemplate
     prompt: string | undefined
@@ -68,22 +68,12 @@ export async function runProgrammaticStep(
     fileContext: ProjectFileContext
     ws: WebSocket
     localAgentTemplates: Record<string, AgentTemplate>
+    stepsComplete: boolean
   },
 ): Promise<{ agentState: AgentState; endTurn: boolean }> {
   if (!template.handleSteps) {
     throw new Error('No step handler found for agent template ' + template.id)
   }
-
-  logger.info(
-    {
-      templateId: template.id,
-      template,
-      agentType,
-      prompt,
-      params,
-    },
-    'Running programmatic step',
-  )
 
   // Run with either a generator or a sandbox.
   let generator = agentIdToGenerator[agentState.agentId]
@@ -113,8 +103,14 @@ export async function runProgrammaticStep(
     }
   }
 
-  if (generator === 'STEP_ALL') {
-    return { agentState, endTurn: false }
+  // Check if we're in STEP_ALL mode
+  if (agentIdToStepAll.has(agentState.agentId)) {
+    if (stepsComplete) {
+      // Clear the STEP_ALL mode. Stepping can continue if handleSteps doesn't return.
+      agentIdToStepAll.delete(agentState.agentId)
+    } else {
+      return { agentState, endTurn: false }
+    }
   }
 
   const agentStepId = crypto.randomUUID()
@@ -159,10 +155,12 @@ export async function runProgrammaticStep(
         ? await sandbox.executeStep({
             agentState: { ...state.agentState },
             toolResult,
+            stepsComplete,
           })
         : generator!.next({
             agentState: { ...state.agentState },
             toolResult,
+            stepsComplete,
           })
 
       if (result.done) {
@@ -173,7 +171,7 @@ export async function runProgrammaticStep(
         break
       }
       if (result.value === 'STEP_ALL') {
-        agentIdToGenerator[agentState.agentId] = 'STEP_ALL'
+        agentIdToStepAll.add(agentState.agentId)
         break
       }
 
@@ -183,11 +181,6 @@ export async function runProgrammaticStep(
         ...toolCallWithoutId,
         toolCallId: crypto.randomUUID(),
       } as CodebuffToolCall
-
-      logger.debug(
-        { toolCall },
-        `${toolCall.toolName} tool call from programmatic agent`,
-      )
 
       // Add assistant message with the tool call before executing it
       // Exception: don't add tool call message for add_message since it adds its own message
@@ -200,7 +193,6 @@ export async function runProgrammaticStep(
           role: 'assistant' as const,
           content: toolCallString,
         })
-        onResponseChunk(toolCallString)
         state.sendSubagentChunk({
           userInputId,
           agentId: agentState.agentId,
@@ -242,13 +234,10 @@ export async function runProgrammaticStep(
       }
     } while (true)
 
-    logger.info(
-      { output: state.agentState.output },
-      'Programmatic agent execution completed',
-    )
-
     return { agentState: state.agentState, endTurn }
   } catch (error) {
+    endTurn = true
+
     logger.error(
       { error: getErrorObject(error), template: template.id },
       'Programmatic agent execution failed',
@@ -259,6 +248,13 @@ export async function runProgrammaticStep(
     }`
     onResponseChunk(errorMessage)
 
+    state.agentState.messageHistory = [
+      ...state.messages,
+      {
+        role: 'user' as const,
+        content: errorMessage,
+      },
+    ]
     state.agentState.output = {
       ...state.agentState.output,
       error: errorMessage,
@@ -266,12 +262,16 @@ export async function runProgrammaticStep(
 
     return {
       agentState: state.agentState,
-      endTurn: true,
+      endTurn,
     }
   } finally {
-    // Clean up QuickJS sandbox if execution is complete
-    if (endTurn && sandbox) {
-      sandboxManager.removeSandbox(agentState.agentId)
+    if (endTurn) {
+      if (sandbox) {
+        // Clean up QuickJS sandbox if execution is complete
+        sandboxManager.removeSandbox(agentState.agentId)
+      }
+      delete agentIdToGenerator[agentState.agentId]
+      agentIdToStepAll.delete(agentState.agentId)
     }
   }
 }

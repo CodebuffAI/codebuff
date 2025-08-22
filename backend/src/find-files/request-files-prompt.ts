@@ -12,7 +12,6 @@ import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { and, eq } from 'drizzle-orm'
 import { range, shuffle, uniq } from 'lodash'
 
-import { checkNewFilesNecessary } from './check-new-files-necessary'
 import { CustomFilePickerConfigSchema } from './custom-file-picker-config'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
@@ -160,41 +159,6 @@ export async function requestRelevantFiles(
         : JSON.stringify(lastMessage.content)
       : ''
 
-  const newFilesNecessaryPromise = assistantPrompt
-    ? Promise.resolve({ newFilesNecessary: true, response: 'N/A', duration: 0 })
-    : checkNewFilesNecessary(
-        messagesExcludingLastIfByUser,
-        system,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userPrompt,
-        userId,
-      ).catch((error) => {
-        logger.error({ error }, 'Error checking new files necessary')
-        return { newFilesNecessary: true, response: 'N/A', duration: 0 }
-      })
-
-  // Await newFilesNecessaryPromise first
-  const newFilesNecessaryResult = await newFilesNecessaryPromise
-  const {
-    newFilesNecessary,
-    response: newFilesNecessaryResponse,
-    duration: newFilesNecessaryDuration,
-  } = newFilesNecessaryResult
-
-  if (!newFilesNecessary) {
-    logger.info(
-      {
-        newFilesNecessary,
-        response: newFilesNecessaryResponse,
-        duration: newFilesNecessaryDuration,
-      },
-      'requestRelevantFiles: No new files necessary, keeping current files',
-    )
-    return null // Early return if no new files are necessary
-  }
-
   // Only proceed to get key files if new files are necessary
   const keyPrompt = generateKeyRequestFilesPrompt(
     userPrompt,
@@ -237,20 +201,17 @@ export async function requestRelevantFiles(
 
   const candidateFiles = (await keyPromise).files
 
-  const files = validateFilePaths(uniq(candidateFiles))
+  validateFilePaths(uniq(candidateFiles))
 
-  logger.info(
-    {
-      files,
-      newFilesNecessary,
-      newFilesNecessaryResponse,
-      newFilesNecessaryDuration,
-      customFilePickerConfig: customFilePickerConfig,
-      modelName: customFilePickerConfig?.modelName,
-      orgId,
-    },
-    'requestRelevantFiles: results',
-  )
+  // logger.info(
+  //   {
+  //     files,
+  //     customFilePickerConfig: customFilePickerConfig,
+  //     modelName: customFilePickerConfig?.modelName,
+  //     orgId,
+  //   },
+  //   'requestRelevantFiles: results',
+  // )
 
   return candidateFiles.slice(0, maxFilesPerRequest)
 }

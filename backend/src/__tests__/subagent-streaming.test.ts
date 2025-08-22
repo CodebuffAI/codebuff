@@ -143,6 +143,7 @@ describe('Subagent Streaming', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      writeToClient: () => {},
       getLatestState: () => ({ messages: [] }),
       state: {
         ws,
@@ -211,6 +212,7 @@ describe('Subagent Streaming', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input-123',
+      writeToClient: () => {},
       getLatestState: () => ({ messages: [] }),
       state: {
         ws,

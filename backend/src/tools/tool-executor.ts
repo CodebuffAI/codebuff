@@ -174,10 +174,6 @@ export function executeToolCall<T extends ToolName>({
     input: toolCall.input,
   })
 
-  logger.debug(
-    { toolCall },
-    `${toolName} (${toolCall.toolCallId}) tool call detected in stream`,
-  )
   toolCalls.push(toolCall)
 
   // Filter out restricted tools in ask mode unless exporting summary
@@ -247,8 +243,8 @@ export function executeToolCall<T extends ToolName>({
       },
     }
     logger.debug(
-      { toolResult },
-      `${toolName} (${toolResult.toolCallId}) tool result for tool`,
+      { input, toolResult },
+      `${toolName} tool call & result (${toolResult.toolCallId})`,
     )
     if (result === undefined) {
       return
@@ -394,10 +390,6 @@ export function executeCustomToolCall({
     input: toolCall.input,
   })
 
-  logger.debug(
-    { toolCall },
-    `${toolName} (${toolCall.toolCallId}) custom tool call detected in stream`,
-  )
   toolCalls.push(toolCall)
 
   // Filter out restricted tools in ask mode unless exporting summary
@@ -442,8 +434,8 @@ export function executeCustomToolCall({
         },
       }
       logger.debug(
-        { toolResult },
-        `${toolName} (${toolResult.toolCallId}) custom tool result for tool`,
+        { input, toolResult },
+        `${toolName} custom tool call & result (${toolResult.toolCallId})`,
       )
       if (result === undefined) {
         return
