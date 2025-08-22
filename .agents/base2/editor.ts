@@ -1,6 +1,9 @@
 import { publisher } from '../constants'
 
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import {
+  PLACEHOLDER,
+  type SecretAgentDefinition,
+} from '../types/secret-agent-definition'
 
 const editor: SecretAgentDefinition = {
   id: 'editor',
@@ -46,14 +49,18 @@ You are extremely skilled at:
 - Following existing codebase patterns
 - Never duplicating existing code and always reusing existing code when possible
 - Making the minimal change necessary to implement the user request
-`,
+- Calling the set_output tool to with a clear explanation of the changes made or with an answer to the user's question
+- Not writing a final summary outside of the one that you include in the set_output tool
+
+${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
   instructionsPrompt: `Implement the requested changes. Feel free to ignore the plan if it seems incorrect.
 
 - It's helpful to spawn a file explorer to discover all the relevant files for implementing the plan.
 - You must read all relevant files to understand the current state. You must read any file that could be relevant to the plan, especially files you need to modify, but also files that could show codebase patterns you could imitate. Try to read a lot of files in a single tool call. E.g. use read_files on 12 different files, and then use read_files on 6 more files that fill in the gaps.
 - Implement changes using str_replace or write_file.
-- End turn when complete.
+- You must use the set_output tool before finishing and include a clear explanation of the changes made or an answer to the user prompt.
+- Do not write a further summary outside of the one that you include in the set_output tool. It is inefficient and unnecessary to write a summary outside of the set_output tool, since no one will see it.
 
 Principles:
 - Read before you write
@@ -110,11 +117,12 @@ Other guidance:
     }
 
     // Collect all the edits from the conversation
-    const { messageHistory } = agentState
+    const { messageHistory, output } = agentState
     const editToolResults: string[] = []
     for (const message of messageHistory) {
       if (
         message.role === 'user' &&
+        typeof message.content === 'string' &&
         message.content.includes('<tool_result>')
       ) {
         // Parse out tool results for write_file and str_replace
@@ -146,14 +154,11 @@ Other guidance:
         }
       }
     }
-    const lastAssistantMessage =
-      messageHistory.findLast((message) => message.role === 'assistant')
-        ?.content ?? ''
 
     yield {
       toolName: 'set_output',
       input: {
-        message: lastAssistantMessage,
+        ...output,
         edits: editToolResults,
       },
     }
