@@ -29,6 +29,7 @@ import type {
   FullEvalLog,
   EvalData,
 } from './types'
+import type { z } from 'zod/v4'
 
 disableLiveUserInputCheck()
 
@@ -111,7 +112,7 @@ export async function runSingleEval(
         .join('\n\n')
 
       // Get next prompt from Sonnet agent with timeout
-      let agentResponse: any
+      let agentResponse: z.infer<typeof AgentDecisionSchema>
       try {
         agentResponse = await promptAiSdkStructured({
           messages: [
@@ -152,6 +153,7 @@ Explain your reasoning in detail.`,
 
       console.log('Agent decision:', agentResponse.decision)
       console.log('Agent reasoning:', agentResponse.reasoning)
+      console.log('Agent prompt:', agentResponse.next_prompt)
 
       if (agentResponse.decision === 'continue' && !agentResponse.next_prompt) {
         agentResponse.next_prompt = 'continue'
