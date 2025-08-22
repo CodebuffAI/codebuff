@@ -10,37 +10,14 @@ import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
-import { siteConfig } from '@/lib/constant'
-
-function isSameOrigin(request: NextRequest) {
-  try {
-    const base = new URL(siteConfig.url()).origin
-    const origin = request.headers.get('origin')
-    const referer = request.headers.get('referer')
-    if (origin && new URL(origin).origin === base) return true
-    if (referer && new URL(referer).origin === base) return true
-  } catch {}
-  return false
-}
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  let userId: string | null = null
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const authToken = authHeader.split(' ')[1]
-    const user = await db.query.session.findFirst({
-      where: eq(schema.session.sessionToken, authToken),
-      columns: { userId: true },
-    })
-    userId = user?.userId ?? null
-  } else {
-    const session = await getServerSession(authOptions)
-    userId = session?.user?.id ?? null
-  }
-
-  if (!userId) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const userId = session.user.id
 
   try {
     // Get PAT sessions (type='pat', no fingerprint)
@@ -79,45 +56,25 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const userId = session.user.id
+
   const reqJson = await request.json()
   const parsedJson = z
     .object({
       name: z.string().min(1, 'Token name cannot be empty').optional(),
       expiresInDays: z.number().min(1).max(365).optional().default(365),
-      authToken: z.string().optional(),
     })
     .safeParse(reqJson)
   if (!parsedJson.success) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  // Enforce CSRF for browser requests (skip for CLI auth)
-  const hasCliAuth =
-    !!parsedJson.data.authToken ||
-    (request.headers.get('authorization') || '').startsWith('Bearer ')
-  if (!hasCliAuth && !isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  const { name, expiresInDays, authToken } = parsedJson.data
-
-  // Resolve userId from either provided authToken (CLI) or cookie session (web)
-  let userId: string | null = null
-  if (authToken) {
-    // authToken should already include cb-pat- prefix
-    const user = await db.query.session.findFirst({
-      where: eq(schema.session.sessionToken, authToken),
-      columns: { userId: true },
-    })
-    userId = user?.userId ?? null
-  } else {
-    const session = await getServerSession(authOptions)
-    userId = session?.user?.id ?? null
-  }
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { name, expiresInDays } = parsedJson.data
 
   try {
     // Generate a new session token for the PAT with cb-pat- prefix baked in
