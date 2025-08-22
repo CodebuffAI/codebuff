@@ -252,7 +252,14 @@ function getCodebuffFileStates(
   evalCommitSha: string,
   projectPath: string,
 ): string {
-  return execFileSync('git', ['diff', `${evalCommitSha}^`], {
+  // Stage all changes (including new files) before generating diff
+  execFileSync('git', ['add', '.'], {
+    cwd: projectPath,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  
+  // Get diff of staged files to include new files
+  return execFileSync('git', ['diff', '--staged'], {
     cwd: projectPath,
     stdio: ['ignore', 'pipe', 'pipe'],
   }).toString()
