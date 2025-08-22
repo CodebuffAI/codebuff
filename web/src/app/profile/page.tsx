@@ -119,7 +119,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 pb-20 lg:pb-0">
           <div className="mb-6">
             <h1 className="text-2xl font-semibold">{activeTitle}</h1>
           </div>
@@ -128,7 +128,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Mobile navigation */}
-      <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-background/80 backdrop-blur-sm container p-4 rounded-t-lg border-t">
+      <div className="flex items-center lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm container p-4 rounded-t-lg border-t transition-all duration-300 ease-in-out transform translate-y-0">
         <Sheet
           open={open}
           onOpenChange={(isOpen) => {

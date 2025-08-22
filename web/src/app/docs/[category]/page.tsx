@@ -69,7 +69,7 @@ interface CategoryPageProps {
 
 const DocPage = ({ doc }: { doc: Doc }) => {
   return (
-    <article className="prose dark:prose-invert prose-compact [&_h1]:scroll-mt-24 [&_h2]:scroll-mt-24 [&_h3]:scroll-mt-24">
+    <article className="prose dark:prose-invert prose-compact [&_h1]:scroll-mt-24 [&_h2]:scroll-mt-24 [&_h3]:scroll-mt-24 max-w-none overflow-x-auto">
       <Mdx code={doc.body.code} />
 
       {React.createElement(

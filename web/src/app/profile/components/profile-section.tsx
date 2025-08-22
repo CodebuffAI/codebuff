@@ -23,17 +23,21 @@ export function ProfileSection({
     <>
       {(title || description || headerActions) && (
         <div className="mb-6">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="space-y-1">
               {title && (
-                <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  {title}
+                </h2>
               )}
               {description && (
                 <p className="text-muted-foreground">{description}</p>
               )}
             </div>
             {headerActions && (
-              <div className="flex items-center gap-2">{headerActions}</div>
+              <div className="flex items-center gap-2 md:ml-4">
+                {headerActions}
+              </div>
             )}
           </div>
         </div>
@@ -57,9 +61,5 @@ export function ProfileSection({
     )
   }
 
-  return (
-    <div className={cn('space-y-6', className)}>
-      {content}
-    </div>
-  )
+  return <div className={cn('space-y-6', className)}>{content}</div>
 }
