@@ -198,10 +198,6 @@ Explain your reasoning in detail.`,
         process.on('unhandledRejection', handler)
       }
     })
-
-    if (fs.existsSync(projectPath) && fs.statSync(projectPath).isDirectory()) {
-      fs.rmSync(projectPath, { recursive: true, force: true })
-    }
   }
 
   // If we caught a process-level error, use that
@@ -212,7 +208,11 @@ Explain your reasoning in detail.`,
   const endTime = new Date()
   const durationMs = endTime.getTime() - startTime.getTime()
 
-  const fileStates = getCodebuffFileStates(trace, evalCommit.sha, projectPath)
+  const fileStates = getCodebuffFileStates(evalCommit.sha, projectPath)
+
+  if (fs.existsSync(projectPath) && fs.statSync(projectPath).isDirectory()) {
+    fs.rmSync(projectPath, { recursive: true, force: true })
+  }
 
   const evalRun: EvalRunLog = {
     eval_commit: evalCommit,
@@ -251,7 +251,6 @@ Explain your reasoning in detail.`,
 }
 
 function getCodebuffFileStates(
-  trace: CodebuffTrace[],
   evalCommitSha: string,
   projectPath: string,
 ): string {

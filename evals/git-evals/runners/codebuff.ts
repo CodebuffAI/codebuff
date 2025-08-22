@@ -27,7 +27,7 @@ export class CodebuffRunner implements Runner {
 
     if (!this.client) {
       this.client = new CodebuffClient({
-        cwd: process.cwd(),
+        cwd: this.runState.sessionState.fileContext.cwd,
         onError: (error) => {
           throw new Error(error.message)
         },
