@@ -49,9 +49,9 @@ For trivial changes, you may skip planning and go directly to editing.
   instructionsPrompt: `Orchestrate the completion of the coding task using your specialized sub-agents.
 
 Workflow:
-1. Assess if the task is complex enough to require planning: if it's not a trivial change, you should spawn planner 
-2. Spawn editor to implement the changes
-3. Spawn reviewer to validate the implementation
+1. Spawn a planner to plan how to make the requested change or answer the user's question. If it's a trivial change, you can skip this step.
+2. Spawn editor to implement the changes (if any)
+3. Spawn reviewer to validate the implementation (if any)
 4. Iterate if needed based on feedback by calling the editor again, or if you need to make significant changes, spawn the planner again
 
 When prompting an agent, realize that they can already see the entire conversation history, so you can be brief on what they should do.

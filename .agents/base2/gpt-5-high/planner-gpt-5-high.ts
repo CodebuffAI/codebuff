@@ -42,7 +42,7 @@ const definition: SecretAgentDefinition = {
       input: {
         agents: [
           {
-            agent_type: 'gemini-thinker-high',
+            agent_type: 'thinker-gpt-5-high',
             prompt: `Create a clear implementation plan for the following task, with a focus on simplicity and making the minimal changes necessary for an awesome implementation. Prompt: ${prompt}`,
           },
         ],
