@@ -65,16 +65,6 @@ export const handleSetOutput = ((params: {
     // Set the output (completely replaces previous output)
     agentState.output = output
 
-    logger.debug(
-      {
-        output,
-        agentType: agentState.agentType,
-        agentId: agentState.agentId,
-        updatedOutput: agentState.output,
-      },
-      'set_output tool call completed',
-    )
-
     return 'Output set'
   }
 

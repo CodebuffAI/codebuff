@@ -118,17 +118,6 @@ export const handleFindFiles = ((params: {
         })
       }
 
-      logger.debug(
-        {
-          content: prompt,
-          prompt,
-          addedFilesPaths: addedFiles.map((f) => f.path),
-          updatedFilePaths,
-          printedPaths,
-        },
-        'find_files tool call',
-      )
-
       if (addedFiles.length > 0) {
         return renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
       }
