@@ -240,26 +240,20 @@ export class CodebuffClient {
       return
     }
 
-    const parsedAction = PromptResponseSchema.safeParse(action)
-    if (!parsedAction.success) {
-      const message = [
-        'Received invalid prompt response from server:',
-        JSON.stringify(parsedAction.error.issues),
-        'If this issues persists, please contact support@codebuff.com',
-      ].join('\n')
-      if (promiseActions) {
-        promiseActions.reject(new Error(message))
-      }
-      return
-    }
+    delete this.promptIdValues[promptId]
+
     if (action.type === 'prompt-error') {
-      promiseActions.reject(new Error(action.error))
-      const message = buildArray([action.message, action.error]).join('\n\n')
-      if (promiseActions) {
+      promiseActions.reject(new Error(action.message))
+    } else if (action.type === 'prompt-response') {
+      const parsedAction = PromptResponseSchema.safeParse(action)
+      if (!parsedAction.success) {
+        const message = [
+          'Received invalid prompt response from server:',
+          JSON.stringify(parsedAction.error.issues),
+          'If this issues persists, please contact support@codebuff.com',
+        ].join('\n')
         promiseActions.reject(new Error(message))
-      }
-    } else {
-      if (promiseActions) {
+      } else {
         const { sessionState, toolResults } = parsedAction.data
         const state: RunState = {
           sessionState,
@@ -268,7 +262,6 @@ export class CodebuffClient {
         promiseActions.resolve(state)
       }
     }
-    delete this.promptIdValues[promptId]
   }
 
   private async readFiles(filePath: string[]) {
