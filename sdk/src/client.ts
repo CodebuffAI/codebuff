@@ -1,6 +1,10 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { initialSessionState, type RunState } from './run-state'
+import {
+  initialSessionState,
+  applyOverridesToSessionState,
+  type RunState,
+} from './run-state'
 import { changeFile } from './tools/change-file'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
@@ -17,6 +21,7 @@ import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type { ToolName } from '../../common/src/tools/constants'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
+import type { SessionState } from '../../common/src/types/session-state'
 
 type ClientToolName = 'write_file' | 'run_terminal_command'
 
@@ -156,16 +161,31 @@ export class CodebuffClient {
     await this.websocketHandler.connect()
 
     const promptId = Math.random().toString(36).substring(2, 15)
-    const sessionState =
-      previousRun?.sessionState ??
-      (await initialSessionState(this.cwd, {
+
+    let sessionState: SessionState
+    if (previousRun?.sessionState) {
+      // applyOverridesToSessionState handles deep cloning and applying any provided overrides
+      sessionState = await applyOverridesToSessionState(
+        this.cwd,
+        previousRun.sessionState,
+        {
+          knowledgeFiles,
+          agentDefinitions,
+          customToolDefinitions,
+          projectFiles,
+          maxAgentSteps,
+        },
+      )
+    } else {
+      // No previous run, so create a fresh session state
+      sessionState = await initialSessionState(this.cwd, {
         knowledgeFiles,
         agentDefinitions,
         customToolDefinitions,
         projectFiles,
         maxAgentSteps,
-      }))
-    sessionState.mainAgentState.stepsRemaining = maxAgentSteps
+      })
+    }
     const toolResults = previousRun?.toolResults ?? []
     this.promptIdValues[promptId] = {
       handleEvent,

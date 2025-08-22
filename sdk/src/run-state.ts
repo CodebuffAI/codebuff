@@ -18,38 +18,12 @@ export type RunState = {
   toolResults: ServerAction<'prompt-response'>['toolResults']
 }
 
-export async function initialSessionState(
-  cwd: string,
-  options: {
-    projectFiles?: Record<string, string>
-    knowledgeFiles?: Record<string, string>
-    agentDefinitions?: AgentDefinition[]
-    customToolDefinitions?: CustomToolDefinition[]
-    maxAgentSteps?: number
-  },
-) {
-  const { projectFiles = {}, agentDefinitions = [] } = options
-  let { knowledgeFiles } = options
-
-  if (knowledgeFiles === undefined) {
-    knowledgeFiles = {}
-    for (const [filePath, fileContents] of Object.entries(projectFiles)) {
-      if (filePath in projectFiles) {
-        continue
-      }
-      const lowercasePathName = filePath.toLowerCase()
-      if (
-        !lowercasePathName.endsWith('knowledge.md') &&
-        !lowercasePathName.endsWith('claude.md')
-      ) {
-        continue
-      }
-
-      knowledgeFiles[filePath] = fileContents
-    }
-  }
-
-  // Process agentDefinitions array and convert handleSteps functions to strings
+/**
+ * Processes agent definitions array and converts handleSteps functions to strings
+ */
+function processAgentDefinitions(
+  agentDefinitions: AgentDefinition[],
+): Record<string, any> {
   const processedAgentTemplates: Record<string, any> = {}
   agentDefinitions.forEach((definition) => {
     const processedConfig = { ...definition } as Record<string, any>
@@ -63,12 +37,20 @@ export async function initialSessionState(
       processedAgentTemplates[processedConfig.id] = processedConfig
     }
   })
+  return processedAgentTemplates
+}
 
-  const processedCustomToolDefinitions: Record<
-    string,
-    Pick<CustomToolDefinition, keyof NonNullable<CustomToolDefinitions>[string]>
-  > = Object.fromEntries(
-    (options.customToolDefinitions ?? []).map((toolDefinition) => [
+/**
+ * Processes custom tool definitions into the format expected by SessionState
+ */
+function processCustomToolDefinitions(
+  customToolDefinitions: CustomToolDefinition[],
+): Record<
+  string,
+  Pick<CustomToolDefinition, keyof NonNullable<CustomToolDefinitions>[string]>
+> {
+  return Object.fromEntries(
+    customToolDefinitions.map((toolDefinition) => [
       toolDefinition.toolName,
       {
         inputJsonSchema: toolDefinition.inputJsonSchema,
@@ -78,11 +60,20 @@ export async function initialSessionState(
       },
     ]),
   )
+}
 
-  // Generate file tree and token scores from projectFiles
+/**
+ * Computes project file indexes (file tree and token scores)
+ */
+async function computeProjectIndex(
+  cwd: string,
+  projectFiles: Record<string, string>,
+): Promise<{
+  fileTree: FileTreeNode[]
+  fileTokenScores: Record<string, any>
+  tokenCallers: Record<string, any>
+}> {
   const filePaths = Object.keys(projectFiles).sort()
-
-  // Build hierarchical file tree with directories
   const fileTree = buildFileTree(filePaths)
   let fileTokenScores = {}
   let tokenCallers = {}
@@ -101,6 +92,56 @@ export async function initialSessionState(
       console.warn('Failed to generate parsed symbol scores:', error)
     }
   }
+
+  return { fileTree, fileTokenScores, tokenCallers }
+}
+
+/**
+ * Auto-derives knowledge files from project files if knowledgeFiles is undefined
+ */
+function deriveKnowledgeFiles(
+  projectFiles: Record<string, string>,
+): Record<string, string> {
+  const knowledgeFiles: Record<string, string> = {}
+  for (const [filePath, fileContents] of Object.entries(projectFiles)) {
+    const lowercasePathName = filePath.toLowerCase()
+    if (
+      lowercasePathName.endsWith('knowledge.md') ||
+      lowercasePathName.endsWith('claude.md')
+    ) {
+      knowledgeFiles[filePath] = fileContents
+    }
+  }
+  return knowledgeFiles
+}
+
+export async function initialSessionState(
+  cwd: string,
+  options: {
+    projectFiles?: Record<string, string>
+    knowledgeFiles?: Record<string, string>
+    agentDefinitions?: AgentDefinition[]
+    customToolDefinitions?: CustomToolDefinition[]
+    maxAgentSteps?: number
+  },
+) {
+  const { projectFiles = {}, agentDefinitions = [] } = options
+  let { knowledgeFiles } = options
+
+  if (knowledgeFiles === undefined) {
+    knowledgeFiles = deriveKnowledgeFiles(projectFiles)
+  }
+
+  const processedAgentTemplates = processAgentDefinitions(agentDefinitions)
+  const processedCustomToolDefinitions = processCustomToolDefinitions(
+    options.customToolDefinitions ?? [],
+  )
+
+  // Generate file tree and token scores from projectFiles
+  const { fileTree, fileTokenScores, tokenCallers } = await computeProjectIndex(
+    cwd,
+    projectFiles,
+  )
 
   const initialState = getInitialSessionState({
     projectRoot: cwd,
@@ -192,6 +233,77 @@ export function withMessageHistory({
   newRunState.sessionState.mainAgentState.messageHistory = messages
 
   return newRunState
+}
+
+/**
+ * Applies overrides to an existing session state, allowing specific fields to be updated
+ * even when continuing from a previous run.
+ */
+export async function applyOverridesToSessionState(
+  cwd: string,
+  baseSessionState: SessionState,
+  overrides: {
+    projectFiles?: Record<string, string>
+    knowledgeFiles?: Record<string, string>
+    agentDefinitions?: AgentDefinition[]
+    customToolDefinitions?: CustomToolDefinition[]
+    maxAgentSteps?: number
+  },
+): Promise<SessionState> {
+  // Deep clone to avoid mutating the original session state
+  const sessionState = JSON.parse(
+    JSON.stringify(baseSessionState),
+  ) as SessionState
+
+  // Apply maxAgentSteps override
+  if (overrides.maxAgentSteps !== undefined) {
+    sessionState.mainAgentState.stepsRemaining = overrides.maxAgentSteps
+  }
+
+  // Apply projectFiles override (recomputes file tree and token scores)
+  if (overrides.projectFiles !== undefined) {
+    const { fileTree, fileTokenScores, tokenCallers } =
+      await computeProjectIndex(cwd, overrides.projectFiles)
+    sessionState.fileContext.fileTree = fileTree
+    sessionState.fileContext.fileTokenScores = fileTokenScores
+    sessionState.fileContext.tokenCallers = tokenCallers
+
+    // Auto-derive knowledgeFiles if not explicitly provided
+    if (overrides.knowledgeFiles === undefined) {
+      sessionState.fileContext.knowledgeFiles = deriveKnowledgeFiles(
+        overrides.projectFiles,
+      )
+    }
+  }
+
+  // Apply knowledgeFiles override
+  if (overrides.knowledgeFiles !== undefined) {
+    sessionState.fileContext.knowledgeFiles = overrides.knowledgeFiles
+  }
+
+  // Apply agentDefinitions override (merge by id, last-in wins)
+  if (overrides.agentDefinitions !== undefined) {
+    const processedAgentTemplates = processAgentDefinitions(
+      overrides.agentDefinitions,
+    )
+    sessionState.fileContext.agentTemplates = {
+      ...sessionState.fileContext.agentTemplates,
+      ...processedAgentTemplates,
+    }
+  }
+
+  // Apply customToolDefinitions override (replace by toolName)
+  if (overrides.customToolDefinitions !== undefined) {
+    const processedCustomToolDefinitions = processCustomToolDefinitions(
+      overrides.customToolDefinitions,
+    )
+    sessionState.fileContext.customToolDefinitions = {
+      ...sessionState.fileContext.customToolDefinitions,
+      ...processedCustomToolDefinitions,
+    }
+  }
+
+  return sessionState
 }
 
 /**
