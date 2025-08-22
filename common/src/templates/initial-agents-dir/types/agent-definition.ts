@@ -175,9 +175,7 @@ export interface AgentDefinition {
    * }
    * }
    */
-  handleSteps?: (
-    context: AgentStepContext,
-  ) => Generator<
+  handleSteps?: (context: AgentStepContext) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
     {
@@ -194,8 +192,13 @@ export interface AgentDefinition {
 
 export interface AgentState {
   agentId: string
-  parentId: string
+  parentId: string | undefined
+
+  /** The agent's conversation history: messages from the user and the assistant. */
   messageHistory: Message[]
+
+  /** The last value set by the set_output tool. This is a plain object or undefined if not set. */
+  output: Record<string, any> | undefined
 }
 
 /**
@@ -203,7 +206,18 @@ export interface AgentState {
  */
 export interface Message {
   role: 'user' | 'assistant'
-  content: string
+  content:
+    | string
+    | Array<
+        | {
+            type: 'text'
+            text: string
+          }
+        | {
+            type: 'image'
+            image: string
+          }
+      >
 }
 
 /**

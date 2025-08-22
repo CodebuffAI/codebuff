@@ -14,7 +14,15 @@ export const setMessagesParams = {
           // Make sure to pass through any additional properties!
           .looseObject({
             role: z.enum(['user', 'assistant']),
-            content: z.string(),
+            content: z.string().or(
+              z.array(
+                z
+                  .object({
+                    type: z.enum(['text']),
+                    text: z.string(),
+                  })
+              ),
+            ),
           }),
       ),
     })

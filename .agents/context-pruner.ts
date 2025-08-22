@@ -1,6 +1,10 @@
 import { publisher } from './constants'
 
-import type { AgentDefinition, Message } from './types/agent-definition'
+import type {
+  AgentDefinition,
+  Message,
+  ToolCall,
+} from './types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'context-pruner',
@@ -109,7 +113,7 @@ const definition: AgentDefinition = {
     }
 
     // PASS 2: Remove large tool results (any tool result > 1000 chars)
-    const afterToolResultsPass: Message[] = afterTerminalPass.map((message) => {
+    const afterToolResultsPass = afterTerminalPass.map((message) => {
       let processedContent =
         typeof message.content === 'string'
           ? message.content
@@ -136,7 +140,7 @@ const definition: AgentDefinition = {
         input: {
           messages: afterToolResultsPass,
         },
-      }
+      } satisfies ToolCall
       return
     }
 
@@ -155,7 +159,7 @@ const definition: AgentDefinition = {
       (maxMessageTokens - requiredTokens) * (1 - shortenedMessageTokenFactor)
 
     const placeholder = 'deleted'
-    const filteredMessages: (Message | typeof placeholder)[] = []
+    const filteredMessages: any[] = []
 
     for (const message of afterToolResultsPass) {
       if (
@@ -186,7 +190,7 @@ const definition: AgentDefinition = {
       input: {
         messages: finalMessages,
       },
-    }
+    } satisfies ToolCall
   },
 }
 

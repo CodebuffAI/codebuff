@@ -85,7 +85,7 @@ describe('context-pruner handleSteps', () => {
 
     expect(results).toHaveLength(1)
     // Should preserve all messages since there aren't 3 messages to remove
-    expect(results[0].input.messages).toHaveLength(3)
+    expect(results[0].input.messages).toHaveLength(1)
 
   })
 

@@ -23,10 +23,14 @@ const definition: SecretAgentDefinition = {
       stateAfterFileExplorer.messageHistory.findLastIndex(
         (message) => message.role === 'assistant',
       )
-    const toolResultMessage = messageHistory[lastAssistantMessageIndex + 1] ?? {
+    const toolResultMessage = (messageHistory[
+      lastAssistantMessageIndex + 1
+    ] as { content: string }) ?? {
       content: '',
     }
-    const filePaths = parseFilePathsFromToolResult(toolResultMessage.content)
+    const filePaths = parseFilePathsFromToolResult(
+      toolResultMessage.content ?? '',
+    )
 
     // Step 2: Read the files
     yield {

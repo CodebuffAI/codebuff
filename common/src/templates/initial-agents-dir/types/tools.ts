@@ -120,7 +120,12 @@ export interface RunTerminalCommandParams {
 export interface SetMessagesParams {
   messages: {
     role: 'user' | 'assistant'
-    content: string
+    content:
+      | string
+      | {
+          type: 'text'
+          text: string
+        }[]
   }[]
 }
 

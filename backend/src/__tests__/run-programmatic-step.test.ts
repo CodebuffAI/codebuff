@@ -33,6 +33,7 @@ import type {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
+import { PublicAgentState } from '@codebuff/common/types/agent-template'
 
 describe('runProgrammaticStep', () => {
   let mockTemplate: AgentTemplate
@@ -382,7 +383,7 @@ describe('runProgrammaticStep', () => {
     it('should comprehensively test STEP_ALL functionality with multiple tools and state management', async () => {
       // Track all tool results and state changes for verification
       const toolResultsReceived: (string | undefined)[] = []
-      const stateSnapshots: AgentState[] = []
+      const stateSnapshots: PublicAgentState[] = []
       let stepCount = 0
 
       const mockGenerator = (function* () {

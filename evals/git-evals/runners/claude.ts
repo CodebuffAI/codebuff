@@ -40,7 +40,7 @@ export class ClaudeRunner implements Runner {
           responseText += chunk.message.content
           console.log(`\n\nUser: ${chunk.message.content}`)
         } else {
-          chunk.message.content.forEach((content) => {
+          chunk.message.content.forEach((content: any) => {
             if (content.type === 'text') {
               responseText += content.text
               console.log(`\n\nUser: ${content.text}`)
@@ -53,7 +53,7 @@ export class ClaudeRunner implements Runner {
           })
         }
       } else if (chunk.type === 'assistant') {
-        chunk.message.content.forEach((content) => {
+        chunk.message.content.forEach((content: any) => {
           if (content.type === 'text') {
             if (toolResults.length > 0) {
               flushStep()

@@ -56,7 +56,7 @@ export interface AgentDefinition {
   // ============================================================================
 
   /** Tools this agent can use. */
-  toolNames?: ToolName[]
+  toolNames?: (ToolName | (string & {}))[]
 
   /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
    *
@@ -95,7 +95,7 @@ export interface AgentDefinition {
    *
    * all_messages: All messages from the agent, including tool calls and results.
    *
-   * json: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
+   * structured_output: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
    */
   outputMode?: 'last_message' | 'all_messages' | 'structured_output'
 
@@ -146,6 +146,14 @@ export interface AgentDefinition {
    *     input: { paths: ['file1.txt', 'file2.txt'] }
    *   }
    *   yield 'STEP_ALL'
+   *
+   *   // Optionally do a post-processing step here...
+   *   yield {
+   *     toolName: 'set_output',
+   *     input: {
+   *       output: 'The files were read successfully.',
+   *     },
+   *   }
    * }
    *
    * Example 2:
@@ -162,7 +170,8 @@ export interface AgentDefinition {
    *       ],
    *     },
    *   }
-   *   yield 'STEP'
+   *   const { stepsComplete } = yield 'STEP'
+   *   if (stepsComplete) break
    * }
    * }
    */
@@ -183,8 +192,13 @@ export interface AgentDefinition {
 
 export interface AgentState {
   agentId: string
-  parentId: string
+  parentId: string | undefined
+
+  /** The agent's conversation history: messages from the user and the assistant. */
   messageHistory: Message[]
+
+  /** The last value set by the set_output tool. This is a plain object or undefined if not set. */
+  output: Record<string, any> | undefined
 }
 
 /**
@@ -192,7 +206,18 @@ export interface AgentState {
  */
 export interface Message {
   role: 'user' | 'assistant'
-  content: string
+  content:
+    | string
+    | Array<
+        | {
+            type: 'text'
+            text: string
+          }
+        | {
+            type: 'image'
+            image: string
+          }
+      >
 }
 
 /**

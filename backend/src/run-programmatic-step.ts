@@ -11,6 +11,7 @@ import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
   AgentTemplate,
   StepGenerator,
+  PublicAgentState,
 } from '@codebuff/common/types/agent-template'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -153,12 +154,12 @@ export async function runProgrammaticStep(
     do {
       const result = sandbox
         ? await sandbox.executeStep({
-            agentState: { ...state.agentState },
+            agentState: getPublicAgentState(state.agentState),
             toolResult,
             stepsComplete,
           })
         : generator!.next({
-            agentState: { ...state.agentState },
+            agentState: getPublicAgentState(state.agentState),
             toolResult,
             stepsComplete,
           })
@@ -273,5 +274,17 @@ export async function runProgrammaticStep(
       delete agentIdToGenerator[agentState.agentId]
       agentIdToStepAll.delete(agentState.agentId)
     }
+  }
+}
+
+export const getPublicAgentState = (
+  agentState: AgentState,
+): PublicAgentState => {
+  const { agentId, parentId, messageHistory, output } = agentState
+  return {
+    agentId,
+    parentId,
+    messageHistory: messageHistory as any as PublicAgentState['messageHistory'],
+    output,
   }
 }
