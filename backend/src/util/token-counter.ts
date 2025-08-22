@@ -11,7 +11,10 @@ export function countTokens(text: string): number {
     if (cached !== undefined) {
       return cached
     }
-    const count = Math.floor(encode(text).length * ANTHROPIC_TOKEN_FUDGE_FACTOR)
+    const count = Math.floor(
+      encode(text, { allowedSpecial: 'all' }).length *
+        ANTHROPIC_TOKEN_FUDGE_FACTOR,
+    )
 
     if (text.length > 100) {
       // Cache only if the text is long enough to be worth it.
