@@ -11,6 +11,7 @@ import {
   toolNameParam,
 } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -100,6 +101,7 @@ export const promptAiSdkStream = async function* (
     ...options,
     model: aiSDKModel,
     maxRetries: options.maxRetries,
+    messages: convertCbToModelMessages(options),
   })
 
   let content = ''
@@ -246,6 +248,7 @@ export const promptAiSdk = async function (
   const response = await generateText({
     ...options,
     model: aiSDKModel,
+    messages: convertCbToModelMessages(options),
   })
 
   const content = response.text
@@ -309,6 +312,7 @@ export const promptAiSdkStructured = async function <T>(options: {
     ...options,
     model: aiSDKModel,
     output: 'object',
+    messages: convertCbToModelMessages(options),
   })
 
   const response = await (options.timeout === undefined

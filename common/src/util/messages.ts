@@ -66,3 +66,11 @@ export function withCacheControl(msg: CodebuffMessage): CodebuffMessage {
   message.providerOptions.openrouter.cacheControl = { type: 'ephemeral' }
   return message
 }
+
+export function convertCbToModelMessages({
+  messages,
+}: {
+  messages: CodebuffMessage[]
+}): ModelMessage[] {
+  return messages
+}
