@@ -43,13 +43,13 @@ export async function GET(request: NextRequest) {
 
     logger.info(
       { userId, tokenCount: tokens.length },
-      'Successfully retrieved Personal Access Tokens'
+      'Successfully retrieved API Keys'
     )
     return NextResponse.json({ tokens }, { status: 200 })
   } catch (error) {
-    logger.error({ error, userId }, 'Failed to retrieve Personal Access Tokens')
+    logger.error({ error, userId }, 'Failed to retrieve API Keys')
     return NextResponse.json(
-      { error: 'Failed to retrieve Personal Access Tokens' },
+      { error: 'Failed to retrieve API Keys' },
       { status: 500 }
     )
   }
@@ -98,21 +98,21 @@ export async function POST(request: NextRequest) {
 
     logger.info(
       { userId, tokenDisplay, expiresInDays },
-      'Successfully created Personal Access Token'
+      'Successfully created API Key'
     )
 
     return NextResponse.json(
       {
         token: sessionToken, // Return full token with prefix already baked in
         expires: expires.toISOString(),
-        message: 'Personal Access Token created successfully',
+        message: 'API Key created successfully',
       },
       { status: 201 }
     )
   } catch (error) {
-    logger.error({ error, userId }, 'Failed to create Personal Access Token')
+    logger.error({ error, userId }, 'Failed to create API Key')
     return NextResponse.json(
-      { error: 'Failed to create Personal Access Token' },
+      { error: 'Failed to create API Key' },
       { status: 500 }
     )
   }

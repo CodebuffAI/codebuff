@@ -10,8 +10,6 @@ import { match, P } from 'ts-pattern'
 
 import type { ReferralData } from '@/app/api/referrals/route'
 
-import CardWithBeams from '@/components/card-with-beams'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -24,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
+import { ProfileSection } from './profile-section'
 
 const copyReferral = (link: string) => {
   navigator.clipboard.writeText(link)
@@ -43,7 +42,7 @@ const CreditsBadge = (credits: number) => {
   )
 }
 
-const ReferralsPage = () => {
+export function ReferralsSection() {
   const { data: session, status } = useSession()
   const { data, error, isLoading } = useQuery<ReferralData>({
     queryKey: ['referrals'],
@@ -62,37 +61,40 @@ const ReferralsPage = () => {
   const link = data?.referralCode ? getReferralLink(data.referralCode) : ''
 
   if (error) {
-    return CardWithBeams({
-      title: 'Uh-oh, spaghettio!',
-      description: "We couldn't fetch your referral data.",
-      content: (
-        <>
-          <p>
-            Something went wrong. Please reach out to{' '}
-            {env.NEXT_PUBLIC_SUPPORT_EMAIL} for help, and send the following
-            error:
-          </p>
-          <code>{error.message}</code>
-        </>
-      ),
-    })
+    return (
+      <ProfileSection>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">
+              Error Loading Referrals
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>We couldn't fetch your referral data.</p>
+            <code className="text-sm">{(error as any).message}</code>
+          </CardContent>
+        </Card>
+      </ProfileSection>
+    )
   }
 
   if (status === 'unauthenticated') {
     return (
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>You&apos;re not logged in.</CardTitle>
-          <CardDescription>No code for you!</CardDescription>
-        </CardHeader>
-        <CardContent>Log in to get your unique referral code</CardContent>
-        <SignInCardFooter />
-      </Card>
+      <ProfileSection>
+        <Card>
+          <CardHeader>
+            <CardTitle>You're not logged in.</CardTitle>
+            <CardDescription>
+              Log in to access your referral program.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </ProfileSection>
     )
   }
 
   return (
-    <div className="flex flex-col space-y-6">
+    <ProfileSection description="Share Codebuff with friends and earn credits together! Both you and your friend get rewarded when they sign up.">
       {data?.referredBy && (
         <Card className="bg-gradient-to-br from-green-100/90 to-emerald-100/90 dark:from-green-900/90 dark:to-emerald-900/90 border border-green-200 dark:border-green-800 shadow-lg">
           <CardHeader>
@@ -111,14 +113,15 @@ const ReferralsPage = () => {
           </CardContent>
         </Card>
       )}
+
       <Card className="bg-gradient-to-br from-green-50/90 to-emerald-50/90 dark:from-green-950/90 dark:to-emerald-950/90 border border-green-200 dark:border-green-800 shadow-lg">
         <CardHeader>
           <CardTitle className="text-green-800 dark:text-green-200">
             Your Referrals
           </CardTitle>
           <CardDescription className="text-green-700 dark:text-green-300">
-            Refer a friend and <b>you&apos;ll both</b> earn{' '}
-            {CREDITS_REFERRAL_BONUS} credits per month!{' '}
+            Refer a friend and <b>you'll both</b> earn {CREDITS_REFERRAL_BONUS}{' '}
+            credits per month!{' '}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -144,69 +147,67 @@ const ReferralsPage = () => {
                 data: P.not(undefined),
               },
               ({ data }) => (
-                <CardContent>
-                  <div className="flex flex-col space-y-4">
-                    <div>Share this link with them:</div>
-                    <div className="relative">
-                      {loading ? (
-                        <Skeleton className="h-10 w-full" />
-                      ) : (
-                        <Input
-                          value={link}
-                          placeholder={'Your referral link'}
-                          readOnly
-                          className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                        />
-                      )}
-                      <Button
-                        onClick={() => copyReferral(link)}
-                        disabled={loading || !session?.user}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                        variant="ghost"
-                      >
-                        <CopyIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <Separator />
-
-                    <div>
-                      You&apos;ve referred{' '}
-                      <b>
-                        {data.referrals.length}/{data.referralLimit}
-                      </b>{' '}
-                      people.{' '}
-                      <Button
-                        variant="link"
-                        className="p-0 m-0 inline-flex"
-                        asChild
-                      >
-                        <a
-                          href={`https://codebuff.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187?email=${session?.user?.email}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          (Wanna refer more? 🚀)
-                        </a>
-                      </Button>
-                    </div>
-                    {data.referrals.length !== 0 && (
-                      <ul className="space-y-2">
-                        {data.referrals.map((r) => (
-                          <li
-                            key={r.id}
-                            className="flex justify-between items-center"
-                          >
-                            <span>
-                              {r.name} ({r.email})
-                            </span>
-                            {CreditsBadge(r.credits)}
-                          </li>
-                        ))}
-                      </ul>
+                <div className="space-y-4">
+                  <div>Share this link with them:</div>
+                  <div className="relative">
+                    {loading ? (
+                      <Skeleton className="h-10 w-full" />
+                    ) : (
+                      <Input
+                        value={link}
+                        placeholder={'Your referral link'}
+                        readOnly
+                        className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                      />
                     )}
+                    <Button
+                      onClick={() => copyReferral(link)}
+                      disabled={loading || !session?.user}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
+                      variant="ghost"
+                    >
+                      <CopyIcon className="h-4 w-4" />
+                    </Button>
                   </div>
-                </CardContent>
+
+                  <Separator />
+
+                  <div>
+                    You've referred{' '}
+                    <b>
+                      {data.referrals.length}/{data.referralLimit}
+                    </b>{' '}
+                    people.{' '}
+                    <Button
+                      variant="link"
+                      className="p-0 m-0 inline-flex"
+                      asChild
+                    >
+                      <a
+                        href={`https://codebuff.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187?email=${session?.user?.email}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        (Wanna refer more? 🚀)
+                      </a>
+                    </Button>
+                  </div>
+                  {data.referrals.length !== 0 && (
+                    <ul className="space-y-2">
+                      {data.referrals.map((r) => (
+                        <li
+                          key={r.id}
+                          className="flex justify-between items-center"
+                        >
+                          <span>
+                            {r.name} ({r.email})
+                          </span>
+                          {CreditsBadge(r.credits)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )
             )
             .otherwise(() => (
@@ -217,8 +218,6 @@ const ReferralsPage = () => {
             ))}
         </CardContent>
       </Card>
-    </div>
+    </ProfileSection>
   )
 }
-
-export default ReferralsPage

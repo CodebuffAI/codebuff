@@ -28,6 +28,7 @@ interface UsageDisplayProps {
   usageThisCycle: number
   balance: CreditBalance
   nextQuotaReset: Date | null
+  isLoading?: boolean
 }
 
 type FilteredGrantType = Exclude<GrantType, 'organization'>
@@ -165,7 +166,7 @@ const CreditBranch = ({
   const isRenewable = title === 'Renewable Credits'
 
   return (
-    <div className="space-y-1 border rounded-lg p-2">
+    <div className="border rounded-lg p-1.5">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex flex-col sm:flex-row items-start sm:items-center py-2 px-4 hover:bg-accent/5 rounded-md transition-colors"
@@ -203,7 +204,7 @@ const CreditBranch = ({
         </div>
       </button>
 
-      {isOpen && <div className="space-y-0.5 mt-1">{children}</div>}
+      {isOpen && <div className="mt-1">{children}</div>}
     </div>
   )
 }
@@ -212,7 +213,11 @@ export const UsageDisplay = ({
   usageThisCycle,
   balance,
   nextQuotaReset,
+  isLoading = false,
 }: UsageDisplayProps) => {
+  if (isLoading) {
+    return <UsageDisplaySkeleton />
+  }
   const { totalRemaining, breakdown, totalDebt, netBalance, principals } =
     balance
 
@@ -261,8 +266,8 @@ export const UsageDisplay = ({
   )
 
   return (
-    <Card className="w-full max-w-2xl mx-auto -mt-8">
-      <CardHeader className="pb-4">
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader className="pb-3">
         <CardTitle className="text-xl font-bold mb-3">Credit Balance</CardTitle>
 
         <div className="text-sm text-muted-foreground mb-3">
@@ -280,32 +285,30 @@ export const UsageDisplay = ({
         )}
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {/* Credit Categories with expandable details */}
-        <div className="space-y-1">
-          <CreditBranch
-            title="Renewable Credits"
-            totalAmount={expiringTotal}
-            usedAmount={expiringUsed}
-            nextQuotaReset={nextQuotaReset}
-          >
-            {expiringTypes.map((type) => {
-              const currentBalance = breakdown[type] || 0
-              const principal = principals?.[type] || currentBalance
-              const used = usedCredits[type]
+        <CreditBranch
+          title="Renewable Credits"
+          totalAmount={expiringTotal}
+          usedAmount={expiringUsed}
+          nextQuotaReset={nextQuotaReset}
+        >
+          {expiringTypes.map((type) => {
+            const currentBalance = breakdown[type] || 0
+            const principal = principals?.[type] || currentBalance
+            const used = usedCredits[type]
 
-              return (
-                <CreditLeaf
-                  key={type}
-                  type={type}
-                  amount={principal}
-                  used={used}
-                  isRenewable={true}
-                />
-              )
-            })}
-          </CreditBranch>
-        </div>
+            return (
+              <CreditLeaf
+                key={type}
+                type={type}
+                amount={principal}
+                used={used}
+                isRenewable={true}
+              />
+            )
+          })}
+        </CreditBranch>
 
         <CreditBranch
           title="Non-renewable Credits"
@@ -363,7 +366,7 @@ export const UsageDisplay = ({
 }
 
 export const UsageDisplaySkeleton = () => (
-  <Card className="w-full max-w-2xl mx-auto -mt-8">
+  <Card className="w-full max-w-2xl mx-auto">
     <CardHeader className="pb-4">
       <div className="h-7 w-32 bg-muted rounded animate-pulse mb-3" />
       <div className="h-5 w-64 bg-muted/70 rounded animate-pulse mb-3" />

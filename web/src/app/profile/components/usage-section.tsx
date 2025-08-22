@@ -7,86 +7,14 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
-import { UsageDisplay, UsageDisplaySkeleton } from './usage-display'
-
+import { UsageDisplay } from './usage-display'
 import { CreditManagementSection } from '@/components/credits/CreditManagementSection'
-import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreditConfetti } from '@/components/ui/credit-confetti'
-import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
+import { ProfileSection } from './profile-section'
 
-type UserProfileKeys =
-  | 'handle'
-  | 'referral_code'
-  | 'auto_topup_enabled'
-  | 'auto_topup_threshold'
-  | 'auto_topup_amount'
-  | 'auto_topup_blocked_reason'
-
-const MIN_THRESHOLD_CREDITS = 100
-const MAX_THRESHOLD_CREDITS = 10000
-const MIN_TOPUP_DOLLARS = 5.0
-const MAX_TOPUP_DOLLARS = 100.0
-const CENTS_PER_CREDIT = 1
-
-const UsagePageSkeleton = () => (
-  <div className="space-y-8 container mx-auto py-6 px-4 sm:py-10 sm:px-6">
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <Skeleton className="h-8 w-1/2" />
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-full rounded-full" />
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-4 w-18" />
-        </div>
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-      </CardContent>
-    </Card>
-  </div>
-)
-
-const SignInCard = () => (
-  <Card className="w-full max-w-md mx-auto mt-10">
-    <CardHeader>
-      <CardTitle>Sign in to view usage</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <p>Please sign in to view your usage statistics and manage settings.</p>
-    </CardContent>
-    <SignInCardFooter />
-  </Card>
-)
-
-const BuyCreditsSkeleton = () => (
-  <Card className="w-full max-w-2xl mx-auto mb-8">
-    <CardContent className="space-y-6 pt-6">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-1/4" />
-        <Skeleton className="h-4 w-1/5" />
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-      </div>
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-1/4" />
-        <Skeleton className="h-10 w-1/3" />
-      </div>
-    </CardContent>
-  </Card>
-)
-
-const ManageCreditsCard = () => {
+const ManageCreditsCard = ({ isLoading = false }: { isLoading?: boolean }) => {
   const { data: session } = useSession()
   const email = encodeURIComponent(session?.user?.email || '')
   const queryClient = useQueryClient()
@@ -147,23 +75,16 @@ const ManageCreditsCard = () => {
   })
 
   return (
-    <Card className="w-full max-w-2xl mx-auto mb-8">
+    <Card>
       <CardContent className="space-y-6 pt-6">
         <div className="space-y-8">
           {showConfetti && <CreditConfetti amount={purchasedAmount} />}
-          <div className="flex items-center justify-between">
-            <Link
-              href={`${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${email}`}
-              target="_blank"
-              className="text-sm text-primary underline underline-offset-4 hover:text-primary/90"
-            >
-              Billing Portal →
-            </Link>
-          </div>
           <CreditManagementSection
             onPurchase={(credits) => buyCreditsMutation.mutate(credits)}
             isPurchasePending={buyCreditsMutation.isPending}
             showAutoTopup={true}
+            isLoading={isLoading}
+            billingPortalUrl={`${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${email}`}
           />
         </div>
       </CardContent>
@@ -171,7 +92,7 @@ const ManageCreditsCard = () => {
   )
 }
 
-const UsagePage = () => {
+export function UsageSection() {
   const { data: session, status } = useSession()
 
   const {
@@ -200,15 +121,15 @@ const UsagePage = () => {
     isLoadingUsage || (status === 'authenticated' && !usageData)
 
   return (
-    <div className="space-y-8 container mx-auto py-6 px-4 sm:py-10 sm:px-6">
-      {isUsageOrProfileLoading && (
-        <>
-          <UsageDisplaySkeleton />
-          <BuyCreditsSkeleton />
-        </>
-      )}
+    <div className="space-y-6">
+      {' '}
+      <div className="space-y-1 mb-6">
+        <p className="text-muted-foreground">
+          Track your credit usage and purchase additional credits as needed.
+        </p>
+      </div>
       {isUsageError && (
-        <Card className="w-full max-w-2xl mx-auto border-destructive">
+        <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="text-destructive">
               Error Loading Usage
@@ -221,17 +142,25 @@ const UsagePage = () => {
           </CardContent>
         </Card>
       )}
-      {status === 'authenticated' &&
-        !isUsageOrProfileLoading &&
-        !isUsageError &&
-        usageData && (
-          <>
-            <UsageDisplay {...usageData} />
-            <ManageCreditsCard />
-          </>
-        )}
+      {status === 'authenticated' && !isUsageError && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <UsageDisplay
+            {...(usageData || {
+              usageThisCycle: 0,
+              balance: {
+                totalRemaining: 0,
+                breakdown: {},
+                totalDebt: 0,
+                netBalance: 0,
+                principals: {},
+              },
+              nextQuotaReset: null,
+            })}
+            isLoading={isUsageOrProfileLoading}
+          />
+          <ManageCreditsCard isLoading={isUsageOrProfileLoading} />
+        </div>
+      )}
     </div>
   )
 }
-
-export default UsagePage
