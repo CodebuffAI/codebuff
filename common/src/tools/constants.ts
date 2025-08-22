@@ -7,7 +7,15 @@ export const toolXmlName = 'codebuff_tool_call'
 export const startToolTag = `<${toolXmlName}>\n`
 export const endToolTag = `\n</${toolXmlName}>`
 
-export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = ['think_deeply']
+export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
+  'think_deeply',
+  'set_output',
+  'set_messages',
+  'add_message',
+  'add_subgoal',
+  'update_subgoal',
+  'create_plan',
+]
 
 // List of all available tools
 export const toolNames = [
