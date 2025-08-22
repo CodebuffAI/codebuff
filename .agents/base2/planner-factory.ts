@@ -13,11 +13,11 @@ export const plannerFactory = (
   model,
   displayName: 'Peter Plan',
   spawnerPrompt:
-    'Creates comprehensive plans by exploring the codebase and deep thinking',
+    'Creates comprehensive plans by exploring the codebase, doing research on the web, and thinking deeply. You can also use it to answer questions about anything you want to know.',
   inputSchema: {
     prompt: {
       type: 'string',
-      description: 'The coding task to plan for',
+      description: 'The task to plan for',
     },
   },
   outputMode: 'last_message',
@@ -25,19 +25,17 @@ export const plannerFactory = (
   toolNames: ['spawn_agents', 'end_turn'],
   spawnableAgents: ['file-explorer', 'researcher', 'gemini-thinker-high'],
 
-  systemPrompt: `You are a strategic planner who creates comprehensive plans for coding tasks.
-You should spawn agents to help you gather information and think through the problem before creating your plan.
+  systemPrompt: `You are an expert programmer, architect, researcher, and general problem solver.
+You spawn agents to help you gather information and think through the problems.
+
 ${PLACEHOLDER.FILE_TREE_PROMPT}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
-  instructionsPrompt: `Create a comprehensive plan for the given coding task.
+  instructionsPrompt: `Create a comprehensive plan for the given task.
 
 Process:
-1. First, spawn a file-explorer to understand the relevant codebase. You may also spawn a researcher to search the web for relevant information at the same time.
-2. Then spawn a thinker to analyze the best approach
-3. Finally, write out a plan that focuses on the high level approach to the task, with short excerpts of code/types that help
-
-Your plan should be specific, actionable, and account for the current codebase structure.`,
+- Spawn a file-explorer to understand the relevant codebase. You may also spawn a researcher to search the web for relevant information at the same time.
+- After gathering information, spawn a thinker to analyze the best approach and craft a plan.`,
 
   handleSteps: function* ({ prompt }) {
     // Step 1: Spawn file-explorer and parse out the file paths

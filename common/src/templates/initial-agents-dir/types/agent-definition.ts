@@ -95,7 +95,7 @@ export interface AgentDefinition {
    *
    * all_messages: All messages from the agent, including tool calls and results.
    *
-   * json: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
+   * structured_output: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
    */
   outputMode?: 'last_message' | 'all_messages' | 'structured_output'
 

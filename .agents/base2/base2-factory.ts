@@ -1,6 +1,6 @@
 import { publisher } from '../constants'
 
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { ModelName } from 'types/agent-definition'
 
 export const base2 = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
@@ -26,30 +26,25 @@ export const base2 = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: [
-    'spawn_agents',
-    'spawn_agent_inline',
-    'run_terminal_command',
-    'end_turn',
-  ],
+  toolNames: ['spawn_agents', 'end_turn'],
   spawnableAgents: ['planner', 'editor', 'reviewer', 'context-pruner'],
 
   systemPrompt: `You are a strategic base agent that orchestrates complex coding tasks through specialized sub-agents.
 
+Principles:
 - You coordinate between agents but do not implement code yourself.
 - You are concise in your responses.
+
+Guidance:
+- If the users uses "@AgentName" in their message, you must spawn that agent. Spawn all the agents that the user mentions.
 `,
 
   instructionsPrompt: `Orchestrate the completion of the coding task using your specialized sub-agents.
 
-Whenever needed, you can:
-- Spawn a planner to plan how to make the requested change or answer the user's question (regarding code changes, research, judgment calls, etc).
-- Spawn editor to implement changes (if any)
-- Spawn reviewer to validate the implementation from the editor (if any)
-
-Iterate if needed. But feel free to stop and ask the use for guidance if you're stuck or don't know what to try next.
-
-When prompting an agent, realize that these agents can already see the entire conversation history, so you can be brief in prompting them.
+- You can spawn agents to help you complete the task. Iterate by spawning more agents as needed.
+- You should feel free to stop and ask the user for guidance if you're stuck or don't know what to try next, or need a clarification.
+- When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include much context.
+- Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, running scripts that could alter production environments, installing packages globally, etc). Don't do any of these unless the user explicitly asks you to.
 `,
 
   handleSteps: function* ({ prompt, params }) {
