@@ -159,6 +159,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
         userId: user.id,
         expires: MAX_DATE,
         fingerprint_id: fingerprintId,
+        type: 'cli',
       })
       .returning({ userId: schema.session.userId })
 

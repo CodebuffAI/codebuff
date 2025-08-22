@@ -35,6 +35,8 @@ export const grantTypeEnum = pgEnum('grant_type', [
 ])
 export type GrantType = (typeof grantTypeEnum.enumValues)[number]
 
+export const sessionTypeEnum = pgEnum('session_type', ['web', 'pat', 'cli'])
+
 export const user = pgTable('user', {
   id: text('id')
     .primaryKey()
@@ -220,6 +222,7 @@ export const session = pgTable('session', {
     .references(() => user.id, { onDelete: 'cascade' }),
   expires: timestamp('expires', { mode: 'date' }).notNull(),
   fingerprint_id: text('fingerprint_id').references(() => fingerprint.id),
+  type: sessionTypeEnum('type').notNull().default('web'),
 })
 
 export const verificationToken = pgTable(

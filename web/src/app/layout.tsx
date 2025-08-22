@@ -52,7 +52,11 @@ export const generateMetadata = (): Metadata => ({
   },
 })
 
-const RootLayout = ({ children }: PropsWithChildren) => {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang={'en'} suppressHydrationWarning>
       <body
@@ -81,5 +85,3 @@ const RootLayout = ({ children }: PropsWithChildren) => {
     </html>
   )
 }
-
-export default RootLayout

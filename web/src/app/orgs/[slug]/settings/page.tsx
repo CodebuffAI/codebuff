@@ -9,14 +9,7 @@ import { useState, useEffect } from 'react'
 import { BillingStatus } from '@/components/organization/billing-status'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { ConfirmationInputDialog } from '@/components/ui/confirmation-input-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -37,7 +30,6 @@ export default function OrganizationSettingsPage() {
   })
   const [updating, setUpdating] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteConfirmSlug, setDeleteConfirmSlug] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [publishers, setPublishers] = useState<PublisherProfileResponse[]>([])
   const [publishersLoading, setPublishersLoading] = useState(true)
@@ -132,15 +124,6 @@ export default function OrganizationSettingsPage() {
   const confirmDeleteOrganization = async () => {
     if (!organization) return
 
-    if (deleteConfirmSlug !== organization.slug) {
-      toast({
-        title: 'Error',
-        description: 'Please type the organization slug exactly as shown',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setDeleting(true)
     try {
       const response = await fetch(`/api/orgs/${organization.id}`, {
@@ -171,7 +154,6 @@ export default function OrganizationSettingsPage() {
     } finally {
       setDeleting(false)
       setDeleteDialogOpen(false)
-      setDeleteConfirmSlug('')
     }
   }
 
@@ -482,19 +464,16 @@ export default function OrganizationSettingsPage() {
         </div>
 
         {/* Delete Confirmation Dialog */}
-        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center text-red-600">
-                <AlertTriangle className="mr-2 h-5 w-5" />
-                Delete Organization
-              </DialogTitle>
-              <DialogDescription>
+        <ConfirmationInputDialog
+          isOpen={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          title="Delete Organization"
+          description={
+            <div className="space-y-4">
+              <p>
                 This action cannot be undone. This will permanently delete the
                 organization and all associated data.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
+              </p>
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="text-sm text-red-800 font-medium mb-2">
                   This will permanently delete:
@@ -507,35 +486,13 @@ export default function OrganizationSettingsPage() {
                   <li>• Billing information and invoices</li>
                 </ul>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="delete-confirm">
-                  Type{' '}
-                  <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">
-                    {organization.slug}
-                  </code>{' '}
-                  to confirm:
-                </Label>
-                <Input
-                  id="delete-confirm"
-                  value={deleteConfirmSlug}
-                  onChange={(e) => setDeleteConfirmSlug(e.target.value)}
-                  placeholder={organization.slug}
-                  className="font-mono"
-                />
-              </div>
             </div>
-            <DialogFooter>
-              <Button
-                variant="destructive"
-                onClick={confirmDeleteOrganization}
-                disabled={deleting || deleteConfirmSlug !== organization.slug}
-                className="w-full"
-              >
-                {deleting ? 'Deleting...' : 'Delete Organization'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          }
+          confirmationText={organization.slug}
+          onConfirm={confirmDeleteOrganization}
+          isConfirming={deleting}
+          confirmButtonText="Delete Organization"
+        />
       </div>
     </div>
   )
