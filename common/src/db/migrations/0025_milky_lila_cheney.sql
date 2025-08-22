@@ -13,7 +13,7 @@ UPDATE "session" SET "type" = 'web';
 
 -- Then identify and mark CLIs (sessions with no fingerprint_id and far-future expiration)
 UPDATE "session" SET "type" = 'cli'
-WHERE "fingerprint_id" IS NULL
+WHERE "fingerprint_id" IS NOT NULL
 AND "expires" > NOW() + INTERVAL '1 year';
 
 -- 4. Set the column to NOT NULL and add default for future inserts
