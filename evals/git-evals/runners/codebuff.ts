@@ -7,10 +7,12 @@ import type { AgentStep } from '../../scaffolding'
 export class CodebuffRunner implements Runner {
   private client: CodebuffClient | null
   private runState: RunState
+  private agent: string
 
-  constructor(runState: RunState) {
+  constructor(runState: RunState, agent?: string) {
     this.client = null
     this.runState = runState
+    this.agent = agent ?? 'base'
   }
 
   async run(prompt: string): Promise<{ steps: AgentStep[] }> {
@@ -35,7 +37,7 @@ export class CodebuffRunner implements Runner {
     }
 
     this.runState = await this.client.run({
-      agent: 'base',
+      agent: this.agent,
       previousRun: this.runState,
       prompt,
       handleEvent: (event) => {

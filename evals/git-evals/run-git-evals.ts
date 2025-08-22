@@ -5,7 +5,6 @@ import path from 'path'
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/constants'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import pLimit from 'p-limit'
@@ -33,17 +32,13 @@ import type { z } from 'zod/v4'
 
 disableLiveUserInputCheck()
 
-// Try Gemini!
-const AGENT_TYPE = AgentTemplateTypes.base
-
-const EDIT_FILE_TOOL_NAMES = ['write_file', 'str_replace'] as const
-
 export async function runSingleEval(
   evalCommit: EvalCommit,
   projectPath: string,
   clientSessionId: string,
   fingerprintId: string,
   codingAgent: 'codebuff' | 'claude',
+  agent?: string,
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -75,10 +70,13 @@ export async function runSingleEval(
     // Initialize state
     let runner: Runner
     if (codingAgent === 'codebuff') {
-      runner = new CodebuffRunner({
-        sessionState: await createInitialSessionState(projectPath),
-        toolResults: [],
-      })
+      runner = new CodebuffRunner(
+        {
+          sessionState: await createInitialSessionState(projectPath),
+          toolResults: [],
+        },
+        agent,
+      )
     } else if (codingAgent === 'claude') {
       runner = new ClaudeRunner(projectPath)
     } else {
