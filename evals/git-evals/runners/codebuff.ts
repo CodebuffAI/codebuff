@@ -1,4 +1,6 @@
+import path from 'path'
 import { CodebuffClient } from '../../../sdk/src/index'
+import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 
 import type { Runner } from './runner'
 import type { RunState } from '../../../sdk/src/index'
@@ -36,6 +38,17 @@ export class CodebuffRunner implements Runner {
       })
     }
 
+    const agentsPath = path.join(__dirname, '../../../.agents')
+    const localAgentDefinitions = Object.values(
+      await loadLocalAgents({
+        agentsPath,
+      }),
+    )
+    console.log(
+      'Loaded local agent definitions:',
+      localAgentDefinitions.map((a) => a.id),
+    )
+
     this.runState = await this.client.run({
       agent: this.agent,
       previousRun: this.runState,
@@ -61,6 +74,7 @@ export class CodebuffRunner implements Runner {
         process.stdout.write(chunk)
       },
       maxAgentSteps: 20,
+      agentDefinitions: localAgentDefinitions,
     })
     flushStep()
 

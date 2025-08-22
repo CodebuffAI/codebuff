@@ -8,13 +8,15 @@ import type { CodebuffConfig } from '@codebuff/common/json-config/constants'
 
 export let loadedAgents: Record<string, any> = {}
 export async function loadLocalAgents({
+  agentsPath,
   verbose = false,
 }: {
+  agentsPath?: string
   verbose?: boolean
 }): Promise<typeof loadedAgents> {
   loadedAgents = {}
 
-  const agentsDir = getAgentsDirectory()
+  const agentsDir = agentsPath ?? getAgentsDirectory()
 
   if (!fs.existsSync(agentsDir)) {
     return loadedAgents
