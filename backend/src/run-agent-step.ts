@@ -536,7 +536,7 @@ export const loopAgentSteps = async (
           localAgentTemplates,
           prompt: currentPrompt,
           params: currentParams,
-          stepsComplete: false,
+          stepsComplete: shouldEndTurn,
         })
       currentAgentState = programmaticAgentState
 

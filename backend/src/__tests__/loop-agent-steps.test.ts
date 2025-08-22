@@ -189,8 +189,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
       () => {
         checkCallCount++
-        // Allow enough iterations to see the bug
-        return checkCallCount <= 3
+        return true
       },
     )
 
@@ -633,5 +632,84 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     // Should continue when async messages are present
     expect(result.agentState).toBeDefined()
     expect(getMessagesCallCount).toBeGreaterThan(0)
+  })
+
+  it('should pass shouldEndTurn: true as stepsComplete when end_turn tool is called', async () => {
+    // Test that when LLM calls end_turn, shouldEndTurn is correctly passed to runProgrammaticStep
+
+    let runProgrammaticStepCalls: any[] = []
+
+    // Mock runProgrammaticStep module to capture calls and verify stepsComplete parameter
+    mockModule('@codebuff/backend/run-programmatic-step', () => ({
+      runProgrammaticStep: async (agentState: any, options: any) => {
+        runProgrammaticStepCalls.push({ agentState, options })
+        // Return default behavior
+        return { agentState, endTurn: false }
+      },
+      clearAgentGeneratorCache: () => {},
+      agentIdToStepAll: new Set(),
+    }))
+
+    const mockGeneratorFunction = function* () {
+      yield 'STEP' // Hand control to LLM
+    } as () => StepGenerator
+
+    mockTemplate.handleSteps = mockGeneratorFunction
+
+    const localAgentTemplates = {
+      'test-agent': mockTemplate,
+    }
+
+    // Mock the stream parser to simulate LLM calling end_turn tool
+    mockModule('@codebuff/backend/tools/stream-parser', () => ({
+      processStreamWithTools: async (options: any) => {
+        llmCallCount++
+        return {
+          toolCalls: [
+            { toolName: 'end_turn', input: {}, toolCallId: 'test-id' },
+          ],
+          toolResults: [],
+          state: {
+            agentState: options.agentState,
+            agentContext: {},
+            messages: options.messages,
+          },
+          fullResponse: 'LLM response with end_turn',
+          fullResponseChunks: ['LLM response with end_turn'],
+        }
+      },
+    }))
+
+    // Mock checkLiveUserInput to allow the loop to run
+    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
+    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
+      () => true,
+    )
+
+    await loopAgentSteps(new MockWebSocket() as unknown as WebSocket, {
+      userInputId: 'test-user-input',
+      agentType: 'test-agent',
+      agentState: mockAgentState,
+      prompt: 'Test shouldEndTurn to stepsComplete flow',
+      params: undefined,
+      fingerprintId: 'test-fingerprint',
+      fileContext: mockFileContext,
+      toolResults: [],
+      localAgentTemplates,
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+    })
+
+    // Verify that runProgrammaticStep was called twice:
+    // 1. First with stepsComplete: false (initial call)
+    // 2. Second with stepsComplete: true (after LLM called end_turn)
+    expect(runProgrammaticStepCalls).toHaveLength(2)
+
+    // First call should have stepsComplete: false
+    expect(runProgrammaticStepCalls[0].options.stepsComplete).toBe(false)
+
+    // Second call should have stepsComplete: true (after end_turn tool was called)
+    expect(runProgrammaticStepCalls[1].options.stepsComplete).toBe(true)
   })
 })
