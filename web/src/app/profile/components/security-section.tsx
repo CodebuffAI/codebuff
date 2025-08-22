@@ -201,7 +201,7 @@ export function SecuritySection() {
         </TabsList>
 
         <TabsContent value="web" className="space-y-4">
-          <div className="rounded-md border">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -277,7 +277,7 @@ export function SecuritySection() {
         </TabsContent>
 
         <TabsContent value="cli" className="space-y-4">
-          <div className="rounded-md border">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

@@ -23,9 +23,9 @@ export default function DocsLayout({
   // Track scroll position to determine if sidebar should be fixed
   useEffect(() => {
     const handleScroll = () => {
-      // The header with logo is 4rem (64px) tall
+      // The header with logo is approximately 72px tall (p-4 = 16px top/bottom + content height)
       // Fix the sidebar when the user scrolls past the header
-      if (window.scrollY > 64) {
+      if (window.scrollY > 72) {
         setIsFixed(true)
       } else {
         setIsFixed(false)
@@ -79,7 +79,7 @@ export default function DocsLayout({
         <div className="hidden lg:block w-64 shrink-0">
           <div
             className={`w-64 z-40 transition-all duration-200 ease-in-out ${
-              isFixed ? 'fixed top-16 h-[calc(100vh-4rem)]' : 'relative'
+              isFixed ? 'fixed top-4 h-[calc(100vh-2rem)]' : 'relative'
             }`}
           >
             {/* Dynamic gradient fade indicators */}

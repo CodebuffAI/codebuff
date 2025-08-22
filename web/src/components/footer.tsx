@@ -32,6 +32,7 @@ const authLinks: LinkInfo[] = [{ text: 'Login', href: '/login' }]
 const publicPaths = [
   ...authLinks,
   ...legalLinks,
+  ...communityLinks,
   ...siteLinks.filter((link) => link.href !== '/docs'),
 ]
   .map((link) => link.href)

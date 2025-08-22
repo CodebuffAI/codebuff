@@ -173,7 +173,7 @@ export function ApiKeysSection() {
           </Button>
         </div>
       )}
-      <div className="rounded-md border">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

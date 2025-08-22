@@ -94,7 +94,7 @@ export function ReferralsSection() {
   }
 
   return (
-    <ProfileSection description="Share Codebuff with friends and earn credits together! Both you and your friend get rewarded when they sign up.">
+    <ProfileSection description="Share Codebuff!">
       {data?.referredBy && (
         <Card className="bg-gradient-to-br from-green-100/90 to-emerald-100/90 dark:from-green-900/90 dark:to-emerald-900/90 border border-green-200 dark:border-green-800 shadow-lg">
           <CardHeader>
