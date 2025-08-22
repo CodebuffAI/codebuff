@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmationInputDialog } from '@/components/ui/confirmation-input-dialog'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, Monitor, Terminal } from 'lucide-react'
 
 // Minimal helpers
 async function fetchTokens(): Promise<{
@@ -96,7 +97,7 @@ export default function SecurityPage() {
     (token) => token.type === 'pat'
   )
   // Get CLI sessions from tokens data
-  const cliSessions = (tokensData?.tokens ?? []).filter(
+  const cliSessionTokens = (tokensData?.tokens ?? []).filter(
     (token) => token.type === 'cli'
   )
 
@@ -110,19 +111,28 @@ export default function SecurityPage() {
     queryKey: ['sessions'],
     queryFn: fetchSessions,
   })
-  // Combine browser sessions with CLI sessions
-  const browserSessions = (sessionsData?.activeSessions ??
-    []) as ActiveSessionRow[]
-  const cliSessionsForActiveList = cliSessions.map((session) => ({
+  // Filter sessions by type
+  const allSessions = (sessionsData?.activeSessions ?? []) as ActiveSessionRow[]
+  const webSessions = allSessions.filter(
+    (session) => session.sessionType === 'browser'
+  )
+  const cliSessionsFromAPI = allSessions.filter(
+    (session) => session.sessionType === 'cli'
+  )
+
+  // Also include CLI sessions from tokens data
+  const cliSessionsFromTokens = cliSessionTokens.map((session) => ({
     id: session.id,
-    label: `${session.token.slice(0, 8)}...${session.token.slice(-8)}`,
+    label: `CLI Token (${session.token.slice(0, 8)}...${session.token.slice(-8)})`,
     expires: session.expires,
     fingerprintId: session.id, // Use token ID as fingerprint for display
     isCurrent: false,
     createdAt: session.createdAt,
     sessionType: 'cli' as const,
   }))
-  const activeSessions = [...browserSessions, ...cliSessionsForActiveList]
+
+  const cliSessions = [...cliSessionsFromAPI, ...cliSessionsFromTokens]
+  const activeSessions = [...webSessions, ...cliSessions]
 
   const [createTokenOpen, setCreateTokenOpen] = useState(false)
   const [tokenName, setTokenName] = useState('')
@@ -131,6 +141,15 @@ export default function SecurityPage() {
   const [showTokenValue, setShowTokenValue] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null)
+
+  // Add tab tracking and bulk logout pending state
+  const [activeTab, setActiveTab] = useState<'web' | 'cli'>('web')
+  const [isBulkLoggingOut, setIsBulkLoggingOut] = useState(false)
+
+  // Add: centralized labels and verbs for copy reuse
+  const TAB_LABELS = { web: 'Web Sessions', cli: 'CLI Sessions' } as const
+  const PRIMARY_VERB = { web: 'Log out of all', cli: 'Revoke all' } as const
+  const CONFIRM_VERB = { web: 'Log Out', cli: 'Revoke' } as const
 
   const createTokenMutation = useMutation({
     mutationFn: async ({
@@ -167,8 +186,10 @@ export default function SecurityPage() {
 
   const revokeTokenMutation = useMutation({
     mutationFn: async (tokenId: string) => {
-      const res = await fetch(`/api/api-keys/${encodeURIComponent(tokenId)}`, {
+      const res = await fetch('/api/sessions', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenIds: [tokenId] }),
       })
       if (!res.ok) throw new Error(await res.text())
       return res.json()
@@ -190,8 +211,10 @@ export default function SecurityPage() {
 
   const revokeSessionMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/user/sessions/${encodeURIComponent(id)}`, {
+      const res = await fetch('/api/sessions', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionIds: [id] }),
       })
       if (!res.ok) throw new Error(await res.text())
       return res.json()
@@ -203,27 +226,6 @@ export default function SecurityPage() {
     onError: (e: any) => {
       toast({
         title: 'Revoke failed',
-        description: e.message ?? String(e),
-        variant: 'destructive' as any,
-      })
-    },
-  })
-
-  const logoutAllMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/user/sessions/logout-all', {
-        method: 'POST',
-      })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json()
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['sessions'] })
-      toast({ title: 'Logged out from other devices' })
-    },
-    onError: (e: any) => {
-      toast({
-        title: 'Logout failed',
         description: e.message ?? String(e),
         variant: 'destructive' as any,
       })
@@ -260,6 +262,52 @@ export default function SecurityPage() {
 
   async function handleLogoutAll() {
     setIsLogoutConfirmOpen(true)
+  }
+
+  // Add scoped bulk logout handler for current tab
+  async function confirmLogoutAll() {
+    try {
+      setIsBulkLoggingOut(true)
+      if (activeTab === 'web') {
+        const sessionIds = webSessions
+          .filter((s) => !s.isCurrent)
+          .map((s) => s.id)
+        if (sessionIds.length > 0) {
+          const res = await fetch('/api/sessions', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionIds }),
+          })
+          if (!res.ok) throw new Error(await res.text())
+        }
+        toast({ title: 'Logged out of all web sessions' })
+      } else {
+        const sessionIds = cliSessionsFromAPI.map((s) => s.id)
+        const tokenIds = cliSessionTokens.map((t) => t.id)
+        if (sessionIds.length > 0 || tokenIds.length > 0) {
+          const res = await fetch('/api/sessions', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionIds, tokenIds }),
+          })
+          if (!res.ok) throw new Error(await res.text())
+        }
+        toast({ title: 'Revoked all CLI sessions and tokens' })
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['sessions'] }),
+        queryClient.invalidateQueries({ queryKey: ['personal-access-tokens'] }),
+      ])
+      setIsLogoutConfirmOpen(false)
+    } catch (e: any) {
+      toast({
+        title: 'Logout failed',
+        description: e?.message ?? String(e),
+        variant: 'destructive' as any,
+      })
+    } finally {
+      setIsBulkLoggingOut(false)
+    }
   }
 
   function getSessionExpirationText(expires?: string | null): string {
@@ -469,6 +517,15 @@ export default function SecurityPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-medium">Active Sessions</h2>
+          {/* Update button label based on active tab, with matching icon */}
+          <Button variant="outline" onClick={handleLogoutAll} className="gap-2">
+            {activeTab === 'web' ? (
+              <Monitor className="h-4 w-4" />
+            ) : (
+              <Terminal className="h-4 w-4" />
+            )}
+            <span>{`${PRIMARY_VERB[activeTab]} ${TAB_LABELS[activeTab]}`}</span>
+          </Button>
         </div>
         {sessionsError && (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 text-destructive px-3 py-2 flex items-center justify-between">
@@ -487,80 +544,166 @@ export default function SecurityPage() {
           </div>
         )}
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              All active sessions (browser and CLI)
-            </p>
-            <Button variant="outline" onClick={handleLogoutAll}>
-              Log out of other devices
-            </Button>
-          </div>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Session</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>First Seen</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loadingSessions ? (
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'web' | 'cli')}
+          className="space-y-4"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="web" className="flex items-center gap-2">
+              <Monitor className="h-4 w-4" />
+              <span>Web Sessions</span>
+              <Badge variant="secondary" className="ml-1">
+                {webSessions.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="cli" className="flex items-center gap-2">
+              <Terminal className="h-4 w-4" />
+              <span>CLI Sessions</span>
+              <Badge variant="secondary" className="ml-1">
+                {cliSessions.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="web" className="space-y-4">
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5}>Loading...</TableCell>
+                    <TableHead>Session</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>First Seen</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : sessionsError ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-destructive">
-                      Failed to load sessions.
-                    </TableCell>
-                  </TableRow>
-                ) : activeSessions.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="text-center py-8 text-muted-foreground"
-                    >
-                      No active sessions.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  activeSessions.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="truncate max-w-[280px]">
-                        {s.sessionType === 'cli' ? (
-                          <span className="font-mono text-xs">
-                            {s.fingerprintId ?? 'Unknown'}
-                          </span>
-                        ) : (
-                          <span>
-                            {s.label ?? '••••'}{' '}
+                </TableHeader>
+                <TableBody>
+                  {loadingSessions ? (
+                    <TableRow>
+                      <TableCell colSpan={4}>Loading...</TableCell>
+                    </TableRow>
+                  ) : sessionsError ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-destructive">
+                        Failed to load web sessions.
+                      </TableCell>
+                    </TableRow>
+                  ) : webSessions.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No active web sessions found.
+                        <br />
+                        <span className="text-sm text-muted-foreground/80">
+                          Web sessions are created when you log in through the
+                          browser.
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    webSessions.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell className="truncate max-w-[280px]">
+                          <div className="flex items-center gap-2">
+                            <span>{s.label ?? '••••'}</span>
                             {s.isCurrent && (
-                              <Badge variant="outline">Current</Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-green-600 border-green-200 bg-green-50"
+                              >
+                                Current
+                              </Badge>
                             )}
-                          </span>
-                        )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getSessionExpirationText(s.expires)}
+                        </TableCell>
+                        <TableCell>
+                          {s.createdAt
+                            ? new Date(s.createdAt).toLocaleDateString()
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {s.isCurrent ? (
+                            '-'
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRevokeSession(s.id)}
+                            >
+                              Revoke
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="cli" className="space-y-4">
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Session</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>First Seen</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loadingSessions ? (
+                    <TableRow>
+                      <TableCell colSpan={4}>Loading...</TableCell>
+                    </TableRow>
+                  ) : sessionsError ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-destructive">
+                        Failed to load CLI sessions.
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {s.sessionType === 'cli' ? 'CLI' : 'Browser'}
-                        </Badge>
+                    </TableRow>
+                  ) : cliSessions.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No active CLI sessions found.
+                        <br />
+                        <span className="text-sm text-muted-foreground/80">
+                          CLI sessions are created when you authenticate with
+                          the command line tool.
+                        </span>
                       </TableCell>
-                      <TableCell>
-                        {getSessionExpirationText(s.expires)}
-                      </TableCell>
-                      <TableCell>
-                        {s.createdAt
-                          ? new Date(s.createdAt).toLocaleDateString()
-                          : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {s.isCurrent ? (
-                          '-'
-                        ) : (
+                    </TableRow>
+                  ) : (
+                    cliSessions.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell className="truncate max-w-[280px]">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                                {s.label || 'CLI Session'}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getSessionExpirationText(s.expires)}
+                        </TableCell>
+                        <TableCell>
+                          {s.createdAt
+                            ? new Date(s.createdAt).toLocaleDateString()
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
                           <Button
                             size="sm"
                             variant="destructive"
@@ -568,15 +711,15 @@ export default function SecurityPage() {
                           >
                             Revoke
                           </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+        </Tabs>
       </section>
 
       {
@@ -584,12 +727,16 @@ export default function SecurityPage() {
         <ConfirmationInputDialog
           isOpen={isLogoutConfirmOpen}
           onOpenChange={setIsLogoutConfirmOpen}
-          title="Log out of other devices?"
-          description="This will end all other active sessions on your account, requiring them to log in again."
+          title={`${PRIMARY_VERB[activeTab]} ${TAB_LABELS[activeTab]}?`}
+          description={
+            activeTab === 'web'
+              ? 'This will end all other active web sessions on your account (your current session stays signed in).'
+              : 'This will revoke all CLI sessions and tokens linked to your account.'
+          }
           confirmationText="confirm"
-          onConfirm={() => logoutAllMutation.mutate()}
-          isConfirming={logoutAllMutation.isPending}
-          confirmButtonText="Log Out"
+          onConfirm={confirmLogoutAll}
+          isConfirming={isBulkLoggingOut}
+          confirmButtonText={`${CONFIRM_VERB[activeTab]} ${TAB_LABELS[activeTab]}`}
         />
       }
     </div>
