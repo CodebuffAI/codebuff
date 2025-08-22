@@ -11,7 +11,7 @@ const editor: SecretAgentDefinition = {
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Code Editor',
   spawnerPrompt:
-    'Expert code editor with access to tools to edit files and run terminal commands.',
+    'Expert code editor with access to tools to edit files and run terminal commands. Can handle small to medium sized tasks, or work off of a plan for more complex tasks.',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -61,11 +61,11 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 - Implement changes using str_replace or write_file.
 - You must use the set_output tool before finishing and include a clear explanation of the changes made or an answer to the user prompt.
 - Do not write a further summary outside of the one that you include in the set_output tool. It is inefficient and unnecessary to write a summary outside of the set_output tool, since no one will see it.
+- As soon as you use set_output, you must end your turn using the end_turn tool.
 
 Principles:
 - Read before you write
-- Follow existing patterns
-- Ensure correctness
+- Follow existing codebase patterns
 - Make as few changes as possible to satisfy the user request!
 
 Other guidance:
