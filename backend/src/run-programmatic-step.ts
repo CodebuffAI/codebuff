@@ -183,6 +183,12 @@ export async function runProgrammaticStep(
         toolCallId: crypto.randomUUID(),
       } as CodebuffToolCall
 
+      if (!template.toolNames.includes(toolCall.toolName)) {
+        throw new Error(
+          `Tool ${toolCall.toolName} is not available for agent ${template.id}. Available tools: ${template.toolNames.join(', ')}`,
+        )
+      }
+
       // Add assistant message with the tool call before executing it
       // Exception: don't add tool call message for add_message since it adds its own message
       if (toolCall.toolName !== 'add_message') {
@@ -239,20 +245,20 @@ export async function runProgrammaticStep(
   } catch (error) {
     endTurn = true
 
-    logger.error(
-      { error: getErrorObject(error), template: template.id },
-      'Programmatic agent execution failed',
-    )
-
     const errorMessage = `Error executing handleSteps for agent ${template.id}: ${
       error instanceof Error ? error.message : 'Unknown error'
     }`
+    logger.error(
+      { error: getErrorObject(error), template: template.id },
+      errorMessage,
+    )
+
     onResponseChunk(errorMessage)
 
     state.agentState.messageHistory = [
       ...state.messages,
       {
-        role: 'user' as const,
+        role: 'assistant' as const,
         content: errorMessage,
       },
     ]

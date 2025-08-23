@@ -31,6 +31,7 @@ import type {
 } from '@codebuff/common/actions'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 /**
  * Sends an action to the client via WebSocket
@@ -162,7 +163,7 @@ const onPrompt = async (
           clientSessionId,
         })
       } catch (e) {
-        logger.error(e, 'Error in mainPrompt')
+        logger.error({ error: getErrorObject(e) }, 'Error in mainPrompt')
         let response =
           e && typeof e === 'object' && 'message' in e ? `${e.message}` : `${e}`
 

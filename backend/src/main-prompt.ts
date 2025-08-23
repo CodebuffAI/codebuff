@@ -202,6 +202,8 @@ export const mainPrompt = async (
     localAgentTemplates,
   })
 
+  logger.debug({ agentState }, 'Main prompt finished')
+
   return {
     sessionState: {
       fileContext,
