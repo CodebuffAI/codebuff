@@ -7,11 +7,7 @@ import { publisher } from '../constants'
 const definition: SecretAgentDefinition = {
   id: 'scout',
   publisher,
-  model: 'google/gemini-2.5-flash',
-  reasoningOptions: {
-    effort: 'low',
-    exclude: true,
-  },
+  model: 'openai/gpt-5-chat',
   displayName: 'Lewis & Clark',
   spawnableAgents: ['file-explorer', 'web-researcher', 'docs-researcher'],
   toolNames: ['spawn_agents', 'end_turn'],
