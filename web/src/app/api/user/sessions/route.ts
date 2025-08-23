@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server'
-import { sha256 } from '@/lib/crypto'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { eq } from 'drizzle-orm'
-import { getServerSession } from 'next-auth'
+import { eq, and, not } from 'drizzle-orm/expressions'
 import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { sha256 } from '@/lib/crypto'
 
 function getCurrentSessionTokenFromCookies(): string | null {
   const jar = cookies()
@@ -39,7 +39,12 @@ export async function GET() {
       schema.fingerprint,
       eq(schema.session.fingerprint_id, schema.fingerprint.id)
     )
-    .where(eq(schema.session.userId, session.user.id))
+    .where(
+      and(
+        eq(schema.session.userId, session.user.id),
+        not(eq(schema.session.type, 'pat'))
+      )
+    )
 
   const currentToken = getCurrentSessionTokenFromCookies()
 
@@ -50,11 +55,6 @@ export async function GET() {
     const token = r.sessionToken
     const label = token ? `••••${token.slice(-4)}` : '••••'
 
-    // Skip PATs - they are handled by the /api/api-keys endpoint
-    if (r.type === 'pat') {
-      continue
-    }
-
     // All non-PAT sessions are now unified as 'web' type
     activeSessions.push({
       id: sha256(token),
@@ -63,7 +63,7 @@ export async function GET() {
       isCurrent: token === currentToken,
       fingerprintId: r.fingerprint_id,
       createdAt: r.fingerprintCreatedAt?.toISOString() ?? null,
-      sessionType: r.fingerprint_id ? 'cli' : 'browser', // For display purposes only
+      sessionType: r.type,
     })
   }
 

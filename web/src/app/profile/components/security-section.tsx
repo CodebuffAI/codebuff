@@ -1,8 +1,12 @@
 'use client'
 
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Monitor, Terminal } from 'lucide-react'
+import { useState, useMemo } from 'react'
+
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmationInputDialog } from '@/components/ui/confirmation-input-dialog'
 import {
   Table,
   TableBody,
@@ -12,22 +16,37 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { ConfirmationInputDialog } from '@/components/ui/confirmation-input-dialog'
-import { Monitor, Terminal } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+
 import { ProfileSection } from './profile-section'
 
+type Session = {
+  id: string
+  label?: string
+  expires?: string | null
+  isCurrent?: boolean
+  fingerprintId?: string | null
+  createdAt?: string | null
+  sessionType?: 'web' | 'cli'
+}
+
+// Utility function to delete sessions via API
+async function deleteSessions(sessionIds: string[]): Promise<void> {
+  if (sessionIds.length === 0) return
+
+  const res = await fetch('/api/sessions', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionIds }),
+  })
+
+  if (!res.ok) {
+    throw new Error(await res.text())
+  }
+}
+
 async function fetchSessions(): Promise<{
-  activeSessions: {
-    id: string
-    label?: string
-    expires?: string | null
-    isCurrent?: boolean
-    fingerprintId?: string | null
-    createdAt?: string | null
-    sessionType?: 'browser' | 'cli'
-  }[]
+  activeSessions: Session[]
 }> {
   const res = await fetch('/api/user/sessions')
   if (!res.ok) throw new Error(await res.text())
@@ -50,11 +69,15 @@ export function SecuritySection() {
   })
 
   const allSessions = sessionsData?.activeSessions ?? []
-  const webSessions = allSessions.filter(
-    (session) => session.sessionType === 'browser'
+
+  const webSessions = useMemo(
+    () => allSessions.filter((session) => session.sessionType === 'web'),
+    [allSessions]
   )
-  const cliSessions = allSessions.filter(
-    (session) => session.sessionType === 'cli'
+
+  const cliSessions = useMemo(
+    () => allSessions.filter((session) => session.sessionType === 'cli'),
+    [allSessions]
   )
 
   const [activeTab, setActiveTab] = useState<'web' | 'cli'>('web')
@@ -62,7 +85,7 @@ export function SecuritySection() {
   const [isBulkLoggingOut, setIsBulkLoggingOut] = useState(false)
 
   const TAB_LABELS = { web: 'Web Sessions', cli: 'CLI Sessions' } as const
-  const PRIMARY_VERB = { web: 'Log out of all', cli: 'Revoke all' } as const
+  const PRIMARY_VERB = { web: 'Log out of other', cli: 'Revoke all' } as const
   const CONFIRM_VERB = { web: 'Log Out', cli: 'Revoke' } as const
 
   const revokeSessionMutation = useMutation({
@@ -88,42 +111,28 @@ export function SecuritySection() {
     },
   })
 
-  async function handleRevokeSession(id: string) {
-    revokeSessionMutation.mutate(id)
-  }
-
   async function handleLogoutAll() {
     setIsLogoutConfirmOpen(true)
   }
-
-  async function confirmLogoutAll() {
+  async function confirmLogoutAll(): Promise<void> {
     try {
       setIsBulkLoggingOut(true)
+
+      let sessionsToLogout: Session[]
+      let toastMessage: string
+
       if (activeTab === 'web') {
-        const sessionIds = webSessions
-          .filter((s) => !s.isCurrent)
-          .map((s) => s.id)
-        if (sessionIds.length > 0) {
-          const res = await fetch('/api/sessions', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionIds }),
-          })
-          if (!res.ok) throw new Error(await res.text())
-        }
-        toast({ title: 'Logged out of all web sessions' })
+        sessionsToLogout = webSessions.filter((s) => !s.isCurrent)
+        toastMessage = 'Logged out of other web sessions'
       } else {
-        const sessionIds = cliSessions.map((s) => s.id)
-        if (sessionIds.length > 0) {
-          const res = await fetch('/api/sessions', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionIds }),
-          })
-          if (!res.ok) throw new Error(await res.text())
-        }
-        toast({ title: 'Revoked all CLI sessions' })
+        sessionsToLogout = cliSessions
+        toastMessage = 'Revoked all CLI sessions'
       }
+
+      const sessionIds = sessionsToLogout.map((s) => s.id)
+      await deleteSessions(sessionIds)
+      toast({ title: toastMessage })
+
       await queryClient.invalidateQueries({ queryKey: ['sessions'] })
       setIsLogoutConfirmOpen(false)
     } catch (e: any) {
@@ -262,7 +271,9 @@ export function SecuritySection() {
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => handleRevokeSession(s.id)}
+                            onClick={() => {
+                              revokeSessionMutation.mutate(s.id)
+                            }}
                           >
                             Revoke
                           </Button>
@@ -331,7 +342,9 @@ export function SecuritySection() {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => handleRevokeSession(s.id)}
+                          onClick={() => {
+                            revokeSessionMutation.mutate(s.id)
+                          }}
                         >
                           Revoke
                         </Button>
