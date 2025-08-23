@@ -6,7 +6,7 @@ export const docsResearcher = (
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: 'Doc',
-  spawnerPrompt: `Expert at reading technical documentation to find relevant information.`,
+  spawnerPrompt: `Expert at reading technical documentation of major public libraries and frameworks to find relevant information. (e.g. React, MongoDB, Postgres, etc.)`,
   inputSchema: {
     prompt: {
       type: 'string',

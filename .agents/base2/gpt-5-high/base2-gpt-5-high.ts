@@ -9,7 +9,7 @@ const definition: SecretAgentDefinition = {
   ...base2('anthropic/claude-4-sonnet-20250522'),
   displayName: 'Base2 GPT-5 High',
   spawnableAgents: [
-    'planner-gpt-5-high',
+    'planner',
     'editor-gpt-5-high',
     'reviewer-gpt-5-high',
     'context-pruner',

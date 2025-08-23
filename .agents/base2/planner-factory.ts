@@ -13,46 +13,54 @@ export const plannerFactory = (
   model,
   displayName: 'Peter Plan',
   spawnerPrompt:
-    'Creates comprehensive plans by exploring the codebase, doing research on the web, and thinking deeply. You can also use it get deep answer to any question.',
+    'Creates comprehensive plans by exploring the codebase, doing research on the web, and thinking deeply. You can also use it get deep answer to any question. This is a slow agent -- use it only for complex tasks.',
   inputSchema: {
     prompt: {
       type: 'string',
       description: 'The task to plan for',
     },
   },
-  outputMode: 'last_message',
+  outputMode: 'structured_output',
   includeMessageHistory: true,
-  toolNames: ['spawn_agents', 'end_turn'],
-  spawnableAgents: ['file-explorer', 'researcher', 'gemini-thinker-high'],
+  toolNames: ['spawn_agents', 'read_files', 'end_turn', 'set_output'],
+  spawnableAgents: [
+    'file-explorer',
+    'web-researcher',
+    'docs-researcher',
+    'thinker-gpt-5-high',
+  ],
 
   systemPrompt: `You are an expert programmer, architect, researcher, and general problem solver.
-You spawn agents to help you gather information and think through the problems.
+You spawn agents to help you gather information which will be used to create a plan.
 
 ${PLACEHOLDER.FILE_TREE_PROMPT}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
-  instructionsPrompt: `Create a comprehensive plan for the given task.
-
-Process:
-- Spawn a file-explorer to understand the relevant codebase. You may also spawn a researcher to search the web for relevant information at the same time.
-- After gathering information, spawn a thinker to analyze the best approach and craft a plan.`,
+  instructionsPrompt: `You are gathering information which will be used to create a plan.
+  
+- It's helpful to spawn a file-explorer to find all the relevant parts of the codebase. In parallel as part of the same spawn_agents tool call, you may also spawn a web-researcher or docs-researcher to search the web or technical documentation for relevant information.
+- After you are satisfied with the information you have gathered from these agents, stop and use the end_turn tool. The plan will be created in a separate step. Do not spawn thinker-gpt-5-high in this step.`,
 
   handleSteps: function* ({ prompt }) {
-    // Step 1: Spawn file-explorer and parse out the file paths
-    const { agentState: stateAfterFileExplorer } = yield 'STEP'
-    const { messageHistory } = stateAfterFileExplorer
-    const lastAssistantMessageIndex =
-      stateAfterFileExplorer.messageHistory.findLastIndex(
-        (message) => message.role === 'assistant',
-      )
-    const toolResultMessage = (messageHistory[
-      lastAssistantMessageIndex + 1
-    ] as { content: string }) ?? {
-      content: '',
-    }
-    const filePaths = parseFilePathsFromToolResult(toolResultMessage.content)
+    // Step 1: Gather information
+    const { agentState } = yield 'STEP_ALL'
 
-    // Step 2: Read the files
+    // Step 2: Parse out all the file paths and read them.
+    const messagesBlob =
+      // Exclude the first two messages, which are system prompt + context
+      agentState.messageHistory
+        .slice(2)
+        .map((message) =>
+          typeof message.content === 'string'
+            ? message.content
+            : message.content
+                .map((content) => (content.type === 'text' ? content.text : ''))
+                .join('\n'),
+        )
+        .join('\n')
+
+    const filePaths = parseFilePathsFromToolResult(messagesBlob)
+
     yield {
       toolName: 'read_files',
       input: {
@@ -66,7 +74,7 @@ Process:
       input: {
         agents: [
           {
-            agent_type: 'gemini-thinker-high',
+            agent_type: 'thinker-gpt-5-high',
             prompt: `Create a clear implementation plan for the following task, with a focus on simplicity and making the minimal changes necessary for an awesome implementation. Prompt: ${prompt}`,
           },
         ],
