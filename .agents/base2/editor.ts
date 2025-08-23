@@ -105,7 +105,7 @@ Other guidance:
           input: {
             role: 'user',
             content:
-              'You have reached the step limit. Please summarize your progress so far, what you still need to solve, and provide any insights that could help complete the remaining work. Please end your turn after producing this summary with the end_turn tool.',
+              'You have reached the step limit. Please use the set_output tool now to summarize your progress so far, what you still need to solve, and provide any insights that could help complete the remaining work. Please end your turn after using the set_output tool with the end_turn tool.',
           },
         }
 
