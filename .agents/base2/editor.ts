@@ -154,12 +154,15 @@ Other guidance:
         }
       }
     }
+    const successfulEdits = editToolResults.filter(
+      (edit) => edit.includes('successfully') && edit.includes('Changes made:'),
+    )
 
     yield {
       toolName: 'set_output',
       input: {
         ...output,
-        edits: editToolResults,
+        edits: successfulEdits,
       },
     }
   },

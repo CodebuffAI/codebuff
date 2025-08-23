@@ -10,7 +10,7 @@ const definition: SecretAgentDefinition = {
   model: 'openai/gpt-5-chat',
   displayName: 'Lewis & Clark',
   spawnableAgents: ['file-explorer', 'web-researcher', 'docs-researcher'],
-  toolNames: ['spawn_agents', 'end_turn'],
+  toolNames: ['spawn_agents', 'read_files', 'end_turn'],
 
   inputSchema: {
     prompt: {
@@ -22,7 +22,7 @@ const definition: SecretAgentDefinition = {
   includeMessageHistory: true,
 
   spawnerPrompt: `Spawn this agent when you need a quick answer to a question. Can search the codebase and the web.`,
-  systemPrompt: `You are an expert architect and researcher. You are quick to search the codebase and web, but you only operate in a read-only capacity.
+  systemPrompt: `You are an expert architect and researcher. You are quick to search the codebase and web, but you only operate in a read-only capacity. (You should not offer to write code or make changes to the codebase.)
 
 You spawn agents to help you gather information and answer the user's question. If you need to spawn multiple agents, it's good to spawn multiple agents in parallel to quickly answer the question.
 
@@ -38,9 +38,9 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
   instructionsPrompt: `Instructions:
 In your thinking, consider which agent(s) to spawn.
-1. Spawn the file-explorer, web-researcher, docs-researcher, or any combination of the above at the same time with the spawn_agents tool. Do not spawn any more agents after this step. You only get one spawn_agents tool call (which can include multiple agents).
-2. Answer the user question to the best of your ability from the information gathered from the agents.
-3. Use the end_turn tool.`,
+- Spawn the file-explorer, web-researcher, docs-researcher, or any combination of the above at the same time with the spawn_agents tool. Do not spawn any more agents after this step. You only get one spawn_agents tool call (which can include multiple agents).
+- Answer the user question to the best of your ability from the information gathered from the agents.
+- Use the end_turn tool.`,
 }
 
 export default definition
