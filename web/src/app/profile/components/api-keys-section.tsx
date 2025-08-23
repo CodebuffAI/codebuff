@@ -18,11 +18,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
 import { Copy, Check, Plus } from 'lucide-react'
+import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { ProfileSection } from './profile-section'
 
 async function fetchTokens(): Promise<{
@@ -65,6 +68,8 @@ export function ApiKeysSection() {
   const [newTokenValue, setNewTokenValue] = useState('')
   const [showTokenValue, setShowTokenValue] = useState(false)
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null)
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false)
+  const [tokenToRevoke, setTokenToRevoke] = useState<string | null>(null)
 
   const createTokenMutation = useMutation({
     mutationFn: async ({
@@ -137,9 +142,22 @@ export function ApiKeysSection() {
     setCreateTokenOpen(false)
   }
 
-  async function handleRevokeToken(tokenId: string) {
-    if (!confirm('Revoke this API Key? This cannot be undone.')) return
-    revokeTokenMutation.mutate(tokenId)
+  function openRevokeDialog(tokenId: string) {
+    setTokenToRevoke(tokenId)
+    setRevokeDialogOpen(true)
+  }
+
+  function handleConfirmRevoke() {
+    if (tokenToRevoke) {
+      revokeTokenMutation.mutate(tokenToRevoke)
+    }
+    setRevokeDialogOpen(false)
+    setTokenToRevoke(null)
+  }
+
+  function handleCloseRevokeDialog() {
+    setRevokeDialogOpen(false)
+    setTokenToRevoke(null)
   }
 
   function copyToClipboard(text: string) {
@@ -243,7 +261,7 @@ export function ApiKeysSection() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleRevokeToken(token.id)}
+                      onClick={() => openRevokeDialog(token.id)}
                     >
                       Revoke
                     </Button>
@@ -302,6 +320,10 @@ export function ApiKeysSection() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>API Key Created</DialogTitle>
+            <DialogDescription>
+              You can copy this key now or access it anytime from the API key
+              dashboard.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -312,26 +334,26 @@ export function ApiKeysSection() {
                   readOnly
                   className="font-mono text-sm"
                 />
-                <Button
-                  variant="outline"
-                  onClick={() => copyToClipboard(newTokenValue)}
-                >
-                  Copy
-                </Button>
+                <EnhancedCopyButton
+                  value={newTokenValue}
+                  className="p-2.5 rounded-md bg-muted/50 hover:bg-muted border border-border/50 hover:border-border transition-all duration-200 ease-in-out inline-flex items-center justify-center shadow-sm hover:shadow-md text-muted-foreground hover:text-foreground"
+                />
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              <strong>Important:</strong> This API key will only be shown once.
-              Save it somewhere secure as you won't be able to see it again.
-            </div>
           </div>
-          <DialogFooter>
-            <Button onClick={() => setShowTokenValue(false)}>
-              I've saved my API key
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        isOpen={revokeDialogOpen}
+        onClose={handleCloseRevokeDialog}
+        onConfirm={handleConfirmRevoke}
+        title="Revoke API Key"
+        description="Are you sure you want to revoke this API key? This action cannot be undone and the API key will be permanently deleted."
+        confirmText="Revoke"
+        isDestructive
+        isConfirming={revokeTokenMutation.isPending}
+      />
     </ProfileSection>
   )
 }
