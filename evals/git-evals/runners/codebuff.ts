@@ -5,6 +5,12 @@ import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import type { Runner } from './runner'
 import type { RunState } from '../../../sdk/src/index'
 import type { AgentStep } from '../../scaffolding'
+import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
+import { getUserCredentials } from '@codebuff/npm-app/credentials'
+
+const getLocalAuthToken = () => {
+  return getUserCredentials()?.authToken
+}
 
 export class CodebuffRunner implements Runner {
   private client: CodebuffClient | null
@@ -29,8 +35,11 @@ export class CodebuffRunner implements Runner {
       toolResults = []
     }
 
+    const apiKey = process.env[API_KEY_ENV_VAR] || getLocalAuthToken()
+
     if (!this.client) {
       this.client = new CodebuffClient({
+        apiKey,
         cwd: this.runState.sessionState.fileContext.cwd,
         onError: (error) => {
           throw new Error(error.message)
