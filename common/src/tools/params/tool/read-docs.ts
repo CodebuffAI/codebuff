@@ -13,13 +13,12 @@ export const readDocsParams = {
         .string()
         .min(1, 'Library title cannot be empty')
         .describe(
-          `The exact library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation, not a search query.`,
+          `The library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation if possible. Only public libraries available in Context7's database are supported, so small or private libraries may not be available.`,
         ),
       topic: z
         .string()
-        .optional()
         .describe(
-          `Optional specific topic to focus on (e.g., "routing", "hooks", "authentication")`,
+          `Specific topic to focus on (e.g., "routing", "hooks", "authentication")`,
         ),
       max_tokens: z
         .number()
