@@ -33,6 +33,7 @@ ${getToolCallString(toolName, {
 
 ${getToolCallString(toolName, {
   libraryTitle: 'MongoDB',
+  topic: 'database setup',
 })}
     `.trim(),
 } satisfies ToolDescription
