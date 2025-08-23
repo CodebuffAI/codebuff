@@ -167,6 +167,8 @@ async function runSingleEvalTask(options: {
     evalData.repoUrl,
     testRepoName,
     evalCommit.sha,
+    undefined,
+    evalData.initCommand,
   )
   console.log(`Repository cloned to: ${projectPath}`)
 

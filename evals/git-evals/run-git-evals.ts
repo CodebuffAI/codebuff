@@ -419,6 +419,7 @@ export async function runGitEvals(
               testRepoName,
               evalCommit.sha,
               true,
+              evalData.initCommand,
             )
 
             console.log(

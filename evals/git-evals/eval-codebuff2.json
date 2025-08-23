@@ -1,6 +1,7 @@
 {
   "repoUrl": "https://github.com/CodebuffAI/codebuff",
   "generationDate": "2025-08-17T02:05:02.152Z",
+  "initCommand": "bun install",
   "evalCommits": [
     {
       "sha": "456858ccc77ebfeb400ef12bcf9dd167470a6639",

@@ -20,6 +20,7 @@ export interface EvalData {
   repoUrl: string // URL of the git repository to clone
   testRepoName?: string // Optional - can be inferred from repoUrl
   generationDate: string
+  initCommand?: string // Optional command to run during scaffolding setup
   evalCommits: EvalCommit[]
 }
 
