@@ -12,11 +12,18 @@ export const getAgentStreamFromTemplate = (params: {
   fingerprintId: string
   userInputId: string
   userId: string | undefined
+  onCostCalculated?: (credits: number) => Promise<void>
 
   template: AgentTemplate
 }) => {
-  const { clientSessionId, fingerprintId, userInputId, userId, template } =
-    params
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    onCostCalculated,
+    template,
+  } = params
 
   if (!template) {
     throw new Error('Agent template is null/undefined')
@@ -34,6 +41,7 @@ export const getAgentStreamFromTemplate = (params: {
       userInputId,
       userId,
       maxOutputTokens: 32_000,
+      onCostCalculated,
     }
 
     // Add Gemini-specific options if needed

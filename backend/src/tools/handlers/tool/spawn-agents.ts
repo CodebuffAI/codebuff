@@ -10,6 +10,8 @@ import {
   formatAgentError,
 } from './spawn-agent-utils'
 
+import { logger } from '../../../util/logger'
+
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
@@ -184,11 +186,52 @@ export const handleSpawnAgents = ((params: {
         }
       }),
     )
+
+    // Aggregate costs from subagents
+    results.forEach((result, index) => {
+      const agentInfo = agents[index]
+      let subAgentCredits = 0
+
+      if (result.status === 'fulfilled') {
+        subAgentCredits = result.value.agentState.creditsUsed || 0
+        logger.debug(
+          {
+            parentAgentId: validatedState.agentState.agentId,
+            subAgentType: agentInfo.agent_type,
+            subAgentCredits,
+          },
+          'Aggregating successful subagent cost',
+        )
+      } else if (result.reason?.agentState?.creditsUsed) {
+        // Even failed agents may have incurred partial costs
+        subAgentCredits = result.reason.agentState.creditsUsed || 0
+        logger.debug(
+          {
+            parentAgentId: validatedState.agentState.agentId,
+            subAgentType: agentInfo.agent_type,
+            subAgentCredits,
+          },
+          'Aggregating failed subagent partial cost',
+        )
+      }
+
+      if (subAgentCredits > 0) {
+        validatedState.agentState.creditsUsed += subAgentCredits
+        logger.debug(
+          {
+            parentAgentId: validatedState.agentState.agentId,
+            addedCredits: subAgentCredits,
+            totalCredits: validatedState.agentState.creditsUsed,
+          },
+          'Updated parent agent total cost',
+        )
+      }
+    })
+
     return reports
       .map((report: string) => `<agent_report>${report}</agent_report>`)
       .join('\n')
   }
-
   return {
     result: previousToolCallFinished.then(triggerSpawnAgents),
     state: {},

@@ -543,7 +543,7 @@ export const saveMessage = async (value: {
   usesUserApiKey?: boolean
   chargeUser?: boolean
   costOverrideDollars?: number
-}) =>
+}): Promise<number> =>
   withLoggerContext(
     {
       messageId: value.messageId,
@@ -592,7 +592,7 @@ export const saveMessage = async (value: {
           },
           `Credits used by test user (${creditsUsed})`,
         )
-        return
+        return creditsUsed
       }
 
       if (VERBOSE) {
@@ -625,7 +625,7 @@ export const saveMessage = async (value: {
           { messageId: value.messageId, userId: value.userId },
           'Skipping further processing (no user ID or failed to save message).',
         )
-        return null
+        return 0
       }
 
       const consumptionResult = await updateUserCycleUsage(
@@ -656,6 +656,6 @@ export const saveMessage = async (value: {
         )
       }
 
-      return savedMessageResult
+      return creditsUsed
     },
   )

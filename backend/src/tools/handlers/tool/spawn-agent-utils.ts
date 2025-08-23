@@ -255,6 +255,7 @@ export function createAgentState(
     subagents: [],
     messageHistory,
     stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
+    creditsUsed: 0,
     output: undefined,
     parentId: parentAgentState.agentId,
   }

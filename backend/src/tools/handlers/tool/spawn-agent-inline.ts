@@ -77,6 +77,7 @@ export const handleSpawnAgentInline = ((params: {
       subagents: [],
       messageHistory: getLatestState().messages, // Share the same message array
       stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
+      creditsUsed: 0,
       output: undefined,
       parentId: agentState.agentId,
     }

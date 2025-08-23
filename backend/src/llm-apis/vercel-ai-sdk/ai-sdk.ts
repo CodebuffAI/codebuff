@@ -73,6 +73,7 @@ export const promptAiSdkStream = async function* (
     thinkingBudget?: number
     userInputId: string
     maxRetries?: number
+    onCostCalculated?: (credits: number) => Promise<void>
   } & Omit<Parameters<typeof streamText>[0], 'model'>,
 ) {
   if (
@@ -192,7 +193,7 @@ export const promptAiSdkStream = async function* (
     }
   }
 
-  saveMessage({
+  const creditsUsedPromise = saveMessage({
     messageId,
     userId: options.userId,
     clientSessionId: options.clientSessionId,
@@ -210,6 +211,12 @@ export const promptAiSdkStream = async function* (
     chargeUser: options.chargeUser ?? true,
     costOverrideDollars,
   })
+
+  // Call the cost callback if provided
+  if (options.onCostCalculated) {
+    const creditsUsed = await creditsUsedPromise
+    await options.onCostCalculated(creditsUsed)
+  }
 }
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
@@ -222,6 +229,7 @@ export const promptAiSdk = async function (
     model: Model
     userId: string | undefined
     chargeUser?: boolean
+    onCostCalculated?: (credits: number) => Promise<void>
   } & Omit<Parameters<typeof generateText>[0], 'model'>,
 ): Promise<string> {
   if (
@@ -250,12 +258,11 @@ export const promptAiSdk = async function (
     model: aiSDKModel,
     messages: convertCbToModelMessages(options),
   })
-
   const content = response.text
   const inputTokens = response.usage.inputTokens || 0
   const outputTokens = response.usage.inputTokens || 0
 
-  saveMessage({
+  const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
     userId: options.userId,
     clientSessionId: options.clientSessionId,
@@ -270,6 +277,12 @@ export const promptAiSdk = async function (
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
   })
+
+  // Call the cost callback if provided
+  if (options.onCostCalculated) {
+    const creditsUsed = await creditsUsedPromise
+    await options.onCostCalculated(creditsUsed)
+  }
 
   return content
 }
@@ -287,6 +300,7 @@ export const promptAiSdkStructured = async function <T>(options: {
   temperature?: number
   timeout?: number
   chargeUser?: boolean
+  onCostCalculated?: (credits: number) => Promise<void>
 }): Promise<T> {
   if (
     !checkLiveUserInput(
@@ -318,12 +332,11 @@ export const promptAiSdkStructured = async function <T>(options: {
   const response = await (options.timeout === undefined
     ? responsePromise
     : withTimeout(responsePromise, options.timeout))
-
   const content = response.object
   const inputTokens = response.usage.inputTokens || 0
   const outputTokens = response.usage.inputTokens || 0
 
-  saveMessage({
+  const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
     userId: options.userId,
     clientSessionId: options.clientSessionId,
@@ -338,6 +351,12 @@ export const promptAiSdkStructured = async function <T>(options: {
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
   })
+
+  // Call the cost callback if provided
+  if (options.onCostCalculated) {
+    const creditsUsed = await creditsUsedPromise
+    await options.onCostCalculated(creditsUsed)
+  }
 
   return content
 }

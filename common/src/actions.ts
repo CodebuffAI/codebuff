@@ -105,6 +105,8 @@ export const MessageCostResponseSchema = z.object({
 })
 export type MessageCostResponse = z.infer<typeof MessageCostResponseSchema>
 
+
+
 export const PromptResponseSchema = z.object({
   type: z.literal('prompt-response'),
   promptId: z.string(),
@@ -145,6 +147,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   InitResponseSchema,
   UsageReponseSchema,
   MessageCostResponseSchema,
+
   z.object({
     type: z.literal('action-error'),
     message: z.string(),

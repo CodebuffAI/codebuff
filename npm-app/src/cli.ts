@@ -27,8 +27,6 @@ import {
 } from 'picocolors'
 
 import { loadLocalAgents, loadedAgents } from './agents/load-agents'
-import { backendUrl } from './config'
-import { createAuthHeaders } from './utils/auth-headers'
 import {
   killAllBackgroundProcesses,
   sendKillSignalToAllBackgroundProcesses,
@@ -50,25 +48,29 @@ import {
   listCheckpoints,
   saveCheckpoint,
 } from './cli-handlers/checkpoint'
+import {
+  showTerminalConfetti,
+  showCodeRain,
+  typewriterEffect,
+} from './cli-handlers/confetti-demo'
 import { handleDiff } from './cli-handlers/diff'
 import { showEasterEgg } from './cli-handlers/easter-egg'
-import { showTerminalConfetti, showCodeRain, typewriterEffect } from './cli-handlers/confetti-demo'
 import { handleInitializationFlowLocally } from './cli-handlers/inititalization-flow'
 import { cleanupMiniChat } from './cli-handlers/mini-chat'
-import {
-  cleanupSubagentBuffer,
-  displaySubagentList,
-  enterSubagentBuffer,
-  isInSubagentBufferMode,
-} from './cli-handlers/traces'
 import {
   cleanupSubagentListBuffer,
   enterSubagentListBuffer,
   isInSubagentListMode,
   resetSubagentSelectionToLast,
 } from './cli-handlers/subagent-list'
+import {
+  cleanupSubagentBuffer,
+  displaySubagentList,
+  enterSubagentBuffer,
+  isInSubagentBufferMode,
+} from './cli-handlers/traces'
 import { Client } from './client'
-import { websocketUrl } from './config'
+import { backendUrl, websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
 import { DiffManager } from './diff-manager'
 import { printModeIsEnabled, printModeLog } from './display/print-mode'
@@ -99,6 +101,7 @@ import {
   resetShell,
 } from './terminal/run-command'
 import { flushAnalytics, trackEvent } from './utils/analytics'
+import { createAuthHeaders } from './utils/auth-headers'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'

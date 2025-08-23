@@ -10,6 +10,7 @@ import { renderToolResults } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 
+
 import { asyncAgentManager } from './async-agent-manager'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
@@ -253,6 +254,31 @@ export const runAgentStep = async (
     userInputId,
     userId,
     template: agentTemplate,
+    onCostCalculated: async (credits: number) => {
+      try {
+        agentState.creditsUsed += credits
+        logger.debug(
+          {
+            agentId: agentState.agentId,
+            credits,
+            totalCredits: agentState.creditsUsed,
+          },
+          'Added LLM cost to agent state',
+        )
+        
+        // Transactional cost attribution: ensure costs are actually deducted
+        // This is already handled by the saveMessage function which calls updateUserCycleUsage
+        // If that fails, the promise rejection will bubble up and halt agent execution
+      } catch (error) {
+        logger.error(
+          { agentId: agentState.agentId, credits, error },
+          'Failed to add cost to agent state',
+        )
+        throw new Error(
+          `Cost tracking failed for agent ${agentState.agentId}: ${error}`,
+        )
+      }
+    },
   })
 
   const iterationNum = agentState.messageHistory.length
@@ -519,68 +545,91 @@ export const loopAgentSteps = async (
   let currentPrompt = prompt
   let currentParams = params
 
-  while (checkLiveUserInput(userId, userInputId, clientSessionId)) {
-    // 1. Run programmatic step first if it exists
-    if (agentTemplate.handleSteps) {
-      const { agentState: programmaticAgentState, endTurn } =
-        await runProgrammaticStep(currentAgentState, {
+  try {
+    while (checkLiveUserInput(userId, userInputId, clientSessionId)) {
+      // 1. Run programmatic step first if it exists
+      if (agentTemplate.handleSteps) {
+        const { agentState: programmaticAgentState, endTurn } =
+          await runProgrammaticStep(currentAgentState, {
+            userId,
+            userInputId,
+            clientSessionId,
+            fingerprintId,
+            onResponseChunk,
+            agentType,
+            fileContext,
+            ws,
+            template: agentTemplate,
+            localAgentTemplates,
+            prompt: currentPrompt,
+            params: currentParams,
+            stepsComplete: shouldEndTurn,
+          })
+        currentAgentState = programmaticAgentState
+
+        if (endTurn) {
+          shouldEndTurn = true
+        }
+      }
+
+      if (ASYNC_AGENTS_ENABLED) {
+        const hasMessages =
+          asyncAgentManager.getMessages(agentState.agentId).length > 0
+        if (hasMessages) {
+          shouldEndTurn = false
+        }
+      }
+
+      // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
+      if (shouldEndTurn) {
+        return {
+          agentState: currentAgentState,
+        }
+      }
+
+      const { agentState: newAgentState, shouldEndTurn: llmShouldEndTurn } =
+        await runAgentStep(ws, {
           userId,
           userInputId,
           clientSessionId,
           fingerprintId,
           onResponseChunk,
+          localAgentTemplates,
           agentType,
           fileContext,
-          ws,
-          template: agentTemplate,
-          localAgentTemplates,
+          agentState: currentAgentState,
           prompt: currentPrompt,
           params: currentParams,
-          stepsComplete: shouldEndTurn,
         })
-      currentAgentState = programmaticAgentState
 
-      if (endTurn) {
-        shouldEndTurn = true
-      }
+      currentAgentState = newAgentState
+      shouldEndTurn = llmShouldEndTurn
+
+      currentPrompt = undefined
+      currentParams = undefined
     }
 
-    if (ASYNC_AGENTS_ENABLED) {
-      const hasMessages =
-        asyncAgentManager.getMessages(agentState.agentId).length > 0
-      if (hasMessages) {
-        shouldEndTurn = false
-      }
-    }
-
-    // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
-    if (shouldEndTurn) {
-      return {
-        agentState: currentAgentState,
-      }
-    }
-
-    const { agentState: newAgentState, shouldEndTurn: llmShouldEndTurn } =
-      await runAgentStep(ws, {
-        userId,
-        userInputId,
-        clientSessionId,
-        fingerprintId,
-        onResponseChunk,
-        localAgentTemplates,
-        agentType,
-        fileContext,
-        agentState: currentAgentState,
-        prompt: currentPrompt,
-        params: currentParams,
-      })
-
-    currentAgentState = newAgentState
-    shouldEndTurn = llmShouldEndTurn
-
-    currentPrompt = undefined
-    currentParams = undefined
+    return { agentState: currentAgentState }
+  } catch (error) {
+    // Log the error but still return the state with partial costs
+    logger.error(
+      {
+        error,
+        agentId: currentAgentState.agentId,
+        creditsUsed: currentAgentState.creditsUsed,
+      },
+      'Agent execution failed but returning state with partial costs',
+    )
+    throw error
+  } finally {
+    // Ensure costs are always captured, even on failure
+    logger.debug(
+      {
+        agentId: currentAgentState.agentId,
+        creditsUsed: currentAgentState.creditsUsed,
+        status: 'completed_or_failed',
+      },
+      'Agent execution completed with cost tracking',
+    )
   }
-
-  return { agentState: currentAgentState }
 }

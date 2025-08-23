@@ -1357,8 +1357,13 @@ Go to https://www.codebuff.com/config for more information.`) +
         })
 
         // Show total credits used for this prompt if significant
-        const credits =
-          this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
+        const credits = Object.entries(this.creditsByPromptId)
+          .filter(([promptId]) => promptId.startsWith(userInputId))
+          .reduce(
+            (total, [, creditValues]) =>
+              total + creditValues.reduce((sum, current) => sum + current, 0),
+            0,
+          )
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
           console.log(
             `\n\n${pluralize(credits, 'credit')} used for this request.`,

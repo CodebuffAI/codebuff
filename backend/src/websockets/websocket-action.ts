@@ -197,6 +197,10 @@ export const callMainPrompt = async (
   const { userId, promptId, clientSessionId } = options
   const { fileContext } = action.sessionState
 
+  // Enforce server-side state authority: reset creditsUsed to 0
+  // The server controls cost tracking, clients cannot manipulate this value
+  action.sessionState.mainAgentState.creditsUsed = 0
+
   // Assemble local agent templates from fileContext
   const { agentTemplates: localAgentTemplates, validationErrors } =
     assembleLocalAgentTemplates(fileContext)
@@ -225,6 +229,8 @@ export const callMainPrompt = async (
   })
 
   const { sessionState, toolCalls, toolResults } = result
+  
+
   // Send prompt data back
   sendAction(ws, {
     type: 'prompt-response',

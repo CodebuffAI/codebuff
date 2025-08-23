@@ -41,6 +41,7 @@ export const AgentStateSchema: z.ZodType<{
   subagents: AgentState[]
   messageHistory: CodebuffMessage[]
   stepsRemaining: number
+  creditsUsed: number
   output?: Record<string, any>
   parentId?: string
 }> = z.lazy(() =>
@@ -51,6 +52,7 @@ export const AgentStateSchema: z.ZodType<{
     subagents: AgentStateSchema.array(),
     messageHistory: CodebuffMessageSchema.array(),
     stepsRemaining: z.number(),
+    creditsUsed: z.number().default(0),
     output: z.record(z.string(), z.any()).optional(),
     parentId: z.string().optional(),
   }),
@@ -112,6 +114,7 @@ export function getInitialSessionState(
       subagents: [],
       messageHistory: [],
       stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
+      creditsUsed: 0,
       output: undefined,
     },
     fileContext,
