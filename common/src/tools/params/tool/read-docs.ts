@@ -22,9 +22,10 @@ export const readDocsParams = {
         ),
       max_tokens: z
         .number()
+        .default(20_000)
         .optional()
         .describe(
-          `Optional maximum number of tokens to return. Defaults to 10000. Values less than 10000 are automatically increased to 10000.`,
+          `Optional maximum number of tokens to return. Defaults to 20000. Values less than 10000 are automatically increased to 10000.`,
         ),
     })
     .describe(
