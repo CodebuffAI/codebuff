@@ -8,7 +8,7 @@ export const researcher = (
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.researcher.displayName,
-  spawnerPrompt: AGENT_PERSONAS.researcher.purpose,
+  spawnerPrompt: `Expert at browsing the web or reading technical documentation to find relevant information.`,
   inputSchema: {
     prompt: {
       type: 'string',

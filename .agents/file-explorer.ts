@@ -21,7 +21,7 @@ const fileExplorer: SecretAgentDefinition = {
   id: AgentTemplateTypes.file_explorer,
   displayName: 'Dora the File Explorer',
   spawnerPrompt:
-    'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',
+    'Comprehensively explores the codebase and reports back on the results',
   model: 'anthropic/claude-4-sonnet-20250522',
   publisher,
   outputMode: 'structured_output',
