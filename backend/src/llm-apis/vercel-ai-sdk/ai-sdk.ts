@@ -72,6 +72,7 @@ export const promptAiSdkStream = async function* (
     chargeUser?: boolean
     thinkingBudget?: number
     userInputId: string
+    agentId?: string
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
   } & Omit<Parameters<typeof streamText>[0], 'model'>,
@@ -210,6 +211,7 @@ export const promptAiSdkStream = async function* (
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
     costOverrideDollars,
+    agentId: options.agentId,
   })
 
   // Call the cost callback if provided
@@ -229,6 +231,7 @@ export const promptAiSdk = async function (
     model: Model
     userId: string | undefined
     chargeUser?: boolean
+    agentId?: string
     onCostCalculated?: (credits: number) => Promise<void>
   } & Omit<Parameters<typeof generateText>[0], 'model'>,
 ): Promise<string> {
@@ -276,6 +279,7 @@ export const promptAiSdk = async function (
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    agentId: options.agentId,
   })
 
   // Call the cost callback if provided
@@ -300,6 +304,7 @@ export const promptAiSdkStructured = async function <T>(options: {
   temperature?: number
   timeout?: number
   chargeUser?: boolean
+  agentId?: string
   onCostCalculated?: (credits: number) => Promise<void>
 }): Promise<T> {
   if (
@@ -350,6 +355,7 @@ export const promptAiSdkStructured = async function <T>(options: {
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    agentId: options.agentId,
   })
 
   // Call the cost callback if provided

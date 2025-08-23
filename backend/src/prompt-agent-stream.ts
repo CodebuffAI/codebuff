@@ -13,6 +13,7 @@ export const getAgentStreamFromTemplate = (params: {
   userInputId: string
   userId: string | undefined
   onCostCalculated?: (credits: number) => Promise<void>
+  agentId?: string
 
   template: AgentTemplate
 }) => {
@@ -22,6 +23,7 @@ export const getAgentStreamFromTemplate = (params: {
     userInputId,
     userId,
     onCostCalculated,
+    agentId,
     template,
   } = params
 
@@ -42,6 +44,7 @@ export const getAgentStreamFromTemplate = (params: {
       userId,
       maxOutputTokens: 32_000,
       onCostCalculated,
+      agentId,
     }
 
     // Add Gemini-specific options if needed

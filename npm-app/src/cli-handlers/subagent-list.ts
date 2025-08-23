@@ -1,7 +1,10 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { green, yellow, cyan, magenta, bold, gray } from 'picocolors'
 
-import { getSubagentsChronological } from '../subagent-storage'
+import {
+  getSubagentsChronological,
+  type SubagentData,
+} from '../subagent-storage'
 import { enterSubagentBuffer } from './traces'
 import {
   ENTER_ALT_BUFFER,
@@ -19,14 +22,7 @@ let persistentSelectedIndex = -1 // -1 means not initialized
 let scrollOffset = 0
 let allContentLines: string[] = []
 let subagentLinePositions: number[] = []
-let subagentList: Array<{
-  agentId: string
-  agentType: string
-  prompt?: string
-  isActive: boolean
-  lastActivity: number
-  startTime: number
-}> = []
+let subagentList: SubagentData[] = []
 
 export function isInSubagentListMode(): boolean {
   return isInSubagentListBuffer
@@ -255,7 +251,11 @@ function buildAllContentLines() {
       const timeInfo = agent.isActive
         ? green(`[Active - ${startTime}]`)
         : gray(`[${startTime}]`)
-      const headerLine = `${agentInfo} ${timeInfo}`
+      const creditsDisplay =
+        agent.creditsUsed > 0
+          ? yellow(` (${pluralize(agent.creditsUsed, 'credit')})`)
+          : ''
+      const headerLine = `${agentInfo}${creditsDisplay} ${timeInfo}`
 
       const contentForBox = [headerLine, ...promptLines.map((p) => gray(p))]
 

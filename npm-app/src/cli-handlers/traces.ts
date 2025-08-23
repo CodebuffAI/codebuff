@@ -19,6 +19,7 @@ import {
 } from '../utils/terminal'
 
 import type { SubagentData } from '../subagent-storage'
+import { logger } from '../utils/logger'
 
 // Add helpers to truncate to first line and reduce sections
 function firstLine(text: string): string {
@@ -52,6 +53,9 @@ export function isInSubagentBufferMode(): boolean {
  * Display a formatted list of traces with enhanced styling
  */
 export function displaySubagentList(agents: SubagentData[]) {
+  // Added: log list render
+  logger.debug({ count: agents.length }, 'Rendering subagent list!')
+
   console.log(bold(cyan('🤖 Available Traces')))
   console.log(gray(`Found ${pluralize(agents.length, 'trace')}`))
   console.log()
@@ -63,6 +67,7 @@ export function displaySubagentList(agents: SubagentData[]) {
       // Truncate prompt preview to first line
       const promptFirst = agent.prompt ? firstLine(agent.prompt) : '(no prompt)'
       const promptPreview = gray(promptFirst)
+
       console.log(
         `  ${status} ${bold(agent.agentId)} ${gray(`(${agent.agentType})`)}`,
       )
@@ -71,7 +76,6 @@ export function displaySubagentList(agents: SubagentData[]) {
     })
   }
 }
-
 export function enterSubagentBuffer(
   rl: any,
   agentId: string,
@@ -168,6 +172,16 @@ function updateSubagentContent() {
   if (agentData.prompt) {
     const promptLine = bold(gray(`Prompt: ${firstLine(agentData.prompt)}`))
     wrappedLines.push(...wrapLine(promptLine, terminalWidth))
+  }
+
+  // Add credits used if any
+  if (agentData.creditsUsed > 0) {
+    const creditsLine = yellow(`${pluralize(agentData.creditsUsed, 'credit')}`)
+    wrappedLines.push(...wrapLine(creditsLine, terminalWidth))
+  }
+
+  // Add a separator line if we added prompt or credits
+  if (agentData.prompt || agentData.creditsUsed > 0) {
     wrappedLines.push('')
   }
 

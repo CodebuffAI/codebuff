@@ -79,6 +79,7 @@ import {
   getAllSubagentIds,
   markSubagentInactive,
   storeSubagentChunk,
+  addCreditsByAgentId,
 } from './subagent-storage'
 import { handleToolCall } from './tool-handlers'
 import { identifyUser, trackEvent } from './utils/analytics'
@@ -872,6 +873,11 @@ export class Client {
         this.creditsByPromptId[response.promptId] = []
       }
       this.creditsByPromptId[response.promptId].push(response.credits)
+
+      // Attribute credits directly to the agentId (backend now always provides it)
+      if (response.agentId) {
+        addCreditsByAgentId(response.agentId, response.credits)
+      }
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
@@ -908,10 +914,9 @@ export class Client {
     this.webSocket.subscribe('request-reconnect', () => {
       this.reconnectWhenNextIdle()
     })
-
     // Handle subagent streaming messages
     this.webSocket.subscribe('subagent-response-chunk', (action) => {
-      const { userInputId, agentId, agentType, chunk, prompt } = action
+      const { agentId, agentType, chunk, prompt } = action
 
       // Store the chunk locally
       storeSubagentChunk({ agentId, agentType, chunk, prompt })

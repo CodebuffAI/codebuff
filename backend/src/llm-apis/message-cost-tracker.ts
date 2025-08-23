@@ -420,6 +420,7 @@ async function sendCostResponseToClient(
   clientSessionId: string,
   userInputId: string,
   creditsUsed: number,
+  agentId?: string,
 ): Promise<void> {
   try {
     const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
@@ -434,6 +435,7 @@ async function sendCostResponseToClient(
           type: 'message-cost-response',
           promptId: userInputId,
           credits: creditsUsed,
+          agentId,
         })
       } else {
         logger.warn(
@@ -543,6 +545,7 @@ export const saveMessage = async (value: {
   usesUserApiKey?: boolean
   chargeUser?: boolean
   costOverrideDollars?: number
+  agentId?: string
 }): Promise<number> =>
   withLoggerContext(
     {
@@ -612,6 +615,7 @@ export const saveMessage = async (value: {
         value.clientSessionId,
         value.userInputId,
         creditsUsed,
+        value.agentId,
       )
 
       const savedMessageResult = await insertMessageRecord({

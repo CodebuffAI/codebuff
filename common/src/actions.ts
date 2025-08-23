@@ -102,10 +102,9 @@ export const MessageCostResponseSchema = z.object({
   type: z.literal('message-cost-response'),
   promptId: z.string(),
   credits: z.number(),
+  agentId: z.string().optional(),
 })
 export type MessageCostResponse = z.infer<typeof MessageCostResponseSchema>
-
-
 
 export const PromptResponseSchema = z.object({
   type: z.literal('prompt-response'),

@@ -10,7 +10,6 @@ import { renderToolResults } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 
-
 import { asyncAgentManager } from './async-agent-manager'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
@@ -253,19 +252,11 @@ export const runAgentStep = async (
     fingerprintId,
     userInputId,
     userId,
+    agentId: agentState.agentId,
     template: agentTemplate,
     onCostCalculated: async (credits: number) => {
       try {
         agentState.creditsUsed += credits
-        logger.debug(
-          {
-            agentId: agentState.agentId,
-            credits,
-            totalCredits: agentState.creditsUsed,
-          },
-          'Added LLM cost to agent state',
-        )
-        
         // Transactional cost attribution: ensure costs are actually deducted
         // This is already handled by the saveMessage function which calls updateUserCycleUsage
         // If that fails, the promise rejection will bubble up and halt agent execution
@@ -623,13 +614,5 @@ export const loopAgentSteps = async (
     throw error
   } finally {
     // Ensure costs are always captured, even on failure
-    logger.debug(
-      {
-        agentId: currentAgentState.agentId,
-        creditsUsed: currentAgentState.creditsUsed,
-        status: 'completed_or_failed',
-      },
-      'Agent execution completed with cost tracking',
-    )
   }
 }
