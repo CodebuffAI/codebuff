@@ -13,7 +13,7 @@ export const plannerFactory = (
   model,
   displayName: 'Peter Plan',
   spawnerPrompt:
-    'Creates comprehensive plans by exploring the codebase, doing research on the web, and thinking deeply. You can also use it to answer questions about anything you want to know.',
+    'Creates comprehensive plans by exploring the codebase, doing research on the web, and thinking deeply. You can also use it get deep answer to any question.',
   inputSchema: {
     prompt: {
       type: 'string',

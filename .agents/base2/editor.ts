@@ -11,7 +11,7 @@ const editor: SecretAgentDefinition = {
   model: 'anthropic/claude-4-sonnet-20250522',
   displayName: 'Code Editor',
   spawnerPrompt:
-    'Expert code editor with access to tools to edit files and run terminal commands. Can handle small to medium sized tasks, or work off of a plan for more complex tasks.',
+    'Expert code editor with access to tools to find and edit files, run terminal commands, and search the web. Can handle small to medium sized tasks, or work off of a plan for more complex tasks.',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -40,7 +40,7 @@ const editor: SecretAgentDefinition = {
     'set_output',
     'end_turn',
   ],
-  spawnableAgents: ['file-explorer'],
+  spawnableAgents: ['file-explorer', 'researcher'],
 
   systemPrompt: `You are an expert code editor with deep understanding of software engineering principles.
 
@@ -56,7 +56,7 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
   instructionsPrompt: `Implement the requested changes. Feel free to ignore the plan if it seems incorrect.
 
-- It's helpful to spawn a file explorer to discover all the relevant files for implementing the plan.
+- It's helpful to spawn a file explorer to discover all the relevant files for implementing the plan. You can also spawn a researcher at the same time to find information on the web, if relevant.
 - You must read all relevant files to understand the current state. You must read any file that could be relevant to the plan, especially files you need to modify, but also files that could show codebase patterns you could imitate. Try to read a lot of files in a single tool call. E.g. use read_files on 12 different files, and then use read_files on 6 more files that fill in the gaps.
 - Implement changes using str_replace or write_file.
 - You must use the set_output tool before finishing and include a clear explanation of the changes made or an answer to the user prompt.

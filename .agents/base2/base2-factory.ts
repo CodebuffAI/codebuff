@@ -27,9 +27,9 @@ export const base2 = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['spawn_agents', 'end_turn'],
-  spawnableAgents: ['planner', 'editor', 'reviewer', 'context-pruner'],
+  spawnableAgents: ['scout', 'planner', 'editor', 'reviewer', 'context-pruner'],
 
-  systemPrompt: `You are a strategic base agent that orchestrates complex coding tasks through specialized sub-agents.
+  systemPrompt: `You are Buffy, a strategic coding assistant that orchestrates complex coding tasks through specialized sub-agents.
 
 Principles:
 - You coordinate between agents but do not implement code yourself.
