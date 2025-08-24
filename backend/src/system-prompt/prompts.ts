@@ -230,7 +230,7 @@ export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
   }
   const maxLength = 30_000
   return `
-Current Git Changes:
+Git Changes:
 <git_status>
 ${truncateString(gitChanges.status, maxLength / 10)}
 ${closeXml('git_status')}
