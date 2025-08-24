@@ -229,7 +229,6 @@ export const callMainPrompt = async (
   })
 
   const { sessionState, toolCalls, toolResults } = result
-  
 
   // Send prompt data back
   sendAction(ws, {
@@ -429,7 +428,7 @@ export async function requestToolCall(
   }
   error?: string
 }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const requestId = generateCompactId()
     const timeoutInSeconds =
       (input.timeout_seconds || 30) < 0
@@ -443,11 +442,10 @@ export async function requestToolCall(
         : setTimeout(
             () => {
               unsubscribe()
-              reject(
-                new Error(
-                  `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
-                ),
-              )
+              resolve({
+                success: false,
+                error: `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
+              })
             },
             timeoutInSeconds * 1000 + 5000, // Convert to ms and add a small buffer
           )
