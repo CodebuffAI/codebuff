@@ -1,5 +1,3 @@
-import { buildArray } from '@codebuff/common/util/array'
-
 import {
   initialSessionState,
   applyOverridesToSessionState,
@@ -54,7 +52,7 @@ export class CodebuffClient {
   >
   private readonly fingerprintId = `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
 
-  private readonly promptIdValues: Record<
+  private readonly promptIdToHandlers: Record<
     string,
     {
       handleEvent?: (event: PrintModeEvent) => void
@@ -95,12 +93,12 @@ export class CodebuffClient {
         const { userInputId, chunk } = action
         if (typeof chunk === 'string') {
           const handleStreamChunk =
-            this.promptIdValues[userInputId]?.handleStreamChunk
+            this.promptIdToHandlers[userInputId]?.handleStreamChunk
           if (handleStreamChunk) {
             handleStreamChunk(chunk)
           }
         } else {
-          const handleEvent = this.promptIdValues[userInputId]?.handleEvent
+          const handleEvent = this.promptIdToHandlers[userInputId]?.handleEvent
           if (handleEvent) {
             handleEvent(chunk)
           }
@@ -187,12 +185,12 @@ export class CodebuffClient {
       })
     }
     const toolResults = previousRun?.toolResults ?? []
-    this.promptIdValues[promptId] = {
+    this.promptIdToHandlers[promptId] = {
       handleEvent,
       handleStreamChunk,
     }
     if (customToolDefinitions) {
-      this.promptIdValues[promptId].customToolHandler = async ({
+      this.promptIdToHandlers[promptId].customToolHandler = async ({
         toolName,
         input,
       }) => {
@@ -246,7 +244,7 @@ export class CodebuffClient {
     })
 
     return new Promise<RunState>((resolve, reject) => {
-      this.promptIdValues[promptId].resolveResponse = { resolve, reject }
+      this.promptIdToHandlers[promptId].resolveResponse = { resolve, reject }
     })
   }
 
@@ -255,12 +253,12 @@ export class CodebuffClient {
   ) {
     const promptId =
       action.type === 'prompt-response' ? action.promptId : action.userInputId
-    const promiseActions = this.promptIdValues[promptId]?.resolveResponse
+    const promiseActions = this.promptIdToHandlers[promptId]?.resolveResponse
     if (!promiseActions) {
       return
     }
 
-    delete this.promptIdValues[promptId]
+    delete this.promptIdToHandlers[promptId]
 
     if (action.type === 'prompt-error') {
       promiseActions.reject(new Error(action.message))
@@ -302,7 +300,7 @@ export class CodebuffClient {
     let result: string
     if (!toolNames.includes(toolName as ToolName)) {
       const customToolHandler =
-        this.promptIdValues[action.userInputId].customToolHandler
+        this.promptIdToHandlers[action.userInputId].customToolHandler
       if (!customToolHandler) {
         throw new Error(
           `Custom tool handler not found for user input ID ${action.userInputId}`,

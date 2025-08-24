@@ -99,6 +99,7 @@ export class WebSocketHandler {
 
   public close() {
     this.cbWebSocket.close()
+    this.isConnected = false
   }
 
   private setupSubscriptions() {
