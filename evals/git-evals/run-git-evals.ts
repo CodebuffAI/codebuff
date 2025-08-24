@@ -3,19 +3,19 @@ import fs from 'fs'
 import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
-import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import pLimit from 'p-limit'
+import { getUserCredentials } from '@codebuff/npm-app/credentials'
 
 import { resetRepoToCommit } from '../scaffolding'
-import { createInitialSessionState } from '../test-setup'
+import { createInitialSessionState, TEST_REPOS_DIR } from '../test-setup'
 import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
 import { judgeEvalRun } from './judge-git-eval'
+import { getNextEvalPrompt } from './prompting-agent'
 
 import type { AgentStep } from '../scaffolding'
 import type { Runner } from './runners/runner'
@@ -30,6 +30,9 @@ import type {
 } from './types'
 import type { z } from 'zod/v4'
 import type { ChildProcess } from 'child_process'
+import { CodebuffClient } from '../../sdk/src/client'
+import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
+import { getDirSizeBytes, formatBytes } from '../util/disk-usage'
 
 disableLiveUserInputCheck()
 
@@ -63,6 +66,16 @@ export async function runSingleEval(
 
   process.on('uncaughtException', uncaughtHandler)
   process.on('unhandledRejection', unhandledHandler)
+
+  // SDK client for prompting agent
+  const apiKey = process.env[API_KEY_ENV_VAR] || getLocalAuthToken()
+  const sdkClient = new CodebuffClient({
+    apiKey,
+    cwd: projectPath,
+    onError: (error) => {
+      throw new Error(`Prompting agent error: ${error.message}`)
+    },
+  })
 
   try {
     // Reset to the commit before the target commit
@@ -110,40 +123,18 @@ export async function runSingleEval(
         )
         .join('\n\n')
 
-      // Get next prompt from prompting agent with timeout
+      // Get next prompt from prompting agent using Codebuff SDK
       let agentResponse: z.infer<typeof AgentDecisionSchema>
       try {
-        agentResponse = await promptAiSdkStructured({
-          messages: [
-            {
-              role: 'user',
-              content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
-
-Current spec to implement:
-<spec>${evalCommit.spec}</spec>
-
-Your conversation with Codebuff so far:
-<conversation>${renderedTrace}</conversation>
-
-Note that files can only be changed with tools. If no tools are called, no files were changed.
-
-You must decide whether to:
-1. 'continue' - Generate a follow-up prompt for Codebuff
-2. 'complete' - The implementation is done and satisfies the spec
-3. 'halt' - The implementation is off track and unlikely to be completed within ${MAX_ATTEMPTS - attempts} more attempts
-
-If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
-Explain your reasoning in detail.`,
-            },
-          ],
-          schema: AgentDecisionSchema,
-          model: models.gemini2_5_flash,
-          clientSessionId,
-          fingerprintId,
-          userInputId: generateCompactId(),
-          userId: undefined,
-          timeout: 5 * 60_000, // 5 minute timeout
-        })
+        agentResponse = await withTimeout(
+          getNextEvalPrompt({
+            client: sdkClient,
+            spec: evalCommit.spec,
+            conversationHistory: renderedTrace,
+            attemptsRemaining: MAX_ATTEMPTS - attempts,
+          }),
+          5 * 60_000, // 5 minute timeout
+        )
       } catch (agentError) {
         throw new Error(
           `Agent decision failed: ${agentError instanceof Error ? `${agentError.message}\n${JSON.stringify(agentError)}\n${agentError.stack}` : String(agentError)}`,
@@ -197,6 +188,8 @@ Explain your reasoning in detail.`,
         process.on('unhandledRejection', handler)
       }
     })
+
+    sdkClient.closeConnection()
   }
 
   // If we caught a process-level error, use that
@@ -247,6 +240,10 @@ Explain your reasoning in detail.`,
       },
     }
   }
+}
+
+const getLocalAuthToken = () => {
+  return getUserCredentials()?.authToken
 }
 
 function getCodebuffFileStates(
@@ -377,6 +374,10 @@ export async function runGitEvals(
   // Generate unique trace ID for this run
   const traceId = generateCompactId()
   console.log(`Starting eval run with trace ID: ${traceId}`)
+  try {
+    const trepo = getDirSizeBytes(TEST_REPOS_DIR)
+    console.log(`[storage] Initial TEST_REPOS_DIR size: ${formatBytes(trepo)} (${trepo} B) path=${TEST_REPOS_DIR}`)
+  } catch {}
 
   // Ensure output directory exists
   if (!fs.existsSync(outputDir)) {
@@ -422,6 +423,11 @@ export async function runGitEvals(
               true,
               evalData.initCommand,
             )
+            try {
+              const projectSize = getDirSizeBytes(projectPath)
+              const gitSize = getDirSizeBytes(path.join(projectPath, '.git'))
+              console.log(`[storage] Setup repo sizes for ${testRepoName}: repo=${formatBytes(projectSize)} (.git=${formatBytes(gitSize)}) path=${projectPath}`)
+            } catch {}
 
             console.log(
               `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.spec.split('\n')[0]}...`,
@@ -509,6 +515,15 @@ export async function runGitEvals(
                 logStream.end()
               }
 
+              try {
+                if (fs.existsSync(projectPath)) {
+                  const leftover = getDirSizeBytes(projectPath)
+                  console.warn(`[storage] Project path still exists after child exit: ${projectPath} (size=${formatBytes(leftover)})`)
+                } else {
+                  console.log(`[storage] Project path cleaned up: ${projectPath}`)
+                }
+              } catch {}
+
               if (code !== 0) {
                 console.error(
                   `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`,
@@ -571,6 +586,14 @@ export async function runGitEvals(
 
   // Write final results to file
   fs.writeFileSync(finalOutputPath, JSON.stringify(result, null, 2))
+  try {
+    const fsz = fs.statSync(finalOutputPath).size
+    console.log(`[storage] Final results size: ${formatBytes(fsz)} (${fsz} B) file=${finalOutputPath}`)
+    const lsz = getDirSizeBytes(logsDir)
+    console.log(`[storage] Logs directory size: ${formatBytes(lsz)} (${lsz} B) path=${logsDir}`)
+    const trepo = getDirSizeBytes(TEST_REPOS_DIR)
+    console.log(`[storage] TEST_REPOS_DIR size: ${formatBytes(trepo)} (${trepo} B) path=${TEST_REPOS_DIR}`)
+  } catch {}
 
   console.log('All evals complete!')
   console.log(`Final results written to ${finalOutputPath}`)
