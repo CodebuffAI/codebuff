@@ -3,12 +3,11 @@ import fs from 'fs'
 import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
-import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import pLimit from 'p-limit'
+import { getUserCredentials } from '@codebuff/npm-app/credentials'
 
 import { resetRepoToCommit } from '../scaffolding'
 import { createInitialSessionState } from '../test-setup'
@@ -17,6 +16,7 @@ import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
+import { getNextEvalPrompt } from './prompting-agent'
 
 import type { AgentStep } from '../scaffolding'
 import type { Runner } from './runners/runner'
@@ -31,6 +31,8 @@ import type {
 } from './types'
 import type { ChildProcess } from 'child_process'
 import type { z } from 'zod/v4'
+import { CodebuffClient } from '../../sdk/src/client'
+import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
 
 disableLiveUserInputCheck()
 
@@ -64,6 +66,16 @@ export async function runSingleEval(
 
   process.on('uncaughtException', uncaughtHandler)
   process.on('unhandledRejection', unhandledHandler)
+
+  // SDK client for prompting agent
+  const apiKey = process.env[API_KEY_ENV_VAR] || getLocalAuthToken()
+  const sdkClient = new CodebuffClient({
+    apiKey,
+    cwd: projectPath,
+    onError: (error) => {
+      throw new Error(`Prompting agent error: ${error.message}`)
+    },
+  })
 
   try {
     // Reset to the commit before the target commit
@@ -111,40 +123,18 @@ export async function runSingleEval(
         )
         .join('\n\n')
 
-      // Get next prompt from prompting agent with timeout
+      // Get next prompt from prompting agent using Codebuff SDK
       let agentResponse: z.infer<typeof AgentDecisionSchema>
       try {
-        agentResponse = await promptAiSdkStructured({
-          messages: [
-            {
-              role: 'user',
-              content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
-
-Current spec to implement:
-<spec>${evalCommit.spec}</spec>
-
-Your conversation with Codebuff so far:
-<conversation>${renderedTrace}</conversation>
-
-Note that files can only be changed with tools. If no tools are called, no files were changed.
-
-You must decide whether to:
-1. 'continue' - Generate a follow-up prompt for Codebuff
-2. 'complete' - The implementation is done and satisfies the spec
-3. 'halt' - The implementation is off track and unlikely to be completed within ${MAX_ATTEMPTS - attempts} more attempts
-
-If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
-Explain your reasoning in detail.`,
-            },
-          ],
-          schema: AgentDecisionSchema,
-          model: models.gemini2_5_flash,
-          clientSessionId,
-          fingerprintId,
-          userInputId: generateCompactId(),
-          userId: undefined,
-          timeout: 5 * 60_000, // 5 minute timeout
-        })
+        agentResponse = await withTimeout(
+          getNextEvalPrompt({
+            client: sdkClient,
+            spec: evalCommit.spec,
+            conversationHistory: renderedTrace,
+            attemptsRemaining: MAX_ATTEMPTS - attempts,
+          }),
+          5 * 60_000, // 5 minute timeout
+        )
       } catch (agentError) {
         throw new Error(
           `Agent decision failed: ${agentError instanceof Error ? `${agentError.message}\n${JSON.stringify(agentError)}\n${agentError.stack}` : String(agentError)}`,
@@ -198,6 +188,8 @@ Explain your reasoning in detail.`,
         process.on('unhandledRejection', handler)
       }
     })
+
+    sdkClient.closeConnection()
   }
 
   // If we caught a process-level error, use that
@@ -248,6 +240,10 @@ Explain your reasoning in detail.`,
       },
     }
   }
+}
+
+const getLocalAuthToken = () => {
+  return getUserCredentials()?.authToken
 }
 
 function getCodebuffFileStates(

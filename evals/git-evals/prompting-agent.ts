@@ -1,7 +1,7 @@
 import type { AgentDecisionSchema } from './types'
+import type { CodebuffClient } from '../../sdk/src'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { z } from 'zod/v4'
-import { CodebuffClient } from '../../sdk/src'
 
 // Agent definition for prompting
 const promptingAgentDefinition: AgentDefinition = {
@@ -42,7 +42,7 @@ const promptingAgentDefinition: AgentDefinition = {
 You cannot and should not make changes yourself. You have no access to tools. You are merely prompting a coding assistant to make changes on your behalf in order to implement the spec.`,
   instructionsPrompt: `Analyze the conversation history and determine whether to:
 1. 'continue' - Generate a follow-up prompt for Codebuff the coding agent
-2. 'complete' - The implementation is done and satisfies the spec  
+2. 'complete' - The implementation is done and satisfies the spec
 3. 'halt' - The implementation is off track and unlikely to be completed
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Don't ask to see files or specific code, instead you should mostly describe the changes you want to make (based on the spec). It's fine to ask questions if you need to in order best implement the spec. But keep in mind you only have a few turns to implement the spec.
@@ -69,7 +69,7 @@ export async function getNextEvalPrompt({
   const prompt = `You are in a conversation with Codebuff, an AI coding assistant.
 Your conversation with Codebuff so far:
 <conversation>${conversationHistory}</conversation>
-    
+
 You need to implement the spec via prompting Codebuff the coding agent. You only have ${attemptsRemaining} turns left to implement the spec.
 
 Current spec to implement:
