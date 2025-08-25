@@ -1,10 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 
-import { isFileIgnored } from '../project-file-tree'
-import { applyPatch } from './patch'
+import { isFileIgnored } from '@codebuff/common/project-file-tree'
+import { applyPatch } from 'diff'
 
-import type { FileChanges } from '../actions'
+import type { FileChanges } from '@codebuff/common/actions'
 
 export function applyChanges(projectRoot: string, changes: FileChanges) {
   const created: string[] = []
@@ -38,6 +38,9 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
       } else {
         const oldContent = fs.readFileSync(fullPath, 'utf-8')
         const newContent = applyPatch(oldContent, content)
+        if (newContent === false) {
+          throw new Error(`Patch failed to apply to ${filePath}: ${content}`)
+        }
         fs.writeFileSync(fullPath, newContent)
       }
       if (fileExists) {
@@ -52,36 +55,4 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
   }
 
   return { created, modified, ignored, invalid }
-}
-
-export async function applyAndRevertChanges(
-  projectRoot: string,
-  changes: FileChanges,
-  onApply: () => Promise<void>,
-) {
-  const filesChanged = changes.map((change) => change.path)
-  const files = Object.fromEntries(
-    filesChanged.map((filePath) => {
-      const fullPath = path.join(projectRoot, filePath)
-      const oldContent = fs.existsSync(fullPath)
-        ? fs.readFileSync(fullPath, 'utf-8')
-        : '[DOES_NOT_EXIST]'
-      return [filePath, oldContent]
-    }),
-  )
-  applyChanges(projectRoot, changes)
-  try {
-    await onApply()
-  } catch (error) {
-    console.error(`Failed to apply changes:`, error)
-  }
-  for (const [filePath, oldContent] of Object.entries(files)) {
-    if (oldContent === '[DOES_NOT_EXIST]') {
-      if (fs.existsSync(path.join(projectRoot, filePath))) {
-        fs.unlinkSync(path.join(projectRoot, filePath))
-      }
-    } else {
-      fs.writeFileSync(path.join(projectRoot, filePath), oldContent)
-    }
-  }
 }

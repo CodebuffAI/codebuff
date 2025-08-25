@@ -1,7 +1,7 @@
 import z from 'zod/v4'
 import fs from 'fs'
 import path from 'path'
-import { applyPatch } from '../../../common/src/util/patch'
+import { applyPatch } from 'diff'
 
 const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -71,6 +71,9 @@ function applyChanges(
       } else {
         const oldContent = fs.readFileSync(fullPath, 'utf-8')
         const newContent = applyPatch(oldContent, content)
+        if (newContent === false) {
+          throw new Error(`Patch failed to apply to ${filePath}: ${content}`)
+        }
         fs.writeFileSync(fullPath, newContent)
       }
 
