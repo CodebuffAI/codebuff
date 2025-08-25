@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -35,7 +35,11 @@ export function ConfirmationInputDialog({
   confirmButtonText,
 }: ConfirmationInputDialogProps) {
   const [inputValue, setInputValue] = useState('')
-  
+
+  useEffect(() => {
+    if (!isOpen) setInputValue('')
+  }, [isOpen])
+
   const isConfirmationMatch = inputValue === confirmationText
 
   const handleConfirm = () => {
@@ -46,9 +50,6 @@ export function ConfirmationInputDialog({
 
   const handleOpenChange = (open: boolean) => {
     onOpenChange(open)
-    if (!open) {
-      setInputValue('')
-    }
   }
 
   return (
