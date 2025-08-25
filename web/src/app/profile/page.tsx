@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { CreditCard, Shield, Users, Key, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -10,8 +11,10 @@ import { SecuritySection } from './components/security-section'
 import { ReferralsSection } from './components/referrals-section'
 import { UsageSection } from './components/usage-section'
 import { ApiKeysSection } from './components/api-keys-section'
+import { ProfileLoggedOut } from './components/logged-out'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const sections = [
   {
@@ -75,6 +78,7 @@ function ProfileSidebar({
 }
 
 export default function ProfilePage() {
+  const { status } = useSession()
   const searchParams = useSearchParams()
   const [activeSection, setActiveSection] = useState('usage')
   const [open, setOpen] = useState(false)
@@ -99,6 +103,27 @@ export default function ProfilePage() {
     window.history.replaceState({}, '', url.toString())
   }
 
+  // Loading state
+  if (status === 'loading') {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center">
+          <div className="w-full max-w-2xl space-y-4">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Unauthenticated state
+  if (status === 'unauthenticated') {
+    return <ProfileLoggedOut />
+  }
+
+  // Authenticated state - render normal profile content
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex gap-8">

@@ -10,8 +10,7 @@ npm install @codebuff/sdk
 
 ## Prerequisites
 
-1. Create a [Codebuff account](https://codebuff.com)
-2. Get your [Codebuff API key](https://www.codebuff.com/profile?tab=api-keys)
+Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/profile?tab=api-keys).
 
 ## Usage
 
