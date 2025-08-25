@@ -1,6 +1,5 @@
 import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/constants'
 
-import { handleSpawnAgents } from './spawn-agents'
 import {
   validateSpawnState,
   validateAndGetAgentTemplate,
@@ -10,6 +9,7 @@ import {
   logAgentSpawn,
   executeAgent,
 } from './spawn-agent-utils'
+import { handleSpawnAgents } from './spawn-agents'
 import { asyncAgentManager } from '../../../async-agent-manager'
 import { logger } from '../../../util/logger'
 
@@ -17,7 +17,7 @@ import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { SendSubagentChunk } from './spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'

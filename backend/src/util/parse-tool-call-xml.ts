@@ -3,7 +3,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import type { StringToolResultPart } from '@codebuff/common/tools/constants'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 /**
  * Parses XML content for a tool call into a structured object with only string values.

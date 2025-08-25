@@ -13,7 +13,7 @@ import {
 import { countTokensJson } from './util/token-counter'
 import { requestFiles } from './websockets/websocket-action'
 
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 

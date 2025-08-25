@@ -24,7 +24,7 @@ import type {
   GetRelevantFilesTrace,
   Relabel,
 } from '@codebuff/bigquery'
-import type { Message } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
@@ -166,7 +166,7 @@ async function relabelTraceForModel(
   dataset: string,
 ) {
   const payload = trace.payload as GetRelevantFilesPayload
-  const messages = payload.messages as Message[]
+  const messages = payload.messages as CodebuffMessage[]
   const system = payload.system as System
 
   let transformedMessages = transformMessages(messages, system)

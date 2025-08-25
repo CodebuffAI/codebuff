@@ -1,3 +1,5 @@
+import { TEST_USER_ID } from '@codebuff/common/constants'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   describe,
   expect,
@@ -7,16 +9,15 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
-import { TEST_USER_ID } from '@codebuff/common/constants'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { mockFileContext, MockWebSocket } from './test-utils'
-import * as loggerModule from '../util/logger'
-import * as runAgentStep from '../run-agent-step'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import { mockFileContext, MockWebSocket } from './test-utils'
+import * as runAgentStep from '../run-agent-step'
+import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
+import * as loggerModule from '../util/logger'
+
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { WebSocket } from 'ws'
 
 describe('Spawn Agents Message History', () => {

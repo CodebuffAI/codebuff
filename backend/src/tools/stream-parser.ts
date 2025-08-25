@@ -11,7 +11,7 @@ import type { CustomToolCall } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,

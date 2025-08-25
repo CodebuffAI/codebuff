@@ -29,7 +29,7 @@ import type {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,
 } from '@codebuff/bigquery'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 const NUMBER_OF_EXAMPLE_FILES = 100

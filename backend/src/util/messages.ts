@@ -9,7 +9,7 @@ import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
 
 import type { System } from '../llm-apis/claude'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export function messagesWithSystem(
   messages: CodebuffMessage[],

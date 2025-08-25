@@ -12,7 +12,7 @@ import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
 
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export async function processFileBlock(
   path: string,

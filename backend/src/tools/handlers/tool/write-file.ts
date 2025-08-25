@@ -9,7 +9,7 @@ import type {
   ClientToolCall,
   CodebuffToolCall,
 } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { WebSocket } from 'ws'
 
 type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'

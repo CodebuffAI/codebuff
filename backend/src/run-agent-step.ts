@@ -16,7 +16,6 @@ import { checkLiveUserInput } from './live-user-inputs'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
-import { saveAgentRequest } from './system-prompt/save-agent-request'
 import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
@@ -37,7 +36,7 @@ import { getRequestContext } from './websockets/request-context'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentTemplateType,
@@ -290,15 +289,6 @@ export const runAgentStep = async (
     systemTokens,
     supportsCacheControl(agentTemplate.model),
   )
-
-  const debugPromptCaching = false
-  if (debugPromptCaching) {
-    // Store the agent request to a file for debugging
-    await saveAgentRequest(
-      messagesWithSystem(agentMessages, system),
-      userInputId,
-    )
-  }
 
   logger.debug(
     {

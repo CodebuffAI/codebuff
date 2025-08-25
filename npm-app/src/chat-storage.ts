@@ -1,12 +1,13 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { type Log } from '@codebuff/common/browser-actions'
-import { type CodebuffMessage } from '@codebuff/common/types/message'
 import { transformJsonInString } from '@codebuff/common/util/string'
 
 import { getCurrentChatDir, getCurrentChatId } from './project-files'
 import { logger } from './utils/logger'
+
+import type { Log } from '@codebuff/common/browser-actions'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export function setMessages(messages: CodebuffMessage[]) {
   // Clean up any screenshots and logs in previous messages

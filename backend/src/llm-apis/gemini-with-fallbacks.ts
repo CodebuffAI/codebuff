@@ -8,7 +8,7 @@ import type {
   FinetunedVertexModel,
   GeminiModel,
 } from '@codebuff/common/constants'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 /**
  * Prompts a Gemini model with fallback logic.

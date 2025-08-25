@@ -27,7 +27,7 @@ import type {
   GetRelevantFilesTrace,
   Relabel,
 } from '@codebuff/bigquery'
-import type { Message } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { Request, Response } from 'express'
 
 // --- GET Handler Logic ---
@@ -172,7 +172,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
 
             output = await promptAiSdk({
               messages: transformMessages(
-                messages as Message[],
+                messages as CodebuffMessage[],
                 system as System,
               ),
               model: model,
@@ -397,7 +397,10 @@ export async function relabelWithClaudeWithFullFileContext(
   }
 
   const output = await promptAiSdk({
-    messages: transformMessages(trace.payload.messages as Message[], system),
+    messages: transformMessages(
+      trace.payload.messages as CodebuffMessage[],
+      system,
+    ),
     model: model as any, // Model type is string here for flexibility
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',

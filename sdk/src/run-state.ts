@@ -1,12 +1,12 @@
 import * as os from 'os'
 
 import { type CustomToolDefinition } from './custom-tool'
-import { getFileTokenScores } from '../../packages/code-map/src/parse'
 import { getInitialSessionState } from '../../common/src/types/session-state'
+import { getFileTokenScores } from '../../packages/code-map/src/parse'
 
 import type { ServerAction } from '../../common/src/actions'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-import type { CodebuffMessage } from '../../common/src/types/message'
+import type { CodebuffMessage } from '../../common/src/types/messages/codebuff-message'
 import type { SessionState } from '../../common/src/types/session-state'
 import type {
   CustomToolDefinitions,

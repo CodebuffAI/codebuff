@@ -9,18 +9,14 @@ import {
   formatAgentResult,
   formatAgentError,
 } from './spawn-agent-utils'
-
 import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type {
-  AgentState,
-  AgentTemplateType,
-} from '@codebuff/common/types/session-state'
+import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 

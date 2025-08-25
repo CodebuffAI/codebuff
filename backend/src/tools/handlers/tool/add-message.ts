@@ -1,6 +1,6 @@
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export const handleAddMessage = (({
   previousToolCallFinished,

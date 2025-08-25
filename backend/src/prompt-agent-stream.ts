@@ -4,7 +4,7 @@ import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { globalStopSequence } from './tools/constants'
 
 import type { AgentTemplate } from './templates/types'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 
 export const getAgentStreamFromTemplate = (params: {

@@ -1,18 +1,18 @@
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { generateCompactId } from '@codebuff/common/util/string'
 import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
+import { generateCompactId } from '@codebuff/common/util/string'
 
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { WebSocket } from 'ws'
 
 export interface SpawnAgentParams {

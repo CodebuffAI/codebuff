@@ -15,7 +15,7 @@ import type { TextBlock } from '../../../llm-apis/claude'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 

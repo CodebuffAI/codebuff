@@ -3,7 +3,7 @@ import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 

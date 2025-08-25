@@ -29,12 +29,12 @@ import type {
   Model,
   OpenAIModel,
 } from '@codebuff/common/constants'
-import type { CodebuffMessage, Message } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   OpenRouterProviderOptions,
   OpenRouterUsageAccounting,
 } from '@openrouter/ai-sdk-provider'
-import type { AssistantModelMessage, UserModelMessage, LanguageModel } from 'ai'
+import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
 
 // TODO: We'll want to add all our models here!
@@ -370,7 +370,7 @@ export const promptAiSdkStructured = async function <T>(options: {
 // TODO: temporary - ideally we move to using CodebuffMessage[] directly
 // and don't need this transform!!
 export function transformMessages(
-  messages: (Message | CodebuffMessage)[],
+  messages: CodebuffMessage[],
   system?: System,
 ): CodebuffMessage[] {
   const codebuffMessages: CodebuffMessage[] = []
@@ -385,115 +385,14 @@ export function transformMessages(
     })
   }
 
-  for (const message of messages) {
-    if (message.role === 'system') {
-      if (typeof message.content === 'string') {
-        codebuffMessages.push({ role: 'system', content: message.content })
-        continue
-      } else {
-        throw new Error(
-          'Multiple part system message - unsupported (TODO: fix if we hit this.)',
-        )
-      }
-    }
-
-    if (message.role === 'user') {
-      if (typeof message.content === 'string') {
-        codebuffMessages.push({
-          ...message,
-          role: 'user',
-          content: message.content,
-        })
-        continue
-      } else {
-        const parts: UserModelMessage['content'] = []
-        const modelMessage: UserModelMessage = { role: 'user', content: parts }
-        for (const part of message.content) {
-          // Add ephemeral if present
-          if ('cache_control' in part) {
-            modelMessage.providerOptions = {
-              anthropic: { cacheControl: { type: 'ephemeral' } },
-              openrouter: { cacheControl: { type: 'ephemeral' } },
-            }
-          }
-          // Handle Message type image format
-          if (part.type === 'image' && 'source' in part) {
-            parts.push({
-              type: 'image' as const,
-              image: `data:${part.source.media_type};base64,${part.source.data}`,
-            })
-            continue
-          }
-          if (part.type === 'file') {
-            throw new Error('File messages not supported')
-          }
-          if (part.type === 'text') {
-            parts.push({
-              type: 'text' as const,
-              text: part.text,
-            })
-            continue
-          }
-          if (part.type === 'tool_use' || part.type === 'tool_result') {
-            // Skip tool parts in user messages - they should be in assistant/tool messages
-            continue
-          }
-        }
-        codebuffMessages.push(modelMessage)
-        continue
-      }
-    }
-
-    if (message.role === 'assistant') {
-      if (message.content === undefined || message.content === null) {
-        continue
-      }
-      if (typeof message.content === 'string') {
-        codebuffMessages.push({
-          ...message,
-          role: 'assistant',
-          content: message.content,
-        })
-        continue
-      } else {
-        let messageContent: AssistantModelMessage['content'] = []
-        const modelMessage: AssistantModelMessage = {
-          ...message,
-          role: 'assistant',
-          content: messageContent,
-        }
-        for (const part of message.content) {
-          // Add ephemeral if present
-          if ('cache_control' in part) {
-            modelMessage.providerOptions = {
-              anthropic: { cacheControl: { type: 'ephemeral' } },
-              openrouter: { cacheControl: { type: 'ephemeral' } },
-            }
-          }
-          if (part.type === 'text') {
-            messageContent.push({ type: 'text', text: part.text })
-          }
-          if (part.type === 'tool_use') {
-            messageContent.push({
-              type: 'tool-call',
-              toolCallId: part.id,
-              toolName: part.name,
-              input: part.input,
-            })
-          }
-        }
-        codebuffMessages.push(modelMessage)
-        continue
-      }
-    }
-
-    if (message.role === 'tool') {
-      codebuffMessages.push(message)
-      continue
-    }
-
-    throw new Error('Unknown message role received: ' + message)
-  }
-
-  return codebuffMessages
+  return buildArray<CodebuffMessage>([
+    system && {
+      role: 'system',
+      content:
+        typeof system === 'string'
+          ? system
+          : system.map((block) => block.text).join('\n\n'),
+    },
+    messages,
+  ])
 }

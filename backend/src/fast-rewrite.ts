@@ -11,7 +11,7 @@ import { promptRelaceAI } from './llm-apis/relace-api'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export async function fastRewrite(
   initialContent: string,

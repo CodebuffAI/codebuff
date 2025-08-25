@@ -11,7 +11,7 @@ import {
 import { trimMessagesToFitTokenLimit, messagesWithSystem } from '../messages'
 import * as tokenCounter from '../token-counter'
 
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {

@@ -22,7 +22,7 @@ import { SWITCHBOARD } from '../websockets/server'
 import { sendAction } from '../websockets/websocket-action'
 
 import type { ClientState } from '../websockets/switchboard'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export const PROFIT_MARGIN = 0.055
 
