@@ -1,11 +1,11 @@
 import { z } from 'zod/v4'
 
-import { CodebuffMessageSchema } from './message'
+import { codebuffMessageSchema } from './messages/codebuff-message'
+import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 import { ProjectFileContextSchema } from '../util/file'
 
 import type { CodebuffMessage } from './message'
 import type { ProjectFileContext } from '../util/file'
-import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
 export const toolCallSchema = z.object({
   toolName: z.string(),
@@ -50,7 +50,7 @@ export const AgentStateSchema: z.ZodType<{
     agentType: z.string().nullable(),
     agentContext: z.record(z.string(), subgoalSchema),
     subagents: AgentStateSchema.array(),
-    messageHistory: CodebuffMessageSchema.array(),
+    messageHistory: codebuffMessageSchema.array(),
     stepsRemaining: z.number(),
     creditsUsed: z.number().default(0),
     output: z.record(z.string(), z.any()).optional(),

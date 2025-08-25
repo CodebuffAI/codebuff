@@ -21,7 +21,7 @@ export function getToolCallString<T extends ToolName | (string & {})>(
     toolName in llmToolCallSchema
       ? llmToolCallSchema[toolName as keyof typeof llmToolCallSchema]
           .endsAgentStep
-      : endsAgentStep[0]
+      : endsAgentStep[0] ?? false
   const obj: Record<string, any> = {
     [toolNameParam]: toolName,
     ...params,
