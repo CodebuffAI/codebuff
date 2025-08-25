@@ -10,35 +10,19 @@ npm install @codebuff/sdk
 
 ## Prerequisites
 
-1. Install the Codebuff CLI globally:
-
-   ```bash
-   npm install -g codebuff
-   ```
-
-2. Login to `codebuff` to store the API key in your local config:
-   ```bash
-   codebuff login
-   ```
+1. Create a [Codebuff account](https://codebuff.com)
+2. Get your [Codebuff API key](https://www.codebuff.com/profile?tab=api-keys)
 
 ## Usage
 
 ### Basic Example
 
 ```typescript
-import * as fs from 'fs'
-import * as os from 'os'
 import { CodebuffClient } from '@codebuff/sdk'
 
-// Available after running `codebuff login`
-const apiKey = JSON.parse(
-  fs
-    .readFileSync(os.homedir() + '/.config/manicode/credentials.json')
-    .toString(),
-).default.authToken
-
 const client = new CodebuffClient({
-  apiKey,
+  // Note: You need to pass in your own API key here.
+  apiKey: process.env.CODEBUFF_API_KEY,
   cwd: process.cwd(),
   onError: (e) => console.error('Codebuff error:', e.message),
 })
@@ -66,8 +50,6 @@ client.closeConnection()
 ### Advanced Example with Custom Agents, Tools, and Images
 
 ```typescript
-import * as fs from 'fs'
-import * as os from 'os'
 import { z } from 'zod'
 import {
   CodebuffClient,
@@ -76,15 +58,9 @@ import {
   getCustomToolDefinition,
 } from '@codebuff/sdk'
 
-// Available after running `codebuff login`
-const apiKey = JSON.parse(
-  fs
-    .readFileSync(os.homedir() + '/.config/manicode/credentials.json')
-    .toString(),
-).default.authToken
-
 const client = new CodebuffClient({
-  apiKey,
+  // Note: You need to pass in your own API key here.
+  apiKey: process.env.CODEBUFF_API_KEY,
   cwd: process.cwd(),
   onError: (e) => console.error('Codebuff error:', e.message),
 })
