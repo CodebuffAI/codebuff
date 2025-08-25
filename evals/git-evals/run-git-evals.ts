@@ -406,9 +406,10 @@ export async function runGitEvals(
   // Use global limiter if available, otherwise create a local one
   const limitConcurrency = globalConcurrencyLimiter || pLimit(20)
 
+  const timeoutMs = 60_000 * 30
   const evalPromises = commitsToRun.map((evalCommit, index) => {
-    return limitConcurrency(
-      () =>
+    return limitConcurrency(() =>
+      withTimeout(
         new Promise<EvalRunJudged>(async (resolve, reject) => {
           try {
             console.log(
@@ -527,6 +528,8 @@ export async function runGitEvals(
             reject(error)
           }
         }),
+        timeoutMs,
+      ),
     )
   })
 
