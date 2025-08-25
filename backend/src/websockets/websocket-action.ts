@@ -7,6 +7,7 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
@@ -31,7 +32,6 @@ import type {
 } from '@codebuff/common/actions'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
-import { getErrorObject } from '@codebuff/common/util/error'
 
 /**
  * Sends an action to the client via WebSocket
@@ -147,7 +147,7 @@ const onPrompt = async (
       }
 
       if (prompt) {
-        logger.info(`USER INPUT: ${prompt}`)
+        logger.info({ prompt }, `USER INPUT: ${prompt.slice(0, 100)}`)
         trackEvent(AnalyticsEvent.USER_INPUT, userId, {
           prompt,
           promptId,
