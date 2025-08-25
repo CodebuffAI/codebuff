@@ -2,6 +2,8 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/constants'
+
 // List of admin user emails - single source of truth
 const CODEBUFF_ADMIN_USER_EMAILS = [
   'venkateshrameshkumar+1@gmail.com',
@@ -81,7 +83,7 @@ export async function checkAuthToken({
       success: false,
       error: {
         type: 'invalid-token',
-        message: 'Invalid auth token',
+        message: INVALID_AUTH_TOKEN_MESSAGE,
       },
     }
   }

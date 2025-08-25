@@ -3,6 +3,7 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod/v4'
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/constants'
 
 import { checkAuth } from '../util/check-auth'
 import { logger } from '../util/logger'
@@ -61,7 +62,10 @@ async function usageHandler(
       : undefined
 
     if (!userId) {
-      return res.status(401).json({ message: 'Authentication failed' })
+      const message = authToken
+        ? INVALID_AUTH_TOKEN_MESSAGE
+        : 'Authentication failed'
+      return res.status(401).json({ message })
     }
 
     // If orgId is provided, return organization usage data

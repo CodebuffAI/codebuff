@@ -10,6 +10,9 @@ export const AGENT_DEFINITION_FILE = 'agent-definition.d.ts'
 
 export const API_KEY_ENV_VAR = 'CODEBUFF_API_KEY'
 
+export const INVALID_AUTH_TOKEN_MESSAGE =
+  'Invalid auth token. You may have been logged out from the web portal. Please log in again.'
+
 // Enable async agents to run tool calls even when main user input is cancelled
 export const ASYNC_AGENTS_ENABLED = true
 

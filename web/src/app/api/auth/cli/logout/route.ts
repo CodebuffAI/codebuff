@@ -3,6 +3,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/constants'
 
 import { logger } from '@/util/logger'
 
@@ -36,7 +37,12 @@ export async function POST(req: Request) {
       })
 
     if (validDeletion.length === 0) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+      return NextResponse.json(
+        {
+          error: INVALID_AUTH_TOKEN_MESSAGE,
+        },
+        { status: 401 }
+      )
     }
 
     // Then reset sig_hash to null
