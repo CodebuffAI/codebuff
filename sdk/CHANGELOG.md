@@ -2,6 +2,17 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.1.17]
+
+### Added
+
+- You can now get an API key from the [Codebuff website](https://www.codebuff.com/profile?tab=api-keys)!
+- You can provide your own custom tools!
+
+### Updated
+
+- Updated types and docs
+
 ## [0.1.9] - 2025-08-13
 
 ### Added
