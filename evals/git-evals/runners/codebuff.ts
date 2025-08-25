@@ -1,12 +1,14 @@
 import path from 'path'
-import { CodebuffClient } from '../../../sdk/src/index'
+
+import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
+import { getUserCredentials } from '@codebuff/npm-app/credentials'
+
+import { CodebuffClient } from '../../../sdk/src/index'
 
 import type { Runner } from './runner'
 import type { RunState } from '../../../sdk/src/index'
 import type { AgentStep } from '../../scaffolding'
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
-import { getUserCredentials } from '@codebuff/npm-app/credentials'
 
 const getLocalAuthToken = () => {
   return getUserCredentials()?.authToken
@@ -73,6 +75,10 @@ export class CodebuffRunner implements Runner {
           }
           responseText += event.text
         } else if (event.type === 'tool_call') {
+          // Do not include set_messages
+          if (event.toolCallId === 'set_messages') {
+            return
+          }
           toolCalls.push(event as any)
         } else if (event.type === 'tool_result') {
           toolResults.push(event as any)
