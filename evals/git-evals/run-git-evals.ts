@@ -11,11 +11,11 @@ import pLimit from 'p-limit'
 
 import { resetRepoToCommit } from '../scaffolding'
 import { createInitialSessionState } from '../test-setup'
+import { judgeEvalRun } from './judge-git-eval'
 import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { AgentDecisionSchema } from './types'
-import { judgeEvalRun } from './judge-git-eval'
 
 import type { AgentStep } from '../scaffolding'
 import type { Runner } from './runners/runner'
@@ -28,8 +28,8 @@ import type {
   FullEvalLog,
   EvalData,
 } from './types'
-import type { z } from 'zod/v4'
 import type { ChildProcess } from 'child_process'
+import type { z } from 'zod/v4'
 
 disableLiveUserInputCheck()
 
@@ -487,7 +487,12 @@ export async function runGitEvals(
                     `Completed eval for commit ${testRepoName} - ${evalCommit.spec.split('\n')[0]}`,
                   )
                   if (!logToStdout) {
-                    console.log(`${JSON.stringify(message.result, null, 2)}`)
+                    const finalResult = message.result
+                    for (const cbTrace of finalResult.trace) {
+                      delete (cbTrace as any).steps
+                    }
+                    delete (finalResult.eval_commit as any).fileStates
+                    console.log(`${JSON.stringify(finalResult, null, 2)}`)
                   }
                   resolve(message.result)
                 } else if (message.type === 'error') {

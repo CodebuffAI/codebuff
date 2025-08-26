@@ -78,9 +78,7 @@ async function main() {
       process.exit(0)
     }
 
-    const finalResult: Partial<typeof result> = result
-    delete finalResult.trace, finalResult.eval_commit?.fileStates
-    console.log('Final result:', { finalResult })
+    console.log('Final result:', { result })
     if (process.send) {
       process.send({ type: 'result', result })
     }
