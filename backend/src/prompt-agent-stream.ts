@@ -14,6 +14,7 @@ export const getAgentStreamFromTemplate = (params: {
   userId: string | undefined
   onCostCalculated?: (credits: number) => Promise<void>
   agentId?: string
+  includeCacheControl?: boolean
 
   template: AgentTemplate
 }) => {
@@ -24,6 +25,7 @@ export const getAgentStreamFromTemplate = (params: {
     userId,
     onCostCalculated,
     agentId,
+    includeCacheControl,
     template,
   } = params
 
@@ -44,6 +46,7 @@ export const getAgentStreamFromTemplate = (params: {
       userId,
       maxOutputTokens: 32_000,
       onCostCalculated,
+      includeCacheControl,
       agentId,
     }
 

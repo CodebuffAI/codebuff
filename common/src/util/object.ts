@@ -1,5 +1,7 @@
 import { isEqual, mapValues, union } from 'lodash'
 
+import type { JSONValue } from 'src/types/json'
+
 export const removeUndefinedProps = <T extends object>(obj: T): T => {
   const newObj: any = {}
 
@@ -128,4 +130,62 @@ export function errorToObject(value: any) {
     )
   }
   return value
+}
+
+export function hasKey<T extends object, K extends PropertyKey>(
+  obj: T | undefined | null | string | number | boolean,
+  key: K,
+): obj is T & Record<K, unknown> {
+  return obj != null && typeof obj === 'object' && key in obj
+}
+
+export function deepCopy<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj)) as T
+}
+
+export function deepEqual(
+  a: JSONValue | undefined,
+  b: JSONValue | undefined,
+): boolean {
+  if (a === b) return true
+
+  if (
+    typeof a === 'string' ||
+    typeof b === 'string' ||
+    typeof a === 'boolean' ||
+    typeof b === 'boolean' ||
+    typeof a === 'number' ||
+    typeof b === 'number' ||
+    a === null ||
+    b === null ||
+    a === undefined ||
+    b === undefined
+  ) {
+    return false
+  }
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a)) return false
+    if (!Array.isArray(b)) return false
+
+    if (a.length !== b.length) return false
+
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false
+    }
+
+    return true
+  }
+
+  const keysA = Object.keys(a)
+  const keysB = Object.keys(b)
+
+  if (keysA.length !== keysB.length) return false
+
+  for (const key of keysA) {
+    if (!keysB.includes(key)) return false
+    if (!deepEqual(a[key], b[key])) return false
+  }
+
+  return true
 }

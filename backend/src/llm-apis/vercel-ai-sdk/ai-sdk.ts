@@ -75,6 +75,7 @@ export const promptAiSdkStream = async function* (
     agentId?: string
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
+    includeCacheControl?: boolean
   } & Omit<Parameters<typeof streamText>[0], 'model'>,
 ) {
   if (
@@ -233,6 +234,7 @@ export const promptAiSdk = async function (
     chargeUser?: boolean
     agentId?: string
     onCostCalculated?: (credits: number) => Promise<void>
+    includeCacheControl?: boolean
   } & Omit<Parameters<typeof generateText>[0], 'model'>,
 ): Promise<string> {
   if (
@@ -306,6 +308,7 @@ export const promptAiSdkStructured = async function <T>(options: {
   chargeUser?: boolean
   agentId?: string
   onCostCalculated?: (credits: number) => Promise<void>
+  includeCacheControl?: boolean
 }): Promise<T> {
   if (
     !checkLiveUserInput(

@@ -269,6 +269,7 @@ export const runAgentStep = async (
         )
       }
     },
+    includeCacheControl: supportsCacheControl(agentTemplate.model),
   })
 
   const iterationNum = agentState.messageHistory.length
@@ -287,7 +288,6 @@ export const runAgentStep = async (
   const agentMessages = getMessagesSubset(
     agentState.messageHistory,
     systemTokens,
-    supportsCacheControl(agentTemplate.model),
   )
 
   logger.debug(
