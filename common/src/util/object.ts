@@ -1,6 +1,6 @@
 import { isEqual, mapValues, union } from 'lodash'
 
-import type { JSONValue } from 'src/types/json'
+import type { JSONValue } from '../types/json'
 
 export const removeUndefinedProps = <T extends object>(obj: T): T => {
   const newObj: any = {}
