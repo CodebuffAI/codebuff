@@ -196,6 +196,7 @@ export async function runProgrammaticStep(
           toolCall.toolName,
           toolCall.input,
         )
+        onResponseChunk(toolCallString)
         state.messages.push({
           role: 'assistant' as const,
           content: toolCallString,

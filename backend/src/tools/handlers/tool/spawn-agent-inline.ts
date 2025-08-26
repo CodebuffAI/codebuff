@@ -105,8 +105,11 @@ export const handleSpawnAgentInline = ((params: {
       localAgentTemplates,
       userId,
       clientSessionId,
-      // Inherits parent's onResponseChunk
-      onResponseChunk: writeToClient,
+      onResponseChunk: (chunk) => {
+        // Disabled.
+        // Inherits parent's onResponseChunk
+        // writeToClient(chunk)
+      },
     })
 
     // Update parent's message history with child's final state

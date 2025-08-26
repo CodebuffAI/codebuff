@@ -301,6 +301,7 @@ export async function executeAgent({
   userId,
   clientSessionId,
   onResponseChunk,
+  isOnlyChild = false,
 }: {
   ws: WebSocket
   userInputId: string
@@ -314,11 +315,21 @@ export async function executeAgent({
   userId?: string
   clientSessionId: string
   onResponseChunk: (chunk: string | PrintModeEvent) => void
+  isOnlyChild?: boolean
 }) {
+  const width = 60
+  const fullAgentName = `${agentTemplate.displayName} (${agentTemplate.id})`
+  const dashes = '-'.repeat(Math.floor((width - fullAgentName.length - 2) / 2))
+
+  // Send agent start notification if this is the only child
+  if (isOnlyChild) {
+    onResponseChunk(`\n\n${dashes} ${fullAgentName} ${dashes}\n\n`)
+  }
+
   // Import loopAgentSteps dynamically to avoid circular dependency
   const { loopAgentSteps } = await import('../../../run-agent-step')
 
-  return await loopAgentSteps(ws, {
+  const result = await loopAgentSteps(ws, {
     userInputId,
     prompt,
     params,
@@ -332,6 +343,19 @@ export async function executeAgent({
     clientSessionId,
     onResponseChunk,
   })
+
+  // Send agent end notification if this is the only child
+  if (isOnlyChild) {
+    const endedFullAgentName = `Completed: ${fullAgentName}`
+    const dashesForEndedAgent = '-'.repeat(
+      Math.floor(width - endedFullAgentName.length - 2) / 2,
+    )
+    onResponseChunk(
+      `\n\n${dashesForEndedAgent} ${endedFullAgentName} ${dashesForEndedAgent}\n\n`,
+    )
+  }
+
+  return result
 }
 
 /**

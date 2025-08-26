@@ -127,15 +127,9 @@ export const handleSpawnAgents = ((params: {
           localAgentTemplates,
           userId,
           clientSessionId,
+          isOnlyChild: agents.length === 1,
           onResponseChunk: (chunk: string | PrintModeEvent) => {
-            const agentsThatShouldStreamToClient = [
-              'editor',
-              'editor-gpt-5-high',
-            ]
-            if (
-              agents.length === 1 &&
-              agentsThatShouldStreamToClient.includes(agents[0].agent_type)
-            ) {
+            if (agents.length === 1) {
               writeToClient(chunk)
             }
             if (typeof chunk !== 'string') {
