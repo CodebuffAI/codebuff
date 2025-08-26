@@ -8,7 +8,7 @@ export const WEBSITE_URL =
   process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ||
   (IS_PROD ? 'https://codebuff.com' : 'http://localhost:3000')
 
-const DEFAULT_BACKEND_URL = 'manidoce-backend.onrender.com'
+const DEFAULT_BACKEND_URL = 'manicode-backend.onrender.com'
 const DEFAULT_BACKEND_URL_DEV = 'localhost:4242'
 function isLocalhost(url: string) {
   return url.includes('localhost') || url.includes('127.0.0.1')
