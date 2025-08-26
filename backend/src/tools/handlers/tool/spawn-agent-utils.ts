@@ -316,22 +316,31 @@ export async function executeAgent({
   onResponseChunk: (chunk: string | PrintModeEvent) => void
 }) {
   // Import loopAgentSteps dynamically to avoid circular dependency
-  const { loopAgentSteps } = await import('../../../run-agent-step')
+  const { loopAgentSteps } = await import('@codebuff/agent-runtime')
 
-  return await loopAgentSteps(ws, {
-    userInputId,
-    prompt,
-    params,
-    agentType: agentTemplate.id,
-    agentState,
-    fingerprintId,
-    fileContext,
-    localAgentTemplates,
-    toolResults: [],
-    userId,
-    clientSessionId,
-    onResponseChunk,
-  })
+  // Create environment for spawned agent
+  const { createAgentRuntimeEnvironment } = await import(
+    '../../../agent-runtime/env'
+  )
+  const env = createAgentRuntimeEnvironment(ws, onResponseChunk)
+
+  return await loopAgentSteps(
+    {
+      userInputId,
+      prompt,
+      params,
+      agentType: agentTemplate.id,
+      agentState,
+      fingerprintId,
+      fileContext,
+      localAgentTemplates,
+      toolResults: [],
+      userId,
+      clientSessionId,
+      onResponseChunk,
+    },
+    env,
+  )
 }
 
 /**

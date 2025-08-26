@@ -179,24 +179,33 @@ export class AsyncAgentManager {
         }))
       } else {
         // Import loopAgentSteps dynamically to avoid circular dependency
-        const { loopAgentSteps } = await import('./run-agent-step')
+        const { loopAgentSteps } = await import('@codebuff/agent-runtime')
         const { agentTemplates: localAgentTemplates } =
           assembleLocalAgentTemplates(agent.fileContext)
 
-        agentPromise = loopAgentSteps(ws, {
-          userInputId,
-          prompt: undefined, // No initial prompt, will get messages from queue
-          params: undefined,
-          agentType: agent.agentState.agentType!,
-          agentState: agent.agentState,
-          fingerprintId: agent.fingerprintId,
-          fileContext: agent.fileContext,
-          localAgentTemplates,
-          toolResults: [],
-          userId: agent.userId,
-          clientSessionId: sessionId,
-          onResponseChunk: () => {}, // Async agents don't stream to parent
-        })
+        // Create environment for async agent
+        const { createAgentRuntimeEnvironment } = await import(
+          './agent-runtime/env'
+        )
+        const env = createAgentRuntimeEnvironment(ws, () => {}) // Async agents don't stream to parent
+
+        agentPromise = loopAgentSteps(
+          {
+            userInputId,
+            prompt: undefined, // No initial prompt, will get messages from queue
+            params: undefined,
+            agentType: agent.agentState.agentType!,
+            agentState: agent.agentState,
+            fingerprintId: agent.fingerprintId,
+            fileContext: agent.fileContext,
+            localAgentTemplates,
+            toolResults: [],
+            userId: agent.userId,
+            clientSessionId: sessionId,
+            onResponseChunk: () => {}, // Async agents don't stream to parent
+          },
+          env,
+        )
       }
       // Store the promise and handle completion
       agent.promise = agentPromise

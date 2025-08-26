@@ -11,7 +11,7 @@ import {
 } from 'bun:test'
 
 import { mockFileContext, MockWebSocket } from './test-utils'
-import * as runAgentStep from '../run-agent-step'
+import * as runAgentStep from '@codebuff/agent-runtime'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import * as loggerModule from '../util/logger'
 

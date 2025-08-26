@@ -17,9 +17,9 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { loopAgentSteps } from '../run-agent-step'
-import { clearAgentGeneratorCache } from '../run-programmatic-step'
+import { loopAgentSteps, clearAgentGeneratorCache } from '@codebuff/agent-runtime'
 import { mockFileContext, MockWebSocket } from './test-utils'
+import { createMockAgentRuntimeEnvironment } from './test-env-mocks'
 
 import type { AgentTemplate } from '../templates/types'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
@@ -193,8 +193,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       },
     )
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -209,6 +210,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     console.log(`LLM calls made: ${llmCallCount}`)
@@ -243,8 +245,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -259,6 +262,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     // Should NOT call LLM since the programmatic agent ended with end_turn
@@ -303,8 +307,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       },
     )
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -319,6 +324,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     // Verify execution order:
@@ -361,8 +367,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       },
     )
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -377,6 +384,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     expect(stepCount).toBe(1) // Generator function called once
@@ -403,8 +411,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -419,6 +428,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     expect(llmCallCount).toBe(0) // No LLM calls should be made
@@ -446,8 +456,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       },
     )
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -462,6 +473,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     expect(llmCallCount).toBe(1) // LLM should be called once
@@ -491,8 +503,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       },
     )
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -507,6 +520,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     // After programmatic step error, should end turn and not call LLM
@@ -553,8 +567,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       },
     )
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -569,6 +584,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     expect(stepCount).toBe(1) // Generator function called once
@@ -611,8 +627,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       },
     )
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await loopAgentSteps(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
         agentType: 'test-agent',
@@ -627,6 +644,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
       },
+      env,
     )
 
     // Should continue when async messages are present
@@ -640,14 +658,15 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     let runProgrammaticStepCalls: any[] = []
 
     // Mock runProgrammaticStep module to capture calls and verify stepsComplete parameter
-    mockModule('@codebuff/backend/run-programmatic-step', () => ({
+    mockModule('@codebuff/agent-runtime', () => ({
       runProgrammaticStep: async (agentState: any, options: any) => {
         runProgrammaticStepCalls.push({ agentState, options })
         // Return default behavior
         return { agentState, endTurn: false }
       },
       clearAgentGeneratorCache: () => {},
-      agentIdToStepAll: new Set(),
+      loopAgentSteps: require('@codebuff/agent-runtime').loopAgentSteps,
+      runAgentStep: require('@codebuff/agent-runtime').runAgentStep,
     }))
 
     const mockGeneratorFunction = function* () {
@@ -686,7 +705,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       () => true,
     )
 
-    await loopAgentSteps(new MockWebSocket() as unknown as WebSocket, {
+    const env = createMockAgentRuntimeEnvironment()
+
+    await loopAgentSteps({
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -699,7 +720,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-    })
+    }, env)
 
     // Verify that runProgrammaticStep was called twice:
     // 1. First with stepsComplete: false (initial call)

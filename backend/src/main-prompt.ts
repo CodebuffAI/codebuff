@@ -4,8 +4,9 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 
 import { checkTerminalCommand } from './check-terminal-command'
-import { loopAgentSteps } from './run-agent-step'
+import { loopAgentSteps } from '@codebuff/agent-runtime'
 import { getAgentTemplate } from './templates/agent-registry'
+import { createAgentRuntimeEnvironment } from './agent-runtime/env'
 import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
 import { requestToolCall } from './websockets/websocket-action'
@@ -187,20 +188,26 @@ export const mainPrompt = async (
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
-  const { agentState } = await loopAgentSteps(ws, {
-    userInputId: promptId,
-    prompt,
-    params: promptParams,
-    agentType,
-    agentState: mainAgentState,
-    fingerprintId,
-    fileContext,
-    toolResults: [],
-    userId,
-    clientSessionId,
-    onResponseChunk,
-    localAgentTemplates,
-  })
+  // Create the runtime environment
+  const env = createAgentRuntimeEnvironment(ws, onResponseChunk)
+
+  const { agentState } = await loopAgentSteps(
+    {
+      userInputId: promptId,
+      prompt,
+      params: promptParams,
+      agentType,
+      agentState: mainAgentState,
+      fingerprintId,
+      fileContext,
+      toolResults: [],
+      userId,
+      clientSessionId,
+      onResponseChunk,
+      localAgentTemplates,
+    },
+    env,
+  )
 
   logger.debug({ agentState }, 'Main prompt finished')
 

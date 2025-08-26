@@ -10,7 +10,6 @@ import {
 import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 
 import {
-  createFileReadingMock,
   getProjectFileContext,
   resetRepoToCommit,
 } from './scaffolding'
@@ -155,7 +154,6 @@ export async function setupTestEnvironment(projectName: string) {
 
   const repoPath = path.join(TEST_REPOS_DIR, projectName)
   setProjectRoot(repoPath)
-  createFileReadingMock(repoPath)
   recreateShell(repoPath)
   setWorkingDirectory(repoPath)
 

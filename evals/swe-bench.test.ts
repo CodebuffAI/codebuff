@@ -4,7 +4,6 @@ import * as path from 'path'
 import { describe, expect, test } from 'bun:test'
 
 import { PROMPT_PREFIX } from './constants'
-import { loopMainPrompt } from './scaffolding'
 import { passesSweBenchTests } from './swe-bench-eval'
 import { SWE_BENCH_IDS } from './swe-bench-ids'
 import {
@@ -54,13 +53,13 @@ describe.skip('SWE-Bench', async () => {
 
             const prompt =
               PROMPT_PREFIX + sweBenchLiteDataset[instanceId].problem_statement
-            await loopMainPrompt({
-              sessionState: initialSessionState,
-              prompt,
-              projectPath: repoPath,
-              maxIterations: 100,
-              agentType: 'base',
-            })
+            // await loopMainPrompt({
+            //   sessionState: initialSessionState,
+            //   prompt,
+            //   projectPath: repoPath,
+            //   maxIterations: 100,
+            //   agentType: 'base',
+            // })
             expect(await passesSweBenchTests(instanceId, repoPath)).toBeTruthy()
           },
           { timeout: 10 * 60 * 60 * 1000 }, // 10 hours

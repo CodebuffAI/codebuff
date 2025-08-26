@@ -11,7 +11,7 @@ import {
 } from 'bun:test'
 
 import { mockFileContext, MockWebSocket } from './test-utils'
-import * as runAgentStep from '../run-agent-step'
+import * as runAgentStep from '@codebuff/agent-runtime'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
 import { getMatchingSpawn } from '../tools/handlers/tool/spawn-agent-utils'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
