@@ -148,6 +148,7 @@ const onPrompt = async (
 
       if (prompt) {
         logger.info({ prompt }, `USER INPUT: ${prompt.slice(0, 100)}`)
+        logger.info({ prompt }, `TEST! USER INPUT: ${prompt.slice(0, 100)}`)
         trackEvent(AnalyticsEvent.USER_INPUT, userId, {
           prompt,
           promptId,
