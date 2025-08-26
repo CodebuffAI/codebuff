@@ -10,6 +10,7 @@ import type {
   UserCodebuffMessage,
 } from '../types/messages/codebuff-message'
 import type { ModelMessage } from 'ai'
+import type { ProviderMetadata } from 'src/types/messages/provider-metadata'
 
 export function toContentString(msg: ModelMessage): string {
   const { content } = msg
@@ -17,55 +18,59 @@ export function toContentString(msg: ModelMessage): string {
   return content.map((item) => (item as any)?.text ?? '').join('\n')
 }
 
-export function withCacheControl<T extends CodebuffMessage>(msg: T): T {
-  const message = deepCopy(msg)
-  if (!message.providerOptions) {
-    message.providerOptions = {}
+export function withCacheControl<
+  T extends { providerOptions?: ProviderMetadata },
+>(obj: T): T {
+  const wrapper = deepCopy(obj)
+  if (!wrapper.providerOptions) {
+    wrapper.providerOptions = {}
   }
-  if (!message.providerOptions.anthropic) {
-    message.providerOptions.anthropic = {}
+  if (!wrapper.providerOptions.anthropic) {
+    wrapper.providerOptions.anthropic = {}
   }
-  message.providerOptions.anthropic.cacheControl = { type: 'ephemeral' }
-  if (!message.providerOptions.openrouter) {
-    message.providerOptions.openrouter = {}
+  wrapper.providerOptions.anthropic.cacheControl = { type: 'ephemeral' }
+  if (!wrapper.providerOptions.openrouter) {
+    wrapper.providerOptions.openrouter = {}
   }
-  message.providerOptions.openrouter.cacheControl = { type: 'ephemeral' }
-  return message
+  wrapper.providerOptions.openrouter.cacheControl = { type: 'ephemeral' }
+  return wrapper
 }
 
-export function withoutCacheControl<T extends CodebuffMessage>(msg: T): T {
-  const message = deepCopy(msg)
-  if (hasKey(message.providerOptions?.anthropic?.cacheControl, 'type')) {
-    delete message.providerOptions?.anthropic?.cacheControl?.type
+export function withoutCacheControl<
+  T extends { providerOptions?: ProviderMetadata },
+>(obj: T): T {
+  const wrapper = deepCopy(obj)
+  if (hasKey(wrapper.providerOptions?.anthropic?.cacheControl, 'type')) {
+    delete wrapper.providerOptions?.anthropic?.cacheControl?.type
   }
   if (
-    Object.keys(message.providerOptions?.anthropic?.cacheControl ?? {})
+    Object.keys(wrapper.providerOptions?.anthropic?.cacheControl ?? {})
       .length === 0
   ) {
-    delete message.providerOptions?.anthropic?.cacheControl
+    delete wrapper.providerOptions?.anthropic?.cacheControl
   }
-  if (Object.keys(message.providerOptions?.anthropic ?? {}).length === 0) {
-    delete message.providerOptions?.anthropic
+  if (Object.keys(wrapper.providerOptions?.anthropic ?? {}).length === 0) {
+    delete wrapper.providerOptions?.anthropic
   }
 
-  if (hasKey(message.providerOptions?.openrouter?.cacheControl, 'type')) {
-    delete message.providerOptions?.openrouter?.cacheControl?.type
+  if (hasKey(wrapper.providerOptions?.openrouter?.cacheControl, 'type')) {
+    delete wrapper.providerOptions?.openrouter?.cacheControl?.type
   }
   if (
-    Object.keys(message.providerOptions?.openrouter?.cacheControl ?? {})
+    Object.keys(wrapper.providerOptions?.openrouter?.cacheControl ?? {})
       .length === 0
   ) {
-    delete message.providerOptions?.openrouter?.cacheControl
+    delete wrapper.providerOptions?.openrouter?.cacheControl
   }
-  if (Object.keys(message.providerOptions?.openrouter ?? {}).length === 0) {
-    delete message.providerOptions?.openrouter
-  }
-
-  if (Object.keys(message.providerOptions ?? {}).length === 0) {
-    delete message.providerOptions
+  if (Object.keys(wrapper.providerOptions?.openrouter ?? {}).length === 0) {
+    delete wrapper.providerOptions?.openrouter
   }
 
-  return message
+  if (Object.keys(wrapper.providerOptions ?? {}).length === 0) {
+    delete wrapper.providerOptions
+  }
+
+  return wrapper
 }
 
 type Nested<P> = Parameters<typeof buildArray<P>>[0]
@@ -204,9 +209,7 @@ export function convertCbToModelMessages({
   messages: CodebuffMessage[]
   includeCacheControl?: boolean
 }): ModelMessage[] {
-  const noToolMessages = buildArray(
-    messages.map((m) => convertToolMessages(withoutCacheControl(m))),
-  )
+  const noToolMessages = buildArray(messages.map((m) => convertToolMessages(m)))
 
   const aggregated: typeof noToolMessages = []
   for (const message of noToolMessages) {
@@ -250,10 +253,27 @@ export function convertCbToModelMessages({
     if (index <= 0) {
       continue
     }
-    aggregated[index - 1] = withCacheControl(aggregated[index - 1])
+    const prevMessage = aggregated[index - 1]
+    const contentBlock = prevMessage.content
+    if (typeof contentBlock === 'string') {
+      aggregated[index - 1] = withCacheControl(aggregated[index - 1])
+      continue
+    }
+    contentBlock[contentBlock.length - 1] = withCacheControl(
+      contentBlock[contentBlock.length - 1],
+    )
   }
-  aggregated[aggregated.length - 1] = withCacheControl(
-    aggregated[aggregated.length - 1],
+
+  const lastMessage = aggregated[aggregated.length - 1]
+  const contentBlock = lastMessage.content
+  if (typeof contentBlock === 'string') {
+    aggregated[aggregated.length - 1] = withCacheControl(
+      aggregated[aggregated.length - 1],
+    )
+    return aggregated
+  }
+  contentBlock[contentBlock.length - 1] = withCacheControl(
+    contentBlock[contentBlock.length - 1],
   )
 
   return aggregated
