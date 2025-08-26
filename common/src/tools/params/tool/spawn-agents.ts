@@ -20,5 +20,7 @@ export const spawnAgentsParams = {
         })
         .array(),
     })
-    .describe(`Spawn multiple agents and send a prompt to each of them.`),
+    .describe(
+      `Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.`,
+    ),
 } satisfies ToolParams
