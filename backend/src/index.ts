@@ -96,6 +96,21 @@ server.listen(port, () => {
 })
 webSocketListen(server, '/ws')
 
+// Add periodic storage and memory monitoring for diagnosing eval storage issues
+setInterval(() => {
+  const memUsage = process.memoryUsage()
+  const heapUsedMB = (memUsage.heapUsed / 1024 / 1024).toFixed(2)
+  const rssMB = (memUsage.rss / 1024 / 1024).toFixed(2)
+  const externalMB = (memUsage.external / 1024 / 1024).toFixed(2)
+  
+  console.log(`[STORAGE-DEBUG] Memory usage: heap=${heapUsedMB}MB, rss=${rssMB}MB, external=${externalMB}MB`)
+  
+  // Log if memory usage is high
+  if (memUsage.heapUsed > 2000 * 1024 * 1024) { // > 2GB
+    console.log(`[STORAGE-DEBUG] HIGH MEMORY USAGE DETECTED: ${heapUsedMB}MB heap`)
+  }
+}, 30000) // Every 30 seconds
+
 let shutdownInProgress = false
 // Graceful shutdown handler for both SIGTERM and SIGINT
 async function handleShutdown(signal: string) {

@@ -196,6 +196,25 @@ export const callMainPrompt = async (
 ) => {
   const { userId, promptId, clientSessionId } = options
   const { fileContext } = action.sessionState
+  
+  // Log incoming message size for storage debugging
+  try {
+    const sessionStateSize = JSON.stringify(action.sessionState).length / 1024 / 1024
+    const actionSize = JSON.stringify(action).length / 1024 / 1024
+    console.log(`[STORAGE-DEBUG] Incoming prompt - sessionState: ${sessionStateSize.toFixed(2)}MB, total: ${actionSize.toFixed(2)}MB`)
+    
+    if (fileContext?.files) {
+      const fileCount = Object.keys(fileContext.files).length
+      const filesSize = JSON.stringify(fileContext.files).length / 1024 / 1024
+      console.log(`[STORAGE-DEBUG] File context: ${fileCount} files, ${filesSize.toFixed(2)}MB`)
+    }
+    
+    if (actionSize > 5) { // Log large messages > 5MB
+      console.log(`[STORAGE-DEBUG] LARGE MESSAGE: ${actionSize.toFixed(2)}MB from user ${userId}`)
+    }
+  } catch (err) {
+    console.log(`[STORAGE-DEBUG] Error measuring message size: ${err}`)
+  }
 
   // Enforce server-side state authority: reset creditsUsed to 0
   // The server controls cost tracking, clients cannot manipulate this value

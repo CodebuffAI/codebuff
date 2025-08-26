@@ -77,6 +77,19 @@ export const promptAiSdkStream = async function* (
     onCostCalculated?: (credits: number) => Promise<void>
   } & Omit<Parameters<typeof streamText>[0], 'model'>,
 ) {
+  // Log LLM context size for storage debugging
+  try {
+    const messagesSize = JSON.stringify(options.messages).length / 1024 / 1024
+    const messageCount = options.messages.length
+    console.log(`[STORAGE-DEBUG] LLM call - ${messageCount} messages, ${messagesSize.toFixed(2)}MB context, model: ${options.model}`)
+    
+    if (messagesSize > 10) { // Log large contexts > 10MB
+      console.log(`[STORAGE-DEBUG] LARGE LLM CONTEXT: ${messagesSize.toFixed(2)}MB for user ${options.userId}`)
+    }
+  } catch (err) {
+    console.log(`[STORAGE-DEBUG] Error measuring LLM context: ${err}`)
+  }
+  
   if (
     !checkLiveUserInput(
       options.userId,
