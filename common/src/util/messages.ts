@@ -9,8 +9,8 @@ import type {
   ToolCodebuffMessage,
   UserCodebuffMessage,
 } from '../types/messages/codebuff-message'
+import type { ProviderMetadata } from '../types/messages/provider-metadata'
 import type { ModelMessage } from 'ai'
-import type { ProviderMetadata } from 'src/types/messages/provider-metadata'
 
 export function toContentString(msg: ModelMessage): string {
   const { content } = msg
