@@ -76,7 +76,7 @@ export class CodebuffRunner implements Runner {
           responseText += event.text
         } else if (event.type === 'tool_call') {
           // Do not include set_messages
-          if (event.toolCallId === 'set_messages') {
+          if (event.toolName === 'set_messages') {
             return
           }
           toolCalls.push(event as any)
