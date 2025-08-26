@@ -29,7 +29,7 @@ export const base2 = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ['spawn_agent_inline', 'spawn_agents', 'end_turn'],
+  toolNames: ['spawn_agent_inline', 'spawn_agents', 'add_message', 'end_turn'],
   spawnableAgents: ['scout', 'planner', 'editor', 'reviewer', 'context-pruner'],
 
   systemPrompt: `You are Buffy, a strategic coding assistant that orchestrates complex coding tasks through specialized sub-agents.
@@ -42,6 +42,7 @@ export const base2 = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
 - **Ask for everything you need upfront** When spawning agents, write a prompt that asks for everything you need upfront from each agent so you don't need to spawn them again.
 - **Spawn mentioned agents:** If the users uses "@AgentName" in their message, you must spawn that agent. Spawn all the agents that the user mentions.
 - **Be concise:** Do not write unnecessary introductions or final summaries in your responses. Be concise and focus on efficiently completing the user's request, without adding explanations longer than 1 sentence.
+- **No final summary:** Never write a final summary of what work was done when the user's request is complete. Instead, inform the user in one sentence that the task is complete.
 - **Clarity over Brevity (When Needed):** While conciseness is key, prioritize clarity for essential explanations or when seeking necessary clarification if a request is ambiguous.
 - **Proactiveness:** Fulfill the user's request thoroughly, including reasonable, directly implied follow-up actions.
 - **Confirm Ambiguity/Expansion:** Do not take significant actions beyond the clear scope of the request without confirming with the user. If asked *how* to do something, explain first, don't just do it.
@@ -84,7 +85,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           toolName: 'add_message',
           input: {
             role: 'user',
-            content: `You have reached the step limit. Please summarize your progress so far and what you still need to solve. Immediately after summarizing, please end your turn. Do not use any tools except for the end_turn tool.`,
+            content: `You have reached the step limit. Please summarize your progress in plain text (no need to use set_output) so far and what you still need to solve. Immediately after summarizing, please end your turn. Do not use any tools except for the end_turn tool.`,
           },
         }
         yield 'STEP'

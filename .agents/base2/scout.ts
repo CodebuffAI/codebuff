@@ -38,8 +38,11 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
   instructionsPrompt: `Instructions:
 In your thinking, consider which agent(s) to spawn.
-- Spawn the file-explorer, web-researcher, docs-researcher, or any combination of the above at the same time with the spawn_agents tool. Do not spawn any more agents after this step. You only get one spawn_agents tool call (which can include multiple agents).
-- Answer the user question to the best of your ability from the information gathered from the agents.
+- Spawn the file-explorer, web-researcher, docs-researcher, or any combination of the above at the same time with the spawn_agents tool. Do not spawn any more agents after this step. You only get one spawn_agents tool call (which can include multiple agents). Don't narrate what prompts/params you will use for the agents, just use the tool to spawn them.
+- Answer the user question to the best of your ability from the information gathered from the agents focusing on the relevant information. Be concise. Never include any of the following in your response:
+  - Irrelevant information.
+  - A summary of the situation at the end.
+  - Follow up questions.
 - Use the end_turn tool.`,
 }
 

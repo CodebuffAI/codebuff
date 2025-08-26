@@ -3,23 +3,25 @@ import fs from 'fs'
 import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
+import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
-import pLimit from 'p-limit'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
+import { cloneDeep } from 'lodash'
+import pLimit from 'p-limit'
 
 import { resetRepoToCommit } from '../scaffolding'
-import { createInitialSessionState, TEST_REPOS_DIR } from '../test-setup'
+import { createInitialSessionState } from '../test-setup'
+import { judgeEvalRun } from './judge-git-eval'
+import { getNextEvalPrompt } from './prompting-agent'
 import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
-import { AgentDecisionSchema } from './types'
-import { judgeEvalRun } from './judge-git-eval'
-import { getNextEvalPrompt } from './prompting-agent'
+import { CodebuffClient } from '../../sdk/src/client'
 
 import type { AgentStep } from '../scaffolding'
 import type { Runner } from './runners/runner'
-import type {
+import type { AgentDecisionSchema ,
   AgentDecision,
   CodebuffTrace,
   EvalCommit,
@@ -28,10 +30,8 @@ import type {
   FullEvalLog,
   EvalData,
 } from './types'
-import type { z } from 'zod/v4'
 import type { ChildProcess } from 'child_process'
-import { CodebuffClient } from '../../sdk/src/client'
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
+import type { z } from 'zod/v4'
 
 disableLiveUserInputCheck()
 
@@ -483,7 +483,12 @@ export async function runGitEvals(
                     `Completed eval for commit ${testRepoName} - ${evalCommit.spec.split('\n')[0]}`,
                   )
                   if (!logToStdout) {
-                    console.log(`${JSON.stringify(message.result, null, 2)}`)
+                    const finalResult = cloneDeep(message.result)
+                    for (const cbTrace of finalResult.trace) {
+                      delete (cbTrace as any).steps
+                    }
+                    delete (finalResult.eval_commit as any).fileStates
+                    console.log(`${JSON.stringify(finalResult, null, 2)}`)
                   }
                   resolve(message.result)
                 } else if (message.type === 'error') {

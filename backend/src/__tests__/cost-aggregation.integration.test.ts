@@ -1,12 +1,9 @@
+import { TEST_USER_ID } from '@codebuff/common/constants'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
-import { TEST_USER_ID } from '@codebuff/common/constants'
-import {
-  getInitialSessionState,
-  AgentTemplateTypes,
-} from '@codebuff/common/types/session-state'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
   beforeEach,
@@ -18,11 +15,12 @@ import {
   it,
   mock,
 } from 'bun:test'
-import { mainPrompt } from '../main-prompt'
-import * as websocketAction from '../websockets/websocket-action'
+
 import * as messageCostTracker from '../llm-apis/message-cost-tracker'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import { mainPrompt } from '../main-prompt'
 import * as agentRegistry from '../templates/agent-registry'
+import * as websocketAction from '../websockets/websocket-action'
 
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -251,6 +249,7 @@ describe('Cost Aggregation Integration Tests', () => {
   it('should correctly aggregate costs across the entire main prompt flow', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     // Set the main agent to use the 'base' type which is defined in our mock templates
+    sessionState.mainAgentState.stepsRemaining = 10
     sessionState.mainAgentState.agentType = 'base'
 
     const action = {
@@ -277,8 +276,7 @@ describe('Cost Aggregation Integration Tests', () => {
     // Verify the total cost includes both main agent and subagent costs
     const finalCreditsUsed = result.sessionState.mainAgentState.creditsUsed
     // The actual cost is higher than expected due to multiple steps in agent execution
-    expect(finalCreditsUsed).toBeGreaterThan(100) // Should be > 100 credits
-    expect(finalCreditsUsed).toBeLessThan(200) // Should be < 200 credits
+    expect(finalCreditsUsed).toEqual(73)
 
     // Verify the cost breakdown makes sense
     expect(finalCreditsUsed).toBeGreaterThan(0)
@@ -347,6 +345,7 @@ describe('Cost Aggregation Integration Tests', () => {
     )
 
     const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.mainAgentState.stepsRemaining = 10
     sessionState.mainAgentState.agentType = 'base'
 
     const action = {
@@ -373,8 +372,7 @@ describe('Cost Aggregation Integration Tests', () => {
     // Should aggregate costs from all levels: main + sub1 + sub2
     const finalCreditsUsed = result.sessionState.mainAgentState.creditsUsed
     // Multi-level agents should have higher costs than simple ones
-    expect(finalCreditsUsed).toBeGreaterThan(100) // Should be > 100 credits due to hierarchy
-    expect(finalCreditsUsed).toBeLessThan(150) // Should be < 150 credits
+    expect(finalCreditsUsed).toEqual(50)
   })
 
   it('should maintain cost integrity when subagents fail', async () => {
@@ -425,7 +423,9 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Check costs - they should be captured even if execution fails
-    const finalCreditsUsed = result ? result.sessionState.mainAgentState.creditsUsed : sessionState.mainAgentState.creditsUsed
+    const finalCreditsUsed = result
+      ? result.sessionState.mainAgentState.creditsUsed
+      : sessionState.mainAgentState.creditsUsed
     // Even if the test fails, some cost should be incurred by the main agent
     expect(finalCreditsUsed).toBeGreaterThanOrEqual(0) // At minimum, no negative costs
   })

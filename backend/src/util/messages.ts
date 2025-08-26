@@ -1,7 +1,6 @@
 import { AssertionError } from 'assert'
 
 import { buildArray } from '@codebuff/common/util/array'
-import { withCacheControl } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { logger } from './logger'
@@ -250,7 +249,6 @@ export function trimMessagesToFitTokenLimit(
 export function getMessagesSubset(
   messages: CodebuffMessage[],
   otherTokens: number,
-  includeCacheControl: boolean = true,
 ): CodebuffMessage[] {
   const messagesSubset = trimMessagesToFitTokenLimit(messages, otherTokens)
 
@@ -271,22 +269,7 @@ export function getMessagesSubset(
       },
       'No last message found in messagesSubset!',
     )
-    return messagesSubset
   }
-
-  if (!includeCacheControl) {
-    return messagesSubset
-  }
-
-  // add cache control to specific messages
-  for (const ttl of ['agentStep', 'userPrompt'] as const) {
-    const index = messagesSubset.findIndex((m) => m.timeToLive === ttl)
-    if (index <= 0) {
-      continue
-    }
-    messagesSubset[index - 1] = withCacheControl(messagesSubset[index - 1])
-  }
-  messagesSubset[messagesSubset.length - 1] = withCacheControl(lastMessage)
 
   return messagesSubset
 }

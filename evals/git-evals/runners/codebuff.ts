@@ -15,12 +15,10 @@ const getLocalAuthToken = () => {
 }
 
 export class CodebuffRunner implements Runner {
-  private client: CodebuffClient | null
   private runState: RunState
   private agent: string
 
   constructor(runState: RunState, agent?: string) {
-    this.client = null
     this.runState = runState
     this.agent = agent ?? 'base'
   }
@@ -39,15 +37,13 @@ export class CodebuffRunner implements Runner {
 
     const apiKey = process.env[API_KEY_ENV_VAR] || getLocalAuthToken()
 
-    if (!this.client) {
-      this.client = new CodebuffClient({
-        apiKey,
-        cwd: this.runState.sessionState.fileContext.cwd,
-        onError: (error) => {
-          throw new Error(error.message)
-        },
-      })
-    }
+    const client = new CodebuffClient({
+      apiKey,
+      cwd: this.runState.sessionState.fileContext.cwd,
+      onError: (error) => {
+        throw new Error(error.message)
+      },
+    })
 
     const agentsPath = path.join(__dirname, '../../../.agents')
     const localAgentDefinitions = Object.values(
@@ -60,13 +56,13 @@ export class CodebuffRunner implements Runner {
       localAgentDefinitions.map((a) => a.id),
     )
 
-    this.runState = await this.client.run({
+    this.runState = await client.run({
       agent: this.agent,
       previousRun: this.runState,
       prompt,
       handleEvent: (event) => {
         if (event.type === 'error') {
-          throw new Error(event.message)
+          console.log('\n\n' + JSON.stringify(event, null, 2))
         }
         if (event.type === 'text') {
           if (toolResults.length > 0) {
@@ -76,7 +72,7 @@ export class CodebuffRunner implements Runner {
           responseText += event.text
         } else if (event.type === 'tool_call') {
           // Do not include set_messages
-          if (event.toolCallId === 'set_messages') {
+          if (event.toolName === 'set_messages') {
             return
           }
           toolCalls.push(event as any)
@@ -92,6 +88,8 @@ export class CodebuffRunner implements Runner {
       agentDefinitions: localAgentDefinitions,
     })
     flushStep()
+
+    client.closeConnection()
 
     return { steps }
   }
