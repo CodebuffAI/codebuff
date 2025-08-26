@@ -148,7 +148,7 @@ const onPrompt = async (
 
       if (prompt) {
         logger.info({ prompt }, `USER INPUT: ${prompt.slice(0, 100)}`)
-        logger.info({ prompt }, `TEST! USER INPUT: ${prompt.slice(0, 100)}`)
+        console.log(`[STORAGE-DEBUG] New user input - userId: ${userId}, promptId: ${promptId}`)
         trackEvent(AnalyticsEvent.USER_INPUT, userId, {
           prompt,
           promptId,
@@ -174,6 +174,7 @@ const onPrompt = async (
           message: response,
         })
       } finally {
+        console.log(`[STORAGE-DEBUG] Ending user input session - userId: ${userId}, promptId: ${promptId}`)
         endUserInput(userId, promptId)
         const usageResponse = await genUsageResponse(
           fingerprintId,

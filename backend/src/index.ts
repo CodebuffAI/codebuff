@@ -102,12 +102,18 @@ setInterval(() => {
   const heapUsedMB = (memUsage.heapUsed / 1024 / 1024).toFixed(2)
   const rssMB = (memUsage.rss / 1024 / 1024).toFixed(2)
   const externalMB = (memUsage.external / 1024 / 1024).toFixed(2)
+  const heapTotalMB = (memUsage.heapTotal / 1024 / 1024).toFixed(2)
   
-  console.log(`[STORAGE-DEBUG] Memory usage: heap=${heapUsedMB}MB, rss=${rssMB}MB, external=${externalMB}MB`)
+  console.log(`[STORAGE-DEBUG] Memory usage: heap=${heapUsedMB}MB/${heapTotalMB}MB, rss=${rssMB}MB, external=${externalMB}MB`)
   
   // Log if memory usage is high
   if (memUsage.heapUsed > 2000 * 1024 * 1024) { // > 2GB
-    console.log(`[STORAGE-DEBUG] HIGH MEMORY USAGE DETECTED: ${heapUsedMB}MB heap`)
+    console.log(`[STORAGE-DEBUG] HIGH MEMORY USAGE DETECTED: ${heapUsedMB}MB heap (${((memUsage.heapUsed / memUsage.heapTotal) * 100).toFixed(1)}% of total)`)
+    // Force garbage collection if available
+    if (global.gc) {
+      console.log(`[STORAGE-DEBUG] Triggering garbage collection`)
+      global.gc()
+    }
   }
 }, 30000) // Every 30 seconds
 
