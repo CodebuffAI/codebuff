@@ -164,7 +164,7 @@ export const mainPrompt = async (
           lite: AgentTemplateTypes.base_lite,
           normal: AgentTemplateTypes.base,
           max: AgentTemplateTypes.base_max,
-          experimental: AgentTemplateTypes.base_experimental,
+          experimental: 'base2',
         } satisfies Record<CostMode, AgentTemplateType>
       )[costMode]
     }
