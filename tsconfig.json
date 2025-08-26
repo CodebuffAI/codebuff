@@ -12,7 +12,8 @@
       "@codebuff/billing/*": ["./packages/billing/src/*"],
       "@codebuff/bigquery/*": ["./packages/bigquery/src/*"],
       "@codebuff/internal/*": ["./packages/internal/src/*"],
-      "@codebuff/code-map/*": ["./packages/code-map/*"]
+      "@codebuff/code-map/*": ["./packages/code-map/*"],
+      "@codebuff/agent-runtime/*": ["./packages/agent-runtime/src/*"]
     }
   },
   "files": [],
@@ -27,6 +28,7 @@
     { "path": "./packages/bigquery" },
     { "path": "./packages/internal" },
     { "path": "./packages/code-map" },
+    { "path": "./packages/agent-runtime" },
     { "path": "./scripts" }
   ]
 }

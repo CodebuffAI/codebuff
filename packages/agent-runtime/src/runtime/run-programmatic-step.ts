@@ -1,11 +1,8 @@
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
 
-import { executeToolCall } from './tools/tool-executor'
-import { logger } from './util/logger'
-import { SandboxManager } from './util/quickjs-sandbox'
-import { getRequestContext } from './websockets/request-context'
-import { sendAction } from './websockets/websocket-action'
+import { executeToolCall } from '../tools/tool-executor'
+import type { AgentRuntimeEnvironment } from './interfaces'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
@@ -20,10 +17,6 @@ import type {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
-
-// Global sandbox manager for QuickJS contexts
-const sandboxManager = new SandboxManager()
 
 // Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
 const agentIdToGenerator: Record<string, StepGenerator | undefined> = {}
@@ -35,8 +28,6 @@ export function clearAgentGeneratorCache() {
     delete agentIdToGenerator[key]
   }
   agentIdToStepAll.clear()
-  // Clean up QuickJS sandboxes
-  sandboxManager.dispose()
 }
 
 // Function to handle programmatic agents
@@ -53,9 +44,9 @@ export async function runProgrammaticStep(
     onResponseChunk,
     agentType,
     fileContext,
-    ws,
     localAgentTemplates,
     stepsComplete,
+    env,
   }: {
     template: AgentTemplate
     prompt: string | undefined
@@ -67,33 +58,21 @@ export async function runProgrammaticStep(
     onResponseChunk: (chunk: string | PrintModeEvent) => void
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
-    ws: WebSocket
     localAgentTemplates: Record<string, AgentTemplate>
     stepsComplete: boolean
+    env: AgentRuntimeEnvironment
   },
 ): Promise<{ agentState: AgentState; endTurn: boolean }> {
   if (!template.handleSteps) {
     throw new Error('No step handler found for agent template ' + template.id)
   }
 
-  // Run with either a generator or a sandbox.
+  // Run with a generator (QuickJS sandbox is handled by the backend environment)
   let generator = agentIdToGenerator[agentState.agentId]
-  let sandbox = sandboxManager.getSandbox(agentState.agentId)
 
-  // Check if we need to initialize a generator (either native or QuickJS-based)
-  if (!generator && !sandbox) {
-    if (typeof template.handleSteps === 'string') {
-      // Initialize QuickJS sandbox for string-based generator
-      sandbox = await sandboxManager.getOrCreateSandbox(
-        agentState.agentId,
-        template.handleSteps,
-        {
-          agentState,
-          prompt,
-          params,
-        },
-      )
-    } else {
+  // Check if we need to initialize a generator
+  if (!generator) {
+    if (typeof template.handleSteps === 'function') {
       // Initialize native generator
       generator = template.handleSteps({
         agentState,
@@ -101,6 +80,10 @@ export async function runProgrammaticStep(
         params,
       })
       agentIdToGenerator[agentState.agentId] = generator
+    } else {
+      throw new Error(
+        'String-based handleSteps should be handled by backend environment',
+      )
     }
   }
 
@@ -116,17 +99,13 @@ export async function runProgrammaticStep(
 
   const agentStepId = crypto.randomUUID()
 
-  const requestContext = getRequestContext()
-  const repoId = requestContext?.processedRepoId
-
   // Initialize state for tool execution
   const toolCalls: CodebuffToolCall[] = []
   const toolResults: ToolResult[] = []
   const state = {
-    ws,
     fingerprintId,
     userId,
-    repoId,
+    repoId: env.requestContext?.processedRepoId,
     agentTemplate: template,
     localAgentTemplates,
     sendSubagentChunk: (data: {
@@ -136,10 +115,13 @@ export async function runProgrammaticStep(
       chunk: string
       prompt?: string
     }) => {
-      sendAction(ws, {
-        type: 'subagent-response-chunk',
-        ...data,
-      })
+      // Send subagent chunk through IO environment
+      if (env.io.onResponseChunk) {
+        env.io.onResponseChunk({
+          type: 'text',
+          text: data.chunk,
+        } as PrintModeEvent)
+      }
     },
     agentState: { ...agentState },
     agentContext: agentState.agentContext,
@@ -152,17 +134,11 @@ export async function runProgrammaticStep(
   try {
     // Execute tools synchronously as the generator yields them
     do {
-      const result = sandbox
-        ? await sandbox.executeStep({
-            agentState: getPublicAgentState(state.agentState),
-            toolResult,
-            stepsComplete,
-          })
-        : generator!.next({
-            agentState: getPublicAgentState(state.agentState),
-            toolResult,
-            stepsComplete,
-          })
+      const result = generator!.next({
+        agentState: getPublicAgentState(state.agentState),
+        toolResult,
+        stepsComplete,
+      })
 
       if (result.done) {
         endTurn = true
@@ -215,7 +191,6 @@ export async function runProgrammaticStep(
         toolCalls,
         toolResults,
         previousToolCallFinished: Promise.resolve(),
-        ws,
         agentTemplate: template,
         fileContext,
         agentStepId,
@@ -226,6 +201,7 @@ export async function runProgrammaticStep(
         state,
         userId,
         autoInsertEndStepParam: true,
+        env,
       })
 
       // TODO: Remove messages from state and always use agentState.messageHistory.
@@ -248,7 +224,7 @@ export async function runProgrammaticStep(
     const errorMessage = `Error executing handleSteps for agent ${template.id}: ${
       error instanceof Error ? error.message : 'Unknown error'
     }`
-    logger.error(
+    env.logger?.error(
       { error: getErrorObject(error), template: template.id },
       errorMessage,
     )
@@ -273,10 +249,6 @@ export async function runProgrammaticStep(
     }
   } finally {
     if (endTurn) {
-      if (sandbox) {
-        // Clean up QuickJS sandbox if execution is complete
-        sandboxManager.removeSandbox(agentState.agentId)
-      }
       delete agentIdToGenerator[agentState.agentId]
       agentIdToStepAll.delete(agentState.agentId)
     }

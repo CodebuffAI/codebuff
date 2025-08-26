@@ -22,8 +22,8 @@ import {
 // Mock imports
 import * as liveUserInputs from '../live-user-inputs'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import { runAgentStep } from '../run-agent-step'
-import { clearAgentGeneratorCache } from '../run-programmatic-step'
+import { runAgentStep, clearAgentGeneratorCache } from '@codebuff/agent-runtime'
+import { createMockAgentRuntimeEnvironment } from './test-env-mocks'
 import { asUserMessage } from '../util/messages'
 import * as websocketAction from '../websockets/websocket-action'
 
@@ -174,8 +174,9 @@ describe('runAgentStep - set_output tool', () => {
       'test-set-output-agent': testAgent,
     }
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userId: TEST_USER_ID,
         userInputId: 'test-input',
@@ -189,6 +190,7 @@ describe('runAgentStep - set_output tool', () => {
         prompt: 'Analyze the codebase',
         params: undefined,
       },
+      env,
     )
 
     expect(result.agentState.output).toEqual({
@@ -215,8 +217,9 @@ describe('runAgentStep - set_output tool', () => {
       'test-set-output-agent': testAgent,
     }
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userId: TEST_USER_ID,
         userInputId: 'test-input',
@@ -230,6 +233,7 @@ describe('runAgentStep - set_output tool', () => {
         prompt: 'Analyze the codebase',
         params: undefined,
       },
+      env,
     )
 
     expect(result.agentState.output).toEqual({
@@ -262,8 +266,9 @@ describe('runAgentStep - set_output tool', () => {
       'test-set-output-agent': testAgent,
     }
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userId: TEST_USER_ID,
         userInputId: 'test-input',
@@ -277,6 +282,7 @@ describe('runAgentStep - set_output tool', () => {
         prompt: 'Update the output',
         params: undefined,
       },
+      env,
     )
 
     expect(result.agentState.output).toEqual({
@@ -300,8 +306,9 @@ describe('runAgentStep - set_output tool', () => {
       'test-set-output-agent': testAgent,
     }
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userId: TEST_USER_ID,
         userInputId: 'test-input',
@@ -315,6 +322,7 @@ describe('runAgentStep - set_output tool', () => {
         prompt: 'Update with empty object',
         params: undefined,
       },
+      env,
     )
 
     // Should replace with empty object
@@ -393,8 +401,9 @@ describe('runAgentStep - set_output tool', () => {
 
     const initialMessageCount = agentState.messageHistory.length
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userId: TEST_USER_ID,
         userInputId: 'test-input',
@@ -408,6 +417,7 @@ describe('runAgentStep - set_output tool', () => {
         prompt: 'Test the handleSteps functionality',
         params: undefined,
       },
+      env,
     )
 
     // Should end turn because toolCalls.length === 0 && toolResults.length === 0 from LLM processing
@@ -545,8 +555,9 @@ describe('runAgentStep - set_output tool', () => {
       },
     ]
 
+    const env = createMockAgentRuntimeEnvironment()
+
     const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
       {
         userId: TEST_USER_ID,
         userInputId: 'test-input',
@@ -560,6 +571,7 @@ describe('runAgentStep - set_output tool', () => {
         prompt: 'Spawn an inline agent to clean up messages',
         params: undefined,
       },
+      env,
     )
 
     const finalMessages = result.agentState.messageHistory

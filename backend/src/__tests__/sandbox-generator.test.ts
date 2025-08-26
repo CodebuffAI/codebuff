@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
-} from '../run-programmatic-step'
+} from '@codebuff/agent-runtime'
 import { mockFileContext, MockWebSocket } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'

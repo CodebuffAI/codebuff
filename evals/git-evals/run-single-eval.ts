@@ -10,7 +10,6 @@ import {
 import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 import { Command, Flags } from '@oclif/core'
 
-import { createFileReadingMock } from '../scaffolding'
 import { setupTestEnvironmentVariables } from '../test-setup'
 import { runSingleEval } from './run-git-evals'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
@@ -174,7 +173,6 @@ async function runSingleEvalTask(options: {
 
   // Setup project context
   setProjectRoot(projectPath)
-  createFileReadingMock(projectPath)
   recreateShell(projectPath)
   setWorkingDirectory(projectPath)
 

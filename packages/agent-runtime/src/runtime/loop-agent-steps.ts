@@ -1,25 +1,13 @@
-import { insertTrace } from '@codebuff/bigquery'
-import { trackEvent } from '@codebuff/common/analytics'
 import {
-  ASYNC_AGENTS_ENABLED,
-  supportsCacheControl,
-} from '@codebuff/common/constants'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
+  TOOLS_WHICH_WONT_FORCE_NEXT_STEP,
+} from '@codebuff/common/tools/constants'
 import { renderToolResults } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 
-import { asyncAgentManager } from './async-agent-manager'
 import { getFileReadingUpdates } from './get-file-reading-updates'
-import { checkLiveUserInput } from './live-user-inputs'
-import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
-import { additionalSystemPrompts } from './system-prompt/prompts'
-import { getAgentTemplate } from './templates/agent-registry'
-import { getAgentPrompt } from './templates/strings'
-import { processStreamWithTools } from './tools/stream-parser'
-import { logger } from './util/logger'
+import { processStreamWithTools } from '../tools/stream-parser'
 import {
   asSystemInstruction,
   asSystemMessage,
@@ -28,13 +16,12 @@ import {
   expireMessages,
   getMessagesSubset,
   isSystemInstruction,
-} from './util/messages'
-import { isToolResult, renderReadFilesResult } from './util/parse-tool-call-xml'
-import { simplifyReadFileResults } from './util/simplify-tool-results'
-import { countTokensJson } from './util/token-counter'
-import { getRequestContext } from './websockets/request-context'
+} from '../util/messages'
+import { isToolResult, renderReadFilesResult } from '../util/parse-tool-call-xml'
+import { simplifyReadFileResults } from '../util/simplify-tool-results'
+import { countTokensJson } from '../util/token-counter'
+import type { AgentRuntimeEnvironment } from './interfaces'
 
-import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -44,7 +31,6 @@ import type {
   ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -63,8 +49,8 @@ export interface AgentOptions {
 }
 
 export const runAgentStep = async (
-  ws: WebSocket,
   options: AgentOptions,
+  env: AgentRuntimeEnvironment,
 ): Promise<{
   agentState: AgentState
   fullResponse: string
@@ -84,17 +70,19 @@ export const runAgentStep = async (
   } = options
   let agentState = options.agentState
 
+  if (!agentState) {
+    throw new Error('agentState is required but was undefined')
+  }
+
   const { agentContext } = agentState
 
   const startTime = Date.now()
   // Get the extracted repo ID from request context
-  const requestContext = getRequestContext()
-  const repoId = requestContext?.processedRepoId
+  const repoId = env.requestContext?.processedRepoId
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
-  // This is used to link logs within a single agent loop
   const agentStepId = crypto.randomUUID()
-  trackEvent(AnalyticsEvent.AGENT_STEP, userId ?? '', {
+  env.analytics?.trackEvent?.('AGENT_STEP', userId ?? '', {
     agentStepId,
     clientSessionId,
     fingerprintId,
@@ -110,7 +98,7 @@ export const runAgentStep = async (
   let stepWarningMessage = ''
 
   if (needsStepWarning) {
-    logger.warn(
+    env.logger?.warn(
       `Detected too many consecutive assistant messages without user prompt`,
     )
 
@@ -138,14 +126,19 @@ export const runAgentStep = async (
   }
 
   const { addedFiles, updatedFilePaths, clearReadFileToolResults } =
-    await getFileReadingUpdates(ws, messageHistory, fileContext, {
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      repoId,
-    })
+    await getFileReadingUpdates(
+      messageHistory,
+      fileContext,
+      {
+        agentStepId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+        repoId,
+      },
+      env,
+    )
   if (clearReadFileToolResults) {
     // Update message history.
     for (const message of messageHistory) {
@@ -181,35 +174,17 @@ export const runAgentStep = async (
     })
   }
 
-  if (ASYNC_AGENTS_ENABLED) {
-    // Register this agent in the async manager so it can receive messages
-    const isRegistered = asyncAgentManager.getAgent(agentState.agentId)
-    if (!isRegistered && userId) {
-      asyncAgentManager.registerAgent({
-        agentState,
-        sessionId: clientSessionId,
-        userId,
-        fingerprintId,
-        userInputId,
-        ws,
-        fileContext,
-        startTime: new Date(),
-        status: 'running',
-      })
-    } else {
-      // Update status to running for existing agents
-      asyncAgentManager.updateAgentState(agentState, 'running')
-    }
-  }
-
-  const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+  const agentTemplate = await env.templates.getAgentTemplate(
+    agentType,
+    localAgentTemplates,
+  )
   if (!agentTemplate) {
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${Object.keys(localAgentTemplates).join(', ')}`,
     )
   }
 
-  const stepPrompt = await getAgentPrompt(
+  const stepPrompt = await env.templates.getAgentPrompt(
     agentTemplate,
     { type: 'stepPrompt' },
     fileContext,
@@ -246,7 +221,7 @@ export const runAgentStep = async (
 
   const { model } = agentTemplate
 
-  const getStream = getAgentStreamFromTemplate({
+  const getStream = env.llm.getAgentStreamFromTemplate({
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -260,7 +235,7 @@ export const runAgentStep = async (
         // This is already handled by the saveMessage function which calls updateUserCycleUsage
         // If that fails, the promise rejection will bubble up and halt agent execution
       } catch (error) {
-        logger.error(
+        env.logger?.error(
           { agentId: agentState.agentId, credits, error },
           'Failed to add cost to agent state',
         )
@@ -269,13 +244,13 @@ export const runAgentStep = async (
         )
       }
     },
-    includeCacheControl: supportsCacheControl(agentTemplate.model),
+    includeCacheControl: true, // We'll assume cache control is supported
   })
 
   const iterationNum = agentState.messageHistory.length
 
   const system =
-    (await getAgentPrompt(
+    (await env.templates.getAgentPrompt(
       agentTemplate,
       { type: 'systemPrompt' },
       fileContext,
@@ -288,9 +263,10 @@ export const runAgentStep = async (
   const agentMessages = getMessagesSubset(
     agentState.messageHistory,
     systemTokens,
+    env.logger,
   )
 
-  logger.debug(
+  env.logger?.debug(
     {
       iteration: iterationNum,
       agentId: agentState.agentId,
@@ -321,7 +297,6 @@ export const runAgentStep = async (
     fullResponseChunks,
   } = await processStreamWithTools({
     stream,
-    ws,
     agentStepId,
     clientSessionId,
     fingerprintId,
@@ -336,26 +311,29 @@ export const runAgentStep = async (
     agentContext,
     onResponseChunk,
     fullResponse,
+    env,
   })
   toolResults.push(...newToolResults)
 
   fullResponse = fullResponseAfterStream
 
-  const agentResponseTrace: AgentResponseTrace = {
-    type: 'agent-response',
-    created_at: new Date(),
-    agent_step_id: agentStepId,
-    user_id: userId ?? '',
-    id: crypto.randomUUID(),
-    payload: {
-      output: fullResponse,
-      user_input_id: userInputId,
-      client_session_id: clientSessionId,
-      fingerprint_id: fingerprintId,
-    },
+  // Insert trace if analytics environment is available
+  if (env.analytics?.insertTrace) {
+    const agentResponseTrace = {
+      type: 'agent-response',
+      created_at: new Date(),
+      agent_step_id: agentStepId,
+      user_id: userId ?? '',
+      id: crypto.randomUUID(),
+      payload: {
+        output: fullResponse,
+        user_input_id: userInputId,
+        client_session_id: clientSessionId,
+        fingerprint_id: fingerprintId,
+      },
+    }
+    env.analytics.insertTrace(agentResponseTrace)
   }
-
-  insertTrace(agentResponseTrace)
 
   const newAgentContext = state.agentContext as AgentState['agentContext']
   // Use the updated agent state from tool execution
@@ -379,7 +357,7 @@ export const runAgentStep = async (
         ),
       },
     ]
-    logger.debug({ summary: fullResponse }, 'Compacted messages')
+    env.logger?.debug({ summary: fullResponse }, 'Compacted messages')
   }
 
   const hasNoToolResults =
@@ -399,12 +377,7 @@ export const runAgentStep = async (
     agentContext: newAgentContext,
   }
 
-  // Mark agent as completed if it should end turn
-  if (ASYNC_AGENTS_ENABLED && shouldEndTurn) {
-    asyncAgentManager.updateAgentState(agentState, 'completed')
-  }
-
-  logger.debug(
+  env.logger?.debug(
     {
       iteration: iterationNum,
       agentId: agentState.agentId,
@@ -429,7 +402,6 @@ export const runAgentStep = async (
 }
 
 export const loopAgentSteps = async (
-  ws: WebSocket,
   {
     userInputId,
     agentType,
@@ -458,8 +430,12 @@ export const loopAgentSteps = async (
     clientSessionId: string
     onResponseChunk: (chunk: string | PrintModeEvent) => void
   },
+  env: AgentRuntimeEnvironment,
 ) => {
-  const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+  const agentTemplate = await env.templates.getAgentTemplate(
+    agentType,
+    localAgentTemplates,
+  )
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
@@ -469,7 +445,7 @@ export const loopAgentSteps = async (
 
   // Get the instructions prompt if we have a prompt/params
   const instructionsPrompt = hasPrompt
-    ? await getAgentPrompt(
+    ? await env.templates.getAgentPrompt(
         agentTemplate,
         { type: 'instructionsPrompt' },
         fileContext,
@@ -499,15 +475,6 @@ export const loopAgentSteps = async (
         ),
         keepDuringTruncation: true,
       },
-      prompt &&
-        prompt in additionalSystemPrompts && {
-          role: 'user' as const,
-          content: asSystemInstruction(
-            additionalSystemPrompts[
-              prompt as keyof typeof additionalSystemPrompts
-            ],
-          ),
-        },
     ],
 
     instructionsPrompt && {
@@ -527,7 +494,7 @@ export const loopAgentSteps = async (
   let currentParams = params
 
   try {
-    while (checkLiveUserInput(userId, userInputId, clientSessionId)) {
+    while (env.inputGate.check(userId, userInputId, clientSessionId)) {
       // 1. Run programmatic step first if it exists
       if (agentTemplate.handleSteps) {
         const { agentState: programmaticAgentState, endTurn } =
@@ -539,25 +506,17 @@ export const loopAgentSteps = async (
             onResponseChunk,
             agentType,
             fileContext,
-            ws,
             template: agentTemplate,
             localAgentTemplates,
             prompt: currentPrompt,
             params: currentParams,
             stepsComplete: shouldEndTurn,
+            env,
           })
         currentAgentState = programmaticAgentState
 
         if (endTurn) {
           shouldEndTurn = true
-        }
-      }
-
-      if (ASYNC_AGENTS_ENABLED) {
-        const hasMessages =
-          asyncAgentManager.getMessages(agentState.agentId).length > 0
-        if (hasMessages) {
-          shouldEndTurn = false
         }
       }
 
@@ -569,19 +528,22 @@ export const loopAgentSteps = async (
       }
 
       const { agentState: newAgentState, shouldEndTurn: llmShouldEndTurn } =
-        await runAgentStep(ws, {
-          userId,
-          userInputId,
-          clientSessionId,
-          fingerprintId,
-          onResponseChunk,
-          localAgentTemplates,
-          agentType,
-          fileContext,
-          agentState: currentAgentState,
-          prompt: currentPrompt,
-          params: currentParams,
-        })
+        await runAgentStep(
+          {
+            userId,
+            userInputId,
+            clientSessionId,
+            fingerprintId,
+            onResponseChunk,
+            localAgentTemplates,
+            agentType,
+            fileContext,
+            agentState: currentAgentState,
+            prompt: currentPrompt,
+            params: currentParams,
+          },
+          env,
+        )
 
       currentAgentState = newAgentState
       shouldEndTurn = llmShouldEndTurn
@@ -593,7 +555,7 @@ export const loopAgentSteps = async (
     return { agentState: currentAgentState }
   } catch (error) {
     // Log the error but still return the state with partial costs
-    logger.error(
+    env.logger?.error(
       {
         error,
         agentId: currentAgentState.agentId,

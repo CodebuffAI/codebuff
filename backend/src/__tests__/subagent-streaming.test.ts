@@ -11,7 +11,7 @@ import {
   spyOn,
 } from 'bun:test'
 
-import * as runAgentStep from '../run-agent-step'
+import * as runAgentStep from '@codebuff/agent-runtime'
 import { mockFileContext, MockWebSocket } from './test-utils'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'

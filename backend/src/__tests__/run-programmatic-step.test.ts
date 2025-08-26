@@ -21,9 +21,10 @@ import {
 import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
-} from '../run-programmatic-step'
+} from '@codebuff/agent-runtime'
 import { mockFileContext, MockWebSocket } from './test-utils'
-import * as toolExecutor from '../tools/tool-executor'
+import { createMockAgentRuntimeEnvironment } from './test-env-mocks'
+import * as agentRuntimeToolExecutor from '@codebuff/agent-runtime'
 import { asSystemMessage } from '../util/messages'
 import * as requestContext from '../websockets/request-context'
 
@@ -41,6 +42,7 @@ describe('runProgrammaticStep', () => {
   let mockParams: any
   let executeToolCallSpy: any
   let getRequestContextSpy: any
+  let mockEnv: any
 
   beforeAll(() => {
     // Mock logger
@@ -61,9 +63,9 @@ describe('runProgrammaticStep', () => {
     analytics.initAnalytics()
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
 
-    // Mock executeToolCall
+    // Mock executeToolCall from agent-runtime
     executeToolCallSpy = spyOn(
-      toolExecutor,
+      agentRuntimeToolExecutor,
       'executeToolCall',
     ).mockImplementation(async () => {})
 
@@ -74,6 +76,12 @@ describe('runProgrammaticStep', () => {
     ).mockImplementation(() => ({
       processedRepoId: 'test-repo-id',
     }))
+
+    // Create mock environment
+    mockEnv = createMockAgentRuntimeEnvironment()
+    
+    // Override the request context with our spy
+    mockEnv.requestContext = getRequestContextSpy()
 
     // Mock crypto.randomUUID
     spyOn(crypto, 'randomUUID').mockImplementation(
@@ -126,6 +134,7 @@ describe('runProgrammaticStep', () => {
       assistantMessage: undefined,
       assistantPrefix: undefined,
       ws: new MockWebSocket() as unknown as WebSocket,
+      env: mockEnv,
     }
   })
 
@@ -214,18 +223,17 @@ describe('runProgrammaticStep', () => {
       mockTemplate.handleSteps = () => mockGenerator
       mockTemplate.toolNames = ['add_message', 'read_files', 'end_turn']
 
-      // Track chunks sent via sendSubagentChunk
-      const sentChunks: string[] = []
-      const originalSendAction =
-        require('../websockets/websocket-action').sendAction
-      const sendActionSpy = spyOn(
-        require('../websockets/websocket-action'),
-        'sendAction',
-      ).mockImplementation((ws: any, action: any) => {
-        if (action.type === 'subagent-response-chunk') {
-          sentChunks.push(action.chunk)
-        }
-      })
+    // Track chunks sent via sendSubagentChunk
+    const sentChunks: string[] = []
+    
+    // Override the mock environment's onResponseChunk to capture chunks
+    mockEnv.io.onResponseChunk = (chunk: any) => {
+      if (typeof chunk === 'string') {
+        sentChunks.push(chunk)
+      } else if (chunk && typeof chunk.text === 'string') {
+        sentChunks.push(chunk.text)
+      }
+    }
 
       const result = await runProgrammaticStep(mockAgentState, mockParams)
 
@@ -864,6 +872,7 @@ describe('runProgrammaticStep', () => {
         ...mockParams,
         template: schemaTemplate,
         localAgentTemplates: { 'test-agent': schemaTemplate },
+        env: mockEnv,
       })
 
       expect(result.endTurn).toBe(true)
@@ -950,6 +959,7 @@ describe('runProgrammaticStep', () => {
         ...mockParams,
         template: noSchemaTemplate,
         localAgentTemplates: { 'test-agent': noSchemaTemplate },
+        env: mockEnv,
       })
 
       expect(result.endTurn).toBe(true)
@@ -987,6 +997,7 @@ describe('runProgrammaticStep', () => {
         ...mockParams,
         template: schemaWithoutSchemaTemplate,
         localAgentTemplates: { 'test-agent': schemaWithoutSchemaTemplate },
+        env: mockEnv,
       })
 
       expect(result.endTurn).toBe(true)
