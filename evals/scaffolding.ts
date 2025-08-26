@@ -8,7 +8,6 @@ import { assembleLocalAgentTemplates } from '@codebuff/backend/templates/agent-r
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { mockModule } from '@codebuff/common/testing/mock-modules'
-import { applyAndRevertChanges } from '@codebuff/common/util/changes'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { handleToolCall } from '@codebuff/npm-app/tool-handlers'
 import { getSystemInfo } from '@codebuff/npm-app/utils/system-info'
@@ -289,40 +288,6 @@ export function extractErrorFiles(output: string): string[] {
     .map((line) => line.split('(')[0].trim())
 }
 
-export const applyAndRevertChangesSequentially = (() => {
-  const queue: Array<() => Promise<void>> = []
-  let isProcessing = false
-
-  const processQueue = async () => {
-    if (isProcessing || queue.length === 0) return
-    isProcessing = true
-    const nextOperation = queue.shift()
-    if (nextOperation) {
-      await nextOperation()
-    }
-    isProcessing = false
-    processQueue()
-  }
-
-  return async (
-    projectRoot: string,
-    changes: FileChanges,
-    onApply: () => Promise<void>,
-  ) => {
-    return new Promise<void>((resolve, reject) => {
-      queue.push(async () => {
-        try {
-          await applyAndRevertChanges(projectRoot, changes, onApply)
-          resolve()
-        } catch (error) {
-          reject(error)
-        }
-      })
-      processQueue()
-    })
-  }
-})()
-
 export function resetRepoToCommit(projectPath: string, commit: string) {
   console.log(`Resetting repository at ${projectPath} to commit ${commit}...`)
   try {
@@ -346,6 +311,5 @@ export default {
   runToolCalls,
   loopMainPrompt,
   extractErrorFiles,
-  applyAndRevertChangesSequentially,
   resetRepoToCommit,
 }

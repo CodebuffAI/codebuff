@@ -32,7 +32,6 @@ import type { z } from 'zod/v4'
 import type { ChildProcess } from 'child_process'
 import { CodebuffClient } from '../../sdk/src/client'
 import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
-import { getDirSizeBytes, formatBytes } from '../util/disk-usage'
 
 disableLiveUserInputCheck()
 
@@ -374,10 +373,6 @@ export async function runGitEvals(
   // Generate unique trace ID for this run
   const traceId = generateCompactId()
   console.log(`Starting eval run with trace ID: ${traceId}`)
-  try {
-    const trepo = getDirSizeBytes(TEST_REPOS_DIR)
-    console.log(`[storage] Initial TEST_REPOS_DIR size: ${formatBytes(trepo)} (${trepo} B) path=${TEST_REPOS_DIR}`)
-  } catch {}
 
   // Ensure output directory exists
   if (!fs.existsSync(outputDir)) {
@@ -423,11 +418,6 @@ export async function runGitEvals(
               true,
               evalData.initCommand,
             )
-            try {
-              const projectSize = getDirSizeBytes(projectPath)
-              const gitSize = getDirSizeBytes(path.join(projectPath, '.git'))
-              console.log(`[storage] Setup repo sizes for ${testRepoName}: repo=${formatBytes(projectSize)} (.git=${formatBytes(gitSize)}) path=${projectPath}`)
-            } catch {}
 
             console.log(
               `Starting ${testRepoName} eval ${index + 1}/${commitsToRun.length} for commit ${evalCommit.spec.split('\n')[0]}...`,
@@ -515,15 +505,6 @@ export async function runGitEvals(
                 logStream.end()
               }
 
-              try {
-                if (fs.existsSync(projectPath)) {
-                  const leftover = getDirSizeBytes(projectPath)
-                  console.warn(`[storage] Project path still exists after child exit: ${projectPath} (size=${formatBytes(leftover)})`)
-                } else {
-                  console.log(`[storage] Project path cleaned up: ${projectPath}`)
-                }
-              } catch {}
-
               if (code !== 0) {
                 console.error(
                   `Eval process for ${evalCommit.sha} exited with code ${code}. See logs at ${logPath}`,
@@ -586,14 +567,6 @@ export async function runGitEvals(
 
   // Write final results to file
   fs.writeFileSync(finalOutputPath, JSON.stringify(result, null, 2))
-  try {
-    const fsz = fs.statSync(finalOutputPath).size
-    console.log(`[storage] Final results size: ${formatBytes(fsz)} (${fsz} B) file=${finalOutputPath}`)
-    const lsz = getDirSizeBytes(logsDir)
-    console.log(`[storage] Logs directory size: ${formatBytes(lsz)} (${lsz} B) path=${logsDir}`)
-    const trepo = getDirSizeBytes(TEST_REPOS_DIR)
-    console.log(`[storage] TEST_REPOS_DIR size: ${formatBytes(trepo)} (${trepo} B) path=${TEST_REPOS_DIR}`)
-  } catch {}
 
   console.log('All evals complete!')
   console.log(`Final results written to ${finalOutputPath}`)
