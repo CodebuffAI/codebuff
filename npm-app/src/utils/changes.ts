@@ -12,6 +12,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
   const modified: string[] = []
   const ignored: string[] = []
   const invalid: string[] = []
+  const patchFailed: string[] = []
 
   for (const change of changes) {
     const { path: filePath, content, type } = change
@@ -40,7 +41,8 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
         const oldContent = fs.readFileSync(fullPath, 'utf-8')
         const newContent = applyPatch(oldContent, content)
         if (newContent === false) {
-          throw new Error(`Patch failed to apply to ${filePath}: ${content}`)
+          patchFailed.push(filePath)
+          continue
         }
         fs.writeFileSync(fullPath, newContent)
       }
@@ -59,5 +61,5 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
     }
   }
 
-  return { created, modified, ignored, invalid }
+  return { created, modified, ignored, patchFailed, invalid }
 }

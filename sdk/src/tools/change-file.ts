@@ -19,7 +19,7 @@ export function changeFile(
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
 
-  const { created, modified, invalid } = applyChanges(cwd, [fileChange])
+  const { created, modified, invalid, patchFailed } = applyChanges(cwd, [fileChange])
 
   const results: string[] = []
 
@@ -32,6 +32,12 @@ export function changeFile(
   for (const file of modified) {
     results.push(
       `Wrote to ${file} successfully. Changes made:\n${lines.join('\n')}`,
+    )
+  }
+
+  for (const file of patchFailed) {
+    results.push(
+      `Failed to write to ${file}; the patch failed to apply`,
     )
   }
 
@@ -54,6 +60,7 @@ function applyChanges(
 ) {
   const created: string[] = []
   const modified: string[] = []
+  const patchFailed: string[] = []
   const invalid: string[] = []
 
   for (const change of changes) {
@@ -72,7 +79,8 @@ function applyChanges(
         const oldContent = fs.readFileSync(fullPath, 'utf-8')
         const newContent = applyPatch(oldContent, content)
         if (newContent === false) {
-          throw new Error(`Patch failed to apply to ${filePath}: ${content}`)
+          patchFailed.push(filePath)
+          continue
         }
         fs.writeFileSync(fullPath, newContent)
       }
@@ -88,5 +96,5 @@ function applyChanges(
     }
   }
 
-  return { created, modified, invalid }
+  return { created, modified, invalid, patchFailed }
 }

@@ -41,7 +41,7 @@ export const handleUpdateFile: ToolHandler<{
   const lines = fileChange.content.split('\n')
 
   await waitForPreviousCheckpoint()
-  const { created, modified, ignored, invalid } = applyChanges(projectPath, [
+  const { created, modified, ignored, invalid, patchFailed } = applyChanges(projectPath, [
     fileChange,
   ])
   DiffManager.addChange(fileChange)
@@ -76,6 +76,11 @@ export const handleUpdateFile: ToolHandler<{
   for (const file of ignored) {
     result.push(
       `Failed to write to ${file}; file is ignored by .gitignore or .codebuffignore`,
+    )
+  }
+  for (const file of patchFailed) {
+    result.push(
+      `Failed to write to ${file}; the patch failed to apply`,
     )
   }
   for (const file of invalid) {
