@@ -127,7 +127,7 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 `,
 
   handleSteps: function* ({ agentState: initialAgentState }) {
-    const stepLimit = 15
+    const stepLimit = 20
     let stepCount = 0
     let agentState = initialAgentState
 

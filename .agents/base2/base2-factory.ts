@@ -29,7 +29,7 @@ export const base2 = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ['spawn_agent_inline', 'spawn_agents', 'end_turn'],
+  toolNames: ['spawn_agent_inline', 'spawn_agents', 'add_message', 'end_turn'],
   spawnableAgents: ['scout', 'planner', 'editor', 'reviewer', 'context-pruner'],
 
   systemPrompt: `You are Buffy, a strategic coding assistant that orchestrates complex coding tasks through specialized sub-agents.
@@ -85,7 +85,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           toolName: 'add_message',
           input: {
             role: 'user',
-            content: `You have reached the step limit. Please summarize your progress so far and what you still need to solve. Immediately after summarizing, please end your turn. Do not use any tools except for the end_turn tool.`,
+            content: `You have reached the step limit. Please summarize your progress in plain text (no need to use set_output) so far and what you still need to solve. Immediately after summarizing, please end your turn. Do not use any tools except for the end_turn tool.`,
           },
         }
         yield 'STEP'
