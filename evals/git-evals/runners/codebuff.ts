@@ -62,7 +62,7 @@ export class CodebuffRunner implements Runner {
       prompt,
       handleEvent: (event) => {
         if (event.type === 'error') {
-          throw new Error(event.message)
+          console.log('\n\n' + JSON.stringify(event, null, 2))
         }
         if (event.type === 'text') {
           if (toolResults.length > 0) {

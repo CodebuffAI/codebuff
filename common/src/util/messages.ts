@@ -1,7 +1,6 @@
-import { has, isEqual } from 'lodash'
+import { cloneDeep, has, isEqual } from 'lodash'
 
 import { buildArray } from './array'
-import { deepCopy } from './object'
 import { getToolCallString } from '../tools/utils'
 
 import type {
@@ -23,7 +22,7 @@ export function toContentString(msg: ModelMessage): string {
 export function withCacheControl<
   T extends { providerOptions?: ProviderMetadata },
 >(obj: T): T {
-  const wrapper = deepCopy(obj)
+  const wrapper = cloneDeep(obj)
   if (!wrapper.providerOptions) {
     wrapper.providerOptions = {}
   }
@@ -41,7 +40,7 @@ export function withCacheControl<
 export function withoutCacheControl<
   T extends { providerOptions?: ProviderMetadata },
 >(obj: T): T {
-  const wrapper = deepCopy(obj)
+  const wrapper = cloneDeep(obj)
   if (has(wrapper.providerOptions?.anthropic?.cacheControl, 'type')) {
     delete wrapper.providerOptions?.anthropic?.cacheControl?.type
   }

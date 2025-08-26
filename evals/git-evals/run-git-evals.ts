@@ -7,6 +7,7 @@ import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/
 import { models } from '@codebuff/common/constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { cloneDeep } from 'lodash'
 import pLimit from 'p-limit'
 
 import { resetRepoToCommit } from '../scaffolding'
@@ -487,7 +488,7 @@ export async function runGitEvals(
                     `Completed eval for commit ${testRepoName} - ${evalCommit.spec.split('\n')[0]}`,
                   )
                   if (!logToStdout) {
-                    const finalResult = message.result
+                    const finalResult = cloneDeep(message.result)
                     for (const cbTrace of finalResult.trace) {
                       delete (cbTrace as any).steps
                     }
