@@ -1,5 +1,7 @@
+import { has, isEqual } from 'lodash'
+
 import { buildArray } from './array'
-import { deepCopy, deepEqual, hasKey } from './object'
+import { deepCopy } from './object'
 import { getToolCallString } from '../tools/utils'
 
 import type {
@@ -40,7 +42,7 @@ export function withoutCacheControl<
   T extends { providerOptions?: ProviderMetadata },
 >(obj: T): T {
   const wrapper = deepCopy(obj)
-  if (hasKey(wrapper.providerOptions?.anthropic?.cacheControl, 'type')) {
+  if (has(wrapper.providerOptions?.anthropic?.cacheControl, 'type')) {
     delete wrapper.providerOptions?.anthropic?.cacheControl?.type
   }
   if (
@@ -53,7 +55,7 @@ export function withoutCacheControl<
     delete wrapper.providerOptions?.anthropic
   }
 
-  if (hasKey(wrapper.providerOptions?.openrouter?.cacheControl, 'type')) {
+  if (has(wrapper.providerOptions?.openrouter?.cacheControl, 'type')) {
     delete wrapper.providerOptions?.openrouter?.cacheControl?.type
   }
   if (
@@ -222,7 +224,7 @@ export function convertCbToModelMessages({
     if (
       lastMessage.keepDuringTruncation !== message.keepDuringTruncation &&
       lastMessage.timeToLive !== message.timeToLive &&
-      !deepEqual(lastMessage.providerOptions, message.providerOptions)
+      !isEqual(lastMessage.providerOptions, message.providerOptions)
     ) {
       aggregated.push(message)
       continue
