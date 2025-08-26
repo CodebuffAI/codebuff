@@ -39,7 +39,7 @@ export class AsyncAgentManager {
    */
   registerAgent(agentInfo: AsyncAgentInfo): void {
     const { agentState, sessionId } = agentInfo
-    const { agentId, agentType } = agentState
+    const { agentId } = agentState
     this.agents.set(agentId, agentInfo)
 
     // Track agents by session for cleanup
@@ -47,6 +47,18 @@ export class AsyncAgentManager {
       this.sessionAgents.set(sessionId, new Set())
     }
     this.sessionAgents.get(sessionId)!.add(agentId)
+
+    // [storage]
+    logger.info(
+      {
+        tag: 'storage',
+        agentId,
+        sessionId,
+        totalAgents: this.agents.size,
+        sessionAgentCount: this.sessionAgents.get(sessionId)!.size,
+      },
+      '[storage] async-agent register',
+    )
   }
 
   /**
@@ -61,6 +73,11 @@ export class AsyncAgentManager {
       agent.status = status
       agent.agentState = agentState
     }
+    // [storage]
+    logger.info(
+      { tag: 'storage', agentId: agentState.agentId, status },
+      '[storage] async-agent update',
+    )
   }
 
   /**
@@ -255,6 +272,12 @@ export class AsyncAgentManager {
       // Remove agent
       this.agents.delete(agentId)
     }
+
+    // [storage]
+    logger.info(
+      { tag: 'storage', agentId, totalAgents: this.agents.size },
+      '[storage] async-agent remove',
+    )
   }
 
   /**
@@ -276,6 +299,12 @@ export class AsyncAgentManager {
     logger.debug(
       { sessionId, agentCount: agentIds.size },
       'Cleaned up session agents',
+    )
+
+    // [storage]
+    logger.info(
+      { tag: 'storage', sessionId, removedAgents: agentIds.size },
+      '[storage] async-agent cleanupSession',
     )
   }
 
@@ -306,6 +335,16 @@ export class AsyncAgentManager {
     logger.debug(
       { userInputId, agentCount: agentsToCleanup.length },
       'Cleaned up agents for user input ID',
+    )
+
+    // [storage]
+    logger.info(
+      {
+        tag: 'storage',
+        userInputId,
+        removedAgents: agentsToCleanup.length,
+      },
+      '[storage] async-agent cleanupUserInputAgents',
     )
   }
 

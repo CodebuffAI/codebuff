@@ -104,6 +104,24 @@ export async function runProgrammaticStep(
     }
   }
 
+  // [storage] mode and sizes
+  const sizeof = (v: any) =>
+    Buffer.byteLength(typeof v === 'string' ? v : JSON.stringify(v), 'utf8')
+  try {
+    logger.info(
+      {
+        tag: 'storage',
+        agentId: agentState.agentId,
+        mode: sandbox ? 'quickjs' : 'native',
+        hasSandbox: !!sandbox,
+        hasGenerator: !!generator,
+        initialMessageBytes: sizeof(agentState.messageHistory),
+        initialMessageCount: agentState.messageHistory.length,
+      },
+      '[storage] programmatic-step start',
+    )
+  } catch (_) {}
+
   // Check if we're in STEP_ALL mode
   if (agentIdToStepAll.has(agentState.agentId)) {
     if (stepsComplete) {
@@ -241,6 +259,23 @@ export async function runProgrammaticStep(
       }
     } while (true)
 
+    // [storage] summarize sizes for this step
+    try {
+      logger.info(
+        {
+          tag: 'storage',
+          agentId: state.agentState.agentId,
+          mode: sandbox ? 'quickjs' : 'native',
+          toolCallCount: toolCalls.length,
+          toolResultsCount: toolResults.length,
+          toolResultsBytes: sizeof(toolResults),
+          messagesBytes: sizeof(state.messages),
+          messagesCount: state.messages.length,
+        },
+        '[storage] programmatic-step results',
+      )
+    } catch (_) {}
+
     return { agentState: state.agentState, endTurn }
   } catch (error) {
     endTurn = true
@@ -279,6 +314,18 @@ export async function runProgrammaticStep(
       }
       delete agentIdToGenerator[agentState.agentId]
       agentIdToStepAll.delete(agentState.agentId)
+      // [storage] cleanup lifecycle
+      try {
+        logger.info(
+          {
+            tag: 'storage',
+            agentId: agentState.agentId,
+            cleanedSandbox: !!sandbox,
+            cleanedGenerator: true,
+          },
+          '[storage] programmatic-step cleanup',
+        )
+      } catch (_) {}
     }
   }
 }

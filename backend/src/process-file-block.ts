@@ -89,6 +89,11 @@ export async function processFileBlock(
   const normalizedEditSnippet = normalizeLineEndings(newContent)
   const editMessages: string[] = []
 
+  // Helper for size calculations (bytes)
+  const sizeof = (v: any) =>
+    Buffer.byteLength(typeof v === 'string' ? v : JSON.stringify(v), 'utf8')
+  let rewriteMethod: 'large-file' | 'fast-rewrite' = 'fast-rewrite'
+
   let updatedContent: string
   const tokenCount =
     countTokens(normalizedInitialContent) + countTokens(normalizedEditSnippet)
@@ -97,6 +102,7 @@ export async function processFileBlock(
     'Write diff created by fast-apply model. May contain errors. Make sure to double check!',
   )
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
+    rewriteMethod = 'large-file'
     const largeFileContent = await handleLargeFile(
       normalizedInitialContent,
       normalizedEditSnippet,
@@ -183,6 +189,22 @@ export async function processFileBlock(
       error: editMessages.join('\n\n'),
     }
   }
+
+  // [storage] Log sizes for diagnostics
+  logger.info(
+    {
+      tag: 'storage',
+      path,
+      rewriteMethod,
+      tokenCount,
+      initialBytes: sizeof(normalizedInitialContent),
+      editSnippetBytes: sizeof(normalizedEditSnippet),
+      updatedBytes: sizeof(updatedContent),
+      patchBytes: sizeof(patch),
+    },
+    '[storage] processFileBlock size metrics',
+  )
+
   logger.debug(
     {
       path,
@@ -221,6 +243,19 @@ export async function handleLargeFile(
   filePath: string,
 ): Promise<string | null> {
   const startTime = Date.now()
+
+  // [storage] initial sizes
+  const sizeof = (v: any) =>
+    Buffer.byteLength(typeof v === 'string' ? v : JSON.stringify(v), 'utf8')
+  logger.info(
+    {
+      tag: 'storage',
+      filePath,
+      oldBytes: sizeof(oldContent),
+      editSnippetBytes: sizeof(editSnippet),
+    },
+    '[storage] handleLargeFile start',
+  )
 
   // If the whole file is rewritten, we can just return the new content.
   if (!hasLazyEdit(editSnippet)) {
@@ -320,6 +355,19 @@ Please output just the SEARCH/REPLACE blocks like this:
       updatedContent = updatedContent.replace(searchContent, replaceContent)
     }
   }
+
+  // [storage] final sizes
+  logger.info(
+    {
+      tag: 'storage',
+      filePath,
+      updatedBytes: sizeof(updatedContent),
+      durationMs: Date.now() - startTime,
+      diffBlockCount: diffBlocks.length,
+      hadRetry: diffBlocksThatDidntMatch.length > 0,
+    },
+    '[storage] handleLargeFile end',
+  )
 
   logger.debug(
     {

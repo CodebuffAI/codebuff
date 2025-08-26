@@ -105,6 +105,20 @@ export const runAgentStep = async (
 
   let messageHistory = agentState.messageHistory
 
+  // [storage] log initial sizes for the step
+  const sizeof = (v: any) =>
+    Buffer.byteLength(typeof v === 'string' ? v : JSON.stringify(v), 'utf8')
+  logger.info(
+    {
+      tag: 'storage',
+      agentId: agentState.agentId,
+      stepId: agentStepId,
+      messageCount: messageHistory.length,
+      messageBytes: sizeof(messageHistory),
+    },
+    '[storage] agent step start sizes',
+  )
+
   // Check if we need to warn about too many consecutive responses
   const needsStepWarning = agentState.stepsRemaining <= 0
   let stepWarningMessage = ''
@@ -130,7 +144,7 @@ export const runAgentStep = async (
         {
           role: 'user',
           content: asSystemMessage(
-            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`,
+            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json`,
           ),
         },
       ],
@@ -341,6 +355,20 @@ export const runAgentStep = async (
 
   fullResponse = fullResponseAfterStream
 
+  // [storage] log results sizes from stream
+  logger.info(
+    {
+      tag: 'storage',
+      agentId: agentState.agentId,
+      stepId: agentStepId,
+      toolCallCount: toolCalls.length,
+      newToolResultsCount: newToolResults.length,
+      newToolResultsBytes: sizeof(newToolResults),
+      fullResponseBytes: sizeof(fullResponseAfterStream),
+    },
+    '[storage] agent step stream results',
+  )
+
   const agentResponseTrace: AgentResponseTrace = {
     type: 'agent-response',
     created_at: new Date(),
@@ -403,6 +431,18 @@ export const runAgentStep = async (
   if (ASYNC_AGENTS_ENABLED && shouldEndTurn) {
     asyncAgentManager.updateAgentState(agentState, 'completed')
   }
+
+  // [storage] final message history sizes
+  logger.info(
+    {
+      tag: 'storage',
+      agentId: agentState.agentId,
+      stepId: agentStepId,
+      finalMessageCount: agentState.messageHistory.length,
+      finalMessageBytes: sizeof(agentState.messageHistory),
+    },
+    '[storage] agent step end sizes',
+  )
 
   logger.debug(
     {

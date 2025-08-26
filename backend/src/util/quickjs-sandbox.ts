@@ -79,6 +79,26 @@ export class QuickJSSandbox {
 
     const context = runtime.newContext()
 
+    // [storage] Log sandbox creation details
+    try {
+      logger.info(
+        {
+          tag: 'storage',
+          memoryLimit,
+          maxStackSize,
+          enableInterruptHandler,
+          generatorCodeBytes: Buffer.byteLength(generatorCode, 'utf8'),
+          initialInputBytes: Buffer.byteLength(
+            JSON.stringify(initialInput ?? {}),
+            'utf8',
+          ),
+        },
+        '[storage] QuickJS sandbox create',
+      )
+    } catch (_) {
+      // ignore size logging errors
+    }
+
     try {
       // Inject safe globals and the generator function
       const setupCode = `
@@ -186,6 +206,8 @@ export class QuickJSSandbox {
       this.context.dispose()
       this.runtime.dispose()
       this.initialized = false
+      // [storage]
+      logger.info({ tag: 'storage' }, '[storage] QuickJS sandbox disposed')
     } catch (error) {
       logger.warn({ error }, 'Failed to dispose QuickJS sandbox')
     }
@@ -216,6 +238,11 @@ export class SandboxManager {
   ): Promise<QuickJSSandbox> {
     const existing = this.sandboxes.get(agentId)
     if (existing && existing.isInitialized()) {
+      // [storage]
+      logger.info(
+        { tag: 'storage', agentId, sandboxCount: this.sandboxes.size },
+        '[storage] SandboxManager reuse sandbox',
+      )
       return existing
     }
 
@@ -231,6 +258,11 @@ export class SandboxManager {
       config,
     )
     this.sandboxes.set(agentId, sandbox)
+    // [storage]
+    logger.info(
+      { tag: 'storage', agentId, sandboxCount: this.sandboxes.size },
+      '[storage] SandboxManager create sandbox',
+    )
     return sandbox
   }
 
@@ -249,6 +281,11 @@ export class SandboxManager {
     if (sandbox) {
       sandbox.dispose()
       this.sandboxes.delete(agentId)
+      // [storage]
+      logger.info(
+        { tag: 'storage', agentId, sandboxCount: this.sandboxes.size },
+        '[storage] SandboxManager remove sandbox',
+      )
     }
   }
 
@@ -267,5 +304,7 @@ export class SandboxManager {
       }
     }
     this.sandboxes.clear()
+    // [storage]
+    logger.info({ tag: 'storage' }, '[storage] SandboxManager disposed all')
   }
 }
