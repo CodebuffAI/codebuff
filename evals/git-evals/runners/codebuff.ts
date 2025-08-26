@@ -15,12 +15,10 @@ const getLocalAuthToken = () => {
 }
 
 export class CodebuffRunner implements Runner {
-  private client: CodebuffClient | null
   private runState: RunState
   private agent: string
 
   constructor(runState: RunState, agent?: string) {
-    this.client = null
     this.runState = runState
     this.agent = agent ?? 'base'
   }
@@ -39,15 +37,13 @@ export class CodebuffRunner implements Runner {
 
     const apiKey = process.env[API_KEY_ENV_VAR] || getLocalAuthToken()
 
-    if (!this.client) {
-      this.client = new CodebuffClient({
-        apiKey,
-        cwd: this.runState.sessionState.fileContext.cwd,
-        onError: (error) => {
-          throw new Error(error.message)
-        },
-      })
-    }
+    const client = new CodebuffClient({
+      apiKey,
+      cwd: this.runState.sessionState.fileContext.cwd,
+      onError: (error) => {
+        throw new Error(error.message)
+      },
+    })
 
     const agentsPath = path.join(__dirname, '../../../.agents')
     const localAgentDefinitions = Object.values(
@@ -60,7 +56,7 @@ export class CodebuffRunner implements Runner {
       localAgentDefinitions.map((a) => a.id),
     )
 
-    this.runState = await this.client.run({
+    this.runState = await client.run({
       agent: this.agent,
       previousRun: this.runState,
       prompt,
@@ -92,6 +88,8 @@ export class CodebuffRunner implements Runner {
       agentDefinitions: localAgentDefinitions,
     })
     flushStep()
+
+    client.closeConnection()
 
     return { steps }
   }
