@@ -90,7 +90,7 @@ function applyColorHints(cmd: string): string {
 
 /** Which family of shell are we launching? */
 type UnixShell = 'bash' | 'zsh'
-type WinShell = 'cmd.exe'
+type WinShell = 'powershell.exe'
 
 type ShellKind = UnixShell | WinShell
 
@@ -101,7 +101,7 @@ function basename(cmd: string) {
 /** Decide which concrete binary to start based on platform + env */
 function selectShell(): ShellKind {
   if (IS_WINDOWS) {
-    return 'cmd.exe'
+    return 'powershell.exe'
   }
 
   const detectedShell = detectShell()
@@ -211,22 +211,22 @@ function buildWinInvocation(
   const init = initLines.join('; ')
   const cmdAll = init ? `${init}; ${userCmd}` : userCmd
 
-  if (shell === 'cmd.exe') {
-    return { exe: 'cmd.exe', args: ['/d', '/s', '/c', cmdAll] } // ﻿˅ doc  :contentReference[oaicite:0]{index=0}
+  if (shell === 'powershell.exe') {
+    return {
+      exe: shell,
+      args: [
+        '-NoLogo',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        cmdAll,
+      ],
+    }
   }
 
-  /* PowerShell / pwsh -------------------------------------------------- */
-  return {
-    exe: shell,
-    args: [
-      '-NoLogo',
-      '-NonInteractive',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-Command',
-      cmdAll,
-    ],
-  }
+  shell satisfies never
+  return { exe: 'cmd.exe', args: ['/d', '/s', '/c', cmdAll] } // ﻿˅ doc  :contentReference[oaicite:0]{index=0}
 }
 
 /* ------------------------------------------------------------------ */
