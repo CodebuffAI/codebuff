@@ -108,7 +108,6 @@ describe('buildTimelineFromMessages', () => {
       {
         id: 'msg1',
         client_request_id: 'req1',
-        fingerprint_id: 'fp1',
         user_id: 'user1',
         model: 'claude-3-sonnet',
         request: {},
@@ -166,7 +165,6 @@ describe('buildTimelineFromMessages', () => {
       {
         id: 'msg1',
         client_request_id: 'req1',
-        fingerprint_id: 'fp1',
         user_id: 'user1',
         model: 'claude-3-sonnet',
         request: {},
