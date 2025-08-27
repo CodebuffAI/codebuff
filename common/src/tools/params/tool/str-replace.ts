@@ -9,6 +9,7 @@ export const updateFileResultSchema = z.union([
     unifiedDiff: z.string(),
   }),
   z.object({
+    file: z.string(),
     errorMessage: z.string(),
   }),
 ])

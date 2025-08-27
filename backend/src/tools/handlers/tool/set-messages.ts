@@ -1,5 +1,8 @@
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export const handleSetMessages = (({
@@ -11,14 +14,15 @@ export const handleSetMessages = (({
   toolCall: CodebuffToolCall<'set_messages'>
   getLatestState: () => { messages: CodebuffMessage[] }
 }): {
-  result: Promise<undefined>
+  result: Promise<CodebuffToolOutput<'set_messages'>>
   state: {}
 } => {
   return {
-    result: previousToolCallFinished.then(() => {
+    result: (async () => {
+      await previousToolCallFinished
       getLatestState().messages = toolCall.input.messages
-      return undefined
-    }),
+      return []
+    })(),
     state: {},
   }
 }) satisfies CodebuffToolHandlerFunction<'set_messages'>

@@ -24,7 +24,12 @@ export const findFilesParams = {
   outputs: z.tuple([
     z.object({
       type: z.literal('json'),
-      value: fileContentsSchema.array(),
+      value: z.union([
+        fileContentsSchema.array(),
+        z.object({
+          message: z.string(),
+        }),
+      ]),
     }),
   ]),
 } satisfies $ToolParams

@@ -3,8 +3,10 @@ import type {
   ClientToolCall,
   ClientToolName,
   CodebuffToolCall,
+  CodebuffToolOutput,
+  CodebuffToolResult,
 } from '@codebuff/common/tools/list'
-import { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
@@ -31,9 +33,9 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     'requestClientToolCall',
     (
       toolCall: ClientToolCall<T extends ClientToolName ? T : never>,
-    ) => Promise<string>
+    ) => Promise<CodebuffToolOutput<T extends ClientToolName ? T : never>>
   >,
 ) => {
-  result: Promise<string | undefined>
+  result: Promise<CodebuffToolResult<T>['output']>
   state?: Record<string, any>
 }

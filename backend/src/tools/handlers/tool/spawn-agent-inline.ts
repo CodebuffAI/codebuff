@@ -10,7 +10,10 @@ import {
 } from './spawn-agent-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -18,9 +21,10 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
+type ToolName = 'spawn_agent_inline'
 export const handleSpawnAgentInline = ((params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'spawn_agent_inline'>
+  toolCall: CodebuffToolCall<ToolName>
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
@@ -36,7 +40,7 @@ export const handleSpawnAgentInline = ((params: {
     messages?: CodebuffMessage[]
     agentState?: AgentState
   }
-}): { result: Promise<undefined>; state: {} } => {
+}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -127,7 +131,11 @@ export const handleSpawnAgentInline = ((params: {
   }
 
   return {
-    result: previousToolCallFinished.then(triggerSpawnAgentInline),
+    result: (async () => {
+      await previousToolCallFinished
+      await triggerSpawnAgentInline()
+      return []
+    })(),
     state: {},
   }
-}) satisfies CodebuffToolHandlerFunction<'spawn_agent_inline'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

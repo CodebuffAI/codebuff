@@ -63,10 +63,13 @@ export type CodebuffToolCall<T extends ToolName = ToolName> = {
   } & Omit<ToolCallPart, 'type'>
 }[T]
 
+export type CodebuffToolOutput<T extends ToolName = ToolName> = {
+  [K in ToolName]: z.infer<(typeof $toolParams)[K]['outputs']>
+}[T]
 export type CodebuffToolResult<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
-    output: z.infer<(typeof $toolParams)[K]['outputs']>
+    output: CodebuffToolOutput<K>
   } & Omit<ToolResultPart, 'type'>
 }[T]
 

@@ -2,18 +2,22 @@ import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   ClientToolCall,
   CodebuffToolCall,
+  CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 
-export const handleRunTerminalCommand = ((params: {
+type ToolName = 'run_terminal_command'
+export const handleRunTerminalCommand = (({
+  previousToolCallFinished,
+  toolCall,
+  requestClientToolCall,
+}: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'run_terminal_command'>
+  toolCall: CodebuffToolCall<ToolName>
   requestClientToolCall: (
-    toolCall: ClientToolCall<'run_terminal_command'>,
-  ) => Promise<string>
-}): { result: Promise<string>; state: {} } => {
-  const { previousToolCallFinished, toolCall, requestClientToolCall } = params
-
-  const clientToolCall: ClientToolCall<'run_terminal_command'> = {
+    toolCall: ClientToolCall<ToolName>,
+  ) => Promise<CodebuffToolOutput<ToolName>>
+}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
+  const clientToolCall: ClientToolCall<ToolName> = {
     toolName: 'run_terminal_command',
     toolCallId: toolCall.toolCallId,
     input: {
@@ -25,9 +29,10 @@ export const handleRunTerminalCommand = ((params: {
     },
   }
   return {
-    result: previousToolCallFinished.then(() =>
-      requestClientToolCall(clientToolCall),
-    ),
+    result: (async () => {
+      await previousToolCallFinished
+      return await requestClientToolCall(clientToolCall)
+    })(),
     state: {},
   }
-}) satisfies CodebuffToolHandlerFunction<'run_terminal_command'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

@@ -15,7 +15,10 @@ import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { SendSubagentChunk } from './spawn-agents'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -23,9 +26,10 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
+type ToolName = 'spawn_agents_async'
 export const handleSpawnAgentsAsync = ((params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'spawn_agents_async'>
+  toolCall: CodebuffToolCall<ToolName>
 
   fileContext: ProjectFileContext
   clientSessionId: string
@@ -43,7 +47,7 @@ export const handleSpawnAgentsAsync = ((params: {
     messages?: CodebuffMessage[]
     agentState?: AgentState
   }
-}): { result: Promise<string>; state: {} } => {
+}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   if (!ASYNC_AGENTS_ENABLED) {
     return handleSpawnAgents({
       ...params,
@@ -81,13 +85,10 @@ export const handleSpawnAgentsAsync = ((params: {
     )
   }
 
-  const triggerSpawnAgentsAsync = async () => {
-    const results: Array<{
-      agentType: string
-      success: boolean
-      agentId?: string
-      error?: string
-    }> = []
+  const triggerSpawnAgentsAsync: () => Promise<
+    CodebuffToolOutput<ToolName>[0]['value']
+  > = async () => {
+    const results: CodebuffToolOutput<ToolName>[0]['value'] = []
 
     const conversationHistoryMessage = createConversationHistoryMessage(
       getLatestState().messages,
@@ -257,7 +258,7 @@ export const handleSpawnAgentsAsync = ((params: {
         results.push({
           agentType: agentTypeStr,
           success: false,
-          error: errorMessage,
+          errorMessage,
         })
         logger.error(
           { agentType: agentTypeStr, error },
@@ -267,23 +268,19 @@ export const handleSpawnAgentsAsync = ((params: {
       }
     }
 
-    const successful = results.filter((r) => r.success)
-
-    let result = `Agent spawn results (${successful.length}/${results.length} successful):\n`
-
-    results.forEach(({ agentType, success, agentId, error }) => {
-      if (success) {
-        result += `✓ ${agentType}: spawned (${agentId})\n`
-      } else {
-        result += `✗ ${agentType}: failed - ${error}\n`
-      }
-    })
-
-    return result.trim()
+    return results
   }
 
   return {
-    result: previousToolCallFinished.then(triggerSpawnAgentsAsync),
+    result: (async () => {
+      await previousToolCallFinished
+      return [
+        {
+          type: 'json',
+          value: await triggerSpawnAgentsAsync(),
+        },
+      ]
+    })(),
     state: {},
   }
-}) satisfies CodebuffToolHandlerFunction<'spawn_agents_async'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

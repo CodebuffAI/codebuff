@@ -12,6 +12,7 @@ import type {
 import type {
   ClientToolCall,
   CodebuffToolCall,
+  CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 
 export const handleCreatePlan = ((params: {
@@ -19,7 +20,7 @@ export const handleCreatePlan = ((params: {
   toolCall: CodebuffToolCall<'create_plan'>
   requestClientToolCall: (
     toolCall: ClientToolCall<'create_plan'>,
-  ) => Promise<string>
+  ) => Promise<CodebuffToolOutput<'create_plan'>>
   writeToClient: (chunk: string) => void
 
   getLatestState: () => FileProcessingState
@@ -32,7 +33,7 @@ export const handleCreatePlan = ((params: {
     repoId?: string
   } & OptionalFileProcessingState
 }): {
-  result: Promise<string>
+  result: Promise<CodebuffToolOutput<'create_plan'>>
   state: FileProcessingState
 } => {
   const {
@@ -86,14 +87,15 @@ export const handleCreatePlan = ((params: {
   fileProcessingState.allPromises.push(Promise.resolve(change))
 
   return {
-    result: previousToolCallFinished.then(async () => {
+    result: (async () => {
+      await previousToolCallFinished
       return await postStreamProcessing<'create_plan'>(
         change,
         getLatestState(),
         writeToClient,
         requestClientToolCall,
       )
-    }),
+    })(),
     state: fileProcessingState,
   }
 }) satisfies CodebuffToolHandlerFunction<'create_plan'>
