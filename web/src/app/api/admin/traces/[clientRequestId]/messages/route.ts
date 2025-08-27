@@ -17,7 +17,6 @@ interface RouteParams {
 export interface TraceMessage {
   id: string
   client_request_id: string
-  fingerprint_id: string
   user_id: string | null
   model: string
   request: any
@@ -53,7 +52,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .select({
         id: schema.message.id,
         client_request_id: schema.message.client_request_id,
-        fingerprint_id: schema.message.fingerprint_id,
+
         user_id: schema.message.user_id,
         model: schema.message.model,
         request: schema.message.request,

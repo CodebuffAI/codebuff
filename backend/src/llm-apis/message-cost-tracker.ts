@@ -378,7 +378,6 @@ async function insertMessageRecord(
         ...stripNullCharsFromObject({
           id: messageId,
           user_id: userId,
-          fingerprint_id: fingerprintId,
           client_id: clientSessionId,
           client_request_id: userInputId,
           model: model,
