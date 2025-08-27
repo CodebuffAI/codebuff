@@ -121,7 +121,7 @@ setInterval(() => {
     
     storageInfo = `, disk=${diskUsed}/${diskPercent} used, ${diskAvail} free`
   } catch (err) {
-    storageInfo = `, storage-check-failed: ${err.message}`
+    storageInfo = `, storage-check-failed: ${err instanceof Error ? err.message : String(err)}`
   }
   
   logger.error(`[STORAGE-DEBUG] Memory usage: heap=${heapUsedMB}MB/${heapTotalMB}MB, rss=${rssMB}MB, external=${externalMB}MB${storageInfo}`)
@@ -150,11 +150,11 @@ setInterval(() => {
         const largestDirs = execSync('du -sh /tmp/* 2>/dev/null | sort -hr | head -5', { encoding: 'utf8', timeout: 10000 })
         logger.error(`[STORAGE-DEBUG] Largest temp directories:\n${largestDirs}`)
       } catch (duErr) {
-        logger.error(`[STORAGE-DEBUG] Could not analyze temp directory sizes: ${duErr.message}`)
+        logger.error(`[STORAGE-DEBUG] Could not analyze temp directory sizes: ${duErr instanceof Error ? duErr.message : String(duErr)}`)
       }
     }
   } catch (diskErr) {
-    logger.error(`[STORAGE-DEBUG] Could not check disk usage: ${diskErr.message}`)
+    logger.error(`[STORAGE-DEBUG] Could not check disk usage: ${diskErr instanceof Error ? diskErr.message : String(diskErr)}`)
   }
 }, 30000) // Every 30 seconds
 

@@ -205,10 +205,13 @@ export const callMainPrompt = async (
     const actionSize = JSON.stringify(action).length / 1024 / 1024
     logger.error(`[STORAGE-DEBUG] Incoming prompt - sessionState: ${sessionStateSize.toFixed(2)}MB, total: ${actionSize.toFixed(2)}MB`)
     
-    if (fileContext?.files) {
-      const fileCount = Object.keys(fileContext.files).length
-      const filesSize = JSON.stringify(fileContext.files).length / 1024 / 1024
-      logger.error(`[STORAGE-DEBUG] File context: ${fileCount} files, ${filesSize.toFixed(2)}MB`)
+    if (fileContext) {
+      const knowledgeFileCount = Object.keys(fileContext.knowledgeFiles || {}).length
+      const userKnowledgeFileCount = Object.keys(fileContext.userKnowledgeFiles || {}).length
+      const changeFileCount = Object.keys(fileContext.changesSinceLastChat || {}).length
+      const totalFileCount = knowledgeFileCount + userKnowledgeFileCount + changeFileCount
+      const fileContextSize = JSON.stringify(fileContext).length / 1024 / 1024
+      logger.error(`[STORAGE-DEBUG] File context: ${totalFileCount} files (${knowledgeFileCount} knowledge, ${userKnowledgeFileCount} user, ${changeFileCount} changes), ${fileContextSize.toFixed(2)}MB`)
     }
     
     if (actionSize > 5) { // Log large messages > 5MB
@@ -223,11 +226,11 @@ export const callMainPrompt = async (
         const diskPercent = diskParts[4] || 'unknown'
         logger.error(`[STORAGE-DEBUG] Disk usage during large message: ${diskUsed} used (${diskPercent})`)
       } catch (err) {
-        logger.error(`[STORAGE-DEBUG] Could not check disk during large message: ${err.message}`)
+        logger.error(`[STORAGE-DEBUG] Could not check disk during large message: ${err instanceof Error ? err.message : String(err)}`)
       }
     }
   } catch (err) {
-    logger.error(`[STORAGE-DEBUG] Error measuring message size: ${err}`)
+    logger.error(`[STORAGE-DEBUG] Error measuring message size: ${err instanceof Error ? err.message : String(err)}`)
   }
 
   // Enforce server-side state authority: reset creditsUsed to 0
