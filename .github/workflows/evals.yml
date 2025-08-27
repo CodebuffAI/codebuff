@@ -7,7 +7,7 @@ on:
 jobs:
   run-evals:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 2880 # 48 hours for testing low concurrency
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -68,7 +68,7 @@ jobs:
 
       - name: Run evals
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
-        run: cd evals && bun run-eval-set --concurrency 10 --email --title "Git Eval (${{ github.sha }} ${{ github.event.head_commit.message }}})"
+        run: cd evals && bun run-eval-set --concurrency 1 --email --title "Git Eval (${{ github.sha }} ${{ github.event.head_commit.message }}})"
 
       - name: Workflow completed
         run: echo "Evals workflow completed successfully"
