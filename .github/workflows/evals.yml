@@ -26,6 +26,9 @@ jobs:
             echo "Commit message does not contain [buffbench] - skipping evals"
           fi
 
+      - name: Disable detached HEAD advice
+        run: git config --global advice.detachedHead false
+
       - name: Set up Bun
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         uses: oven-sh/setup-bun@v2
@@ -40,7 +43,7 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
@@ -60,6 +63,7 @@ jobs:
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CODEBUFF_BACKEND_URL=backend-pr-251-h0xs.onrender.com" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run evals
