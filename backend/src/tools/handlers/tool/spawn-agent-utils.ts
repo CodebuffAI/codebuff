@@ -319,7 +319,11 @@ export async function executeAgent({
 }) {
   const width = 60
   const fullAgentName = `${agentTemplate.displayName} (${agentTemplate.id})`
-  const dashes = '-'.repeat(Math.floor((width - fullAgentName.length - 2) / 2))
+  const dashesLength = Math.max(
+    0,
+    Math.floor((width - fullAgentName.length - 2) / 2),
+  )
+  const dashes = '-'.repeat(dashesLength)
 
   // Send agent start notification if this is the only child
   if (isOnlyChild) {
@@ -347,9 +351,11 @@ export async function executeAgent({
   // Send agent end notification if this is the only child
   if (isOnlyChild) {
     const endedFullAgentName = `Completed: ${fullAgentName}`
-    const dashesForEndedAgent = '-'.repeat(
-      Math.floor(width - endedFullAgentName.length - 2) / 2,
+    const dashesLength = Math.max(
+      0,
+      Math.floor((width - endedFullAgentName.length - 2) / 2),
     )
+    const dashesForEndedAgent = '-'.repeat(dashesLength)
     onResponseChunk(
       `\n\n${dashesForEndedAgent} ${endedFullAgentName} ${dashesForEndedAgent}\n\n`,
     )
