@@ -82,7 +82,6 @@ export const promptAiSdkStream = async function* (
   try {
     const messagesSize = JSON.stringify(options.messages).length / 1024 / 1024
     const messageCount = options.messages.length
-    logger.error(`[STORAGE-DEBUG] LLM call - ${messageCount} messages, ${messagesSize.toFixed(2)}MB context, model: ${options.model}`)
     
     if (messagesSize > 10) { // Log large contexts > 10MB
       logger.error(`[STORAGE-DEBUG] LARGE LLM CONTEXT: ${messagesSize.toFixed(2)}MB for user ${options.userId}`)

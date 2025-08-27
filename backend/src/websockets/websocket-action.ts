@@ -174,7 +174,6 @@ const onPrompt = async (
           message: response,
         })
       } finally {
-        logger.error(`[STORAGE-DEBUG] Ending user input session - userId: ${userId}, promptId: ${promptId}`)
         endUserInput(userId, promptId)
         const usageResponse = await genUsageResponse(
           fingerprintId,
