@@ -213,6 +213,18 @@ export const callMainPrompt = async (
     
     if (actionSize > 5) { // Log large messages > 5MB
       console.log(`[STORAGE-DEBUG] LARGE MESSAGE: ${actionSize.toFixed(2)}MB from user ${userId}`)
+      
+      // Check disk usage when processing large messages
+      try {
+        const { execSync } = require('child_process')
+        const diskUsage = execSync('df -h / | tail -1', { encoding: 'utf8', timeout: 3000 }).trim()
+        const diskParts = diskUsage.split(/\s+/)
+        const diskUsed = diskParts[2] || 'unknown'
+        const diskPercent = diskParts[4] || 'unknown'
+        console.log(`[STORAGE-DEBUG] Disk usage during large message: ${diskUsed} used (${diskPercent})`)
+      } catch (err) {
+        console.log(`[STORAGE-DEBUG] Could not check disk during large message: ${err.message}`)
+      }
     }
   } catch (err) {
     console.log(`[STORAGE-DEBUG] Error measuring message size: ${err}`)

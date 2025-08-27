@@ -104,7 +104,27 @@ setInterval(() => {
   const externalMB = (memUsage.external / 1024 / 1024).toFixed(2)
   const heapTotalMB = (memUsage.heapTotal / 1024 / 1024).toFixed(2)
   
-  console.log(`[STORAGE-DEBUG] Memory usage: heap=${heapUsedMB}MB/${heapTotalMB}MB, rss=${rssMB}MB, external=${externalMB}MB`)
+  // Get filesystem storage usage
+  let storageInfo = ''
+  try {
+    const fs = require('fs')
+    const stats = fs.statSync('/tmp') // Check tmp directory storage
+    const tmpDirSizeMB = (stats.size / 1024 / 1024).toFixed(2)
+    
+    // Try to get overall disk usage if possible
+    const { execSync } = require('child_process')
+    const diskUsage = execSync('df -h / | tail -1', { encoding: 'utf8', timeout: 5000 }).trim()
+    const diskParts = diskUsage.split(/\s+/)
+    const diskUsed = diskParts[2] || 'unknown'
+    const diskAvail = diskParts[3] || 'unknown'
+    const diskPercent = diskParts[4] || 'unknown'
+    
+    storageInfo = `, disk=${diskUsed}/${diskPercent} used, ${diskAvail} free`
+  } catch (err) {
+    storageInfo = `, storage-check-failed: ${err.message}`
+  }
+  
+  console.log(`[STORAGE-DEBUG] Memory usage: heap=${heapUsedMB}MB/${heapTotalMB}MB, rss=${rssMB}MB, external=${externalMB}MB${storageInfo}`)
   
   // Log if memory usage is high
   if (memUsage.heapUsed > 2000 * 1024 * 1024) { // > 2GB
@@ -114,6 +134,27 @@ setInterval(() => {
       console.log(`[STORAGE-DEBUG] Triggering garbage collection`)
       global.gc()
     }
+  }
+  
+  // Check if disk usage is getting high (parse percentage if available)
+  try {
+    const { execSync } = require('child_process')
+    const diskUsage = execSync('df / | tail -1', { encoding: 'utf8', timeout: 5000 }).trim()
+    const diskParts = diskUsage.split(/\s+/)
+    const usedPercent = parseInt(diskParts[4]?.replace('%', '') || '0')
+    if (usedPercent > 80) {
+      console.log(`[STORAGE-DEBUG] HIGH DISK USAGE DETECTED: ${usedPercent}% of filesystem used`)
+      
+      // Log largest directories to identify storage hogs
+      try {
+        const largestDirs = execSync('du -sh /tmp/* 2>/dev/null | sort -hr | head -5', { encoding: 'utf8', timeout: 10000 })
+        console.log(`[STORAGE-DEBUG] Largest temp directories:\n${largestDirs}`)
+      } catch (duErr) {
+        console.log(`[STORAGE-DEBUG] Could not analyze temp directory sizes: ${duErr.message}`)
+      }
+    }
+  } catch (diskErr) {
+    console.log(`[STORAGE-DEBUG] Could not check disk usage: ${diskErr.message}`)
   }
 }, 30000) // Every 30 seconds
 
