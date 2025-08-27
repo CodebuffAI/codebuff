@@ -138,10 +138,10 @@ setInterval(() => {
       `[STORAGE-DEBUG] HIGH MEMORY USAGE DETECTED: ${heapUsedMB}MB heap (${((memUsage.heapUsed / memUsage.heapTotal) * 100).toFixed(1)}% of total)`,
     )
     // Force garbage collection if available
-    if (global.gc) {
-      logger.error(`[STORAGE-DEBUG] Triggering garbage collection`)
-      global.gc()
-    }
+    // if (global.gc) {
+    //   logger.error(`[STORAGE-DEBUG] Triggering garbage collection`)
+    //   global.gc()
+    // }
   }
 
   // Check if disk usage is getting high (parse percentage if available)
