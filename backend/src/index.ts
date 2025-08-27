@@ -59,17 +59,10 @@ app.post(
   relabelForUserHandler,
 )
 
-app.use(
-  (
-    err: Error,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    logger.error({ err }, 'Something broke!')
-    res.status(500).send('Something broke!')
-  },
-)
+app.use((err: Error, req: express.Request, res: express.Response) => {
+  logger.error({ err }, 'Something broke!')
+  res.status(500).send('Something broke!')
+})
 
 // Initialize BigQuery before starting the server
 setupBigQuery().catch((err) => {
