@@ -13,17 +13,17 @@ export const jsonValueSchema: z.ZodType<JSONValue> = z.lazy(() =>
     z.string(),
     z.number(),
     z.boolean(),
-    JSONObjectSchema,
-    JSONArraySchema,
+    jsonObjectSchema,
+    jsonArraySchema,
   ]),
 )
 
-export const JSONObjectSchema: z.ZodType<JSONObject> = z.lazy(() =>
+export const jsonObjectSchema: z.ZodType<JSONObject> = z.lazy(() =>
   z.record(z.string(), jsonValueSchema),
 )
 export type JSONObject = { [key: string]: JSONValue }
 
-export const JSONArraySchema: z.ZodType<JSONArray> = z.lazy(() =>
+export const jsonArraySchema: z.ZodType<JSONArray> = z.lazy(() =>
   z.array(jsonValueSchema),
 )
 export type JSONArray = JSONValue[]

@@ -43,13 +43,7 @@ export const assistantCodebuffMessageSchema = z
     content: z.union([
       z.string(),
       z
-        .union([
-          textPartSchema,
-          filePartSchema,
-          reasoningPartSchema,
-          toolCallPartSchema,
-          toolResultPartSchema,
-        ])
+        .union([textPartSchema, reasoningPartSchema, toolCallPartSchema])
         .array(),
     ]),
   })
@@ -61,7 +55,7 @@ export type AssistantCodebuffMessage = z.infer<
 export const toolCodebuffMessageSchema = z
   .object({
     role: z.literal('tool'),
-    content: toolResultPartSchema.array(),
+    content: toolResultPartSchema,
   })
   .and(auxiliaryDataSchema)
 export type ToolCodebuffMessage = z.infer<typeof toolCodebuffMessageSchema>

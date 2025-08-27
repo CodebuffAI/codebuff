@@ -14,16 +14,6 @@ export const toolCallSchema = z.object({
 })
 export type ToolCall = z.infer<typeof toolCallSchema>
 
-export const toolResultSchema = z.object({
-  toolName: z.string(),
-  toolCallId: z.string(),
-  output: z.object({
-    type: z.literal('text'),
-    value: z.string(),
-  }),
-})
-export type ToolResult = z.infer<typeof toolResultSchema>
-
 export const subgoalSchema = z.object({
   objective: z.string().optional(),
   status: z
