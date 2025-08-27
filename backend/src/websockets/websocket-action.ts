@@ -1,3 +1,5 @@
+import { execSync } from 'child_process'
+
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import {
@@ -148,7 +150,6 @@ const onPrompt = async (
 
       if (prompt) {
         logger.info({ prompt }, `USER INPUT: ${prompt.slice(0, 100)}`)
-        logger.error(`[STORAGE-DEBUG] New user input - userId: ${userId}, promptId: ${promptId}`)
         trackEvent(AnalyticsEvent.USER_INPUT, userId, {
           prompt,
           promptId,
@@ -197,39 +198,33 @@ export const callMainPrompt = async (
 ) => {
   const { userId, promptId, clientSessionId } = options
   const { fileContext } = action.sessionState
-  
+
   // Log incoming message size for storage debugging
   try {
-    const sessionStateSize = JSON.stringify(action.sessionState).length / 1024 / 1024
     const actionSize = JSON.stringify(action).length / 1024 / 1024
-    logger.error(`[STORAGE-DEBUG] Incoming prompt - sessionState: ${sessionStateSize.toFixed(2)}MB, total: ${actionSize.toFixed(2)}MB`)
-    
-    if (fileContext) {
-      const knowledgeFileCount = Object.keys(fileContext.knowledgeFiles || {}).length
-      const userKnowledgeFileCount = Object.keys(fileContext.userKnowledgeFiles || {}).length
-      const changeFileCount = Object.keys(fileContext.changesSinceLastChat || {}).length
-      const totalFileCount = knowledgeFileCount + userKnowledgeFileCount + changeFileCount
-      const fileContextSize = JSON.stringify(fileContext).length / 1024 / 1024
-      logger.error(`[STORAGE-DEBUG] File context: ${totalFileCount} files (${knowledgeFileCount} knowledge, ${userKnowledgeFileCount} user, ${changeFileCount} changes), ${fileContextSize.toFixed(2)}MB`)
-    }
-    
-    if (actionSize > 5) { // Log large messages > 5MB
-      logger.error(`[STORAGE-DEBUG] LARGE MESSAGE: ${actionSize.toFixed(2)}MB from user ${userId}`)
-      
+
+    if (actionSize > 5) {
+      // Log large messages > 5MB
+      logger.error(
+        `[STORAGE-DEBUG] LARGE MESSAGE: ${actionSize.toFixed(2)}MB from user ${userId}`,
+      )
+
       // Check disk usage when processing large messages
-      try {
-        const { execSync } = require('child_process')
-        const diskUsage = execSync('df -h / | tail -1', { encoding: 'utf8', timeout: 3000 }).trim()
-        const diskParts = diskUsage.split(/\s+/)
-        const diskUsed = diskParts[2] || 'unknown'
-        const diskPercent = diskParts[4] || 'unknown'
-        logger.error(`[STORAGE-DEBUG] Disk usage during large message: ${diskUsed} used (${diskPercent})`)
-      } catch (err) {
-        logger.error(`[STORAGE-DEBUG] Could not check disk during large message: ${err instanceof Error ? err.message : String(err)}`)
-      }
+      const diskUsage = execSync('df -h / | tail -1', {
+        encoding: 'utf8',
+        timeout: 3000,
+      }).trim()
+      const diskParts = diskUsage.split(/\s+/)
+      const diskUsed = diskParts[2] || 'unknown'
+      const diskPercent = diskParts[4] || 'unknown'
+      logger.error(
+        `[STORAGE-DEBUG] Disk usage during large message: ${diskUsed} used (${diskPercent})`,
+      )
     }
   } catch (err) {
-    logger.error(`[STORAGE-DEBUG] Error measuring message size: ${err instanceof Error ? err.message : String(err)}`)
+    logger.error(
+      `[STORAGE-DEBUG] Error measuring message size: ${err instanceof Error ? err.message : String(err)}`,
+    )
   }
 
   // Enforce server-side state authority: reset creditsUsed to 0
