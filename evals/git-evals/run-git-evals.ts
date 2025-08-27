@@ -346,6 +346,7 @@ export async function runGitEvals(
   codingAgent: 'codebuff' | 'claude',
   limit?: number,
   logToStdout: boolean = false,
+  agent: string = 'base',
 ): Promise<FullEvalLog> {
   // Set up signal handlers if this is the main module
   if (require.main === module) {
@@ -453,6 +454,7 @@ export async function runGitEvals(
                 clientSessionId,
                 fingerprintId,
                 codingAgent,
+                agent,
               ],
               {
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc'],

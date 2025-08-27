@@ -104,7 +104,6 @@ export interface EvalConfig {
   name: string
   evalDataPath: string
   outputDir: string
-  agentType?: string
   limit?: number
 }
 
