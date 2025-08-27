@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'spawn_agents_async'
 const endsAgentStep = false
@@ -19,4 +19,23 @@ export const spawnAgentsAsyncParams = {
       })
       .array(),
   }),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z
+        .discriminatedUnion('success', [
+          z.object({
+            agentType: z.string(),
+            success: z.literal(true),
+            agentId: z.string(),
+          }),
+          z.object({
+            agentType: z.string(),
+            success: z.literal(false),
+            errorMessage: z.string(),
+          }),
+        ])
+        .array(),
+    }),
+  ]),
+} satisfies $ToolParams

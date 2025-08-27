@@ -1,6 +1,7 @@
+import { jsonObjectSchema } from 'src/types/json'
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'spawn_agents'
 const endsAgentStep = true
@@ -23,4 +24,15 @@ export const spawnAgentsParams = {
     .describe(
       `Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z
+        .object({
+          agent: z.string(),
+        })
+        .and(jsonObjectSchema)
+        .array(),
+    }),
+  ]),
+} satisfies $ToolParams

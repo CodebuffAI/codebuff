@@ -1,7 +1,7 @@
 import z from 'zod/v4'
 
 import { publishedTools } from './constants'
-import { llmToolCallSchema } from './list'
+import { $toolParams } from './list'
 
 /**
  * Compiles all tool definitions into a single TypeScript definition file content.
@@ -9,7 +9,7 @@ import { llmToolCallSchema } from './list'
  */
 export function compileToolDefinitions(): string {
   const toolEntries = publishedTools.map(
-    (toolName) => [toolName, llmToolCallSchema[toolName]] as const,
+    (toolName) => [toolName, $toolParams[toolName]] as const,
   )
 
   const toolInterfaces = toolEntries

@@ -1,6 +1,12 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
+
+export const fileContentsSchema = z.object({
+  path: z.string(),
+  content: z.string(),
+  referencedBy: z.record(z.string(), z.string().array()).optional(),
+})
 
 const toolName = 'read_files'
 const endsAgentStep = true
@@ -23,4 +29,10 @@ export const readFilesParams = {
     .describe(
       `Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: fileContentsSchema.array(),
+    }),
+  ]),
+} satisfies $ToolParams

@@ -23,10 +23,13 @@ import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
 
-import type { ToolName, ToolParams } from './constants'
-import type { ToolCallPart } from 'ai'
+import type { ToolName, $ToolParams } from './constants'
+import type {
+  ToolCallPart,
+  ToolResultPart,
+} from '../types/messages/content-part'
 
-export const llmToolCallSchema = {
+export const $toolParams = {
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
   browser_logs: browserLogsParams,
@@ -49,15 +52,22 @@ export const llmToolCallSchema = {
   web_search: webSearchParams,
   write_file: writeFileParams,
 } satisfies {
-  [K in ToolName]: ToolParams<K>
+  [K in ToolName]: $ToolParams<K>
 }
 
 // Tool call from LLM
 export type CodebuffToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
-    input: z.infer<(typeof llmToolCallSchema)[K]['parameters']>
+    input: z.infer<(typeof $toolParams)[K]['parameters']>
   } & Omit<ToolCallPart, 'type'>
+}[T]
+
+export type CodebuffToolResult<T extends ToolName = ToolName> = {
+  [K in ToolName]: {
+    toolName: K
+    output: z.infer<(typeof $toolParams)[K]['outputs']>
+  } & Omit<ToolResultPart, 'type'>
 }[T]
 
 // Tool call to send to client
@@ -65,11 +75,11 @@ export type ClientToolName = (typeof clientToolNames)[number]
 const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('browser_logs'),
-    input: llmToolCallSchema.browser_logs.parameters,
+    input: $toolParams.browser_logs.parameters,
   }),
   z.object({
     toolName: z.literal('code_search'),
-    input: llmToolCallSchema.code_search.parameters,
+    input: $toolParams.code_search.parameters,
   }),
   z.object({
     toolName: z.literal('create_plan'),
@@ -77,11 +87,11 @@ const clientToolCallSchema = z.discriminatedUnion('toolName', [
   }),
   z.object({
     toolName: z.literal('run_file_change_hooks'),
-    input: llmToolCallSchema.run_file_change_hooks.parameters,
+    input: $toolParams.run_file_change_hooks.parameters,
   }),
   z.object({
     toolName: z.literal('run_terminal_command'),
-    input: llmToolCallSchema.run_terminal_command.parameters.and(
+    input: $toolParams.run_terminal_command.parameters.and(
       z.object({ mode: z.enum(['assistant', 'user']) }),
     ),
   }),

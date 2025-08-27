@@ -1,6 +1,8 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import { updateFileResultSchema } from './str-replace'
+
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'create_plan'
 const endsAgentStep = false
@@ -21,4 +23,10 @@ export const createPlanParams = {
         .describe(`A detailed plan to solve the user's request.`),
     })
     .describe(`Generate a detailed markdown plan for complex tasks.`),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: updateFileResultSchema,
+    }),
+  ]),
+} satisfies $ToolParams

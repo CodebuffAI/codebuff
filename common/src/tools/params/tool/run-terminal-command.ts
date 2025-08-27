@@ -1,6 +1,14 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
+
+export const terminalCommandOutputSchema = z.object({
+  command: z.string(),
+  startingCwd: z.string().optional(),
+  message: z.string(),
+  stdout: z.string(),
+  exitCode: z.number().optional(),
+})
 
 const toolName = 'run_terminal_command'
 const endsAgentStep = true
@@ -38,4 +46,10 @@ export const runTerminalCommandParams = {
     .describe(
       `Execute a CLI command from the **project root** (different from the user's cwd).`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: terminalCommandOutputSchema,
+    }),
+  ]),
+} satisfies $ToolParams
