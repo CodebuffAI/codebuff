@@ -124,14 +124,14 @@ setInterval(() => {
     storageInfo = `, storage-check-failed: ${err.message}`
   }
   
-  console.log(`[STORAGE-DEBUG] Memory usage: heap=${heapUsedMB}MB/${heapTotalMB}MB, rss=${rssMB}MB, external=${externalMB}MB${storageInfo}`)
+  logger.error(`[STORAGE-DEBUG] Memory usage: heap=${heapUsedMB}MB/${heapTotalMB}MB, rss=${rssMB}MB, external=${externalMB}MB${storageInfo}`)
   
   // Log if memory usage is high
   if (memUsage.heapUsed > 2000 * 1024 * 1024) { // > 2GB
-    console.log(`[STORAGE-DEBUG] HIGH MEMORY USAGE DETECTED: ${heapUsedMB}MB heap (${((memUsage.heapUsed / memUsage.heapTotal) * 100).toFixed(1)}% of total)`)
+    logger.error(`[STORAGE-DEBUG] HIGH MEMORY USAGE DETECTED: ${heapUsedMB}MB heap (${((memUsage.heapUsed / memUsage.heapTotal) * 100).toFixed(1)}% of total)`)
     // Force garbage collection if available
     if (global.gc) {
-      console.log(`[STORAGE-DEBUG] Triggering garbage collection`)
+      logger.error(`[STORAGE-DEBUG] Triggering garbage collection`)
       global.gc()
     }
   }
@@ -143,18 +143,18 @@ setInterval(() => {
     const diskParts = diskUsage.split(/\s+/)
     const usedPercent = parseInt(diskParts[4]?.replace('%', '') || '0')
     if (usedPercent > 80) {
-      console.log(`[STORAGE-DEBUG] HIGH DISK USAGE DETECTED: ${usedPercent}% of filesystem used`)
+      logger.error(`[STORAGE-DEBUG] HIGH DISK USAGE DETECTED: ${usedPercent}% of filesystem used`)
       
       // Log largest directories to identify storage hogs
       try {
         const largestDirs = execSync('du -sh /tmp/* 2>/dev/null | sort -hr | head -5', { encoding: 'utf8', timeout: 10000 })
-        console.log(`[STORAGE-DEBUG] Largest temp directories:\n${largestDirs}`)
+        logger.error(`[STORAGE-DEBUG] Largest temp directories:\n${largestDirs}`)
       } catch (duErr) {
-        console.log(`[STORAGE-DEBUG] Could not analyze temp directory sizes: ${duErr.message}`)
+        logger.error(`[STORAGE-DEBUG] Could not analyze temp directory sizes: ${duErr.message}`)
       }
     }
   } catch (diskErr) {
-    console.log(`[STORAGE-DEBUG] Could not check disk usage: ${diskErr.message}`)
+    logger.error(`[STORAGE-DEBUG] Could not check disk usage: ${diskErr.message}`)
   }
 }, 30000) // Every 30 seconds
 

@@ -39,7 +39,7 @@ if (
 
 const pinoLogger = pino(
   {
-    level: 'debug',
+    level: 'error', // Suppress info/debug logs to reduce logging load during storage debugging
     mixin() {
       // Use the new combined context
       return { logTrace: getLoggerContext() }
@@ -58,7 +58,7 @@ const pinoLogger = pino(
         options: {
           destination: path.join(debugDir, 'backend.log'),
         },
-        level: 'debug',
+        level: 'error',
       })
     : undefined,
 )

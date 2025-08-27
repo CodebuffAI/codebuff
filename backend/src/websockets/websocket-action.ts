@@ -148,7 +148,7 @@ const onPrompt = async (
 
       if (prompt) {
         logger.info({ prompt }, `USER INPUT: ${prompt.slice(0, 100)}`)
-        console.log(`[STORAGE-DEBUG] New user input - userId: ${userId}, promptId: ${promptId}`)
+        logger.error(`[STORAGE-DEBUG] New user input - userId: ${userId}, promptId: ${promptId}`)
         trackEvent(AnalyticsEvent.USER_INPUT, userId, {
           prompt,
           promptId,
@@ -174,7 +174,7 @@ const onPrompt = async (
           message: response,
         })
       } finally {
-        console.log(`[STORAGE-DEBUG] Ending user input session - userId: ${userId}, promptId: ${promptId}`)
+        logger.error(`[STORAGE-DEBUG] Ending user input session - userId: ${userId}, promptId: ${promptId}`)
         endUserInput(userId, promptId)
         const usageResponse = await genUsageResponse(
           fingerprintId,
@@ -203,16 +203,16 @@ export const callMainPrompt = async (
   try {
     const sessionStateSize = JSON.stringify(action.sessionState).length / 1024 / 1024
     const actionSize = JSON.stringify(action).length / 1024 / 1024
-    console.log(`[STORAGE-DEBUG] Incoming prompt - sessionState: ${sessionStateSize.toFixed(2)}MB, total: ${actionSize.toFixed(2)}MB`)
+    logger.error(`[STORAGE-DEBUG] Incoming prompt - sessionState: ${sessionStateSize.toFixed(2)}MB, total: ${actionSize.toFixed(2)}MB`)
     
     if (fileContext?.files) {
       const fileCount = Object.keys(fileContext.files).length
       const filesSize = JSON.stringify(fileContext.files).length / 1024 / 1024
-      console.log(`[STORAGE-DEBUG] File context: ${fileCount} files, ${filesSize.toFixed(2)}MB`)
+      logger.error(`[STORAGE-DEBUG] File context: ${fileCount} files, ${filesSize.toFixed(2)}MB`)
     }
     
     if (actionSize > 5) { // Log large messages > 5MB
-      console.log(`[STORAGE-DEBUG] LARGE MESSAGE: ${actionSize.toFixed(2)}MB from user ${userId}`)
+      logger.error(`[STORAGE-DEBUG] LARGE MESSAGE: ${actionSize.toFixed(2)}MB from user ${userId}`)
       
       // Check disk usage when processing large messages
       try {
@@ -221,13 +221,13 @@ export const callMainPrompt = async (
         const diskParts = diskUsage.split(/\s+/)
         const diskUsed = diskParts[2] || 'unknown'
         const diskPercent = diskParts[4] || 'unknown'
-        console.log(`[STORAGE-DEBUG] Disk usage during large message: ${diskUsed} used (${diskPercent})`)
+        logger.error(`[STORAGE-DEBUG] Disk usage during large message: ${diskUsed} used (${diskPercent})`)
       } catch (err) {
-        console.log(`[STORAGE-DEBUG] Could not check disk during large message: ${err.message}`)
+        logger.error(`[STORAGE-DEBUG] Could not check disk during large message: ${err.message}`)
       }
     }
   } catch (err) {
-    console.log(`[STORAGE-DEBUG] Error measuring message size: ${err}`)
+    logger.error(`[STORAGE-DEBUG] Error measuring message size: ${err}`)
   }
 
   // Enforce server-side state authority: reset creditsUsed to 0
