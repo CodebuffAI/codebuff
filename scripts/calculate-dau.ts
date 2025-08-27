@@ -10,7 +10,7 @@ async function calculateDAU() {
   const dailyStats = await db
     .select({
       date: sql<string>`DATE(${schema.message.finished_at})`,
-      uniqueUsers: sql<string>`COUNT(DISTINCT COALESCE(${schema.message.user_id}, ${schema.message.fingerprint_id}))`,
+      uniqueUsers: sql<string>`COUNT(DISTINCT ${schema.message.user_id})`,
     })
     .from(schema.message)
     .where(

@@ -197,14 +197,11 @@ export const message = pgTable(
     credits: integer('credits').notNull(),
     latency_ms: integer('latency_ms'),
     user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
-    fingerprint_id: text('fingerprint_id')
-      .references(() => fingerprint.id, { onDelete: 'cascade' })
-      .notNull(),
+
     org_id: text('org_id').references(() => org.id, { onDelete: 'cascade' }),
     repo_url: text('repo_url'),
   },
   (table) => [
-    index('message_fingerprint_id_idx').on(table.fingerprint_id),
     index('message_user_id_idx').on(table.user_id),
     index('message_finished_at_user_id_idx').on(
       table.finished_at,
