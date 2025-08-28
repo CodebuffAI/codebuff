@@ -493,7 +493,7 @@ export const loopAgentSteps = async (
 
   // Build the initial message history with user prompt and instructions
   const initialMessages = buildArray<Message>(
-    ...agentState.messageHistory.map((m) => ({
+    agentState.messageHistory.map((m) => ({
       ...m,
       keepDuringTruncation: false,
     })),
@@ -578,6 +578,10 @@ export const loopAgentSteps = async (
 
       // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
       if (shouldEndTurn) {
+        currentAgentState.messageHistory = expireMessages(
+          currentAgentState.messageHistory,
+          'userPrompt',
+        )
         return {
           agentState: currentAgentState,
         }
@@ -605,6 +609,10 @@ export const loopAgentSteps = async (
       currentParams = undefined
     }
 
+    currentAgentState.messageHistory = expireMessages(
+      currentAgentState.messageHistory,
+      'userPrompt',
+    )
     return { agentState: currentAgentState }
   } catch (error) {
     // Log the error but still return the state with partial costs

@@ -87,7 +87,7 @@ function userToCodebuffMessage(
     content: Exclude<UserMessage['content'], string>[number]
   },
 ): NonStringContent<UserMessage> {
-  return { ...message, content: [message.content] }
+  return cloneDeep({ ...message, content: [message.content] })
 }
 
 function assistantToCodebuffMessage(
@@ -96,7 +96,7 @@ function assistantToCodebuffMessage(
   },
 ): NonStringContent<AssistantMessage> {
   if (message.content.type === 'tool-call') {
-    return {
+    return cloneDeep({
       ...message,
       content: [
         {
@@ -108,9 +108,9 @@ function assistantToCodebuffMessage(
           ),
         },
       ],
-    }
+    })
   }
-  return { ...message, content: [message.content] }
+  return cloneDeep({ ...message, content: [message.content] })
 }
 
 function toolToCodebuffMessage(
@@ -123,7 +123,7 @@ function toolToCodebuffMessage(
         toolCallId: message.content.toolCallId,
         output: o.value,
       }
-      return {
+      return cloneDeep({
         ...message,
         role: 'user',
         content: [
@@ -132,14 +132,14 @@ function toolToCodebuffMessage(
             text: `<tool_result>\n${JSON.stringify(toolResult, null, 2)}\n</tool_result>`,
           },
         ],
-      } satisfies NonStringContent<UserMessage>
+      } satisfies NonStringContent<UserMessage>)
     }
     if (o.type === 'media') {
-      return {
+      return cloneDeep({
         ...message,
         role: 'user',
         content: [{ type: 'file', data: o.data, mediaType: o.mediaType }],
-      } satisfies NonStringContent<UserMessage>
+      } satisfies NonStringContent<UserMessage>)
     }
     o satisfies never
     const oAny = o as any
@@ -155,14 +155,14 @@ function convertToolMessages(
   | NonStringContent<AssistantMessage>
 > {
   if (message.role === 'system') {
-    return message
+    return cloneDeep(message)
   }
   if (message.role === 'user') {
     if (typeof message.content === 'string') {
-      return {
+      return cloneDeep({
         ...message,
         content: [{ type: 'text' as const, text: message.content }],
-      }
+      })
     }
     return message.content.map((c) => {
       return userToCodebuffMessage({
@@ -173,10 +173,10 @@ function convertToolMessages(
   }
   if (message.role === 'assistant') {
     if (typeof message.content === 'string') {
-      return {
+      return cloneDeep({
         ...message,
         content: [{ type: 'text' as const, text: message.content }],
-      }
+      })
     }
     return message.content.map((c) => {
       return assistantToCodebuffMessage({
@@ -211,8 +211,8 @@ export function convertCbToModelMessages({
 
     const lastMessage = aggregated[aggregated.length - 1]
     if (
-      lastMessage.keepDuringTruncation !== message.keepDuringTruncation &&
-      lastMessage.timeToLive !== message.timeToLive &&
+      lastMessage.keepDuringTruncation !== message.keepDuringTruncation ||
+      lastMessage.timeToLive !== message.timeToLive ||
       !isEqual(lastMessage.providerOptions, message.providerOptions)
     ) {
       aggregated.push(message)
