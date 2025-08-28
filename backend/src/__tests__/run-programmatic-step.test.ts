@@ -205,6 +205,7 @@ describe('runProgrammaticStep', () => {
         yield {
           toolName: 'add_message',
           input: { role: 'user', content: 'Hello world' },
+          includeToolCall: false,
         }
         yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
         yield { toolName: 'end_turn', input: {} }
@@ -233,6 +234,7 @@ describe('runProgrammaticStep', () => {
         expect.objectContaining({
           toolName: 'add_message',
           input: { role: 'user', content: 'Hello world' },
+          includeToolCall: false,
         }),
       )
 

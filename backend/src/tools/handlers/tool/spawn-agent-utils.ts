@@ -303,6 +303,7 @@ export async function executeAgent({
   clientSessionId,
   onResponseChunk,
   isOnlyChild = false,
+  clearUserPromptMessagesAfterResponse = true,
 }: {
   ws: WebSocket
   userInputId: string
@@ -317,6 +318,7 @@ export async function executeAgent({
   clientSessionId: string
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   isOnlyChild?: boolean
+  clearUserPromptMessagesAfterResponse?: boolean
 }) {
   const width = 60
   const fullAgentName = `${agentTemplate.displayName} (${agentTemplate.id})`
@@ -347,6 +349,7 @@ export async function executeAgent({
     userId,
     clientSessionId,
     onResponseChunk,
+    clearUserPromptMessagesAfterResponse,
   })
 
   // Send agent end notification if this is the only child

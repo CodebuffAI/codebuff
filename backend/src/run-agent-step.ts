@@ -456,6 +456,7 @@ export const loopAgentSteps = async (
     userId,
     clientSessionId,
     onResponseChunk,
+    clearUserPromptMessagesAfterResponse = true,
   }: {
     userInputId: string
     agentType: AgentTemplateType
@@ -466,6 +467,7 @@ export const loopAgentSteps = async (
     fileContext: ProjectFileContext
     toolResults: ToolResultPart[]
     localAgentTemplates: Record<string, AgentTemplate>
+    clearUserPromptMessagesAfterResponse?: boolean
 
     userId: string | undefined
     clientSessionId: string
@@ -478,7 +480,9 @@ export const loopAgentSteps = async (
   }
 
   // Initialize message history with user prompt and instructions on first iteration
-  const hasPrompt = Boolean(prompt || params)
+  const hasPrompt = Boolean(
+    prompt || (params && Object.keys(params).length > 0),
+  )
 
   // Get the instructions prompt if we have a prompt/params
   const instructionsPrompt = hasPrompt
@@ -510,7 +514,9 @@ export const loopAgentSteps = async (
         // Actual user prompt!
         role: 'user' as const,
         content: asUserMessage(
-          `${prompt ?? ''}${params ? `\n\n${JSON.stringify(params, null, 2)}` : ''}`,
+          buildArray([prompt, params && JSON.stringify(params, null, 2)]).join(
+            '\n\n',
+          ),
         ),
         keepDuringTruncation: true,
       },
@@ -532,6 +538,7 @@ export const loopAgentSteps = async (
       keepDuringTruncation: true,
     },
   )
+  console.log(JSON.stringify({ initialMessages }, null, 2), 'asdf')
 
   let currentAgentState = {
     ...agentState,
@@ -578,14 +585,27 @@ export const loopAgentSteps = async (
 
       // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
       if (shouldEndTurn) {
-        currentAgentState.messageHistory = expireMessages(
-          currentAgentState.messageHistory,
-          'userPrompt',
-        )
+        if (clearUserPromptMessagesAfterResponse) {
+          currentAgentState.messageHistory = expireMessages(
+            currentAgentState.messageHistory,
+            'userPrompt',
+          )
+        }
         return {
           agentState: currentAgentState,
         }
       }
+
+      console.log(
+        JSON.stringify(
+          {
+            beforeRunStep: currentAgentState.messageHistory,
+          },
+          null,
+          2,
+        ),
+        'asdf',
+      )
 
       const { agentState: newAgentState, shouldEndTurn: llmShouldEndTurn } =
         await runAgentStep(ws, {
@@ -609,10 +629,12 @@ export const loopAgentSteps = async (
       currentParams = undefined
     }
 
-    currentAgentState.messageHistory = expireMessages(
-      currentAgentState.messageHistory,
-      'userPrompt',
-    )
+    if (clearUserPromptMessagesAfterResponse) {
+      currentAgentState.messageHistory = expireMessages(
+        currentAgentState.messageHistory,
+        'userPrompt',
+      )
+    }
     return { agentState: currentAgentState }
   } catch (error) {
     // Log the error but still return the state with partial costs

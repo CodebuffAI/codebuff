@@ -54,6 +54,7 @@ const definition: AgentDefinition = {
         content:
           "I've analyzed the git diff and recent commit history. Now I'll read any relevant files to better understand the context of these changes.",
       },
+      includeToolCall: false,
     } satisfies ToolCall
 
     // Step 3: Let AI generate a step to decide which files to read.
@@ -67,6 +68,7 @@ const definition: AgentDefinition = {
         content:
           "Now I'll analyze the changes and create a commit with a good commit message.",
       },
+      includeToolCall: false,
     } satisfies ToolCall
 
     yield 'STEP_ALL'

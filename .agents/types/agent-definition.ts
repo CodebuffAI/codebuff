@@ -14,6 +14,8 @@
  *   export default definition
  */
 
+import type { Message } from '@codebuff/sdk'
+
 // ============================================================================
 // Agent Definition and Utility Types
 // ============================================================================
@@ -202,25 +204,6 @@ export interface AgentState {
 }
 
 /**
- * Message in conversation history
- */
-export interface Message {
-  role: 'user' | 'assistant'
-  content:
-    | string
-    | Array<
-        | {
-            type: 'text'
-            text: string
-          }
-        | {
-            type: 'image'
-            image: string
-          }
-      >
-}
-
-/**
  * Context provided to handleSteps generator function
  */
 export interface AgentStepContext {
@@ -236,6 +219,7 @@ export type ToolCall<T extends ToolName = ToolName> = {
   [K in T]: {
     toolName: K
     input: Tools.GetToolParams<K>
+    includeToolCall?: boolean
   }
 }[T]
 

@@ -184,7 +184,9 @@ export async function runProgrammaticStep(
       const toolCall = {
         ...toolCallWithoutId,
         toolCallId: crypto.randomUUID(),
-      } as CodebuffToolCall
+      } as CodebuffToolCall & {
+        includeToolCall?: boolean
+      }
 
       if (!template.toolNames.includes(toolCall.toolName)) {
         throw new Error(
@@ -194,7 +196,7 @@ export async function runProgrammaticStep(
 
       // Add assistant message with the tool call before executing it
       // Exception: don't add tool call message for add_message since it adds its own message
-      if (toolCall.toolName !== 'add_message') {
+      if (toolCall?.includeToolCall !== false) {
         const toolCallString = getToolCallString(
           toolCall.toolName,
           toolCall.input,
@@ -211,6 +213,8 @@ export async function runProgrammaticStep(
           chunk: toolCallString,
         })
       }
+
+      console.log(JSON.stringify({ toolCall }, null, 2), 'asdf')
 
       // Execute the tool synchronously and get the result immediately
       await executeToolCall({
@@ -235,6 +239,11 @@ export async function runProgrammaticStep(
       // TODO: Remove messages from state and always use agentState.messageHistory.
       // Sync state.messages back to agentState.messageHistory
       state.agentState.messageHistory = state.messages
+
+      console.log(
+        JSON.stringify({ afterExecudeToolCall: state.messages }, null, 2),
+        'asdf',
+      )
 
       // Get the latest tool result
       toolResult = toolResults[toolResults.length - 1]?.output

@@ -68,6 +68,7 @@ export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
           agent_type: 'context-pruner',
           params: params ?? {},
         },
+        includeToolCall: false,
       } as any
 
       const { stepsComplete } = yield 'STEP'

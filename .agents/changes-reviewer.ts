@@ -110,6 +110,7 @@ Use the following guidelines to review the changes and suggest improvements:
         content:
           'Now I will spawn a file explorer to find any missing codebase context, and then review the changes.',
       },
+      includeToolCall: false,
     }
 
     yield 'STEP_ALL'

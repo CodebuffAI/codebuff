@@ -114,6 +114,7 @@ export const handleSpawnAgentInline = ((params: {
         // Inherits parent's onResponseChunk
         // writeToClient(chunk)
       },
+      clearUserPromptMessagesAfterResponse: false,
     })
 
     // Update parent's message history with child's final state
