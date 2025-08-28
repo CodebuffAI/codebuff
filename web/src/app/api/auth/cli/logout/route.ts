@@ -36,13 +36,14 @@ export async function POST(req: Request) {
         id: schema.session.sessionToken,
       })
 
+    // If no session was deleted, it means the token was already invalid or the user was already logged out.
+    // This is effectively a no-op, so we treat it as a successful logout rather than an error.
     if (validDeletion.length === 0) {
-      return NextResponse.json(
-        {
-          error: INVALID_AUTH_TOKEN_MESSAGE,
-        },
-        { status: 401 }
+      logger.info(
+        { fingerprintId },
+        'Logout attempted with invalid/expired token - treating as successful no-op'
       )
+      return NextResponse.json({ success: true })
     }
 
     // Then reset sig_hash to null
