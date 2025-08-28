@@ -83,7 +83,7 @@ export interface TestInterface {
       cwd: '__tests__/data',
     }
 
-    const result = (await handleCodeSearch(parameters, 'test-id')) as string
+    const result = await handleCodeSearch(parameters, 'test-id')
 
     expect(mockGetProjectRoot).toHaveBeenCalled()
     expect(typeof result).toBe('string')

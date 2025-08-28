@@ -144,7 +144,7 @@ if (!isCI) {
         }
 
         const result = getBackgroundProcessUpdate(info)
-        expect(result).toBe('')
+        expect(result).toBe({} as any)
       })
 
       test('handles new output since last report', () => {

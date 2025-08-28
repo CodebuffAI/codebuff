@@ -1,5 +1,7 @@
 import z from 'zod/v4'
 
+import { toolResultOutputSchema } from './messages/content-part'
+
 export const printModeErrorSchema = z.object({
   type: z.literal('error'),
   message: z.string(),
@@ -26,10 +28,7 @@ export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
 export const printModeToolResultSchema = z.object({
   type: z.literal('tool_result'),
   toolCallId: z.string(),
-  output: z.object({
-    type: z.literal('text'),
-    value: z.string(),
-  }),
+  output: toolResultOutputSchema.array(),
 })
 export type PrintModeToolResult = z.infer<typeof printModeToolResultSchema>
 

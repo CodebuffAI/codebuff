@@ -378,12 +378,12 @@ export async function formatAgentResult(
     agentName: string
   } & (
     | { errorMessage: string }
-    | { structuredOutput: Record<string, any> | undefined }
+    | { structuredOutput: Record<string, any> | null }
     | {
-        lastMessage: AssistantMessage['content']
+        lastMessage: any
       }
     | {
-        allMessages: Message[]
+        allMessages: any[]
       }
   )
 > {
@@ -395,7 +395,7 @@ export async function formatAgentResult(
   if (agentTemplate.outputMode === 'structured_output') {
     return {
       ...agentInfo,
-      structuredOutput: result.agentState.output,
+      structuredOutput: result.agentState.output ?? null,
     }
   }
   if (agentTemplate.outputMode === 'last_message') {

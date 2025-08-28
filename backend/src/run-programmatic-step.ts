@@ -13,11 +13,14 @@ import type {
   StepGenerator,
   PublicAgentState,
 } from '@codebuff/common/types/agent-template'
+import type {
+  ToolResultOutput,
+  ToolResultPart,
+} from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
-  ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -121,7 +124,7 @@ export async function runProgrammaticStep(
 
   // Initialize state for tool execution
   const toolCalls: CodebuffToolCall[] = []
-  const toolResults: ToolResult[] = []
+  const toolResults: ToolResultPart[] = []
   const state = {
     ws,
     fingerprintId,
@@ -146,7 +149,7 @@ export async function runProgrammaticStep(
     messages: agentState.messageHistory.map((msg) => ({ ...msg })),
   }
 
-  let toolResult: string | undefined
+  let toolResult: ToolResultOutput[] = []
   let endTurn = false
 
   try {
@@ -234,7 +237,7 @@ export async function runProgrammaticStep(
       state.agentState.messageHistory = state.messages
 
       // Get the latest tool result
-      toolResult = toolResults[toolResults.length - 1]?.output.value
+      toolResult = toolResults[toolResults.length - 1]?.output
 
       if (toolCall.toolName === 'end_turn') {
         endTurn = true

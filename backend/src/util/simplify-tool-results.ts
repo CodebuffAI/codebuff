@@ -21,7 +21,12 @@ export function simplifyReadFileResults(
 export function simplifyTerminalCommandResults(
   messageContent: CodebuffToolOutput<'run_terminal_command'>,
 ): CodebuffToolOutput<'run_terminal_command'> {
-  const { command, message, exitCode } = cloneDeep(messageContent)[0].value
+  const clone = cloneDeep(messageContent)
+  const content = clone[0].value
+  if ('processId' in content || 'errorMessage' in content) {
+    return clone
+  }
+  const { command, message, exitCode } = content
   return [
     {
       type: 'json',

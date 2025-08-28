@@ -1,7 +1,15 @@
-import { jsonObjectSchema } from 'src/types/json'
 import z from 'zod/v4'
 
+import { jsonObjectSchema } from '../../../types/json'
+
 import type { $ToolParams } from '../../constants'
+
+export const spawnAgentsOutputSchema = z
+  .object({
+    agentType: z.string(),
+  })
+  .and(jsonObjectSchema)
+  .array()
 
 const toolName = 'spawn_agents'
 const endsAgentStep = true
@@ -27,12 +35,7 @@ export const spawnAgentsParams = {
   outputs: z.tuple([
     z.object({
       type: z.literal('json'),
-      value: z
-        .object({
-          agent: z.string(),
-        })
-        .and(jsonObjectSchema)
-        .array(),
+      value: spawnAgentsOutputSchema,
     }),
   ]),
 } satisfies $ToolParams
