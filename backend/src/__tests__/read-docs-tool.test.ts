@@ -340,15 +340,12 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the documentation was added to the message history
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockDocumentation,
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain(JSON.stringify(mockDocumentation).slice(1, -1))
   }, 10000)
 
   test('should fetch documentation with topic and max_tokens', async () => {
@@ -462,15 +459,12 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the "no documentation found" message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No documentation found for "NonExistentLibrary"',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('No documentation found for \\"NonExistentLibrary\\"')
   }, 10000)
 
   test('should handle API errors gracefully', async () => {
@@ -534,15 +528,12 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error fetching documentation for "React"',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Error fetching documentation for \\"React\\"')
     expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
       'Network timeout',
     )
@@ -605,14 +596,13 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the topic is included in the error message
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No documentation found for "React" with topic "server-components"',
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain(
+      'No documentation found for \\"React\\" with topic \\"server-components\\"',
     )
   }, 10000)
 
@@ -675,17 +665,14 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the generic error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error fetching documentation for "React"',
-    )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Unknown error',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Error fetching documentation for \\"React\\"')
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Unknown error')
   }, 10000)
 })

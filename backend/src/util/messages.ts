@@ -1,6 +1,7 @@
 import { AssertionError } from 'assert'
 
 import { buildArray } from '@codebuff/common/util/array'
+import { errorToObject } from '@codebuff/common/util/object'
 import { closeXml } from '@codebuff/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
@@ -270,13 +271,23 @@ export function getEditedFiles(messages: Message[]): string[] {
         },
       )
       .map((m) => {
-        const fileInfo = (
-          m as CodebuffToolMessage<'create_plan' | 'str_replace' | 'write_file'>
-        ).content.output[0].value
-        if ('errorMessage' in fileInfo) {
+        try {
+          const fileInfo = (
+            m as CodebuffToolMessage<
+              'create_plan' | 'str_replace' | 'write_file'
+            >
+          ).content.output[0].value
+          if ('errorMessage' in fileInfo) {
+            return null
+          }
+          return fileInfo.file
+        } catch (error) {
+          logger.error(
+            { error: errorToObject(error) },
+            'Error parsing file info',
+          )
           return null
         }
-        return fileInfo.file
       }),
   )
 }

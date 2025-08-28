@@ -201,15 +201,12 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the search results were added to the message history
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockSearchResult,
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain(mockSearchResult)
   })
 
   test('should handle custom depth parameter', async () => {
@@ -309,15 +306,12 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the "no results found" message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No search results found',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('No search results found')
   })
 
   test('should handle API errors gracefully', async () => {
@@ -369,18 +363,15 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error performing web search',
-    )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Linkup API timeout',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Error performing web search')
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Linkup API timeout')
   })
 
   test('should handle null response from searchWeb', async () => {
@@ -474,15 +465,12 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error performing web search',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Error performing web search')
   })
 
   test('should format search results correctly', async () => {
@@ -535,14 +523,11 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the search results were formatted correctly
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockSearchResult,
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain(mockSearchResult)
   })
 })
