@@ -7,8 +7,8 @@ import { logger } from '../../../util/logger'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
-  AssistantCodebuffMessage,
-  CodebuffMessage,
+  AssistantMessage,
+  Message,
 } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -30,7 +30,7 @@ export interface BaseSpawnState {
   userId?: string
   agentTemplate?: AgentTemplate
   localAgentTemplates?: Record<string, AgentTemplate>
-  messages?: CodebuffMessage[]
+  messages?: Message[]
   agentState?: AgentState
 }
 
@@ -38,7 +38,7 @@ export interface SpawnContext {
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
-  getLatestState: () => { messages: CodebuffMessage[] }
+  getLatestState: () => { messages: Message[] }
 }
 
 /**
@@ -224,9 +224,7 @@ export function validateAgentInput(
 /**
  * Creates conversation history message for spawned agents
  */
-export function createConversationHistoryMessage(
-  messages: CodebuffMessage[],
-): CodebuffMessage {
+export function createConversationHistoryMessage(messages: Message[]): Message {
   // Filter out system messages from conversation history to avoid including parent's system prompt
   const messagesWithoutSystem = messages.filter(
     (message) => message.role !== 'system',
@@ -247,7 +245,7 @@ export function createConversationHistoryMessage(
 export function createAgentState(
   agentType: string,
   parentAgentState: AgentState,
-  messageHistory: CodebuffMessage[],
+  messageHistory: Message[],
 ): AgentState {
   const agentId = generateCompactId()
 
@@ -382,10 +380,10 @@ export async function formatAgentResult(
     | { errorMessage: string }
     | { structuredOutput: Record<string, any> | undefined }
     | {
-        lastMessage: AssistantCodebuffMessage['content']
+        lastMessage: AssistantMessage['content']
       }
     | {
-        allMessages: CodebuffMessage[]
+        allMessages: Message[]
       }
   )
 > {
@@ -403,8 +401,7 @@ export async function formatAgentResult(
   if (agentTemplate.outputMode === 'last_message') {
     const { agentState } = result
     const assistantMessages = agentState.messageHistory.filter(
-      (message): message is AssistantCodebuffMessage =>
-        message.role === 'assistant',
+      (message): message is AssistantMessage => message.role === 'assistant',
     )
     const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
     if (!lastAssistantMessage) {

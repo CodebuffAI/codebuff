@@ -6,7 +6,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -25,7 +25,7 @@ export const handleReadFiles = ((params: {
     userId?: string
     fingerprintId?: string
     repoId?: string
-    messages?: CodebuffMessage[]
+    messages?: Message[]
   }
 }): {
   result: Promise<CodebuffToolOutput<ToolName>>

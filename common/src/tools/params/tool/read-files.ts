@@ -2,11 +2,17 @@ import z from 'zod/v4'
 
 import type { $ToolParams } from '../../constants'
 
-export const fileContentsSchema = z.object({
-  path: z.string(),
-  content: z.string(),
-  referencedBy: z.record(z.string(), z.string().array()).optional(),
-})
+export const fileContentsSchema = z.union([
+  z.object({
+    path: z.string(),
+    content: z.string(),
+    referencedBy: z.record(z.string(), z.string().array()).optional(),
+  }),
+  z.object({
+    path: z.string(),
+    contentOmittedForLength: z.literal(true),
+  }),
+])
 
 const toolName = 'read_files'
 const endsAgentStep = true

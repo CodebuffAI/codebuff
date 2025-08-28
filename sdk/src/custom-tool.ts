@@ -1,48 +1,51 @@
 import z from 'zod/v4'
 
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { JSONSchema } from 'zod/v4/core'
 
 export type CustomToolDefinition<
   N extends string = string,
-  Output = any,
+  Args = any,
   Input = any,
+  Output extends ToolResultOutput[] = ToolResultOutput[],
 > = {
   toolName: N
-  zodSchema: z.ZodType<Output, Input>
+  zodSchema: z.ZodType<Args, Input>
   inputJsonSchema: JSONSchema.BaseSchema
+  outputSchema: z.ZodType<ToolResultOutput[], Output>
   description: string
   endsAgentStep: boolean
   exampleInputs: Input[]
-  handler: (params: Output) => Promise<{
-    toolResultMessage: string
-  }>
+  handler: (params: Args) => Promise<Output>
 }
 
 export function getCustomToolDefinition<
   ToolName extends string,
-  Output,
+  Args,
   Input,
+  Output extends ToolResultOutput[],
 >({
   toolName,
   inputSchema,
+  outputSchema,
   description,
   endsAgentStep = true,
   exampleInputs = [],
   handler,
 }: {
   toolName: ToolName
-  inputSchema: z.ZodType<Output, Input>
+  inputSchema: z.ZodType<Args, Input>
+  outputSchema: z.ZodType<ToolResultOutput[], Output>
   description: string
   endsAgentStep?: boolean
   exampleInputs?: Input[]
-  handler: (params: Output) => Promise<{
-    toolResultMessage: string
-  }>
-}): CustomToolDefinition<ToolName, Output, Input> {
+  handler: (params: Args) => Promise<Output>
+}): CustomToolDefinition<ToolName, Args, Input, Output> {
   return {
     toolName,
     zodSchema: inputSchema,
     inputJsonSchema: z.toJSONSchema(inputSchema, { io: 'input' }),
+    outputSchema,
     description,
     endsAgentStep,
     exampleInputs,

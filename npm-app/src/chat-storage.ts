@@ -7,13 +7,13 @@ import { getCurrentChatDir, getCurrentChatId } from './project-files'
 import { logger } from './utils/logger'
 
 import type { Log } from '@codebuff/common/browser-actions'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
-export function setMessages(messages: CodebuffMessage[]) {
+export function setMessages(messages: Message[]) {
   // Clean up any screenshots and logs in previous messages
   // Skip the last message as it may not have been processed by the backend yet
   const lastIndex = messages.length - 1
-  const cleanedMessages = messages.map((msg, index): CodebuffMessage => {
+  const cleanedMessages = messages.map((msg, index): Message => {
     if (index === lastIndex) {
       return msg // Preserve the most recent message in its entirety
     }

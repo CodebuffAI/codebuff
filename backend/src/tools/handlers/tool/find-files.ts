@@ -18,7 +18,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -40,7 +40,7 @@ export const handleFindFiles = ((params: {
     fingerprintId?: string
     userId?: string
     repoId?: string
-    messages?: CodebuffMessage[]
+    messages?: Message[]
   }
 }): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
   const {
@@ -169,7 +169,7 @@ async function uploadExpandedFileContextForTraining(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,

@@ -10,7 +10,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { WebSocket } from 'ws'
 
 type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'
@@ -93,7 +93,7 @@ export const handleWriteFile = (({
     userId?: string
     fullResponse?: string
     prompt?: string
-    messages?: CodebuffMessage[]
+    messages?: Message[]
   } & OptionalFileProcessingState
 }): {
   result: Promise<CodebuffToolOutput<'write_file'>>

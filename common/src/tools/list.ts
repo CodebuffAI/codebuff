@@ -24,6 +24,7 @@ import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
 
 import type { ToolName, $ToolParams } from './constants'
+import type { ToolMessage } from '../types/messages/codebuff-message'
 import type {
   ToolCallPart,
   ToolResultPart,
@@ -73,9 +74,19 @@ export type CodebuffToolResult<T extends ToolName = ToolName> = {
   } & Omit<ToolResultPart, 'type'>
 }[T]
 
+export type CodebuffToolMessage<T extends ToolName = ToolName> = ToolMessage &
+  {
+    [K in ToolName]: {
+      toolName: K
+      content: {
+        output: CodebuffToolOutput<K>
+      }
+    }
+  }[T]
+
 // Tool call to send to client
 export type ClientToolName = (typeof clientToolNames)[number]
-const clientToolCallSchema = z.discriminatedUnion('toolName', [
+export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('browser_logs'),
     input: $toolParams.browser_logs.parameters,

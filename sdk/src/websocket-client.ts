@@ -9,9 +9,9 @@ export type WebSocketHandlerOptions = {
   onWebsocketReconnect?: () => void
   onRequestReconnect?: () => Promise<void>
   onResponseError?: (error: ServerAction<'action-error'>) => Promise<void>
-  readFiles: (
-    filePath: string[],
-  ) => Promise<ClientAction<'read-files-response'>['files']>
+  readFiles: (input: {
+    filePaths: string[]
+  }) => Promise<ClientAction<'read-files-response'>['files']>
   handleToolCall: (
     action: ServerAction<'tool-call-request'>,
   ) => Promise<Omit<ClientAction<'tool-call-response'>, 'type' | 'requestId'>>
@@ -107,7 +107,7 @@ export class WebSocketHandler {
 
     this.cbWebSocket.subscribe('read-files', async (a) => {
       const { filePaths, requestId } = a
-      const files = await this.readFiles(filePaths)
+      const files = await this.readFiles({ filePaths })
 
       this.cbWebSocket.sendAction({
         type: 'read-files-response',

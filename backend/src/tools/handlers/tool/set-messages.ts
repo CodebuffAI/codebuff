@@ -3,7 +3,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 export const handleSetMessages = (({
   previousToolCallFinished,
@@ -12,7 +12,7 @@ export const handleSetMessages = (({
 }: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'set_messages'>
-  getLatestState: () => { messages: CodebuffMessage[] }
+  getLatestState: () => { messages: Message[] }
 }): {
   result: Promise<CodebuffToolOutput<'set_messages'>>
   state: {}

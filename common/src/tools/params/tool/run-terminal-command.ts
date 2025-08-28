@@ -2,13 +2,33 @@ import z from 'zod/v4'
 
 import type { $ToolParams } from '../../constants'
 
-export const terminalCommandOutputSchema = z.object({
-  command: z.string(),
-  startingCwd: z.string().optional(),
-  message: z.string(),
-  stdout: z.string(),
-  exitCode: z.number().optional(),
-})
+export const terminalCommandOutputSchema = z.union([
+  z.object({
+    command: z.string(),
+    startingCwd: z.string().optional(),
+    message: z.string().optional(),
+    stderr: z.string().optional(),
+    stdout: z.string().optional(),
+    exitCode: z.number().optional(),
+  }),
+  z.object({
+    command: z.string(),
+    startingCwd: z.string().optional(),
+    message: z.string().optional(),
+    stderr: z.string().optional(),
+    stdoutOmittedForLength: z.literal(true),
+    exitCode: z.number().optional(),
+  }),
+  z.object({
+    command: z.string(),
+    processId: z.number(),
+    backgroundProcessStatus: z.enum(['running', 'completed', 'error']),
+  }),
+  z.object({
+    command: z.string(),
+    errorMessage: z.string(),
+  }),
+])
 
 const toolName = 'run_terminal_command'
 const endsAgentStep = true

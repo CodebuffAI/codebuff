@@ -17,7 +17,7 @@ import * as loggerModule from '../util/logger'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { WebSocket } from 'ws'
 
 describe('Spawn Agents Message History', () => {
@@ -102,7 +102,7 @@ describe('Spawn Agents Message History', () => {
     const toolCall = createSpawnToolCall('child-agent')
 
     // Create mock messages including system message
-    const mockMessages: CodebuffMessage[] = [
+    const mockMessages: Message[] = [
       {
         role: 'system',
         content: 'This is the parent system prompt that should be excluded',
@@ -183,7 +183,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: CodebuffMessage[] = [
+    const mockMessages: Message[] = [
       { role: 'system', content: 'System prompt' },
       { role: 'user', content: 'Hello' },
       { role: 'assistant', content: 'Hi there!' },
@@ -222,7 +222,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: CodebuffMessage[] = [] // Empty message history
+    const mockMessages: Message[] = [] // Empty message history
 
     const { result } = handleSpawnAgents({
       previousToolCallFinished: Promise.resolve(),
@@ -259,7 +259,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: CodebuffMessage[] = [
+    const mockMessages: Message[] = [
       { role: 'system', content: 'System prompt 1' },
       { role: 'system', content: 'System prompt 2' },
     ]

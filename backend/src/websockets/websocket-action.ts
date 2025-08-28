@@ -30,6 +30,7 @@ import type {
   ServerAction,
   UsageResponse,
 } from '@codebuff/common/actions'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
 
@@ -421,12 +422,7 @@ export async function requestToolCall(
   toolName: string,
   input: Record<string, any> & { timeout_seconds?: number },
 ): Promise<{
-  success: boolean
-  output?: {
-    type: 'text'
-    value: string
-  }
-  error?: string
+  output: ToolResultOutput[]
 }> {
   return new Promise((resolve) => {
     const requestId = generateCompactId()
@@ -443,8 +439,14 @@ export async function requestToolCall(
             () => {
               unsubscribe()
               resolve({
-                success: false,
-                error: `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
+                output: [
+                  {
+                    type: 'json',
+                    value: {
+                      errorMessage: `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
+                    },
+                  },
+                ],
               })
             },
             timeoutInSeconds * 1000 + 5000, // Convert to ms and add a small buffer
@@ -456,9 +458,7 @@ export async function requestToolCall(
         clearTimeout(timeoutHandle)
         unsubscribe()
         resolve({
-          success: action.success,
           output: action.output,
-          error: action.error,
         })
       }
     })

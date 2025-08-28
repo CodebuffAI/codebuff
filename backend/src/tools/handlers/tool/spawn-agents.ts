@@ -16,7 +16,7 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -40,7 +40,7 @@ export const handleSpawnAgents = ((params: {
   userInputId: string
   writeToClient: (chunk: string | PrintModeEvent) => void
 
-  getLatestState: () => { messages: CodebuffMessage[] }
+  getLatestState: () => { messages: Message[] }
   state: {
     ws?: WebSocket
     fingerprintId?: string
@@ -48,7 +48,7 @@ export const handleSpawnAgents = ((params: {
     agentTemplate?: AgentTemplate
     localAgentTemplates?: Record<string, AgentTemplate>
     sendSubagentChunk?: SendSubagentChunk
-    messages?: CodebuffMessage[]
+    messages?: Message[]
     agentState?: AgentState
   }
 }): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
@@ -98,7 +98,7 @@ export const handleSpawnAgents = ((params: {
 
         validateAgentInput(agentTemplate, agentType, prompt, params)
 
-        const subAgentMessages: CodebuffMessage[] = []
+        const subAgentMessages: Message[] = []
         if (agentTemplate.includeMessageHistory) {
           subAgentMessages.push(conversationHistoryMessage)
         }

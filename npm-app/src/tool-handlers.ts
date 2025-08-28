@@ -4,10 +4,7 @@ import * as path from 'path'
 import { FileChangeSchema } from '@codebuff/common/actions'
 import { BrowserActionSchema } from '@codebuff/common/browser-actions'
 import { SHOULD_ASK_CONFIG } from '@codebuff/common/constants'
-import { renderToolResults } from '@codebuff/common/tools/utils'
-import { applyChanges } from './utils/changes'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
-import { closeXml } from '@codebuff/common/util/xml'
 import { cyan, green, red, yellow } from 'picocolors'
 
 import { handleBrowserInstruction } from './browser-runner'
@@ -18,24 +15,30 @@ import { runFileChangeHooks } from './json-config/hooks'
 import { getRgPath } from './native/ripgrep'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/run-command'
+import { applyChanges } from './utils/changes'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
-import { scrapeWebPage } from './web-scraper'
 
 import type { BrowserResponse } from '@codebuff/common/browser-actions'
-import type { ToolCall, ToolResult } from '@codebuff/common/types/session-state'
+import type {
+  ClientToolCall,
+  ClientToolName,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
+import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
+import type { ToolCall } from '@codebuff/common/types/session-state'
 
-export type ToolHandler<T extends Record<string, any>> = (
-  parameters: T,
+export type ToolHandler<T extends ClientToolName> = (
+  parameters: ClientToolCall<T>['input'],
   id: string,
-) => Promise<string | BrowserResponse>
+) => Promise<CodebuffToolOutput<T>>
 
-export const handleUpdateFile: ToolHandler<{
-  tool: 'write_file' | 'str_replace' | 'create_plan'
-  path: string
-  content: string
-  type: 'patch' | 'file'
-}> = async (parameters, _id) => {
+export const handleUpdateFile = async <
+  T extends 'write_file' | 'str_replace' | 'create_plan',
+>(
+  parameters: ClientToolCall<T>['input'],
+  _id: string,
+): Promise<CodebuffToolOutput<T>> => {
   const projectPath = getProjectRoot()
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
@@ -46,13 +49,20 @@ export const handleUpdateFile: ToolHandler<{
   ])
   DiffManager.addChange(fileChange)
 
-  let result: string[] = []
+  let result: CodebuffToolOutput<T>[] = []
 
   for (const file of created) {
     const counts = `(${green(`+${lines.length}`)})`
-    result.push(
-      `Created ${file} successfully. Changes made:\n${lines.join('\n')}`,
-    )
+    result.push([
+      {
+        type: 'json',
+        value: {
+          file,
+          message: 'Created new file',
+          unifiedDiff: lines.join('\n'),
+        },
+      },
+    ])
     console.log(green(`- Created ${file} ${counts}`))
   }
   for (const file of modified) {
@@ -68,15 +78,29 @@ export const handleUpdateFile: ToolHandler<{
     })
 
     const counts = `(${green(`+${addedLines}`)}, ${red(`-${deletedLines}`)})`
-    result.push(
-      `Wrote to ${file} successfully. Changes made:\n${lines.join('\n')}`,
-    )
+    result.push([
+      {
+        type: 'json',
+        value: {
+          file,
+          message: 'Updated file',
+          unifiedDiff: lines.join('\n'),
+        },
+      },
+    ])
     console.log(green(`- Updated ${file} ${counts}`))
   }
   for (const file of ignored) {
-    result.push(
-      `Failed to write to ${file}; file is ignored by .gitignore or .codebuffignore`,
-    )
+    result.push([
+      {
+        type: 'json',
+        value: {
+          file,
+          errorMessage:
+            'Failed to write to file: file is ignored by .gitignore or .codebuffignore',
+        },
+      },
+    ])
   }
   for (const file of patchFailed) {
     result.push(
@@ -84,29 +108,29 @@ export const handleUpdateFile: ToolHandler<{
     )
   }
   for (const file of invalid) {
-    result.push(
-      `Failed to write to ${file}; file path caused an error or file could not be written`,
+    result.push([
+      {
+        type: 'json',
+        value: {
+          file,
+          errorMessage: `Failed to write to file: File path caused an error or file could not be written`,
+        },
+      },
+    ])
+  }
+
+  if (result.length !== 1) {
+    throw new Error(
+      `Internal error: Unexpected number of matching results for ${{ parameters }}, found ${result.length}, expected 1`,
     )
   }
 
-  // Note: File change hooks are now run in batches by the backend via run_file_change_hooks tool
-  // This prevents repeated hook execution when multiple files are changed in one invocation
-
-  return result.join('\n')
+  return result[0]
 }
 
-export const handleScrapeWebPage: ToolHandler<{ url: string }> = async (
-  parameters,
-) => {
-  const { url } = parameters
-  const content = await scrapeWebPage(url)
-  if (!content) {
-    return `<web_scraping_error url="${url}">Failed to scrape the web page.${closeXml('web_scraping_error')}`
-  }
-  return `<web_scraped_content url="${url}">${content}${closeXml('web_scraped_content')}`
-}
-
-export const handleRunTerminalCommand = async (
+export const handleRunTerminalCommand: ToolHandler<
+  'run_terminal_command'
+> = async (
   parameters: {
     command: string
     mode?: 'user' | 'assistant'
@@ -115,7 +139,7 @@ export const handleRunTerminalCommand = async (
     timeout_seconds?: number
   },
   id: string,
-): Promise<{ result: string; stdout: string }> => {
+): Promise<CodebuffToolOutput<'run_terminal_command'>> => {
   const {
     command,
     mode = 'assistant',
@@ -130,7 +154,7 @@ export const handleRunTerminalCommand = async (
     client.oneTimeFlags[SHOULD_ASK_CONFIG] = true
   }
 
-  return runTerminalCommand(
+  return await runTerminalCommand(
     id,
     command,
     mode,
@@ -140,11 +164,10 @@ export const handleRunTerminalCommand = async (
   )
 }
 
-export const handleCodeSearch: ToolHandler<{
-  pattern: string
-  flags?: string
-  cwd?: string
-}> = async (parameters, _id) => {
+export const handleCodeSearch: ToolHandler<'code_search'> = async (
+  parameters,
+  _id,
+) => {
   const projectPath = getProjectRoot()
   const rgPath = await getRgPath()
 
@@ -161,9 +184,14 @@ export const handleCodeSearch: ToolHandler<{
       const requestedPath = path.resolve(projectPath, parameters.cwd)
       // Ensure the search path is within the project directory
       if (!requestedPath.startsWith(projectPath)) {
-        resolve(
-          `<terminal_command_error>Invalid cwd: Path '${parameters.cwd}' is outside the project directory.${closeXml('terminal_command_error')}`,
-        )
+        resolve([
+          {
+            type: 'json',
+            value: {
+              errorMessage: `Invalid cwd: Path '${parameters.cwd}' is outside the project directory.`,
+            },
+          },
+        ])
         return
       }
       searchCwd = requestedPath
@@ -210,195 +238,172 @@ export const handleCodeSearch: ToolHandler<{
         str: stderr,
         maxLength: 1000,
       })
-      resolve(
-        formatResult(
-          truncatedStdout,
-          truncatedStderr,
-          'Code search completed',
-          code,
-        ),
-      )
+      const result = {
+        stdout: truncatedStdout,
+        ...(truncatedStderr && { stderr: truncatedStderr }),
+        ...(code !== null && { exitCode: code }),
+        message: 'Code search completed',
+      }
+      resolve([
+        {
+          type: 'json',
+          value: result,
+        },
+      ])
     })
 
     childProcess.on('error', (error) => {
-      resolve(
-        `<terminal_command_error>Failed to execute ripgrep: ${error.message}${closeXml('terminal_command_error')}`,
-      )
+      resolve([
+        {
+          type: 'json',
+          value: {
+            errorMessage: `Failed to execute ripgrep: ${error.message}`,
+          },
+        },
+      ])
     })
   })
 }
 
-function formatResult(
-  stdout: string,
-  stderr: string | undefined,
-  status: string,
-  exitCode: number | null,
-): string {
-  let result = '<terminal_command_result>\n'
-  result += `<stdout>${stdout}${closeXml('stdout')}\n`
-  if (stderr !== undefined) {
-    result += `<stderr>${stderr}${closeXml('stderr')}\n`
+const handleFileChangeHooks: ToolHandler<
+  'run_file_change_hooks'
+> = async (parameters: { files: string[] }) => {
+  // Wait for any pending file operations to complete
+  await waitForPreviousCheckpoint()
+
+  const { toolResults, someHooksFailed } = await runFileChangeHooks(
+    parameters.files,
+  )
+
+  // Add a summary if some hooks failed
+  if (someHooksFailed) {
+    toolResults[0].value.push({
+      errorMessage:
+        'Some file change hooks failed. Please review the output above.',
+    })
   }
-  result += `<status>${status}${closeXml('status')}\n`
-  if (exitCode !== null) {
-    result += `<exit_code>${exitCode}${closeXml('exit_code')}\n`
+
+  if (toolResults[0].value.length === 0) {
+    toolResults[0].value.push({
+      errorMessage:
+        'No file change hooks were triggered for the specified files.',
+    })
   }
-  result += closeXml('terminal_command_result')
-  return result
+
+  return toolResults
 }
 
-export const toolHandlers: Record<string, ToolHandler<any>> = {
+const handleBrowserLogs: ToolHandler<'browser_logs'> = async (params, _id) => {
+  Spinner.get().start('Using browser...')
+  let response: BrowserResponse
+  try {
+    const action = BrowserActionSchema.parse(params)
+    response = await handleBrowserInstruction(action)
+  } catch (error) {
+    Spinner.get().stop()
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.log('Small hiccup, one sec...')
+    logger.error(
+      {
+        errorMessage,
+        errorStack: error instanceof Error ? error.stack : undefined,
+        params,
+      },
+      'Browser action validation failed',
+    )
+    return [
+      {
+        type: 'json',
+        value: {
+          success: false,
+          error: `Browser action validation failed: ${errorMessage}`,
+          logs: [
+            {
+              type: 'error',
+              message: `Browser action validation failed: ${errorMessage}`,
+              timestamp: Date.now(),
+              source: 'tool',
+            },
+          ],
+        },
+      },
+    ] satisfies CodebuffToolOutput<'browser_logs'>
+  } finally {
+    Spinner.get().stop()
+  }
+
+  // Log any browser errors
+  if (!response.success && response.error) {
+    console.error(red(`Browser action failed: ${response.error}`))
+    logger.error(
+      {
+        errorMessage: response.error,
+      },
+      'Browser action failed',
+    )
+  }
+  if (response.logs) {
+    response.logs.forEach((log) => {
+      if (log.source === 'tool') {
+        switch (log.type) {
+          case 'error':
+            console.error(red(log.message))
+            logger.error(
+              {
+                errorMessage: log.message,
+              },
+              'Browser tool error',
+            )
+            break
+          case 'warning':
+            console.warn(yellow(log.message))
+            break
+          case 'info':
+            console.info(cyan(log.message))
+            break
+          default:
+            console.log(cyan(log.message))
+        }
+      }
+    })
+  }
+
+  return [
+    {
+      type: 'json',
+      value: response,
+    },
+  ] satisfies CodebuffToolOutput<'browser_logs'>
+}
+
+export const toolHandlers: {
+  [T in ClientToolName]: ToolHandler<T>
+} = {
   write_file: handleUpdateFile,
   str_replace: handleUpdateFile,
   create_plan: handleUpdateFile,
-  scrape_web_page: handleScrapeWebPage,
-  run_terminal_command: ((parameters, id) =>
-    handleRunTerminalCommand(parameters, id).then(
-      (result) => result.result,
-    )) as ToolHandler<{
-    command: string
-    process_type: 'SYNC' | 'BACKGROUND'
-  }>,
+  run_terminal_command: handleRunTerminalCommand,
   code_search: handleCodeSearch,
-  end_turn: async () => '',
-  run_file_change_hooks: async (parameters: { files: string[] }) => {
-    // Wait for any pending file operations to complete
-    await waitForPreviousCheckpoint()
-
-    const { toolResults, someHooksFailed } = await runFileChangeHooks(
-      parameters.files,
-    )
-
-    // Format the results for display
-    const results = renderToolResults(toolResults)
-
-    // Add a summary if some hooks failed
-    if (someHooksFailed) {
-      return (
-        results +
-        '\n\nSome file change hooks failed. Please review the output above.'
-      )
-    }
-
-    return (
-      results || 'No file change hooks were triggered for the specified files.'
-    )
-  },
-  browser_logs: async (params, _id): Promise<string> => {
-    Spinner.get().start('Using browser...')
-    let response: BrowserResponse
-    try {
-      const action = BrowserActionSchema.parse(params)
-      response = await handleBrowserInstruction(action)
-    } catch (error) {
-      Spinner.get().stop()
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
-      console.log('Small hiccup, one sec...')
-      logger.error(
-        {
-          errorMessage,
-          errorStack: error instanceof Error ? error.stack : undefined,
-          params,
-        },
-        'Browser action validation failed',
-      )
-      return JSON.stringify({
-        success: false,
-        error: `Browser action validation failed: ${errorMessage}`,
-        logs: [
-          {
-            type: 'error',
-            message: `Browser action validation failed: ${errorMessage}`,
-            timestamp: Date.now(),
-            source: 'tool',
-          },
-        ],
-      })
-    } finally {
-      Spinner.get().stop()
-    }
-
-    // Log any browser errors
-    if (!response.success && response.error) {
-      console.error(red(`Browser action failed: ${response.error}`))
-      logger.error(
-        {
-          errorMessage: response.error,
-        },
-        'Browser action failed',
-      )
-    }
-    if (response.logs) {
-      response.logs.forEach((log) => {
-        if (log.source === 'tool') {
-          switch (log.type) {
-            case 'error':
-              console.error(red(log.message))
-              logger.error(
-                {
-                  errorMessage: log.message,
-                },
-                'Browser tool error',
-              )
-              break
-            case 'warning':
-              console.warn(yellow(log.message))
-              break
-            case 'info':
-              console.info(cyan(log.message))
-              break
-            default:
-              console.log(cyan(log.message))
-          }
-        }
-      })
-    }
-
-    return JSON.stringify(response)
-  },
+  run_file_change_hooks: handleFileChangeHooks,
+  browser_logs: handleBrowserLogs,
 }
 
 export const handleToolCall = async (
   toolCall: ToolCall,
-): Promise<ToolResult> => {
+): Promise<ToolResultPart> => {
   const { toolName, input, toolCallId } = toolCall
-  const handler = toolHandlers[toolName]
+  const handler = toolHandlers[toolName as ClientToolName]
   if (!handler) {
     throw new Error(`No handler found for tool: ${toolName}`)
   }
 
-  const content = await handler(input, toolCallId)
+  const content = await handler(input as any, toolCallId)
 
-  if (typeof content !== 'string') {
-    throw new Error(
-      `Tool call ${toolName} not supported. It returned non-string content.`,
-    )
-  }
-
-  // TODO: Add support for screenshots.
-  // const toolResultMessage: Message = {
-  //   role: 'user',
-  //   content: match(content)
-  //     .with({ screenshots: P.not(P.nullish) }, (response) => [
-  //       ...(response.screenshots.pre ? [response.screenshots.pre] : []),
-  //       {
-  //         type: 'text' as const,
-  //         text:
-  //           JSON.stringify({
-  //             ...response,
-  //             screenshots: undefined,
-  //           }),
-  //       },
-  //       response.screenshots.post,
-  //     ])
-  //     .with(P.string, (str) => str)
-  //     .otherwise((val) => JSON.stringify(val)),
-  // }
-
+  const contentArray = Array.isArray(content) ? content : [content]
   return {
+    type: 'tool-result',
     toolName,
     toolCallId,
-    output: { type: 'text', value: content },
-  }
+    output: contentArray,
+  } satisfies ToolResultPart
 }

@@ -4,7 +4,6 @@ import * as os from 'os'
 import path, { dirname } from 'path'
 
 import { stripColors } from '@codebuff/common/util/string'
-import { closeXml } from '@codebuff/common/util/xml'
 import { green } from 'picocolors'
 
 import {
@@ -13,6 +12,7 @@ import {
 } from '../background-process-manager'
 
 import type { BackgroundProcessInfo } from '../background-process-manager'
+import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { WriteStream } from 'fs'
 
 export function runBackgroundCommand(
@@ -24,11 +24,7 @@ export function runBackgroundCommand(
     stdoutFile?: string
     stderrFile?: string
   },
-  resolveCommand: (value: {
-    result: string
-    stdout: string
-    exitCode: number | null
-  }) => void,
+  resolveCommand: (value: CodebuffToolOutput<'run_terminal_command'>) => void,
 ): void {
   const { toolCallId, command, mode, cwd, stdoutFile, stderrFile } = options
   const isWindows = os.platform() === 'win32'
@@ -38,9 +34,6 @@ export function runBackgroundCommand(
   if (mode === 'assistant') {
     console.log(green(`Running background process...\n> ${command}`))
   }
-
-  const initialStdout = ''
-  const initialStderr = ''
 
   try {
     const childProcess = spawnAndTrack(shell, [...shellArgs, command], {
@@ -144,22 +137,25 @@ export function runBackgroundCommand(
     // Unreference the process so the parent can exit independently IF the child is the only thing keeping it alive.
     childProcess.unref()
 
-    const resultMessage = `<background_process>
-<process_id>${processId}${closeXml('process_id')}
-<command>${command}${closeXml('command')}
-<status>${processInfo.status}${closeXml('status')}
-${closeXml('background_process')}`
-    resolveCommand({
-      result: resultMessage,
-      stdout: initialStdout + initialStderr,
-      exitCode,
-    })
+    resolveCommand([
+      {
+        type: 'json',
+        value: {
+          command,
+          processId,
+          backgroundProcessStatus: processInfo.status,
+        },
+      },
+    ])
   } catch (error: any) {
-    const errorMessage = `<background_process>\n<command>${command}${closeXml('command')}\n<error>${error.message}${closeXml('error')}\n${closeXml('background_process')}`
-    resolveCommand({
-      result: errorMessage,
-      stdout: error.message,
-      exitCode: null,
-    })
+    resolveCommand([
+      {
+        type: 'json',
+        value: {
+          command,
+          errorMessage: error.message,
+        },
+      },
+    ])
   }
 }

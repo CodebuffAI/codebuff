@@ -29,7 +29,7 @@ import type {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,
 } from '@codebuff/bigquery'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
@@ -123,7 +123,7 @@ export async function requestRelevantFiles(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -221,7 +221,7 @@ export async function requestRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -302,7 +302,7 @@ async function getRelevantFiles(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   userPrompt: string,
@@ -385,7 +385,7 @@ async function getRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   userPrompt: string,

@@ -11,14 +11,14 @@ import {
 import { trimMessagesToFitTokenLimit, messagesWithSystem } from '../messages'
 import * as tokenCounter from '../token-counter'
 
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {
     const messages = [
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi' },
-    ] as CodebuffMessage[]
+    ] as Message[]
     const system = 'Be helpful'
 
     const result = messagesWithSystem(messages, system)
@@ -148,7 +148,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         text: 'Another long message that should never be shortened because it has no tool calls in it at all',
       },
     },
-  ] as CodebuffMessage[]
+  ] as Message[]
 
   it('handles all features working together correctly', () => {
     const maxTotalTokens = 3000
@@ -245,7 +245,7 @@ describe('trimMessagesToFitTokenLimit', () => {
           content: 'Message 5 - keep me too!',
           keepDuringTruncation: true,
         },
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
 
@@ -275,7 +275,7 @@ describe('trimMessagesToFitTokenLimit', () => {
           content: 'Short message 2',
           keepDuringTruncation: true,
         },
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 10000)
 
@@ -291,7 +291,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'B'.repeat(1000) }, // Large message to be removed
         { role: 'user', content: 'C'.repeat(1000) }, // Large message to be removed
         { role: 'user', content: 'Keep this', keepDuringTruncation: true },
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
 
@@ -321,7 +321,7 @@ describe('trimMessagesToFitTokenLimit', () => {
           keepDuringTruncation: true,
         },
         { role: 'user', content: 'C'.repeat(100) }, // Might be kept
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 2000)
 
@@ -345,7 +345,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'B'.repeat(800) }, // Large message to force truncation
         { role: 'user', content: 'Keep 2', keepDuringTruncation: true },
         { role: 'user', content: 'C'.repeat(800) }, // Large message to force truncation
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 500)
 

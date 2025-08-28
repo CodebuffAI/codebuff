@@ -18,15 +18,15 @@ const auxiliaryDataSchema = z.object({
   keepDuringTruncation: z.boolean().optional(),
 })
 
-export const systemCodebuffMessageSchema = z
+export const systemMessageSchema = z
   .object({
     role: z.literal('system'),
     content: z.string(),
   })
   .and(auxiliaryDataSchema)
-export type SystemCodebuffMessage = z.infer<typeof systemCodebuffMessageSchema>
+export type SystemMessage = z.infer<typeof systemMessageSchema>
 
-export const userCodebuffMessageSchema = z
+export const userMessageSchema = z
   .object({
     role: z.literal('user'),
     content: z.union([
@@ -35,9 +35,9 @@ export const userCodebuffMessageSchema = z
     ]),
   })
   .and(auxiliaryDataSchema)
-export type UserCodebuffMessage = z.infer<typeof userCodebuffMessageSchema>
+export type UserMessage = z.infer<typeof userMessageSchema>
 
-export const assistantCodebuffMessageSchema = z
+export const assistantMessageSchema = z
   .object({
     role: z.literal('assistant'),
     content: z.union([
@@ -48,24 +48,22 @@ export const assistantCodebuffMessageSchema = z
     ]),
   })
   .and(auxiliaryDataSchema)
-export type AssistantCodebuffMessage = z.infer<
-  typeof assistantCodebuffMessageSchema
->
+export type AssistantMessage = z.infer<typeof assistantMessageSchema>
 
-export const toolCodebuffMessageSchema = z
+export const toolMessageSchema = z
   .object({
     role: z.literal('tool'),
     content: toolResultPartSchema,
   })
   .and(auxiliaryDataSchema)
-export type ToolCodebuffMessage = z.infer<typeof toolCodebuffMessageSchema>
+export type ToolMessage = z.infer<typeof toolMessageSchema>
 
-export const codebuffMessageSchema = z
+export const messageSchema = z
   .union([
-    systemCodebuffMessageSchema,
-    userCodebuffMessageSchema,
-    assistantCodebuffMessageSchema,
-    toolCodebuffMessageSchema,
+    systemMessageSchema,
+    userMessageSchema,
+    assistantMessageSchema,
+    toolMessageSchema,
   ])
   .and(
     z.object({
@@ -76,4 +74,4 @@ export const codebuffMessageSchema = z
       keepDuringTruncation: z.boolean().optional(),
     }),
   )
-export type CodebuffMessage = z.infer<typeof codebuffMessageSchema>
+export type Message = z.infer<typeof messageSchema>

@@ -19,11 +19,18 @@ export const runFileChangeHooksParams = {
   outputs: z.tuple([
     z.object({
       type: z.literal('json'),
-      value: terminalCommandOutputSchema.and(
-        z.object({
-          hookName: z.string(),
-        }),
-      ),
+      value: z
+        .union([
+          terminalCommandOutputSchema.and(
+            z.object({
+              hookName: z.string(),
+            }),
+          ),
+          z.object({
+            errorMessage: z.string(),
+          }),
+        ])
+        .array(),
     }),
   ]),
 } satisfies $ToolParams

@@ -1,9 +1,6 @@
 import { geminiModels, openaiModels } from '@codebuff/common/constants'
 import { buildArray } from '@codebuff/common/util/array'
-import {
-  parseFileBlocks,
-  parseMarkdownCodeBlock,
-} from '@codebuff/common/util/file'
+import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
 
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
@@ -11,7 +8,11 @@ import { promptRelaceAI } from './llm-apis/relace-api'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from './util/logger'
 
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 
 export async function fastRewrite(
   initialContent: string,
@@ -135,23 +136,34 @@ export const shouldAddFilePlaceholders = async (
   filePath: string,
   oldContent: string,
   rewrittenNewContent: string,
-  messageHistory: CodebuffMessage[],
+  messageHistory: Message[],
   fullResponse: string,
   userId: string | undefined,
   clientSessionId: string,
   fingerprintId: string,
   userInputId: string,
 ) => {
-  const fileBlocks = parseFileBlocks(
-    messageHistory
-      .map((message) =>
-        typeof message.content === 'string'
-          ? message.content
-          : message.content.map((c) => ('text' in c ? c.text : '')).join('\n'),
-      )
-      .join('\n') + fullResponse,
-  )
-  const fileWasPreviouslyEdited = Object.keys(fileBlocks).includes(filePath)
+  const fileWasPreviouslyEdited = messageHistory
+    .filter(
+      (
+        m,
+      ): m is ToolMessage & {
+        content: { toolName: 'create_plan' | 'str_replace' | 'write_file' }
+      } => {
+        return (
+          m.role === 'tool' &&
+          (m.content.toolName === 'create_plan' ||
+            m.content.toolName === 'str_replace' ||
+            m.content.toolName === 'write_file')
+        )
+      },
+    )
+    .some((m) => {
+      const message = m as CodebuffToolMessage<
+        'create_plan' | 'str_replace' | 'write_file'
+      >
+      return message.content.output[0].value.file === filePath
+    })
   if (!fileWasPreviouslyEdited) {
     // If Claude hasn't edited this file before, it's almost certainly not a local-only change.
     // Usually, it's only when Claude is editing a function for a second or third time that

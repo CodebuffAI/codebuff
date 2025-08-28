@@ -4,11 +4,11 @@ import { buildArray } from './array'
 import { getToolCallString } from '../tools/utils'
 
 import type {
-  AssistantCodebuffMessage,
-  CodebuffMessage,
-  SystemCodebuffMessage,
-  ToolCodebuffMessage,
-  UserCodebuffMessage,
+  AssistantMessage,
+  Message,
+  SystemMessage,
+  ToolMessage,
+  UserMessage,
 } from '../types/messages/codebuff-message'
 import type { ProviderMetadata } from '../types/messages/provider-metadata'
 import type { ModelMessage } from 'ai'
@@ -83,18 +83,18 @@ type NonStringContent<Message extends { content: any }> = Omit<
 }
 
 function userToCodebuffMessage(
-  message: Omit<UserCodebuffMessage, 'content'> & {
-    content: Exclude<UserCodebuffMessage['content'], string>[number]
+  message: Omit<UserMessage, 'content'> & {
+    content: Exclude<UserMessage['content'], string>[number]
   },
-): NonStringContent<UserCodebuffMessage> {
+): NonStringContent<UserMessage> {
   return { ...message, content: [message.content] }
 }
 
 function assistantToCodebuffMessage(
-  message: Omit<AssistantCodebuffMessage, 'content'> & {
-    content: Exclude<AssistantCodebuffMessage['content'], string>[number]
+  message: Omit<AssistantMessage, 'content'> & {
+    content: Exclude<AssistantMessage['content'], string>[number]
   },
-): NonStringContent<AssistantCodebuffMessage> {
+): NonStringContent<AssistantMessage> {
   if (message.content.type === 'tool-call') {
     return {
       ...message,
@@ -114,18 +114,13 @@ function assistantToCodebuffMessage(
 }
 
 function toolToCodebuffMessage(
-  message: Omit<ToolCodebuffMessage, 'content'> & {
-    content: Exclude<ToolCodebuffMessage['content'], string>[number]
-  },
-): Nested<
-  | NonStringContent<UserCodebuffMessage>
-  | NonStringContent<AssistantCodebuffMessage>
-> {
-  return message.content.output.value.map((o) => {
+  message: ToolMessage,
+): Nested<NonStringContent<UserMessage> | NonStringContent<AssistantMessage>> {
+  return message.content.output.map((o) => {
     if (o.type === 'json') {
       const toolResult = {
-        tool_name: message.content.toolName,
-        id: message.content.toolCallId,
+        toolName: message.content.toolName,
+        toolCallId: message.content.toolCallId,
         output: o.value,
       }
       return {
@@ -137,14 +132,14 @@ function toolToCodebuffMessage(
             text: `<tool_result>\n${JSON.stringify(toolResult, null, 2)}\n</tool_result>`,
           },
         ],
-      } satisfies NonStringContent<UserCodebuffMessage>
+      } satisfies NonStringContent<UserMessage>
     }
     if (o.type === 'media') {
       return {
         ...message,
         role: 'user',
         content: [{ type: 'file', data: o.data, mediaType: o.mediaType }],
-      } satisfies NonStringContent<UserCodebuffMessage>
+      } satisfies NonStringContent<UserMessage>
     }
     o satisfies never
     const oAny = o as any
@@ -153,11 +148,11 @@ function toolToCodebuffMessage(
 }
 
 function convertToolMessages(
-  message: CodebuffMessage,
+  message: Message,
 ): Nested<
-  | SystemCodebuffMessage
-  | NonStringContent<UserCodebuffMessage>
-  | NonStringContent<AssistantCodebuffMessage>
+  | SystemMessage
+  | NonStringContent<UserMessage>
+  | NonStringContent<AssistantMessage>
 > {
   if (message.role === 'system') {
     return message
@@ -195,19 +190,14 @@ function convertToolMessages(
     const messageAny = message as any
     throw new Error(`Invalid message role: ${messageAny.role}`)
   }
-  return message.content.map((c) => {
-    return toolToCodebuffMessage({
-      ...message,
-      content: c,
-    })
-  })
+  return toolToCodebuffMessage(message)
 }
 
 export function convertCbToModelMessages({
   messages,
   includeCacheControl = true,
 }: {
-  messages: CodebuffMessage[]
+  messages: Message[]
   includeCacheControl?: boolean
 }): ModelMessage[] {
   const noToolMessages = buildArray(messages.map((m) => convertToolMessages(m)))
