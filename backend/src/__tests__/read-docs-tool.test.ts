@@ -534,9 +534,9 @@ describe('read_docs tool with researcher agent', () => {
     expect(
       JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
     ).toContain('Error fetching documentation for \\"React\\"')
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Network timeout',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Network timeout')
   }, 10000)
 
   test('should include topic in error message when specified', async () => {

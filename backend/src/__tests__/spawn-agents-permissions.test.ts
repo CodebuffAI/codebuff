@@ -261,7 +261,7 @@ describe('Spawn Agents Permissions', () => {
       })
 
       const output = await result
-      expect(output).toContain('Mock agent response')
+      expect(JSON.stringify(output)).toContain('Mock agent response')
       expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1)
     })
 
@@ -293,8 +293,8 @@ describe('Spawn Agents Permissions', () => {
       })
 
       const output = await result
-      expect(output).toContain('Error spawning agent')
-      expect(output).toContain(
+      expect(JSON.stringify(output)).toContain('Error spawning agent')
+      expect(JSON.stringify(output)).toContain(
         'is not allowed to spawn child agent type reviewer',
       )
       expect(mockLoopAgentSteps).not.toHaveBeenCalled()
@@ -327,8 +327,10 @@ describe('Spawn Agents Permissions', () => {
       })
 
       const output = await result
-      expect(output).toContain('Error spawning agent')
-      expect(output).toContain('Agent type nonexistent not found')
+      expect(JSON.stringify(output)).toContain('Error spawning agent')
+      expect(JSON.stringify(output)).toContain(
+        'Agent type nonexistent not found',
+      )
       expect(mockLoopAgentSteps).not.toHaveBeenCalled()
     })
 
@@ -360,7 +362,7 @@ describe('Spawn Agents Permissions', () => {
       })
 
       const output = await result
-      expect(output).toContain('Mock agent response')
+      expect(JSON.stringify(output)).toContain('Mock agent response')
       expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1)
     })
 
@@ -395,7 +397,7 @@ describe('Spawn Agents Permissions', () => {
       })
 
       const output = await result
-      expect(output).toContain('Mock agent response')
+      expect(JSON.stringify(output)).toContain('Mock agent response')
       expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1)
     })
 
@@ -427,8 +429,10 @@ describe('Spawn Agents Permissions', () => {
       })
 
       const output = await result
-      expect(output).toContain('Error spawning agent')
-      expect(output).toContain('is not allowed to spawn child agent type')
+      expect(JSON.stringify(output)).toContain('Error spawning agent')
+      expect(JSON.stringify(output)).toContain(
+        'is not allowed to spawn child agent type',
+      )
       expect(mockLoopAgentSteps).not.toHaveBeenCalled()
     })
 
@@ -474,9 +478,9 @@ describe('Spawn Agents Permissions', () => {
       })
 
       const output = await result
-      expect(output).toContain('Mock agent response') // Successful thinker spawn
-      expect(output).toContain('Error spawning agent') // Failed reviewer spawn
-      expect(output).toContain(
+      expect(JSON.stringify(output)).toContain('Mock agent response') // Successful thinker spawn
+      expect(JSON.stringify(output)).toContain('Error spawning agent') // Failed reviewer spawn
+      expect(JSON.stringify(output)).toContain(
         'is not allowed to spawn child agent type reviewer',
       )
       expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1) // Only thinker was spawned

@@ -1,4 +1,7 @@
+import { errorToObject } from '@codebuff/common/util/object'
 import { cloneDeep } from 'lodash'
+
+import { logger } from './logger'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 
@@ -21,21 +24,37 @@ export function simplifyReadFileResults(
 export function simplifyTerminalCommandResults(
   messageContent: CodebuffToolOutput<'run_terminal_command'>,
 ): CodebuffToolOutput<'run_terminal_command'> {
-  const clone = cloneDeep(messageContent)
-  const content = clone[0].value
-  if ('processId' in content || 'errorMessage' in content) {
-    return clone
-  }
-  const { command, message, exitCode } = content
-  return [
-    {
-      type: 'json',
-      value: {
-        command,
-        message,
-        stdoutOmittedForLength: true,
-        ...(exitCode !== undefined && { exitCode }),
+  try {
+    const clone = cloneDeep(messageContent)
+    const content = clone[0].value
+    if ('processId' in content || 'errorMessage' in content) {
+      return clone
+    }
+    const { command, message, exitCode } = content
+    return [
+      {
+        type: 'json',
+        value: {
+          command,
+          ...(message && { message }),
+          stdoutOmittedForLength: true,
+          ...(exitCode !== undefined && { exitCode }),
+        },
       },
-    },
-  ]
+    ]
+  } catch (error) {
+    logger.error(
+      { error: errorToObject(error), messageContent },
+      'Error simplifying terminal command results',
+    )
+    return [
+      {
+        type: 'json',
+        value: {
+          command: '',
+          stdoutOmittedForLength: true,
+        },
+      },
+    ]
+  }
 }

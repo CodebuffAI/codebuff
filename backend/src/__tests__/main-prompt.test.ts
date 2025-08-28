@@ -303,23 +303,18 @@ describe('mainPrompt', () => {
     // It's usually the message right before the final assistant response.
     const toolResultMessages =
       newSessionState.mainAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('<tool_result>'),
+        (m) => m.role === 'tool',
       )
 
     // Find the specific tool result message that contains file_updates
     const fileUpdateMessage = toolResultMessages.find(
-      (m) =>
-        typeof m.content === 'string' &&
-        m.content.includes('<tool>read_files</tool>'),
+      (m) => m.content.toolName === 'read_files',
     )
 
     expect(fileUpdateMessage).toBeDefined()
-    expect(fileUpdateMessage?.content).toContain('test.txt')
+    expect(JSON.stringify(fileUpdateMessage?.content)).toContain('test.txt')
     // Check that the content reflects the *new* mock content within the file_updates result
-    expect(fileUpdateMessage?.content).toContain('old content')
+    expect(JSON.stringify(fileUpdateMessage?.content)).toContain('old content')
   })
 
   it('should handle direct terminal command', async () => {
@@ -369,10 +364,7 @@ describe('mainPrompt', () => {
     // Verify that a tool result was added to message history
     const toolResultMessages =
       newSessionState.mainAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('<tool_result>'),
+        (m) => m.role === 'tool',
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
   })

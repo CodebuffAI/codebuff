@@ -177,7 +177,7 @@ export const handleSpawnAgents = ((params: {
         } else {
           return {
             agentType: agentTypeStr,
-            errorMessage: result.reason,
+            errorMessage: `Error spawning agent: ${result.reason}`,
           }
         }
       }),

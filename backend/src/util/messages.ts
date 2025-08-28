@@ -283,7 +283,7 @@ export function getEditedFiles(messages: Message[]): string[] {
           return fileInfo.file
         } catch (error) {
           logger.error(
-            { error: errorToObject(error) },
+            { error: errorToObject(error), m },
             'Error parsing file info',
           )
           return null
@@ -307,14 +307,22 @@ export function getPreviouslyReadFiles(messages: Message[]): {
         } => m.role === 'tool' && m.content.toolName === 'read_files',
       )
       .map((m) => {
-        return (
-          m as CodebuffToolMessage<'read_files'>
-        ).content.output[0].value.map((file) => {
-          if ('contentOmittedForLength' in file) {
-            return undefined
-          }
-          return file
-        })
+        try {
+          return (
+            m as CodebuffToolMessage<'read_files'>
+          ).content.output[0].value.map((file) => {
+            if ('contentOmittedForLength' in file) {
+              return undefined
+            }
+            return file
+          })
+        } catch (error) {
+          logger.error(
+            { error: errorToObject(error), m },
+            'Error parsing read_files output from message',
+          )
+          return []
+        }
       }),
   )
 }

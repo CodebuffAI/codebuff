@@ -342,13 +342,12 @@ describe('runProgrammaticStep', () => {
       // Verify tool result was added to messageHistory
       const toolMessages = result.agentState.messageHistory.filter(
         (msg) =>
-          msg.role === 'user' &&
-          typeof msg.content === 'string' &&
-          msg.content.includes('src/auth.ts'),
+          msg.role === 'tool' &&
+          JSON.stringify(msg.content.output).includes('src/auth.ts'),
       )
       expect(toolMessages).toHaveLength(1)
-      expect(toolMessages[0].content).toContain('src/auth.ts')
-      expect(toolMessages[0].content).toContain('src/login.ts')
+      expect(JSON.stringify(toolMessages[0].content)).toContain('src/auth.ts')
+      expect(JSON.stringify(toolMessages[0].content)).toContain('src/login.ts')
 
       expect(result.endTurn).toBe(true)
     })
@@ -570,9 +569,11 @@ describe('runProgrammaticStep', () => {
 
       // Verify tool results were passed back to generator
       expect(toolResultsReceived).toHaveLength(7)
-      expect(toolResultsReceived[0]).toContain('authenticate')
-      expect(toolResultsReceived[3]).toContain('auth-analysis')
-      expect(toolResultsReceived[6]).toContain('Output set successfully')
+      expect(JSON.stringify(toolResultsReceived[0])).toContain('authenticate')
+      expect(JSON.stringify(toolResultsReceived[3])).toContain('auth-analysis')
+      expect(JSON.stringify(toolResultsReceived[6])).toContain(
+        'Output set successfully',
+      )
 
       // Verify state management throughout execution
       expect(stateSnapshots).toHaveLength(7)
@@ -651,19 +652,27 @@ describe('runProgrammaticStep', () => {
       executeToolCallSpy.mockImplementation(async (options: any) => {
         if (options.toolName === 'read_files') {
           options.toolResults.push({
+            type: 'tool-result',
             toolName: 'read_files',
             toolCallId: 'test-id',
-            output: {
-              type: 'text',
-              value: 'file content',
-            },
-          })
+            output: [
+              {
+                type: 'json',
+                value: 'file content',
+              },
+            ],
+          } satisfies ToolResultPart)
         }
       })
 
       await runProgrammaticStep(mockAgentState, mockParams)
 
-      expect(receivedToolResult).toEqual([])
+      expect(receivedToolResult).toEqual([
+        {
+          type: 'json',
+          value: 'file content',
+        },
+      ])
     })
   })
 
