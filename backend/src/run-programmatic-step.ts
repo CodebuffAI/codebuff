@@ -214,8 +214,6 @@ export async function runProgrammaticStep(
         })
       }
 
-      console.log(JSON.stringify({ toolCall }, null, 2), 'asdf')
-
       // Execute the tool synchronously and get the result immediately
       await executeToolCall({
         toolName: toolCall.toolName,
@@ -239,11 +237,6 @@ export async function runProgrammaticStep(
       // TODO: Remove messages from state and always use agentState.messageHistory.
       // Sync state.messages back to agentState.messageHistory
       state.agentState.messageHistory = state.messages
-
-      console.log(
-        JSON.stringify({ afterExecudeToolCall: state.messages }, null, 2),
-        'asdf',
-      )
 
       // Get the latest tool result
       toolResult = toolResults[toolResults.length - 1]?.output

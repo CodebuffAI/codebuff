@@ -538,7 +538,6 @@ export const loopAgentSteps = async (
       keepDuringTruncation: true,
     },
   )
-  console.log(JSON.stringify({ initialMessages }, null, 2), 'asdf')
 
   let currentAgentState = {
     ...agentState,
@@ -595,17 +594,6 @@ export const loopAgentSteps = async (
           agentState: currentAgentState,
         }
       }
-
-      console.log(
-        JSON.stringify(
-          {
-            beforeRunStep: currentAgentState.messageHistory,
-          },
-          null,
-          2,
-        ),
-        'asdf',
-      )
 
       const { agentState: newAgentState, shouldEndTurn: llmShouldEndTurn } =
         await runAgentStep(ws, {

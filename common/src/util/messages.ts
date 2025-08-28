@@ -235,7 +235,6 @@ export function convertCbToModelMessages({
   }
 
   if (!includeCacheControl) {
-    console.log(JSON.stringify({ final: aggregated }, null, 2), 'asdf')
     return aggregated
   }
 
