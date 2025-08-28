@@ -88,14 +88,16 @@ function getOutputWithContext(
  * Formats a single background process's info into a string
  */
 export function getBackgroundProcessUpdate(info: BackgroundProcessInfo) {
+  const previousStdoutLength = info.lastReportedStdoutLength
   const newStdout = info.stdoutBuffer
     .join('')
     .slice(info.lastReportedStdoutLength)
-  info.lastReportedStdoutLength = newStdout.length
+  info.lastReportedStdoutLength += newStdout.length
+  const previousStderrLength = info.lastReportedStderrLength
   const newStderr = info.stderrBuffer
     .join('')
     .slice(info.lastReportedStderrLength)
-  info.lastReportedStderrLength = newStderr.length
+  info.lastReportedStderrLength += newStderr.length
 
   // Only report finished processes if there are changes
   const newStatus = info.status
@@ -122,7 +124,7 @@ export function getBackgroundProcessUpdate(info: BackgroundProcessInfo) {
     ...(newStdout
       ? {
           stdout: truncateStringWithMessage({
-            str: getOutputWithContext(newStdout, info.lastReportedStdoutLength),
+            str: getOutputWithContext(newStdout, previousStdoutLength),
             maxLength: COMMAND_OUTPUT_LIMIT,
             remove: 'START',
           }),
@@ -131,7 +133,7 @@ export function getBackgroundProcessUpdate(info: BackgroundProcessInfo) {
     ...(newStderr
       ? {
           stderr: truncateStringWithMessage({
-            str: getOutputWithContext(newStderr, info.lastReportedStderrLength),
+            str: getOutputWithContext(newStderr, previousStderrLength),
             maxLength: COMMAND_OUTPUT_LIMIT,
             remove: 'START',
           }),
