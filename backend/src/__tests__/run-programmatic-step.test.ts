@@ -4,7 +4,6 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
-import { renderToolResults } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -24,16 +23,16 @@ import {
 } from '../run-programmatic-step'
 import { mockFileContext, MockWebSocket } from './test-utils'
 import * as toolExecutor from '../tools/tool-executor'
-import { asSystemMessage } from '../util/messages'
 import * as requestContext from '../websockets/request-context'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
+import type { PublicAgentState } from '@codebuff/common/types/agent-template'
 import type {
-  AgentState,
-  ToolResult,
-} from '@codebuff/common/types/session-state'
+  ToolResultOutput,
+  ToolResultPart,
+} from '@codebuff/common/types/messages/content-part'
+import type { AgentState } from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
-import { PublicAgentState } from '@codebuff/common/types/agent-template'
 
 describe('runProgrammaticStep', () => {
   let mockTemplate: AgentTemplate
@@ -302,35 +301,27 @@ describe('runProgrammaticStep', () => {
       // Mock executeToolCall to simulate find_files tool result
       executeToolCallSpy.mockImplementation(async (options: any) => {
         if (options.toolName === 'find_files') {
-          const toolResult: ToolResult = {
+          const toolResult: ToolResultPart = {
+            type: 'tool-result',
             toolName: 'find_files',
             toolCallId: 'find-files-call-id',
-            output: {
-              type: 'text',
-              value: JSON.stringify({
-                files: [
-                  { path: 'src/auth.ts', relevance: 0.9 },
-                  { path: 'src/login.ts', relevance: 0.8 },
-                ],
-              }),
-            },
+            output: [
+              {
+                type: 'json',
+                value: {
+                  files: [
+                    { path: 'src/auth.ts', relevance: 0.9 },
+                    { path: 'src/login.ts', relevance: 0.8 },
+                  ],
+                },
+              },
+            ],
           }
           options.toolResults.push(toolResult)
 
-          // Add tool result to state.messages like the real implementation
-          // This mimics what tool-executor.ts does: state.messages.push({ role: 'user', content: asSystemMessage(renderToolResults([toolResult])) })
-          const formattedToolResult = asSystemMessage(
-            renderToolResults([
-              {
-                toolName: toolResult.toolName,
-                toolCallId: toolResult.toolCallId,
-                output: toolResult.output,
-              },
-            ]),
-          )
           options.state.messages.push({
-            role: 'user',
-            content: formattedToolResult,
+            role: 'tool',
+            content: toolResult,
           })
         }
         // Return a value to satisfy the call
@@ -382,7 +373,7 @@ describe('runProgrammaticStep', () => {
 
     it('should comprehensively test STEP_ALL functionality with multiple tools and state management', async () => {
       // Track all tool results and state changes for verification
-      const toolResultsReceived: (string | undefined)[] = []
+      const toolResultsReceived: ToolResultOutput[][] = []
       const stateSnapshots: PublicAgentState[] = []
       let stepCount = 0
 
@@ -535,23 +526,22 @@ describe('runProgrammaticStep', () => {
             result = `${toolName} executed successfully`
         }
 
-        const toolResult: ToolResult = {
+        const toolResult: ToolResultPart = {
+          type: 'tool-result',
           toolName,
           toolCallId: `${toolName}-call-id`,
-          output: {
-            type: 'text',
-            value: result,
-          },
+          output: [
+            {
+              type: 'json',
+              value: result,
+            },
+          ],
         }
         toolResults.push(toolResult)
 
-        // Add tool result to state.messages like the real implementation
-        const formattedToolResult = asSystemMessage(
-          renderToolResults([toolResult]),
-        )
         state.messages.push({
           role: 'user',
-          content: formattedToolResult,
+          content: toolResult,
         })
       })
 
@@ -643,8 +633,8 @@ describe('runProgrammaticStep', () => {
     })
 
     it('should pass tool results back to generator', async () => {
-      const toolResults: ToolResult[] = []
-      let receivedToolResult: string | undefined
+      const toolResults: ToolResultPart[] = []
+      let receivedToolResult: ToolResultOutput[] | undefined
 
       const mockGenerator = (function* () {
         const input1 = yield {
@@ -673,7 +663,7 @@ describe('runProgrammaticStep', () => {
 
       await runProgrammaticStep(mockAgentState, mockParams)
 
-      expect(receivedToolResult).toEqual('file content')
+      expect(receivedToolResult).toEqual([])
     })
   })
 

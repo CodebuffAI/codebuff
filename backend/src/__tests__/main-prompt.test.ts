@@ -5,10 +5,7 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
-import {
-  getToolCallString,
-  renderToolResults,
-} from '@codebuff/common/tools/utils'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
@@ -159,8 +156,12 @@ describe('mainPrompt', () => {
         timeout: number = 30_000,
       ) => {
         return {
-          success: true,
-          result: `Tool call success: ${{ toolName, input }}` as any,
+          output: [
+            {
+              type: 'json',
+              value: `Tool call success: ${{ toolName, input }}`,
+            },
+          ],
         }
       },
     )
@@ -229,18 +230,21 @@ describe('mainPrompt', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     // Simulate a previous read_files result being in the history
     sessionState.mainAgentState.messageHistory.push({
-      role: 'user',
-      content: renderToolResults([
-        {
-          toolCallId: 'prev-read',
-          toolName: 'read_files',
-          output: {
-            type: 'text',
-            value:
-              '<read_file>\n<path>test.txt</path>\n<content>old content</content>\n</read_file>',
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolCallId: 'prev-read',
+        toolName: 'read_files',
+        output: [
+          {
+            type: 'json',
+            value: {
+              path: 'test.txt',
+              content: 'old content',
+            },
           },
-        },
-      ]),
+        ],
+      },
     })
 
     const action = {

@@ -22,7 +22,9 @@ export function changeFile(
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
 
-  const { created, modified, invalid, patchFailed } = applyChanges(cwd, [fileChange])
+  const { created, modified, invalid, patchFailed } = applyChanges(cwd, [
+    fileChange,
+  ])
 
   const results: CodebuffToolOutput<'str_replace'>[0]['value'][] = []
 
@@ -43,9 +45,11 @@ export function changeFile(
   }
 
   for (const file of patchFailed) {
-    results.push(
-      `Failed to write to ${file}; the patch failed to apply`,
-    )
+    results.push({
+      file,
+      errorMessage: `Failed to apply patch.`,
+      patch: lines.join('\n'),
+    })
   }
 
   for (const file of invalid) {

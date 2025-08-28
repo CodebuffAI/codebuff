@@ -11,6 +11,7 @@ export const updateFileResultSchema = z.union([
   z.object({
     file: z.string(),
     errorMessage: z.string(),
+    patch: z.string().optional(),
   }),
 ])
 

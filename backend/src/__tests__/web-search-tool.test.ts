@@ -22,6 +22,7 @@ import {
   test,
 } from 'bun:test'
 
+import researcherAgent from '../../../.agents/researcher'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
@@ -31,7 +32,6 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
-import researcherAgent from '../../../.agents/researcher'
 
 import type { WebSocket } from 'ws'
 
@@ -62,8 +62,12 @@ describe('web_search tool with researcher agent', () => {
     spyOn(websocketAction, 'requestFiles').mockImplementation(async () => ({}))
     spyOn(websocketAction, 'requestFile').mockImplementation(async () => null)
     spyOn(websocketAction, 'requestToolCall').mockImplementation(async () => ({
-      success: true,
-      result: 'Tool call success' as any,
+      output: [
+        {
+          type: 'json',
+          value: 'Tool call success',
+        },
+      ],
     }))
 
     // Mock LLM APIs
@@ -121,7 +125,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -165,7 +171,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -227,7 +235,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -268,7 +278,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -329,7 +341,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -386,7 +400,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -430,7 +446,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -489,7 +507,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,

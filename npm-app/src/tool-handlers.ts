@@ -44,9 +44,10 @@ export const handleUpdateFile = async <
   const lines = fileChange.content.split('\n')
 
   await waitForPreviousCheckpoint()
-  const { created, modified, ignored, invalid, patchFailed } = applyChanges(projectPath, [
-    fileChange,
-  ])
+  const { created, modified, ignored, invalid, patchFailed } = applyChanges(
+    projectPath,
+    [fileChange],
+  )
   DiffManager.addChange(fileChange)
 
   let result: CodebuffToolOutput<T>[] = []
@@ -103,9 +104,16 @@ export const handleUpdateFile = async <
     ])
   }
   for (const file of patchFailed) {
-    result.push(
-      `Failed to write to ${file}; the patch failed to apply`,
-    )
+    result.push([
+      {
+        type: 'json',
+        value: {
+          file,
+          errorMessage: `Failed to apply patch.`,
+          patch: lines.join('\n'),
+        },
+      },
+    ])
   }
   for (const file of invalid) {
     result.push([
