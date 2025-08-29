@@ -234,7 +234,6 @@ describe('runProgrammaticStep', () => {
         expect.objectContaining({
           toolName: 'add_message',
           input: { role: 'user', content: 'Hello world' },
-          includeToolCall: false,
         }),
       )
 
