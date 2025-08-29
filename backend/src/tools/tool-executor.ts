@@ -126,6 +126,7 @@ export interface ExecuteToolCallParams<T extends string = ToolName> {
   state: Record<string, any>
   userId: string | undefined
   autoInsertEndStepParam?: boolean
+  validateInputSchema?: boolean
 }
 
 export function executeToolCall<T extends ToolName>({
@@ -145,15 +146,16 @@ export function executeToolCall<T extends ToolName>({
   state,
   userId,
   autoInsertEndStepParam = false,
+  validateInputSchema = true
 }: ExecuteToolCallParams<T>): Promise<void> {
-  const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>(
+  const toolCall: CodebuffToolCall<T> | ToolCallError = validateInputSchema ? parseRawToolCall<T>(
     {
       toolName,
       toolCallId: generateCompactId(),
       input,
     },
     autoInsertEndStepParam,
-  )
+  ) : {toolName, toolCallId: generateCompactId(), input} as CodebuffToolCall<T>
   if ('error' in toolCall) {
     toolResults.push({
       type: 'tool-result',

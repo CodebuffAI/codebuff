@@ -232,6 +232,7 @@ export async function runProgrammaticStep(
         state,
         userId,
         autoInsertEndStepParam: true,
+        validateInputSchema: false,
       })
 
       // TODO: Remove messages from state and always use agentState.messageHistory.
