@@ -216,7 +216,7 @@ export function executeToolCall<T extends ToolName>({
       clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
     ) => {
       if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
-        return ''
+        return []
       }
 
       const clientToolResult = await requestToolCall(
