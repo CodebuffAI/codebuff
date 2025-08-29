@@ -11,13 +11,10 @@ import type { CustomToolCall } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type {
-  AgentState,
-  Subgoal,
-  ToolResult,
-} from '@codebuff/common/types/session-state'
+import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
 import type { WebSocket } from 'ws'
@@ -40,7 +37,7 @@ export async function processStreamWithTools<T extends string>(options: {
   agentTemplate: AgentTemplate
   localAgentTemplates: Record<string, AgentTemplate>
   fileContext: ProjectFileContext
-  messages: CodebuffMessage[]
+  messages: Message[]
   agentState: AgentState
   agentContext: Record<string, Subgoal>
   onResponseChunk: (chunk: string | PrintModeEvent) => void
@@ -66,7 +63,7 @@ export async function processStreamWithTools<T extends string>(options: {
 
   const messages = [...options.messages]
 
-  const toolResults: ToolResult[] = []
+  const toolResults: ToolResultPart[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
   const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
     Promise.withResolvers<void>()
@@ -158,9 +155,10 @@ export async function processStreamWithTools<T extends string>(options: {
     ]),
     (toolName, error) => {
       toolResults.push({
+        type: 'tool-result',
         toolName,
         toolCallId: generateCompactId(),
-        output: { type: 'text', value: error },
+        output: [{ type: 'json', value: { errorMessage: error } }],
       })
     },
     onResponseChunk,
@@ -176,7 +174,7 @@ export async function processStreamWithTools<T extends string>(options: {
     fullResponseChunks.push(chunk)
   }
 
-  state.messages = buildArray<CodebuffMessage>([
+  state.messages = buildArray<Message>([
     ...expireMessages(state.messages, 'agentStep'),
     fullResponseChunks.length > 0 && {
       role: 'assistant' as const,

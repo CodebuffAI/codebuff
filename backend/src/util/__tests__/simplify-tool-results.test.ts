@@ -1,379 +1,370 @@
-import { describe, expect, it } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from 'bun:test'
 
 import {
   simplifyReadFileResults,
-  simplifyReadFileToolResult,
   simplifyTerminalCommandResults,
-  simplifyTerminalCommandToolResult,
 } from '../simplify-tool-results'
+import * as logger from '../logger'
 
-describe('simplifyToolResultsInMessages', () => {
-  it('should simplify read_files results while preserving others', () => {
-    const messageContent = `
-<tool_result>
-<tool>read_files</tool>
-<result><read_file>
-<path>test1.txt</path>
-<content>content1</content>
-<referenced_by>None</referenced_by>
-</read_file>
+import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 
-<read_file>
-<path>test2.txt</path>
-<content>content2</content>
-<referenced_by>None</referenced_by>
-</read_file></result>
-</tool_result>
-<tool_result>
-<tool>run_terminal_command</tool>
-<result>ls -la output</result>
-</tool_result>`
-
-    const result = simplifyReadFileResults(messageContent)
-    expect(result).toContain('Read the following files: test1.txt\ntest2.txt')
-    expect(result).toContain('ls -la output') // Other tool results preserved
-  })
-
-  it('should handle array message content format', () => {
-    const messageContent = [
-      {},
+describe('simplifyReadFileResults', () => {
+  it('should simplify read file results by omitting content', () => {
+    const input: CodebuffToolOutput<'read_files'> = [
       {
-        text: `
-<tool_result>
-<tool>read_files</tool>
-<result><read_file>
-<path>test.txt</path>
-<content>content</content>
-<referenced_by>None</referenced_by>
-</read_file></result>
-</tool_result>`,
+        type: 'json',
+        value: [
+          {
+            path: 'src/file1.ts',
+            content: 'const x = 1;\nconsole.log(x);',
+            referencedBy: { 'file2.ts': ['line 5'] },
+          },
+          {
+            path: 'src/file2.ts',
+            content:
+              'import { x } from "./file1";\nfunction test() { return x; }',
+          },
+        ],
       },
     ]
 
-    const result = simplifyReadFileResults(messageContent)
-    expect(result).toContain('Read the following files: test.txt')
+    const result = simplifyReadFileResults(input)
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: [
+          {
+            path: 'src/file1.ts',
+            contentOmittedForLength: true,
+          },
+          {
+            path: 'src/file2.ts',
+            contentOmittedForLength: true,
+          },
+        ],
+      },
+    ])
   })
 
-  it('should return original content if no tool results present', () => {
-    const messageContent = 'No tool results here'
-    const result = simplifyReadFileResults(messageContent)
-    expect(result).toBe('No tool results here')
+  it('should handle empty file results', () => {
+    const input: CodebuffToolOutput<'read_files'> = [
+      {
+        type: 'json',
+        value: [],
+      },
+    ]
+
+    const result = simplifyReadFileResults(input)
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: [],
+      },
+    ])
   })
 
-  it('should handle empty content', () => {
-    const result = simplifyReadFileResults('')
-    expect(result).toBe('')
+  it('should handle files with contentOmittedForLength already set', () => {
+    const input: CodebuffToolOutput<'read_files'> = [
+      {
+        type: 'json',
+        value: [
+          {
+            path: 'src/file1.ts',
+            contentOmittedForLength: true,
+          },
+        ],
+      },
+    ]
+
+    const result = simplifyReadFileResults(input)
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: [
+          {
+            path: 'src/file1.ts',
+            contentOmittedForLength: true,
+          },
+        ],
+      },
+    ])
   })
 
-  it('should handle array message content with no text property', () => {
-    const messageContent = [{}, {}]
-    const result = simplifyReadFileResults(messageContent)
-    expect(result).toBe('')
-  })
+  it('should not mutate the original input', () => {
+    const originalInput: CodebuffToolOutput<'read_files'> = [
+      {
+        type: 'json',
+        value: [
+          {
+            path: 'src/file1.ts',
+            content: 'const x = 1;',
+          },
+        ],
+      },
+    ]
+    const input = structuredClone(originalInput)
 
-  it('should handle array message content with undefined text property', () => {
-    const messageContent = [{}, { text: undefined }]
-    const result = simplifyReadFileResults(messageContent)
-    expect(result).toBe('')
-  })
+    simplifyReadFileResults(input)
 
-  it('should handle multiple read_files results', () => {
-    const messageContent = `
-<tool_result>
-<tool>read_files</tool>
-<result><read_file>
-<path>test1.txt</path>
-<content>content1</content>
-<referenced_by>None</referenced_by>
-</read_file></result>
-</tool_result>
-<tool_result>
-<tool>read_files</tool>
-<result><read_file>
-<path>test2.txt</path>
-<content>content2</content>
-<referenced_by>None</referenced_by>
-</read_file></result>
-</tool_result>`
-
-    const result = simplifyReadFileResults(messageContent)
-    expect(result).toContain('Read the following files: test1.txt')
-    expect(result).toContain('Read the following files: test2.txt')
-  })
-
-  it('should handle malformed read_files result', () => {
-    const messageContent = `
-<tool_result>
-<tool>read_files</tool>
-<result>malformed content without read_file tags</result>
-</tool_result>`
-
-    const result = simplifyReadFileResults(messageContent)
-    expect(result).toContain('Read the following files: ')
+    // Original input should be unchanged
+    expect(input).toEqual(originalInput)
   })
 })
 
-describe('simplifyTerminalCommandResultsInMessages', () => {
-  it('should simplify long terminal command output', () => {
-    const messageContent = `
-<tool_result>
-<tool>run_terminal_command</tool>
-<result>Very long terminal output that should be shortened</result>
-</tool_result>`
-
-    const result = simplifyTerminalCommandResults(messageContent)
-    expect(result).toContain('[Output omitted]')
+describe('simplifyTerminalCommandResults', () => {
+  beforeEach(() => {
+    // Mock the logger.error function directly
+    spyOn(logger.logger, 'error').mockImplementation(() => {})
   })
 
-  it('should preserve short terminal command output', () => {
-    const shortOutput = 'Short output'
-    const messageContent = `
-<tool_result>
-<tool>run_terminal_command</tool>
-<result>${shortOutput}</result>
-</tool_result>`
-
-    const result = simplifyTerminalCommandResults(messageContent)
-    expect(result).toContain(shortOutput)
+  afterEach(() => {
+    mock.restore()
   })
 
-  it('should preserve other tool results', () => {
-    const messageContent = `
-<tool_result>
-<tool>run_terminal_command</tool>
-<result>Very long terminal output that should be shortened</result>
-</tool_result>
-<tool_result>
-<tool>read_files</tool>
-<result><read_file>
-<path>test.txt</path>
-<content>content</content>
-<referenced_by>None</referenced_by>
-</read_file></result>
-</tool_result>`
-
-    const result = simplifyTerminalCommandResults(messageContent)
-    expect(result).toContain('[Output omitted]')
-    expect(result).toContain(
-      '<read_file>\n<path>test.txt</path>\n<content>content</content>\n<referenced_by>None</referenced_by>\n</read_file>',
-    )
-  })
-
-  it('should handle multiple terminal command results', () => {
-    const messageContent = `
-<tool_result>
-<tool>run_terminal_command</tool>
-<result>First long output that should be shortened</result>
-</tool_result>
-<tool_result>
-<tool>run_terminal_command</tool>
-<result>Second long output that should also be shortened</result>
-</tool_result>`
-
-    const result = simplifyTerminalCommandResults(messageContent)
-    const matches = result.match(/\[Output omitted\]/g) || []
-    expect(matches.length).toBe(2)
-  })
-
-  it('should handle mixed short and long terminal outputs', () => {
-    const messageContent = `
-<tool_result>
-<tool>run_terminal_command</tool>
-<result>Very long terminal output that should be shortened</result>
-</tool_result>
-<tool_result>
-<tool>run_terminal_command</tool>
-<result>ok</result>
-</tool_result>`
-
-    const result = simplifyTerminalCommandResults(messageContent)
-    expect(result).toContain('[Output omitted]')
-    expect(result).toContain('ok')
-  })
-
-  it('should handle malformed terminal command result', () => {
-    const messageContent = `
-<tool_result>
-<tool>run_terminal_command</tool>
-<result></result>
-</tool_result>`
-
-    const result = simplifyTerminalCommandResults(messageContent)
-    expect(result).toContain('<result></result>')
-  })
-})
-
-describe('simplifyReadFileToolResult', () => {
-  it('should extract file paths from read_files result', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'read_files',
-      output: {
-        type: 'text' as const,
-        value: `<read_file>
-<path>test1.txt</path>
-<content>content1</content>
-<referenced_by>None</referenced_by>
-</read_file>
-
-<read_file>
-<path>test2.txt</path>
-<content>content2</content>
-<referenced_by>None</referenced_by>
-</read_file>`,
+  it('should simplify terminal command results with stdout', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          startingCwd: '/project',
+          message: 'Tests completed',
+          stderr: '',
+          stdout: 'Test suite passed\n✓ All tests passed',
+          exitCode: 0,
+        },
       },
-    }
+    ]
 
-    const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.toolCallId).toBe('1')
-    expect(simplified.toolName).toBe('read_files')
-    expect(simplified.output.value).toBe(
-      'Read the following files: test1.txt\ntest2.txt',
-    )
-  })
+    const result = simplifyTerminalCommandResults(input)
 
-  it('should handle single file result', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'read_files',
-      output: {
-        type: 'text' as const,
-        value:
-          '<read_file><path>test.txt</path><content>content</content><referenced_by>None</referenced_by></read_file>',
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          message: 'Tests completed',
+          stdoutOmittedForLength: true,
+          exitCode: 0,
+        },
       },
-    }
-
-    const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.output.value).toBe('Read the following files: test.txt')
+    ])
   })
 
-  it('should handle empty read_files result', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'read_files',
-      output: {
-        type: 'text' as const,
-        value: '',
+  it('should simplify terminal command results without message', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'ls -la',
+          stdout: 'file1.txt\nfile2.txt',
+          exitCode: 0,
+        },
       },
-    }
+    ]
 
-    const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.output.value).toBe('Read the following files: ')
-  })
+    const result = simplifyTerminalCommandResults(input)
 
-  it('should handle malformed read_file tags', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'read_files',
-      output: {
-        type: 'text' as const,
-        value:
-          '<read_file>no path attribute<referenced_by>None</referenced_by></read_file>',
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          command: 'ls -la',
+          stdoutOmittedForLength: true,
+          exitCode: 0,
+        },
       },
-    }
-
-    const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.output.value).toBe('Read the following files: ')
+    ])
   })
 
-  it('should handle read_file tags with empty path', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'read_files',
-      output: {
-        type: 'text' as const,
-        value:
-          '<read_file><path></path><content>content</content><referenced_by>None</referenced_by></read_file>',
+  it('should simplify terminal command results without exitCode', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'echo hello',
+          stdout: 'hello',
+        },
       },
-    }
+    ]
 
-    const simplified = simplifyReadFileToolResult(toolResult)
-    expect(simplified.output.value).toBe('Read the following files: ')
-  })
-})
+    const result = simplifyTerminalCommandResults(input)
 
-describe('simplifyTerminalCommandResult', () => {
-  it('should shorten long terminal output', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'run_terminal_command',
-      output: {
-        type: 'text' as const,
-        value: 'Very long terminal output that should be shortened',
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          command: 'echo hello',
+          stdoutOmittedForLength: true,
+        },
       },
-    }
-
-    const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.toolCallId).toBe('1')
-    expect(simplified.toolName).toBe('run_terminal_command')
-    expect(simplified.output.value).toBe('[Output omitted]')
+    ])
   })
 
-  it('should preserve short terminal output', () => {
-    const shortOutput = 'ok'
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'run_terminal_command',
-      output: { type: 'text' as const, value: shortOutput },
-    }
-
-    const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.output.value).toBe(shortOutput)
-  })
-
-  it('should handle empty terminal output', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'run_terminal_command',
-      output: {
-        type: 'text' as const,
-        value: '',
+  it('should handle background process results without simplification', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'npm start',
+          processId: 12345,
+          backgroundProcessStatus: 'running' as const,
+        },
       },
-    }
+    ]
 
-    const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.output.value).toBe('')
+    const result = simplifyTerminalCommandResults(input)
+
+    expect(result).toEqual(input)
   })
 
-  it('should handle output exactly matching omitted message length', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'run_terminal_command',
-      output: {
-        type: 'text' as const,
-        value: '[Output omitted]', // Same length as replacement
+  it('should handle error message results without simplification', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'invalid-command',
+          errorMessage: 'Command not found',
+        },
       },
-    }
+    ]
 
-    const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.output.value).toBe('[Output omitted]')
+    const result = simplifyTerminalCommandResults(input)
+
+    expect(result).toEqual(input)
   })
 
-  it('should handle output one character longer than omitted message', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'run_terminal_command',
-      output: {
-        type: 'text' as const,
-        value: '[Output omitted].', // One char longer than replacement
+  it('should handle results that already have stdoutOmittedForLength', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          message: 'Tests completed',
+          stdoutOmittedForLength: true,
+          exitCode: 0,
+        },
       },
-    }
+    ]
 
-    const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.output.value).toBe('[Output omitted]')
+    const result = simplifyTerminalCommandResults(input)
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          message: 'Tests completed',
+          stdoutOmittedForLength: true,
+          exitCode: 0,
+        },
+      },
+    ])
   })
 
-  it('should handle output one character shorter than omitted message', () => {
-    const toolResult = {
-      toolCallId: '1',
-      toolName: 'run_terminal_command',
-      output: {
-        type: 'text' as const,
-        value: '[Output omit]', // One char shorter than replacement
-      },
-    }
+  it('should handle errors gracefully and return fallback result', () => {
+    // Create input that will cause an error during processing
+    const malformedInput = {
+      invalidStructure: true,
+    } as any
 
-    const simplified = simplifyTerminalCommandToolResult(toolResult)
-    expect(simplified.output.value).toBe('[Output omit]')
+    const result = simplifyTerminalCommandResults(malformedInput)
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          command: '',
+          stdoutOmittedForLength: true,
+        },
+      },
+    ])
+
+    // Verify error was logged
+    expect(logger.logger.error).toHaveBeenCalled()
+  })
+
+  it('should not mutate the original input', () => {
+    const originalInput: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          stdout: 'Test output',
+          exitCode: 0,
+        },
+      },
+    ]
+    const input = structuredClone(originalInput)
+
+    simplifyTerminalCommandResults(input)
+
+    // Original input should be unchanged
+    expect(input).toEqual(originalInput)
+  })
+
+  it('should handle terminal command with stderr', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          stderr: 'Warning: deprecated package',
+          stdout: 'Tests passed',
+          exitCode: 0,
+        },
+      },
+    ]
+
+    const result = simplifyTerminalCommandResults(input)
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          stdoutOmittedForLength: true,
+          exitCode: 0,
+        },
+      },
+    ])
+  })
+
+  it('should handle terminal command with startingCwd', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'pwd',
+          startingCwd: '/home/user/project',
+          stdout: '/home/user/project',
+          exitCode: 0,
+        },
+      },
+    ]
+
+    const result = simplifyTerminalCommandResults(input)
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          command: 'pwd',
+          stdoutOmittedForLength: true,
+          exitCode: 0,
+        },
+      },
+    ])
   })
 })

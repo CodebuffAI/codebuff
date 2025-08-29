@@ -6,7 +6,7 @@ import { getFileTokenScores } from '../../packages/code-map/src/parse'
 
 import type { ServerAction } from '../../common/src/actions'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-import type { CodebuffMessage } from '../../common/src/types/messages/codebuff-message'
+import type { Message } from '../../common/src/types/messages/codebuff-message'
 import type { SessionState } from '../../common/src/types/session-state'
 import type {
   CustomToolDefinitions,
@@ -210,7 +210,7 @@ export function withAdditionalMessage({
   message,
 }: {
   runState: RunState
-  message: CodebuffMessage
+  message: Message
 }): RunState {
   // Deep copy
   const newRunState = JSON.parse(JSON.stringify(runState)) as typeof runState
@@ -225,7 +225,7 @@ export function withMessageHistory({
   messages,
 }: {
   runState: RunState
-  messages: CodebuffMessage[]
+  messages: Message[]
 }): RunState {
   // Deep copy
   const newRunState = JSON.parse(JSON.stringify(runState)) as typeof runState

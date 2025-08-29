@@ -1,4 +1,4 @@
-import type { ToolResultPart } from 'ai'
+import type { ToolResultOutput } from '../types/messages/content-part'
 import type z from 'zod/v4'
 
 export const toolNameParam = 'cb_tool_name'
@@ -64,12 +64,9 @@ export const publishedTools = [
 
 export type ToolName = (typeof toolNames)[number]
 
-export type ToolParams<T extends ToolName = ToolName> = {
+export type $ToolParams<T extends ToolName = ToolName> = {
   toolName: T
   endsAgentStep: boolean
   parameters: z.ZodType
-}
-
-export type StringToolResultPart = Omit<ToolResultPart, 'type'> & {
-  output: { type: 'text' }
+  outputs: z.ZodType<ToolResultOutput[]>
 }

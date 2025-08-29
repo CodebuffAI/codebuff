@@ -13,11 +13,14 @@ import type {
   StepGenerator,
   PublicAgentState,
 } from '@codebuff/common/types/agent-template'
+import type {
+  ToolResultOutput,
+  ToolResultPart,
+} from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
-  ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -121,7 +124,7 @@ export async function runProgrammaticStep(
 
   // Initialize state for tool execution
   const toolCalls: CodebuffToolCall[] = []
-  const toolResults: ToolResult[] = []
+  const toolResults: ToolResultPart[] = []
   const state = {
     ws,
     fingerprintId,
@@ -146,7 +149,7 @@ export async function runProgrammaticStep(
     messages: agentState.messageHistory.map((msg) => ({ ...msg })),
   }
 
-  let toolResult: string | undefined
+  let toolResult: ToolResultOutput[] = []
   let endTurn = false
 
   try {
@@ -181,7 +184,9 @@ export async function runProgrammaticStep(
       const toolCall = {
         ...toolCallWithoutId,
         toolCallId: crypto.randomUUID(),
-      } as CodebuffToolCall
+      } as CodebuffToolCall & {
+        includeToolCall?: boolean
+      }
 
       if (!template.toolNames.includes(toolCall.toolName)) {
         throw new Error(
@@ -191,7 +196,7 @@ export async function runProgrammaticStep(
 
       // Add assistant message with the tool call before executing it
       // Exception: don't add tool call message for add_message since it adds its own message
-      if (toolCall.toolName !== 'add_message') {
+      if (toolCall?.includeToolCall !== false) {
         const toolCallString = getToolCallString(
           toolCall.toolName,
           toolCall.input,
@@ -234,7 +239,7 @@ export async function runProgrammaticStep(
       state.agentState.messageHistory = state.messages
 
       // Get the latest tool result
-      toolResult = toolResults[toolResults.length - 1]?.output.value
+      toolResult = toolResults[toolResults.length - 1]?.output
 
       if (toolCall.toolName === 'end_turn') {
         endTurn = true

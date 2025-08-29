@@ -7,18 +7,31 @@ import {
   extractAgentIdFromFileName,
 } from '@codebuff/common/util/agent-file-utils'
 import { green, yellow, cyan, magenta, bold, gray, red } from 'picocolors'
+
 // Import files to replicate in the user's .agents directory. Bun bundler requires relative paths.
-// @ts-ignore - It complains about the .md file, but it works.
-import readmeContent from '../../../common/src/templates/initial-agents-dir/README.md' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import agentDefinitionTypes from '../../../common/src/templates/initial-agents-dir/types/agent-definition' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import toolsTypes from '../../../common/src/templates/initial-agents-dir/types/tools' with { type: 'text' }
+
 import basicDiffReviewer from '../../../common/src/templates/initial-agents-dir/examples/01-basic-diff-reviewer' with { type: 'text' }
 import intermediateGitCommitter from '../../../common/src/templates/initial-agents-dir/examples/02-intermediate-git-committer' with { type: 'text' }
 import advancedFileExplorer from '../../../common/src/templates/initial-agents-dir/examples/03-advanced-file-explorer' with { type: 'text' }
 import myCustomAgent from '../../../common/src/templates/initial-agents-dir/my-custom-agent' with { type: 'text' }
 
+// @ts-ignore - No default import, but we are importing as text so it's fine
+// @ts-ignore - It complains about the .md file, but it works.
+import readmeContent from '../../../common/src/templates/initial-agents-dir/README.md' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import agentDefinitionTypes from '../../../common/src/templates/initial-agents-dir/types/agent-definition' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import messageTypes from '../../../common/src/templates/initial-agents-dir/types/codebuff-message' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import contentPartTypes from '../../../common/src/templates/initial-agents-dir/types/content-part' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import dataContentTypes from '../../../common/src/templates/initial-agents-dir/types/data-content' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import jsonTypes from '../../../common/src/templates/initial-agents-dir/types/json' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import providerMetadataTypes from '../../../common/src/templates/initial-agents-dir/types/provider-metadata' with { type: 'text' }
+// @ts-ignore - No default import, but we are importing as text so it's fine
+import toolsTypes from '../../../common/src/templates/initial-agents-dir/types/tools' with { type: 'text' }
 import {
   loadLocalAgents,
   getLoadedAgentNames,
@@ -656,6 +669,31 @@ async function createExampleAgentFiles() {
       path: path.join(typesDir, 'tools.ts'),
       content: toolsTypes,
       description: 'TypeScript type definitions for tools',
+    },
+    {
+      path: path.join(typesDir, 'codebuff-message.ts'),
+      content: messageTypes,
+      description: 'TypeScript type definitions for messages',
+    },
+    {
+      path: path.join(typesDir, 'content-part.ts'),
+      content: contentPartTypes,
+      description: 'TypeScript type definitions for content parts',
+    },
+    {
+      path: path.join(typesDir, 'data-content.ts'),
+      content: dataContentTypes,
+      description: 'TypeScript type definitions for data content',
+    },
+    {
+      path: path.join(typesDir, 'provider-metadata.ts'),
+      content: providerMetadataTypes,
+      description: 'TypeScript type definitions for provider metadata',
+    },
+    {
+      path: path.join(typesDir, 'json.ts'),
+      content: jsonTypes,
+      description: 'TypeScript type definitions for JSON',
     },
     {
       path: path.join(agentsDir, 'my-custom-agent.ts'),

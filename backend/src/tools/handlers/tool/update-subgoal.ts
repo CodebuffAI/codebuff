@@ -1,13 +1,17 @@
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 
+type ToolName = 'update_subgoal'
 export const handleUpdateSubgoal = ((params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'update_subgoal'>
+  toolCall: CodebuffToolCall<ToolName>
   state: { agentContext?: Record<string, Subgoal> }
 }): {
-  result: Promise<string>
+  result: Promise<CodebuffToolOutput<ToolName>>
   state: { agentContext: Record<string, Subgoal> }
 } => {
   const { previousToolCallFinished, toolCall, state } = params
@@ -36,7 +40,17 @@ export const handleUpdateSubgoal = ((params: {
   }
   messages.push('Successfully updated subgoal.')
   return {
-    result: previousToolCallFinished.then(() => messages.join('\n\n')),
+    result: (async () => {
+      await previousToolCallFinished
+      return [
+        {
+          type: 'json',
+          value: {
+            message: messages.join('\n\n'),
+          },
+        },
+      ]
+    })(),
     state: { agentContext },
   }
-}) satisfies CodebuffToolHandlerFunction<'update_subgoal'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

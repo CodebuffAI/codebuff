@@ -1,4 +1,4 @@
-import { llmToolCallSchema } from '@codebuff/common/tools/list'
+import { $toolParams } from '@codebuff/common/tools/list'
 
 import { addMessageTool } from './tool/add-message'
 import { addSubgoalTool } from './tool/add-subgoal'
@@ -53,7 +53,7 @@ const toolDescriptions = {
 }
 
 export type ToolDefinition<T extends ToolName = ToolName> = {
-  [K in ToolName]: (typeof toolDescriptions)[K] & (typeof llmToolCallSchema)[K]
+  [K in ToolName]: (typeof toolDescriptions)[K] & (typeof $toolParams)[K]
 }[T]
 
 export const codebuffToolDefs = Object.fromEntries(
@@ -61,7 +61,7 @@ export const codebuffToolDefs = Object.fromEntries(
     toolName,
     {
       ...toolDescriptions[toolName as ToolName],
-      ...llmToolCallSchema[toolName as ToolName],
+      ...$toolParams[toolName as ToolName],
     } satisfies ToolDefinition,
   ]),
 ) as { [K in ToolName]: ToolDefinition<K> } satisfies ToolSet

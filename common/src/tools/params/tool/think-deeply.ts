@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'think_deeply'
 const endsAgentStep = false
@@ -19,4 +19,5 @@ export const thinkDeeplyParams = {
     .describe(
       `Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([]),
+} satisfies $ToolParams

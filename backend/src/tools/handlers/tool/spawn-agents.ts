@@ -7,14 +7,16 @@ import {
   logAgentSpawn,
   executeAgent,
   formatAgentResult,
-  formatAgentError,
 } from './spawn-agent-utils'
 import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -28,16 +30,17 @@ export type SendSubagentChunk = (data: {
   prompt?: string
 }) => void
 
+type ToolName = 'spawn_agents'
 export const handleSpawnAgents = ((params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'spawn_agents'>
+  toolCall: CodebuffToolCall<ToolName>
 
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
   writeToClient: (chunk: string | PrintModeEvent) => void
 
-  getLatestState: () => { messages: CodebuffMessage[] }
+  getLatestState: () => { messages: Message[] }
   state: {
     ws?: WebSocket
     fingerprintId?: string
@@ -45,10 +48,10 @@ export const handleSpawnAgents = ((params: {
     agentTemplate?: AgentTemplate
     localAgentTemplates?: Record<string, AgentTemplate>
     sendSubagentChunk?: SendSubagentChunk
-    messages?: CodebuffMessage[]
+    messages?: Message[]
     agentState?: AgentState
   }
-}): { result: Promise<string>; state: {} } => {
+}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -95,7 +98,7 @@ export const handleSpawnAgents = ((params: {
 
         validateAgentInput(agentTemplate, agentType, prompt, params)
 
-        const subAgentMessages: CodebuffMessage[] = []
+        const subAgentMessages: Message[] = []
         if (agentTemplate.includeMessageHistory) {
           subAgentMessages.push(conversationHistoryMessage)
         }
@@ -172,7 +175,10 @@ export const handleSpawnAgents = ((params: {
             agentTypeStr,
           )
         } else {
-          return formatAgentError(agentTypeStr, result.reason)
+          return {
+            agentType: agentTypeStr,
+            errorMessage: `Error spawning agent: ${result.reason}`,
+          }
         }
       }),
     )
@@ -219,11 +225,17 @@ export const handleSpawnAgents = ((params: {
     })
 
     return reports
-      .map((report: string) => `<agent_report>${report}</agent_report>`)
-      .join('\n')
   }
   return {
-    result: previousToolCallFinished.then(triggerSpawnAgents),
+    result: (async () => {
+      await previousToolCallFinished
+      return [
+        {
+          type: 'json',
+          value: await triggerSpawnAgents(),
+        },
+      ]
+    })(),
     state: {},
   }
-}) satisfies CodebuffToolHandlerFunction<'spawn_agents'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

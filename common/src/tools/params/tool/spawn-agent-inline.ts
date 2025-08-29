@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'spawn_agent_inline'
 const endsAgentStep = true
@@ -19,4 +19,5 @@ export const spawnAgentInlineParams = {
     .describe(
       `Spawn a single agent that runs within the current message history.`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([]),
+} satisfies $ToolParams

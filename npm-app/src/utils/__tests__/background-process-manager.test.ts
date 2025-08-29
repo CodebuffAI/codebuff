@@ -26,7 +26,7 @@ if (!isCI) {
   // Wrap the dynamic import and tests in an async IIFE to avoid top-level await
   ;(async () => {
     // Only import the implementation if not in CI
-    const { getBackgroundProcessInfoString } = await import(
+    const { getBackgroundProcessUpdate } = await import(
       '../../background-process-manager'
     )
 
@@ -60,7 +60,7 @@ if (!isCI) {
           lastReportedStatus: null,
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -89,7 +89,7 @@ if (!isCI) {
           lastReportedStatus: null,
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -119,7 +119,7 @@ if (!isCI) {
           lastReportedStatus: null,
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -143,8 +143,8 @@ if (!isCI) {
           lastReportedStatus: 'completed',
         }
 
-        const result = getBackgroundProcessInfoString(info)
-        expect(result).toBe('')
+        const result = getBackgroundProcessUpdate(info)
+        expect(Boolean(result)).toBeFalse()
       })
 
       test('handles new output since last report', () => {
@@ -166,7 +166,7 @@ if (!isCI) {
           lastReportedStatus: 'completed',
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -190,7 +190,7 @@ if (!isCI) {
           lastReportedStatus: 'running',
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -214,7 +214,7 @@ if (!isCI) {
           lastReportedStatus: null,
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -237,7 +237,7 @@ if (!isCI) {
           lastReportedStatus: null,
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -261,7 +261,7 @@ if (!isCI) {
           lastReportedStatus: 'completed',
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -285,7 +285,7 @@ if (!isCI) {
           lastReportedStatus: 'completed',
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -309,7 +309,7 @@ if (!isCI) {
           lastReportedStatus: 'running', // Status changed from running to completed
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -333,7 +333,7 @@ if (!isCI) {
           lastReportedStatus: null,
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })
@@ -356,7 +356,7 @@ if (!isCI) {
           lastReportedStatus: null,
         }
 
-        const result = getBackgroundProcessInfoString(info)
+        const result = getBackgroundProcessUpdate(info)
 
         expect(result).toMatchSnapshot()
       })

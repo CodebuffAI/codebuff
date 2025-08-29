@@ -198,19 +198,25 @@ describe('Cost Aggregation Integration Tests', () => {
       async (ws, userInputId, toolName, input) => {
         if (toolName === 'write_file') {
           return {
-            success: true,
-            output: {
-              type: 'text' as const,
-              value: `File ${input.path} created successfully`,
-            },
+            output: [
+              {
+                type: 'json',
+                value: {
+                  message: `File ${input.path} created successfully`,
+                },
+              },
+            ],
           }
         }
         return {
-          success: true,
-          output: {
-            type: 'text' as const,
-            value: 'Tool executed successfully',
-          },
+          output: [
+            {
+              type: 'json',
+              value: {
+                message: 'Tool executed successfully',
+              },
+            },
+          ],
         }
       },
     )

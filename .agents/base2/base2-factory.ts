@@ -1,9 +1,9 @@
 import { publisher } from '../constants'
-
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
+
 import type { ModelName } from 'types/agent-definition'
 
 export const base2 = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
@@ -76,6 +76,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           agent_type: 'context-pruner',
           params: params ?? {},
         },
+        includeToolCall: false,
       } as any
 
       const { stepsComplete } = yield 'STEP'
@@ -87,6 +88,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             role: 'user',
             content: `You have reached the step limit. Please summarize your progress in plain text (no need to use set_output) so far and what you still need to solve. Immediately after summarizing, please end your turn. Do not use any tools except for the end_turn tool.`,
           },
+          includeToolCall: false,
         }
         yield 'STEP'
         break

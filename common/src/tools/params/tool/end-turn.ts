@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'end_turn'
 const endsAgentStep = true
@@ -12,4 +12,5 @@ export const endTurnParams = {
     .describe(
       `End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([]),
+} satisfies $ToolParams

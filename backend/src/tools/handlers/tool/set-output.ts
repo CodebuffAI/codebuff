@@ -2,21 +2,25 @@ import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
+type ToolName = 'set_output'
 export const handleSetOutput = ((params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'set_output'>
+  toolCall: CodebuffToolCall<ToolName>
   fileContext: ProjectFileContext
   state: {
     agentState?: AgentState
     localAgentTemplates?: Record<string, AgentTemplate>
   }
 }): {
-  result: Promise<string>
+  result: Promise<CodebuffToolOutput<ToolName>>
   state: { agentState: AgentState }
 } => {
   const { previousToolCallFinished, toolCall, state } = params
@@ -69,7 +73,17 @@ export const handleSetOutput = ((params: {
   }
 
   return {
-    result: previousToolCallFinished.then(triggerSetOutput),
+    result: (async () => {
+      await previousToolCallFinished
+      return [
+        {
+          type: 'json',
+          value: {
+            message: await triggerSetOutput(),
+          },
+        },
+      ]
+    })(),
     state: { agentState: agentState },
   }
-}) satisfies CodebuffToolHandlerFunction<'set_output'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

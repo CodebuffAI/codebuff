@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'update_subgoal'
 const endsAgentStep = false
@@ -28,4 +28,12 @@ export const updateSubgoalParams = {
     .describe(
       `Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z.object({
+        message: z.string(),
+      }),
+    }),
+  ]),
+} satisfies $ToolParams

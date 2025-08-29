@@ -1,6 +1,8 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import { BrowserResponseSchema } from '../../../browser-actions'
+
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'browser_logs'
 const endsAgentStep = true
@@ -21,4 +23,10 @@ export const browserLogsParams = {
       .optional()
       .describe("When to consider navigation successful. Defaults to 'load'."),
   }),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: BrowserResponseSchema,
+    }),
+  ]),
+} satisfies $ToolParams

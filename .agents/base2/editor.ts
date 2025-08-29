@@ -1,5 +1,4 @@
 import { publisher } from '../constants'
-
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
@@ -150,6 +149,7 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
             content:
               'You have reached the step limit. Please use the set_output tool now to summarize your progress so far, what you still need to solve, and provide any insights that could help complete the remaining work. Please end your turn after using the set_output tool with the end_turn tool.',
           },
+          includeToolCall: false,
         }
 
         // One final step to produce the summary

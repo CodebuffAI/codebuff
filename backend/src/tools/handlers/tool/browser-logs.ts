@@ -2,6 +2,7 @@ import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   ClientToolCall,
   CodebuffToolCall,
+  CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 
 export const handleBrowserLogs = ((params: {
@@ -9,14 +10,15 @@ export const handleBrowserLogs = ((params: {
   toolCall: CodebuffToolCall<'browser_logs'>
   requestClientToolCall: (
     toolCall: ClientToolCall<'browser_logs'>,
-  ) => Promise<string>
-}): { result: Promise<string>; state: {} } => {
+  ) => Promise<CodebuffToolOutput<'browser_logs'>>
+}): { result: Promise<CodebuffToolOutput<'browser_logs'>>; state: {} } => {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
   return {
-    result: previousToolCallFinished.then(() =>
-      requestClientToolCall(toolCall),
-    ),
+    result: (async () => {
+      await previousToolCallFinished
+      return await requestClientToolCall(toolCall)
+    })(),
     state: {},
   }
 }) satisfies CodebuffToolHandlerFunction<'browser_logs'>

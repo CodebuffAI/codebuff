@@ -1,8 +1,8 @@
 import z from 'zod/v4'
 
-import { providerMetadataSchema } from './provider-metadata'
-import { jsonValueSchema } from '../json'
 import { dataContentSchema } from './data-content'
+import { jsonValueSchema } from './json'
+import { providerMetadataSchema } from './provider-metadata'
 
 export const textPartSchema = z.object({
   type: z.literal('text'),

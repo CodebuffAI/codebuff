@@ -6,7 +6,6 @@ import {
 } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
-import { renderToolResults } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 
@@ -29,19 +28,20 @@ import {
   getMessagesSubset,
   isSystemInstruction,
 } from './util/messages'
-import { isToolResult, renderReadFilesResult } from './util/parse-tool-call-xml'
+import { renderReadFilesResult } from './util/parse-tool-call-xml'
 import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
+import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentTemplateType,
   AgentState,
-  ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -149,8 +149,12 @@ export const runAgentStep = async (
   if (clearReadFileToolResults) {
     // Update message history.
     for (const message of messageHistory) {
-      if (isToolResult(message)) {
-        message.content = simplifyReadFileResults(message.content)
+      if (
+        message.role === 'tool' &&
+        message.content.toolName === 'read_files'
+      ) {
+        const m = message as CodebuffToolMessage<'read_files'>
+        m.content.output = simplifyReadFileResults(m.content.output)
       }
     }
 
@@ -162,7 +166,7 @@ export const runAgentStep = async (
     })
   }
 
-  const toolResults: ToolResult[] = []
+  const toolResults: ToolResultPart[] = []
 
   const updatedFiles = addedFiles.filter((f) =>
     updatedFilePaths.includes(f.path),
@@ -170,14 +174,21 @@ export const runAgentStep = async (
 
   if (updatedFiles.length > 0) {
     toolResults.push({
+      type: 'tool-result',
       toolName: 'file_updates',
       toolCallId: generateCompactId(),
-      output: {
-        type: 'text',
-        value:
-          `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes:\n` +
-          renderReadFilesResult(updatedFiles, fileContext.tokenCallers ?? {}),
-      },
+      output: [
+        {
+          type: 'json',
+          value: {
+            message: `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes.`,
+            files: renderReadFilesResult(
+              updatedFiles,
+              fileContext.tokenCallers ?? {},
+            ),
+          },
+        },
+      ],
     })
   }
 
@@ -217,13 +228,15 @@ export const runAgentStep = async (
     localAgentTemplates,
   )
 
-  const agentMessagesUntruncated = buildArray<CodebuffMessage>(
+  const agentMessagesUntruncated = buildArray<Message>(
     ...expireMessages(messageHistory, 'agentStep'),
 
-    toolResults.length > 0 && {
-      role: 'user' as const,
-      content: asSystemMessage(renderToolResults(toolResults)),
-    },
+    toolResults.map((result) => {
+      return {
+        role: 'tool',
+        content: result,
+      }
+    }),
 
     stepPrompt && {
       role: 'user' as const,
@@ -443,6 +456,7 @@ export const loopAgentSteps = async (
     userId,
     clientSessionId,
     onResponseChunk,
+    clearUserPromptMessagesAfterResponse = true,
   }: {
     userInputId: string
     agentType: AgentTemplateType
@@ -451,8 +465,9 @@ export const loopAgentSteps = async (
     params: Record<string, any> | undefined
     fingerprintId: string
     fileContext: ProjectFileContext
-    toolResults: ToolResult[]
+    toolResults: ToolResultPart[]
     localAgentTemplates: Record<string, AgentTemplate>
+    clearUserPromptMessagesAfterResponse?: boolean
 
     userId: string | undefined
     clientSessionId: string
@@ -465,7 +480,9 @@ export const loopAgentSteps = async (
   }
 
   // Initialize message history with user prompt and instructions on first iteration
-  const hasPrompt = Boolean(prompt || params)
+  const hasPrompt = Boolean(
+    prompt || (params && Object.keys(params).length > 0),
+  )
 
   // Get the instructions prompt if we have a prompt/params
   const instructionsPrompt = hasPrompt
@@ -479,23 +496,27 @@ export const loopAgentSteps = async (
     : undefined
 
   // Build the initial message history with user prompt and instructions
-  const initialMessages = buildArray<CodebuffMessage>(
-    ...agentState.messageHistory.map((m) => ({
+  const initialMessages = buildArray<Message>(
+    agentState.messageHistory.map((m) => ({
       ...m,
       keepDuringTruncation: false,
     })),
 
-    toolResults.length > 0 && {
-      role: 'user' as const,
-      content: asSystemMessage(renderToolResults(toolResults)),
-    },
+    toolResults.map((result) => {
+      return {
+        role: 'tool' as const,
+        content: result,
+      }
+    }),
 
     hasPrompt && [
       {
         // Actual user prompt!
         role: 'user' as const,
         content: asUserMessage(
-          `${prompt ?? ''}${params ? `\n\n${JSON.stringify(params, null, 2)}` : ''}`,
+          buildArray([prompt, params && JSON.stringify(params, null, 2)]).join(
+            '\n\n',
+          ),
         ),
         keepDuringTruncation: true,
       },
@@ -563,6 +584,12 @@ export const loopAgentSteps = async (
 
       // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
       if (shouldEndTurn) {
+        if (clearUserPromptMessagesAfterResponse) {
+          currentAgentState.messageHistory = expireMessages(
+            currentAgentState.messageHistory,
+            'userPrompt',
+          )
+        }
         return {
           agentState: currentAgentState,
         }
@@ -590,6 +617,12 @@ export const loopAgentSteps = async (
       currentParams = undefined
     }
 
+    if (clearUserPromptMessagesAfterResponse) {
+      currentAgentState.messageHistory = expireMessages(
+        currentAgentState.messageHistory,
+        'userPrompt',
+      )
+    }
     return { agentState: currentAgentState }
   } catch (error) {
     // Log the error but still return the state with partial costs

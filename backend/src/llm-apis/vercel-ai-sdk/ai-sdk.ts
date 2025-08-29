@@ -23,13 +23,12 @@ import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
-import type { System } from '../claude'
 import type {
   GeminiModel,
   Model,
   OpenAIModel,
 } from '@codebuff/common/constants'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   OpenRouterProviderOptions,
   OpenRouterUsageAccounting,
@@ -64,7 +63,7 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
 export const promptAiSdkStream = async function* (
   options: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     clientSessionId: string
     fingerprintId: string
     model: Model
@@ -76,7 +75,7 @@ export const promptAiSdkStream = async function* (
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
-  } & Omit<Parameters<typeof streamText>[0], 'model'>,
+  } & Omit<Parameters<typeof streamText>[0], 'model' | 'messages'>,
 ) {
   if (
     !checkLiveUserInput(
@@ -225,7 +224,7 @@ export const promptAiSdkStream = async function* (
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
 export const promptAiSdk = async function (
   options: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     clientSessionId: string
     fingerprintId: string
     userInputId: string
@@ -235,7 +234,7 @@ export const promptAiSdk = async function (
     agentId?: string
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
-  } & Omit<Parameters<typeof generateText>[0], 'model'>,
+  } & Omit<Parameters<typeof generateText>[0], 'model' | 'messages'>,
 ): Promise<string> {
   if (
     !checkLiveUserInput(
@@ -295,7 +294,7 @@ export const promptAiSdk = async function (
 
 // Copied over exactly from promptAiSdk but with a schema
 export const promptAiSdkStructured = async function <T>(options: {
-  messages: CodebuffMessage[]
+  messages: Message[]
   schema: z.ZodType<T>
   clientSessionId: string
   fingerprintId: string
@@ -368,34 +367,4 @@ export const promptAiSdkStructured = async function <T>(options: {
   }
 
   return content
-}
-
-// TODO: temporary - ideally we move to using CodebuffMessage[] directly
-// and don't need this transform!!
-export function transformMessages(
-  messages: CodebuffMessage[],
-  system?: System,
-): CodebuffMessage[] {
-  const codebuffMessages: CodebuffMessage[] = []
-
-  if (system) {
-    codebuffMessages.push({
-      role: 'system',
-      content:
-        typeof system === 'string'
-          ? system
-          : system.map((block) => block.text).join('\n\n'),
-    })
-  }
-
-  return buildArray<CodebuffMessage>([
-    system && {
-      role: 'system',
-      content:
-        typeof system === 'string'
-          ? system
-          : system.map((block) => block.text).join('\n\n'),
-    },
-    messages,
-  ])
 }

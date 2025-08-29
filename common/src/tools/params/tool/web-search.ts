@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'web_search'
 const endsAgentStep = true
@@ -22,4 +22,17 @@ export const webSearchParams = {
         ),
     })
     .describe(`Search the web for current information using Linkup API.`),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z.union([
+        z.object({
+          result: z.string(),
+        }),
+        z.object({
+          errorMessage: z.string(),
+        }),
+      ]),
+    }),
+  ]),
+} satisfies $ToolParams

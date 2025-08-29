@@ -2,6 +2,7 @@ import path from 'path'
 
 import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { has } from 'lodash'
 import { yellow } from 'picocolors'
 
 import { runBackgroundCommand } from './terminal/background'
@@ -57,9 +58,8 @@ export function startDevProcesses(
         stdoutFile,
         stderrFile,
       },
-      ({ result }) => {
-        const m = result.match(/<process_id>(\d+)<\/process_id>/)
-        if (m) {
+      (result) => {
+        if (has(result, 'processId')) {
           console.log(yellow(`- ${name}: ${command}`))
         } else {
           console.log(yellow(`- ${name}: ${command} — failed to start`))

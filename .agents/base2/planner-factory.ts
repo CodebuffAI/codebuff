@@ -1,9 +1,10 @@
-import { ModelName, ToolCall } from 'types/agent-definition'
 import { publisher } from '../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
+
+import type { ModelName, ToolCall } from 'types/agent-definition'
 
 export const plannerFactory = (
   model: ModelName,
@@ -51,11 +52,23 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
       agentState.messageHistory
         .slice(2)
         .map((message) =>
-          typeof message.content === 'string'
-            ? message.content
-            : message.content
-                .map((content) => (content.type === 'text' ? content.text : ''))
-                .join('\n'),
+          message.role === 'tool'
+            ? JSON.stringify(
+                {
+                  toolName: message.content.toolName,
+                  toolCallId: message.content.toolCallId,
+                  output: message.content.output,
+                },
+                null,
+                2,
+              )
+            : typeof message.content === 'string'
+              ? message.content
+              : message.content
+                  .map((content) =>
+                    content.type === 'text' ? content.text : '',
+                  )
+                  .join('\n'),
         )
         .join('\n')
 

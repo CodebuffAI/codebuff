@@ -1,7 +1,10 @@
-import z from 'zod/v4'
 import fs from 'fs'
 import path from 'path'
+
 import { applyPatch } from 'diff'
+import z from 'zod/v4'
+
+import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -12,42 +15,60 @@ const FileChangeSchema = z.object({
 export function changeFile(
   parameters: unknown,
   cwd: string,
-): { toolResultMessage: string } {
+): CodebuffToolOutput<'str_replace'> {
   if (cwd.includes('../')) {
     throw new Error('cwd cannot include ../')
   }
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
 
-  const { created, modified, invalid, patchFailed } = applyChanges(cwd, [fileChange])
+  const { created, modified, invalid, patchFailed } = applyChanges(cwd, [
+    fileChange,
+  ])
 
-  const results: string[] = []
+  const results: CodebuffToolOutput<'str_replace'>[0]['value'][] = []
 
   for (const file of created) {
-    results.push(
-      `Created ${file} successfully. Changes made:\n${lines.join('\n')}`,
-    )
+    results.push({
+      file,
+      message: 'Created new file',
+      unifiedDiff: lines.join('\n'),
+    })
   }
 
   for (const file of modified) {
-    results.push(
-      `Wrote to ${file} successfully. Changes made:\n${lines.join('\n')}`,
-    )
+    results.push({
+      file,
+      message: 'Updated file',
+      unifiedDiff: lines.join('\n'),
+    })
   }
 
   for (const file of patchFailed) {
-    results.push(
-      `Failed to write to ${file}; the patch failed to apply`,
-    )
+    results.push({
+      file,
+      errorMessage: `Failed to apply patch.`,
+      patch: lines.join('\n'),
+    })
   }
 
   for (const file of invalid) {
-    results.push(
-      `Failed to write to ${file}; file path caused an error or file could not be written`,
+    results.push({
+      file,
+      errorMessage:
+        'Failed to write to file: file path caused an error or file could not be written',
+    })
+  }
+
+  if (results.length !== 1) {
+    throw new Error(
+      `Internal error: Unexpected result length while modifying files: ${
+        results.length
+      }`,
     )
   }
 
-  return { toolResultMessage: results.join('\n') }
+  return [{ type: 'json', value: results[0] }]
 }
 
 function applyChanges(

@@ -14,14 +14,19 @@ import {
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { DEFAULT_MAX_AGENT_STEPS } from '../../common/src/json-config/constants'
 import { toolNames } from '../../common/src/tools/constants'
+import {
+  clientToolCallSchema,
+  type ClientToolCall,
+  type ClientToolName,
+  type CodebuffToolOutput,
+} from '../../common/src/tools/list'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type { ToolName } from '../../common/src/tools/constants'
+import type { ToolResultOutput } from '../../common/src/types/messages/content-part'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
-
-type ClientToolName = 'write_file' | 'run_terminal_command'
 
 export type CodebuffClientOptions = {
   // Provide an API key or set the CODEBUFF_API_KEY environment variable.
@@ -29,16 +34,15 @@ export type CodebuffClientOptions = {
   cwd: string
   onError: (error: { message: string }) => void
   overrideTools?: Partial<
-    Record<
-      ClientToolName,
-      (
-        input: ServerAction<'tool-call-request'>['input'],
-      ) => Promise<{ toolResultMessage: string }>
-    > & {
+    {
+      [K in ClientToolName]: (
+        input: ClientToolCall<K>['input'],
+      ) => Promise<CodebuffToolOutput<K>>
+    } & {
       // Include read_files separately, since it has a different signature.
-      read_files: (
-        filePath: string[],
-      ) => Promise<{ files: Record<string, string | null> }>
+      read_files: (input: {
+        filePaths: string[]
+      }) => Promise<Record<string, string | null>>
     }
   >
 }
@@ -206,28 +210,28 @@ export class CodebuffClient {
         const handler = toolDef.handler
         try {
           return {
-            success: true,
-            output: {
-              type: 'text',
-              value: (await handler(toolDef.zodSchema.parse(input)))
-                .toolResultMessage,
-            },
+            output: toolDef.outputSchema.parse(
+              await handler(toolDef.zodSchema.parse(input)),
+            ),
           }
         } catch (error) {
           return {
-            success: false,
-            output: {
-              type: 'text',
-              value:
-                error &&
-                typeof error === 'object' &&
-                'message' in error &&
-                typeof error.message === 'string'
-                  ? error.message
-                  : typeof error === 'string'
-                    ? error
-                    : 'Unknown error',
-            },
+            output: [
+              {
+                type: 'json',
+                value: {
+                  errorMessage:
+                    error &&
+                    typeof error === 'object' &&
+                    'message' in error &&
+                    typeof error.message === 'string'
+                      ? error.message
+                      : typeof error === 'string'
+                        ? error
+                        : 'Unknown error',
+                },
+              },
+            ],
           }
         }
       }
@@ -282,22 +286,22 @@ export class CodebuffClient {
     }
   }
 
-  private async readFiles(filePath: string[]) {
+  private async readFiles({ filePaths }: { filePaths: string[] }) {
     const override = this.overrideTools.read_files
     if (override) {
-      const overrideResult = await override(filePath)
-      return overrideResult.files
+      return await override({ filePaths })
     }
-    return getFiles(filePath, this.cwd)
+    return getFiles(filePaths, this.cwd)
   }
 
   private async handleToolCall(
     action: ServerAction<'tool-call-request'>,
   ): ReturnType<WebSocketHandler['handleToolCall']> {
+    clientToolCallSchema.parse(action)
     const toolName = action.toolName
     const input = action.input
 
-    let result: string
+    let result: ToolResultOutput[]
     if (!toolNames.includes(toolName as ToolName)) {
       const customToolHandler =
         this.promptIdToHandlers[action.userInputId].customToolHandler
@@ -316,19 +320,16 @@ export class CodebuffClient {
         override = this.overrideTools['write_file']
       }
       if (override) {
-        const overrideResult = await override(input)
-        result = overrideResult.toolResultMessage
+        result = await override(input as any)
       } else if (toolName === 'end_turn') {
-        result = ''
+        result = []
       } else if (toolName === 'write_file' || toolName === 'str_replace') {
-        const r = changeFile(input, this.cwd)
-        result = r.toolResultMessage
+        result = changeFile(input, this.cwd)
       } else if (toolName === 'run_terminal_command') {
-        const r = await runTerminalCommand({
+        result = await runTerminalCommand({
           ...input,
           cwd: input.cwd ?? this.cwd,
         } as Parameters<typeof runTerminalCommand>[0])
-        result = r.output
       } else {
         throw new Error(
           `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
@@ -336,27 +337,26 @@ export class CodebuffClient {
       }
     } catch (error) {
       return {
-        success: false,
-        output: {
-          type: 'text',
-          value:
-            error &&
-            typeof error === 'object' &&
-            'message' in error &&
-            typeof error.message === 'string'
-              ? error.message
-              : typeof error === 'string'
-                ? error
-                : 'Unknown error',
-        },
+        output: [
+          {
+            type: 'json',
+            value: {
+              errorMessage:
+                error &&
+                typeof error === 'object' &&
+                'message' in error &&
+                typeof error.message === 'string'
+                  ? error.message
+                  : typeof error === 'string'
+                    ? error
+                    : 'Unknown error',
+            },
+          },
+        ],
       }
     }
     return {
-      success: true,
-      output: {
-        type: 'text',
-        value: result,
-      },
+      output: result,
     }
   }
 }
