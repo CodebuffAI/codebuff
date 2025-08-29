@@ -1,8 +1,8 @@
 import { publisher } from './constants'
 
 import type { AgentDefinition, ToolCall } from './types/agent-definition'
+import type { Message, ToolMessage } from './types/codebuff-message'
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
-import type { Message, ToolMessage } from '@codebuff/sdk'
 
 const definition: AgentDefinition = {
   id: 'context-pruner',

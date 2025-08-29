@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from 'bun:test'
 
 import contextPruner from '../context-pruner'
 
-import type { Message } from '@codebuff/sdk'
+import type { Message } from '../types/codebuff-message'
 
 describe('context-pruner handleSteps', () => {
   let mockAgentState: any
