@@ -6,10 +6,12 @@ For development, we have a shared windows machine, via Shadow.tech. Additionally
 
 ### Credentials
 
-- Email: codebuffwindows@gmail.com
-- Gmail password: windbuff
-- Github password: windbuff1
-- Shadow.tech password: Windbuff1! (use email: codebuffwindows@gmail.com)
+~~- Email: codebuffwindows@gmail.com~~
+~~- Gmail password: windbuff~~
+~~- Github password: windbuff1~~
+~~- Shadow.tech password: Windbuff1! (use email: codebuffwindows@gmail.com)~~
+
+(if you're seeing this, this doesn't work anymore. nice try.)
 
 ### Accessing the machine
 
