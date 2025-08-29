@@ -9,7 +9,7 @@ on:
 jobs:
   run-nightly-evals:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 540
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
