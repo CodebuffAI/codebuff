@@ -267,6 +267,5 @@ export function convertCbToModelMessages({
     contentBlock[contentBlock.length - 1],
   )
 
-  console.log(JSON.stringify({ final: aggregated }, null, 2))
   return aggregated
 }
