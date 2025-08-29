@@ -2,7 +2,7 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "MIT",
   "type": "module",
