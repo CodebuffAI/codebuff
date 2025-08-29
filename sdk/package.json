@@ -4,7 +4,7 @@
   "access": "public",
   "version": "0.1.19",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/sdk/src/index.js",
   "types": "./dist/sdk/src/index.d.ts",
