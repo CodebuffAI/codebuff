@@ -14,7 +14,9 @@
  *   export default definition
  */
 
-import type { Message } from '@codebuff/sdk'
+import type { Message } from './codebuff-message'
+import type * as Tools from './tools'
+type ToolName = Tools.ToolName
 
 // ============================================================================
 // Agent Definition and Utility Types
@@ -346,6 +348,4 @@ export type ModelName =
   | 'z-ai/glm-4.5:nitro'
   | (string & {})
 
-import type * as Tools from './tools'
 export type { Tools }
-type ToolName = Tools.ToolName
