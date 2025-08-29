@@ -59,7 +59,7 @@ export function startDevProcesses(
         stderrFile,
       },
       (result) => {
-        if (has(result, 'processId')) {
+        if (has(result[0].value, 'processId')) {
           console.log(yellow(`- ${name}: ${command}`))
         } else {
           console.log(yellow(`- ${name}: ${command} — failed to start`))
