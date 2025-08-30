@@ -190,14 +190,15 @@ export const handleSpawnAgents = ((params: {
 
       if (result.status === 'fulfilled') {
         subAgentCredits = result.value.agentState.creditsUsed || 0
-        logger.debug(
-          {
-            parentAgentId: validatedState.agentState.agentId,
-            subAgentType: agentInfo.agent_type,
-            subAgentCredits,
-          },
-          'Aggregating successful subagent cost',
-        )
+        // Note (James): Try not to include frequent logs with narrow debugging value.
+        // logger.debug(
+        //   {
+        //     parentAgentId: validatedState.agentState.agentId,
+        //     subAgentType: agentInfo.agent_type,
+        //     subAgentCredits,
+        //   },
+        //   'Aggregating successful subagent cost',
+        // )
       } else if (result.reason?.agentState?.creditsUsed) {
         // Even failed agents may have incurred partial costs
         subAgentCredits = result.reason.agentState.creditsUsed || 0
@@ -213,14 +214,15 @@ export const handleSpawnAgents = ((params: {
 
       if (subAgentCredits > 0) {
         validatedState.agentState.creditsUsed += subAgentCredits
-        logger.debug(
-          {
-            parentAgentId: validatedState.agentState.agentId,
-            addedCredits: subAgentCredits,
-            totalCredits: validatedState.agentState.creditsUsed,
-          },
-          'Updated parent agent total cost',
-        )
+        // Note (James): Try not to include frequent logs with narrow debugging value.
+        // logger.debug(
+        //   {
+        //     parentAgentId: validatedState.agentState.agentId,
+        //     addedCredits: subAgentCredits,
+        //     totalCredits: validatedState.agentState.creditsUsed,
+        //   },
+        //   'Updated parent agent total cost',
+        // )
       }
     })
 
