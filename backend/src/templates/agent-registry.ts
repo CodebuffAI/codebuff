@@ -80,7 +80,6 @@ async function fetchAgentFromDatabase(parsedAgentId: {
       { ...rawAgentData, id: agentId },
       {
         filePath: `${publisherId}/${agentId}@${agentConfig.version}`,
-        skipSubagentValidation: true,
       },
     )
 
