@@ -1,5 +1,5 @@
-import { publisher } from '../constants'
 import type { AgentDefinition } from '../types/agent-definition'
+import { publisher } from '../constants'
 
 const definition: AgentDefinition = {
   id: 'gpt5-thinker',

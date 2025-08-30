@@ -1,8 +1,10 @@
 import type { AgentDefinition } from '../types/agent-definition'
+import { publisher } from '../constants'
 
 const definition: AgentDefinition = {
   id: 'gemini-thinker-high',
   displayName: 'Gemini Pro High Thinker',
+  publisher,
   model: 'google/gemini-2.5-pro',
   reasoningOptions: {
     enabled: true,

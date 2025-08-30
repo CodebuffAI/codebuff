@@ -1,8 +1,10 @@
 import type { AgentDefinition } from '../types/agent-definition'
+import { publisher } from '../constants'
 
 const definition: AgentDefinition = {
   id: 'deepest-thinker',
   displayName: 'Deepest Thinker Agent',
+  publisher,
   model: 'openai/gpt-5',
   reasoningOptions: {
     enabled: true,
