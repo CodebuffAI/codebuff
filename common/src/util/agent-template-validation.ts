@@ -1,4 +1,4 @@
-import { DynamicAgentValidationError } from 'src/templates/agent-validation'
+import { DynamicAgentValidationError } from '../templates/agent-validation'
 import { fetchAgent } from '../templates/fetch-agent'
 import { AgentTemplateTypes } from '../types/session-state'
 import { parseAgentId } from './agent-id-parsing'
