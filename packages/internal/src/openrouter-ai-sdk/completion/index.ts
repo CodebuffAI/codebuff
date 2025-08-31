@@ -3,42 +3,42 @@ import type {
   LanguageModelV2CallOptions,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
-} from '@ai-sdk/provider';
-import type { ParseResult } from '@ai-sdk/provider-utils';
-import type { FinishReason } from 'ai';
-import type { z } from 'zod/v4';
-import type { OpenRouterUsageAccounting } from '../types';
+} from '@ai-sdk/provider'
+import type { ParseResult } from '@ai-sdk/provider-utils'
+import type { FinishReason } from 'ai'
+import type { z } from 'zod/v4'
+import type { OpenRouterUsageAccounting } from '../types'
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
-} from '../types/openrouter-completion-settings';
+} from '../types/openrouter-completion-settings'
 
-import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
+import { UnsupportedFunctionalityError } from '@ai-sdk/provider'
 import {
   combineHeaders,
   createEventSourceResponseHandler,
   createJsonResponseHandler,
   generateId,
   postJsonToApi,
-} from '@ai-sdk/provider-utils';
-import { openrouterFailedResponseHandler } from '../schemas/error-response';
-import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
-import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
-import { OpenRouterCompletionChunkSchema } from './schemas';
+} from '@ai-sdk/provider-utils'
+import { openrouterFailedResponseHandler } from '../schemas/error-response'
+import { mapOpenRouterFinishReason } from '../utils/map-finish-reason'
+import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt'
+import { OpenRouterCompletionChunkSchema } from './schemas'
 
 type OpenRouterCompletionConfig = {
-  provider: string;
-  compatibility: 'strict' | 'compatible';
-  headers: () => Record<string, string | undefined>;
-  url: (options: { modelId: string; path: string }) => string;
-  fetch?: typeof fetch;
-  extraBody?: Record<string, unknown>;
-};
+  provider: string
+  compatibility: 'strict' | 'compatible'
+  headers: () => Record<string, string | undefined>
+  url: (options: { modelId: string; path: string }) => string
+  fetch?: typeof fetch
+  extraBody?: Record<string, unknown>
+}
 
 export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'v2' as const;
-  readonly provider = 'openrouter';
-  readonly modelId: OpenRouterCompletionModelId;
+  readonly specificationVersion = 'v2' as const
+  readonly provider = 'openrouter'
+  readonly modelId: OpenRouterCompletionModelId
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,
@@ -46,20 +46,20 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     ],
     'text/*': [/^data:text\//, /^https?:\/\/.+$/],
     'application/*': [/^data:application\//, /^https?:\/\/.+$/],
-  };
-  readonly defaultObjectGenerationMode = undefined;
-  readonly settings: OpenRouterCompletionSettings;
+  }
+  readonly defaultObjectGenerationMode = undefined
+  readonly settings: OpenRouterCompletionSettings
 
-  private readonly config: OpenRouterCompletionConfig;
+  private readonly config: OpenRouterCompletionConfig
 
   constructor(
     modelId: OpenRouterCompletionModelId,
     settings: OpenRouterCompletionSettings,
     config: OpenRouterCompletionConfig,
   ) {
-    this.modelId = modelId;
-    this.settings = settings;
-    this.config = config;
+    this.modelId = modelId
+    this.settings = settings
+    this.config = config
   }
 
   private getArgs({
@@ -79,18 +79,18 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
       inputFormat: 'prompt',
-    });
+    })
 
     if (tools?.length) {
       throw new UnsupportedFunctionalityError({
         functionality: 'tools',
-      });
+      })
     }
 
     if (toolChoice) {
       throw new UnsupportedFunctionalityError({
         functionality: 'toolChoice',
-      });
+      })
     }
 
     return {
@@ -119,7 +119,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       presence_penalty: presencePenalty,
       seed,
 
-      stop: stopSequences,
+      ...(this.modelId === 'x-ai/grok-code-fast-1'
+        ? {}
+        : { stop: stopSequences }),
       response_format: responseFormat,
       top_k: topK,
 
@@ -133,19 +135,19 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
-    };
+    }
   }
 
   async doGenerate(
     options: LanguageModelV2CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
-    const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    const providerOptions = options.providerOptions || {}
+    const openrouterOptions = providerOptions.openrouter || {}
 
     const args = {
       ...this.getArgs(options),
       ...openrouterOptions,
-    };
+    }
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
@@ -160,16 +162,16 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
-    });
+    })
 
     if ('error' in response) {
-      throw new Error(`${response.error.message}`);
+      throw new Error(`${response.error.message}`)
     }
 
-    const choice = response.choices[0];
+    const choice = response.choices[0]
 
     if (!choice) {
-      throw new Error('No choice in OpenRouter completion response');
+      throw new Error('No choice in OpenRouter completion response')
     }
 
     return {
@@ -195,19 +197,19 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       response: {
         headers: responseHeaders,
       },
-    };
+    }
   }
 
   async doStream(
     options: LanguageModelV2CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
-    const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    const providerOptions = options.providerOptions || {}
+    const openrouterOptions = providerOptions.openrouter || {}
 
     const args = {
       ...this.getArgs(options),
       ...openrouterOptions,
-    };
+    }
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
@@ -231,18 +233,18 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
-    });
+    })
 
-    let finishReason: FinishReason = 'other';
+    let finishReason: FinishReason = 'other'
     const usage: LanguageModelV2Usage = {
       inputTokens: Number.NaN,
       outputTokens: Number.NaN,
       totalTokens: Number.NaN,
       reasoningTokens: Number.NaN,
       cachedInputTokens: Number.NaN,
-    };
+    }
 
-    const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+    const openrouterUsage: Partial<OpenRouterUsageAccounting> = {}
     return {
       stream: response.pipeThrough(
         new TransformStream<
@@ -252,58 +254,58 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: chunk.error });
-              return;
+              finishReason = 'error'
+              controller.enqueue({ type: 'error', error: chunk.error })
+              return
             }
 
-            const value = chunk.value;
+            const value = chunk.value
 
             // handle error chunks:
             if ('error' in value) {
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: value.error });
-              return;
+              finishReason = 'error'
+              controller.enqueue({ type: 'error', error: value.error })
+              return
             }
 
             if (value.usage != null) {
-              usage.inputTokens = value.usage.prompt_tokens;
-              usage.outputTokens = value.usage.completion_tokens;
+              usage.inputTokens = value.usage.prompt_tokens
+              usage.outputTokens = value.usage.completion_tokens
               usage.totalTokens =
-                value.usage.prompt_tokens + value.usage.completion_tokens;
+                value.usage.prompt_tokens + value.usage.completion_tokens
 
               // Collect OpenRouter specific usage information
-              openrouterUsage.promptTokens = value.usage.prompt_tokens;
+              openrouterUsage.promptTokens = value.usage.prompt_tokens
 
               if (value.usage.prompt_tokens_details) {
                 const cachedInputTokens =
-                  value.usage.prompt_tokens_details.cached_tokens ?? 0;
+                  value.usage.prompt_tokens_details.cached_tokens ?? 0
 
-                usage.cachedInputTokens = cachedInputTokens;
+                usage.cachedInputTokens = cachedInputTokens
                 openrouterUsage.promptTokensDetails = {
                   cachedTokens: cachedInputTokens,
-                };
+                }
               }
 
-              openrouterUsage.completionTokens = value.usage.completion_tokens;
+              openrouterUsage.completionTokens = value.usage.completion_tokens
               if (value.usage.completion_tokens_details) {
                 const reasoningTokens =
-                  value.usage.completion_tokens_details.reasoning_tokens ?? 0;
+                  value.usage.completion_tokens_details.reasoning_tokens ?? 0
 
-                usage.reasoningTokens = reasoningTokens;
+                usage.reasoningTokens = reasoningTokens
                 openrouterUsage.completionTokensDetails = {
                   reasoningTokens,
-                };
+                }
               }
 
-              openrouterUsage.cost = value.usage.cost;
-              openrouterUsage.totalTokens = value.usage.total_tokens;
+              openrouterUsage.cost = value.usage.cost
+              openrouterUsage.totalTokens = value.usage.total_tokens
             }
 
-            const choice = value.choices[0];
+            const choice = value.choices[0]
 
             if (choice?.finish_reason != null) {
-              finishReason = mapOpenRouterFinishReason(choice.finish_reason);
+              finishReason = mapOpenRouterFinishReason(choice.finish_reason)
             }
 
             if (choice?.text != null) {
@@ -311,7 +313,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
                 type: 'text-delta',
                 delta: choice.text,
                 id: generateId(),
-              });
+              })
             }
           },
 
@@ -325,13 +327,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
                   usage: openrouterUsage,
                 },
               },
-            });
+            })
           },
         }),
       ),
       response: {
         headers: responseHeaders,
       },
-    };
+    }
   }
 }
