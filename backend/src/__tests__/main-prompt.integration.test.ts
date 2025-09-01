@@ -384,8 +384,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     }
 
     const {
-      toolCalls,
-      toolResults,
+      output,
       sessionState: finalSessionState,
     } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
       userId: TEST_USER_ID,

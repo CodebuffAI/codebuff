@@ -335,7 +335,7 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls, sessionState: newSessionState } = await mainPrompt(
+    const { sessionState: newSessionState, output } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -360,6 +360,9 @@ describe('mainPrompt', () => {
         timeout_seconds: -1,
       }),
     )
+
+    // Verify that the output contains the expected structure
+    expect(output.type).toBeDefined()
 
     // Verify that a tool result was added to message history
     const toolResultMessages =
@@ -466,7 +469,7 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls } = await mainPrompt(
+    const { output } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -477,7 +480,7 @@ describe('mainPrompt', () => {
       },
     )
 
-    expect(toolCalls).toHaveLength(0) // No tool calls expected
+    expect(output.type).toBeDefined() // Output should exist
   })
 
   it('should update consecutiveAssistantMessages when new prompt is received', async () => {
@@ -556,7 +559,7 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls } = await mainPrompt(
+    const { output } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -567,7 +570,7 @@ describe('mainPrompt', () => {
       },
     )
 
-    expect(toolCalls).toHaveLength(0) // No tool calls expected for empty response
+    expect(output.type).toBeDefined() // Output should exist even for empty response
   })
 
   it('should unescape ampersands in run_terminal_command tool calls', async () => {

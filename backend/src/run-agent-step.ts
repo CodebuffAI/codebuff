@@ -36,15 +36,20 @@ import { getRequestContext } from './websockets/request-context'
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  AssistantMessage,
+  Message,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentTemplateType,
   AgentState,
+  AgentOutput,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -473,7 +478,10 @@ export const loopAgentSteps = async (
     clientSessionId: string
     onResponseChunk: (chunk: string | PrintModeEvent) => void
   },
-) => {
+): Promise<{
+  agentState: AgentState
+  output: AgentOutput
+}> => {
   const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
@@ -539,7 +547,7 @@ export const loopAgentSteps = async (
     },
   )
 
-  let currentAgentState = {
+  let currentAgentState: AgentState = {
     ...agentState,
     messageHistory: initialMessages,
   }
@@ -584,15 +592,7 @@ export const loopAgentSteps = async (
 
       // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
       if (shouldEndTurn) {
-        if (clearUserPromptMessagesAfterResponse) {
-          currentAgentState.messageHistory = expireMessages(
-            currentAgentState.messageHistory,
-            'userPrompt',
-          )
-        }
-        return {
-          agentState: currentAgentState,
-        }
+        break
       }
 
       const { agentState: newAgentState, shouldEndTurn: llmShouldEndTurn } =
@@ -623,19 +623,67 @@ export const loopAgentSteps = async (
         'userPrompt',
       )
     }
-    return { agentState: currentAgentState }
+
+    return {
+      agentState: currentAgentState,
+      output: getAgentOutput(currentAgentState, agentTemplate),
+    }
   } catch (error) {
-    // Log the error but still return the state with partial costs
     logger.error(
       {
-        error,
+        error: getErrorObject(error),
         agentId: currentAgentState.agentId,
         creditsUsed: currentAgentState.creditsUsed,
       },
-      'Agent execution failed but returning state with partial costs',
+      'Agent execution failed',
     )
-    throw error
-  } finally {
-    // Ensure costs are always captured, even on failure
+    const errorObject = getErrorObject(error)
+    return {
+      agentState: currentAgentState,
+      output: {
+        type: 'error',
+        message: `${errorObject.name}: ${errorObject.message} ${errorObject.stack ? `\n${errorObject.stack}` : ''}`,
+      },
+    }
   }
+}
+
+function getAgentOutput(
+  agentState: AgentState,
+  agentTemplate: AgentTemplate,
+): AgentOutput {
+  if (agentTemplate.outputMode === 'structured_output') {
+    return {
+      type: 'structuredOutput',
+      value: agentState.output ?? null,
+    }
+  }
+  if (agentTemplate.outputMode === 'last_message') {
+    const assistantMessages = agentState.messageHistory.filter(
+      (message): message is AssistantMessage => message.role === 'assistant',
+    )
+    const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
+    if (!lastAssistantMessage) {
+      return {
+        type: 'error',
+        message: 'No response from agent',
+      }
+    }
+    return {
+      type: 'lastMessage',
+      value: lastAssistantMessage.content,
+    }
+  }
+  if (agentTemplate.outputMode === 'all_messages') {
+    // Remove the first message, which includes the previous conversation history.
+    const agentMessages = agentState.messageHistory.slice(1)
+    return {
+      type: 'allMessages',
+      value: agentMessages,
+    }
+  }
+  agentTemplate.outputMode satisfies never
+  throw new Error(
+    `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`,
+  )
 }

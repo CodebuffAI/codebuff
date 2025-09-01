@@ -6,7 +6,6 @@ import {
   createAgentState,
   logAgentSpawn,
   executeAgent,
-  formatAgentResult,
 } from './spawn-agent-utils'
 import { logger } from '../../../util/logger'
 
@@ -148,36 +147,25 @@ export const handleSpawnAgents = ((params: {
             })
           },
         })
-
-        return {
-          ...result,
-          agentType,
-          agentName: agentTemplate.displayName,
-        }
+        return { ...result, agentType, agentName: agentTemplate.displayName }
       }),
     )
 
     const reports = await Promise.all(
       results.map(async (result, index) => {
-        const agentInfo = agents[index]
-        const agentTypeStr = agentInfo.agent_type
-
         if (result.status === 'fulfilled') {
-          const { agentState } = result.value
-          const { agentTemplate } = await validateAndGetAgentTemplate(
-            agentState.agentType!,
-            parentAgentTemplate,
-            localAgentTemplates,
-          )
-          return await formatAgentResult(
-            result.value,
-            agentTemplate,
-            agentTypeStr,
-          )
+          const { output, agentType, agentName } = result.value
+          return {
+            agentName,
+            agentType,
+            value: output,
+          }
         } else {
+          const agentTypeStr = agents[index].agent_type
           return {
             agentType: agentTypeStr,
-            errorMessage: `Error spawning agent: ${result.reason}`,
+            agentName: agentTypeStr,
+            value: { errorMessage: `Error spawning agent: ${result.reason}` },
           }
         }
       }),
