@@ -1,12 +1,14 @@
-import type { CodebuffConfig } from './constants'
+import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
+import { type CodebuffConfig } from './constants'
 
 export function getDefaultConfig(): CodebuffConfig {
   return {
     description: '',
     startupProcesses: [],
     fileChangeHooks: [],
-    maxAgentSteps: 12,
+    maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
     baseAgent: undefined,
     spawnableAgents: undefined,
   }
 }
+
