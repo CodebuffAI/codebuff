@@ -12,7 +12,7 @@ import {
   type ServerAction,
 } from '../../common/src/actions'
 import { API_KEY_ENV_VAR } from '../../common/src/constants'
-import { DEFAULT_MAX_AGENT_STEPS } from '../../common/src/json-config/constants'
+import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { toolNames } from '../../common/src/tools/constants'
 import {
   clientToolCallSchema,
@@ -149,7 +149,7 @@ export class CodebuffClient {
     knowledgeFiles,
     agentDefinitions,
     customToolDefinitions,
-    maxAgentSteps = DEFAULT_MAX_AGENT_STEPS,
+    maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
     extraToolResults,
   }: {
     agent: string

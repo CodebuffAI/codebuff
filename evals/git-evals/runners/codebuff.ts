@@ -9,6 +9,7 @@ import { CodebuffClient } from '../../../sdk/src/index'
 import type { Runner } from './runner'
 import type { RunState } from '../../../sdk/src/index'
 import type { AgentStep } from '../../scaffolding'
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 
 const getLocalAuthToken = () => {
   return getUserCredentials()?.authToken
@@ -84,7 +85,7 @@ export class CodebuffRunner implements Runner {
       handleStreamChunk: (chunk) => {
         process.stdout.write(chunk)
       },
-      maxAgentSteps: 20,
+      maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
       agentDefinitions: localAgentDefinitions,
     })
     flushStep()
