@@ -9,6 +9,7 @@ import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
 import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { handlePublish } from './cli-handlers/publish'
+import { handleInitAgents } from './cli-handlers/init-agents'
 import { npmAppVersion, backendUrl } from './config'
 import { createTemplateProject } from './create-template-project'
 import { printModeLog, setPrintMode } from './display/print-mode'
@@ -150,6 +151,12 @@ For all commands and options, run 'codebuff' and then type 'help'.
   if (args[0] === 'publish') {
     const agentNames = args.slice(1)
     await handlePublish(agentNames)
+    process.exit(0)
+  }
+
+  // Handle init-agents command
+  if (args[0] === 'init-agents') {
+    await handleInitAgents()
     process.exit(0)
   }
 
