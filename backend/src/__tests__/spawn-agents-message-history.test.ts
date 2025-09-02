@@ -52,6 +52,7 @@ describe('Spawn Agents Message History', () => {
             { role: 'assistant', content: 'Mock agent response' },
           ],
         },
+        output: { type: 'lastMessage', value: 'Mock agent response' },
       }
     })
   })

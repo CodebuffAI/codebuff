@@ -1,3 +1,4 @@
+import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 import { z } from 'zod/v4'
 
 export const codebuffConfigFile = 'codebuff.json'
@@ -64,8 +65,6 @@ export const FileChangeHook = z
   })
   .describe('Defines a single file change hook.')
 
-export const DEFAULT_MAX_AGENT_STEPS = 12
-
 export const CodebuffConfigSchema = z
   .object({
     description: z
@@ -83,7 +82,7 @@ export const CodebuffConfigSchema = z
     maxAgentSteps: z
       .number()
       .optional()
-      .default(DEFAULT_MAX_AGENT_STEPS)
+      .default(MAX_AGENT_STEPS_DEFAULT)
       .describe(
         'Maximum number of turns agent will take before being forced to end',
       ),

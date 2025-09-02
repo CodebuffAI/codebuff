@@ -4,10 +4,12 @@ import { type CustomToolDefinition } from './custom-tool'
 import { getInitialSessionState } from '../../common/src/types/session-state'
 import { getFileTokenScores } from '../../packages/code-map/src/parse'
 
-import type { ServerAction } from '../../common/src/actions'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type { Message } from '../../common/src/types/messages/codebuff-message'
-import type { SessionState } from '../../common/src/types/session-state'
+import type {
+  AgentOutput,
+  SessionState,
+} from '../../common/src/types/session-state'
 import type {
   CustomToolDefinitions,
   FileTreeNode,
@@ -15,7 +17,7 @@ import type {
 
 export type RunState = {
   sessionState: SessionState
-  toolResults: ServerAction<'prompt-response'>['toolResults']
+  output: AgentOutput
 }
 
 /**
@@ -201,7 +203,10 @@ export async function generateInitialRunState({
       customToolDefinitions,
       maxAgentSteps,
     }),
-    toolResults: [],
+    output: {
+      type: 'error',
+      message: 'No output yet',
+    },
   }
 }
 

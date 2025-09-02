@@ -1,4 +1,4 @@
-import { validateAgents } from '@codebuff/common/templates/agent-validation'
+import { validateAgentsWithSpawnableAgents } from '@codebuff/common/templates/agent-validation'
 import { NextResponse } from 'next/server'
 
 import { logger } from '@/util/logger'
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       agentDefinitions.map((config) => [config.id, config])
     )
     const { templates: configs, validationErrors } =
-      validateAgents(definitionsObject)
+      await validateAgentsWithSpawnableAgents(definitionsObject)
 
     if (validationErrors.length > 0) {
       logger.warn(

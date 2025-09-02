@@ -2,14 +2,7 @@
 
 Welcome!
 
-For development, we have a shared windows machine, via Shadow.tech. Additionally, we have a Gmail & Github account - so you can login to Codebuff using those, instead of your personal account, on this shared machine.
-
-### Credentials
-
-- Email: codebuffwindows@gmail.com
-- Gmail password: windbuff
-- Github password: windbuff1
-- Shadow.tech password: Windbuff1! (use email: codebuffwindows@gmail.com)
+For development, we have a shared windows machine, via shadow.tech.
 
 ### Accessing the machine
 
@@ -18,7 +11,6 @@ You can access the machine either from the browser or with the desktop app:
 1. Shadow.tech Web viewer:
 
 - Go to https://pc.shadow.tech/home
-- Login with the above credentials
 
 2. Shadow.tech desktop app:
 

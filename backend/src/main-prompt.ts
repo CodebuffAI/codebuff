@@ -12,11 +12,11 @@ import { requestToolCall } from './websockets/websocket-action'
 import type { AgentTemplate } from './templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/constants'
-import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   SessionState,
   AgentTemplateType,
+  AgentOutput,
 } from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
 
@@ -33,8 +33,7 @@ export const mainPrompt = async (
   options: MainPromptOptions,
 ): Promise<{
   sessionState: SessionState
-  toolCalls: []
-  toolResults: ToolResultPart[]
+  output: AgentOutput
 }> => {
   const { userId, clientSessionId, onResponseChunk, localAgentTemplates } =
     options
@@ -102,8 +101,10 @@ export const mainPrompt = async (
 
       return {
         sessionState: newSessionState,
-        toolCalls: [],
-        toolResults: [],
+        output: {
+          type: 'lastMessage',
+          value: output,
+        },
       }
     }
   }
@@ -178,7 +179,7 @@ export const mainPrompt = async (
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
-  const { agentState } = await loopAgentSteps(ws, {
+  const { agentState, output } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
     params: promptParams,
@@ -200,7 +201,9 @@ export const mainPrompt = async (
       fileContext,
       mainAgentState: agentState,
     },
-    toolCalls: [],
-    toolResults: [],
+    output: output ?? {
+      type: 'error' as const,
+      message: 'No output from agent',
+    },
   }
 }

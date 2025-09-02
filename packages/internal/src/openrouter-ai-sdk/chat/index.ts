@@ -120,7 +120,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       presence_penalty: presencePenalty,
       seed,
 
-      stop: stopSequences,
+      ...(this.modelId === 'x-ai/grok-code-fast-1'
+        ? {}
+        : { stop: stopSequences }),
       response_format: responseFormat,
       top_k: topK,
 

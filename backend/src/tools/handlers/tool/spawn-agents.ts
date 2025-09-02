@@ -6,7 +6,6 @@ import {
   createAgentState,
   logAgentSpawn,
   executeAgent,
-  formatAgentResult,
 } from './spawn-agent-utils'
 import { logger } from '../../../util/logger'
 
@@ -148,36 +147,25 @@ export const handleSpawnAgents = ((params: {
             })
           },
         })
-
-        return {
-          ...result,
-          agentType,
-          agentName: agentTemplate.displayName,
-        }
+        return { ...result, agentType, agentName: agentTemplate.displayName }
       }),
     )
 
     const reports = await Promise.all(
       results.map(async (result, index) => {
-        const agentInfo = agents[index]
-        const agentTypeStr = agentInfo.agent_type
-
         if (result.status === 'fulfilled') {
-          const { agentState } = result.value
-          const { agentTemplate } = await validateAndGetAgentTemplate(
-            agentState.agentType!,
-            parentAgentTemplate,
-            localAgentTemplates,
-          )
-          return await formatAgentResult(
-            result.value,
-            agentTemplate,
-            agentTypeStr,
-          )
+          const { output, agentType, agentName } = result.value
+          return {
+            agentName,
+            agentType,
+            value: output,
+          }
         } else {
+          const agentTypeStr = agents[index].agent_type
           return {
             agentType: agentTypeStr,
-            errorMessage: `Error spawning agent: ${result.reason}`,
+            agentName: agentTypeStr,
+            value: { errorMessage: `Error spawning agent: ${result.reason}` },
           }
         }
       }),
@@ -190,14 +178,15 @@ export const handleSpawnAgents = ((params: {
 
       if (result.status === 'fulfilled') {
         subAgentCredits = result.value.agentState.creditsUsed || 0
-        logger.debug(
-          {
-            parentAgentId: validatedState.agentState.agentId,
-            subAgentType: agentInfo.agent_type,
-            subAgentCredits,
-          },
-          'Aggregating successful subagent cost',
-        )
+        // Note (James): Try not to include frequent logs with narrow debugging value.
+        // logger.debug(
+        //   {
+        //     parentAgentId: validatedState.agentState.agentId,
+        //     subAgentType: agentInfo.agent_type,
+        //     subAgentCredits,
+        //   },
+        //   'Aggregating successful subagent cost',
+        // )
       } else if (result.reason?.agentState?.creditsUsed) {
         // Even failed agents may have incurred partial costs
         subAgentCredits = result.reason.agentState.creditsUsed || 0
@@ -213,14 +202,15 @@ export const handleSpawnAgents = ((params: {
 
       if (subAgentCredits > 0) {
         validatedState.agentState.creditsUsed += subAgentCredits
-        logger.debug(
-          {
-            parentAgentId: validatedState.agentState.agentId,
-            addedCredits: subAgentCredits,
-            totalCredits: validatedState.agentState.creditsUsed,
-          },
-          'Updated parent agent total cost',
-        )
+        // Note (James): Try not to include frequent logs with narrow debugging value.
+        // logger.debug(
+        //   {
+        //     parentAgentId: validatedState.agentState.agentId,
+        //     addedCredits: subAgentCredits,
+        //     totalCredits: validatedState.agentState.creditsUsed,
+        //   },
+        //   'Updated parent agent total cost',
+        // )
       }
     })
 

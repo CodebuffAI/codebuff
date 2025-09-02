@@ -75,7 +75,10 @@ export async function runSingleEval(
       runner = new CodebuffRunner(
         {
           sessionState: await createInitialSessionState(projectPath),
-          toolResults: [],
+          output: {
+            type: 'error',
+            message: 'No output yet',
+          },
         },
         agent,
       )

@@ -7,7 +7,11 @@ import {
   toolResultPartSchema,
 } from './types/messages/content-part'
 import { printModeEventSchema } from './types/print-mode'
-import { SessionStateSchema, toolCallSchema } from './types/session-state'
+import {
+  AgentOutputSchema,
+  SessionStateSchema,
+  toolCallSchema,
+} from './types/session-state'
 import { ProjectFileContextSchema } from './util/file'
 
 export const FileChangeSchema = z.object({
@@ -103,8 +107,9 @@ export const PromptResponseSchema = z.object({
   type: z.literal('prompt-response'),
   promptId: z.string(),
   sessionState: SessionStateSchema,
-  toolCalls: z.array(toolCallSchema),
-  toolResults: z.array(toolResultPartSchema),
+  toolCalls: z.array(toolCallSchema).optional(),
+  toolResults: z.array(toolResultPartSchema).optional(),
+  output: AgentOutputSchema.optional(),
 })
 export type PromptResponse = z.infer<typeof PromptResponseSchema>
 

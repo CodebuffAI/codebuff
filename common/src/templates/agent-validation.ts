@@ -1,9 +1,6 @@
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import {
-  formatSpawnableAgentError,
-  validateSpawnableAgents,
-} from '../util/agent-template-validation'
+import { validateSpawnableAgents } from '../util/agent-template-validation'
 import { logger } from '../util/logger'
 import {
   DynamicAgentDefinitionSchema,
@@ -22,8 +19,9 @@ export interface DynamicAgentValidationError {
  */
 export function collectAgentIds(
   agentTemplates: Record<string, DynamicAgentTemplate> = {},
-): string[] {
+): { agentIds: string[]; spawnableAgentIds: string[] } {
   const agentIds: string[] = []
+  const spawnableAgentIds: string[] = []
   const jsonFiles = Object.keys(agentTemplates)
 
   for (const filePath of jsonFiles) {
@@ -37,6 +35,9 @@ export function collectAgentIds(
       if (content.id && typeof content.id === 'string') {
         agentIds.push(content.id)
       }
+      if (Array.isArray(content.spawnableAgents)) {
+        spawnableAgentIds.push(...content.spawnableAgents)
+      }
     } catch (error) {
       // Log but don't fail the collection process for other errors
       logger.debug(
@@ -46,7 +47,29 @@ export function collectAgentIds(
     }
   }
 
-  return agentIds
+  return { agentIds, spawnableAgentIds }
+}
+
+export async function validateAgentsWithSpawnableAgents(
+  agentTemplates: Record<string, any> = {},
+): Promise<{
+  templates: Record<string, AgentTemplate>
+  dynamicTemplates: Record<string, DynamicAgentTemplate>
+  validationErrors: DynamicAgentValidationError[]
+}> {
+  const { agentIds, spawnableAgentIds } = collectAgentIds(agentTemplates)
+  const { validationErrors } = await validateSpawnableAgents(
+    spawnableAgentIds,
+    agentIds,
+  )
+  if (validationErrors.length > 0) {
+    return {
+      templates: {},
+      dynamicTemplates: {},
+      validationErrors,
+    }
+  }
+  return validateAgents(agentTemplates)
 }
 
 /**
@@ -73,10 +96,7 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
 
   const agentKeys = Object.keys(agentTemplates)
 
-  // Pass 1: Collect all agent IDs from template files
-  const dynamicAgentIds = collectAgentIds(agentTemplates)
-
-  // Pass 2: Load and validate each agent template
+  // Load and validate each agent template
   for (const agentKey of agentKeys) {
     const content = agentTemplates[agentKey]
     try {
@@ -86,7 +106,6 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
 
       const validationResult = validateSingleAgent(content, {
         filePath: agentKey,
-        dynamicAgentIds,
       })
 
       if (!validationResult.success) {
@@ -154,9 +173,7 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
 export function validateSingleAgent(
   template: any,
   options?: {
-    dynamicAgentIds?: string[]
     filePath?: string
-    skipSubagentValidation?: boolean
   },
 ): {
   success: boolean
@@ -164,11 +181,7 @@ export function validateSingleAgent(
   dynamicAgentTemplate?: DynamicAgentTemplate
   error?: string
 } {
-  const {
-    filePath,
-    skipSubagentValidation = true,
-    dynamicAgentIds = [],
-  } = options || {}
+  const { filePath } = options || {}
 
   try {
     // First validate against the Zod schema
@@ -200,23 +213,6 @@ export function validateSingleAgent(
       return {
         success: false,
         error: `${agentContext}: Schema validation failed: ${error.message}`,
-      }
-    }
-
-    // Validate spawnable agents (skip if requested, e.g., for database agents)
-    if (!skipSubagentValidation) {
-      const spawnableAgentValidation = validateSpawnableAgents(
-        validatedConfig.spawnableAgents,
-        dynamicAgentIds,
-      )
-      if (!spawnableAgentValidation.valid) {
-        return {
-          success: false,
-          error: formatSpawnableAgentError(
-            spawnableAgentValidation.invalidAgents,
-            spawnableAgentValidation.availableAgents,
-          ),
-        }
       }
     }
 

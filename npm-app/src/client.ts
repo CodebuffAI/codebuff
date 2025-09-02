@@ -988,8 +988,10 @@ export class Client {
       },
     ])
 
+    const codebuffConfig = loadCodebuffConfig()
+
     this.sessionState.mainAgentState.stepsRemaining =
-      loadCodebuffConfig().maxAgentSteps
+      codebuffConfig.maxAgentSteps
 
     this.sessionState.fileContext.cwd = getWorkingDirectory()
     this.sessionState.fileContext.agentTemplates = await loadLocalAgents({})

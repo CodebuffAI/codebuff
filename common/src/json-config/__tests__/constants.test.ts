@@ -10,6 +10,7 @@ import {
   type CodebuffConfig,
   type StartupProcess,
 } from '../constants'
+import { MAX_AGENT_STEPS_DEFAULT } from 'src/constants/agents'
 
 describe('constants', () => {
   describe('codebuffConfigFile and codebuffConfigFileBackup', () => {
@@ -142,7 +143,7 @@ describe('constants', () => {
       const result = CodebuffConfigSchema.safeParse(emptyConfig)
       expect(result.success).toBe(true)
       if (result.success) {
-        expect(result.data.maxAgentSteps).toBe(12) // default value
+        expect(result.data.maxAgentSteps).toBe(MAX_AGENT_STEPS_DEFAULT)
         expect(result.data.description).toBeUndefined()
         expect(result.data.startupProcesses).toBeUndefined()
         expect(result.data.fileChangeHooks).toBeUndefined()
@@ -158,7 +159,7 @@ describe('constants', () => {
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.description).toBe('My project config')
-        expect(result.data.maxAgentSteps).toBe(12)
+        expect(result.data.maxAgentSteps).toBe(MAX_AGENT_STEPS_DEFAULT)
       }
     })
 
@@ -180,7 +181,7 @@ describe('constants', () => {
             filePattern: '**/*.ts',
           },
         ],
-        maxAgentSteps: 20,
+        maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
       }
 
       const result = CodebuffConfigSchema.safeParse(config)
@@ -228,7 +229,7 @@ describe('constants', () => {
       const result = CodebuffConfigSchema.safeParse(config)
       expect(result.success).toBe(true)
       if (result.success) {
-        expect(result.data.maxAgentSteps).toBe(12)
+        expect(result.data.maxAgentSteps).toBe(MAX_AGENT_STEPS_DEFAULT)
       }
     })
 

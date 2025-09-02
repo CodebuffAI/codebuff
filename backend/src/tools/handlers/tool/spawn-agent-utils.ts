@@ -6,10 +6,7 @@ import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type {
-  AssistantMessage,
-  Message,
-} from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -366,69 +363,4 @@ export async function executeAgent({
   }
 
   return result
-}
-
-/**
- * Formats agent result based on output mode
- */
-export async function formatAgentResult(
-  result: { agentState: AgentState },
-  agentTemplate: AgentTemplate,
-  agentTypeStr: string,
-): Promise<
-  {
-    agentType: string
-    agentName: string
-  } & (
-    | { errorMessage: string }
-    | { structuredOutput: Record<string, any> | null }
-    | {
-        lastMessage: any
-      }
-    | {
-        allMessages: any[]
-      }
-  )
-> {
-  const agentInfo = {
-    agentType: agentTemplate.id,
-    agentName: agentTemplate.displayName,
-  }
-
-  if (agentTemplate.outputMode === 'structured_output') {
-    return {
-      ...agentInfo,
-      structuredOutput: result.agentState.output ?? null,
-    }
-  }
-  if (agentTemplate.outputMode === 'last_message') {
-    const { agentState } = result
-    const assistantMessages = agentState.messageHistory.filter(
-      (message): message is AssistantMessage => message.role === 'assistant',
-    )
-    const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
-    if (!lastAssistantMessage) {
-      return {
-        ...agentInfo,
-        errorMessage: 'No response from agent',
-      }
-    }
-    return {
-      ...agentInfo,
-      lastMessage: lastAssistantMessage.content,
-    }
-  }
-  if (agentTemplate.outputMode === 'all_messages') {
-    const { agentState } = result
-    // Remove the first message, which includes the previous conversation history.
-    const agentMessages = agentState.messageHistory.slice(1)
-    return {
-      ...agentInfo,
-      allMessages: agentMessages,
-    }
-  }
-  agentTemplate.outputMode satisfies never
-  throw new Error(
-    `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`,
-  )
 }

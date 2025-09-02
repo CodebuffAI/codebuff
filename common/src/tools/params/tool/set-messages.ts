@@ -9,21 +9,7 @@ export const setMessagesParams = {
   endsAgentStep,
   parameters: z
     .object({
-      messages: z.array(
-        z
-          // Make sure to pass through any additional properties!
-          .looseObject({
-            role: z.enum(['user', 'assistant']),
-            content: z.string().or(
-              z.array(
-                z.object({
-                  type: z.enum(['text']),
-                  text: z.string(),
-                }),
-              ),
-            ),
-          }),
-      ),
+      messages: z.any(),
     })
     .describe(`Set the conversation history to the provided messages.`),
   outputs: z.tuple([]),

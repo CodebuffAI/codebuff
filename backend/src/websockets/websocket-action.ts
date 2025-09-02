@@ -158,11 +158,14 @@ const onPrompt = async (
       startUserInput(userId, promptId)
 
       try {
-        await callMainPrompt(ws, action, {
+        const result = await callMainPrompt(ws, action, {
           userId,
           promptId,
           clientSessionId,
         })
+        if (result.output.type === 'error') {
+          throw new Error(result.output.message)
+        }
       } catch (e) {
         logger.error({ error: getErrorObject(e) }, 'Error in mainPrompt')
         let response =
@@ -229,15 +232,16 @@ export const callMainPrompt = async (
     },
   })
 
-  const { sessionState, toolCalls, toolResults } = result
+  const { sessionState, output } = result
 
   // Send prompt data back
   sendAction(ws, {
     type: 'prompt-response',
     promptId,
     sessionState,
-    toolCalls: toolCalls as any[],
-    toolResults,
+    toolCalls: [],
+    toolResults: [],
+    output,
   })
 
   return result

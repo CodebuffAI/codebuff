@@ -49,6 +49,26 @@ export const AgentStateSchema: z.ZodType<{
 )
 export type AgentState = z.infer<typeof AgentStateSchema>
 
+export const AgentOutputSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('structuredOutput'),
+    value: z.record(z.string(), z.any()).or(z.null()),
+  }),
+  z.object({
+    type: z.literal('lastMessage'),
+    value: z.any(),
+  }),
+  z.object({
+    type: z.literal('allMessages'),
+    value: z.array(z.any()),
+  }),
+  z.object({
+    type: z.literal('error'),
+    message: z.string(),
+  }),
+])
+export type AgentOutput = z.infer<typeof AgentOutputSchema>
+
 export const AgentTemplateTypeList = [
   // Base agents
   'base',

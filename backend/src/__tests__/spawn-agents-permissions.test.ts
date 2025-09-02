@@ -72,6 +72,7 @@ describe('Spawn Agents Permissions', () => {
             { role: 'assistant', content: 'Mock agent response' },
           ],
         },
+        output: { type: 'lastMessage', value: 'Mock agent response' },
       }
     })
   })
@@ -327,6 +328,7 @@ describe('Spawn Agents Permissions', () => {
       })
 
       const output = await result
+      console.log('output', output)
       expect(JSON.stringify(output)).toContain('Error spawning agent')
       expect(JSON.stringify(output)).toContain(
         'Agent type nonexistent not found',

@@ -89,6 +89,7 @@ describe('Subagent Streaming', () => {
             { role: 'assistant', content: 'Test response from subagent' },
           ],
         },
+        output: { type: 'lastMessage', value: 'Test response from subagent' },
       }
     })
 
