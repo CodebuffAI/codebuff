@@ -59,7 +59,7 @@
     "zod": "^4.0.0",
     "@vscode/tree-sitter-wasm": "0.1.4",
     "web-tree-sitter": "0.25.6",
-    "@vscode/ripgrep": "^1.15.9"
+    "@vscode/ripgrep": "1.15.14"
   },
   "devDependencies": {
     "@types/diff": "8.0.0",
