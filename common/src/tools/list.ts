@@ -23,7 +23,7 @@ import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
 
-import type { ToolName, $ToolParams } from './constants'
+import type { ToolName, $ToolParams, PublishedToolName } from './constants'
 import type { ToolMessage } from '../types/messages/codebuff-message'
 import type {
   ToolCallPart,
@@ -125,3 +125,5 @@ export const clientToolNames = clientToolCallSchema.def.options.map(
 export type ClientToolCall<T extends ClientToolName = ClientToolName> = z.infer<
   typeof clientToolCallSchema
 > & { toolName: T } & Omit<ToolCallPart, 'type'>
+
+export type PublishedClientToolName = ClientToolName & PublishedToolName

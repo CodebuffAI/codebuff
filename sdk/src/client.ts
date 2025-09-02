@@ -17,6 +17,7 @@ import { DEFAULT_MAX_AGENT_STEPS } from '../../common/src/json-config/constants'
 import { toolNames } from '../../common/src/tools/constants'
 import {
   clientToolCallSchema,
+  PublishedClientToolName,
   type ClientToolCall,
   type ClientToolName,
   type CodebuffToolOutput,
@@ -24,7 +25,10 @@ import {
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-import type { ToolName } from '../../common/src/tools/constants'
+import type {
+  PublishedToolName,
+  ToolName,
+} from '../../common/src/tools/constants'
 import type { ToolResultOutput } from '../../common/src/types/messages/content-part'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
@@ -36,7 +40,7 @@ export type CodebuffClientOptions = {
   onError: (error: { message: string }) => void
   overrideTools?: Partial<
     {
-      [K in ClientToolName]: (
+      [K in ClientToolName & PublishedToolName]: (
         input: ClientToolCall<K>['input'],
       ) => Promise<CodebuffToolOutput<K>>
     } & {
@@ -315,7 +319,7 @@ export class CodebuffClient {
     }
 
     try {
-      let override = this.overrideTools[toolName as ClientToolName]
+      let override = this.overrideTools[toolName as PublishedClientToolName]
       if (!override && toolName === 'str_replace') {
         // Note: write_file and str_replace have the same implementation, so reuse their write_file override.
         override = this.overrideTools['write_file']
