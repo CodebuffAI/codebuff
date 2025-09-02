@@ -63,6 +63,7 @@ export const publishedTools = [
 ] as const
 
 export type ToolName = (typeof toolNames)[number]
+export type PublishedToolName = (typeof publishedTools)[number]
 
 export type $ToolParams<T extends ToolName = ToolName> = {
   toolName: T

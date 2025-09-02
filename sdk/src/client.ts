@@ -4,6 +4,7 @@ import {
   type RunState,
 } from './run-state'
 import { changeFile } from './tools/change-file'
+import { codeSearch } from './tools/code-search'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
@@ -16,6 +17,7 @@ import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { toolNames } from '../../common/src/tools/constants'
 import {
   clientToolCallSchema,
+  PublishedClientToolName,
   type ClientToolCall,
   type ClientToolName,
   type CodebuffToolOutput,
@@ -23,7 +25,10 @@ import {
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-import type { ToolName } from '../../common/src/tools/constants'
+import type {
+  PublishedToolName,
+  ToolName,
+} from '../../common/src/tools/constants'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -38,7 +43,7 @@ export type CodebuffClientOptions = {
   onError: (error: { message: string }) => void
   overrideTools?: Partial<
     {
-      [K in ClientToolName]: (
+      [K in ClientToolName & PublishedToolName]: (
         input: ClientToolCall<K>['input'],
       ) => Promise<CodebuffToolOutput<K>>
     } & {
@@ -321,7 +326,7 @@ export class CodebuffClient {
     }
 
     try {
-      let override = this.overrideTools[toolName as ClientToolName]
+      let override = this.overrideTools[toolName as PublishedClientToolName]
       if (!override && toolName === 'str_replace') {
         // Note: write_file and str_replace have the same implementation, so reuse their write_file override.
         override = this.overrideTools['write_file']
@@ -337,6 +342,21 @@ export class CodebuffClient {
           ...input,
           cwd: input.cwd ?? this.cwd,
         } as Parameters<typeof runTerminalCommand>[0])
+      } else if (toolName === 'code_search') {
+        result = await codeSearch({
+          projectPath: this.cwd,
+          ...input,
+        } as Parameters<typeof codeSearch>[0])
+      } else if (toolName === 'run_file_change_hooks') {
+        // No-op: SDK doesn't run file change hooks
+        result = [
+          {
+            type: 'json',
+            value: {
+              message: 'File change hooks are not supported in SDK mode',
+            },
+          },
+        ]
       } else {
         throw new Error(
           `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
