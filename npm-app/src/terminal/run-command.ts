@@ -343,7 +343,7 @@ export const runTerminalCommand = async (
   ) => {
     commandIsRunning = false
     trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED, {
-      ...value,
+      ...value[0].value,
       mode,
       processType,
     })
