@@ -333,8 +333,8 @@ export class CodebuffClient {
         } as Parameters<typeof runTerminalCommand>[0])
       } else if (toolName === 'code_search') {
         result = await codeSearch({
+          projectPath: this.cwd,
           ...input,
-          cwd: this.cwd,
         } as Parameters<typeof codeSearch>[0])
       } else if (toolName === 'run_file_change_hooks') {
         // No-op: SDK doesn't run file change hooks

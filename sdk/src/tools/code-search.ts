@@ -6,24 +6,39 @@ import { rgPath } from '@vscode/ripgrep'
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 export function codeSearch({
+  projectPath,
   pattern,
   flags,
   cwd,
 }: {
+  projectPath: string
   pattern: string
   flags?: string
-  cwd: string
+  cwd?: string
 }): Promise<CodebuffToolOutput<'code_search'>> {
-
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
 
     const flagsArray = (flags || '').split(' ').filter(Boolean)
-    let searchCwd = cwd
-    
-    // Note: In the SDK, we don't have access to a project root concept,
-    // so we'll use the provided cwd directly
+    let searchCwd = projectPath
+    if (cwd) {
+      const requestedPath = path.resolve(projectPath, cwd)
+      // Ensure the search path is within the project directory
+      if (!requestedPath.startsWith(projectPath)) {
+        resolve([
+          {
+            type: 'json',
+            value: {
+              errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
+            },
+          },
+        ])
+        return
+      }
+      searchCwd = requestedPath
+    }
+
     const args = [...flagsArray, pattern, '.']
 
     const childProcess = spawn(rgPath, args, {
@@ -42,14 +57,16 @@ export function codeSearch({
     childProcess.on('close', (code) => {
       // Truncate output to prevent memory issues
       const maxLength = 10000
-      const truncatedStdout = stdout.length > maxLength 
-        ? stdout.substring(0, maxLength) + '\n\n[Output truncated]'
-        : stdout
-      
+      const truncatedStdout =
+        stdout.length > maxLength
+          ? stdout.substring(0, maxLength) + '\n\n[Output truncated]'
+          : stdout
+
       const maxErrorLength = 1000
-      const truncatedStderr = stderr.length > maxErrorLength
-        ? stderr.substring(0, maxErrorLength) + '\n\n[Error output truncated]'
-        : stderr
+      const truncatedStderr =
+        stderr.length > maxErrorLength
+          ? stderr.substring(0, maxErrorLength) + '\n\n[Error output truncated]'
+          : stderr
 
       const result = {
         stdout: truncatedStdout,
@@ -57,7 +74,7 @@ export function codeSearch({
         ...(code !== null && { exitCode: code }),
         message: 'Code search completed',
       }
-      
+
       resolve([
         {
           type: 'json',
