@@ -45,6 +45,7 @@ export async function runSingleEval(
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
   let error: string | undefined
+  let totalCostUsd = 0
 
   // Add process-level error handlers for this eval
   const originalUncaughtHandler = process.listeners('uncaughtException')
@@ -173,6 +174,8 @@ Explain your reasoning in detail.`,
           60_000 * 30,
         )
 
+        // Track credits used
+        totalCostUsd += codebuffResult.totalCostUsd
         trace.push({ prompt, steps: codebuffResult.steps })
       }
 
@@ -223,19 +226,26 @@ Explain your reasoning in detail.`,
     error,
     gitDiff: fileStates,
     durationMs,
+    costUsd: totalCostUsd,
   }
 
   // Add judging results even for failed runs
   try {
     const judgingResults = await judgeEvalRun(evalRun)
     console.log('Judging results:', judgingResults)
+
     return {
       ...evalRun,
       judging_results: judgingResults,
+      computed_metrics: {
+        runtime_sec: durationMs / 1000,
+        cost_usd: totalCostUsd,
+      },
     }
   } catch (judgingError) {
     console.error('Error in judging:', judgingError)
     // Return without judging results if judging fails
+
     return {
       ...evalRun,
       judging_results: {
@@ -248,6 +258,10 @@ Explain your reasoning in detail.`,
           codeQualityScore: 0,
           overallScore: 0,
         },
+      },
+      computed_metrics: {
+        runtime_sec: durationMs / 1000,
+        cost_usd: totalCostUsd,
       },
     }
   }
@@ -591,6 +605,16 @@ export async function runGitEvals(
 
 function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
   return {
+    average_runtime_sec:
+      evalRuns.reduce(
+        (sum, run) => sum + (run.computed_metrics?.runtime_sec || 0),
+        0,
+      ) / evalRuns.length,
+    average_cost_usd:
+      evalRuns.reduce(
+        (sum, run) => sum + (run.computed_metrics?.cost_usd || 0),
+        0,
+      ) / evalRuns.length,
     average_completion:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.completionScore || 0),

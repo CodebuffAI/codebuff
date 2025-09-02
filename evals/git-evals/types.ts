@@ -45,10 +45,15 @@ export interface EvalRunLog {
   error?: string
   gitDiff: string
   durationMs: number
+  costUsd: number
 }
 
 export interface EvalRunJudged extends EvalRunLog {
   judging_results: z.infer<typeof JudgingAnalysisSchema>
+  computed_metrics: {
+    runtime_sec: number
+    cost_usd: number
+  }
 }
 
 export interface FullEvalLog {
@@ -56,6 +61,8 @@ export interface FullEvalLog {
   generation_date: string
   eval_runs: EvalRunJudged[]
   overall_metrics: {
+    average_runtime_sec: number
+    average_cost_usd: number
     average_completion: number
     average_efficiency: number
     average_code_quality: number

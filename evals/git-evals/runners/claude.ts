@@ -13,7 +13,7 @@ export class ClaudeRunner implements Runner {
     this.cwd = cwd
   }
 
-  async run(prompt: string): Promise<{ steps: AgentStep[] }> {
+  async run(prompt: string): ReturnType<Runner['run']> {
     const response: Query = query({
       prompt,
       options: {
@@ -27,6 +27,7 @@ export class ClaudeRunner implements Runner {
     let responseText = ''
     let toolCalls: AgentStep['toolCalls'] = []
     let toolResults: AgentStep['toolResults'] = []
+    let totalCostUsd = 0
     function flushStep() {
       steps.push({ response: responseText, toolCalls, toolResults })
       responseText = ''
@@ -77,6 +78,7 @@ export class ClaudeRunner implements Runner {
         console.log(`\n\nSystem: ${JSON.stringify(chunk, null, 2)}`)
       } else if (chunk.type === 'result') {
         console.log(`\n\nResult: ${JSON.stringify(chunk, null, 2)}`)
+        totalCostUsd += chunk.total_cost_usd
       } else {
         chunk satisfies never
         const chunkAny = chunk as any
@@ -88,6 +90,6 @@ export class ClaudeRunner implements Runner {
 
     flushStep()
 
-    return { steps }
+    return { steps, totalCostUsd }
   }
 }
