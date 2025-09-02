@@ -59,6 +59,10 @@ ${evalRun.eval_commit.spec}
 Task Duration: ${durationSeconds} seconds (${evalRun.durationMs}ms)
 [/TIMING_INFORMATION]
 
+[COST_INFORMATION]
+Total Cost: ${evalRun.costUsd.toFixed(2)} USD
+[/COST_INFORMATION]
+
 [GROUND_TRUTH_CHANGES]
 ${groundTruthChanges}
 [/GROUND_TRUTH_CHANGES]
