@@ -34,7 +34,7 @@ Codebuff analyzes your project structure, understands your patterns, and then yo
 
 It finds the right files, makes consistent changes across your codebase, and runs tests to ensure nothing breaks.
 
-## Create custom agents
+### Create custom agents
 
 You can create specialized agents for your workflows using TypeScript generators for more programmatic control:
 
