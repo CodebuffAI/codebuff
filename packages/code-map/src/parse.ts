@@ -1,8 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { uniq } from 'lodash'
-
 import { getLanguageConfig } from './languages'
 
 import type { LanguageConfig } from './languages'
@@ -168,8 +166,8 @@ export function parseTokens(
       throw new Error('Parser or query not found')
     }
     const parseResults = parseFile(parser, query, sourceCode)
-    const identifiers = uniq(parseResults.identifier)
-    const calls = uniq(parseResults['call.identifier'])
+    const identifiers = Array.from(new Set(parseResults.identifier))
+    const calls = Array.from(new Set(parseResults['call.identifier']))
 
     if (DEBUG_PARSING) {
       console.log(`\nParsing ${filePath}:`)
