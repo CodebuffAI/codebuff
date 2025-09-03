@@ -14,8 +14,8 @@
  *   export default definition
  */
 
+import type { Message } from './codebuff-message'
 import type * as Tools from './tools'
-import type { Message } from '@codebuff/sdk'
 type ToolName = Tools.ToolName
 
 // ============================================================================

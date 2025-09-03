@@ -1,4 +1,4 @@
-import type { Message } from '@codebuff/sdk'
+import type { Message } from './codebuff-message'
 
 /**
  * Union type of all available tool names
