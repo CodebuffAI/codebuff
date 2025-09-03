@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
+import type { ToolResultOutput } from '../../common/src/types/messages/content-part'
 import type { JSONSchema } from 'zod/v4/core'
 
 export type CustomToolDefinition<
