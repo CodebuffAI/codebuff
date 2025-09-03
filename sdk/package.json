@@ -46,12 +46,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/codebuff/codebuff.git",
+    "url": "https://github.com/CodebuffAI/codebuff.git",
     "directory": "sdk"
   },
   "homepage": "https://codebuff.com",
   "bugs": {
-    "url": "https://github.com/codebuff/codebuff/issues"
+    "url": "https://github.com/CodebuffAI/codebuff/issues"
   },
   "dependencies": {
     "ai": "^5.0.0",
