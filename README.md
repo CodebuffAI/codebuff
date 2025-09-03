@@ -94,7 +94,7 @@ const result = await client.run({
 
 ### Resources
 
-**Setup guide**: [getting-started.md](./getting-started.md)  
+**Local development**: [local-development.md](./local-development.md)  
 **Documentation**: [codebuff.com/docs](https://codebuff.com/docs)  
 **Community**: [Discord](https://codebuff.com/discord)
 

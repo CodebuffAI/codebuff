@@ -1,40 +1,6 @@
-# Getting Started with Codebuff
+# Local Development Setup
 
-## Installation
-
-Install Codebuff globally using npm:
-
-```
-npm install -g codebuff
-```
-
-## Quick Start
-
-1. Navigate to your project directory in the terminal.
-
-2. Run Codebuff:
-
-   ```
-   codebuff
-   ```
-
-3. Interact with Codebuff using natural language commands. For example:
-
-   - "Add a new function to handle user authentication"
-   - "Refactor the database connection code for better performance"
-   - "Explain how the routing system works in this project"
-
-4. Review the suggested changes and approve or modify them as needed.
-
-5. Use the built-in commands for navigation and control:
-   - Type "help" or "h" for a list of available commands
-   - Use arrow keys to navigate through command history
-   - Press Ctrl+U to undo changes and Ctrl+R to redo
-   - Press Esc to toggle the menu or stop the current AI response
-
-## Setting Up for Local Development
-
-If you want to contribute to Codebuff or run it locally:
+This guide helps you set up Codebuff for local development if you want to contribute to the project or run it locally.
 
 ### Prerequisites
 
