@@ -90,7 +90,7 @@ const result = await client.run({
 ### Install
 
 **CLI**: `npm install -g codebuff`  
-**SDK**: `npm install codebuff`
+**SDK**: `npm install @codebuff/sdk`
 
 ### Resources
 
