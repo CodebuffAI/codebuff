@@ -1,36 +1,26 @@
 #!/usr/bin/env node
 
+import * as fs from 'fs'
+import * as os from 'os'
+
 import { type CostMode } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
-import { red, yellow, green, bold } from 'picocolors'
+import { red } from 'picocolors'
+import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
 
-import { displayLoadedAgents, loadLocalAgents } from './agents/load-agents'
-import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { handlePublish } from './cli-handlers/publish'
 import { handleInitAgents } from './cli-handlers/init-agents'
 import { npmAppVersion, backendUrl } from './config'
 import { createTemplateProject } from './create-template-project'
 import { printModeLog, setPrintMode } from './display/print-mode'
-import { enableSquashNewlines } from './display/squash-newlines'
-import { loadCodebuffConfig } from './json-config/parser'
-import {
-  getProjectRoot,
-  getWorkingDirectory,
-  initializeProjectRootAndWorkingDir,
-  initProjectFileContextWithWorker,
-} from './project-files'
-import { rageDetectors } from './rage-detectors'
-import { logAndHandleStartup } from './startup-process-handler'
-import { recreateShell } from './terminal/run-command'
-import { validateAgentDefinitionsIfAuthenticated } from './utils/agent-validation'
-import { initAnalytics, trackEvent } from './utils/analytics'
+import { initializeProjectRootAndWorkingDir } from './project-files'
+import { recreateShell, runTerminalCommand } from './terminal/run-command'
+import { trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 
 import type { CliOptions } from './types'
-
-
 
 async function codebuff({
   initialInput,
@@ -44,52 +34,77 @@ async function codebuff({
   cwd,
   trace,
 }: CliOptions) {
-  enableSquashNewlines()
-  const workingDir = getWorkingDirectory()
-  const projectRoot = getProjectRoot()
-  await recreateShell(workingDir)
+  await recreateShell(cwd ?? process.cwd())
 
-  // Kill all processes we failed to kill before
-  const processCleanupPromise = logAndHandleStartup()
+  const apiKey = JSON.parse(
+    fs
+      .readFileSync(os.homedir() + '/.config/manicode-dev/credentials.json')
+      .toString(),
+  ).default.authToken
 
-  initAnalytics()
-  rageDetectors.startupTimeDetector.start()
-
-  const initFileContextPromise = initProjectFileContextWithWorker(projectRoot)
-
-  // Load agents and validate definitions
-  const loadAndValidatePromise: Promise<void> = loadLocalAgents({
-    verbose: true,
-  }).then((agents) => {
-    validateAgentDefinitionsIfAuthenticated(Object.values(agents))
-
-    const codebuffConfig = loadCodebuffConfig()
-    if (!agent) {
-      displayLoadedAgents(codebuffConfig)
-    }
+  const client = new CodebuffClient({
+    apiKey,
+    cwd: cwd ?? process.cwd(),
+    onError: (error) => {
+      console.error(red(error.message))
+    },
+    overrideTools: {
+      run_terminal_command: async (args) => {
+        const { command, mode, process_type, timeout_seconds, cwd } = args
+        const result = await runTerminalCommand(
+          'id',
+          command,
+          mode,
+          process_type,
+          timeout_seconds,
+          cwd,
+        )
+        return {
+          toolResultMessage: result.result,
+        }
+      },
+    },
   })
 
-  const readyPromise = Promise.all([
-    initFileContextPromise,
-    processCleanupPromise,
-    loadAndValidatePromise,
-  ])
+  console.log('client created')
+  console.log('starting run')
 
-  // Initialize the CLI singleton
-  CLI.initialize(readyPromise, {
-    git,
-    costMode,
-    model,
-    agent,
-    params,
-    print,
-    trace,
+  const agentDefinition: AgentDefinition = {
+    id: 'my-awesome-agent',
+    displayName: 'My awesome agent',
+    model: 'openai/gpt-5',
+    instructionsPrompt: 'Do something awesome',
+    spawnerPrompt: 'Spawner for my awesome agent',
+  }
+  const run = await client.run({
+    agent: agent ?? 'base',
+    prompt: initialInput ?? 'hi',
+    handleEvent: (event) => {
+      console.log('event:', event)
+    },
+    agentDefinitions: [
+      {
+        id: 'my-awesome-agent',
+        displayName: 'My awesome agent',
+        model: 'openai/gpt-5',
+        instructionsPrompt: 'Do something awesome',
+      },
+    ],
   })
 
-  const cli = CLI.getInstance()
-  await cli.printInitialPrompt({ initialInput, runInitFlow })
+  console.log('run1 complete')
 
-  rageDetectors.startupTimeDetector.end()
+  const run2 = await client.run({
+    agent: agent ?? 'base',
+    prompt: 'thank you',
+    previousRun: run,
+    handleEvent: (event) => {
+      console.log('event:', event)
+    },
+  })
+  console.log('run2 complete')
+
+  process.exit(0)
 }
 
 if (require.main === module) {
