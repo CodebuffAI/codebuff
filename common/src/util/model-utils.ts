@@ -1,4 +1,4 @@
-import type { models, Model } from '../old-constants'
+import type { Model } from '../old-constants'
 
 // Cache the explicitly defined models for O(1) lookup performance
 // Cast to string[] to avoid TypeScript union type issues with (string & {})
@@ -8,7 +8,7 @@ function getExplicitlyDefinedModels(): Set<string> {
   if (explicitlyDefinedModels === null) {
     // Dynamically import to avoid circular dependency issues
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { models } = require('../constants')
+    const { models } = require('../old-constants')
     explicitlyDefinedModels = new Set(Object.values(models) as string[])
   }
   return explicitlyDefinedModels
