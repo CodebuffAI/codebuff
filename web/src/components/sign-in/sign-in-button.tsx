@@ -16,17 +16,24 @@ import { Button } from '@/components/ui/button'
 export const SignInButton = ({
   providerName,
   providerDomain,
+  onClick, // Additional handler for analytics/tracking
 }: {
   providerName: OAuthProviderType
   providerDomain: string
+  onClick?: () => void
 }) => {
   const [isPending, startTransition] = useTransition()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const handleSignIn = () => {
+    onClick?.()
+    
     startTransition(async () => {
-      let callbackUrl = pathname
+      // Include search params in callback URL to preserve context
+      const searchParamsString = searchParams.toString()
+      let callbackUrl =
+        pathname + (searchParamsString ? `?${searchParamsString}` : '')
 
       if (pathname === '/login') {
         const authCode = searchParams.get('auth_code')
@@ -41,6 +48,12 @@ export const SignInButton = ({
             localStorage.setItem('referral_code', referralCode)
           }
           callbackUrl = '/'
+        }
+      } else {
+        // For non-login pages, store referral_code if present
+        const referralCode = searchParams.get('referral_code')
+        if (referralCode) {
+          localStorage.setItem('referral_code', referralCode)
         }
       }
 

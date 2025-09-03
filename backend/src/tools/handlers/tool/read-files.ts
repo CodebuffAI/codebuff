@@ -1,16 +1,19 @@
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
-import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
+type ToolName = 'read_files'
 export const handleReadFiles = ((params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'read_files'>
+  toolCall: CodebuffToolCall<ToolName>
 
   agentStepId: string
   clientSessionId: string
@@ -22,10 +25,10 @@ export const handleReadFiles = ((params: {
     userId?: string
     fingerprintId?: string
     repoId?: string
-    messages?: CodebuffMessage[]
+    messages?: Message[]
   }
 }): {
-  result: Promise<string>
+  result: Promise<CodebuffToolOutput<ToolName>>
   state: {}
 } => {
   const {
@@ -72,24 +75,19 @@ export const handleReadFiles = ((params: {
       },
     )
 
-    logger.debug(
-      {
-        content: paths,
-        paths,
-        addedFilesPaths: addedFiles.map((f) => f.path),
-        updatedFilePaths,
-      },
-      'read_files tool call',
-    )
-
     return renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
   })()
 
   return {
     result: (async () => {
       await previousToolCallFinished
-      return await readFilesResultsPromise
+      return [
+        {
+          type: 'json',
+          value: await readFilesResultsPromise,
+        },
+      ]
     })(),
     state: {},
   }
-}) satisfies CodebuffToolHandlerFunction<'read_files'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

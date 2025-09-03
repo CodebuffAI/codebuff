@@ -4,6 +4,7 @@ import * as path from 'path'
 import { endToolTag } from '@codebuff/common/tools/constants'
 
 import { getProjectRoot } from './project-files'
+import { logger } from './utils/logger'
 
 interface SubagentMessage {
   timestamp: number
@@ -19,6 +20,8 @@ export interface SubagentData {
   isActive: boolean
   lastActivity: number
   startTime: number
+  // Add: accumulated credits used by this subagent
+  creditsUsed: number
 }
 
 // Global storage for all subagent data
@@ -47,6 +50,11 @@ export function setTraceEnabled(enabled: boolean) {
       }
     } catch (error) {
       console.warn('Warning: Could not clear traces directory:', error)
+      // Restore: existing warning log for failed directory clearing
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed clearing traces directory',
+      )
     }
   }
 }
@@ -115,6 +123,8 @@ export function storeSubagentChunk({
       isActive: true,
       lastActivity: now,
       startTime: now,
+      // Initialize new field
+      creditsUsed: 0,
     })
   }
 
@@ -135,6 +145,16 @@ export function storeSubagentChunk({
 
   // Write to trace log if enabled
   writeToTraceLog(agentId, agentType, chunk)
+}
+
+/**
+ * Add credits directly by agentId
+ */
+export function addCreditsByAgentId(agentId: string, credits: number) {
+  const data = subagentStorage.get(agentId)
+  if (data) {
+    data.creditsUsed += credits
+  }
 }
 
 /**

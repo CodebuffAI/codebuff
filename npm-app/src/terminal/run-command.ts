@@ -5,13 +5,11 @@ import * as os from 'os'
 import path, { join } from 'path'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { buildArray } from '@codebuff/common/util/array'
 import { isSubdir } from '@codebuff/common/util/file'
 import {
   stripColors,
   truncateStringWithMessage,
 } from '@codebuff/common/util/string'
-import { closeXml } from '@codebuff/common/util/xml'
 import { green } from 'picocolors'
 
 import {
@@ -24,6 +22,7 @@ import { trackEvent } from '../utils/analytics'
 import { detectShell } from '../utils/detect-shell'
 import { logger } from '../utils/logger'
 
+import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { ChildProcessWithoutNullStreams } from 'child_process'
 
 /* ------------------------------------------------------------------ */
@@ -295,18 +294,12 @@ export const resetShell = async (cwd: string) => {
 /* formatting helper
 /* ------------------------------------------------------------------ */
 
-function formatResult(command: string, stdout: string, status: string): string {
-  return buildArray(
-    `<command>${command}${closeXml('command')}`,
-    '<terminal_command_result>',
-    `<output>${truncateStringWithMessage({
-      str: stripColors(stdout),
-      maxLength: COMMAND_OUTPUT_LIMIT,
-      remove: 'MIDDLE',
-    })}${closeXml('output')}`,
-    `<status>${status}${closeXml('status')}`,
-    `${closeXml('terminal_command_result')}`,
-  ).join('\n')
+function formatStdout(stdout: string): string {
+  return truncateStringWithMessage({
+    str: stripColors(stdout),
+    maxLength: COMMAND_OUTPUT_LIMIT,
+    remove: 'MIDDLE',
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -322,7 +315,7 @@ export const runTerminalCommand = async (
   cwd?: string,
   stdoutFile?: string,
   stderrFile?: string,
-): Promise<{ result: string; stdout: string; exitCode: number | null }> => {
+): Promise<CodebuffToolOutput<'run_terminal_command'>> => {
   const maybeTimeoutSeconds = timeoutSeconds < 0 ? null : timeoutSeconds
   const projectRoot = getProjectRoot()
   cwd = cwd
@@ -334,7 +327,7 @@ export const runTerminalCommand = async (
 
   /* guard: shell must exist ------------------------------------------ */
   if (!persistentProcess)
-    throw new Error('Shell not initialised – call recreateShell first')
+    throw new Error('Shell not initialised - call recreateShell first')
 
   /* reset if concurrent ---------------------------------------------- */
   if (commandIsRunning) resetShell(cwd)
@@ -345,17 +338,12 @@ export const runTerminalCommand = async (
   modifiedCmd = applyColorHints(modifiedCmd)
 
   /* analytics wrapper ------------------------------------------------- */
-  const resolveCommand = (value: {
-    result: string
-    stdout: string
-    exitCode: number | null
-  }) => {
+  const resolveCommand = (
+    value: CodebuffToolOutput<'run_terminal_command'>,
+  ) => {
     commandIsRunning = false
     trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED, {
-      command,
-      result: value.result,
-      stdout: value.stdout,
-      exitCode: value.exitCode,
+      ...value[0].value,
       mode,
       processType,
     })
@@ -366,7 +354,9 @@ export const runTerminalCommand = async (
     return new Promise((res) =>
       runBackgroundCommand(
         { toolCallId, command: modifiedCmd, mode, cwd, stdoutFile, stderrFile },
-        (v) => res(resolveCommand(v)),
+        (v) => {
+          res(resolveCommand(v))
+        },
       ),
     )
   }
@@ -394,22 +384,24 @@ const runCommandChildProcess = async (
   mode: 'user' | 'assistant' | 'manager',
   cwd: string,
   maybeTimeoutSeconds: number | null,
-  resolve: (value: {
-    result: string
-    stdout: string
-    exitCode: number | null
-  }) => void,
+  resolve: (value: CodebuffToolOutput<'run_terminal_command'>) => void,
 ) => {
   const projectRoot = getProjectRoot()
 
   /* clear screen ----------------------------------------------------- */
   if (command.trim() === 'clear') {
     process.stdout.write('\u001b[2J\u001b[0;0H')
-    resolve({
-      result: formatResult(command, '', 'Complete'),
-      stdout: '',
-      exitCode: 0,
-    })
+    resolve([
+      {
+        type: 'json',
+        value: {
+          command,
+          message: 'Complete',
+          stdout: '',
+          exitCode: 0,
+        },
+      },
+    ])
     return
   }
 
@@ -460,15 +452,17 @@ const runCommandChildProcess = async (
     timer = setTimeout(() => {
       resetShell(cwd)
       if (mode === 'assistant') {
-        resolve({
-          result: formatResult(
-            command,
-            '',
-            `Command timed out after ${maybeTimeoutSeconds}s and was terminated.`,
-          ),
-          stdout: '',
-          exitCode: 124,
-        })
+        resolve([
+          {
+            type: 'json',
+            value: {
+              command,
+              message: `Command timed out after ${maybeTimeoutSeconds}s and was terminated.`,
+              stdout: '',
+              exitCode: 124,
+            },
+          },
+        ])
       }
     }, maybeTimeoutSeconds * 1_000)
     pp.timerId = timer
@@ -512,27 +506,22 @@ If you want to change the project root:
     }
 
     /* build response ------------------------------------------------- */
-    const status = code === 0 ? 'Complete' : `Failed with exit code: ${code}`
-    const payload =
-      mode === 'assistant'
-        ? formatResult(
-            command,
-            cmdOut,
-            buildArray([`cwd: ${path.resolve(projectRoot, cwd)}`, status]).join(
-              '\n\n',
-            ),
-          )
-        : formatResult(
-            command,
-            cmdOut,
-            buildArray([
-              `Starting cwd: ${cwd}`,
-              `${status}\n`,
-              `Final **user** cwd: ${getWorkingDirectory()} (Assistant's cwd is still project root)`,
-            ]).join('\n'),
-          )
-
-    resolve({ result: payload, stdout: cmdOut, exitCode: code })
+    resolve([
+      {
+        type: 'json',
+        value: {
+          command,
+          startingCwd: cwd,
+          ...(mode === 'assistant'
+            ? {}
+            : {
+                message: `Final **user** cwd: ${getWorkingDirectory()} (Assistant's cwd is still project root)`,
+              }),
+          stdout: formatStdout(cmdOut),
+          ...(code !== null && { exitCode: code }),
+        },
+      },
+    ])
   })
 }
 

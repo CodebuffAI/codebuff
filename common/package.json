@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Common utilities for Codebuff",
   "private": true,
-  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./db": {
@@ -44,6 +43,7 @@
     "next-auth": "^4.24.7",
     "partial-json": "^0.1.7",
     "pg": "^8.14.1",
+    "posthog-node": "^5.8.0",
     "readable-stream": "^4.7.0",
     "seedrandom": "^3.0.5",
     "stripe": "^16.11.0",

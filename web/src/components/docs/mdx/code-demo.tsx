@@ -84,8 +84,8 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
   }
 
   return (
-    <div className="rounded-lg border bg-muted/30 px-4 w-full max-w-80 md:max-w-full my-3 transition-all group hover:bg-muted/40 overflow-hidden">
-      <div className="flex items-center justify-between h-6 mt-0.5 mb-0.5">
+    <div className="rounded-lg border bg-muted/30 w-full max-w-80 md:max-w-full my-3 transition-all group hover:bg-muted/40 overflow-x-auto">
+      <div className="flex items-center justify-between h-6 mt-0.5 mb-0.5 px-4">
         <div className="text-[10px] text-muted-foreground/40 font-mono tracking-wide">
           {language.toLowerCase()}
         </div>
@@ -101,10 +101,12 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
           )}
         </button>
       </div>
-      {language && <Separator className="bg-border/20 mb-0.5" />}
-      <pre className="text-[13px] leading-relaxed py-1 bg-transparent text-foreground/90 rounded-lg overflow-x-auto scrollbar-thin scrollbar-thumb-muted-foreground/10 scrollbar-track-transparent">
-        <code className="font-mono">{childrenContent}</code>
-      </pre>
+      {language && <Separator className="bg-border/20 mb-0.5 mx-4" />}
+      <div className="px-4">
+        <pre className="text-[13px] leading-relaxed py-1 bg-transparent text-foreground/90 rounded-lg scrollbar-thin scrollbar-thumb-muted-foreground/10 scrollbar-track-transparent">
+          <code className="font-mono">{childrenContent}</code>
+        </pre>
+      </div>
     </div>
   )
 }

@@ -22,7 +22,7 @@ import { SWITCHBOARD } from '../websockets/server'
 import { sendAction } from '../websockets/websocket-action'
 
 import type { ClientState } from '../websockets/switchboard'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 export const PROFIT_MARGIN = 0.055
 
@@ -57,6 +57,7 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_claude_3_5_sonnet]: 3,
     [models.openrouter_gpt4o]: 2.5,
     [models.openrouter_gpt4o_mini]: 0.15,
+    [models.openrouter_gpt4_1_nano]: 0.1,
     [models.openrouter_o3_mini]: 1.1,
     [models.openrouter_gemini2_5_pro_preview]: 1.25,
     [models.openrouter_grok_4]: 3.0,
@@ -86,6 +87,7 @@ const TOKENS_COST_PER_M = {
     [models.openrouter_claude_3_5_sonnet]: 15,
     [models.openrouter_gpt4o]: 10,
     [models.openrouter_gpt4o_mini]: 0.6,
+    [models.openrouter_gpt4_1_nano]: 0.4,
     [models.openrouter_o3_mini]: 4.4,
     [models.openrouter_gemini2_5_pro_preview]: 10,
     [models.openrouter_grok_4]: 15.0,
@@ -330,7 +332,7 @@ type InsertMessageParams = {
   fingerprintId: string
   userInputId: string
   model: string
-  request: CodebuffMessage[]
+  request: Message[]
   response: string
   inputTokens: number
   outputTokens: number
@@ -376,7 +378,6 @@ async function insertMessageRecord(
         ...stripNullCharsFromObject({
           id: messageId,
           user_id: userId,
-          fingerprint_id: fingerprintId,
           client_id: clientSessionId,
           client_request_id: userInputId,
           model: model,
@@ -418,6 +419,7 @@ async function sendCostResponseToClient(
   clientSessionId: string,
   userInputId: string,
   creditsUsed: number,
+  agentId?: string,
 ): Promise<void> {
   try {
     const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
@@ -432,6 +434,7 @@ async function sendCostResponseToClient(
           type: 'message-cost-response',
           promptId: userInputId,
           credits: creditsUsed,
+          agentId,
         })
       } else {
         logger.warn(
@@ -530,7 +533,7 @@ export const saveMessage = async (value: {
   fingerprintId: string
   userInputId: string
   model: string
-  request: CodebuffMessage[]
+  request: Message[]
   response: string
   inputTokens: number
   outputTokens: number
@@ -541,7 +544,8 @@ export const saveMessage = async (value: {
   usesUserApiKey?: boolean
   chargeUser?: boolean
   costOverrideDollars?: number
-}) =>
+  agentId?: string
+}): Promise<number> =>
   withLoggerContext(
     {
       messageId: value.messageId,
@@ -590,7 +594,7 @@ export const saveMessage = async (value: {
           },
           `Credits used by test user (${creditsUsed})`,
         )
-        return
+        return creditsUsed
       }
 
       if (VERBOSE) {
@@ -610,6 +614,7 @@ export const saveMessage = async (value: {
         value.clientSessionId,
         value.userInputId,
         creditsUsed,
+        value.agentId,
       )
 
       const savedMessageResult = await insertMessageRecord({
@@ -623,7 +628,7 @@ export const saveMessage = async (value: {
           { messageId: value.messageId, userId: value.userId },
           'Skipping further processing (no user ID or failed to save message).',
         )
-        return null
+        return 0
       }
 
       const consumptionResult = await updateUserCycleUsage(
@@ -654,6 +659,6 @@ export const saveMessage = async (value: {
         )
       }
 
-      return savedMessageResult
+      return creditsUsed
     },
   )

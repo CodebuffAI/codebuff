@@ -8,10 +8,42 @@ import { LinkedInInsightTag } from 'nextjs-linkedin-insight-tag'
 import { Separator } from '@/components/ui/separator'
 import { siteConfig } from '@/lib/constant'
 
+type LinkInfo = { text: string; href: string; target?: string }
+
+const siteLinks: LinkInfo[] = [
+  { text: 'Home', href: '/' },
+  { text: 'Docs', href: '/docs', target: '_blank' },
+  { text: 'News', href: 'https://news.codebuff.com', target: '_blank' },
+  { text: 'Pricing', href: '/pricing' },
+  { text: 'Usage', href: '/usage' },
+]
+
+const legalLinks: LinkInfo[] = [
+  { text: 'Privacy Policy', href: '/privacy-policy' },
+  { text: 'Terms of Service', href: '/terms-of-service' },
+]
+
+const communityLinks: LinkInfo[] = [
+  { text: 'Discord', href: 'https://discord.gg/mcWTGjgTj3', target: '_blank' },
+]
+
+const authLinks: LinkInfo[] = [{ text: 'Login', href: '/login' }]
+
+const publicPaths = [
+  ...authLinks,
+  ...legalLinks,
+  ...communityLinks,
+  ...siteLinks.filter((link) => link.href !== '/docs'),
+]
+  .map((link) => link.href)
+  .filter((href) => !href.startsWith('http'))
+
 export const Footer = () => {
   const pathname = usePathname()
-  if (pathname.startsWith('/docs')) {
-    return <></>
+  const isPublicPage = publicPaths.includes(pathname)
+
+  if (!isPublicPage) {
+    return null
   }
 
   return (
@@ -36,38 +68,16 @@ export const Footer = () => {
           <div>
             <h3 className="font-semibold mb-4">Site</h3>
             <nav className="flex flex-col space-y-2">
-              <Link
-                href="/"
-                className="text-muted-foreground hover:text-primary"
-              >
-                Home
-              </Link>
-              <Link
-                href="/docs"
-                target="_blank"
-                className="text-muted-foreground hover:text-primary"
-              >
-                Docs
-              </Link>
-              <Link
-                href="https://news.codebuff.com"
-                target="_blank"
-                className="text-muted-foreground hover:text-primary"
-              >
-                News
-              </Link>
-              <Link
-                href="/pricing"
-                className="text-muted-foreground hover:text-primary"
-              >
-                Pricing
-              </Link>
-              <Link
-                href="/usage"
-                className="text-muted-foreground hover:text-primary"
-              >
-                Usage
-              </Link>
+              {siteLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  target={link.target}
+                  className="text-muted-foreground hover:text-primary"
+                >
+                  {link.text}
+                </Link>
+              ))}
             </nav>
           </div>
 
@@ -75,18 +85,15 @@ export const Footer = () => {
           <div>
             <h3 className="font-semibold mb-4">Legal</h3>
             <nav className="flex flex-col space-y-2">
-              <Link
-                href="/privacy-policy"
-                className="text-muted-foreground hover:text-primary"
-              >
-                Privacy Policy
-              </Link>
-              <Link
-                href="/terms-of-service"
-                className="text-muted-foreground hover:text-primary"
-              >
-                Terms of Service
-              </Link>
+              {legalLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-muted-foreground hover:text-primary"
+                >
+                  {link.text}
+                </Link>
+              ))}
             </nav>
           </div>
 
@@ -94,13 +101,16 @@ export const Footer = () => {
           <div>
             <h3 className="font-semibold mb-4">Community</h3>
             <nav className="flex flex-col space-y-2">
-              <Link
-                href="https://discord.gg/mcWTGjgTj3"
-                target="_blank"
-                className="text-muted-foreground hover:text-primary"
-              >
-                Discord
-              </Link>
+              {communityLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  target={link.target}
+                  className="text-muted-foreground hover:text-primary"
+                >
+                  {link.text}
+                </Link>
+              ))}
             </nav>
           </div>
         </div>

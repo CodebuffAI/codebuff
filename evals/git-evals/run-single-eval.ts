@@ -24,6 +24,7 @@ class RunSingleEvalCommand extends Command {
     '$ bun run-single-eval --eval-file eval-codebuff.json --commit-index 0',
     '$ bun run-single-eval --eval-file eval-manifold.json --commit-sha abc123',
     '$ bun run-single-eval --eval-file eval-codebuff.json --commit-index 5 --output results.json',
+    '$ bun run-single-eval --eval-file eval-codebuff.json --commit-index 0 --agent base2',
   ]
 
   static flags = {
@@ -48,6 +49,16 @@ class RunSingleEvalCommand extends Command {
       char: 'm',
       description: 'JSON string with model configuration (optional)',
       default: '{}',
+    }),
+    'coding-agent': Flags.string({
+      description: 'Coding agent to use',
+      default: 'codebuff',
+    }),
+    agent: Flags.string({
+      char: 'a',
+      description:
+        'Agent type to use for evaluation (e.g., base, base2, base-lite)',
+      default: 'base',
     }),
     help: Flags.help({ char: 'h' }),
   }
@@ -78,6 +89,8 @@ async function runSingleEvalTask(options: {
   'commit-sha'?: string
   output?: string
   'model-config': string
+  'coding-agent': string
+  agent: string
 }): Promise<void> {
   const {
     'eval-file': evalFile,
@@ -85,7 +98,14 @@ async function runSingleEvalTask(options: {
     'commit-sha': commitSha,
     output: outputFile,
     'model-config': modelConfigStr,
+    'coding-agent': codingAgentStr,
+    agent: agentType,
   } = options
+
+  if (!['codebuff', 'claude'].includes(codingAgentStr)) {
+    throw new Error(`Invalid coding agent: ${codingAgentStr}`)
+  }
+  const codingAgent = codingAgentStr as 'codebuff' | 'claude'
 
   console.log('🚀 Starting single git eval...')
   console.log(`Eval file: ${evalFile}`)
@@ -147,6 +167,8 @@ async function runSingleEvalTask(options: {
     evalData.repoUrl,
     testRepoName,
     evalCommit.sha,
+    undefined,
+    evalData.initCommand,
   )
   console.log(`Repository cloned to: ${projectPath}`)
 
@@ -174,6 +196,8 @@ async function runSingleEvalTask(options: {
       projectPath,
       clientSessionId,
       fingerprintId,
+      codingAgent,
+      agentType,
     )
 
     const duration = Date.now() - startTime
@@ -206,7 +230,6 @@ async function runSingleEvalTask(options: {
         }
       }
 
-      console.log(`  Files modified: ${result.fileStates.length}`)
       console.log(`  Conversation turns: ${result.trace.length}`)
     }
 

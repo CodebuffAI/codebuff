@@ -1,19 +1,13 @@
 import { HIDDEN_FILE_READ_STATUS } from '@codebuff/common/constants'
-import { parseFileBlocks } from '@codebuff/common/util/file'
-import { toContentString } from '@codebuff/common/util/messages'
 import { countTokens } from 'gpt-tokenizer'
 import { uniq, difference } from 'lodash'
 
 import { logger } from './util/logger'
-import {
-  isToolResult,
-  parseToolResults,
-  parseReadFilesResult,
-} from './util/parse-tool-call-xml'
+import { getEditedFiles, getPreviouslyReadFiles } from './util/messages'
 import { countTokensJson } from './util/token-counter'
 import { requestFiles } from './websockets/websocket-action'
 
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -39,7 +33,7 @@ const getInitialFiles = (fileContext: ProjectFileContext) => {
 
 export async function getFileReadingUpdates(
   ws: WebSocket,
-  messages: CodebuffMessage[],
+  messages: Message[],
   fileContext: ProjectFileContext,
   options: {
     requestedFiles?: string[]
@@ -50,27 +44,25 @@ export async function getFileReadingUpdates(
     userId: string | undefined
     repoId: string | undefined
   },
-) {
+): Promise<{
+  addedFiles: {
+    path: string
+    content: string
+  }[]
+  updatedFilePaths: string[]
+  printedPaths: string[]
+  clearReadFileToolResults: boolean
+}> {
   const FILE_TOKEN_BUDGET = 100_000
 
-  const toolResults = messages
-    .filter(isToolResult)
-    .flatMap((content) => parseToolResults(toContentString(content)))
-  const previousFileList = toolResults
-    .filter(({ toolName }) => toolName === 'read_files')
-    .flatMap(({ output }) => parseReadFilesResult(output.value))
+  const previousFileList = getPreviouslyReadFiles(messages)
 
   const previousFiles = Object.fromEntries(
     previousFileList.map(({ path, content }) => [path, content]),
   )
   const previousFilePaths = uniq(Object.keys(previousFiles))
 
-  const editedFilePaths = messages
-    .filter(({ role }) => role === 'assistant')
-    .map(toContentString)
-    .filter((content) => content.includes('<write_file'))
-    .flatMap((content) => Object.keys(parseFileBlocks(content)))
-    .filter((path) => path !== undefined)
+  const editedFilePaths = getEditedFiles(messages)
 
   const requestedFiles = options.requestedFiles ?? []
 

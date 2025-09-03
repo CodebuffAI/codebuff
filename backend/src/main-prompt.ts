@@ -1,4 +1,3 @@
-import { renderToolResults } from '@codebuff/common/tools/utils'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
@@ -16,8 +15,8 @@ import type { CostMode } from '@codebuff/common/constants'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   SessionState,
-  ToolResult,
   AgentTemplateType,
+  AgentOutput,
 } from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
 
@@ -34,8 +33,7 @@ export const mainPrompt = async (
   options: MainPromptOptions,
 ): Promise<{
   sessionState: SessionState
-  toolCalls: []
-  toolResults: ToolResult[]
+  output: AgentOutput
 }> => {
   const { userId, clientSessionId, onResponseChunk, localAgentTemplates } =
     options
@@ -71,7 +69,7 @@ export const mainPrompt = async (
         `Detected terminal command in ${duration}ms, executing directly: ${prompt}`,
       )
 
-      const response = await requestToolCall(
+      const { output } = await requestToolCall(
         ws,
         promptId,
         'run_terminal_command',
@@ -83,23 +81,15 @@ export const mainPrompt = async (
         },
       )
 
-      const toolResult: ToolResult['output'] = {
-        type: 'text',
-        value:
-          (response.success ? response.output?.value : response.error) || '',
-      }
-      if (response.success) {
-        mainAgentState.messageHistory.push({
-          role: 'user',
-          content: renderToolResults([
-            {
-              toolName: 'run_terminal_command',
-              toolCallId: generateCompactId(),
-              output: toolResult,
-            },
-          ]),
-        })
-      }
+      mainAgentState.messageHistory.push({
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'run_terminal_command',
+          toolCallId: generateCompactId(),
+          output: output,
+        },
+      })
 
       const newSessionState = {
         ...sessionState,
@@ -111,8 +101,10 @@ export const mainPrompt = async (
 
       return {
         sessionState: newSessionState,
-        toolCalls: [],
-        toolResults: [],
+        output: {
+          type: 'lastMessage',
+          value: output,
+        },
       }
     }
   }
@@ -164,7 +156,7 @@ export const mainPrompt = async (
           lite: AgentTemplateTypes.base_lite,
           normal: AgentTemplateTypes.base,
           max: AgentTemplateTypes.base_max,
-          experimental: AgentTemplateTypes.base_experimental,
+          experimental: 'base2',
         } satisfies Record<CostMode, AgentTemplateType>
       )[costMode]
     }
@@ -187,7 +179,7 @@ export const mainPrompt = async (
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
-  const { agentState } = await loopAgentSteps(ws, {
+  const { agentState, output } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
     params: promptParams,
@@ -202,12 +194,16 @@ export const mainPrompt = async (
     localAgentTemplates,
   })
 
+  logger.debug({ agentState }, 'Main prompt finished')
+
   return {
     sessionState: {
       fileContext,
       mainAgentState: agentState,
     },
-    toolCalls: [],
-    toolResults: [],
+    output: output ?? {
+      type: 'error' as const,
+      message: 'No output from agent',
+    },
   }
 }

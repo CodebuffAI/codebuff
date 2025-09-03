@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from 'async_hooks'
 import { mkdirSync } from 'fs'
 import path from 'path'
 import { format } from 'util'
@@ -16,8 +15,6 @@ import {
 // --- Constants ---
 const MAX_LENGTH = 65535 // Max total log size is sometimes 100k (sometimes 65535?)
 const BUFFER = 1000 // Buffer for context, etc.
-
-const loggerAsyncStorage = new AsyncLocalStorage<LoggerContext>()
 
 export const withLoggerContext = <T>(
   additionalContext: Partial<LoggerContext>,

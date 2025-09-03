@@ -4,6 +4,8 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
+import { generateCompactId } from '@codebuff/common/util/string'
+
 import { TEST_REPOS_DIR } from '../test-setup'
 
 /**
@@ -37,11 +39,16 @@ export async function setupTestRepo(
   repoUrl: string,
   customRepoName: string,
   commitSha: string = 'HEAD',
+  addRandomSuffix: boolean = false,
+  initCommand?: string,
 ): Promise<string> {
   const repoName = customRepoName || extractRepoNameFromUrl(repoUrl)
   console.log(`Setting up test repository: ${repoName}...`)
 
-  const repoDir = path.join(TEST_REPOS_DIR, `${repoName}-${commitSha}`)
+  const repoBaseDir = path.join(TEST_REPOS_DIR, `${repoName}-${commitSha}`)
+  const repoDir = addRandomSuffix
+    ? `${repoBaseDir}-${generateCompactId()}`
+    : repoBaseDir
 
   // Create test-repos directory if it doesn't exist
   if (!fs.existsSync(TEST_REPOS_DIR)) {
@@ -171,6 +178,24 @@ export async function setupTestRepo(
       .trim()
 
     console.log(`Repository has ${commitCount} commits in history`)
+
+    try {
+      if (initCommand) {
+        console.log(`Executing initialization command: ${initCommand}`)
+        const [command, ...args] = initCommand.split(' ')
+        execFileSync(command, args, {
+          cwd: repoDir,
+          stdio: 'inherit',
+          timeout: 240_000, // 4 minute timeout for init commands
+        })
+        console.log('Initialization command completed successfully')
+      }
+    } catch (error) {
+      console.error('Error executing initialization command:', error)
+      throw new Error(
+        `Initialization command failed: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
 
     console.log('Repository verification passed')
 

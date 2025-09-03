@@ -27,6 +27,7 @@ describe('QuickJS Sandbox Generator', () => {
       agentContext: {},
       subagents: [],
       stepsRemaining: 10,
+      creditsUsed: 0,
     }
 
     // Base template structure - will be customized per test

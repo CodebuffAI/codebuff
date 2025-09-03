@@ -8,7 +8,6 @@ import { assembleLocalAgentTemplates } from '@codebuff/backend/templates/agent-r
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { mockModule } from '@codebuff/common/testing/mock-modules'
-import { applyAndRevertChanges } from '@codebuff/common/util/changes'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { handleToolCall } from '@codebuff/npm-app/tool-handlers'
 import { getSystemInfo } from '@codebuff/npm-app/utils/system-info'
@@ -21,27 +20,42 @@ import {
 } from '../common/src/project-file-tree'
 
 import type {
+  SDKAssistantMessage,
+  SDKUserMessage,
+} from '@anthropic-ai/claude-code'
+import type {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
 } from '@codebuff/backend/websockets/websocket-action'
-import type { FileChanges } from '@codebuff/common/actions'
 import type { ClientToolCall } from '@codebuff/common/tools/list'
+import type {
+  ToolResultOutput,
+  ToolResultPart,
+} from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
   SessionState,
-  ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 const DEBUG_MODE = true
 
+export type ToolResultBlockParam = Extract<
+  SDKUserMessage['message']['content'][number],
+  { type: 'tool_result' }
+>
+export type ToolUseBlock = Extract<
+  SDKAssistantMessage['message']['content'][number],
+  { type: 'tool_use' }
+>
+
 export type AgentStep = {
   response: string
-  toolCalls: ClientToolCall[]
-  toolResults: ToolResult[]
+  toolCalls: (ClientToolCall | ToolUseBlock)[]
+  toolResults: (ToolResultPart | ToolResultBlockParam)[]
 }
 
 function readMockFile(projectRoot: string, filePath: string): string | null {
@@ -54,7 +68,7 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
 }
 
 let toolCalls: ClientToolCall[] = []
-let toolResults: ToolResult[] = []
+let toolResults: ToolResultPart[] = []
 export function createFileReadingMock(projectRoot: string) {
   mockModule('@codebuff/backend/websockets/websocket-action', () => ({
     requestFiles: ((ws: WebSocket, filePaths: string[]) => {
@@ -81,6 +95,7 @@ export function createFileReadingMock(projectRoot: string) {
       try {
         const toolResult = await handleToolCall(toolCall as any)
         toolResults.push({
+          type: 'tool-result',
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
           output: toolResult.output,
@@ -88,22 +103,25 @@ export function createFileReadingMock(projectRoot: string) {
 
         // Send successful response back to backend
         return {
-          success: true,
           output: toolResult.output,
         }
       } catch (error) {
         // Send error response back to backend
         const resultString =
           error instanceof Error ? error.message : String(error)
+        const output = [
+          {
+            type: 'json',
+            value: { errorMessage: resultString },
+          },
+        ] satisfies ToolResultOutput[]
         toolResults.push({
+          type: 'tool-result',
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
-          output: { type: 'text', value: resultString },
+          output,
         })
-        return {
-          success: false,
-          error: resultString,
-        }
+        return { output }
       }
     }) satisfies typeof originalRequestToolCall,
   }))
@@ -190,7 +208,7 @@ export async function runAgentStepScaffolding(
 }
 
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
-  const toolResults: ToolResult[] = []
+  const toolResults: ToolResultPart[] = []
   for (const toolCall of toolCalls) {
     const toolResult = await handleToolCall(toolCall)
     toolResults.push(toolResult)
@@ -276,40 +294,6 @@ export function extractErrorFiles(output: string): string[] {
     .map((line) => line.split('(')[0].trim())
 }
 
-export const applyAndRevertChangesSequentially = (() => {
-  const queue: Array<() => Promise<void>> = []
-  let isProcessing = false
-
-  const processQueue = async () => {
-    if (isProcessing || queue.length === 0) return
-    isProcessing = true
-    const nextOperation = queue.shift()
-    if (nextOperation) {
-      await nextOperation()
-    }
-    isProcessing = false
-    processQueue()
-  }
-
-  return async (
-    projectRoot: string,
-    changes: FileChanges,
-    onApply: () => Promise<void>,
-  ) => {
-    return new Promise<void>((resolve, reject) => {
-      queue.push(async () => {
-        try {
-          await applyAndRevertChanges(projectRoot, changes, onApply)
-          resolve()
-        } catch (error) {
-          reject(error)
-        }
-      })
-      processQueue()
-    })
-  }
-})()
-
 export function resetRepoToCommit(projectPath: string, commit: string) {
   console.log(`Resetting repository at ${projectPath} to commit ${commit}...`)
   try {
@@ -333,6 +317,5 @@ export default {
   runToolCalls,
   loopMainPrompt,
   extractErrorFiles,
-  applyAndRevertChangesSequentially,
   resetRepoToCommit,
 }

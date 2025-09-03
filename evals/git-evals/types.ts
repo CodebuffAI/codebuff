@@ -20,6 +20,7 @@ export interface EvalData {
   repoUrl: string // URL of the git repository to clone
   testRepoName?: string // Optional - can be inferred from repoUrl
   generationDate: string
+  initCommand?: string // Optional command to run during scaffolding setup
   evalCommits: EvalCommit[]
 }
 
@@ -42,12 +43,17 @@ export interface EvalRunLog {
   eval_commit: EvalCommit
   trace: CodebuffTrace[]
   error?: string
-  fileStates: FileState[] // Files Codebuff changed
+  gitDiff: string
   durationMs: number
+  costUsd: number
 }
 
 export interface EvalRunJudged extends EvalRunLog {
   judging_results: z.infer<typeof JudgingAnalysisSchema>
+  computed_metrics: {
+    runtime_sec: number
+    cost_usd: number
+  }
 }
 
 export interface FullEvalLog {
@@ -55,6 +61,8 @@ export interface FullEvalLog {
   generation_date: string
   eval_runs: EvalRunJudged[]
   overall_metrics: {
+    average_runtime_sec: number
+    average_cost_usd: number
     average_completion: number
     average_efficiency: number
     average_code_quality: number
@@ -103,7 +111,6 @@ export interface EvalConfig {
   name: string
   evalDataPath: string
   outputDir: string
-  agentType?: string
   limit?: number
 }
 

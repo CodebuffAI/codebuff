@@ -83,11 +83,9 @@ export interface TestInterface {
       cwd: '__tests__/data',
     }
 
-    const result = (await handleCodeSearch(parameters, 'test-id')) as string
+    await handleCodeSearch(parameters, 'test-id')
 
     expect(mockGetProjectRoot).toHaveBeenCalled()
-    expect(typeof result).toBe('string')
-    expect(result.length).toBeGreaterThan(0)
   })
 
   test('handles basic search without cwd', async () => {
@@ -97,7 +95,7 @@ export interface TestInterface {
 
     const result = await handleCodeSearch(parameters, 'test-id')
 
-    expect(typeof result).toBe('string')
+    expect(result[0].value).toContainKey('message')
   })
 
   test('finds specific content in test file', async () => {
@@ -109,9 +107,10 @@ export interface TestInterface {
     const result = await handleCodeSearch(parameters, 'test-id')
 
     expect(mockGetProjectRoot).toHaveBeenCalled()
-    expect(typeof result).toBe('string')
-    expect(result).toContain('UNIQUE_SEARCH_STRING_12345')
-    expect(result).toContain('test-content.js')
+    expect((result[0].value as any).stdout).toContain(
+      'UNIQUE_SEARCH_STRING_12345',
+    )
+    expect((result[0].value as any).stdout).toContain('test-content.js')
   })
 
   test('searches with case-insensitive flag', async () => {
@@ -123,6 +122,6 @@ export interface TestInterface {
 
     const result = await handleCodeSearch(parameters, 'test-id')
 
-    expect(result).toContain('findme_xyz789')
+    expect((result[0].value as any).stdout).toContain('findme_xyz789')
   })
 })

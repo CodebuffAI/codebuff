@@ -7,6 +7,7 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
@@ -29,6 +30,7 @@ import type {
   ServerAction,
   UsageResponse,
 } from '@codebuff/common/actions'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
 
@@ -146,7 +148,7 @@ const onPrompt = async (
       }
 
       if (prompt) {
-        logger.info(`USER INPUT: ${prompt}`)
+        logger.info({ prompt }, `USER INPUT: ${prompt.slice(0, 100)}`)
         trackEvent(AnalyticsEvent.USER_INPUT, userId, {
           prompt,
           promptId,
@@ -156,13 +158,16 @@ const onPrompt = async (
       startUserInput(userId, promptId)
 
       try {
-        await callMainPrompt(ws, action, {
+        const result = await callMainPrompt(ws, action, {
           userId,
           promptId,
           clientSessionId,
         })
+        if (result.output.type === 'error') {
+          throw new Error(result.output.message)
+        }
       } catch (e) {
-        logger.error(e, 'Error in mainPrompt')
+        logger.error({ error: getErrorObject(e) }, 'Error in mainPrompt')
         let response =
           e && typeof e === 'object' && 'message' in e ? `${e.message}` : `${e}`
 
@@ -196,6 +201,10 @@ export const callMainPrompt = async (
   const { userId, promptId, clientSessionId } = options
   const { fileContext } = action.sessionState
 
+  // Enforce server-side state authority: reset creditsUsed to 0
+  // The server controls cost tracking, clients cannot manipulate this value
+  action.sessionState.mainAgentState.creditsUsed = 0
+
   // Assemble local agent templates from fileContext
   const { agentTemplates: localAgentTemplates, validationErrors } =
     assembleLocalAgentTemplates(fileContext)
@@ -223,14 +232,16 @@ export const callMainPrompt = async (
     },
   })
 
-  const { sessionState, toolCalls, toolResults } = result
+  const { sessionState, output } = result
+
   // Send prompt data back
   sendAction(ws, {
     type: 'prompt-response',
     promptId,
     sessionState,
-    toolCalls: toolCalls as any[],
-    toolResults,
+    toolCalls: [],
+    toolResults: [],
+    output,
   })
 
   return result
@@ -415,14 +426,9 @@ export async function requestToolCall(
   toolName: string,
   input: Record<string, any> & { timeout_seconds?: number },
 ): Promise<{
-  success: boolean
-  output?: {
-    type: 'text'
-    value: string
-  }
-  error?: string
+  output: ToolResultOutput[]
 }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const requestId = generateCompactId()
     const timeoutInSeconds =
       (input.timeout_seconds || 30) < 0
@@ -436,11 +442,16 @@ export async function requestToolCall(
         : setTimeout(
             () => {
               unsubscribe()
-              reject(
-                new Error(
-                  `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
-                ),
-              )
+              resolve({
+                output: [
+                  {
+                    type: 'json',
+                    value: {
+                      errorMessage: `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
+                    },
+                  },
+                ],
+              })
             },
             timeoutInSeconds * 1000 + 5000, // Convert to ms and add a small buffer
           )
@@ -451,9 +462,7 @@ export async function requestToolCall(
         clearTimeout(timeoutHandle)
         unsubscribe()
         resolve({
-          success: action.success,
           output: action.output,
-          error: action.error,
         })
       }
     })

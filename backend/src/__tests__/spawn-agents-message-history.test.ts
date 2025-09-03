@@ -1,14 +1,23 @@
-import { describe, expect, it, beforeEach, afterEach, mock, spyOn } from 'bun:test'
-import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import { TEST_USER_ID } from '@codebuff/common/constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { mockFileContext, MockWebSocket } from './test-utils'
-import * as loggerModule from '../util/logger'
-import * as runAgentStep from '../run-agent-step'
+import {
+  describe,
+  expect,
+  it,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import { mockFileContext, MockWebSocket } from './test-utils'
+import * as runAgentStep from '../run-agent-step'
+import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
+import * as loggerModule from '../util/logger'
+
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { WebSocket } from 'ws'
 
 describe('Spawn Agents Message History', () => {
@@ -43,6 +52,7 @@ describe('Spawn Agents Message History', () => {
             { role: 'assistant', content: 'Mock agent response' },
           ],
         },
+        output: { type: 'lastMessage', value: 'Mock agent response' },
       }
     })
   })
@@ -52,7 +62,10 @@ describe('Spawn Agents Message History', () => {
     capturedSubAgentState = undefined
   })
 
-  const createMockAgent = (id: string, includeMessageHistory = true): AgentTemplate => ({
+  const createMockAgent = (
+    id: string,
+    includeMessageHistory = true,
+  ): AgentTemplate => ({
     id,
     displayName: `Mock ${id}`,
     outputMode: 'last_message' as const,
@@ -71,7 +84,10 @@ describe('Spawn Agents Message History', () => {
     stepPrompt: '',
   })
 
-  const createSpawnToolCall = (agentType: string, prompt = 'test prompt'): CodebuffToolCall<'spawn_agents'> => ({
+  const createSpawnToolCall = (
+    agentType: string,
+    prompt = 'test prompt',
+  ): CodebuffToolCall<'spawn_agents'> => ({
     toolName: 'spawn_agents' as const,
     toolCallId: 'test-tool-call-id',
     input: {
@@ -87,8 +103,11 @@ describe('Spawn Agents Message History', () => {
     const toolCall = createSpawnToolCall('child-agent')
 
     // Create mock messages including system message
-    const mockMessages: CodebuffMessage[] = [
-      { role: 'system', content: 'This is the parent system prompt that should be excluded' },
+    const mockMessages: Message[] = [
+      {
+        role: 'system',
+        content: 'This is the parent system prompt that should be excluded',
+      },
       { role: 'user', content: 'Hello' },
       { role: 'assistant', content: 'Hi there!' },
       { role: 'user', content: 'How are you?' },
@@ -100,6 +119,7 @@ describe('Spawn Agents Message History', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ws,
@@ -122,22 +142,39 @@ describe('Spawn Agents Message History', () => {
     expect(capturedSubAgentState.messageHistory).toHaveLength(1)
     const conversationHistoryMessage = capturedSubAgentState.messageHistory[0]
     expect(conversationHistoryMessage.role).toBe('user')
-    expect(conversationHistoryMessage.content).toContain('conversation history between the user and an assistant')
+    expect(conversationHistoryMessage.content).toContain(
+      'conversation history between the user and an assistant',
+    )
 
     // Parse the JSON content to verify system message is excluded
-    const contentMatch = conversationHistoryMessage.content.match(/\[([\s\S]*)\]/)
+    const contentMatch =
+      conversationHistoryMessage.content.match(/\[([\s\S]*)\]/)
     expect(contentMatch).toBeTruthy()
     const parsedMessages = JSON.parse(contentMatch![0])
 
     // Verify system message is excluded
     expect(parsedMessages).toHaveLength(3) // Only user and assistant messages
-    expect(parsedMessages.find((msg: any) => msg.role === 'system')).toBeUndefined()
-    expect(parsedMessages.find((msg: any) => msg.content === 'This is the parent system prompt that should be excluded')).toBeUndefined()
+    expect(
+      parsedMessages.find((msg: any) => msg.role === 'system'),
+    ).toBeUndefined()
+    expect(
+      parsedMessages.find(
+        (msg: any) =>
+          msg.content ===
+          'This is the parent system prompt that should be excluded',
+      ),
+    ).toBeUndefined()
 
     // Verify user and assistant messages are included
-    expect(parsedMessages.find((msg: any) => msg.content === 'Hello')).toBeTruthy()
-    expect(parsedMessages.find((msg: any) => msg.content === 'Hi there!')).toBeTruthy()
-    expect(parsedMessages.find((msg: any) => msg.content === 'How are you?')).toBeTruthy()
+    expect(
+      parsedMessages.find((msg: any) => msg.content === 'Hello'),
+    ).toBeTruthy()
+    expect(
+      parsedMessages.find((msg: any) => msg.content === 'Hi there!'),
+    ).toBeTruthy()
+    expect(
+      parsedMessages.find((msg: any) => msg.content === 'How are you?'),
+    ).toBeTruthy()
   })
 
   it('should not include conversation history when includeMessageHistory is false', async () => {
@@ -147,7 +184,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: CodebuffMessage[] = [
+    const mockMessages: Message[] = [
       { role: 'system', content: 'System prompt' },
       { role: 'user', content: 'Hello' },
       { role: 'assistant', content: 'Hi there!' },
@@ -159,6 +196,7 @@ describe('Spawn Agents Message History', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ws,
@@ -185,7 +223,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: CodebuffMessage[] = [] // Empty message history
+    const mockMessages: Message[] = [] // Empty message history
 
     const { result } = handleSpawnAgents({
       previousToolCallFinished: Promise.resolve(),
@@ -193,6 +231,7 @@ describe('Spawn Agents Message History', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ws,
@@ -221,7 +260,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: CodebuffMessage[] = [
+    const mockMessages: Message[] = [
       { role: 'system', content: 'System prompt 1' },
       { role: 'system', content: 'System prompt 2' },
     ]
@@ -232,6 +271,7 @@ describe('Spawn Agents Message History', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ws,

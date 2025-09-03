@@ -84,17 +84,17 @@ export function getSearchSystemPrompt(
     gitChangesPrompt,
   ]).join('\n\n')
 
-  logger.debug(
-    {
-      fileTreeTokens,
-      fileTreeTokenBudget,
-      systemInfoTokens,
-      systemPromptTokens: countTokensJson(systemPrompt),
-      messagesTokens,
-      duration: Date.now() - startTime,
-    },
-    'search system prompt tokens',
-  )
+  // logger.debug(
+  //   {
+  //     fileTreeTokens,
+  //     fileTreeTokenBudget,
+  //     systemInfoTokens,
+  //     systemPromptTokens: countTokensJson(systemPrompt),
+  //     messagesTokens,
+  //     duration: Date.now() - startTime,
+  //   },
+  //   'search system prompt tokens',
+  // )
 
   return systemPrompt
 }

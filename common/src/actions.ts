@@ -2,11 +2,15 @@ import { z } from 'zod/v4'
 
 import { costModes } from './constants'
 import { GrantTypeValues } from './types/grant'
+import {
+  toolResultOutputSchema,
+  toolResultPartSchema,
+} from './types/messages/content-part'
 import { printModeEventSchema } from './types/print-mode'
 import {
+  AgentOutputSchema,
   SessionStateSchema,
   toolCallSchema,
-  toolResultSchema,
 } from './types/session-state'
 import { ProjectFileContextSchema } from './util/file'
 
@@ -29,7 +33,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     authToken: z.string().optional(),
     costMode: z.enum(costModes).optional().default('normal'),
     sessionState: SessionStateSchema,
-    toolResults: z.array(toolResultSchema),
+    toolResults: z.array(toolResultPartSchema),
     model: z.string().optional(),
     repoUrl: z.string().optional(),
     agentId: z.string().optional(),
@@ -49,14 +53,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('tool-call-response'),
     requestId: z.string(),
-    success: z.boolean(),
-    output: z
-      .object({
-        type: z.literal('text'),
-        value: z.string(),
-      })
-      .optional(), // Tool execution result
-    error: z.string().optional(), // Error message if execution failed
+    output: toolResultOutputSchema.array(),
   }),
   z.object({
     type: z.literal('cancel-user-input'),
@@ -102,6 +99,7 @@ export const MessageCostResponseSchema = z.object({
   type: z.literal('message-cost-response'),
   promptId: z.string(),
   credits: z.number(),
+  agentId: z.string().optional(),
 })
 export type MessageCostResponse = z.infer<typeof MessageCostResponseSchema>
 
@@ -109,8 +107,9 @@ export const PromptResponseSchema = z.object({
   type: z.literal('prompt-response'),
   promptId: z.string(),
   sessionState: SessionStateSchema,
-  toolCalls: z.array(toolCallSchema),
-  toolResults: z.array(toolResultSchema),
+  toolCalls: z.array(toolCallSchema).optional(),
+  toolResults: z.array(toolResultPartSchema).optional(),
+  output: AgentOutputSchema.optional(),
 })
 export type PromptResponse = z.infer<typeof PromptResponseSchema>
 
@@ -145,6 +144,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   InitResponseSchema,
   UsageReponseSchema,
   MessageCostResponseSchema,
+
   z.object({
     type: z.literal('action-error'),
     message: z.string(),

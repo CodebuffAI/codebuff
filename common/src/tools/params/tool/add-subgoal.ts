@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'add_subgoal'
 const endsAgentStep = false
@@ -33,4 +33,12 @@ export const addSubgoalParams = {
     .describe(
       `Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z.object({
+        message: z.string(),
+      }),
+    }),
+  ]),
+} satisfies $ToolParams

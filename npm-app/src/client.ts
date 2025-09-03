@@ -79,6 +79,7 @@ import {
   getAllSubagentIds,
   markSubagentInactive,
   storeSubagentChunk,
+  addCreditsByAgentId,
 } from './subagent-storage'
 import { handleToolCall } from './tool-handlers'
 import { identifyUser, trackEvent } from './utils/analytics'
@@ -98,11 +99,9 @@ import type {
 } from '@codebuff/common/actions'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
 import type { CostMode } from '@codebuff/common/constants'
+import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type {
-  SessionState,
-  ToolResult,
-} from '@codebuff/common/types/session-state'
+import type { SessionState } from '@codebuff/common/types/session-state'
 import type { User } from '@codebuff/common/util/credentials'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
@@ -207,7 +206,7 @@ export class Client {
   public user: User | undefined
   public lastWarnedPct: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
-  public lastToolResults: ToolResult[] = []
+  public lastToolResults: ToolResultPart[] = []
   public model: string | undefined
   public oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
     Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
@@ -382,7 +381,7 @@ export class Client {
     Spinner.get().start('Storing API Key...')
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL}/api/api-keys`,
+        `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/api-keys`,
         {
           method: 'POST',
           headers: {
@@ -429,7 +428,7 @@ export class Client {
     if (this.user) {
       try {
         const redeemReferralResp = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL}/api/referrals`,
+          `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/referrals`,
           {
             method: 'POST',
             headers: {
@@ -449,7 +448,7 @@ export class Client {
               green(
                 `Noice, you've earned an extra ${(respJson as any).credits_redeemed} credits!`,
               ),
-              `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_APP_URL}/referrals)`,
+              `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/referrals)`,
             ].join('\n'),
           )
           this.getUsage()
@@ -673,7 +672,7 @@ export class Client {
             mkdirSync(credentialsPathDir, { recursive: true })
             writeFileSync(CREDENTIALS_PATH, JSON.stringify({ default: user }))
 
-            const referralLink = `${process.env.NEXT_PUBLIC_APP_URL}/referrals`
+            const referralLink = `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/referrals`
             const responseToUser = [
               'Authentication successful! 🎉',
               bold(`Hey there, ${user.name}.`),
@@ -746,7 +745,7 @@ export class Client {
           'Action error insufficient credits',
         )
         console.error(
-          `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to add credits.`,
+          `Visit ${blue(bold(process.env.NEXT_PUBLIC_CODEBUFF_APP_URL + '/usage'))} to add credits.`,
         )
       } else if (action.error === 'Auto top-up disabled') {
         console.error(['', red(`Error: ${action.message}`)].join('\n'))
@@ -758,7 +757,7 @@ export class Client {
         )
         console.error(
           yellow(
-            `Visit ${blue(bold(process.env.NEXT_PUBLIC_APP_URL + '/usage'))} to update your payment settings.`,
+            `Visit ${blue(bold(process.env.NEXT_PUBLIC_CODEBUFF_APP_URL + '/usage'))} to update your payment settings.`,
           ),
         )
       } else {
@@ -811,10 +810,16 @@ export class Client {
         sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
-          success: false,
-          error: ASYNC_AGENTS_ENABLED
-            ? `User input ID mismatch: expected one of ${this.nonCancelledUserInputIds.join(', ')}, got ${userInputId}. That user input id might have been cancelled by the user.`
-            : `User input ID mismatch: expected ${this.userInputId}, got ${userInputId}. Most likely cancelled by user.`,
+          output: [
+            {
+              type: 'json',
+              value: {
+                errorMessage: ASYNC_AGENTS_ENABLED
+                  ? `User input ID mismatch: expected one of ${this.nonCancelledUserInputIds.join(', ')}, got ${userInputId}. That user input id might have been cancelled by the user.`
+                  : `User input ID mismatch: expected ${this.userInputId}, got ${userInputId}. Most likely cancelled by user.`,
+              },
+            },
+          ],
         })
         return
       }
@@ -837,7 +842,6 @@ export class Client {
         sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
-          success: true,
           output: toolResult.output,
         })
       } catch (error) {
@@ -856,8 +860,15 @@ export class Client {
         sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
+          output: [
+            {
+              type: 'json',
+              value: {
+                errorMessage:
+                  error instanceof Error ? error.message : String(error),
+              },
+            },
+          ],
         })
       }
     })
@@ -872,6 +883,11 @@ export class Client {
         this.creditsByPromptId[response.promptId] = []
       }
       this.creditsByPromptId[response.promptId].push(response.credits)
+
+      // Attribute credits directly to the agentId (backend now always provides it)
+      if (response.agentId) {
+        addCreditsByAgentId(response.agentId, response.credits)
+      }
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
@@ -908,10 +924,9 @@ export class Client {
     this.webSocket.subscribe('request-reconnect', () => {
       this.reconnectWhenNextIdle()
     })
-
     // Handle subagent streaming messages
     this.webSocket.subscribe('subagent-response-chunk', (action) => {
-      const { userInputId, agentId, agentType, chunk, prompt } = action
+      const { agentId, agentType, chunk, prompt } = action
 
       // Store the chunk locally
       storeSubagentChunk({ agentId, agentType, chunk, prompt })
@@ -973,8 +988,10 @@ export class Client {
       },
     ])
 
+    const codebuffConfig = loadCodebuffConfig()
+
     this.sessionState.mainAgentState.stepsRemaining =
-      loadCodebuffConfig().maxAgentSteps
+      codebuffConfig.maxAgentSteps
 
     this.sessionState.fileContext.cwd = getWorkingDirectory()
     this.sessionState.fileContext.agentTemplates = await loadLocalAgents({})
@@ -1033,9 +1050,15 @@ export class Client {
       ...(this.lastToolResults || []),
       ...getBackgroundProcessUpdates(),
       scrapedContent && {
+        type: 'tool-result',
         toolName: 'web-scraper',
-        toolCallId: generateCompactId(),
-        output: { type: 'text' as const, value: scrapedContent },
+        toolCallId: generateCompactId('web-scraper-'),
+        output: [
+          {
+            type: 'json',
+            value: { scrapedContent },
+          },
+        ],
       },
     )
 
@@ -1305,7 +1328,7 @@ export class Client {
         Spinner.get().stop()
 
         this.sessionState = a.sessionState
-        const toolResults: ToolResult[] = []
+        const toolResults: ToolResultPart[] = []
 
         stepsCount++
         console.log('\n')
@@ -1357,8 +1380,13 @@ Go to https://www.codebuff.com/config for more information.`) +
         })
 
         // Show total credits used for this prompt if significant
-        const credits =
-          this.creditsByPromptId[userInputId]?.reduce((a, b) => a + b, 0) ?? 0
+        const credits = Object.entries(this.creditsByPromptId)
+          .filter(([promptId]) => promptId.startsWith(userInputId))
+          .reduce(
+            (total, [, creditValues]) =>
+              total + creditValues.reduce((sum, current) => sum + current, 0),
+            0,
+          )
         if (credits >= REQUEST_CREDIT_SHOW_THRESHOLD) {
           console.log(
             `\n\n${pluralize(credits, 'credit')} used for this request.`,

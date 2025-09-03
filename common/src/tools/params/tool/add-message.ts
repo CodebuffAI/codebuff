@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'add_message'
 const endsAgentStep = true
@@ -15,4 +15,5 @@ export const addMessageParams = {
     .describe(
       `Add a new message to the conversation history. To be used for complex requests that can't be solved in a single step, as you may forget what happened!`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([]),
+} satisfies $ToolParams

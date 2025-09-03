@@ -11,6 +11,7 @@ import type {
 import type {
   ClientToolCall,
   CodebuffToolCall,
+  CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { WebSocket } from 'ws'
 
@@ -19,7 +20,7 @@ export const handleStrReplace = ((params: {
   toolCall: CodebuffToolCall<'str_replace'>
   requestClientToolCall: (
     toolCall: ClientToolCall<'str_replace'>,
-  ) => Promise<string>
+  ) => Promise<CodebuffToolOutput<'str_replace'>>
   writeToClient: (chunk: string) => void
 
   getLatestState: () => FileProcessingState
@@ -27,7 +28,7 @@ export const handleStrReplace = ((params: {
     ws?: WebSocket
   } & OptionalFileProcessingState
 }): {
-  result: Promise<string>
+  result: Promise<CodebuffToolOutput<'str_replace'>>
   state: FileProcessingState
 } => {
   const {

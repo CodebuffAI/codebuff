@@ -269,6 +269,13 @@ The `.bin/bun` script automatically wraps bun commands with infisical when secre
 
 **Worktree Support**: The wrapper automatically detects and loads `.env.worktree` files when present, allowing worktrees to override Infisical environment variables (like ports) for local development. This enables multiple worktrees to run simultaneously on different ports without conflicts.
 
+The wrapper also loads environment variables in the correct precedence order:
+1. Infisical secrets are loaded first (if needed)
+2. `.env.worktree` is loaded second to override any conflicting variables
+3. This ensures worktree-specific overrides (like custom ports) always take precedence over cached Infisical defaults
+
+The wrapper looks for `.env.worktree` in the project root directory, making it work consistently regardless of the current working directory when bun commands are executed.
+
 **Performance Optimizations**: The wrapper uses `--silent` flag with Infisical to reduce CLI output overhead and sets `INFISICAL_DISABLE_UPDATE_CHECK=true` to skip version checks for faster startup times.
 
 **Infisical Caching**: The wrapper implements robust caching of environment variables in `.infisical-cache` with a 15-minute TTL (configurable via `INFISICAL_CACHE_TTL`). This reduces startup time from ~1.2s to ~0.16s (87% improvement). The cache uses `infisical export` which outputs secrets directly in `KEY='value'` format, ensuring ONLY Infisical-managed secrets are cached (no system environment variables). Multi-line secrets like RSA private keys are handled correctly using `source` command. Cache automatically invalidates when `.infisical.json` is modified or after TTL expires. Uses subshell execution to avoid changing the main shell's working directory.

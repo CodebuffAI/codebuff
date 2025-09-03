@@ -83,9 +83,9 @@ export async function* processStreamWithTags(
         },
       )
       const shortenedContents =
-        contents.length < 50
+        contents.length < 200
           ? contents
-          : contents.slice(0, 20) + '...' + contents.slice(-20)
+          : contents.slice(0, 100) + '...' + contents.slice(-100)
       const errorMessage = `Invalid JSON: ${JSON.stringify(shortenedContents)}\nError: ${error.message}`
       onResponseChunk({
         type: 'error',

@@ -1,18 +1,18 @@
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { generateCompactId } from '@codebuff/common/util/string'
 import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
+import { generateCompactId } from '@codebuff/common/util/string'
 
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { logger } from '../../../util/logger'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { WebSocket } from 'ws'
 
 export interface SpawnAgentParams {
@@ -27,7 +27,7 @@ export interface BaseSpawnState {
   userId?: string
   agentTemplate?: AgentTemplate
   localAgentTemplates?: Record<string, AgentTemplate>
-  messages?: CodebuffMessage[]
+  messages?: Message[]
   agentState?: AgentState
 }
 
@@ -35,7 +35,7 @@ export interface SpawnContext {
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
-  getLatestState: () => { messages: CodebuffMessage[] }
+  getLatestState: () => { messages: Message[] }
 }
 
 /**
@@ -209,7 +209,7 @@ export function validateAgentInput(
 
   // Validate params if schema exists
   if (inputSchema.params) {
-    const result = inputSchema.params.safeParse(params)
+    const result = inputSchema.params.safeParse(params ?? {})
     if (!result.success) {
       throw new Error(
         `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
@@ -221,9 +221,7 @@ export function validateAgentInput(
 /**
  * Creates conversation history message for spawned agents
  */
-export function createConversationHistoryMessage(
-  messages: CodebuffMessage[],
-): CodebuffMessage {
+export function createConversationHistoryMessage(messages: Message[]): Message {
   // Filter out system messages from conversation history to avoid including parent's system prompt
   const messagesWithoutSystem = messages.filter(
     (message) => message.role !== 'system',
@@ -244,7 +242,7 @@ export function createConversationHistoryMessage(
 export function createAgentState(
   agentType: string,
   parentAgentState: AgentState,
-  messageHistory: CodebuffMessage[],
+  messageHistory: Message[],
 ): AgentState {
   const agentId = generateCompactId()
 
@@ -255,6 +253,7 @@ export function createAgentState(
     subagents: [],
     messageHistory,
     stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
+    creditsUsed: 0,
     output: undefined,
     parentId: parentAgentState.agentId,
   }
@@ -300,6 +299,8 @@ export async function executeAgent({
   userId,
   clientSessionId,
   onResponseChunk,
+  isOnlyChild = false,
+  clearUserPromptMessagesAfterResponse = true,
 }: {
   ws: WebSocket
   userInputId: string
@@ -313,11 +314,26 @@ export async function executeAgent({
   userId?: string
   clientSessionId: string
   onResponseChunk: (chunk: string | PrintModeEvent) => void
+  isOnlyChild?: boolean
+  clearUserPromptMessagesAfterResponse?: boolean
 }) {
+  const width = 60
+  const fullAgentName = `${agentTemplate.displayName} (${agentTemplate.id})`
+  const dashesLength = Math.max(
+    0,
+    Math.floor((width - fullAgentName.length - 2) / 2),
+  )
+  const dashes = '-'.repeat(dashesLength)
+
+  // Send agent start notification if this is the only child
+  if (isOnlyChild) {
+    onResponseChunk(`\n\n${dashes} ${fullAgentName} ${dashes}\n\n`)
+  }
+
   // Import loopAgentSteps dynamically to avoid circular dependency
   const { loopAgentSteps } = await import('../../../run-agent-step')
 
-  return await loopAgentSteps(ws, {
+  const result = await loopAgentSteps(ws, {
     userInputId,
     prompt,
     params,
@@ -330,52 +346,21 @@ export async function executeAgent({
     userId,
     clientSessionId,
     onResponseChunk,
+    clearUserPromptMessagesAfterResponse,
   })
-}
 
-/**
- * Formats agent result based on output mode
- */
-export async function formatAgentResult(
-  result: { agentState: AgentState },
-  agentTemplate: AgentTemplate,
-  agentTypeStr: string,
-): Promise<string> {
-  const agentName = agentTemplate.displayName
-  let report = ''
-
-  if (agentTemplate.outputMode === 'structured_output') {
-    report = JSON.stringify(result.agentState.output, null, 2)
-  } else if (agentTemplate.outputMode === 'last_message') {
-    const { agentState } = result
-    const assistantMessages = agentState.messageHistory.filter(
-      (message) => message.role === 'assistant',
+  // Send agent end notification if this is the only child
+  if (isOnlyChild) {
+    const endedFullAgentName = `Completed: ${fullAgentName}`
+    const dashesLength = Math.max(
+      0,
+      Math.floor((width - endedFullAgentName.length - 2) / 2),
     )
-    const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
-    if (!lastAssistantMessage) {
-      report = 'No response from agent'
-    } else if (typeof lastAssistantMessage.content === 'string') {
-      report = lastAssistantMessage.content
-    } else {
-      report = JSON.stringify(lastAssistantMessage.content, null, 2)
-    }
-  } else if (agentTemplate.outputMode === 'all_messages') {
-    const { agentState } = result
-    // Remove the first message, which includes the previous conversation history.
-    const agentMessages = agentState.messageHistory.slice(1)
-    report = `Agent messages:\n\n${JSON.stringify(agentMessages, null, 2)}`
-  } else {
-    throw new Error(
-      `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`,
+    const dashesForEndedAgent = '-'.repeat(dashesLength)
+    onResponseChunk(
+      `\n\n${dashesForEndedAgent} ${endedFullAgentName} ${dashesForEndedAgent}\n\n`,
     )
   }
 
-  return `**${agentName}(${agentTypeStr}):**\n${report}`
-}
-
-/**
- * Formats error result for failed agent spawn
- */
-export function formatAgentError(agentTypeStr: string, error: any): string {
-  return `**Agent (${agentTypeStr}):**\nError spawning agent: ${error}`
+  return result
 }

@@ -13,11 +13,9 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { rerank } from '../llm-apis/relace-api'
-import {
-  promptAiSdk,
-  transformMessages,
-} from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
+import { messagesWithSystem } from '../util/messages'
 
 import type { System } from '../llm-apis/claude'
 import type {
@@ -27,7 +25,7 @@ import type {
   GetRelevantFilesTrace,
   Relabel,
 } from '@codebuff/bigquery'
-import type { Message } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { Request, Response } from 'express'
 
 // --- GET Handler Logic ---
@@ -171,7 +169,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             const system = payload.system
 
             output = await promptAiSdk({
-              messages: transformMessages(
+              messages: messagesWithSystem(
                 messages as Message[],
                 system as System,
               ),
@@ -397,7 +395,7 @@ export async function relabelWithClaudeWithFullFileContext(
   }
 
   const output = await promptAiSdk({
-    messages: transformMessages(trace.payload.messages as Message[], system),
+    messages: messagesWithSystem(trace.payload.messages as Message[], system),
     model: model as any, // Model type is string here for flexibility
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',

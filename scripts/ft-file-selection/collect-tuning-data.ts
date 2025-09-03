@@ -5,7 +5,7 @@ import { getTracesWithRelabels, setupBigQuery } from '@codebuff/bigquery'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import type { GetRelevantFilesTrace, Relabel } from '@codebuff/bigquery'
-import type { Message } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 // Get model from command line args
 const model = process.argv[2]

@@ -141,7 +141,7 @@ export async function GET(
 
     // Get alerts count
     const alertsResponse = await fetch(
-      `${env.NEXT_PUBLIC_APP_URL}/api/orgs/${orgId}/alerts`,
+      `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/orgs/${orgId}/alerts`,
       {
         headers: {
           Cookie: request.headers.get('Cookie') || '',

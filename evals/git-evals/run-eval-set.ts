@@ -10,6 +10,7 @@ import {
   mockRunGitEvals,
   runGitEvals,
   setGlobalConcurrencyLimit,
+  terminateAllEvalChildren,
 } from './run-git-evals'
 
 import type { EvalConfig, EvalResult } from './types'
@@ -65,6 +66,14 @@ class RunEvalSetCommand extends Command {
       description: 'Number of concurrent evals to run',
       min: 1,
     }),
+    'coding-agent': Flags.string({
+      description: 'Coding agent to use',
+      default: 'codebuff',
+    }),
+    agent: Flags.string({
+      description: 'Codebuff agent id to use',
+      default: 'base',
+    }),
     help: Flags.help({ char: 'h' }),
   }
 
@@ -83,6 +92,8 @@ async function runEvalSet(options: {
   insert: boolean
   title?: string
   concurrency?: number
+  'coding-agent': string
+  agent: string
 }): Promise<void> {
   const {
     'output-dir': outputDir,
@@ -91,10 +102,28 @@ async function runEvalSet(options: {
     mock: mockEval,
     insert: shouldInsert,
     title,
+    'coding-agent': codingAgentstr,
+    agent,
   } = options
+
+  if (!['codebuff', 'claude'].includes(codingAgentstr)) {
+    throw new Error(`Invalid coding agent: ${codingAgentstr}`)
+  }
+  const codingAgent = codingAgentstr as 'codebuff' | 'claude'
 
   console.log('Starting eval set run...')
   console.log(`Output directory: ${outputDir}`)
+
+  // Set up signal handlers to clean up child processes
+  const signalHandler = async (signal: string) => {
+    console.log(`\nReceived ${signal}, cleaning up evaluation processes...`)
+    await terminateAllEvalChildren()
+    console.log('Cleanup complete.')
+    process.exit(signal === 'SIGINT' ? 130 : 143)
+  }
+
+  process.on('SIGINT', () => signalHandler('SIGINT'))
+  process.on('SIGTERM', () => signalHandler('SIGTERM'))
 
   setGlobalConcurrencyLimit(options.concurrency ?? 5)
 
@@ -104,32 +133,28 @@ async function runEvalSet(options: {
       name: 'codebuff',
       evalDataPath: path.join(__dirname, 'eval-codebuff2.json'),
       outputDir,
-      agentType: undefined,
     },
     {
       name: 'manifold',
       evalDataPath: path.join(__dirname, 'eval-manifold2.json'),
       outputDir,
-      agentType: undefined,
     },
     {
       name: 'plane',
       evalDataPath: path.join(__dirname, 'eval-plane.json'),
       outputDir,
-      agentType: undefined,
     },
     {
       name: 'saleor',
       evalDataPath: path.join(__dirname, 'eval-saleor.json'),
       outputDir,
-      agentType: undefined,
     },
   ]
 
   console.log(`Running ${evalConfigs.length} evaluations:`)
   evalConfigs.forEach((config) => {
     console.log(
-      `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir} (${config.agentType})`,
+      `  - ${config.name}: ${config.evalDataPath} -> ${config.outputDir} (${agent})`,
     )
   })
 
@@ -148,9 +173,10 @@ async function runEvalSet(options: {
         : await runGitEvals(
             config.evalDataPath,
             config.outputDir,
-            config.agentType,
+            codingAgent,
             config.limit,
             options.concurrency === 1,
+            agent,
           )
     } catch (error) {
       const evalDuration = Date.now() - evalStartTime
@@ -337,7 +363,7 @@ async function runEvalSet(options: {
           const payload: GitEvalResultRequest = {
             cost_mode: 'normal', // You can modify this based on your needs
             reasoner_model: undefined, // No longer using model config
-            agent_model: config?.agentType,
+            agent_model: agent,
             metadata: {
               numCases: evalResult?.overall_metrics?.total_runs,
               avgScore: evalResult?.overall_metrics?.average_overall,

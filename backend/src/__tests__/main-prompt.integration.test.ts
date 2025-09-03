@@ -18,7 +18,6 @@ import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import { logger } from '../util/logger'
-import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -91,8 +90,12 @@ describe.skip('mainPrompt (Integration)', () => {
         input: Record<string, any>,
       ) => {
         return {
-          success: true,
-          result: `Tool call success: ${{ toolName, input }}` as any,
+          output: [
+            {
+              type: 'json',
+              value: `Tool call success: ${{ toolName, input }}`,
+            },
+          ],
         }
       },
     )
@@ -352,16 +355,21 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         }),
       },
       {
-        role: 'user',
-        content: renderReadFilesResult(
-          [
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          output: [
             {
-              path: 'src/util/messages.ts',
-              content: initialContent,
+              type: 'json',
+              value: {
+                path: 'src/util/messages.ts',
+                content: initialContent,
+              },
             },
           ],
-          {},
-        ),
+        },
       },
     )
 
@@ -376,8 +384,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     }
 
     const {
-      toolCalls,
-      toolResults,
+      output,
       sessionState: finalSessionState,
     } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
       userId: TEST_USER_ID,
@@ -437,16 +444,21 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
           }),
         },
         {
-          role: 'user',
-          content: renderReadFilesResult(
-            [
+          role: 'tool',
+          content: {
+            type: 'tool-result',
+            toolName: 'read_files',
+            toolCallId: 'test-id',
+            output: [
               {
-                path: 'packages/backend/src/index.ts',
-                content: initialContent,
+                type: 'json',
+                value: {
+                  path: 'packages/backend/src/index.ts',
+                  content: initialContent,
+                },
               },
             ],
-            {},
-          ),
+          },
         },
       )
 

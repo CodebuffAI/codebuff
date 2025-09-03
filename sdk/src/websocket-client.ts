@@ -9,9 +9,9 @@ export type WebSocketHandlerOptions = {
   onWebsocketReconnect?: () => void
   onRequestReconnect?: () => Promise<void>
   onResponseError?: (error: ServerAction<'action-error'>) => Promise<void>
-  readFiles: (
-    filePath: string[],
-  ) => Promise<ClientAction<'read-files-response'>['files']>
+  readFiles: (input: {
+    filePaths: string[]
+  }) => Promise<ClientAction<'read-files-response'>['files']>
   handleToolCall: (
     action: ServerAction<'tool-call-request'>,
   ) => Promise<Omit<ClientAction<'tool-call-response'>, 'type' | 'requestId'>>
@@ -25,6 +25,7 @@ export type WebSocketHandlerOptions = {
   ) => Promise<void>
 
   onPromptResponse?: (action: ServerAction<'prompt-response'>) => Promise<void>
+  onPromptError?: (action: ServerAction<'prompt-error'>) => Promise<void>
 
   apiKey: string
 }
@@ -42,6 +43,7 @@ export class WebSocketHandler {
   private onResponseChunk: WebSocketHandlerOptionsWithDefaults['onResponseChunk']
   private onSubagentResponseChunk: WebSocketHandlerOptionsWithDefaults['onSubagentResponseChunk']
   private onPromptResponse: WebSocketHandlerOptionsWithDefaults['onPromptResponse']
+  private onPromptError: WebSocketHandlerOptionsWithDefaults['onPromptError']
   private apiKey: string
   private isConnected = false
 
@@ -58,6 +60,7 @@ export class WebSocketHandler {
     onSubagentResponseChunk = async () => {},
 
     onPromptResponse = async () => {},
+    onPromptError = async () => {},
 
     apiKey,
   }: WebSocketHandlerOptions) {
@@ -77,6 +80,7 @@ export class WebSocketHandler {
     this.onSubagentResponseChunk = onSubagentResponseChunk
 
     this.onPromptResponse = onPromptResponse
+    this.onPromptError = onPromptError
 
     this.apiKey = apiKey
   }
@@ -95,6 +99,7 @@ export class WebSocketHandler {
 
   public close() {
     this.cbWebSocket.close()
+    this.isConnected = false
   }
 
   private setupSubscriptions() {
@@ -102,7 +107,7 @@ export class WebSocketHandler {
 
     this.cbWebSocket.subscribe('read-files', async (a) => {
       const { filePaths, requestId } = a
-      const files = await this.readFiles(filePaths)
+      const files = await this.readFiles({ filePaths })
 
       this.cbWebSocket.sendAction({
         type: 'read-files-response',
@@ -136,6 +141,7 @@ export class WebSocketHandler {
 
     // Handle full response from prompt
     this.cbWebSocket.subscribe('prompt-response', this.onPromptResponse)
+    this.cbWebSocket.subscribe('prompt-error', this.onPromptError)
   }
 
   private getInputDefaultOptions() {

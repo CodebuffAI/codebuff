@@ -24,6 +24,17 @@ describe('Auto Top-up System', () => {
     let grantCreditsMock: ReturnType<typeof mock>
 
     beforeEach(() => {
+      // Mock logger for auto-topup functionality
+      mockModule('@codebuff/common/util/logger', () => ({
+        logger: {
+          debug: () => {},
+          error: () => {},
+          info: () => {},
+          warn: () => {},
+        },
+        withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
+      }))
+
       // Set up default mocks
       dbMock = mock(() =>
         Promise.resolve({

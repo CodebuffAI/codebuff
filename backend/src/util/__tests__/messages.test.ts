@@ -11,14 +11,14 @@ import {
 import { trimMessagesToFitTokenLimit, messagesWithSystem } from '../messages'
 import * as tokenCounter from '../token-counter'
 
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {
     const messages = [
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi' },
-    ] as CodebuffMessage[]
+    ] as Message[]
     const system = 'Be helpful'
 
     const result = messagesWithSystem(messages, system)
@@ -58,53 +58,82 @@ describe('trimMessagesToFitTokenLimit', () => {
         'This is a long message that would normally be shortened but since it has no tool calls it should be preserved completely intact no matter what',
     },
     {
+      // Terminal output 0 (oldest) - should be simplified
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolName: 'run_terminal_command',
+        toolCallId: 'test-id-0',
+        output: [
+          {
+            type: 'json',
+            value: `Terminal output 0${'.'.repeat(2000)}`,
+          },
+        ],
+      },
+    },
+    {
+      // Terminal output 1 - should be preserved (shorter than '[Output omitted]')
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolName: 'run_terminal_command',
+        toolCallId: 'test-id-1',
+        output: [
+          {
+            type: 'json',
+            value: `Short output 1`,
+          },
+        ],
+      },
+    },
+    {
+      // Terminal output 2 - should be simplified
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolName: 'run_terminal_command',
+        toolCallId: 'test-id-2',
+        output: [
+          {
+            type: 'json',
+            value: `Terminal output 2${'.'.repeat(2000)}`,
+          },
+        ],
+      },
+    },
+    {
+      // Terminal output 3 - should be preserved (5th most recent)
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolName: 'run_terminal_command',
+        toolCallId: 'test-id-3',
+        output: [
+          {
+            type: 'json',
+            value: `Terminal output 3`,
+          },
+        ],
+      },
+    },
+    {
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolName: 'run_terminal_command',
+        toolCallId: 'test-id-4',
+        output: [
+          {
+            type: 'json',
+            value: `Terminal output 4`,
+          },
+        ],
+      },
+    },
+    {
       role: 'user',
       content: [
-        // Terminal output 0 (oldest) - should be simplified
-        {
-          type: 'text',
-          text: `<tool_result>
-<tool>run_terminal_command</tool>
-<result>Terminal output 0${'.'.repeat(2000)}</result>
-</tool_result>`,
-        },
-        // Terminal output 1 - should be preserved (shorter than '[Output omitted]')
-        {
-          type: 'text',
-          text: `<tool_result>
-<tool>run_terminal_command</tool>
-<result>Short output 1</result>
-</tool_result>`,
-        },
-      ],
-    },
-    // Terminal output 2 - should be simplified
-    {
-      role: 'user',
-      content: `<tool_result>
-<tool>run_terminal_command</tool>
-<result>Terminal output 2${'.'.repeat(2000)}</result>
-</tool_result>`,
-    },
-    // Terminal output 3 - should be preserved (5th most recent)
-    {
-      role: 'user',
-      content: `<tool_result>
-<tool>run_terminal_command</tool>
-<result>Terminal output 3</result>
-</tool_result>`,
-    },
-    {
-      role: 'user',
-      content: [
-        // Terminal output 4 - should be preserved (4th most recent)
-        {
-          type: 'text',
-          text: `<tool_result>
-<tool>run_terminal_command</tool>
-<result>Terminal output 4</result>
-</tool_result>`,
-        },
         // Regular message - should never be shortened
         {
           type: 'image',
@@ -114,31 +143,52 @@ describe('trimMessagesToFitTokenLimit', () => {
             data: 'xyz',
           },
         },
-        // Terminal output 5 - should be preserved (3rd most recent)
-        {
-          type: 'text',
-          text: `<tool_result>
-<tool>run_terminal_command</tool>
-<result>Terminal output 5</result>
-</tool_result>`,
-        },
       ],
     },
-    // Terminal output 6 - should be preserved (2nd most recent)
     {
-      role: 'user',
-      content: `<tool_result>
-<tool>run_terminal_command</tool>
-<result>Terminal output 6</result>
-</tool_result>`,
+      // Terminal output 5 - should be preserved (3rd most recent)
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolName: 'run_terminal_command',
+        toolCallId: 'test-id-5',
+        output: [
+          {
+            type: 'json',
+            value: `Terminal output 5`,
+          },
+        ],
+      },
     },
-    // Terminal output 7 - should be preserved (most recent)
     {
-      role: 'user',
-      content: `<tool_result>
-<tool>run_terminal_command</tool>
-<result>Terminal output 7</result>
-</tool_result>`,
+      // Terminal output 6 - should be preserved (2nd most recent)
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolName: 'run_terminal_command',
+        toolCallId: 'test-id-6',
+        output: [
+          {
+            type: 'json',
+            value: `Terminal output 6`,
+          },
+        ],
+      },
+    },
+    {
+      // Terminal output 7 - should be preserved (most recent)
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolName: 'run_terminal_command',
+        toolCallId: 'test-id-7',
+        output: [
+          {
+            type: 'json',
+            value: `Terminal output 7`,
+          },
+        ],
+      },
     },
     // Regular message - should never be shortened
     {
@@ -148,7 +198,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         text: 'Another long message that should never be shortened because it has no tool calls in it at all',
       },
     },
-  ] as CodebuffMessage[]
+  ] as Message[]
 
   it('handles all features working together correctly', () => {
     const maxTotalTokens = 3000
@@ -245,7 +295,7 @@ describe('trimMessagesToFitTokenLimit', () => {
           content: 'Message 5 - keep me too!',
           keepDuringTruncation: true,
         },
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
 
@@ -275,7 +325,7 @@ describe('trimMessagesToFitTokenLimit', () => {
           content: 'Short message 2',
           keepDuringTruncation: true,
         },
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 10000)
 
@@ -291,7 +341,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'B'.repeat(1000) }, // Large message to be removed
         { role: 'user', content: 'C'.repeat(1000) }, // Large message to be removed
         { role: 'user', content: 'Keep this', keepDuringTruncation: true },
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
 
@@ -321,7 +371,7 @@ describe('trimMessagesToFitTokenLimit', () => {
           keepDuringTruncation: true,
         },
         { role: 'user', content: 'C'.repeat(100) }, // Might be kept
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 2000)
 
@@ -345,7 +395,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'B'.repeat(800) }, // Large message to force truncation
         { role: 'user', content: 'Keep 2', keepDuringTruncation: true },
         { role: 'user', content: 'C'.repeat(800) }, // Large message to force truncation
-      ] as CodebuffMessage[]
+      ] as Message[]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 500)
 

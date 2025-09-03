@@ -38,22 +38,7 @@ function buildAnalysisPrompt(
     .join('\n\n---\n\n')
 
   // Build Codebuff changes section
-  const codebuffChanges = evalRun.fileStates
-    .map((state) => {
-      const diff = createPatch(state.path, state.preContent, state.postContent)
-      let content = `File: ${state.path}\n\nUnified Diff (Codebuff's Changes):\n${diff}`
-
-      if (includeBeforeContent) {
-        content += `\n\nPre-commit content:\n${state.preContent}`
-      }
-
-      if (includeAfterContent) {
-        content += `\n\nPost-commit content (Codebuff's Attempt):\n${state.postContent}`
-      }
-
-      return content
-    })
-    .join('\n\n---\n\n')
+  const codebuffChanges = evalRun.gitDiff
 
   // Build trace section
   const traceContent =
@@ -73,6 +58,10 @@ ${evalRun.eval_commit.spec}
 [TIMING_INFORMATION]
 Task Duration: ${durationSeconds} seconds (${evalRun.durationMs}ms)
 [/TIMING_INFORMATION]
+
+[COST_INFORMATION]
+Total Cost: ${evalRun.costUsd.toFixed(2)} USD
+[/COST_INFORMATION]
 
 [GROUND_TRUTH_CHANGES]
 ${groundTruthChanges}

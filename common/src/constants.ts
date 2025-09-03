@@ -10,6 +10,9 @@ export const AGENT_DEFINITION_FILE = 'agent-definition.d.ts'
 
 export const API_KEY_ENV_VAR = 'CODEBUFF_API_KEY'
 
+export const INVALID_AUTH_TOKEN_MESSAGE =
+  'Invalid auth token. You may have been logged out from the web portal. Please log in again.'
+
 // Enable async agents to run tool calls even when main user input is cancelled
 export const ASYNC_AGENTS_ENABLED = true
 
@@ -197,7 +200,9 @@ export const openrouterModels = {
   openrouter_claude_3_5_sonnet: 'anthropic/claude-3.5-sonnet-20240620',
   openrouter_gpt4o: 'openai/gpt-4o-2024-11-20',
   openrouter_gpt5: 'openai/gpt-5',
+  openrouter_gpt5_chat: 'openai/gpt-5-chat',
   openrouter_gpt4o_mini: 'openai/gpt-4o-mini-2024-07-18',
+  openrouter_gpt4_1_nano: 'openai/gpt-4.1-nano',
   openrouter_o3_mini: 'openai/o3-mini-2025-01-31',
   openrouter_gemini2_5_pro_preview: 'google/gemini-2.5-pro',
   openrouter_gemini2_5_flash: 'google/gemini-2.5-flash',

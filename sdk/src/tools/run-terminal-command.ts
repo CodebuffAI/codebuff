@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 import * as os from 'os'
 import * as path from 'path'
 
-import { buildArray } from '../../../common/src/util/array'
+import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 export function runTerminalCommand({
   command,
@@ -14,7 +14,7 @@ export function runTerminalCommand({
   process_type: 'SYNC' | 'BACKGROUND'
   cwd: string
   timeout_seconds: number
-}): Promise<{ output: string }> {
+}): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   if (process_type === 'BACKGROUND') {
     throw new Error('BACKGROUND process_type not implemented')
   }
@@ -76,13 +76,14 @@ export function runTerminalCommand({
       }
 
       // Include stderr in stdout for compatibility with existing behavior
-      const combinedOutput = buildArray([
-        `\`\`\`stdout\n${stdout}\`\`\``,
-        stderr && `\`\`\`stderr\n${stderr}\`\`\``,
-        exitCode !== null && `\`\`\`exit_code\n${exitCode}\`\`\``,
-      ]).join('\n\n')
+      const combinedOutput = {
+        command,
+        stdout,
+        ...(stderr ? { stderr } : {}),
+        ...(exitCode !== null ? { exitCode } : {}),
+      }
 
-      resolve({ output: combinedOutput })
+      resolve([{ type: 'json', value: combinedOutput }])
     })
 
     // Handle spawn errors

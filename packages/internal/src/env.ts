@@ -11,6 +11,7 @@ const envSchema = {
     // Backend variables
     ANTHROPIC_API_KEY: z.string().min(1),
     ANTHROPIC_API_KEY2: z.string().min(1),
+    CODEBUFF_API_KEY: z.string().optional(),
     HELICONE_API_KEY: z.string().min(1),
     OPEN_AI_KEY: z.string().min(1),
     GEMINI_API_KEY: z.string().min(1),
@@ -43,8 +44,8 @@ const envSchema = {
   },
   client: {
     NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
-    NEXT_PUBLIC_APP_URL: z.string().url().min(1),
-    NEXT_PUBLIC_BACKEND_URL: z.string().min(1),
+    NEXT_PUBLIC_CODEBUFF_APP_URL: z.string().url().min(1),
+    NEXT_PUBLIC_CODEBUFF_BACKEND_URL: z.string().min(1),
     NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().min(1),
     NEXT_PUBLIC_POSTHOG_API_KEY: z.string().optional().default(''),
     NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().url().optional(),
@@ -58,6 +59,7 @@ const envSchema = {
     // Backend variables
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     ANTHROPIC_API_KEY2: process.env.ANTHROPIC_API_KEY2,
+    CODEBUFF_API_KEY: process.env.CODEBUFF_API_KEY,
     HELICONE_API_KEY: process.env.HELICONE_API_KEY,
     OPEN_AI_KEY: process.env.OPEN_AI_KEY,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
@@ -90,8 +92,9 @@ const envSchema = {
 
     // Client variables
     NEXT_PUBLIC_CB_ENVIRONMENT: process.env.NEXT_PUBLIC_CB_ENVIRONMENT,
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
+    NEXT_PUBLIC_CODEBUFF_APP_URL: process.env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+    NEXT_PUBLIC_CODEBUFF_BACKEND_URL:
+      process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
     NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY,
     NEXT_PUBLIC_POSTHOG_HOST_URL: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,

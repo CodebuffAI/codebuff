@@ -89,6 +89,7 @@ describe('Subagent Streaming', () => {
             { role: 'assistant', content: 'Test response from subagent' },
           ],
         },
+        output: { type: 'lastMessage', value: 'Test response from subagent' },
       }
     })
 
@@ -143,6 +144,7 @@ describe('Subagent Streaming', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      writeToClient: () => {},
       getLatestState: () => ({ messages: [] }),
       state: {
         ws,
@@ -161,10 +163,12 @@ describe('Subagent Streaming', () => {
     await result
 
     // Verify that subagent streaming messages were sent
-    expect(mockSendSubagentChunk).toHaveBeenCalledTimes(2)
+    expect(mockSendSubagentChunk).toHaveBeenCalledTimes(4)
 
-    // Check first streaming chunk
-    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(1, {
+    // First streaming chunk is a labled divider
+
+    // Check second streaming chunk
+    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(2, {
       userInputId: 'test-input',
       agentId: expect.any(String),
       agentType: 'thinker',
@@ -172,14 +176,16 @@ describe('Subagent Streaming', () => {
       prompt: 'Think about this problem',
     })
 
-    // Check second streaming chunk
-    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(2, {
+    // Check third streaming chunk
+    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(3, {
       userInputId: 'test-input',
       agentId: expect.any(String),
       agentType: 'thinker',
       chunk: 'Found a solution!',
       prompt: 'Think about this problem',
     })
+
+    // Last streaming chunk is a labeled divider
   })
 
   it('should include correct agentId and agentType in streaming messages', async () => {
@@ -211,6 +217,7 @@ describe('Subagent Streaming', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input-123',
+      writeToClient: () => {},
       getLatestState: () => ({ messages: [] }),
       state: {
         ws,

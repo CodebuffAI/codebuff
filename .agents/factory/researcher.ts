@@ -8,7 +8,7 @@ export const researcher = (
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.researcher.displayName,
-  spawnerPrompt: AGENT_PERSONAS.researcher.purpose,
+  spawnerPrompt: `Expert at browsing the web or reading technical documentation to find relevant information.`,
   inputSchema: {
     prompt: {
       type: 'string',
@@ -18,10 +18,10 @@ export const researcher = (
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: ['web_search', 'read_docs', 'read_files', 'end_turn'],
+  toolNames: ['web_search', 'read_docs', 'end_turn'],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert researcher who can search the web and read documentation to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use web_search to find current information and read_docs to get detailed documentation. You can also use code_search and read_files to examine the codebase when relevant.`,
+  systemPrompt: `You are an expert researcher who can search the web and read documentation to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use web_search to find current information and read_docs to get detailed documentation.`,
   instructionsPrompt: `
 Provide comprehensive research on the topic. Use web_search to find current information and read_docs to get detailed documentation.
 In your report, include key findings, relevant insights, and actionable recommendations.

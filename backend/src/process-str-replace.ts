@@ -5,7 +5,7 @@ import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-p
 
 export async function processStrReplace(
   path: string,
-  replacements: { old: string; new: string }[],
+  replacements: { old: string; new: string; allowMultiple: boolean }[],
   initialContentPromise: Promise<string | null>,
 ): Promise<
   | {
@@ -24,7 +24,7 @@ export async function processStrReplace(
   let allPatches: string[] = []
   let messages: string[] = []
 
-  for (const { old: oldStr, new: newStr } of replacements) {
+  for (const { old: oldStr, new: newStr, allowMultiple } of replacements) {
     // Regular case: require oldStr for replacements
     if (!oldStr) {
       messages.push(
@@ -44,15 +44,19 @@ export async function processStrReplace(
     const normalizedCurrentContent = normalizeLineEndings(currentContent)
     const normalizedOldStr = normalizeLineEndings(oldStr)
 
-    const updatedOldStr = tryMatchOldStr(
+    const match = tryMatchOldStr(
       normalizedCurrentContent,
       normalizedOldStr,
       newStr,
+      allowMultiple,
     )
-    if (updatedOldStr === null) {
-      messages.push(
-        `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`,
-      )
+    let updatedOldStr: string | null
+
+    if (match.success) {
+      updatedOldStr = match.oldStr
+    } else {
+      messages.push(match.error)
+      updatedOldStr = null
     }
 
     const updatedContent =
@@ -114,9 +118,22 @@ const tryMatchOldStr = (
   initialContent: string,
   oldStr: string,
   newStr: string,
-) => {
-  if (initialContent.includes(oldStr)) {
-    return oldStr
+  allowMultiple: boolean,
+): { success: true; oldStr: string } | { success: false; error: string } => {
+  // count the number of occurrences of oldStr in initialContent
+  const count = initialContent.split(oldStr).length - 1
+  if (count === 1) {
+    return { success: true, oldStr }
+  }
+  if (!allowMultiple && count > 1) {
+    return {
+      success: false,
+      error: `Found ${count} occurrences of ${JSON.stringify(oldStr)} in the file. Please try again with a longer (more specified) old string or set allowMultiple to true.`,
+    }
+  }
+  if (allowMultiple && count > 1) {
+    // For allowMultiple=true with multiple occurrences, use the original oldStr
+    return { success: true, oldStr }
   }
 
   const newChange = tryToDoStringReplacementWithExtraIndentation(
@@ -126,7 +143,7 @@ const tryMatchOldStr = (
   )
   if (newChange) {
     logger.debug('Matched with indentation modification')
-    return newChange.searchContent
+    return { success: true, oldStr: newChange.searchContent }
   } else {
     // Try matching without any whitespace as a last resort
     const noWhitespaceSearch = oldStr.replace(/\s+/g, '')
@@ -164,9 +181,12 @@ const tryMatchOldStr = (
       )
       if (initialContent.includes(actualContent)) {
         logger.debug('Matched with whitespace removed')
-        return actualContent
+        return { success: true, oldStr: actualContent }
       }
     }
   }
-  return null
+  return {
+    success: false,
+    error: `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`,
+  }
 }

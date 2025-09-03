@@ -1,12 +1,10 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
-import { renderToolResults } from '@codebuff/common/tools/utils'
 import { generateCompactId } from '@codebuff/common/util/string'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { checkLiveUserInput } from '../live-user-inputs'
 import { logger } from '../util/logger'
-import { asSystemMessage } from '../util/messages'
 import { requestToolCall } from '../websockets/websocket-action'
 import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
@@ -18,9 +16,14 @@ import type {
   ClientToolCall,
   ClientToolName,
   CodebuffToolCall,
+  CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  ToolResultOutput,
+  ToolResultPart,
+} from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { ToolResult } from '@codebuff/common/types/session-state'
 import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
@@ -110,7 +113,7 @@ export interface ExecuteToolCallParams<T extends string = ToolName> {
   toolName: T
   input: Record<string, unknown>
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
-  toolResults: ToolResult[]
+  toolResults: ToolResultPart[]
   previousToolCallFinished: Promise<void>
   ws: WebSocket
   agentTemplate: AgentTemplate
@@ -153,12 +156,17 @@ export function executeToolCall<T extends ToolName>({
   )
   if ('error' in toolCall) {
     toolResults.push({
+      type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: {
-        type: 'text',
-        value: toolCall.error,
-      },
+      output: [
+        {
+          type: 'json',
+          value: {
+            errorMessage: toolCall.error,
+          },
+        },
+      ],
     })
     logger.debug(
       { toolCall, error: toolCall.error },
@@ -174,28 +182,29 @@ export function executeToolCall<T extends ToolName>({
     input: toolCall.input,
   })
 
-  logger.debug(
-    { toolCall },
-    `${toolName} (${toolCall.toolCallId}) tool call detected in stream`,
-  )
   toolCalls.push(toolCall)
 
   // Filter out restricted tools in ask mode unless exporting summary
   if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
     toolResults.push({
+      type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: {
-        type: 'text',
-        value: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-      },
+      output: [
+        {
+          type: 'json',
+          value: {
+            errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+          },
+        },
+      ],
     })
     return previousToolCallFinished
   }
 
-  const { result: toolResultPromise, state: stateUpdate } = (
-    codebuffToolHandlers[toolName] as CodebuffToolHandlerFunction<T>
-  )({
+  // Cast to any to avoid type errors
+  const handler = codebuffToolHandlers[toolName] as any
+  const { result: toolResultPromise, state: stateUpdate } = handler({
     previousToolCallFinished,
     fileContext,
     agentStepId,
@@ -207,7 +216,7 @@ export function executeToolCall<T extends ToolName>({
       clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
     ) => {
       if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
-        return ''
+        return []
       }
 
       const clientToolResult = await requestToolCall(
@@ -216,17 +225,12 @@ export function executeToolCall<T extends ToolName>({
         clientToolCall.toolName,
         clientToolCall.input,
       )
-      return (
-        clientToolResult.error ??
-        (clientToolResult.output?.type === 'text'
-          ? clientToolResult.output.value
-          : 'undefined')
-      )
+      return clientToolResult.output as CodebuffToolOutput<T>
     },
     toolCall,
     getLatestState: () => state,
     state,
-  })
+  }) as ReturnType<CodebuffToolHandlerFunction<T>>
 
   for (const [key, value] of Object.entries(stateUpdate ?? {})) {
     if (key === 'agentState' && typeof value === 'object' && value !== null) {
@@ -238,17 +242,15 @@ export function executeToolCall<T extends ToolName>({
   }
 
   return toolResultPromise.then((result) => {
-    const toolResult = {
+    const toolResult: ToolResultPart = {
+      type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: {
-        type: 'text' as const,
-        value: result as string,
-      },
+      output: result,
     }
     logger.debug(
-      { toolResult },
-      `${toolName} (${toolResult.toolCallId}) tool result for tool`,
+      { input, toolResult },
+      `${toolName} tool call & result (${toolResult.toolCallId})`,
     )
     if (result === undefined) {
       return
@@ -263,8 +265,8 @@ export function executeToolCall<T extends ToolName>({
     toolResults.push(toolResult)
 
     state.messages.push({
-      role: 'user' as const,
-      content: asSystemMessage(renderToolResults([toolResult])),
+      role: 'tool' as const,
+      content: toolResult,
     })
   })
 }
@@ -373,12 +375,17 @@ export function executeCustomToolCall({
   )
   if ('error' in toolCall) {
     toolResults.push({
+      type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: {
-        type: 'text',
-        value: toolCall.error,
-      },
+      output: [
+        {
+          type: 'json',
+          value: {
+            errorMessage: toolCall.error,
+          },
+        },
+      ],
     })
     logger.debug(
       { toolCall, error: toolCall.error },
@@ -394,21 +401,22 @@ export function executeCustomToolCall({
     input: toolCall.input,
   })
 
-  logger.debug(
-    { toolCall },
-    `${toolName} (${toolCall.toolCallId}) custom tool call detected in stream`,
-  )
   toolCalls.push(toolCall)
 
   // Filter out restricted tools in ask mode unless exporting summary
   if (!(agentTemplate.toolNames as string[]).includes(toolCall.toolName)) {
     toolResults.push({
+      type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: {
-        type: 'text',
-        value: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-      },
+      output: [
+        {
+          type: 'json',
+          value: {
+            errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+          },
+        },
+      ],
     })
     return previousToolCallFinished
   }
@@ -416,7 +424,7 @@ export function executeCustomToolCall({
   return previousToolCallFinished
     .then(async () => {
       if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
-        return ''
+        return null
       }
 
       const clientToolResult = await requestToolCall(
@@ -425,25 +433,21 @@ export function executeCustomToolCall({
         toolCall.toolName,
         toolCall.input,
       )
-      return (
-        clientToolResult.error ??
-        (clientToolResult.output?.type === 'text'
-          ? clientToolResult.output.value
-          : 'undefined')
-      )
+      return clientToolResult.output satisfies ToolResultOutput[]
     })
     .then((result) => {
+      if (result === null) {
+        return
+      }
       const toolResult = {
+        type: 'tool-result',
         toolName,
         toolCallId: toolCall.toolCallId,
-        output: {
-          type: 'text' as const,
-          value: result as string,
-        },
-      }
+        output: result,
+      } satisfies ToolResultPart
       logger.debug(
-        { toolResult },
-        `${toolName} (${toolResult.toolCallId}) custom tool result for tool`,
+        { input, toolResult },
+        `${toolName} custom tool call & result (${toolResult.toolCallId})`,
       )
       if (result === undefined) {
         return
@@ -458,8 +462,9 @@ export function executeCustomToolCall({
       toolResults.push(toolResult)
 
       state.messages.push({
-        role: 'user' as const,
-        content: asSystemMessage(renderToolResults([toolResult])),
-      })
+        role: 'tool' as const,
+        content: toolResult,
+      } satisfies Message)
+      return
     })
 }

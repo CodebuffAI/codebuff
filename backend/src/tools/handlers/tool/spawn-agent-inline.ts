@@ -1,3 +1,6 @@
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { generateCompactId } from '@codebuff/common/util/string'
+
 import {
   validateSpawnState,
   validateAndGetAgentTemplate,
@@ -5,37 +8,39 @@ import {
   logAgentSpawn,
   executeAgent,
 } from './spawn-agent-utils'
-import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { expireMessages } from '../../../util/messages'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-import { generateCompactId } from '@codebuff/common/util/string'
 
+type ToolName = 'spawn_agent_inline'
 export const handleSpawnAgentInline = ((params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'spawn_agent_inline'>
+  toolCall: CodebuffToolCall<ToolName>
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
+  writeToClient: (chunk: string | PrintModeEvent) => void
 
-  getLatestState: () => { messages: CodebuffMessage[] }
+  getLatestState: () => { messages: Message[] }
   state: {
     ws?: WebSocket
     fingerprintId?: string
     userId?: string
     agentTemplate?: AgentTemplate
     localAgentTemplates?: Record<string, AgentTemplate>
-    messages?: CodebuffMessage[]
+    messages?: Message[]
     agentState?: AgentState
   }
-}): { result: Promise<undefined>; state: {} } => {
+}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -44,6 +49,7 @@ export const handleSpawnAgentInline = ((params: {
     userInputId,
     getLatestState,
     state,
+    writeToClient,
   } = params
   const {
     agent_type: agentTypeStr,
@@ -76,6 +82,7 @@ export const handleSpawnAgentInline = ((params: {
       subagents: [],
       messageHistory: getLatestState().messages, // Share the same message array
       stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
+      creditsUsed: 0,
       output: undefined,
       parentId: agentState.agentId,
     }
@@ -102,18 +109,17 @@ export const handleSpawnAgentInline = ((params: {
       localAgentTemplates,
       userId,
       clientSessionId,
-      onResponseChunk: (chunk: string | PrintModeEvent) => {
-        // Child agent output is streamed directly to parent's output
-        // No need for special handling since we share message history
+      onResponseChunk: (chunk) => {
+        // Disabled.
+        // Inherits parent's onResponseChunk
+        // writeToClient(chunk)
       },
+      clearUserPromptMessagesAfterResponse: false,
     })
 
     // Update parent's message history with child's final state
     // Since we share the same message array reference, this should already be updated
     let finalMessages = result.agentState?.messageHistory || state.messages
-
-    // Expire messages with timeToLive: 'userPrompt' to clean up inline agent's temporary messages
-    finalMessages = expireMessages(finalMessages, 'userPrompt')
 
     state.messages = finalMessages
 
@@ -126,7 +132,11 @@ export const handleSpawnAgentInline = ((params: {
   }
 
   return {
-    result: previousToolCallFinished.then(triggerSpawnAgentInline),
+    result: (async () => {
+      await previousToolCallFinished
+      await triggerSpawnAgentInline()
+      return []
+    })(),
     state: {},
   }
-}) satisfies CodebuffToolHandlerFunction<'spawn_agent_inline'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

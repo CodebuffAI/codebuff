@@ -1,5 +1,6 @@
 import { findOrganizationForRepository } from '@codebuff/billing'
 import { z } from 'zod/v4'
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/constants'
 
 import { logger } from '../util/logger'
 import { extractAuthTokenFromHeader } from '../util/auth-helpers'
@@ -37,7 +38,7 @@ async function isRepoCoveredHandler(
     const userId = await getUserIdFromAuthToken(authToken)
 
     if (!userId) {
-      return res.status(401).json({ error: 'Invalid authentication token' })
+      return res.status(401).json({ error: INVALID_AUTH_TOKEN_MESSAGE })
     }
 
     // Check if repository is covered by an organization

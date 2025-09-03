@@ -8,7 +8,7 @@ import type { Plugin } from 'unified'
  * and replaces them with an <CodeDemo language="lang">...</CodeDemo> MDX node,
  * preserving multi-line formatting.
  *
- * If no language is specified (plain ``` block), it leaves the original code block unchanged.
+ * If no language is specified (plain ``` block), it defaults to 'text' language.
  */
 export const remarkCodeToCodeDemo = function remarkCodeToCodeDemo(): Plugin<
   any[],
@@ -18,8 +18,8 @@ export const remarkCodeToCodeDemo = function remarkCodeToCodeDemo(): Plugin<
     visit(tree, 'code', (node: Code, index, parent: any) => {
       if (!parent || typeof index !== 'number') return
 
-      // Skip transformation if no language is specified
-      if (!node.lang) return
+      // Default to 'text' if no language is specified
+      const language = node.lang || 'text'
 
       // Build an MDX JSX node representing <CodeDemo language="lang" rawContent="...">...</CodeDemo>
       const codeDemoNode: any = {
@@ -29,7 +29,7 @@ export const remarkCodeToCodeDemo = function remarkCodeToCodeDemo(): Plugin<
           {
             type: 'mdxJsxAttribute',
             name: 'language',
-            value: node.lang,
+            value: language,
           },
           {
             type: 'mdxJsxAttribute',

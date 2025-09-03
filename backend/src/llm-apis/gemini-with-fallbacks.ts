@@ -8,7 +8,7 @@ import type {
   FinetunedVertexModel,
   GeminiModel,
 } from '@codebuff/common/constants'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -36,7 +36,7 @@ import type { CodebuffMessage } from '@codebuff/common/types/message'
  * @throws If all API calls (primary and fallbacks) fail.
  */
 export async function promptFlashWithFallbacks(
-  messages: CodebuffMessage[],
+  messages: Message[],
   options: {
     clientSessionId: string
     fingerprintId: string
@@ -61,10 +61,6 @@ export async function promptFlashWithFallbacks(
   // Try finetuned model first if enabled
   if (useFinetunedModel) {
     try {
-      logger.info(
-        { model: useFinetunedModel },
-        'Using finetuned model for file-picker!',
-      )
       return await promptAiSdk({
         ...geminiOptions,
         messages,

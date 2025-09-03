@@ -4,24 +4,22 @@ import {
   startToolTag,
   toolNameParam,
 } from './constants'
-import { llmToolCallSchema } from './list'
-import { closeXml } from '../util/xml'
+import { $toolParams } from './list'
 
-import type { StringToolResultPart, ToolName } from './constants'
+import type { ToolName } from './constants'
 import type z from 'zod/v4'
 
 export function getToolCallString<T extends ToolName | (string & {})>(
   toolName: T,
   params: T extends ToolName
-    ? z.input<(typeof llmToolCallSchema)[T]['parameters']>
+    ? z.input<(typeof $toolParams)[T]['parameters']>
     : Record<string, any>,
   ...endsAgentStep: T extends ToolName ? [] : [boolean]
 ): string {
   const endsAgentStepValue =
-    toolName in llmToolCallSchema
-      ? llmToolCallSchema[toolName as keyof typeof llmToolCallSchema]
-          .endsAgentStep
-      : endsAgentStep[0]
+    toolName in $toolParams
+      ? $toolParams[toolName as keyof typeof $toolParams].endsAgentStep
+      : endsAgentStep[0] ?? false
   const obj: Record<string, any> = {
     [toolNameParam]: toolName,
     ...params,
@@ -30,21 +28,4 @@ export function getToolCallString<T extends ToolName | (string & {})>(
     obj[endsAgentStepParam] = endsAgentStepValue satisfies true
   }
   return [startToolTag, JSON.stringify(obj, null, 2), endToolTag].join('')
-}
-
-export function renderToolResults(toolResults: StringToolResultPart[]): string {
-  if (toolResults.length === 0) {
-    return ''
-  }
-
-  return `
-${toolResults
-  .map(
-    (result) => `<tool_result>
-<tool>${result.toolName}${closeXml('tool')}
-<result>${result.output.value}${closeXml('result')}
-${closeXml('tool_result')}`,
-  )
-  .join('\n\n')}
-`.trim()
 }

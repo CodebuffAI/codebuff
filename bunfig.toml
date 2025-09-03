@@ -2,3 +2,7 @@
 # In CI, skip local linking and pull prebuilt artifacts from npm
 linkWorkspacePackages = false
 
+[test]
+# Exclude test repositories from test execution to prevent timeouts
+exclude = ["evals/test-repos/**"]
+

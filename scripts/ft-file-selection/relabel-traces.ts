@@ -1,15 +1,13 @@
 import { promptFlashWithFallbacks } from '@codebuff/backend/llm-apis/gemini-with-fallbacks'
-import {
-  promptAiSdk,
-  transformMessages,
-} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { messagesWithSystem } from '@codebuff/backend/util/messages'
 import { getTracesWithoutRelabels, insertRelabel } from '@codebuff/bigquery'
 import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import type { System } from '../../backend/src/llm-apis/claude'
 import type { GetRelevantFilesPayload } from '@codebuff/bigquery'
-import type { Message } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 // Models we want to test
 const MODELS_TO_TEST = [
@@ -60,7 +58,7 @@ async function runTraces() {
 
               if (model.startsWith('claude')) {
                 output = await promptAiSdk({
-                  messages: transformMessages(
+                  messages: messagesWithSystem(
                     messages as Message[],
                     system as System,
                   ),
@@ -72,7 +70,7 @@ async function runTraces() {
                 })
               } else {
                 output = await promptFlashWithFallbacks(
-                  transformMessages(messages as Message[], system as System),
+                  messagesWithSystem(messages as Message[], system as System),
                   {
                     model: model as typeof models.gemini2_5_pro_preview,
                     clientSessionId: 'relabel-trace-run',

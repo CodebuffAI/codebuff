@@ -2,6 +2,23 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.1.20]
+
+- You can now retrieve the output of an agent in `result.output` if result is the output of an awaited `client.run(...)` call.
+- cwd is optional in the CodebuffClient constructor.
+- You can pass in `extraToolResults` into a run() call to include more info to the agent.
+
+## [0.1.17]
+
+### Added
+
+- You can now get an API key from the [Codebuff website](https://www.codebuff.com/profile?tab=api-keys)!
+- You can provide your own custom tools!
+
+### Updated
+
+- Updated types and docs
+
 ## [0.1.9] - 2025-08-13
 
 ### Added

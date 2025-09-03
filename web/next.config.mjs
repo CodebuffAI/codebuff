@@ -94,7 +94,22 @@ const nextConfig = {
           },
         ],
         permanent: false,
-        destination: `${process.env.NEXT_PUBLIC_APP_URL}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/:path*`,
+      },
+      {
+        source: '/api-keys',
+        destination: '/profile?tab=api-keys',
+        permanent: true,
+      },
+      {
+        source: '/usage',
+        destination: '/profile?tab=usage',
+        permanent: true,
+      },
+      {
+        source: '/referrals',
+        destination: '/profile?tab=referrals',
+        permanent: true,
       },
       {
         source: '/discord',

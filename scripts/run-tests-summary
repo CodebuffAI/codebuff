@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Run unit tests in the current package (cwd) and:
+# - If all tests pass: print a single summary line
+# - If any test fails: print the full output
+#
+# Usage: invoked from package directory (e.g., backend/, npm-app/, common/)
+# The codebuff.json hooks set cwd accordingly and call this script via ../.bin/run-tests-summary
+
+set -o pipefail
+
+TMPFILE="$(mktemp)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+BUN="$SCRIPT_DIR/bun"
+[ -x "$BUN" ] || BUN="bun"
+
+# Count test files first to avoid xargs running with no input
+COUNT=$(find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | wc -l | tr -d ' ')
+if [ "$COUNT" -eq 0 ]; then
+  echo "✅ All tests passed: 0 tests across 0 files."
+  exit 0
+fi
+
+# Run tests file-by-file to keep behavior consistent with prior hooks
+# Capture all output to a tmpfile and check exit status
+if ! (find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} "$BUN" test {} ) >"$TMPFILE" 2>&1; then
+  cat "$TMPFILE"
+  rm -f "$TMPFILE"
+  exit 1
+fi
+
+# Success: summarize totals from Bun's per-file summaries
+TESTS=$(grep -Eo 'Ran [0-9]+ tests across [0-9]+ files' "$TMPFILE" | awk '{t+=$2} END{print t+0}')
+FILES=$(grep -Eo 'Ran [0-9]+ tests across [0-9]+ files' "$TMPFILE" | awk '{f+=$5} END{print f+0}')
+echo "✅ All tests passed: ${TESTS:-0} tests across ${FILES:-0} files."
+rm -f "$TMPFILE"

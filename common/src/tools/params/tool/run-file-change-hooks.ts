@@ -1,6 +1,8 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import { terminalCommandOutputSchema } from './run-terminal-command'
+
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'run_file_change_hooks'
 const endsAgentStep = true
@@ -14,4 +16,21 @@ export const runFileChangeHooksParams = {
         `List of file paths that were changed and should trigger file change hooks`,
       ),
   }),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z
+        .union([
+          terminalCommandOutputSchema.and(
+            z.object({
+              hookName: z.string(),
+            }),
+          ),
+          z.object({
+            errorMessage: z.string(),
+          }),
+        ])
+        .array(),
+    }),
+  ]),
+} satisfies $ToolParams

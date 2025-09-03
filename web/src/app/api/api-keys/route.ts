@@ -1,98 +1,118 @@
-import { encryptAndStoreApiKey } from '@codebuff/common/api-keys/crypto'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { apiKeyTypeEnum, encryptedApiKeys } from '@codebuff/common/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
+import { getServerSession } from 'next-auth'
+import crypto from 'crypto'
 
-import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
 import type { NextRequest } from 'next/server'
 
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 export async function GET(request: NextRequest) {
-  const authHeader = await request.headers.get('authorization')
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return new Response('Unauthorized', { status: 401 })
-  }
-
-  const authToken = authHeader.split(' ')[1]
-  const user = await db.query.session.findFirst({
-    where: eq(schema.session.sessionToken, authToken),
-    columns: {
-      userId: true,
-    },
-  })
-
-  const userId = user?.userId
-
-  if (!userId) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  try {
-    const storedKeys = await db
-      .select({ type: encryptedApiKeys.type })
-      .from(encryptedApiKeys)
-      .where(eq(encryptedApiKeys.user_id, userId))
+  const userId = session.user.id
 
-    const keyTypes: ApiKeyType[] = storedKeys.map((key) => key.type)
+  try {
+    // Get PAT sessions (type='pat', no fingerprint)
+    // CLI sessions are type='cli' and have fingerprint_id
+    const patSessions = await db
+      .select({
+        sessionToken: schema.session.sessionToken,
+        expires: schema.session.expires,
+        type: schema.session.type,
+      })
+      .from(schema.session)
+      .where(
+        and(eq(schema.session.userId, userId), eq(schema.session.type, 'pat'))
+      )
+
+    const tokens = patSessions.map((session) => ({
+      id: session.sessionToken, // Full token for revocation
+      token: `${session.sessionToken.slice(0, 15)}...${session.sessionToken.slice(-8)}`, // Display version
+      expires: session.expires?.toISOString(),
+      createdAt: null, // PATs don't track creation time separately
+      type: 'pat', // Consistent with database type
+    }))
 
     logger.info(
-      { userId, keyTypes },
-      'Successfully retrieved stored API key types'
+      { userId, tokenCount: tokens.length },
+      'Successfully retrieved API Keys'
     )
-    return NextResponse.json({ keyTypes }, { status: 200 })
+    return NextResponse.json({ tokens }, { status: 200 })
   } catch (error) {
-    logger.error({ error, userId }, 'Failed to retrieve stored API key types')
+    logger.error({ error, userId }, 'Failed to retrieve API Keys')
     return NextResponse.json(
-      { error: 'Failed to retrieve API key types' },
+      { error: 'Failed to retrieve API Keys' },
       { status: 500 }
     )
   }
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const userId = session.user.id
+
   const reqJson = await request.json()
   const parsedJson = z
     .object({
-      keyType: z.enum(apiKeyTypeEnum.enumValues),
-      apiKey: z.string().min(1, 'API key cannot be empty'),
-      authToken: z.string(),
+      name: z.string().min(1, 'Token name cannot be empty').optional(),
+      expiresInDays: z.number().min(1).max(365).optional().default(365),
     })
     .safeParse(reqJson)
-
   if (!parsedJson.success) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { keyType, apiKey, authToken } = parsedJson.data
-  const user = await db.query.session.findFirst({
-    where: eq(schema.session.sessionToken, authToken),
-    columns: {
-      userId: true,
-    },
-  })
-
-  const userId = user?.userId
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { name, expiresInDays } = parsedJson.data
 
   try {
-    await encryptAndStoreApiKey(userId, keyType, apiKey)
-    logger.info({ userId, keyType }, 'Successfully stored API key')
+    // Generate a new session token for the PAT with cb-pat- prefix baked in
+    const rawToken = crypto.randomBytes(32).toString('hex')
+    const sessionToken = `cb-pat-${rawToken}`
+
+    // Set expiration far in the future to indicate it's a PAT
+    const expires = new Date()
+    expires.setDate(expires.getDate() + expiresInDays)
+
+    // Create session entry with type='pat' to indicate it's a PAT
+    await db.insert(schema.session).values({
+      sessionToken,
+      userId,
+      expires,
+      fingerprint_id: null, // This marks it as a PAT
+      type: 'pat',
+    })
+
+    const tokenDisplay = `${sessionToken.slice(0, 15)}...${sessionToken.slice(-8)}`
+
+    logger.info(
+      { userId, tokenDisplay, expiresInDays },
+      'Successfully created API Key'
+    )
+
     return NextResponse.json(
-      { message: `${keyType} API key stored successfully` },
-      { status: 200 }
+      {
+        token: sessionToken, // Return full token with prefix already baked in
+        expires: expires.toISOString(),
+        message: 'API Key created successfully',
+      },
+      { status: 201 }
     )
   } catch (error) {
-    logger.error({ error, userId, keyType }, 'Failed to store API key')
+    logger.error({ error, userId }, 'Failed to create API Key')
     return NextResponse.json(
-      { error: 'Failed to store API key' },
+      { error: 'Failed to create API Key' },
       { status: 500 }
     )
   }

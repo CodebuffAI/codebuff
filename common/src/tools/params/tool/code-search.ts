@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'code_search'
 const endsAgentStep = true
@@ -29,4 +29,20 @@ export const codeSearchParams = {
     .describe(
       `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z.union([
+        z.object({
+          stdout: z.string(),
+          stderr: z.string().optional(),
+          exitCode: z.number().optional(),
+          message: z.string(),
+        }),
+        z.object({
+          errorMessage: z.string(),
+        }),
+      ]),
+    }),
+  ]),
+} satisfies $ToolParams

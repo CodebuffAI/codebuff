@@ -1,20 +1,28 @@
 import { AssertionError } from 'assert'
 
 import { buildArray } from '@codebuff/common/util/array'
-import { withCacheControl } from '@codebuff/common/util/messages'
+import { errorToObject } from '@codebuff/common/util/object'
 import { closeXml } from '@codebuff/common/util/xml'
+import { cloneDeep, isEqual } from 'lodash'
 
 import { logger } from './logger'
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
 
 import type { System } from '../llm-apis/claude'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type {
+  CodebuffToolMessage,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 
 export function messagesWithSystem(
-  messages: CodebuffMessage[],
+  messages: Message[],
   system: System,
-): CodebuffMessage[] {
+): Message[] {
   return [
     {
       role: 'system',
@@ -54,9 +62,7 @@ export function isSystemMessage(str: string): boolean {
   return str.startsWith('<system>') && str.endsWith(closeXml('system'))
 }
 
-export function castAssistantMessage(
-  message: CodebuffMessage,
-): CodebuffMessage | null {
+export function castAssistantMessage(message: Message): Message | null {
   if (message.role !== 'assistant') {
     return message
   }
@@ -88,25 +94,19 @@ export function castAssistantMessage(
 // Number of terminal command outputs to keep in full form before simplifying
 const numTerminalCommandsToKeep = 5
 
-/**
- * Helper function to simplify terminal command output while preserving some recent ones
- * @param text - Terminal output text to potentially simplify
- * @param numKept - Number of terminal outputs already kept in full form
- * @returns Object containing simplified result and updated count of kept outputs
- */
 function simplifyTerminalHelper(
-  text: string,
+  toolResult: CodebuffToolOutput<'run_terminal_command'>,
   numKept: number,
-): { result: string; numKept: number } {
-  const simplifiedText = simplifyTerminalCommandResults(text)
+): { result: CodebuffToolOutput<'run_terminal_command'>; numKept: number } {
+  const simplified = simplifyTerminalCommandResults(toolResult)
 
   // Keep the full output for the N most recent commands
-  if (numKept < numTerminalCommandsToKeep && simplifiedText !== text) {
-    return { result: text, numKept: numKept + 1 }
+  if (numKept < numTerminalCommandsToKeep && !isEqual(simplified, toolResult)) {
+    return { result: toolResult, numKept: numKept + 1 }
   }
 
   return {
-    result: simplifiedText,
+    result: simplified,
     numKept,
   }
 }
@@ -116,7 +116,7 @@ const shortenedMessageTokenFactor = 0.5
 const replacementMessage = {
   role: 'user',
   content: asSystemMessage('Previous message(s) omitted due to length'),
-} satisfies CodebuffMessage
+} satisfies Message
 
 /**
  * Trims messages from the beginning to fit within token limits while preserving
@@ -133,10 +133,10 @@ const replacementMessage = {
  * @returns Trimmed array of messages that fits within token limit
  */
 export function trimMessagesToFitTokenLimit(
-  messages: CodebuffMessage[],
+  messages: Message[],
   systemTokens: number,
   maxTotalTokens: number = 190_000,
-): CodebuffMessage[] {
+): Message[] {
   const maxMessageTokens = maxTotalTokens - systemTokens
 
   // Check if we're already under the limit
@@ -146,75 +146,37 @@ export function trimMessagesToFitTokenLimit(
     return messages
   }
 
-  const shortenedMessages: CodebuffMessage[] = []
+  const shortenedMessages: Message[] = []
   let numKept = 0
 
   // Process messages from newest to oldest
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    let message: CodebuffMessage
-    if (m.role === 'tool' || m.role === 'system') {
-      message = messages[i]
-    } else if (m.role === 'user') {
-      let newContent: typeof m.content
-
-      // Handle string content (usually terminal output)
-      if (typeof m.content === 'string') {
-        const result = simplifyTerminalHelper(m.content, numKept)
-        message = { role: m.role, content: result.result }
-        numKept = result.numKept
-      } else {
-        // Handle array content (mixed content types)
-        newContent = []
-        // Process content parts from newest to oldest
-        for (let j = m.content.length - 1; j >= 0; j--) {
-          const messagePart = m.content[j]
-          // Preserve non-text content (i.e. images)
-          if (messagePart.type !== 'text') {
-            newContent.push(messagePart)
-            continue
-          }
-
-          const result = simplifyTerminalHelper(messagePart.text, numKept)
-          newContent.push({ ...messagePart, text: result.result })
-          numKept = result.numKept
-        }
-        newContent.reverse()
-        message = { ...m, content: newContent }
+    if (m.role === 'system' || m.role === 'user' || m.role === 'assistant') {
+      shortenedMessages.push(m)
+    } else if (m.role === 'tool') {
+      if (m.content.toolName !== 'run_terminal_command') {
+        shortenedMessages.push(m)
+        continue
       }
-    } else if (m.role === 'assistant') {
-      let newContent: typeof m.content
 
-      // Handle string content (usually terminal output)
-      if (typeof m.content === 'string') {
-        const result = simplifyTerminalHelper(m.content, numKept)
-        message = { role: m.role, content: result.result }
-        numKept = result.numKept
-      } else {
-        // Handle array content (mixed content types)
-        newContent = []
-        // Process content parts from newest to oldest
-        for (let j = m.content.length - 1; j >= 0; j--) {
-          const messagePart = m.content[j]
-          // Preserve non-text content (i.e. images)
-          if (messagePart.type !== 'text') {
-            newContent.push(messagePart)
-            continue
-          }
+      const terminalResultMessage = cloneDeep(
+        m,
+      ) as CodebuffToolMessage<'run_terminal_command'>
 
-          const result = simplifyTerminalHelper(messagePart.text, numKept)
-          newContent.push({ ...messagePart, text: result.result })
-          numKept = result.numKept
-        }
-        newContent.reverse()
-        message = { ...m, content: newContent }
-      }
+      const result = simplifyTerminalHelper(
+        terminalResultMessage.content.output,
+        numKept,
+      )
+      terminalResultMessage.content.output = result.result
+      numKept = result.numKept
+
+      shortenedMessages.push(terminalResultMessage)
     } else {
       m satisfies never
-      throw new AssertionError({ message: 'Not a valid role' })
+      const mAny = m as any
+      throw new AssertionError({ message: `Not a valid role: ${mAny.role}` })
     }
-
-    shortenedMessages.push(message)
   }
   shortenedMessages.reverse()
 
@@ -226,7 +188,7 @@ export function trimMessagesToFitTokenLimit(
     (maxMessageTokens - requiredTokens) * (1 - shortenedMessageTokenFactor)
 
   const placeholder = 'deleted'
-  const filteredMessages: (CodebuffMessage | typeof placeholder)[] = []
+  const filteredMessages: (Message | typeof placeholder)[] = []
   for (const message of shortenedMessages) {
     if (removedTokens >= tokensToRemove || message.keepDuringTruncation) {
       filteredMessages.push(message)
@@ -248,10 +210,9 @@ export function trimMessagesToFitTokenLimit(
 }
 
 export function getMessagesSubset(
-  messages: CodebuffMessage[],
+  messages: Message[],
   otherTokens: number,
-  includeCacheControl: boolean = true,
-): CodebuffMessage[] {
+): Message[] {
   const messagesSubset = trimMessagesToFitTokenLimit(messages, otherTokens)
 
   // Remove cache_control from all messages
@@ -271,30 +232,15 @@ export function getMessagesSubset(
       },
       'No last message found in messagesSubset!',
     )
-    return messagesSubset
   }
-
-  if (!includeCacheControl) {
-    return messagesSubset
-  }
-
-  // add cache control to specific messages
-  for (const ttl of ['agentStep', 'userPrompt'] as const) {
-    const index = messagesSubset.findIndex((m) => m.timeToLive === ttl)
-    if (index <= 0) {
-      continue
-    }
-    messagesSubset[index - 1] = withCacheControl(messagesSubset[index - 1])
-  }
-  messagesSubset[messagesSubset.length - 1] = withCacheControl(lastMessage)
 
   return messagesSubset
 }
 
 export function expireMessages(
-  messages: CodebuffMessage[],
+  messages: Message[],
   endOf: 'agentStep' | 'userPrompt',
-): CodebuffMessage[] {
+): Message[] {
   return messages.filter((m) => {
     // Keep messages with no timeToLive
     if (m.timeToLive === undefined) return true
@@ -305,4 +251,78 @@ export function expireMessages(
 
     return true
   })
+}
+
+export function getEditedFiles(messages: Message[]): string[] {
+  return buildArray(
+    messages
+      .filter(
+        (
+          m,
+        ): m is ToolMessage & {
+          content: { toolName: 'create_plan' | 'str_replace' | 'write_file' }
+        } => {
+          return (
+            m.role === 'tool' &&
+            (m.content.toolName === 'create_plan' ||
+              m.content.toolName === 'str_replace' ||
+              m.content.toolName === 'write_file')
+          )
+        },
+      )
+      .map((m) => {
+        try {
+          const fileInfo = (
+            m as CodebuffToolMessage<
+              'create_plan' | 'str_replace' | 'write_file'
+            >
+          ).content.output[0].value
+          if ('errorMessage' in fileInfo) {
+            return null
+          }
+          return fileInfo.file
+        } catch (error) {
+          logger.error(
+            { error: errorToObject(error), m },
+            'Error parsing file info',
+          )
+          return null
+        }
+      }),
+  )
+}
+
+export function getPreviouslyReadFiles(messages: Message[]): {
+  path: string
+  content: string
+  referencedBy?: Record<string, string[]>
+}[] {
+  return buildArray(
+    messages
+      .filter(
+        (
+          m,
+        ): m is ToolMessage & {
+          content: { toolName: 'read_files' }
+        } => m.role === 'tool' && m.content.toolName === 'read_files',
+      )
+      .map((m) => {
+        try {
+          return (
+            m as CodebuffToolMessage<'read_files'>
+          ).content.output[0].value.map((file) => {
+            if ('contentOmittedForLength' in file) {
+              return undefined
+            }
+            return file
+          })
+        } catch (error) {
+          logger.error(
+            { error: errorToObject(error), m },
+            'Error parsing read_files output from message',
+          )
+          return []
+        }
+      }),
+  )
 }

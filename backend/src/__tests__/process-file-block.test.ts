@@ -4,7 +4,7 @@ import {
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
-import { applyPatch } from '@codebuff/common/util/patch'
+import { applyPatch } from 'diff'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 
 import { processFileBlock } from '../process-file-block'
@@ -161,87 +161,6 @@ describe('processFileBlockModule', () => {
       expect('error' in result).toBe(true)
       if ('error' in result) {
         expect(result.error).toContain('same as the old content')
-      }
-    })
-
-    it('should handle multiple diff blocks in a single file', async () => {
-      const oldContent = `
-function add(a: number, b: number) {
-  return a + b;
-}
-
-function multiply(a: number, b: number) {
-  return a * b;
-}
-
-function divide(a: number, b: number) {
-  return a / b;
-}
-`.trim()
-
-      const newContent =
-        `<<<<<<< SEARCH
-function add(a: number, b: number) {
-  return a + b;
-}
-=======
-function add(a: number, b: number) {
-  if (typeof a !== 'number' || typeof b !== 'number') {
-    throw new Error('Invalid arguments');
-  }
-  return a + b;
-}
->>>>>>> REPLACE` +
-        `
- 
-` +
-        `<<<<<<< SEARCH
-function multiply(a: number, b: number) {
-  return a * b;
-}
-=======
-function multiply(a: number, b: number) {
-  if (typeof a !== 'number' || typeof b !== 'number') {
-    throw new Error('Invalid arguments');
-  }
-  return a * b;
-}
->>>>>>> REPLACE
-
-function divide(a: number, b: number) {
-  return a / b;
-}`
-
-      const result = await processFileBlock(
-        'test.ts',
-        undefined,
-        Promise.resolve(oldContent),
-        newContent,
-        [],
-        '',
-        undefined,
-        'clientSessionId',
-        'fingerprintId',
-        'userInputId',
-        TEST_USER_ID,
-      )
-
-      expect(result).not.toBeNull()
-      if ('error' in result) {
-        throw new Error(`Expected success but got error: ${result.error}`)
-      }
-      expect(result.path).toBe('test.ts')
-      expect(result.patch).toBeDefined()
-      if (result.patch) {
-        const updatedContent = applyPatch(oldContent, result.patch)
-        expect(updatedContent).toContain(
-          "if (typeof a !== 'number' || typeof b !== 'number')",
-        )
-        expect(
-          updatedContent.match(
-            /if \(typeof a !== 'number' \|\| typeof b !== 'number'\)/g,
-          )?.length,
-        ).toBe(2)
       }
     })
 

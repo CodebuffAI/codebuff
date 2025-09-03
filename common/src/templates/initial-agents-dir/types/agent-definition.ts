@@ -14,6 +14,10 @@
  *   export default definition
  */
 
+import type { Message } from './codebuff-message'
+import type * as Tools from './tools'
+type ToolName = Tools.ToolName
+
 // ============================================================================
 // Agent Definition and Utility Types
 // ============================================================================
@@ -95,7 +99,7 @@ export interface AgentDefinition {
    *
    * all_messages: All messages from the agent, including tool calls and results.
    *
-   * json: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
+   * structured_output: Make the agent output a JSON object. Can be used with outputSchema or without if you want freeform json output.
    */
   outputMode?: 'last_message' | 'all_messages' | 'structured_output'
 
@@ -146,6 +150,14 @@ export interface AgentDefinition {
    *     input: { paths: ['file1.txt', 'file2.txt'] }
    *   }
    *   yield 'STEP_ALL'
+   *
+   *   // Optionally do a post-processing step here...
+   *   yield {
+   *     toolName: 'set_output',
+   *     input: {
+   *       output: 'The files were read successfully.',
+   *     },
+   *   }
    * }
    *
    * Example 2:
@@ -162,16 +174,19 @@ export interface AgentDefinition {
    *       ],
    *     },
    *   }
-   *   yield 'STEP'
+   *   const { stepsComplete } = yield 'STEP'
+   *   if (stepsComplete) break
    * }
    * }
    */
-  handleSteps?: (
-    context: AgentStepContext,
-  ) => Generator<
+  handleSteps?: (context: AgentStepContext) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
-    { agentState: AgentState; toolResult: string | undefined }
+    {
+      agentState: AgentState
+      toolResult: string | undefined
+      stepsComplete: boolean
+    }
   >
 }
 
@@ -181,16 +196,13 @@ export interface AgentDefinition {
 
 export interface AgentState {
   agentId: string
-  parentId: string
-  messageHistory: Message[]
-}
+  parentId: string | undefined
 
-/**
- * Message in conversation history
- */
-export interface Message {
-  role: 'user' | 'assistant'
-  content: string
+  /** The agent's conversation history: messages from the user and the assistant. */
+  messageHistory: Message[]
+
+  /** The last value set by the set_output tool. This is a plain object or undefined if not set. */
+  output: Record<string, any> | undefined
 }
 
 /**
@@ -209,6 +221,7 @@ export type ToolCall<T extends ToolName = ToolName> = {
   [K in T]: {
     toolName: K
     input: Tools.GetToolParams<K>
+    includeToolCall?: boolean
   }
 }[T]
 
@@ -296,6 +309,7 @@ export type ModelName =
 
   // OpenAI
   | 'openai/gpt-5'
+  | 'openai/gpt-5-chat'
   | 'openai/gpt-5-mini'
   | 'openai/gpt-5-nano'
 
@@ -334,6 +348,4 @@ export type ModelName =
   | 'z-ai/glm-4.5:nitro'
   | (string & {})
 
-import type * as Tools from './tools'
 export type { Tools }
-type ToolName = Tools.ToolName

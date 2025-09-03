@@ -15,7 +15,7 @@
   "fileChangeHooks": [
     {
       "name": "backend-unit-tests",
-      "command": "set -o pipefail && find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} ../.bin/bun test {} 2>&1 | grep -Ev '✓|\\(pass\\)'",
+      "command": "../scripts/run-tests-summary",
       "cwd": "backend",
       "filePattern": "backend/**/*.ts"
     },
@@ -27,7 +27,7 @@
     },
     {
       "name": "npm-app-unit-tests",
-      "command": "set -o pipefail && find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} ../.bin/bun test {} 2>&1 | grep -Ev '✓|\\(pass\\)'",
+      "command": "../scripts/run-tests-summary",
       "cwd": "npm-app",
       "filePattern": "npm-app/**/*.ts"
     },
@@ -45,7 +45,7 @@
     },
     {
       "name": "common-unit-tests",
-      "command": "set -o pipefail && find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} ../.bin/bun test {} 2>&1 | grep -Ev '✓|\\(pass\\)'",
+      "command": "../scripts/run-tests-summary",
       "cwd": "common",
       "filePattern": "common/**/*.ts"
     },
@@ -57,7 +57,7 @@
     },
     {
       "name": "prettier-format",
-      "command": "git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|json|md)$' | xargs -r npx prettier --write",
+      "command": "set -o pipefail && CHANGED=\"$(git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|json|md)$' | xargs -r npx prettier --list-different || true)\"; [ -n \"$CHANGED\" ] && echo \"$CHANGED\" | xargs -r npx prettier --write --log-level=warn && printf '%s\\n' \"$CHANGED\" || true",
       "filePattern": "**/*.{ts,tsx,json,md}"
     },
     {
@@ -70,6 +70,11 @@
       "command": "bun run typecheck",
       "cwd": ".agents",
       "filePattern": ".agents/**/*.ts"
+    },
+    {
+      "name": "eslint-fix-imports",
+      "command": "set -o pipefail && git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx)$' | xargs -r npx eslint --fix --quiet",
+      "filePattern": "**/*.{ts,tsx,js,jsx}"
     }
   ]
 }

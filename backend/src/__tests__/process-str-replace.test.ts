@@ -10,15 +10,17 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [{ old: oldStr, new: newStr }],
-
+      [{ old: oldStr, new: newStr, allowMultiple: false }],
       Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
-    expect((result as any).content).toBe('const x = 1;\nconst y = 3;\n')
-    expect((result as any).path).toBe('test.ts')
-    expect((result as any).tool).toBe('str_replace')
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
+      expect(result.path).toBe('test.ts')
+      expect(result.tool).toBe('str_replace')
+    }
   })
 
   it('should handle Windows line endings', async () => {
@@ -28,13 +30,16 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [{ old: oldStr, new: newStr }],
+      [{ old: oldStr, new: newStr, allowMultiple: false }],
       Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
-    expect((result as any).content).toBe('const x = 1;\r\nconst y = 3;\r\n')
-    expect((result as any).patch).toContain('\r\n')
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe('const x = 1;\r\nconst y = 3;\r\n')
+      expect(result.patch).toContain('\r\n')
+    }
   })
 
   it('should handle indentation differences', async () => {
@@ -44,13 +49,15 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [{ old: oldStr, new: newStr }],
-
+      [{ old: oldStr, new: newStr, allowMultiple: false }],
       Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
-    expect((result as any).content).toBe('  const x = 1;\n    const y = 3;\n')
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe('  const x = 1;\n    const y = 3;\n')
+    }
   })
 
   it('should handle whitespace-only differences', async () => {
@@ -60,19 +67,21 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [{ old: oldStr, new: newStr }],
-
+      [{ old: oldStr, new: newStr, allowMultiple: false }],
       Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
-    expect((result as any).content).toBe('const x = 1;\nconst y = 3;\n')
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
+    }
   })
 
-  it('should return null if file content is null and oldStr is not empty', async () => {
+  it('should return error if file content is null and oldStr is not empty', async () => {
     const result = await processStrReplace(
       'test.ts',
-      [{ old: 'old', new: 'new' }],
+      [{ old: 'old', new: 'new', allowMultiple: false }],
       Promise.resolve(null),
     )
 
@@ -83,10 +92,10 @@ describe('processStrReplace', () => {
     }
   })
 
-  it('should return null if oldStr is empty and file exists', async () => {
+  it('should return error if oldStr is empty and file exists', async () => {
     const result = await processStrReplace(
       'test.ts',
-      [{ old: '', new: 'new' }],
+      [{ old: '', new: 'new', allowMultiple: false }],
       Promise.resolve('content'),
     )
 
@@ -101,7 +110,7 @@ describe('processStrReplace', () => {
     const newContent = 'const x = 1;\nconst y = 2;\n'
     const result = await processStrReplace(
       'test.ts',
-      [{ old: '', new: newContent }],
+      [{ old: '', new: newContent, allowMultiple: false }],
       Promise.resolve(null),
     )
 
@@ -112,15 +121,14 @@ describe('processStrReplace', () => {
     }
   })
 
-  it('should return null if no changes were made', async () => {
+  it('should return error if no changes were made', async () => {
     const initialContent = 'const x = 1;\nconst y = 2;\n'
     const oldStr = 'const z = 3;' // This string doesn't exist in the content
     const newStr = 'const z = 4;'
 
     const result = await processStrReplace(
       'test.ts',
-      [{ old: oldStr, new: newStr }],
-
+      [{ old: oldStr, new: newStr, allowMultiple: false }],
       Promise.resolve(initialContent),
     )
 
@@ -133,20 +141,22 @@ describe('processStrReplace', () => {
     }
   })
 
-  it('should handle multiple occurrences of the same string', async () => {
+  it('should handle multiple occurrences of the same string with allowMultiple: true', async () => {
     const initialContent = 'const x = 1;\nconst x = 2;\nconst x = 3;\n'
     const oldStr = 'const x'
     const newStr = 'let x'
 
     const result = await processStrReplace(
       'test.ts',
-      [{ old: oldStr, new: newStr }],
-
+      [{ old: oldStr, new: newStr, allowMultiple: true }],
       Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
-    expect((result as any).content).toBe('let x = 1;\nlet x = 2;\nlet x = 3;\n')
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe('let x = 1;\nlet x = 2;\nlet x = 3;\n')
+    }
   })
 
   it('should generate a valid patch', async () => {
@@ -156,15 +166,18 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [{ old: oldStr, new: newStr }],
+      [{ old: oldStr, new: newStr, allowMultiple: false }],
       Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
-    const patch = (result as any).patch
-    expect(patch).toBeDefined()
-    expect(patch).toContain('-const y = 2;')
-    expect(patch).toContain('+const y = 3;')
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      const patch = result.patch
+      expect(patch).toBeDefined()
+      expect(patch).toContain('-const y = 2;')
+      expect(patch).toContain('+const y = 3;')
+    }
   })
 
   it('should handle special characters in strings', async () => {
@@ -174,22 +187,25 @@ describe('processStrReplace', () => {
 
     const result = await processStrReplace(
       'test.ts',
-      [{ old: oldStr, new: newStr }],
+      [{ old: oldStr, new: newStr, allowMultiple: false }],
       Promise.resolve(initialContent),
     )
 
     expect(result).not.toBeNull()
-    expect((result as any).content).toBe(
-      'const x = "hello & world";\nconst y = "<span>";\n',
-    )
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe(
+        'const x = "hello & world";\nconst y = "<span>";\n',
+      )
+    }
   })
 
   it('should continue processing other replacements even if one fails', async () => {
     const initialContent = 'const x = 1;\nconst y = 2;\nconst z = 3;\n'
     const replacements = [
-      { old: 'const x = 1;', new: 'const x = 10;' }, // This exists
-      { old: 'const w = 4;', new: 'const w = 40;' }, // This doesn't exist
-      { old: 'const z = 3;', new: 'const z = 30;' }, // This also exists
+      { old: 'const x = 1;', new: 'const x = 10;', allowMultiple: false }, // This exists
+      { old: 'const w = 4;', new: 'const w = 40;', allowMultiple: false }, // This doesn't exist
+      { old: 'const z = 3;', new: 'const z = 30;', allowMultiple: false }, // This also exists
     ]
 
     const result = await processStrReplace(
@@ -209,5 +225,182 @@ describe('processStrReplace', () => {
         'The old string "const w = 4;" was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.',
       )
     }
+  })
+
+  // New comprehensive tests for allowMultiple functionality
+  describe('allowMultiple functionality', () => {
+    it('should error when multiple occurrences exist and allowMultiple is false', async () => {
+      const initialContent = 'const x = 1;\nconst x = 2;\nconst x = 3;\n'
+      const oldStr = 'const x'
+      const newStr = 'let x'
+
+      const result = await processStrReplace(
+        'test.ts',
+        [{ old: oldStr, new: newStr, allowMultiple: false }],
+        Promise.resolve(initialContent),
+      )
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('Found 3 occurrences')
+        expect(result.error).toContain('set allowMultiple to true')
+      }
+    })
+
+    it('should replace all occurrences when allowMultiple is true', async () => {
+      const initialContent = 'foo bar foo baz foo'
+      const oldStr = 'foo'
+      const newStr = 'FOO'
+
+      const result = await processStrReplace(
+        'test.ts',
+        [{ old: oldStr, new: newStr, allowMultiple: true }],
+        Promise.resolve(initialContent),
+      )
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('FOO bar FOO baz FOO')
+      }
+    })
+
+    it('should handle single occurrence with allowMultiple: true', async () => {
+      const initialContent = 'const x = 1;\nconst y = 2;\n'
+      const oldStr = 'const y = 2;'
+      const newStr = 'const y = 3;'
+
+      const result = await processStrReplace(
+        'test.ts',
+        [{ old: oldStr, new: newStr, allowMultiple: true }],
+        Promise.resolve(initialContent),
+      )
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
+      }
+    })
+
+    it('should handle mixed allowMultiple settings in multiple replacements', async () => {
+      const initialContent = 'foo bar foo\nbaz baz baz\nqux qux'
+      const replacements = [
+        { old: 'foo', new: 'FOO', allowMultiple: true }, // Replace all 'foo'
+        { old: 'baz', new: 'BAZ', allowMultiple: false }, // Should error on multiple 'baz'
+        { old: 'qux qux', new: 'QUX', allowMultiple: false }, // Single occurrence, should work
+      ]
+
+      const result = await processStrReplace(
+        'test.ts',
+        replacements,
+        Promise.resolve(initialContent),
+      )
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        // Should have applied foo->FOO and qux qux->QUX, but not baz->BAZ
+
+        expect(result.content).toBe('FOO bar FOO\nbaz baz baz\nQUX')
+        expect(result.messages).toHaveLength(1)
+        expect(result.messages[0]).toContain('Found 3 occurrences of "baz"')
+        expect(result.messages[0]).toContain('set allowMultiple to true')
+      }
+    })
+
+    it('should replace multiple lines with allowMultiple: true', async () => {
+      const initialContent = `function test() {
+  console.log('debug');
+}
+function test2() {
+  console.log('debug');
+}
+function test3() {
+  console.log('info');
+}`
+      const oldStr = "console.log('debug');"
+      const newStr = '// removed debug log'
+
+      const result = await processStrReplace(
+        'test.ts',
+        [{ old: oldStr, new: newStr, allowMultiple: true }],
+        Promise.resolve(initialContent),
+      )
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toContain('// removed debug log')
+        // Should have replaced both debug logs but not the info log
+        expect((result.content.match(/removed debug log/g) || []).length).toBe(
+          2,
+        )
+        expect(result.content).toContain("console.log('info');")
+      }
+    })
+
+    it('should handle empty new string with allowMultiple: true (deletion)', async () => {
+      const initialContent = 'remove this, keep this, remove this, keep this'
+      const oldStr = 'remove this, '
+      const newStr = ''
+
+      const result = await processStrReplace(
+        'test.ts',
+        [{ old: oldStr, new: newStr, allowMultiple: true }],
+        Promise.resolve(initialContent),
+      )
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('keep this, keep this')
+      }
+    })
+
+    it('should handle allowMultiple with indentation matching', async () => {
+      const initialContent = `  if (condition) {
+    doSomething();
+  }
+  if (condition) {
+    doSomething();
+  }`
+      const oldStr = 'doSomething();'
+      const newStr = 'doSomethingElse();'
+
+      const result = await processStrReplace(
+        'test.ts',
+        [{ old: oldStr, new: newStr, allowMultiple: true }],
+        Promise.resolve(initialContent),
+      )
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toContain('doSomethingElse();')
+        expect((result.content.match(/doSomethingElse/g) || []).length).toBe(2)
+      }
+    })
+
+    it('should handle zero occurrences with allowMultiple: true', async () => {
+      const initialContent = 'const x = 1;\nconst y = 2;\n'
+      const oldStr = 'const z = 3;' // This string doesn't exist
+      const newStr = 'const z = 4;'
+
+      const result = await processStrReplace(
+        'test.ts',
+        [{ old: oldStr, new: newStr, allowMultiple: true }],
+        Promise.resolve(initialContent),
+      )
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain(
+          'The old string "const z = 3;" was not found',
+        )
+      }
+    })
   })
 })

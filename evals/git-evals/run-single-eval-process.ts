@@ -13,12 +13,24 @@ import { runSingleEval } from './run-git-evals'
 import type { EvalCommit } from './types'
 
 async function main() {
+  // Set up signal handlers for graceful shutdown
+  let shouldExit = false
+  const signalHandler = (signal: string) => {
+    console.log(`Child process received ${signal}, exiting gracefully...`)
+    shouldExit = true
+    process.exit(0)
+  }
+
+  process.on('SIGINT', () => signalHandler('SIGINT'))
+  process.on('SIGTERM', () => signalHandler('SIGTERM'))
+
   const [
     evalCommitFilePath,
     projectPath,
     clientSessionId,
     fingerprintId,
-    agentType,
+    codingAgent,
+    agent,
   ] = process.argv.slice(2)
 
   if (
@@ -26,7 +38,8 @@ async function main() {
     !projectPath ||
     !clientSessionId ||
     !fingerprintId ||
-    !agentType
+    !codingAgent ||
+    !agent
   ) {
     console.error('Missing required arguments for single eval process')
     process.exit(1)
@@ -49,13 +62,25 @@ async function main() {
     recreateShell(projectPath)
     setWorkingDirectory(projectPath)
 
+    // Check if we should exit early due to signal
+    if (shouldExit) {
+      process.exit(0)
+    }
+
     const result = await runSingleEval(
       evalCommit,
       projectPath,
       clientSessionId,
       fingerprintId,
-      agentType,
+      codingAgent as any,
+      agent,
     )
+
+    // Check again after long-running operation
+    if (shouldExit) {
+      process.exit(0)
+    }
+
     console.log('Final result:', { result })
     if (process.send) {
       process.send({ type: 'result', result })
@@ -71,9 +96,11 @@ async function main() {
       })
     }
   } finally {
+    // Exit more quickly if signal received, otherwise wait briefly
+    const exitDelay = shouldExit ? 100 : 2000
     setTimeout(() => {
       process.exit(0)
-    }, 2000)
+    }, exitDelay)
   }
 }
 

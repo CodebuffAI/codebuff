@@ -4,7 +4,7 @@ import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { globalStopSequence } from './tools/constants'
 
 import type { AgentTemplate } from './templates/types'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 
 export const getAgentStreamFromTemplate = (params: {
@@ -12,11 +12,22 @@ export const getAgentStreamFromTemplate = (params: {
   fingerprintId: string
   userInputId: string
   userId: string | undefined
+  onCostCalculated?: (credits: number) => Promise<void>
+  agentId?: string
+  includeCacheControl?: boolean
 
   template: AgentTemplate
 }) => {
-  const { clientSessionId, fingerprintId, userInputId, userId, template } =
-    params
+  const {
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    onCostCalculated,
+    agentId,
+    includeCacheControl,
+    template,
+  } = params
 
   if (!template) {
     throw new Error('Agent template is null/undefined')
@@ -24,7 +35,7 @@ export const getAgentStreamFromTemplate = (params: {
 
   const { model } = template
 
-  const getStream = (messages: CodebuffMessage[]) => {
+  const getStream = (messages: Message[]) => {
     const options: Parameters<typeof promptAiSdkStream>[0] = {
       messages,
       model,
@@ -34,6 +45,9 @@ export const getAgentStreamFromTemplate = (params: {
       userInputId,
       userId,
       maxOutputTokens: 32_000,
+      onCostCalculated,
+      includeCacheControl,
+      agentId,
     }
 
     // Add Gemini-specific options if needed

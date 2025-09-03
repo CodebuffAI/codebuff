@@ -1,3 +1,5 @@
+import type { Message } from './codebuff-message'
+
 /**
  * Union type of all available tool names
  */
@@ -118,10 +120,7 @@ export interface RunTerminalCommandParams {
  * Set the conversation history to the provided messages.
  */
 export interface SetMessagesParams {
-  messages: {
-    role: 'user' | 'assistant'
-    content: string
-  }[]
+  messages: Message[]
 }
 
 /**
@@ -155,6 +154,8 @@ export interface StrReplaceParams {
     old: string
     /** The string to replace the corresponding old string with. Can be empty to delete. */
     new: string
+    /** Whether to allow multiple replacements of old string. */
+    allowMultiple?: boolean
   }[]
 }
 

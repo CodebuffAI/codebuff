@@ -10,49 +10,63 @@ npm install @codebuff/sdk
 
 ## Prerequisites
 
-1. Install the Codebuff CLI globally:
-
-   ```bash
-   npm install -g codebuff
-   ```
-
-2. Login to `codebuff` to store the API key in your local config:
-   ```bash
-   codebuff login
-   ```
+Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/profile?tab=api-keys).
 
 ## Usage
 
-```typescript
-import * as fs from 'fs'
-import * as os from 'os'
+### Basic Example
 
+```typescript
+import { CodebuffClient } from '@codebuff/sdk'
+
+const client = new CodebuffClient({
+  // Note: You need to pass in your own API key here.
+  apiKey: process.env.CODEBUFF_API_KEY,
+  cwd: process.cwd(),
+  onError: (e) => console.error('Codebuff error:', e.message),
+})
+
+// First run
+const run1 = await client.run({
+  agent: 'base',
+  prompt: 'Create a simple calculator class',
+})
+
+// Continue the same session with a follow-up
+const run2 = await client.run({
+  agent: 'base',
+  prompt: 'Add unit tests for the calculator',
+  previousRun: run1,
+  handleEvent: (event) => {
+    // Log all events
+    console.log('Progress:', event)
+  },
+})
+
+client.closeConnection()
+```
+
+### Advanced Example with Custom Agents, Tools, and Images
+
+```typescript
+import { z } from 'zod'
 import {
   CodebuffClient,
   generateInitialRunState,
   withAdditionalMessage,
+  getCustomToolDefinition,
 } from '@codebuff/sdk'
 
-// Available after running `codebuff login`
-const apiKey = JSON.parse(
-  fs
-    .readFileSync(os.homedir() + '/.config/manicode/credentials.json')
-    .toString(),
-).default.authToken
-const cwd = process.cwd()
-
 const client = new CodebuffClient({
-  apiKey,
-  cwd,
+  // Note: You need to pass in your own API key here.
+  apiKey: process.env.CODEBUFF_API_KEY,
+  cwd: process.cwd(),
   onError: (e) => console.error('Codebuff error:', e.message),
-  // Optional: Override the implementation of specific tools.
-  overrideTools: {},
 })
 
-// Single run
-const emptyRun = generateInitialRunState({ cwd })
-
-const runWithExampleImage = withAdditionalMessage({
+// Create a run with an image
+const emptyRun = await generateInitialRunState({ cwd: process.cwd() })
+const runWithImage = withAdditionalMessage({
   runState: emptyRun,
   message: {
     role: 'user',
@@ -67,37 +81,54 @@ const runWithExampleImage = withAdditionalMessage({
   },
 })
 
-const run1 = await client.run({
-  agent: 'base',
-  prompt: 'What is depicted in the attached image?',
-  previousRun: runWithExampleImage,
-  handleEvent: (event) => {
-    console.log('event from run1:', { event })
-  },
-})
+const result = await client.run({
+  agent: 'my-custom-agent',
+  prompt: 'Analyze this image and create code based on what you see',
+  previousRun: runWithImage,
 
-// Continue same session with follow‑up
-const run2 = await client.run({
-  agent: 'base',
-  prompt: 'What about the text? (ignoring the pictures)',
-  previousRun: run1,
-
-  // Stream events (optional)
-  handleEvent: (event) => {
-    // event includes streamed updates like assistant messages and tool calls
-    console.log('event from run2:', event)
-  },
-
-  // Custom agents (optional)
+  // Custom agent definitions
   agentDefinitions: [
     {
-      id: 'my-awesome-agent',
+      id: 'my-custom-agent',
       model: 'openai/gpt-5',
-      displayName: 'My awesome agent',
-      instructionsPrompt: 'Do something awesome',
+      displayName: 'Image Analyzer',
+      instructionsPrompt:
+        '1. describe all the details in the image. 2. answer the user prompt',
       // ... other AgentDefinition properties
     },
   ],
+
+  // Custom tool definitions
+  customToolDefinitions: [
+    getCustomToolDefinition({
+      toolName: 'fetch_api_data',
+      description: 'Fetch data from an API endpoint',
+      inputSchema: z.object({
+        url: z.string().url(),
+        method: z.enum(['GET', 'POST']).default('GET'),
+        headers: z.record(z.string()).optional(),
+      }),
+      exampleInputs: [
+        { url: 'https://api.example.com/data', method: 'GET' },
+        {
+          url: 'https://api.example.com/submit',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ],
+      handler: async ({ url, method, headers }) => {
+        const response = await fetch(url, { method, headers })
+        const data = await response.text()
+        return {
+          toolResultMessage: `API Response: ${data.slice(0, 5000)}...`,
+        }
+      },
+    }),
+  ],
+
+  handleEvent: (event) => {
+    console.log('Agent progress:', event)
+  },
 })
 
 client.closeConnection()
@@ -126,6 +157,9 @@ Runs a Codebuff agent with the specified options.
 - **`knowledgeFiles`** (object, optional): Knowledge files to inject into every `run()` call. Uses the same schema as `projectFiles` - keys are file paths and values are file contents. These files are added directly to the agent's context.
 
 - **`agentDefinitions`** (array, optional): Array of custom agent configurations. Each object should satisfy the AgentConfig type.
+
+- **`customToolDefinitions`** (array, optional): Array of custom tool definitions that extend the agent's capabilities. Each tool definition includes a name, Zod schema for input validation, and a handler function. These tools can be called by the agent during execution.
+
 - **`maxAgentSteps`** (number, optional): Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
 
 #### Returns

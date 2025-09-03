@@ -36,7 +36,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
       description:
         'No valid session or auth code. Please try again and reach out to support@codebuff.com if the problem persists.',
     })
-    return redirect(env.NEXT_PUBLIC_APP_URL)
+    return redirect(env.NEXT_PUBLIC_CODEBUFF_APP_URL)
   }
 
   const [fingerprintId, expiresAt, receivedfingerprintHash] =
@@ -159,6 +159,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
         userId: user.id,
         expires: MAX_DATE,
         fingerprint_id: fingerprintId,
+        type: 'cli',
       })
       .returning({ userId: schema.session.userId })
 

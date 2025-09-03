@@ -8,8 +8,9 @@ import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   ClientToolCall,
   CodebuffToolCall,
+  CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { WebSocket } from 'ws'
 
 type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'
@@ -61,7 +62,19 @@ export function getFileProcessingValues(
   return fileProcessingValues
 }
 
-export const handleWriteFile = ((params: {
+export const handleWriteFile = (({
+  previousToolCallFinished,
+  toolCall,
+
+  clientSessionId,
+  userInputId,
+
+  requestClientToolCall,
+  writeToClient,
+
+  getLatestState,
+  state,
+}: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'write_file'>
 
@@ -70,7 +83,7 @@ export const handleWriteFile = ((params: {
 
   requestClientToolCall: (
     toolCall: ClientToolCall<'write_file'>,
-  ) => Promise<string>
+  ) => Promise<CodebuffToolOutput<'write_file'>>
   writeToClient: (chunk: string) => void
 
   getLatestState: () => FileProcessingState
@@ -80,25 +93,12 @@ export const handleWriteFile = ((params: {
     userId?: string
     fullResponse?: string
     prompt?: string
-    messages?: CodebuffMessage[]
+    messages?: Message[]
   } & OptionalFileProcessingState
 }): {
-  result: Promise<string>
+  result: Promise<CodebuffToolOutput<'write_file'>>
   state: FileProcessingState
 } => {
-  const {
-    previousToolCallFinished,
-    toolCall,
-
-    clientSessionId,
-    userInputId,
-
-    requestClientToolCall,
-    writeToClient,
-
-    getLatestState,
-    state,
-  } = params
   const { path, instructions, content } = toolCall.input
   const { ws, fingerprintId, userId, fullResponse, prompt } = state
   if (!ws) {
@@ -168,14 +168,15 @@ export const handleWriteFile = ((params: {
   fileProcessingPromises.push(newPromise)
 
   return {
-    result: previousToolCallFinished.then(async () => {
+    result: (async () => {
+      await previousToolCallFinished
       return await postStreamProcessing<'write_file'>(
         await newPromise,
         getLatestState(),
         writeToClient,
         requestClientToolCall,
       )
-    }),
+    })(),
     state: fileProcessingState,
   }
 }) satisfies CodebuffToolHandlerFunction<'write_file'>
@@ -184,8 +185,10 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
   toolCall: FileProcessing<T>,
   fileProcessingState: FileProcessingState,
   writeToClient: (chunk: string) => void,
-  requestClientToolCall: (toolCall: ClientToolCall<T>) => Promise<string>,
-) {
+  requestClientToolCall: (
+    toolCall: ClientToolCall<T>,
+  ) => Promise<CodebuffToolOutput<T>>,
+): Promise<CodebuffToolOutput<T>> {
   const allFileProcessingResults = await Promise.all(
     fileProcessingState.allPromises,
   )
@@ -224,25 +227,41 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
   const errors = fileProcessingState.fileChangeErrors.filter(
     (result) => result.toolCallId === toolCall.toolCallId,
   )
-  toolCallResults.push(
-    ...errors.map(({ path, error }) => `Error processing ${path}: ${error}`),
-  )
+  if (errors.length > 0) {
+    if (errors.length > 1) {
+      throw new Error(
+        `Internal error: Unexpected number of matching errors for ${{ toolCall }}, found ${errors.length}, expected 1`,
+      )
+    }
+
+    const { path, error } = errors[0]
+    return [
+      {
+        type: 'json',
+        value: {
+          file: path,
+          errorMessage: error,
+        },
+      },
+    ]
+  }
 
   const changes = fileProcessingState.fileChanges.filter(
     (result) => result.toolCallId === toolCall.toolCallId,
   )
-  for (const { path, content, patch } of changes) {
-    const clientToolCall: ClientToolCall<T> = {
-      toolCallId: toolCall.toolCallId,
-      toolName: toolCall.tool,
-      input: patch
-        ? { type: 'patch' as const, path, content: patch }
-        : { type: 'file' as const, path, content },
-    } as ClientToolCall<T>
-    const clientResult = await requestClientToolCall(clientToolCall)
-
-    toolCallResults.push(clientResult)
+  if (changes.length !== 1) {
+    throw new Error(
+      `Internal error: Unexpected number of matching changes for ${{ toolCall }}, found ${changes.length}, expected 1`,
+    )
   }
 
-  return toolCallResults.join('\n\n')
+  const { patch, content, path } = changes[0]
+  const clientToolCall: ClientToolCall<T> = {
+    toolCallId: toolCall.toolCallId,
+    toolName: toolCall.tool,
+    input: patch
+      ? { type: 'patch' as const, path, content: patch }
+      : { type: 'file' as const, path, content },
+  } as ClientToolCall<T>
+  return await requestClientToolCall(clientToolCall)
 }

@@ -11,6 +11,7 @@ import {
   toolNameParam,
 } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -22,18 +23,17 @@ import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
-import type { System } from '../claude'
 import type {
   GeminiModel,
   Model,
   OpenAIModel,
 } from '@codebuff/common/constants'
-import type { CodebuffMessage, Message } from '@codebuff/common/types/message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   OpenRouterProviderOptions,
   OpenRouterUsageAccounting,
 } from '@openrouter/ai-sdk-provider'
-import type { AssistantModelMessage, UserModelMessage, LanguageModel } from 'ai'
+import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
 
 // TODO: We'll want to add all our models here!
@@ -63,7 +63,7 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
 export const promptAiSdkStream = async function* (
   options: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     clientSessionId: string
     fingerprintId: string
     model: Model
@@ -71,8 +71,11 @@ export const promptAiSdkStream = async function* (
     chargeUser?: boolean
     thinkingBudget?: number
     userInputId: string
+    agentId?: string
     maxRetries?: number
-  } & Omit<Parameters<typeof streamText>[0], 'model'>,
+    onCostCalculated?: (credits: number) => Promise<void>
+    includeCacheControl?: boolean
+  } & Omit<Parameters<typeof streamText>[0], 'model' | 'messages'>,
 ) {
   if (
     !checkLiveUserInput(
@@ -100,6 +103,7 @@ export const promptAiSdkStream = async function* (
     ...options,
     model: aiSDKModel,
     maxRetries: options.maxRetries,
+    messages: convertCbToModelMessages(options),
   })
 
   let content = ''
@@ -190,7 +194,7 @@ export const promptAiSdkStream = async function* (
     }
   }
 
-  saveMessage({
+  const creditsUsedPromise = saveMessage({
     messageId,
     userId: options.userId,
     clientSessionId: options.clientSessionId,
@@ -207,20 +211,30 @@ export const promptAiSdkStream = async function* (
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
     costOverrideDollars,
+    agentId: options.agentId,
   })
+
+  // Call the cost callback if provided
+  if (options.onCostCalculated) {
+    const creditsUsed = await creditsUsedPromise
+    await options.onCostCalculated(creditsUsed)
+  }
 }
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
 export const promptAiSdk = async function (
   options: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     clientSessionId: string
     fingerprintId: string
     userInputId: string
     model: Model
     userId: string | undefined
     chargeUser?: boolean
-  } & Omit<Parameters<typeof generateText>[0], 'model'>,
+    agentId?: string
+    onCostCalculated?: (credits: number) => Promise<void>
+    includeCacheControl?: boolean
+  } & Omit<Parameters<typeof generateText>[0], 'model' | 'messages'>,
 ): Promise<string> {
   if (
     !checkLiveUserInput(
@@ -246,13 +260,13 @@ export const promptAiSdk = async function (
   const response = await generateText({
     ...options,
     model: aiSDKModel,
+    messages: convertCbToModelMessages(options),
   })
-
   const content = response.text
   const inputTokens = response.usage.inputTokens || 0
   const outputTokens = response.usage.inputTokens || 0
 
-  saveMessage({
+  const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
     userId: options.userId,
     clientSessionId: options.clientSessionId,
@@ -266,14 +280,21 @@ export const promptAiSdk = async function (
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    agentId: options.agentId,
   })
+
+  // Call the cost callback if provided
+  if (options.onCostCalculated) {
+    const creditsUsed = await creditsUsedPromise
+    await options.onCostCalculated(creditsUsed)
+  }
 
   return content
 }
 
 // Copied over exactly from promptAiSdk but with a schema
 export const promptAiSdkStructured = async function <T>(options: {
-  messages: CodebuffMessage[]
+  messages: Message[]
   schema: z.ZodType<T>
   clientSessionId: string
   fingerprintId: string
@@ -284,6 +305,9 @@ export const promptAiSdkStructured = async function <T>(options: {
   temperature?: number
   timeout?: number
   chargeUser?: boolean
+  agentId?: string
+  onCostCalculated?: (credits: number) => Promise<void>
+  includeCacheControl?: boolean
 }): Promise<T> {
   if (
     !checkLiveUserInput(
@@ -309,17 +333,17 @@ export const promptAiSdkStructured = async function <T>(options: {
     ...options,
     model: aiSDKModel,
     output: 'object',
+    messages: convertCbToModelMessages(options),
   })
 
   const response = await (options.timeout === undefined
     ? responsePromise
     : withTimeout(responsePromise, options.timeout))
-
   const content = response.object
   const inputTokens = response.usage.inputTokens || 0
   const outputTokens = response.usage.inputTokens || 0
 
-  saveMessage({
+  const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
     userId: options.userId,
     clientSessionId: options.clientSessionId,
@@ -333,138 +357,14 @@ export const promptAiSdkStructured = async function <T>(options: {
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
+    agentId: options.agentId,
   })
 
+  // Call the cost callback if provided
+  if (options.onCostCalculated) {
+    const creditsUsed = await creditsUsedPromise
+    await options.onCostCalculated(creditsUsed)
+  }
+
   return content
-}
-
-// TODO: temporary - ideally we move to using CodebuffMessage[] directly
-// and don't need this transform!!
-export function transformMessages(
-  messages: (Message | CodebuffMessage)[],
-  system?: System,
-): CodebuffMessage[] {
-  const codebuffMessages: CodebuffMessage[] = []
-
-  if (system) {
-    codebuffMessages.push({
-      role: 'system',
-      content:
-        typeof system === 'string'
-          ? system
-          : system.map((block) => block.text).join('\n\n'),
-    })
-  }
-
-  for (const message of messages) {
-    if (message.role === 'system') {
-      if (typeof message.content === 'string') {
-        codebuffMessages.push({ role: 'system', content: message.content })
-        continue
-      } else {
-        throw new Error(
-          'Multiple part system message - unsupported (TODO: fix if we hit this.)',
-        )
-      }
-    }
-
-    if (message.role === 'user') {
-      if (typeof message.content === 'string') {
-        codebuffMessages.push({
-          ...message,
-          role: 'user',
-          content: message.content,
-        })
-        continue
-      } else {
-        const parts: UserModelMessage['content'] = []
-        const modelMessage: UserModelMessage = { role: 'user', content: parts }
-        for (const part of message.content) {
-          // Add ephemeral if present
-          if ('cache_control' in part) {
-            modelMessage.providerOptions = {
-              anthropic: { cacheControl: { type: 'ephemeral' } },
-              openrouter: { cacheControl: { type: 'ephemeral' } },
-            }
-          }
-          // Handle Message type image format
-          if (part.type === 'image' && 'source' in part) {
-            parts.push({
-              type: 'image' as const,
-              image: `data:${part.source.media_type};base64,${part.source.data}`,
-            })
-            continue
-          }
-          if (part.type === 'file') {
-            throw new Error('File messages not supported')
-          }
-          if (part.type === 'text') {
-            parts.push({
-              type: 'text' as const,
-              text: part.text,
-            })
-            continue
-          }
-          if (part.type === 'tool_use' || part.type === 'tool_result') {
-            // Skip tool parts in user messages - they should be in assistant/tool messages
-            continue
-          }
-        }
-        codebuffMessages.push(modelMessage)
-        continue
-      }
-    }
-
-    if (message.role === 'assistant') {
-      if (message.content === undefined || message.content === null) {
-        continue
-      }
-      if (typeof message.content === 'string') {
-        codebuffMessages.push({
-          ...message,
-          role: 'assistant',
-          content: message.content,
-        })
-        continue
-      } else {
-        let messageContent: AssistantModelMessage['content'] = []
-        const modelMessage: AssistantModelMessage = {
-          ...message,
-          role: 'assistant',
-          content: messageContent,
-        }
-        for (const part of message.content) {
-          // Add ephemeral if present
-          if ('cache_control' in part) {
-            modelMessage.providerOptions = {
-              anthropic: { cacheControl: { type: 'ephemeral' } },
-              openrouter: { cacheControl: { type: 'ephemeral' } },
-            }
-          }
-          if (part.type === 'text') {
-            messageContent.push({ type: 'text', text: part.text })
-          }
-          if (part.type === 'tool_use') {
-            messageContent.push({
-              type: 'tool-call',
-              toolCallId: part.id,
-              toolName: part.name,
-              input: part.input,
-            })
-          }
-        }
-        codebuffMessages.push(modelMessage)
-        continue
-      }
-    }
-
-    if (message.role === 'tool') {
-      codebuffMessages.push(message)
-      continue
-    }
-
-    throw new Error('Unknown message role received: ' + message)
-  }
-
-  return codebuffMessages
 }
