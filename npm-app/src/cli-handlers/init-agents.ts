@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/old-constants'
 import { green, gray } from 'picocolors'
 
 // Import files to replicate in the user's .agents directory. Bun bundler requires relative paths.

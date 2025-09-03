@@ -1,4 +1,4 @@
-import { geminiModels } from '@codebuff/common/constants'
+import { geminiModels } from '@codebuff/common/old-constants'
 import { closeXml } from '@codebuff/common/util/xml'
 import { uniq } from 'lodash'
 import { z } from 'zod/v4'

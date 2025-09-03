@@ -1,5 +1,5 @@
 import { getTracesAndAllDataForUser, setupBigQuery } from '@codebuff/bigquery'
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 
 import { relabelWithClaudeWithFullFileContext } from '../../backend/src/admin/relabelRuns'
 

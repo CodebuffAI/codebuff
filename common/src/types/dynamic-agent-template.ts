@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-import { ALLOWED_MODEL_PREFIXES, models } from '../constants'
+import { ALLOWED_MODEL_PREFIXES, models } from '../old-constants'
 
 import type { JSONSchema } from 'zod/v4/core'
 

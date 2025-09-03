@@ -2,7 +2,7 @@ import { z } from 'zod/v4'
 
 import type { AgentStep } from '../scaffolding'
 import type { PostEvalAnalysis } from './post-eval-analysis'
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 
 export interface FileState {
   path: string

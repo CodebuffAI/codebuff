@@ -1,6 +1,6 @@
 'use client'
 
-import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/constants'
+import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
 import { Gift, Shield } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 

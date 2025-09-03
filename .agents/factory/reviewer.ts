@@ -2,7 +2,7 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 
 export const reviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
   model,

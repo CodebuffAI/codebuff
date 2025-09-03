@@ -3,7 +3,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
-import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/constants'
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
 
 import { logger } from '@/util/logger'
 

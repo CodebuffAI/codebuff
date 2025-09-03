@@ -4,7 +4,7 @@ import path from 'path'
 import * as ignore from 'ignore'
 import { sortBy } from 'lodash'
 
-import { DEFAULT_IGNORED_PATHS } from './constants'
+import { DEFAULT_IGNORED_PATHS } from './old-constants'
 import { isValidProjectRoot } from './util/file'
 
 import type { DirectoryNode, FileTreeNode } from './util/file'

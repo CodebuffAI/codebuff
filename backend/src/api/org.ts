@@ -1,9 +1,9 @@
 import { findOrganizationForRepository } from '@codebuff/billing'
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
 import { z } from 'zod/v4'
-import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/constants'
 
-import { logger } from '../util/logger'
 import { extractAuthTokenFromHeader } from '../util/auth-helpers'
+import { logger } from '../util/logger'
 import { getUserIdFromAuthToken } from '../websockets/websocket-action'
 
 import type {

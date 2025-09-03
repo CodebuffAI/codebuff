@@ -1,4 +1,4 @@
-import type { models, Model } from '../constants'
+import type { models, Model } from '../old-constants'
 
 // Cache the explicitly defined models for O(1) lookup performance
 // Cast to string[] to avoid TypeScript union type issues with (string & {})

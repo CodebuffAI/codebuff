@@ -1,4 +1,4 @@
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import {
   createMarkdownFileBlock,
   parseMarkdownCodeBlock,

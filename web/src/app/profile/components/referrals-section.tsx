@@ -1,6 +1,6 @@
 'use client'
 
-import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/constants'
+import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import { getReferralLink } from '@codebuff/common/util/referral'
 import { env } from '@codebuff/internal'
 import { useQuery } from '@tanstack/react-query'

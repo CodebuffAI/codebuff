@@ -1,4 +1,4 @@
-import type { Model } from '../constants'
+import type { Model } from '../old-constants'
 import type { ToolResultOutput } from './messages/content-part'
 import type { AgentState, AgentTemplateType } from './session-state'
 import type {

@@ -1,6 +1,6 @@
 import path from 'path'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'

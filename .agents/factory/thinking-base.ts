@@ -8,7 +8,7 @@ import {
 } from '../prompts'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 const baseAgentToolNames = [

@@ -3,7 +3,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 import {
   ASYNC_AGENTS_ENABLED,
   toOptionalFile,
-} from '@codebuff/common/constants'
+} from '@codebuff/common/old-constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'

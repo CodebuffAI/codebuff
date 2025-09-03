@@ -1,4 +1,4 @@
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { hasLazyEdit } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'

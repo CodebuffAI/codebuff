@@ -1,4 +1,4 @@
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   describe,

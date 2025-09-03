@@ -1,6 +1,6 @@
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { countTokens } from '@codebuff/backend/util/token-counter'
-import { geminiModels } from '@codebuff/common/constants'
+import { geminiModels } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'
 

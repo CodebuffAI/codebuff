@@ -1,4 +1,4 @@
-import { STOP_MARKER } from '@codebuff/common/constants'
+import { STOP_MARKER } from '@codebuff/common/old-constants'
 import {
   codebuffConfigFile,
   CodebuffConfigSchema,

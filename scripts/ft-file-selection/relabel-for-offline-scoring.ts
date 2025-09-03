@@ -13,7 +13,7 @@ import {
   finetunedVertexModels,
   geminiModels,
   TEST_USER_ID,
-} from '@codebuff/common/constants'
+} from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { isValidationSample } from './collect-tuning-data'

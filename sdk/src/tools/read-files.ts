@@ -1,6 +1,7 @@
-import { FILE_READ_STATUS } from '../../../common/src/constants'
-import path, { isAbsolute } from 'path'
 import fs from 'fs'
+import path, { isAbsolute } from 'path'
+
+import { FILE_READ_STATUS } from '../../../common/src/old-constants'
 
 export function getFiles(filePaths: string[], cwd: string) {
   const result: Record<string, string | null> = {}

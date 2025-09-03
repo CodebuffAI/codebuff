@@ -1,4 +1,4 @@
-import { CREDIT_PRICING } from '@codebuff/common/constants'
+import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import debounce from 'lodash/debounce'
 import { useCallback, useEffect, useRef, useState } from 'react'

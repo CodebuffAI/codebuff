@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import { FileChangeSchema } from '@codebuff/common/actions'
 import { BrowserActionSchema } from '@codebuff/common/browser-actions'
-import { SHOULD_ASK_CONFIG } from '@codebuff/common/constants'
+import { SHOULD_ASK_CONFIG } from '@codebuff/common/old-constants'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { cyan, green, red, yellow } from 'picocolors'
 

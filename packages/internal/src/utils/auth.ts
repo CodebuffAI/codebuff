@@ -2,7 +2,7 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
-import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/constants'
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
 
 // List of admin user emails - single source of truth
 const CODEBUFF_ADMIN_USER_EMAILS = [

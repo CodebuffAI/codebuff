@@ -1,4 +1,4 @@
-import { HIDDEN_FILE_READ_STATUS } from '@codebuff/common/constants'
+import { HIDDEN_FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { countTokens } from 'gpt-tokenizer'
 import { uniq, difference } from 'lodash'
 

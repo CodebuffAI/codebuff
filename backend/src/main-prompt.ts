@@ -11,7 +11,7 @@ import { requestToolCall } from './websockets/websocket-action'
 
 import type { AgentTemplate } from './templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
-import type { CostMode } from '@codebuff/common/constants'
+import type { CostMode } from '@codebuff/common/old-constants'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   SessionState,

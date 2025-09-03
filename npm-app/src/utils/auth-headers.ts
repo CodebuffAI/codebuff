@@ -1,5 +1,5 @@
 import { getUserCredentials } from '../credentials'
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 
 /**
  * Get the auth token from user credentials or environment variable
@@ -12,7 +12,9 @@ export function getAuthToken(): string | undefined {
 /**
  * Create headers with x-codebuff-api-key for API requests
  */
-export function createAuthHeaders(contentType = 'application/json'): Record<string, string> {
+export function createAuthHeaders(
+  contentType = 'application/json',
+): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': contentType,
   }

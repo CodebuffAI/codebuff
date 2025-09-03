@@ -1,13 +1,13 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
 import { insertTrace } from '@codebuff/bigquery'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import {
   finetunedVertexModels,
   models,
   type FinetunedVertexModel,
-} from '@codebuff/common/constants'
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
+} from '@codebuff/common/old-constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { and, eq } from 'drizzle-orm'
 import { range, shuffle, uniq } from 'lodash'

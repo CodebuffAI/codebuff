@@ -1,4 +1,4 @@
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'

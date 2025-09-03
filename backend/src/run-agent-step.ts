@@ -3,7 +3,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 import {
   ASYNC_AGENTS_ENABLED,
   supportsCacheControl,
-} from '@codebuff/common/constants'
+} from '@codebuff/common/old-constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'

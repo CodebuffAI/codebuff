@@ -1,5 +1,5 @@
 import { grantCreditOperation } from '@codebuff/billing'
-import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/constants'
+import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { and, eq, sql } from 'drizzle-orm'

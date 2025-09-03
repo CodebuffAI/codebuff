@@ -1,6 +1,6 @@
 'use client'
 
-import { finetunedVertexModelNames } from '@codebuff/common/constants'
+import { finetunedVertexModelNames } from '@codebuff/common/old-constants'
 import react from 'react'
 
 import { Button } from '@/components/ui/button'

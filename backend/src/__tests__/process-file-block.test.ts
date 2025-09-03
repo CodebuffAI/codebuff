@@ -1,11 +1,11 @@
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
-import { applyPatch } from 'diff'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+import { applyPatch } from 'diff'
 
 import { processFileBlock } from '../process-file-block'
 

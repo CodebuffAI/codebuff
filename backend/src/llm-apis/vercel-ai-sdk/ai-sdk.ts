@@ -4,7 +4,7 @@ import {
   finetunedVertexModels,
   geminiModels,
   openaiModels,
-} from '@codebuff/common/constants'
+} from '@codebuff/common/old-constants'
 import {
   endToolTag,
   startToolTag,
@@ -27,7 +27,7 @@ import type {
   GeminiModel,
   Model,
   OpenAIModel,
-} from '@codebuff/common/constants'
+} from '@codebuff/common/old-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   OpenRouterProviderOptions,

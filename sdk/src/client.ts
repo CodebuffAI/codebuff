@@ -12,12 +12,12 @@ import {
   PromptResponseSchema,
   type ServerAction,
 } from '../../common/src/actions'
-import { API_KEY_ENV_VAR } from '../../common/src/constants'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
+import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 import { toolNames } from '../../common/src/tools/constants'
+import type { PublishedClientToolName } from '../../common/src/tools/list'
 import {
   clientToolCallSchema,
-  PublishedClientToolName,
   type ClientToolCall,
   type ClientToolName,
   type CodebuffToolOutput,

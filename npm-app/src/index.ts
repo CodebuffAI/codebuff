@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { type CostMode } from '@codebuff/common/constants'
+import { type CostMode } from '@codebuff/common/old-constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
 import { red, yellow, green, bold } from 'picocolors'
@@ -29,8 +29,6 @@ import { initAnalytics, trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 
 import type { CliOptions } from './types'
-
-
 
 async function codebuff({
   initialInput,

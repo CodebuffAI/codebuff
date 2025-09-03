@@ -2,7 +2,7 @@ import { promptFlashWithFallbacks } from '@codebuff/backend/llm-apis/gemini-with
 import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { messagesWithSystem } from '@codebuff/backend/util/messages'
 import { getTracesWithoutRelabels, insertRelabel } from '@codebuff/bigquery'
-import { models, TEST_USER_ID } from '@codebuff/common/constants'
+import { models, TEST_USER_ID } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import type { System } from '../../backend/src/llm-apis/claude'

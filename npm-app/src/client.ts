@@ -16,6 +16,8 @@ import {
   UsageReponseSchema,
 } from '@codebuff/common/actions'
 import { READABLE_NAME } from '@codebuff/common/api-keys/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
 import {
   ASKED_CONFIG,
   CREDITS_REFERRAL_BONUS,
@@ -26,9 +28,7 @@ import {
   UserState,
   ASYNC_AGENTS_ENABLED,
   API_KEY_ENV_VAR,
-} from '@codebuff/common/constants'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
+} from '@codebuff/common/old-constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   getAllAgents,
@@ -98,7 +98,7 @@ import type {
   UsageResponse,
 } from '@codebuff/common/actions'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import type { CostMode } from '@codebuff/common/constants'
+import type { CostMode } from '@codebuff/common/old-constants'
 import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'

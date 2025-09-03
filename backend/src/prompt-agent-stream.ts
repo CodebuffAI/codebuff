@@ -1,4 +1,4 @@
-import { providerModelNames } from '@codebuff/common/constants'
+import { providerModelNames } from '@codebuff/common/old-constants'
 
 import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { globalStopSequence } from './tools/constants'

@@ -1,6 +1,6 @@
 'use client'
 
-import { finetunedVertexModels } from '@codebuff/common/constants'
+import { finetunedVertexModels } from '@codebuff/common/old-constants'
 import { Info, Settings } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'

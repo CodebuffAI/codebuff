@@ -6,7 +6,7 @@ import path from 'path'
 import { mapLimit } from 'async'
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { z } from 'zod/v4'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'

@@ -1,4 +1,4 @@
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 
 // Mock imports needed for setup within the test
 import { getToolCallString } from '@codebuff/common/tools/utils'
@@ -383,20 +383,21 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       toolResults: [],
     }
 
-    const {
-      output,
-      sessionState: finalSessionState,
-    } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session-delete-function-integration',
-      localAgentTemplates: mockLocalAgentTemplates,
-      onResponseChunk: (chunk: string | PrintModeEvent) => {
-        if (typeof chunk !== 'string') {
-          return
-        }
-        process.stdout.write(chunk)
+    const { output, sessionState: finalSessionState } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      action,
+      {
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session-delete-function-integration',
+        localAgentTemplates: mockLocalAgentTemplates,
+        onResponseChunk: (chunk: string | PrintModeEvent) => {
+          if (typeof chunk !== 'string') {
+            return
+          }
+          process.stdout.write(chunk)
+        },
       },
-    })
+    )
     const requestToolCallSpy = websocketAction.requestToolCall as any
 
     // Find the write_file tool call

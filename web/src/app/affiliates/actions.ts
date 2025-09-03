@@ -1,6 +1,6 @@
 'use server'
 
-import { AFFILIATE_USER_REFFERAL_LIMIT } from '@codebuff/common/constants'
+import { AFFILIATE_USER_REFFERAL_LIMIT } from '@codebuff/common/old-constants'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
