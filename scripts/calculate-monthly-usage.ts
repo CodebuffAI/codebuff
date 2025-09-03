@@ -35,21 +35,30 @@ async function calculateMonthlyUsage(month: string) {
         ),
       )
 
-    // Get per-user breakdown
+    // Get per-user breakdown with user details
     const userBreakdown = await db
       .select({
         userId: schema.message.user_id,
+        userName: schema.user.name,
+        userEmail: schema.user.email,
+        userHandle: schema.user.handle,
         userCredits: sql<number>`SUM(${schema.message.credits})`,
         userMessages: sql<number>`COUNT(*)`,
       })
       .from(schema.message)
+      .leftJoin(schema.user, sql`${schema.message.user_id} = ${schema.user.id}`)
       .where(
         and(
           gte(schema.message.finished_at, startDate),
           lt(schema.message.finished_at, endDate),
         ),
       )
-      .groupBy(schema.message.user_id)
+      .groupBy(
+        schema.message.user_id,
+        schema.user.name,
+        schema.user.email,
+        schema.user.handle,
+      )
       .orderBy(sql`SUM(${schema.message.credits}) DESC`)
       .limit(10) // Show top 10 users by credit usage
 
@@ -65,9 +74,17 @@ async function calculateMonthlyUsage(month: string) {
     console.log('\nTop 10 Users by Credit Usage:')
     console.log('============================')
     userBreakdown.forEach((user, index) => {
-      console.log(`${index + 1}. User ${user.userId}:`)
+      const displayName =
+        user.userName || user.userHandle || user.userEmail || 'Unknown'
+      console.log(`${index + 1}. ${displayName} (${user.userId}):`)
       console.log(`   Credits: ${user.userCredits?.toLocaleString() ?? 0}`)
       console.log(`   Messages: ${user.userMessages}`)
+      if (user.userEmail) {
+        console.log(`   Email: ${user.userEmail}`)
+      }
+      if (user.userHandle) {
+        console.log(`   Handle: @${user.userHandle}`)
+      }
     })
   } catch (error) {
     logger.error({ error }, 'Error calculating monthly usage')
@@ -79,7 +96,7 @@ async function calculateMonthlyUsage(month: string) {
 const getCurrentMonthLocal = () => {
   const now = new Date()
   const year = now.getFullYear()
-  const month = (now.getMonth() + 1).toString().padStart(2, '0') // getMonth() is 0-based
+  const month = now.getMonth().toString().padStart(2, '0') // getMonth() is 0-based
   return `${year}-${month}`
 }
 
