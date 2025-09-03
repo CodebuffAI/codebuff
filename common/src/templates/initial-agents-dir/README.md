@@ -18,49 +18,30 @@ This is about efficient AI context management, not recreating a human department
 
 ## Agent workflows in action
 
-Here's an example of a `payment-architect` agent that coordinates a complete workflow. When you ask it to implement payment processing, it orchestrates:
-
-- **Code analysis**: Reviews existing payment patterns and database schema
-- **Security audit**: Spawns security specialists to review PCI compliance and data handling
-- **Performance review**: Analyzes transaction volume and caching strategies
-- **Integration testing**: Ensures compatibility with existing checkout flows
-- **Documentation**: Updates API docs and integration guides
-
-Each specialist agent brings domain expertise that no single agent could match.
+Here's an example of a `git-committer` agent that creates good commit messages:
 
 ```typescript
 export default {
-  name: 'payment-architect',
-  model: 'claude-3-5-sonnet',
-  spawnableAgents: [
-    'security-auditor',
-    'performance-analyzer',
-    'integration-tester',
-  ],
+  id: 'git-committer',
+  displayName: 'Git Committer',
+  model: 'openai/gpt-5-nano',
+  toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
+
+  instructionsPrompt:
+    'You create meaningful git commits by analyzing changes, reading relevant files for context, and crafting clear commit messages that explain the "why" behind changes.',
 
   async *handleSteps() {
-    // First, understand the current payment infrastructure
-    yield { tool: 'code_search', pattern: 'payment.*process' }
-    yield 'STEP'
+    // Analyze what changed
+    yield { tool: 'run_terminal_command', command: 'git diff' }
+    yield { tool: 'run_terminal_command', command: 'git log --oneline -5' }
 
-    // Coordinate specialist review
-    yield {
-      tool: 'spawn_agents',
-      agents: [
-        'security-auditor', // PCI compliance and data protection
-        'performance-analyzer', // Transaction throughput analysis
-        'integration-tester', // Checkout flow compatibility
-      ],
-    }
+    // Stage files and create commit with good message
     yield 'STEP_ALL'
-
-    // Implement based on specialist feedback
-    yield 'STEP'
   },
 }
 ```
 
-This workflow ensures every payment implementation gets the specialized attention it needs - security review for compliance, performance analysis for scale, and integration testing for reliability.
+This agent systematically analyzes changes, reads relevant files for context, then creates commits with clear, meaningful messages that explain the "why" behind changes.
 
 ## Getting started
 
