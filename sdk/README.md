@@ -19,31 +19,35 @@ Create a Codebuff account and get your [Codebuff API key here](https://www.codeb
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
 
-const client = new CodebuffClient({
-  // Note: You need to pass in your own API key here.
-  apiKey: process.env.CODEBUFF_API_KEY,
-  cwd: process.cwd(),
-  onError: (e) => console.error('Codebuff error:', e.message),
-})
+async function main() {
+  const client = new CodebuffClient({
+    // Note: You need to pass in your own API key here.
+    apiKey: process.env.CODEBUFF_API_KEY,
+    cwd: process.cwd(),
+    onError: (e) => console.error('Codebuff error:', e.message),
+  })
 
-// First run
-const run1 = await client.run({
-  agent: 'base',
-  prompt: 'Create a simple calculator class',
-})
+  // First run
+  const run1 = await client.run({
+    agent: 'base',
+    prompt: 'Create a simple calculator class',
+  })
 
-// Continue the same session with a follow-up
-const run2 = await client.run({
-  agent: 'base',
-  prompt: 'Add unit tests for the calculator',
-  previousRun: run1,
-  handleEvent: (event) => {
-    // Log all events
-    console.log('Progress:', event)
-  },
-})
+  // Continue the same session with a follow-up
+  const run2 = await client.run({
+    agent: 'base',
+    prompt: 'Add unit tests for the calculator',
+    previousRun: run1,
+    handleEvent: (event) => {
+      // Log all events
+      console.log('Progress:', event)
+    },
+  })
 
-client.closeConnection()
+  client.closeConnection()
+}
+
+main()
 ```
 
 ### Advanced Example with Custom Agents, Tools, and Images
@@ -57,81 +61,85 @@ import {
   getCustomToolDefinition,
 } from '@codebuff/sdk'
 
-const client = new CodebuffClient({
-  // Note: You need to pass in your own API key here.
-  apiKey: process.env.CODEBUFF_API_KEY,
-  cwd: process.cwd(),
-  onError: (e) => console.error('Codebuff error:', e.message),
-})
+async function main() {
+  const client = new CodebuffClient({
+    // Note: You need to pass in your own API key here.
+    apiKey: process.env.CODEBUFF_API_KEY,
+    cwd: process.cwd(),
+    onError: (e) => console.error('Codebuff error:', e.message),
+  })
 
-// Create a run with an image
-const emptyRun = await generateInitialRunState({ cwd: process.cwd() })
-const runWithImage = withAdditionalMessage({
-  runState: emptyRun,
-  message: {
-    role: 'user',
-    content: [
-      {
-        type: 'image',
-        image: new URL(
-          'https://upload.wikimedia.org/wikipedia/en/a/a9/Example.jpg',
-        ),
-      },
-    ],
-  },
-})
-
-const result = await client.run({
-  agent: 'my-custom-agent',
-  prompt: 'Analyze this image and create code based on what you see',
-  previousRun: runWithImage,
-
-  // Custom agent definitions
-  agentDefinitions: [
-    {
-      id: 'my-custom-agent',
-      model: 'openai/gpt-5',
-      displayName: 'Image Analyzer',
-      instructionsPrompt:
-        '1. describe all the details in the image. 2. answer the user prompt',
-      // ... other AgentDefinition properties
-    },
-  ],
-
-  // Custom tool definitions
-  customToolDefinitions: [
-    getCustomToolDefinition({
-      toolName: 'fetch_api_data',
-      description: 'Fetch data from an API endpoint',
-      inputSchema: z.object({
-        url: z.string().url(),
-        method: z.enum(['GET', 'POST']).default('GET'),
-        headers: z.record(z.string()).optional(),
-      }),
-      exampleInputs: [
-        { url: 'https://api.example.com/data', method: 'GET' },
+  // Create a run with an image
+  const emptyRun = await generateInitialRunState({ cwd: process.cwd() })
+  const runWithImage = withAdditionalMessage({
+    runState: emptyRun,
+    message: {
+      role: 'user',
+      content: [
         {
-          url: 'https://api.example.com/submit',
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          type: 'image',
+          image: new URL(
+            'https://upload.wikimedia.org/wikipedia/en/a/a9/Example.jpg',
+          ),
         },
       ],
-      handler: async ({ url, method, headers }) => {
-        const response = await fetch(url, { method, headers })
-        const data = await response.text()
-        return {
-          toolResultMessage: `API Response: ${data.slice(0, 5000)}...`,
-        }
+    },
+  })
+
+  const result = await client.run({
+    agent: 'my-custom-agent',
+    prompt: 'Analyze this image and create code based on what you see',
+    previousRun: runWithImage,
+
+    // Custom agent definitions
+    agentDefinitions: [
+      {
+        id: 'my-custom-agent',
+        model: 'openai/gpt-5',
+        displayName: 'Image Analyzer',
+        instructionsPrompt:
+          '1. describe all the details in the image. 2. answer the user prompt',
+        // ... other AgentDefinition properties
       },
-    }),
-  ],
+    ],
 
-  handleEvent: (event) => {
-    console.log('Agent progress:', event)
-  },
-})
+    // Custom tool definitions
+    customToolDefinitions: [
+      getCustomToolDefinition({
+        toolName: 'fetch_api_data',
+        description: 'Fetch data from an API endpoint',
+        inputSchema: z.object({
+          url: z.string().url(),
+          method: z.enum(['GET', 'POST']).default('GET'),
+          headers: z.record(z.string()).optional(),
+        }),
+        exampleInputs: [
+          { url: 'https://api.example.com/data', method: 'GET' },
+          {
+            url: 'https://api.example.com/submit',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ],
+        handler: async ({ url, method, headers }) => {
+          const response = await fetch(url, { method, headers })
+          const data = await response.text()
+          return {
+            toolResultMessage: `API Response: ${data.slice(0, 5000)}...`,
+          }
+        },
+      }),
+    ],
 
-client.closeConnection()
+    handleEvent: (event) => {
+      console.log('Agent progress:', event)
+    },
+  })
+
+  client.closeConnection()
+}
+
+main()
 ```
 
 ## API Reference
