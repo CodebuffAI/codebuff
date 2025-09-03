@@ -36,7 +36,7 @@ It finds the right files, makes consistent changes across your codebase, and run
 
 ## Create custom agents
 
-With Codebuff's SDK, you can create specialized agents for your workflows using TypeScript generators:
+You can create specialized agents for your workflows using TypeScript generators for more programmatic control:
 
 ```typescript
 export default {
