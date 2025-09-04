@@ -11,30 +11,31 @@ import { WebSocketHandler } from './websocket-client'
 import {
   PromptResponseSchema,
   type ServerAction,
-} from '@codebuff/common/actions'
-import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { toolNames } from '@codebuff/common/tools/constants'
-import type { PublishedClientToolName } from '@codebuff/common/tools/list'
+} from '../../common/src/actions'
+import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
+import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
+import { toolNames } from '../../common/src/tools/constants'
+
 import {
   clientToolCallSchema,
   type ClientToolCall,
   type ClientToolName,
   type CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
+} from '../../common/src/tools/list'
 
 import type { CustomToolDefinition } from './custom-tool'
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type {
   PublishedToolName,
   ToolName,
-} from '@codebuff/common/tools/constants'
+} from '../../common/src/tools/constants'
+import type { PublishedClientToolName } from '../../common/src/tools/list'
 import type {
   ToolResultOutput,
   ToolResultPart,
-} from '@codebuff/common/types/messages/content-part'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { SessionState } from '@codebuff/common/types/session-state'
+} from '../../common/src/types/messages/content-part'
+import type { PrintModeEvent } from '../../common/src/types/print-mode'
+import type { SessionState } from '../../common/src/types/session-state'
 
 export type CodebuffClientOptions = {
   // Provide an API key or set the CODEBUFF_API_KEY environment variable.

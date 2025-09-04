@@ -1,19 +1,20 @@
 import * as os from 'os'
 
-import { type CustomToolDefinition } from './custom-tool'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import { type CustomToolDefinition } from './custom-tool'
+import { getInitialSessionState } from '../../common/src/types/session-state'
+
+import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
+import type { Message } from '../../common/src/types/messages/codebuff-message'
 import type {
   AgentOutput,
   SessionState,
-} from '@codebuff/common/types/session-state'
+} from '../../common/src/types/session-state'
 import type {
   CustomToolDefinitions,
   FileTreeNode,
-} from '@codebuff/common/util/file'
+} from '../../common/src/util/file'
 
 export type RunState = {
   sessionState: SessionState

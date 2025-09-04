@@ -4,7 +4,7 @@ import path from 'path'
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),

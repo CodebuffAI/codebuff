@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import { rgPath } from '@vscode/ripgrep'
 
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 export function codeSearch({
   projectPath,

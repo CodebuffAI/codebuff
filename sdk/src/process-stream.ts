@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 
 import { CODEBUFF_BINARY } from './constants'
 
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '../../common/src/types/print-mode'
 
 export function processStream({
   codebuffArgs,

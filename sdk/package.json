@@ -66,8 +66,6 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@codebuff/code-map": "workspace:*",
-    "@codebuff/common": "workspace:*",
     "@types/bun": "^1.2.11",
     "@types/diff": "8.0.0",
     "@types/glob": "^9.0.0",

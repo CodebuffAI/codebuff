@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 import * as os from 'os'
 import * as path from 'path'
 
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 export function runTerminalCommand({
   command,
