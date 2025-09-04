@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import { Parser } from 'web-tree-sitter'
+import { Parser, Language } from 'web-tree-sitter'
 import { fileURLToPath } from 'url'
 
 /**
@@ -62,7 +62,6 @@ export async function loadLanguage(lang: string): Promise<any> {
   // Read the WASM file as bytes and pass directly to Language.load
   const buf = fs.readFileSync(langPath)
   
-  const { Language } = await import('web-tree-sitter')
   const result = await Language.load(new Uint8Array(buf))
   return result
 }

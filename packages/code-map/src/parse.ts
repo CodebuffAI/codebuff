@@ -1,19 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import type { LanguageConfig } from './languages-common'
-
-// Dynamic import based on runtime
-async function getLanguageConfig(
-  filePath: string,
-): Promise<LanguageConfig | undefined> {
-  // For now, always use Node.js implementation for SDK builds
-  // Bun builds will override this at runtime
-  const { getLanguageConfig: nodeGetLanguageConfig } = await import(
-    './languages-node'
-  )
-  return nodeGetLanguageConfig(filePath)
-}
+import { getLanguageConfig, LanguageConfig } from './languages'
 import type { Parser, Query } from 'web-tree-sitter'
 
 export const DEBUG_PARSING = false
@@ -46,11 +34,15 @@ export async function getFileTokenScores(
     const fullPath = path.join(projectRoot, filePath)
     const languageConfig = await getLanguageConfig(fullPath)
     if (languageConfig) {
-      const { identifiers, calls, numLines } = parseTokens(
-        filePath,
-        languageConfig,
-        readFile,
-      )
+      let parseResults
+      if (readFile) {
+        // When readFile is provided, use relative filePath
+        parseResults = parseTokens(filePath, languageConfig, readFile)
+      } else {
+        // When readFile is not provided, use full path to read from file system
+        parseResults = parseTokens(fullPath, languageConfig)
+      }
+      const { identifiers, calls, numLines } = parseResults
 
       const tokenScoresForFile: { [token: string]: number } = {}
       tokenScores[filePath] = tokenScoresForFile

@@ -8,9 +8,9 @@ import {
   createLanguageConfig,
   type LanguageConfig,
   type RuntimeLanguageLoader,
-} from '../src/languages-common'
+} from '../src/languages'
 
-describe('languages-common module', () => {
+describe('languages module', () => {
   describe('languageTable', () => {
     it('should contain all expected language configurations', () => {
       expect(languageTable).toBeDefined()
