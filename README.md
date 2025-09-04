@@ -15,7 +15,9 @@ When you ask Codebuff to "add authentication to my API," it might invoke:
 3. An **Implementation Agents** make precise edits
 4. A **Review Agents** validate changes
 
-<img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" align="center" width="600">
+<div align="center">
+  <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="600">
+</div>
 
 This multi-agent approach gives you better context understanding, more accurate edits, and fewer errors compared to single-model tools.
 
