@@ -67,7 +67,7 @@ ${codebuffChanges}
 ${evalRun.error ? evalRun.error : 'None'}
 [/ERROR]
 
-Please analyze the trace of the implementation attempt and provide:
+Please analyze the implementation attempt and provide:
 1. A detailed analysis of the implementation trace and the final changes. Include how the changes compare to the ground truth change. Does it have similar behavior at least?
 2. Key strengths and weaknesses of the implementation
 3. Numerical scores (0-10):
