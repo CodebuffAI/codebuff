@@ -48,6 +48,9 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
         <DropdownMenuItem onClick={() => router.push('/profile?tab=api-keys')}>
           <Key className="mr-2 size-4" /> <span>API Keys</span>
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push('/profile?tab=referrals')}>
+          <Gift className="mr-2 size-4" /> <span>Refer Friends</span>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {

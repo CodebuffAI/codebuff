@@ -10,6 +10,7 @@ import { authOptions } from '../../api/auth/[...nextauth]/auth-options'
 import CardWithBeams from '@/components/card-with-beams'
 import { Button } from '@/components/ui/button'
 import { ReferralClientWrapper } from '@/components/referral/referral-client-wrapper'
+import { GitHubSignInButton } from '@/components/referral/github-signin-button'
 
 export const generateMetadata = async ({
   params,
@@ -78,29 +79,6 @@ export default async function ReferralPage({
     )
   }
 
-  // If it's the same user trying to use their own referral code (only check if logged in)
-  if (session && referralData.isSameUser) {
-    return (
-      <CardWithBeams
-        title="That's Your Own Referral Code!"
-        description="You can't use your own referral code to get bonus credits."
-        content={
-          <>
-            <p className="text-center text-muted-foreground">
-              Share your referral link with friends to earn credits when they
-              sign up!
-            </p>
-            <div className="flex justify-center mt-4">
-              <Button asChild>
-                <Link href="/profile?tab=referrals">View Your Referrals</Link>
-              </Button>
-            </div>
-          </>
-        }
-      />
-    )
-  }
-
   // If referrer has maxed out referrals
   if (referralData.status.reason) {
     return (
@@ -142,26 +120,35 @@ export default async function ReferralPage({
                 Welcome! Complete your referral to get bonus credits.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                {session ? (
-                  <Button asChild size="lg">
+              <div className="flex justify-center">
+                {!session && (
+                  <GitHubSignInButton
+                    referralCode={code}
+                    referrerName={referrerName}
+                  />
+                )}
+              </div>
+
+              {/* Complete Referral button positioned at bottom right for logged-in users */}
+              {session && !referralData.isSameUser && (
+                <div className="flex justify-end mt-6">
+                  <Button asChild>
                     <Link href={`/onboard?referral_code=${code}`}>
                       Complete Referral
                     </Link>
                   </Button>
-                ) : (
-                  <Button asChild size="lg">
-                    <Link
-                      href={`/login?referral=${code}${referrerName ? `&referrer=${encodeURIComponent(referrerName)}` : ''}`}
-                    >
-                      Sign Up & Get Bonus Credits
-                    </Link>
-                  </Button>
-                )}
-                <Button variant="outline" asChild size="lg">
-                  <Link href="/">Learn More</Link>
-                </Button>
-              </div>
+                </div>
+              )}
+
+              {/* Show warning if user is viewing their own referral link */}
+              {session && referralData.isSameUser && (
+                <div className="mt-6 p-3 bg-red-800 border border-red-900 rounded-md">
+                  <p className="text-white text-sm font-medium">
+                    ⚠️ This is your own referral link. You will not be able to
+                    redeem your own code.
+                  </p>
+                </div>
+              )}
             </div>
           </>
         }
