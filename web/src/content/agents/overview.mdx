@@ -81,6 +81,24 @@ Agents can spawn other agents listed in their `spawnableAgents` field, creating 
 
 ## Quick Start
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+<Card className="not-prose">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2 text-lg">
+      <span>🚀</span>
+      <span>Ready to create your first agent?</span>
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <p className="mb-4">Start Codebuff in your project and run:</p>
+
+    ```bash
+    codebuff init-agents
+    ```
+  </CardContent>
+</Card>
+
 1. **[Customize existing agents](/docs/agents#customizing-agents)** - Modify prompts and tools
 2. **[Create new agents](/docs/agents#creating-new-agents)** - Build specialized functionality
 3. **[Reference guide](/docs/agents#agent-reference)** - Complete field documentation
