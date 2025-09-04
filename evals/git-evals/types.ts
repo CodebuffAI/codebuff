@@ -64,7 +64,6 @@ export interface FullEvalLog {
     average_runtime_sec: number
     average_cost_usd: number
     average_completion: number
-    average_efficiency: number
     average_code_quality: number
     average_overall: number
     average_duration_ms: number
@@ -95,7 +94,6 @@ export const JudgingAnalysisSchema = z.object({
   weaknesses: z.array(z.string()),
   metrics: z.object({
     completionScore: z.number().min(0).max(10),
-    efficiencyScore: z.number().min(0).max(10),
     codeQualityScore: z.number().min(0).max(10),
     overallScore: z.number().min(0).max(10),
   }),

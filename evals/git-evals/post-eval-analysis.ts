@@ -52,7 +52,6 @@ function buildAnalysisPrompt(evalResult: FullEvalLog): string {
   const metricsSection = `
 Overall Performance Metrics:
 - Average Completion Score: ${metrics.average_completion.toFixed(2)}/10
-- Average Efficiency Score: ${metrics.average_efficiency.toFixed(2)}/10
 - Average Code Quality Score: ${metrics.average_code_quality.toFixed(2)}/10
 - Average Overall Score: ${metrics.average_overall.toFixed(2)}/10
 - Average Duration: ${(metrics.average_duration_ms / 1000).toFixed(1)} seconds
@@ -73,7 +72,6 @@ Error: ${run.error || 'None'}
 
 Scores:
 - Completion: ${judging.metrics.completionScore}/10
-- Efficiency: ${judging.metrics.efficiencyScore}/10
 - Code Quality: ${judging.metrics.codeQualityScore}/10
 - Overall: ${judging.metrics.overallScore}/10
 

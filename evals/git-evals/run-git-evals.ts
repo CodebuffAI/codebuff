@@ -254,7 +254,6 @@ Explain your reasoning in detail.`,
         weaknesses: ['Judging process encountered an error'],
         metrics: {
           completionScore: 0,
-          efficiencyScore: 0,
           codeQualityScore: 0,
           overallScore: 0,
         },
@@ -618,11 +617,6 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
     average_completion:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.completionScore || 0),
-        0,
-      ) / evalRuns.length,
-    average_efficiency:
-      evalRuns.reduce(
-        (sum, run) => sum + (run.judging_results.metrics.efficiencyScore || 0),
         0,
       ) / evalRuns.length,
     average_code_quality:

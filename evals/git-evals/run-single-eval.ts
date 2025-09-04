@@ -212,7 +212,6 @@ async function runSingleEvalTask(options: {
         const metrics = result.judging_results.metrics
         console.log(`  Overall Score: ${metrics.overallScore.toFixed(2)}/10`)
         console.log(`  Completion: ${metrics.completionScore.toFixed(2)}/10`)
-        console.log(`  Efficiency: ${metrics.efficiencyScore.toFixed(2)}/10`)
         console.log(`  Code Quality: ${metrics.codeQualityScore.toFixed(2)}/10`)
 
         if (result.judging_results.strengths.length > 0) {
