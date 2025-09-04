@@ -50,4 +50,3 @@ Edit `my-custom-agent.ts` with your team's patterns, then run `codebuff --agent 
 For detailed documentation, see [agent-guide.md](./agent-guide.md).
 For examples, check the `examples/` directory.
 For help, join our [Discord community](https://codebuff.com/discord).
-
