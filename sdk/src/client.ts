@@ -15,7 +15,7 @@ import {
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 import { toolNames } from '../../common/src/tools/constants'
-import type { PublishedClientToolName } from '../../common/src/tools/list'
+
 import {
   clientToolCallSchema,
   type ClientToolCall,
@@ -29,6 +29,7 @@ import type {
   PublishedToolName,
   ToolName,
 } from '../../common/src/tools/constants'
+import type { PublishedClientToolName } from '../../common/src/tools/list'
 import type {
   ToolResultOutput,
   ToolResultPart,
