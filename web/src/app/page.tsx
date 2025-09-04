@@ -24,6 +24,7 @@ import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { storeSearchParams } from '@/lib/trackConversions'
 import { cn } from '@/lib/utils'
+import { ReferralRedirect } from '@/components/referral-redirect'
 
 function SearchParamsHandler() {
   const searchParams = useSearchParams()
@@ -97,6 +98,7 @@ export default function Home() {
       <Suspense>
         <SearchParamsHandler />
       </Suspense>
+      <ReferralRedirect />
 
       <Section background={SECTION_THEMES.hero.background} hero fullViewport>
         <div

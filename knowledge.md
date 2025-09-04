@@ -253,6 +253,30 @@ Important constants are centralized in `common/src/constants.ts`:
 - `CREDITS_REFERRAL_BONUS`: Credits awarded for successful referral
 - Credit limits for different user types
 
+## Referral System
+
+**IMPORTANT**: Referral codes must be applied through the npm-app CLI, not through the web interface.
+
+- Web onboarding flow shows instructions for entering codes in CLI
+- Users must type their referral code in the Codebuff terminal after login
+- Auto-redemption during web login was removed to prevent abuse
+- The `handleReferralCode` function in `npm-app/src/client.ts` handles CLI redemption
+- The `redeemReferralCode` function in `web/src/app/api/referrals/helpers.ts` processes the actual credit granting
+
+### OAuth Referral Code Preservation
+
+**Problem**: NextAuth doesn't preserve referral codes through OAuth flow because:
+
+- NextAuth generates its own state parameter for CSRF/PKCE protection
+- Custom state parameters are ignored/overwritten
+- OAuth callback URLs don't always survive the round trip
+
+**Solution**: Multi-layer approach implemented in SignInButton and ReferralRedirect components:
+
+1. **Primary**: Use absolute callback URLs with referral codes for better NextAuth preservation
+2. **Fallback**: Store referral codes in localStorage before OAuth starts
+3. **Recovery**: ReferralRedirect component on home page catches missed referrals and redirects to onboard page
+
 ## Environment Variables
 
 This project uses [Infisical](https://infisical.com/) for secret management. All secrets are injected at runtime.
@@ -270,6 +294,7 @@ The `.bin/bun` script automatically wraps bun commands with infisical when secre
 **Worktree Support**: The wrapper automatically detects and loads `.env.worktree` files when present, allowing worktrees to override Infisical environment variables (like ports) for local development. This enables multiple worktrees to run simultaneously on different ports without conflicts.
 
 The wrapper also loads environment variables in the correct precedence order:
+
 1. Infisical secrets are loaded first (if needed)
 2. `.env.worktree` is loaded second to override any conflicting variables
 3. This ensures worktree-specific overrides (like custom ports) always take precedence over cached Infisical defaults
