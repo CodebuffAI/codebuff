@@ -863,13 +863,10 @@ export class CLI {
       if (mode === 'lite') {
         console.log(yellow('✨ Switched to lite mode (faster, cheaper)'))
       } else if (mode === 'normal') {
-        console.log(green('⚖️ Switched to normal mode (balanced)'))
+        console.log(green('⚖️  Switched to normal mode (balanced)'))
       } else if (mode === 'max') {
         console.log(
           blueBright('⚡ Switched to max mode (slower, more thorough)'),
-        )
-        console.log(
-          blueBright('New Jul 2: Even more powerful (though more expensive)'),
         )
       } else if (mode === 'experimental') {
         console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))

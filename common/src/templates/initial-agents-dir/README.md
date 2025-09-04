@@ -1,49 +1,52 @@
-# Codebuff Agents
+# Custom Agents
 
-This directory contains your custom Codebuff agents. Each agent is a TypeScript file that defines an AI agent with specific capabilities and behavior.
+Create specialized agent workflows that coordinate multiple AI agents to tackle complex engineering tasks. Instead of a single agent trying to handle everything, you can orchestrate teams of focused specialists that work together.
 
-## Getting Started
+## Context Window Management
 
-1. **Edit an existing agent**: Start with `my-custom-agent.ts` and modify it for your needs
-2. **Check out the examples and types**: See the examples and types directories to draw inspiration and learn what's possible.
-3. **Test your agent**: Run `codebuff --agent your-agent-name`
-4. **Publish your agent**: Run `codebuff publish your-agent-name`
+### Why Agent Workflows?
 
-## File Structure
+Modern software projects are complex ecosystems with thousands of files, multiple frameworks, intricate dependencies, and domain-specific requirements. A single AI agent trying to understand and modify such systems faces fundamental limitations—not just in knowledge, but in the sheer volume of information it can process at once.
 
-- `types/` - TypeScript type definitions
-- `examples/` - Example agents for reference
-- `my-custom-agent.ts` - Your first custom agent (edit this!)
-- Add any new agents you wish to the .agents directory
+### The Solution: Focused Context Windows
 
-## Agent Basics
+Agent workflows elegantly solve this by breaking large tasks into focused sub-problems. When working with large codebases (100k+ lines), each specialist agent receives only the narrow context it needs—a security agent sees only auth code, not UI components—keeping the context for each agent manageable while ensuring comprehensive coverage.
 
-Each agent file exports an `AgentDefinition` object with:
+### Why Not Just Mimic Human Roles?
 
-- `id`: Unique identifier (lowercase, hyphens only)
-- `displayName`: Human-readable name
-- `model`: AI model to use (see OpenRouter for options)
-- `toolNames`: Tools the agent can use
-- `instructionsPrompt`: Instructions for the agent's behavior
-- `spawnerPrompt`: When other agents should spawn this one
-- `spawnableAgents`: Which agents *this* agent can spawn
+This is about efficient AI context management, not recreating a human department. Simply creating a "frontend-developer" agent misses the point. AI agents don't have human constraints like context-switching or meetings. Their power comes from hyper-specialization, allowing them to process a narrow domain more deeply than a human could, then coordinating seamlessly with other specialists.
 
-## Common Tools
+## Agent workflows in action
 
-- `read_files` - Read file contents
-- `write_file` - Create or modify files
-- `str_replace` - Make targeted edits
-- `run_terminal_command` - Execute shell commands
-- `code_search` - Search for code patterns
-- `spawn_agents` - Delegate to other agents
-- `end_turn` - Finish the response
+Here's an example of a `git-committer` agent that creates good commit messages:
 
-See `types/tools.ts` for more information on each tool!
+```typescript
+export default {
+  id: 'git-committer',
+  displayName: 'Git Committer',
+  model: 'openai/gpt-5-nano',
+  toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
 
-## Need Help?
+  instructionsPrompt:
+    'You create meaningful git commits by analyzing changes, reading relevant files for context, and crafting clear commit messages that explain the "why" behind changes.',
 
-- Check the type definitions in `types/agent-definition.ts`
-- Look at examples in the `examples/` directory
-- Join the Codebuff Discord community (https://discord.com/invite/mcWTGjgTj3)
+  async *handleSteps() {
+    // Analyze what changed
+    yield { tool: 'run_terminal_command', command: 'git diff' }
+    yield { tool: 'run_terminal_command', command: 'git log --oneline -5' }
 
-Happy agent building! 🤖
+    // Stage files and create commit with good message
+    yield 'STEP_ALL'
+  },
+}
+```
+
+This agent systematically analyzes changes, reads relevant files for context, then creates commits with clear, meaningful messages that explain the "why" behind changes.
+
+## Getting started
+
+Edit `my-custom-agent.ts` with your team's patterns, then run `codebuff --agent my-custom-agent` to test it.
+
+For detailed documentation, see [agent-guide.md](./agent-guide.md).
+For examples, check the `examples/` directory.
+For help, join our [Discord community](https://codebuff.com/discord).
