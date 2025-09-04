@@ -2,7 +2,7 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "Apache-2.0",
   "type": "module",
@@ -58,8 +58,6 @@
     "url": "https://github.com/CodebuffAI/codebuff/issues"
   },
   "dependencies": {
-    "@codebuff/code-map": "workspace:*",
-    "@codebuff/common": "workspace:*",
     "@vscode/ripgrep": "1.15.14",
     "@vscode/tree-sitter-wasm": "0.1.4",
     "ai": "^5.0.0",
@@ -68,6 +66,8 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "@types/bun": "^1.2.11",
     "@types/diff": "8.0.0",
     "@types/glob": "^9.0.0",
