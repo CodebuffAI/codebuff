@@ -198,7 +198,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
     description: `Manage custom agent templates in ${AGENT_TEMPLATES_DIR}`,
     isSlashCommand: true,
     commandText: '"agents"',
-    aliases: ['agent'],
+    aliases: ['agent', 'agnet', 'agnets'],
     requireSlash: false,
   },
 
