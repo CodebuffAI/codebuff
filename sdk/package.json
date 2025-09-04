@@ -2,37 +2,41 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "./dist/sdk/src/index.js",
-  "types": "./dist/sdk/src/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/sdk/src/index.d.ts",
-      "import": "./dist/sdk/src/index.js",
-      "default": "./dist/sdk/src/index.js"
-    }
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "default": "./dist/esm/index.js"
+    },
+    "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md",
-    "../packages/code-map/src/tree-sitter-queries"
+    "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsc && npm run copy-scm-files",
-    "copy-scm-files": "mkdir -p dist/packages/code-map/src/tree-sitter-queries && cp -r ../packages/code-map/src/tree-sitter-queries/*.scm dist/packages/code-map/src/tree-sitter-queries/ && cp ../packages/code-map/src/tree-sitter-queries/readme.md dist/packages/code-map/src/tree-sitter-queries/",
+    "build": "bun run build.ts",
+    "build:verify": "bun run build && bun run smoke-test && bun run smoke-test:dist",
+    "smoke-test": "bun run smoke-test.ts",
+    "smoke-test:dist": "bun run smoke-test-dist.ts",
     "clean": "rm -rf dist",
     "prepare-dist": "node scripts/publish.js --dry-run",
     "publish-sdk": "node scripts/publish.js --public",
     "publish-dry-run": "node scripts/publish.js --dry-run",
-    "prepublishOnly": "bun run clean && bun run build",
+    "prepack": "bun run build",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test"
   },
-  "sideEffects": false,
   "engines": {
     "node": ">=18.0.0"
   },
@@ -46,7 +50,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/CodebuffAI/codebuff.git",
+    "url": "git+https://github.com/CodebuffAI/codebuff.git",
     "directory": "sdk"
   },
   "homepage": "https://codebuff.com",
@@ -54,16 +58,21 @@
     "url": "https://github.com/CodebuffAI/codebuff/issues"
   },
   "dependencies": {
+    "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
+    "@vscode/ripgrep": "1.15.14",
+    "@vscode/tree-sitter-wasm": "0.1.4",
     "ai": "^5.0.0",
     "diff": "8.0.2",
-    "zod": "^4.0.0",
-    "@vscode/tree-sitter-wasm": "0.1.4",
     "web-tree-sitter": "0.25.6",
-    "@vscode/ripgrep": "1.15.14"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.11",
     "@types/diff": "8.0.0",
+    "@types/glob": "^9.0.0",
     "@types/node": "22",
-    "@types/bun": "^1.2.11"
-  }
+    "glob": "^11.0.3"
+  },
+  "author": ""
 }

@@ -1,4 +1,4 @@
-import type { CodebuffToolOutput } from '../../../common/src/tools/list'
+import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 
 export function runFileChangeHooks({
   files,

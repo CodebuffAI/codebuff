@@ -1,7 +1,7 @@
 import { WEBSOCKET_URL } from './constants'
-import { APIRealtimeClient } from '../../common/src/websockets/websocket-client'
+import { APIRealtimeClient } from '@codebuff/common/websockets/websocket-client'
 
-import type { ServerAction, ClientAction } from '../../common/src/actions'
+import type { ServerAction, ClientAction } from '@codebuff/common/actions'
 import type { WebSocket } from 'ws'
 
 export type WebSocketHandlerOptions = {

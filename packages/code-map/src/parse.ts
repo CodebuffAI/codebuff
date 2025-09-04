@@ -1,9 +1,19 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { getLanguageConfig } from './languages'
+import type { LanguageConfig } from './languages-common'
 
-import type { LanguageConfig } from './languages'
+// Dynamic import based on runtime
+async function getLanguageConfig(
+  filePath: string,
+): Promise<LanguageConfig | undefined> {
+  // For now, always use Node.js implementation for SDK builds
+  // Bun builds will override this at runtime
+  const { getLanguageConfig: nodeGetLanguageConfig } = await import(
+    './languages-node'
+  )
+  return nodeGetLanguageConfig(filePath)
+}
 import type { Parser, Query } from 'web-tree-sitter'
 
 export const DEBUG_PARSING = false
@@ -127,19 +137,21 @@ export async function getFileTokenScores(
 
   if (DEBUG_PARSING) {
     const endTime = Date.now()
-    console.log(
-      `Parsed ${filePaths.length} files in ${endTime - startTime}ms`,
-    )
+    console.log(`Parsed ${filePaths.length} files in ${endTime - startTime}ms`)
 
-    fs.writeFileSync(
-      '../debug/debug-parse.json',
-      JSON.stringify({
-        tokenCallers,
-        tokenScores,
-        fileCallsMap,
-        externalCalls,
-      }),
-    )
+    try {
+      fs.writeFileSync(
+        '../debug/debug-parse.json',
+        JSON.stringify({
+          tokenCallers,
+          tokenScores,
+          fileCallsMap,
+          externalCalls,
+        }),
+      )
+    } catch {
+      // Silently ignore debug file write errors in test environments
+    }
   }
 
   return { tokenScores, tokenCallers }
@@ -153,7 +165,9 @@ export function parseTokens(
   const { parser, query } = languageConfig
 
   try {
-    const sourceCode = readFile ? readFile(filePath) : fs.readFileSync(filePath, 'utf8')
+    const sourceCode = readFile
+      ? readFile(filePath)
+      : fs.readFileSync(filePath, 'utf8')
     if (sourceCode === null) {
       return {
         numLines: 0,
