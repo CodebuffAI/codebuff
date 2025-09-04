@@ -3,6 +3,7 @@
   "compilerOptions": {
     "noEmit": true, // don't place JS everywhere while hacking
     "baseUrl": ".", // Bun & editors see the aliases
+    "moduleResolution": "bundler",
     "paths": {
       "@codebuff/common/*": ["./common/src/*"],
       "@codebuff/backend/*": ["./backend/src/*"],
