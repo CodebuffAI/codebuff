@@ -1,8 +1,9 @@
 import * as os from 'os'
 
+import { getFileTokenScores } from '@codebuff/code-map/parse'
+
 import { type CustomToolDefinition } from './custom-tool'
 import { getInitialSessionState } from '../../common/src/types/session-state'
-import { getFileTokenScores } from '../../packages/code-map/src/parse'
 
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type { Message } from '../../common/src/types/messages/codebuff-message'

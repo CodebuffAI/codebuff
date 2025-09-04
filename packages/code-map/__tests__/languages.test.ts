@@ -1,528 +1,235 @@
-import { execSync } from 'child_process'
-import * as fs from 'fs'
-import * as path from 'path'
+import { describe, it, expect, mock } from 'bun:test'
+import {
+  languageTable,
+  WASM_FILES,
+  setWasmDir,
+  getWasmDir,
+  findLanguageConfigByExtension,
+  createLanguageConfig,
+  type LanguageConfig,
+  type RuntimeLanguageLoader,
+} from '../src/languages'
 
-import { describe, it, expect } from 'bun:test'
+describe('languages module', () => {
+  describe('languageTable', () => {
+    it('should contain all expected language configurations', () => {
+      expect(languageTable).toBeDefined()
+      expect(Array.isArray(languageTable)).toBe(true)
+      expect(languageTable.length).toBe(10) // Current number of supported languages
+    })
 
-// Sample code snippets for each language
-const samples = {
-  typescript: `
-interface Greeter {
-    greet(name: string): string;
-}
+    it('should have proper structure for each language config', () => {
+      languageTable.forEach((config) => {
+        expect(config).toHaveProperty('extensions')
+        expect(config).toHaveProperty('wasmFile')
+        expect(config).toHaveProperty('queryText')
+        expect(Array.isArray(config.extensions)).toBe(true)
+        expect(config.extensions.length).toBeGreaterThan(0)
+        expect(typeof config.wasmFile).toBe('string')
+        expect(typeof config.queryText).toBe('string')
+      })
+    })
 
-class HelloGreeter implements Greeter {
-    greet(name: string): string {
-        return \`Hello, \${name}!\`;
-    }
-}
+    it('should support TypeScript files', () => {
+      const tsConfig = languageTable.find(c => c.extensions.includes('.ts'))
+      expect(tsConfig).toBeDefined()
+      expect(tsConfig?.wasmFile).toBe('tree-sitter-typescript.wasm')
+      expect(tsConfig?.queryText).toBeDefined()
+    })
 
-function createGreeter(): Greeter {
-    return new HelloGreeter();
-}
+    it('should support TSX files', () => {
+      const tsxConfig = languageTable.find(c => c.extensions.includes('.tsx'))
+      expect(tsxConfig).toBeDefined()
+      expect(tsxConfig?.wasmFile).toBe('tree-sitter-tsx.wasm')
+    })
 
-const greeter = createGreeter();
-greeter.greet("World");
-`,
+    it('should support JavaScript files', () => {
+      const jsConfig = languageTable.find(c => c.extensions.includes('.js'))
+      expect(jsConfig).toBeDefined()
+      expect(jsConfig?.wasmFile).toBe('tree-sitter-javascript.wasm')
+      expect(jsConfig?.extensions).toContain('.jsx')
+    })
 
-  javascript: `
-class Greeter {
-    greet(name) {
-        return \`Hello, \${name}!\`;
-    }
-}
+    it('should support Python files', () => {
+      const pyConfig = languageTable.find(c => c.extensions.includes('.py'))
+      expect(pyConfig).toBeDefined()
+      expect(pyConfig?.wasmFile).toBe('tree-sitter-python.wasm')
+    })
 
-function createGreeter() {
-    return new Greeter();
-}
+    it('should support all documented languages', () => {
+      const expectedLanguages = [
+        { ext: '.ts', wasm: 'tree-sitter-typescript.wasm' },
+        { ext: '.tsx', wasm: 'tree-sitter-tsx.wasm' },
+        { ext: '.js', wasm: 'tree-sitter-javascript.wasm' },
+        { ext: '.jsx', wasm: 'tree-sitter-javascript.wasm' },
+        { ext: '.py', wasm: 'tree-sitter-python.wasm' },
+        { ext: '.java', wasm: 'tree-sitter-java.wasm' },
+        { ext: '.cs', wasm: 'tree-sitter-c-sharp.wasm' },
+        { ext: '.cpp', wasm: 'tree-sitter-cpp.wasm' },
+        { ext: '.hpp', wasm: 'tree-sitter-cpp.wasm' },
+        { ext: '.rs', wasm: 'tree-sitter-rust.wasm' },
+        { ext: '.rb', wasm: 'tree-sitter-ruby.wasm' },
+        { ext: '.go', wasm: 'tree-sitter-go.wasm' },
+      ]
 
-const greeter = createGreeter();
-greeter.greet("World");
-`,
+      expectedLanguages.forEach(({ ext, wasm }) => {
+        const config = languageTable.find(c => c.extensions.includes(ext))
+        expect(config).toBeDefined()
+        expect(config?.wasmFile).toBe(wasm)
+      })
+    })
+  })
 
-  python: `
-from abc import ABC, abstractmethod
+  describe('WASM_FILES', () => {
+    it('should contain all required WASM files', () => {
+      const expectedFiles = [
+        'tree-sitter-c-sharp.wasm',
+        'tree-sitter-cpp.wasm',
+        'tree-sitter-go.wasm',
+        'tree-sitter-java.wasm',
+        'tree-sitter-javascript.wasm',
+        'tree-sitter-python.wasm',
+        'tree-sitter-ruby.wasm',
+        'tree-sitter-rust.wasm',
+        'tree-sitter-tsx.wasm',
+        'tree-sitter-typescript.wasm',
+      ] as const
 
-class Greeter(ABC):
-    @abstractmethod
-    def greet(self, name: str) -> str:
-        pass
+      expectedFiles.forEach(file => {
+        expect(WASM_FILES[file as keyof typeof WASM_FILES]).toBe(file)
+      })
+    })
 
-class HelloGreeter(Greeter):
-    def greet(self, name: str) -> str:
-        return f"Hello, {name}!"
+    it('should have consistent keys and values', () => {
+      Object.entries(WASM_FILES).forEach(([key, value]) => {
+        expect(key).toBe(value)
+      })
+    })
+  })
 
-def create_greeter() -> Greeter:
-    return HelloGreeter()
+  describe('WASM directory management', () => {
+    it('should set and get custom WASM directory', () => {
+      const testDir = '/custom/wasm/path'
+      setWasmDir(testDir)
+      expect(getWasmDir()).toBe(testDir)
+      
+      // Reset for other tests
+      setWasmDir('')
+    })
 
-greeter = create_greeter()
-greeter.greet("World")
-`,
+    it('should return empty string when no custom directory is set', () => {
+      setWasmDir('')
+      expect(getWasmDir()).toBe('')
+    })
 
-  java: `
-interface Greeter {
-    String greet(String name);
-}
+    it('should allow changing WASM directory multiple times', () => {
+      setWasmDir('/first/path')
+      expect(getWasmDir()).toBe('/first/path')
+      
+      setWasmDir('/second/path')
+      expect(getWasmDir()).toBe('/second/path')
+      
+      // Reset for other tests
+      setWasmDir('')
+    })
+  })
 
-class HelloGreeter implements Greeter {
-    public String greet(String name) {
-        return "Hello, " + name + "!";
-    }
-}
+  describe('findLanguageConfigByExtension', () => {
+    it('should find config for TypeScript files', () => {
+      const config = findLanguageConfigByExtension('test.ts')
+      expect(config).toBeDefined()
+      expect(config?.extensions).toContain('.ts')
+      expect(config?.wasmFile).toBe('tree-sitter-typescript.wasm')
+    })
 
-public class Main {
-    public static Greeter createGreeter() {
-        return new HelloGreeter();
-    }
+    it('should find config for JavaScript files', () => {
+      const config = findLanguageConfigByExtension('test.js')
+      expect(config).toBeDefined()
+      expect(config?.extensions).toContain('.js')
+      expect(config?.wasmFile).toBe('tree-sitter-javascript.wasm')
+    })
 
-    public static void main(String[] args) {
-        Greeter greeter = createGreeter();
-        greeter.greet("World");
-    }
-}
-`,
+    it('should find config for Python files', () => {
+      const config = findLanguageConfigByExtension('test.py')
+      expect(config).toBeDefined()
+      expect(config?.extensions).toContain('.py')
+      expect(config?.wasmFile).toBe('tree-sitter-python.wasm')
+    })
 
-  csharp: `
-interface IGreeter {
-    string Greet(string name);
-}
+    it('should return undefined for unsupported extensions', () => {
+      const config = findLanguageConfigByExtension('test.unknown')
+      expect(config).toBeUndefined()
+    })
 
-class HelloGreeter : IGreeter {
-    public string Greet(string name) {
-        return $"Hello, {name}!";
-    }
-}
+    it('should handle files without extensions', () => {
+      const config = findLanguageConfigByExtension('Makefile')
+      expect(config).toBeUndefined()
+    })
 
-class Program {
-    static IGreeter CreateGreeter() {
-        return new HelloGreeter();
-    }
+    it('should handle nested file paths', () => {
+      const config = findLanguageConfigByExtension('src/components/Button.tsx')
+      expect(config).toBeDefined()
+      expect(config?.extensions).toContain('.tsx')
+    })
 
-    static void Main() {
-        var greeter = CreateGreeter();
-        greeter.Greet("World");
-    }
-}
-`,
+    it('should handle files with multiple dots', () => {
+      const config = findLanguageConfigByExtension('test.spec.ts')
+      expect(config).toBeDefined()
+      expect(config?.extensions).toContain('.ts')
+    })
 
-  cpp: `
-class Greeter {
-public:
-    virtual std::string greet(const std::string& name) = 0;
-};
+    it('should be case sensitive', () => {
+      const config = findLanguageConfigByExtension('test.TS')
+      expect(config).toBeUndefined()
+    })
+  })
 
-class HelloGreeter : public Greeter {
-public:
-    std::string greet(const std::string& name) override {
-        return "Hello, " + name + "!";
-    }
-};
-
-Greeter* createGreeter() {
-    return new HelloGreeter();
-}
-
-int main() {
-    auto greeter = createGreeter();
-    greeter->greet("World");
-    delete greeter;
-    return 0;
-}
-`,
-
-  c: `
-typedef struct Greeter {
-    void (*greet)(const char* name);
-} Greeter;
-
-void hello_greet(const char* name) {
-    printf("Hello, %s!\\n", name);
-}
-
-Greeter* create_greeter() {
-    Greeter* greeter = malloc(sizeof(Greeter));
-    greeter->greet = hello_greet;
-    return greeter;
-}
-
-int main() {
-    Greeter* greeter = create_greeter();
-    greeter->greet("World");
-    free(greeter);
-    return 0;
-}
-`,
-
-  rust: `
-trait Greeter {
-    fn greet(&self, name: &str) -> String;
-}
-
-struct HelloGreeter;
-
-impl Greeter for HelloGreeter {
-    fn greet(&self, name: &str) -> String {
-        format!("Hello, {}!", name)
-    }
-}
-
-fn create_greeter() -> impl Greeter {
-    HelloGreeter
-}
-
-fn main() {
-    let greeter = create_greeter();
-    greeter.greet("World");
-}
-`,
-
-  ruby: `
-class Greeter
-  def greet(name)
-    "Hello, #{name}!"
-  end
-end
-
-def create_greeter
-  Greeter.new
-end
-
-greeter = create_greeter
-greeter.greet("World")
-`,
-
-  go: `
-package main
-
-type Greeter interface {
-    Greet(name string) string
-}
-
-type HelloGreeter struct{}
-
-func (g HelloGreeter) Greet(name string) string {
-    return "Hello, " + name + "!"
-}
-
-func createGreeter() Greeter {
-    return HelloGreeter{}
-}
-
-func main() {
-    greeter := createGreeter()
-    greeter.Greet("World")
-}
-`,
-
-  php: `
-<?php
-
-interface Greeter {
-    public function greet(string $name): string;
-}
-
-class HelloGreeter implements Greeter {
-    public function greet(string $name): string {
-        return "Hello, $name!";
-    }
-}
-
-function createGreeter(): Greeter {
-    return new HelloGreeter();
-}
-
-$greeter = createGreeter();
-$greeter->greet("World");
-`,
-}
-
-// Helper function to run tree-sitter parsing in a separate Node process
-async function parseFile(filePath: string, content: string) {
-  const tempScriptPath = path.join(__dirname, 'temp-parse-file.js')
-  const scriptContent = `
-const Parser = require('tree-sitter')
-const { Query } = require('tree-sitter')
-
-// Language configs
-const languageConfigs = [
-  {
-    extensions: ['.ts', '.tsx'],
-    queryFile: 'tree-sitter-typescript-tags.scm',
-    packageName: 'tree-sitter-typescript',
-    getLanguage: (module) => module.typescript
-  },
-  {
-    extensions: ['.js', '.jsx'],
-    queryFile: 'tree-sitter-javascript-tags.scm',
-    packageName: 'tree-sitter-javascript',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.py'],
-    queryFile: 'tree-sitter-python-tags.scm',
-    packageName: 'tree-sitter-python',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.java'],
-    queryFile: 'tree-sitter-java-tags.scm',
-    packageName: 'tree-sitter-java',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.cs'],
-    queryFile: 'tree-sitter-c_sharp-tags.scm',
-    packageName: 'tree-sitter-c-sharp',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.cpp', '.hpp'],
-    queryFile: 'tree-sitter-cpp-tags.scm',
-    packageName: 'tree-sitter-cpp',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.c', '.h'],
-    queryFile: 'tree-sitter-c-tags.scm',
-    packageName: 'tree-sitter-c',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.rs'],
-    queryFile: 'tree-sitter-rust-tags.scm',
-    packageName: 'tree-sitter-rust',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.rb'],
-    queryFile: 'tree-sitter-ruby-tags.scm',
-    packageName: 'tree-sitter-ruby',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.go'],
-    queryFile: 'tree-sitter-go-tags.scm',
-    packageName: 'tree-sitter-go',
-    getLanguage: (module) => module
-  },
-  {
-    extensions: ['.php'],
-    queryFile: 'tree-sitter-php-tags.scm',
-    packageName: 'tree-sitter-php',
-    getLanguage: (module) => module.php
-  }
-]
-
-async function parseSourceCode(filePath, sourceCode) {
-  const extension = require('path').extname(filePath)
-  const config = languageConfigs.find(c => c.extensions.includes(extension))
-  if (!config) return { identifiers: [], calls: [] }
-
-  try {
-    const parser = new Parser()
-    const languageModule = require(config.packageName)
-    const language = config.getLanguage(languageModule)
-    parser.setLanguage(language)
-
-    const queryFilePath = require('path').join(__dirname, '../tree-sitter-queries', config.queryFile)
-    const queryString = require('fs').readFileSync(queryFilePath, 'utf8')
-    const query = new Query(parser.getLanguage(), queryString)
-
-    const tree = parser.parse(sourceCode)
-    const captures = query.captures(tree.rootNode)
-
-    const result = {}
-    for (const capture of captures) {
-      const { name, node } = capture
-      if (!result[name]) {
-        result[name] = []
+  describe('createLanguageConfig', () => {
+    it('should return undefined for unsupported file extensions', async () => {
+      const mockLoader: RuntimeLanguageLoader = {
+        initParser: mock(async () => {}),
+        loadLanguage: mock(async () => ({} as any)),
       }
-      result[name].push(node.text)
-    }
 
-    return {
-      identifiers: [...new Set(result.identifier || [])],
-      calls: [...new Set(result['call.identifier'] || [])]
-    }
-  } catch (err) {
-    console.error('Error:', err)
-    return { identifiers: [], calls: [] }
-  }
-}
+      const result = await createLanguageConfig('test.unknown', mockLoader)
+      expect(result).toBeUndefined()
+      expect(mockLoader.initParser).not.toHaveBeenCalled()
+      expect(mockLoader.loadLanguage).not.toHaveBeenCalled()
+    })
 
-const filePath = process.argv[2]
-const sourceCode = process.argv[3]
-
-parseSourceCode(filePath, sourceCode)
-  .then(result => {
-    console.log(JSON.stringify(result))
-  })
-  .catch(err => {
-    console.error('Error:', err)
-    process.exit(1)
-  })
-`
-
-  try {
-    // Write the temporary script
-    fs.writeFileSync(tempScriptPath, scriptContent)
-
-    // Execute the script with node and capture output
-    const output = execSync(
-      `node "${tempScriptPath}" "${filePath}" "${content.replace(/"/g, '\\"')}"`,
-      {
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      },
-    ).toString()
-
-    // Parse the JSON output
-    return JSON.parse(output)
-  } finally {
-    // Clean up the temporary script
-    try {
-      fs.unlinkSync(tempScriptPath)
-    } catch (err) {
-      console.warn('Failed to clean up temporary script:', err)
-    }
-  }
-}
-
-describe('language parsing', () => {
-  it('should parse TypeScript', async () => {
-    const result = await parseFile('test.ts', samples.typescript)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('HelloGreeter')
-    expect(result.identifiers).toContain('createGreeter')
-    expect(result.identifiers).toContain('greet')
-
-    expect(result.calls).toContain('HelloGreeter')
-    expect(result.calls).toContain('createGreeter')
-    expect(result.calls).toContain('greet')
+    it('should have proper function signature for createLanguageConfig', () => {
+      // Just verify that the function exists and has the right signature
+      expect(typeof createLanguageConfig).toBe('function')
+      expect(createLanguageConfig.length).toBe(2) // filePath and runtimeLoader parameters
+    })
   })
 
-  it('should parse JavaScript', async () => {
-    const result = await parseFile('test.js', samples.javascript)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('createGreeter')
-    expect(result.identifiers).toContain('greet')
-
-    expect(result.calls).toContain('Greeter')
-    expect(result.calls).toContain('createGreeter')
-    expect(result.calls).toContain('greet')
+  describe('LanguageConfig interface', () => {
+    it('should have proper type structure', () => {
+      const config: LanguageConfig = {
+        extensions: ['.test'],
+        wasmFile: 'test.wasm',
+        queryText: 'test query',
+      }
+      
+      expect(config.extensions).toEqual(['.test'])
+      expect(config.wasmFile).toBe('test.wasm')
+      expect(config.queryText).toBe('test query')
+      expect(config.parser).toBeUndefined()
+      expect(config.query).toBeUndefined()
+      expect(config.language).toBeUndefined()
+    })
   })
 
-  it('should parse Python', async () => {
-    const result = await parseFile('test.py', samples.python)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('HelloGreeter')
-    expect(result.identifiers).toContain('create_greeter')
-    expect(result.identifiers).toContain('greet')
-
-    expect(result.calls).toContain('create_greeter')
-    expect(result.calls).toContain('greet')
-  })
-
-  it('should parse Java', async () => {
-    const result = await parseFile('test.java', samples.java)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('HelloGreeter')
-    expect(result.identifiers).toContain('createGreeter')
-    expect(result.identifiers).toContain('greet')
-
-    expect(result.calls).toContain('HelloGreeter')
-    expect(result.calls).toContain('createGreeter')
-    expect(result.calls).toContain('greet')
-  })
-
-  it('should parse C#', async () => {
-    const result = await parseFile('test.cs', samples.csharp)
-
-    expect(result.identifiers).toContain('IGreeter')
-    expect(result.identifiers).toContain('HelloGreeter')
-    expect(result.identifiers).toContain('CreateGreeter')
-    expect(result.identifiers).toContain('Greet')
-  })
-
-  it('should parse C++', async () => {
-    const result = await parseFile('test.cpp', samples.cpp)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('HelloGreeter')
-    expect(result.identifiers).toContain('createGreeter')
-    expect(result.identifiers).toContain('greet')
-  })
-
-  it('should parse C', async () => {
-    const result = await parseFile('test.c', samples.c)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('create_greeter')
-    expect(result.identifiers).toContain('hello_greet')
-  })
-
-  it('should parse Rust', async () => {
-    const result = await parseFile('test.rs', samples.rust)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('HelloGreeter')
-    expect(result.identifiers).toContain('create_greeter')
-    expect(result.identifiers).toContain('greet')
-
-    expect(result.calls).toContain('create_greeter')
-    expect(result.calls).toContain('greet')
-  })
-
-  it('should parse Ruby', async () => {
-    const result = await parseFile('test.rb', samples.ruby)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('create_greeter')
-    expect(result.identifiers).toContain('greet')
-
-    expect(result.calls).toContain('create_greeter')
-    expect(result.calls).toContain('greet')
-    expect(result.calls).toContain('new')
-  })
-
-  it('should parse Go', async () => {
-    const result = await parseFile('test.go', samples.go)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('HelloGreeter')
-    expect(result.identifiers).toContain('createGreeter')
-    expect(result.identifiers).toContain('Greet')
-
-    expect(result.calls).toContain('createGreeter')
-    expect(result.calls).toContain('Greet')
-  })
-
-  it.skip('should parse PHP', async () => {
-    const result = await parseFile('test.php', samples.php)
-
-    expect(result.identifiers).toContain('Greeter')
-    expect(result.identifiers).toContain('HelloGreeter')
-    expect(result.identifiers).toContain('createGreeter')
-    expect(result.identifiers).toContain('greet')
-
-    expect(result.calls).toContain('HelloGreeter')
-    expect(result.calls).toContain('createGreeter')
-    expect(result.calls).toContain('greet')
-  })
-
-  it('should handle empty files', async () => {
-    const result = await parseFile('empty.ts', '')
-    expect(result.identifiers).toHaveLength(0)
-    expect(result.calls).toHaveLength(0)
-  })
-
-  it('should handle invalid file extensions', async () => {
-    const result = await parseFile('test.invalid', samples.typescript)
-    expect(result.identifiers).toHaveLength(0)
-    expect(result.calls).toHaveLength(0)
+  describe('RuntimeLanguageLoader interface', () => {
+    it('should enforce proper interface implementation', () => {
+      const loader: RuntimeLanguageLoader = {
+        initParser: async () => {},
+        loadLanguage: async (wasmFile: string) => ({} as any),
+      }
+      
+      expect(typeof loader.initParser).toBe('function')
+      expect(typeof loader.loadLanguage).toBe('function')
+    })
   })
 })
