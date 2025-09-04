@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import { Parser, Language } from 'web-tree-sitter'
+import { Parser } from 'web-tree-sitter'
 import { fileURLToPath } from 'url'
 
 /**
@@ -50,25 +50,4 @@ export async function initTreeSitterForNode(): Promise<void> {
       return path.join(scriptDir, name)
     },
   })
-}
-
-/**
- * Load a language WASM file using Uint8Array to avoid fetch issues
- */
-export async function loadLanguage(lang: string): Promise<any> {
-  const dir = hereDir()
-  const langPath = path.join(dir, 'wasm', `tree-sitter-${lang}.wasm`)
-  
-  // Read the WASM file as bytes and pass directly to Language.load
-  const buf = fs.readFileSync(langPath)
-  
-  const result = await Language.load(new Uint8Array(buf))
-  return result
-}
-
-/**
- * Check if we're running in Node.js environment
- */
-export function isNodeEnvironment(): boolean {
-  return typeof process !== 'undefined' && process.versions && !!process.versions.node
 }

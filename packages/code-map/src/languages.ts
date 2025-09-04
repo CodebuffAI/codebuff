@@ -199,11 +199,7 @@ function tryResolveFromPackage(wasmFileName: string): string | null {
 /* 7. One-time library init                                          */
 /* ------------------------------------------------------------------ */
 // Initialize tree-sitter with Node.js-specific configuration
-import {
-  initTreeSitterForNode,
-  isNodeEnvironment,
-  loadLanguage,
-} from './init-node'
+import { initTreeSitterForNode } from './init-node'
 
 /* ------------------------------------------------------------------ */
 /* 8. Unified runtime loader                                         */
@@ -212,9 +208,7 @@ class UnifiedLanguageLoader implements RuntimeLanguageLoader {
   private parserReady: Promise<void>
 
   constructor() {
-    this.parserReady = isNodeEnvironment()
-      ? initTreeSitterForNode()
-      : Parser.init()
+    this.parserReady = initTreeSitterForNode()
   }
 
   async initParser(): Promise<void> {
@@ -227,40 +221,15 @@ class UnifiedLanguageLoader implements RuntimeLanguageLoader {
 
     // Try to load the language using Node.js-specific method if available
     let lang: Language
-    const nodeEnv = isNodeEnvironment()
-
-    if (nodeEnv) {
-      // Extract language name from WASM file name (e.g., 'tree-sitter-javascript.wasm' -> 'javascript')
-      const langName = wasmFile.replace('tree-sitter-', '').replace('.wasm', '')
-
-      try {
-        lang = await loadLanguage(langName)
-      } catch (err) {
-        // Fallback to the original path-based loading
-        try {
-          lang = await Language.load(wasmPath)
-        } catch (err2) {
-          // Fallback: try resolving from the original package (development)
-          const fallbackPath = tryResolveFromPackage(wasmFile)
-          if (fallbackPath) {
-            lang = await Language.load(fallbackPath)
-          } else {
-            throw err2
-          }
-        }
-      }
-    } else {
-      // Browser environment - use URL-based loading
-      try {
-        lang = await Language.load(wasmPath)
-      } catch (err) {
-        // Fallback: try resolving from the original package (development)
-        const fallbackPath = tryResolveFromPackage(wasmFile)
-        if (fallbackPath) {
-          lang = await Language.load(fallbackPath)
-        } else {
-          throw err
-        }
+    try {
+      lang = await Language.load(wasmPath)
+    } catch (err) {
+      // Fallback: try resolving from the original package (development)
+      const fallbackPath = tryResolveFromPackage(wasmFile)
+      if (fallbackPath) {
+        lang = await Language.load(fallbackPath)
+      } else {
+        throw err
       }
     }
 
