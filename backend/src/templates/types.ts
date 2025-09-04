@@ -39,18 +39,21 @@ export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
 export const placeholderValues = Object.values(PLACEHOLDER)
 
 export const baseAgentToolNames: ToolName[] = [
-  'create_plan',
-  'run_terminal_command',
-  'str_replace',
-  'write_file',
-  'spawn_agents',
   'add_subgoal',
+  'analyze_test_requirements',
   'browser_logs',
   'code_search',
+  'create_plan',
+  'create_task_checklist',
   'end_turn',
   'read_files',
+  'run_terminal_command',
+  'smart_find_files',
+  'spawn_agents',
+  'str_replace',
   'think_deeply',
   'update_subgoal',
+  'write_file',
 ] as const
 
 export const baseAgentSubagents: AgentTemplateType[] = [

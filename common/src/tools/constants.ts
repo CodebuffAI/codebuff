@@ -15,15 +15,19 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'add_subgoal',
   'update_subgoal',
   'create_plan',
+  'create_task_checklist',
+  'analyze_test_requirements',
 ]
 
 // List of all available tools
 export const toolNames = [
   'add_subgoal',
   'add_message',
+  'analyze_test_requirements',
   'browser_logs',
   'code_search',
   'create_plan',
+  'create_task_checklist',
   'end_turn',
   'find_files',
   'read_docs',
@@ -32,6 +36,7 @@ export const toolNames = [
   'run_terminal_command',
   'set_messages',
   'set_output',
+  'smart_find_files',
   'spawn_agents',
   'spawn_agents_async',
   'spawn_agent_inline',
@@ -44,7 +49,9 @@ export const toolNames = [
 
 export const publishedTools = [
   'add_message',
+  'analyze_test_requirements',
   'code_search',
+  'create_task_checklist',
   'end_turn',
   'find_files',
   'read_docs',
@@ -53,6 +60,7 @@ export const publishedTools = [
   'run_terminal_command',
   'set_messages',
   'set_output',
+  'smart_find_files',
   'spawn_agents',
   'str_replace',
   'think_deeply',

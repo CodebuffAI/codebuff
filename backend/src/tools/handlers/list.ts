@@ -1,8 +1,10 @@
 import { handleAddMessage } from './tool/add-message'
 import { handleAddSubgoal } from './tool/add-subgoal'
+import { handleAnalyzeTestRequirements } from './tool/analyze-test-requirements'
 import { handleBrowserLogs } from './tool/browser-logs'
 import { handleCodeSearch } from './tool/code-search'
 import { handleCreatePlan } from './tool/create-plan'
+import { handleCreateTaskChecklist } from './tool/create-task-checklist'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleReadDocs } from './tool/read-docs'
@@ -11,6 +13,7 @@ import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
 import { handleSetMessages } from './tool/set-messages'
 import { handleSetOutput } from './tool/set-output'
+import { handleSmartFindFiles } from './tool/smart-find-files'
 import { handleSpawnAgents } from './tool/spawn-agents'
 import { handleSpawnAgentsAsync } from './tool/spawn-agents-async'
 import { handleSpawnAgentInline } from './tool/spawn-agent-inline'
@@ -35,9 +38,11 @@ import type { ToolName } from '@codebuff/common/tools/constants'
 export const codebuffToolHandlers = {
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
+  analyze_test_requirements: handleAnalyzeTestRequirements,
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
   create_plan: handleCreatePlan,
+  create_task_checklist: handleCreateTaskChecklist,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
   read_docs: handleReadDocs,
@@ -46,6 +51,7 @@ export const codebuffToolHandlers = {
   run_terminal_command: handleRunTerminalCommand,
   set_messages: handleSetMessages,
   set_output: handleSetOutput,
+  smart_find_files: handleSmartFindFiles,
   spawn_agents: handleSpawnAgents,
   spawn_agents_async: handleSpawnAgentsAsync,
   spawn_agent_inline: handleSpawnAgentInline,

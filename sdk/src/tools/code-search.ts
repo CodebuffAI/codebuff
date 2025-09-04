@@ -74,7 +74,6 @@ export function codeSearch({
         ...(code !== null && { exitCode: code }),
         message: 'Code search completed',
       }
-
       resolve([
         {
           type: 'json',

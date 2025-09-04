@@ -3,9 +3,11 @@ import z from 'zod/v4'
 import { FileChangeSchema } from '../actions'
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
+import { analyzeTestRequirementsParams } from './params/tool/analyze-test-requirements'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
 import { createPlanParams } from './params/tool/create-plan'
+import { createTaskChecklistParams } from './params/tool/create-task-checklist'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
 import { readDocsParams } from './params/tool/read-docs'
@@ -14,6 +16,7 @@ import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
 import { setMessagesParams } from './params/tool/set-messages'
 import { setOutputParams } from './params/tool/set-output'
+import { smartFindFilesParams } from './params/tool/smart-find-files'
 import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { spawnAgentsParams } from './params/tool/spawn-agents'
 import { spawnAgentsAsyncParams } from './params/tool/spawn-agents-async'
@@ -33,9 +36,11 @@ import type {
 export const $toolParams = {
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
+  analyze_test_requirements: analyzeTestRequirementsParams,
   browser_logs: browserLogsParams,
   code_search: codeSearchParams,
   create_plan: createPlanParams,
+  create_task_checklist: createTaskChecklistParams,
   end_turn: endTurnParams,
   find_files: findFilesParams,
   read_docs: readDocsParams,
@@ -44,6 +49,7 @@ export const $toolParams = {
   run_terminal_command: runTerminalCommandParams,
   set_messages: setMessagesParams,
   set_output: setOutputParams,
+  smart_find_files: smartFindFilesParams,
   spawn_agents: spawnAgentsParams,
   spawn_agents_async: spawnAgentsAsyncParams,
   spawn_agent_inline: spawnAgentInlineParams,

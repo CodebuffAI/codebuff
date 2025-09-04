@@ -2,9 +2,11 @@ import { $toolParams } from '@codebuff/common/tools/list'
 
 import { addMessageTool } from './tool/add-message'
 import { addSubgoalTool } from './tool/add-subgoal'
+import { analyzeTestRequirementsTool } from './tool/analyze-test-requirements'
 import { browserLogsTool } from './tool/browser-logs'
 import { codeSearchTool } from './tool/code-search'
 import { createPlanTool } from './tool/create-plan'
+import { createTaskChecklistTool } from './tool/create-task-checklist'
 import { endTurnTool } from './tool/end-turn'
 import { findFilesTool } from './tool/find-files'
 import { readDocsTool } from './tool/read-docs'
@@ -13,6 +15,7 @@ import { runFileChangeHooksTool } from './tool/run-file-change-hooks'
 import { runTerminalCommandTool } from './tool/run-terminal-command'
 import { setMessagesTool } from './tool/set-messages'
 import { setOutputTool } from './tool/set-output'
+import { smartFindFilesTool } from './tool/smart-find-files'
 import { spawnAgentsTool } from './tool/spawn-agents'
 import { spawnAgentsAsyncTool } from './tool/spawn-agents-async'
 import { spawnAgentInlineTool } from './tool/spawn-agent-inline'
@@ -29,9 +32,11 @@ import type { ToolSet } from 'ai'
 const toolDescriptions = {
   add_message: addMessageTool,
   add_subgoal: addSubgoalTool,
+  analyze_test_requirements: analyzeTestRequirementsTool,
   browser_logs: browserLogsTool,
   code_search: codeSearchTool,
   create_plan: createPlanTool,
+  create_task_checklist: createTaskChecklistTool,
   end_turn: endTurnTool,
   find_files: findFilesTool,
   read_docs: readDocsTool,
@@ -40,6 +45,7 @@ const toolDescriptions = {
   run_terminal_command: runTerminalCommandTool,
   set_messages: setMessagesTool,
   set_output: setOutputTool,
+  smart_find_files: smartFindFilesTool,
   spawn_agents: spawnAgentsTool,
   spawn_agents_async: spawnAgentsAsyncTool,
   spawn_agent_inline: spawnAgentInlineTool,

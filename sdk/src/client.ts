@@ -6,6 +6,7 @@ import {
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
 import { getFiles } from './tools/read-files'
+import { runFileChangeHooks } from './tools/run-file-change-hooks'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
 import {
@@ -346,6 +347,7 @@ export class CodebuffClient {
         result = await codeSearch({
           projectPath: this.cwd,
           ...input,
+          cwd: input.cwd ?? this.cwd,
         } as Parameters<typeof codeSearch>[0])
       } else if (toolName === 'run_file_change_hooks') {
         // No-op: SDK doesn't run file change hooks

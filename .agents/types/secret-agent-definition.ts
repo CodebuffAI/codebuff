@@ -5,8 +5,11 @@ export type { Tools }
 export type AllToolNames =
   | Tools.ToolName
   | 'add_subgoal'
+  | 'analyze_test_requirements'
   | 'browser_logs'
   | 'create_plan'
+  | 'create_task_checklist'
+  | 'smart_find_files'
   | 'spawn_agents_async'
   | 'spawn_agent_inline'
   | 'update_subgoal'

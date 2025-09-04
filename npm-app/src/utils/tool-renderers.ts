@@ -340,4 +340,40 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return null
     },
   },
+  create_task_checklist: {
+    ...defaultToolCallRenderer,
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Create Task Checklist')}]`) + '\n'
+    },
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'userRequest') {
+        return gray('Analyzing: ' + content)
+      }
+      return null
+    },
+  },
+  analyze_test_requirements: {
+    ...defaultToolCallRenderer,
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Analyze Test Requirements')}]`) + '\n'
+    },
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'changeDescription') {
+        return gray('Analyzing: ' + content)
+      }
+      return null
+    },
+  },
+  smart_find_files: {
+    ...defaultToolCallRenderer,
+    onToolStart: (toolName) => {
+      return '\n\n' + gray(`[${bold('Smart File Discovery')}]`) + '\n'
+    },
+    onParamChunk: (content, paramName, toolName) => {
+      if (paramName === 'query') {
+        return gray('Searching for: ' + content)
+      }
+      return null
+    },
+  },
 }
