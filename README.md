@@ -2,7 +2,11 @@
 
 Codebuff is an AI coding assistant that edits your codebase through natural language instructions. Instead of using one model for everything, it coordinates specialized agents that work together to understand your project and make precise changes.
 
-Codebuff beats Claude Code at 61% vs 53% on [our internal evals](evals/README.md) across 200+ coding tasks over multiple open-source repos that simulate real-world tasks.
+<div align="center">
+  <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
+</div>
+
+Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 200+ coding tasks over multiple open-source repos that simulate real-world tasks.
 
 ![Codebuff Demo](./assets/demo.gif)
 
@@ -16,15 +20,19 @@ When you ask Codebuff to "add authentication to my API," it might invoke:
 4. A **Review Agents** validate changes
 
 <div align="center">
-  <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="600">
+  <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="250">
 </div>
 
 This multi-agent approach gives you better context understanding, more accurate edits, and fewer errors compared to single-model tools.
 
 ## CLI: Install and start coding
 
+Install:
 ```bash
 npm install -g codebuff
+```
+Run:
+```
 cd your-project
 codebuff
 ```
