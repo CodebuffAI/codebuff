@@ -20,7 +20,6 @@ jobs:
         env:
           TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
         run: |
-          echo "$TOKEN" | cut -c1-10
           git subtree push --prefix=common/src/templates/initial-agents-dir \
             https://x-access-token:${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
             main
