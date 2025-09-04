@@ -8,28 +8,9 @@ Official SDK for Codebuff - AI coding agent and framework
 npm install @codebuff/sdk
 ```
 
-### Tree-sitter Setup
-
-When using tree-sitter functionality in Node.js environments, you may need to configure the WASM directory:
-
-```typescript
-import { setWasmDir, getFileTokenScores } from '@codebuff/sdk'
-import * as path from 'path'
-
-// Set WASM directory for Node.js compatibility
-setWasmDir(path.join(__dirname, 'node_modules/@codebuff/sdk/dist/esm/wasm'))
-
-// Now use tree-sitter functionality
-const result = await getFileTokenScores(projectDir, filePaths, fileProvider)
-```
-
-**Note**: The SDK includes comprehensive smoke tests that verify both basic imports and tree-sitter functionality work correctly in Node.js environments.
-
-> **Note**: This SDK now ships with both ESM and CJS builds for maximum compatibility with different Node.js environments.
-
 ## Prerequisites
 
-Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/profile?tab=api-keys).
+- Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/profile?tab=api-keys).
 
 ## Usage
 
