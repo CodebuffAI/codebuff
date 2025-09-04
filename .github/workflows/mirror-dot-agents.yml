@@ -21,5 +21,5 @@ jobs:
           TOKEN: ${{ secrets.SUBTREE_PUSH_TOKEN }}
         run: |
           git subtree push --prefix=common/src/templates/initial-agents-dir \
-            https://x-access-token:${TOKEN}@github.com/ORG/SUBDIR-REPO.git \
+            https://x-access-token:${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
             main
