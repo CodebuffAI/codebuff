@@ -110,6 +110,4 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
 **Community**: [Discord](https://codebuff.com/discord)
 
-### Enterprise
-
-**Contact**: [enterprise@codebuff.com](mailto:enterprise@codebuff.com)
+**Support**: [support@codebuff.com](mailto:support@codebuff.com)
