@@ -1,0 +1,25 @@
+name: Mirror subdir to .agents
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'common/src/templates/initial-dot-agents/**'
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Push subtree
+        env:
+          TOKEN: ${{ secrets.SUBTREE_PUSH_TOKEN }}
+        run: |
+          git subtree push --prefix=common/src/templates/initial-dot-agents \
+            https://x-access-token:${TOKEN}@github.com/ORG/SUBDIR-REPO.git \
+            main
