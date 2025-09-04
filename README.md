@@ -99,12 +99,15 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 ### Install
 
 **CLI**: `npm install -g codebuff`
+
 **SDK**: `npm install @codebuff/sdk`
 
 ### Resources
 
 **Running Codebuff locally**: [local-development.md](./local-development.md)
+
 **Documentation**: [codebuff.com/docs](https://codebuff.com/docs)
+
 **Community**: [Discord](https://codebuff.com/discord)
 
 ### Enterprise
