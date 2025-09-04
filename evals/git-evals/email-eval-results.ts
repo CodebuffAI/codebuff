@@ -33,11 +33,6 @@ function formatEvalSummaryForEmail(
       (sum, result) => sum + result.overall_metrics.average_completion,
       0,
     ) / evalResults.length
-  const avgEfficiency =
-    evalResults.reduce(
-      (sum, result) => sum + result.overall_metrics.average_efficiency,
-      0,
-    ) / evalResults.length
   const avgCodeQuality =
     evalResults.reduce(
       (sum, result) => sum + result.overall_metrics.average_code_quality,
@@ -70,14 +65,12 @@ function formatEvalSummaryForEmail(
 • Success Rate: ${successfulRuns}/${totalRuns} (${((successfulRuns / totalRuns) * 100).toFixed(1)}%)
 • Overall Score: ${avgOverallScore.toFixed(2)}/10
 • Completion: ${avgCompletion.toFixed(2)}/10
-• Efficiency: ${avgEfficiency.toFixed(2)}/10
 • Code Quality: ${avgCodeQuality.toFixed(2)}/10
 
 💰 COST & PERFORMANCE METRICS
 • Average Cost per Run: ${avgCostUsd.toFixed(4)}
 • Total Cost: ${totalCostUsd.toFixed(2)}
 • Average Runtime: ${avgRuntimeSec.toFixed(1)} seconds
-• Cost per Point (Overall Score): ${(avgCostUsd / avgOverallScore).toFixed(4)}
 
 📈 BY EVAL SET:
 ${evalResults

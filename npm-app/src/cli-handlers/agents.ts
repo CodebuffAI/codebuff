@@ -13,7 +13,8 @@ import {
   getLoadedAgentNames,
   loadedAgents,
 } from '../agents/load-agents'
-import { CLI } from '../cli'
+import { getAllTsFiles } from '../agents/agent-utils'
+import { CLI, getLocalAgentInfo } from '../cli'
 import { createExampleAgentFiles } from './init-agents'
 import { getProjectRoot } from '../project-files'
 import { Spinner } from '../utils/spinner'
@@ -54,8 +55,8 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
     return
   }
 
-  // Load local agents
-  await loadLocalAgents({ verbose: false })
+  // Load local agents using the same logic as CLI startup
+  await getLocalAgentInfo() // This updates the cache properly
   const localAgents = getLoadedAgentNames()
 
   // Build management actions section with header
@@ -76,28 +77,50 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
     },
   ]
 
-  // Get custom agent files for display purposes
-  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
-  let customAgentFiles: string[] = []
-  if (fs.existsSync(agentsDir)) {
-    const files = fs.readdirSync(agentsDir)
-    customAgentFiles = filterCustomAgentFiles(files)
-  }
-
   // Build agent list starting with management actions
   agentList = [...actions]
 
-  // Collect custom agents from .agents/templates
-  const agentEntries = customAgentFiles.map((file) => {
-    const agentId = extractAgentIdFromFileName(file)
-    const filePath = path.join(agentsDir, file)
+  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
+
+  const allAgentFiles = fs.existsSync(agentsDir) ? getAllTsFiles(agentsDir) : []
+
+  const agentEntries = Object.entries(loadedAgents).map(([agentId, def]) => {
+    // Find the file path for this agent by looking for files that match the agent ID
+    const matchingPath = allAgentFiles.find((filePath) => {
+      const relativePath = path.relative(agentsDir, filePath).replace('.ts', '')
+
+      return (
+        relativePath === agentId ||
+        path.basename(filePath, '.ts').endsWith(agentId)
+      )
+    })
+
     let mtime = 0
-    try {
-      mtime = fs.statSync(filePath).mtimeMs
-    } catch {}
-    const def = (loadedAgents as any)[agentId]
-    return { file, agentId, filePath, mtime, def }
+    let filePath = ''
+    if (matchingPath) {
+      filePath = matchingPath
+      try {
+        mtime = fs.statSync(matchingPath).mtimeMs
+      } catch {}
+    }
+
+    return {
+      file: matchingPath
+        ? path.relative(agentsDir, matchingPath)
+        : `${agentId}.ts`,
+      agentId,
+      filePath,
+      mtime,
+      def,
+    }
   })
+
+  // Create agent description with file location
+  const createAgentDescription = (entry: any) => {
+    return entry.def?.description
+      ? `${entry.def.description}`
+      : `Custom user-defined agent`
+  }
 
   const validAgents = agentEntries
     .filter((e) => e.def && e.def.id && e.def.model)
@@ -121,10 +144,12 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
       for (const entry of recentAgents) {
         const agentName =
           localAgents[entry.agentId] || entry.def?.displayName || entry.agentId
+        const description = createAgentDescription(entry)
+
         agentList.push({
           id: entry.agentId,
           name: agentName,
-          description: entry.def?.description || 'Custom user-defined agent',
+          description,
           isBuiltIn: false,
           filePath: entry.filePath,
         })
@@ -145,10 +170,12 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
       for (const entry of otherAgents) {
         const agentName =
           localAgents[entry.agentId] || entry.def?.displayName || entry.agentId
+        const description = createAgentDescription(entry)
+
         agentList.push({
           id: entry.agentId,
           name: agentName,
-          description: entry.def?.description || 'Custom user-defined agent',
+          description,
           isBuiltIn: false,
           filePath: entry.filePath,
         })
@@ -160,7 +187,7 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
       id: '__agents_header__',
       name:
         bold(cyan('Custom Agents')) +
-        gray(` • ${customAgentFiles.length} in ${AGENT_TEMPLATES_DIR}`),
+        gray(` • ${allAgentFiles.length} in ${AGENT_TEMPLATES_DIR}`),
       description: '',
       isBuiltIn: false,
       isSectionHeader: true,
@@ -506,7 +533,7 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
             .then(() => {
               cliInstance.freshPrompt()
             })
-            .catch((error) => {
+            .catch((error: any) => {
               Spinner.get().stop()
               console.error(red('Error switching to agent:'), error)
               onExit()

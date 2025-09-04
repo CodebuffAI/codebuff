@@ -279,9 +279,6 @@ async function runEvalSet(options: {
           `   Completion: ${metrics.average_completion.toFixed(2)}/10`,
         )
         console.log(
-          `   Efficiency: ${metrics.average_efficiency.toFixed(2)}/10`,
-        )
-        console.log(
           `   Code Quality: ${metrics.average_code_quality.toFixed(2)}/10`,
         )
         console.log(
@@ -368,7 +365,6 @@ async function runEvalSet(options: {
               numCases: evalResult?.overall_metrics?.total_runs,
               avgScore: evalResult?.overall_metrics?.average_overall,
               avgCompletion: evalResult?.overall_metrics?.average_completion,
-              avgEfficiency: evalResult?.overall_metrics?.average_efficiency,
               avgCodeQuality: evalResult?.overall_metrics?.average_code_quality,
               avgDuration: evalResult?.overall_metrics?.average_duration_ms,
               suite: resultWrapper.name,

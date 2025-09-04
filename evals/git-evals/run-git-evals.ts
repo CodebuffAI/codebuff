@@ -134,7 +134,7 @@ Note that files can only be changed with tools. If no tools are called, no files
 
 You must decide whether to:
 1. 'continue' - Generate a follow-up prompt for Codebuff
-2. 'complete' - The implementation is done and satisfies the spec
+2. 'complete' - The implementation is done and fully satisfies the spec, including tests, documentation, and any other relevant artifacts
 3. 'halt' - The implementation is off track and unlikely to be completed within ${MAX_ATTEMPTS - attempts} more attempts
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
@@ -254,7 +254,6 @@ Explain your reasoning in detail.`,
         weaknesses: ['Judging process encountered an error'],
         metrics: {
           completionScore: 0,
-          efficiencyScore: 0,
           codeQualityScore: 0,
           overallScore: 0,
         },
@@ -618,11 +617,6 @@ function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
     average_completion:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.completionScore || 0),
-        0,
-      ) / evalRuns.length,
-    average_efficiency:
-      evalRuns.reduce(
-        (sum, run) => sum + (run.judging_results.metrics.efficiencyScore || 0),
         0,
       ) / evalRuns.length,
     average_code_quality:

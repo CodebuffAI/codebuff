@@ -78,6 +78,7 @@
     "pg": "^8.14.1",
     "pino": "^9.6.0",
     "posthog-js": "^1.234.10",
+    "prism-react-renderer": "^2.4.1",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.55.0",
