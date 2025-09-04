@@ -122,7 +122,7 @@ let cachedLocalAgentInfo: Record<
  * Get local agent names using the proper agent loading logic
  * @returns Record of agent type to agent info
  */
-async function getLocalAgentInfo(): Promise<
+export async function getLocalAgentInfo(): Promise<
   Record<string, { displayName: string; purpose?: string }>
 > {
   try {
