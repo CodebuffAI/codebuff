@@ -49,7 +49,7 @@ function buildAnalysisPrompt(
       )
       .join('\n\n')
 
-  return `You are an expert software engineer tasked with analyzing and scoring the code quality of changes made by an AI coding assistant (Codebuff). Please analyze the following interaction trace and compare both the attempted changes and the ground truth changes.
+  return `You are an expert software engineer tasked with analyzing and scoring the code quality of changes made by an AI coding assistant (Codebuff). Please analyze and compare both the attempted changes and the ground truth changes.
 
 [SPEC]
 ${evalRun.eval_commit.spec}
@@ -74,6 +74,8 @@ Please analyze the implementation attempt and provide:
    - Completion: How completely and correctly was the spec implemented compared to the ground truth changes?
    - Code Quality: How well-structured, maintainable and idiomatic is the code?
    - Overall: Combined assessment of the implementation quality
+
+Note: The agent only has access to the spec, so do not dock points for anything not included in the spec (e.g. unit tests, documentation, etc.). If something is included in the spec but not in the changes, you should give a lower score.
 
 Focus on:
 - Correctness and completeness compared to the ground truth changes
