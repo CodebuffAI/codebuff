@@ -17,7 +17,7 @@ function hereDir() {
     const dir = path.dirname(fileURLToPath(import.meta.url))
     return dir
   }
-  
+
   // Fallback to process.cwd() as last resort
   return process.cwd()
 }
@@ -28,15 +28,17 @@ function hereDir() {
 export async function initTreeSitterForNode(): Promise<void> {
   // Get the directory where our WASM files should be located
   const dir = hereDir()
-  const runtimeWasm = path.join(dir, 'tree-sitter.wasm')
+
+  // Try shared WASM directory first (new approach to avoid duplication)
+  const sharedWasm = path.join(dir, '..', 'wasm', 'tree-sitter.wasm')
 
   // Use locateFile to override where the runtime looks for tree-sitter.wasm
   await Parser.init({
     locateFile: (name: string, scriptDir: string) => {
       if (name === 'tree-sitter.wasm') {
-        // First try our bundled location
-        if (fs.existsSync(runtimeWasm)) {
-          return runtimeWasm
+        // First try shared WASM directory (new approach)
+        if (fs.existsSync(sharedWasm)) {
+          return sharedWasm
         }
         // Fallback to script directory
         const fallback = path.join(scriptDir, name)
@@ -44,7 +46,7 @@ export async function initTreeSitterForNode(): Promise<void> {
           return fallback
         }
         // Return our preferred path and let web-tree-sitter handle the error
-        return runtimeWasm
+        return sharedWasm
       }
       // For other files, use default behavior
       return path.join(scriptDir, name)

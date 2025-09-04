@@ -77,7 +77,7 @@ async function build() {
 }
 
 /**
- * Copy WASM files from @vscode/tree-sitter-wasm to both ESM and CJS dist directories
+ * Copy WASM files from @vscode/tree-sitter-wasm to shared dist/wasm directory
  */
 async function copyWasmFiles() {
   const wasmSourceDir = '../node_modules/@vscode/tree-sitter-wasm/wasm'
@@ -95,22 +95,13 @@ async function copyWasmFiles() {
     'tree-sitter-typescript.wasm',
   ]
 
-  // Create wasm directories in both ESM and CJS builds
-  await mkdir('dist/esm/wasm', { recursive: true })
-  await mkdir('dist/cjs/wasm', { recursive: true })
+  // Create shared wasm directory
+  await mkdir('dist/wasm', { recursive: true })
 
-  // Copy each WASM file to both directories
+  // Copy each WASM file to shared directory only
   for (const wasmFile of wasmFiles) {
     try {
-      await cp(`${wasmSourceDir}/${wasmFile}`, `dist/esm/wasm/${wasmFile}`)
-      await cp(`${wasmSourceDir}/${wasmFile}`, `dist/cjs/wasm/${wasmFile}`)
-
-      // Also copy main tree-sitter.wasm to the root dist directories where it's expected
-      if (wasmFile === 'tree-sitter.wasm') {
-        await cp(`${wasmSourceDir}/${wasmFile}`, `dist/esm/${wasmFile}`)
-        await cp(`${wasmSourceDir}/${wasmFile}`, `dist/cjs/${wasmFile}`)
-      }
-
+      await cp(`${wasmSourceDir}/${wasmFile}`, `dist/wasm/${wasmFile}`)
       console.log(`  ✓ Copied ${wasmFile}`)
     } catch (error) {
       console.warn(`  ⚠ Warning: Could not copy ${wasmFile}:`, error.message)

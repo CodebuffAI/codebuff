@@ -157,15 +157,14 @@ function resolveWasmPath(wasmFileName: string): string {
     return process.cwd()
   })()
 
-  // For bundled SDK: WASM files are in the same directory as this module or in a wasm subdirectory
+  // For bundled SDK: WASM files are in a shared wasm directory
   const possiblePaths = [
+    // Shared WASM directory (new approach to avoid duplication)
+    path.join(moduleDir, '..', 'wasm', wasmFileName),
     // WASM files in the same directory as this module (for bundled builds)
     path.join(moduleDir, 'wasm', wasmFileName),
-    // Development scenario - relative to SDK directory
-    path.join(process.cwd(), 'dist', 'esm', 'wasm', wasmFileName),
-    path.join(process.cwd(), 'dist', 'cjs', 'wasm', wasmFileName),
-    // Fallback to current working directory
-    path.join(process.cwd(), 'wasm', wasmFileName),
+    // Development scenario - shared wasm directory in SDK dist
+    path.join(process.cwd(), 'dist', 'wasm', wasmFileName),
   ]
 
   // Try each path and return the first one that exists (we'll fallback to package resolution if none work)
