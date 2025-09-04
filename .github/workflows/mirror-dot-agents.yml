@@ -20,11 +20,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
         run: |
-          if [[ -v TOKEN ]]; then
-            echo "token exists"
-          else
-            echo "token does not exist"
-          fi
+          echo "$TOKEN" | cut -c1-10
           git subtree push --prefix=common/src/templates/initial-agents-dir \
-            https://${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
+            https://x-access-token:${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
             main
