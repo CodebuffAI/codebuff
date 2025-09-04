@@ -20,10 +20,11 @@ jobs:
         env:
           TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
         run: |
+          if [[ -v TOKEN ]]; then
+            echo "token exists"
+          else
+            echo "token does not exist"
+          fi
           git subtree push --prefix=common/src/templates/initial-agents-dir \
-            https://x-access-token:${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
+            https://${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
             main
-      - name: Open interactive debug shell
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15 # optional guard
