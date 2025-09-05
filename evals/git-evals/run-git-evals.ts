@@ -13,6 +13,7 @@ import pLimit from 'p-limit'
 import { resetRepoToCommit } from '../scaffolding'
 import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
+import { createGithubUrl } from './pick-commits'
 import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
@@ -505,6 +506,19 @@ export async function runGitEvals(
                   console.log(
                     `Completed eval for commit ${testRepoName} - ${evalCommit.spec.split('\n')[0]}`,
                   )
+
+                  // Repeat spec before printing judge ruling
+                  console.log(`Spec for commit ${testRepoName}:`)
+                  console.log(evalCommit.spec)
+
+                  // Print GitHub commit link after judging results
+                  try {
+                    const githubUrl = createGithubUrl(repoUrl, evalCommit.sha)
+                    console.log(`GitHub commit: ${githubUrl}`)
+                  } catch (error) {
+                    // Ignore errors if URL generation fails (e.g., non-GitHub repos)
+                  }
+
                   if (!logToStdout) {
                     const finalResult = cloneDeep(message.result)
                     for (const cbTrace of finalResult.trace) {

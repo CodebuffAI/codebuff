@@ -295,7 +295,7 @@ function basicFilter(commits: CommitInfo[]): CommitInfo[] {
   })
 }
 
-function createGithubUrl(repoUrl: string, sha: string): string {
+export function createGithubUrl(repoUrl: string, sha: string): string {
   // Convert repo URL to GitHub commit URL
   let baseUrl = repoUrl
   if (baseUrl.endsWith('.git')) {
