@@ -738,6 +738,8 @@ export class CLI {
     this.detectPasting()
     if (this.isPasting) {
       this.pastedContent += line + '\n'
+      // Suppress the prompt during paste mode to avoid multiple ">" prompts
+      this.rl.setPrompt('')
     } else if (!this.isReceivingResponse) {
       const input = (this.pastedContent + line).trim()
       this.pastedContent = ''
@@ -1429,6 +1431,8 @@ export class CLI {
       this.consecutiveFastInputs = 0
       if (this.isPasting) {
         this.isPasting = false
+        // Restore the normal prompt when paste mode ends
+        this.setPrompt()
       }
     }
     this.lastInputTime = currentTime
