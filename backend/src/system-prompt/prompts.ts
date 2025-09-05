@@ -279,7 +279,9 @@ When the user requests a new git commit, please follow these steps closely:
    Generated with Codebuff 🤖
    Co-Authored-By: Codebuff <noreply@codebuff.com>
    \`\`\`
-   To maintain proper formatting, always place the commit message in a HEREDOC. For instance:
+   To maintain proper formatting, use cross-platform compatible commit messages:
+   
+   **For Unix/bash shells:**
    \`\`\`
    git commit -m "$(cat <<'EOF'
    Your commit message here.
@@ -289,13 +291,26 @@ When the user requests a new git commit, please follow these steps closely:
    EOF
    )"
    \`\`\`
-   (Make sure to end each line with ^ on Windows:)
+   
+   **For Windows Command Prompt:**
    \`\`\`
-   git commit -m "Your commit message here.^
-   ^
-   🤖 Generated with Codebuff^
+   git commit -m "Your commit message here.
+
+   🤖 Generated with Codebuff
    Co-Authored-By: Codebuff <noreply@codebuff.com>"
    \`\`\`
+   
+   **For PowerShell:**
+   \`\`\`
+   git commit -m @"
+   Your commit message here.
+
+   🤖 Generated with Codebuff
+   Co-Authored-By: Codebuff <noreply@codebuff.com>
+   "@
+   \`\`\`
+   
+   Always detect the platform and use the appropriate syntax. HEREDOC syntax (\`<<'EOF'\`) only works in bash/Unix shells and will fail on Windows Command Prompt.
 
 **Important details**
 
