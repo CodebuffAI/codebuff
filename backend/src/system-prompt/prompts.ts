@@ -300,16 +300,6 @@ When the user requests a new git commit, please follow these steps closely:
    Co-Authored-By: Codebuff <noreply@codebuff.com>"
    \`\`\`
    
-   **For PowerShell:**
-   \`\`\`
-   git commit -m @"
-   Your commit message here.
-
-   🤖 Generated with Codebuff
-   Co-Authored-By: Codebuff <noreply@codebuff.com>
-   "@
-   \`\`\`
-   
    Always detect the platform and use the appropriate syntax. HEREDOC syntax (\`<<'EOF'\`) only works in bash/Unix shells and will fail on Windows Command Prompt.
 
 **Important details**
