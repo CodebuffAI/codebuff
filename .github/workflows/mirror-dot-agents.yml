@@ -23,17 +23,10 @@ jobs:
           git config user.name "codebuff mirror bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: ssh
+      - name: Push subtree
         env:
-          TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN_DOT_AGENTS }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15 # optional guard
-
-
-      # - name: Push subtree
-      #   env:
-      #     TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
-      #   run: |
-      #     git subtree push --prefix=common/src/templates/initial-agents-dir \
-      #       https://x-access-token:${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
-      #       main
+          TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+        run: |
+          git subtree push --prefix=common/src/templates/initial-agents-dir \
+            https://x-access-token:${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
+            main
