@@ -2,8 +2,8 @@ name: Mirror subdir to dot-agents
 on:
   push:
     branches: [main]
-    # paths:
-    #   - 'common/src/templates/initial-agents-dir/**'
+    paths:
+      - 'common/src/templates/initial-agents-dir/**'
 
 jobs:
   mirror:
