@@ -31,6 +31,9 @@ async function main() {
   const run1 = await client.run({
     agent: 'base',
     prompt: 'Create a simple calculator class',
+    handleEvent: (event) => {
+      console.log(event) // Log all events
+    },
   })
 
   // Continue the same session with a follow-up
@@ -39,8 +42,7 @@ async function main() {
     prompt: 'Add unit tests for the calculator',
     previousRun: run1,
     handleEvent: (event) => {
-      // Log all events
-      console.log('Progress:', event)
+      console.log(event) // Log all events
     },
   })
 
