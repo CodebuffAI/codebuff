@@ -15,14 +15,20 @@ jobs:
           persist-credentials: false
 
       # (belt-and-suspenders) ensure the injected header is gone even if persist-credentials isn't honored
-      # NOTE(James): Disabled since it seems to be blocking deploys (at least for web?).
-      # - name: Clear default GitHub auth header
-      #   run: git config --global --unset-all http.https://github.com/.extraheader || true
+      - name: Clear default GitHub auth header
+        run: git config --global --unset-all http.https://github.com/.extraheader || true
 
-      # - name: Configure Git
-      #   run: |
-      #     git config user.name "codebuff mirror bot"
-      #     git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Configure Git
+        run: |
+          git config user.name "codebuff mirror bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: ssh
+        env:
+          TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN_DOT_AGENTS }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard
+
 
       # - name: Push subtree
       #   env:
