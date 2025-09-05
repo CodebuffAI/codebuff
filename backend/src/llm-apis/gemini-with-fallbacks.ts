@@ -6,7 +6,7 @@ import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 import type {
   CostMode,
   FinetunedVertexModel,
-  GeminiModel,
+  Model,
 } from '@codebuff/common/old-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
@@ -41,7 +41,7 @@ export async function promptFlashWithFallbacks(
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: GeminiModel
+    model: Model
     userId: string | undefined
     maxTokens?: number
     temperature?: number

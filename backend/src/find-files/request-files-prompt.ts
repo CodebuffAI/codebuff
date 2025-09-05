@@ -344,7 +344,7 @@ async function getRelevantFiles(
   let response = await promptFlashWithFallbacks(codebuffMessages, {
     clientSessionId,
     userInputId,
-    model: models.gemini2flash,
+    model: models.openrouter_gemini2_5_flash,
     userId,
     useFinetunedModel: finetunedModel,
     fingerprintId,

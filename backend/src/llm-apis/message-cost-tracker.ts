@@ -4,10 +4,10 @@ import {
   getUserCostPerCredit,
 } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
-import { models, TEST_USER_ID } from '@codebuff/common/old-constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
+import { models, TEST_USER_ID } from '@codebuff/common/old-constants'
 import { withRetry } from '@codebuff/common/util/promise'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'

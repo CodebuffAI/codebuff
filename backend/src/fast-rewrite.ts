@@ -1,4 +1,4 @@
-import { geminiModels, openaiModels } from '@codebuff/common/old-constants'
+import { models, openaiModels } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
@@ -208,7 +208,7 @@ Do not write anything else.
     clientSessionId,
     fingerprintId,
     userInputId,
-    model: geminiModels.gemini2flash,
+    model: models.openrouter_gemini2_5_flash,
     userId,
   })
   const shouldAddPlaceholderComments = response.includes('LOCAL_CHANGE_ONLY')

@@ -256,8 +256,8 @@ export const models = {
 } as const
 
 export const shortModelNames = {
-  'gemini-2.5-pro': models.gemini2_5_pro_preview,
-  'flash-2.5': models.gemini2_5_flash,
+  'gemini-2.5-pro': models.openrouter_gemini2_5_pro_preview,
+  'flash-2.5': models.openrouter_gemini2_5_flash,
   'opus-4': models.openrouter_claude_opus_4,
   'sonnet-4': models.openrouter_claude_sonnet_4,
   'sonnet-3.7': models.openrouter_claude_sonnet_4,
