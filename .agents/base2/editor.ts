@@ -126,7 +126,7 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 `,
 
   handleSteps: function* ({ agentState: initialAgentState }) {
-    const stepLimit = 20
+    const stepLimit = 25
     let stepCount = 0
     let agentState = initialAgentState
 
@@ -147,7 +147,7 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
           input: {
             role: 'user',
             content:
-              'You have reached the step limit. Please use the set_output tool now to summarize your progress so far, what you still need to solve, and provide any insights that could help complete the remaining work. Please end your turn after using the set_output tool with the end_turn tool.',
+              'You have reached the step limit. Please use the set_output tool now to summarize your progress so far including all specific actions you took (note that any file changes will be included automatically in the output), what you still need to solve, and provide any insights that could help complete the remaining work. Please end your turn after using the set_output tool with the end_turn tool.',
           },
           includeToolCall: false,
         }
@@ -161,51 +161,26 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
     // Collect all the edits from the conversation
     const { messageHistory, output } = agentState
-    const editToolResults: string[] = []
-    for (const message of messageHistory) {
-      if (
-        message.role === 'user' &&
-        typeof message.content === 'string' &&
-        message.content.includes('<tool_result>')
-      ) {
-        // Parse out tool results for write_file and str_replace
-        const writeFileMatches = message.content.match(
-          /<tool_result>\s*<tool>write_file<\/tool>\s*<result>([\s\S]*?)<\/result>\s*<\/tool_result>/g,
-        )
-        const strReplaceMatches = message.content.match(
-          /<tool_result>\s*<tool>str_replace<\/tool>\s*<result>([\s\S]*?)<\/result>\s*<\/tool_result>/g,
-        )
-
-        // Extract inner <result> content from write_file matches
-        if (writeFileMatches) {
-          for (const match of writeFileMatches) {
-            const resultMatch = match.match(/<result>([\s\S]*?)<\/result>/)
-            if (resultMatch) {
-              editToolResults.push(resultMatch[1])
-            }
-          }
-        }
-
-        // Extract inner <result> content from str_replace matches
-        if (strReplaceMatches) {
-          for (const match of strReplaceMatches) {
-            const resultMatch = match.match(/<result>([\s\S]*?)<\/result>/)
-            if (resultMatch) {
-              editToolResults.push(resultMatch[1])
-            }
-          }
-        }
-      }
-    }
-    const successfulEdits = editToolResults.filter(
-      (edit) => edit.includes('successfully') && edit.includes('Changes made:'),
-    )
+    const editToolResults = messageHistory
+      .filter((message) => message.role === 'tool')
+      .filter(
+        (message) =>
+          message.content.toolName === 'write_file' ||
+          message.content.toolName === 'str_replace',
+      )
+      .flatMap((message) => message.content.output)
+      .filter((output) => output.type === 'json')
+      .map((output) => output.value)
+      // Only successful edits!
+      .filter(
+        (toolResult) => toolResult && !('errorMessage' in (toolResult as any)),
+      )
 
     yield {
       toolName: 'set_output',
       input: {
         ...output,
-        edits: successfulEdits,
+        edits: editToolResults,
       },
     }
   },
