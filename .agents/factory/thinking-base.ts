@@ -54,7 +54,7 @@ export const thinkingBase = (
     : baseAgentSubagents,
 
   systemPrompt: baseAgentSystemPrompt(model),
-  instructionsPrompt: baseAgentUserInputPrompt(model),
+  instructionsPrompt: baseAgentUserInputPrompt(model, 'normal'),
   stepPrompt: baseAgentAgentStepPrompt(model),
 
   handleSteps: function* ({ agentState, prompt, params }) {
