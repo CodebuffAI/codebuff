@@ -1,6 +1,6 @@
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { countTokens } from '@codebuff/backend/util/token-counter'
-import { geminiModels } from '@codebuff/common/old-constants'
+import { models } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
@@ -182,7 +182,7 @@ export async function analyzeEvalResults(
   return promptAiSdkStructured({
     messages: [{ role: 'user', content: finalPrompt }],
     schema: PostEvalAnalysisSchema,
-    model: geminiModels.gemini2_5_pro_preview,
+    model: models.openrouter_gemini2_5_pro_preview,
     clientSessionId: generateCompactId(),
     fingerprintId: generateCompactId(),
     userInputId: generateCompactId(),
