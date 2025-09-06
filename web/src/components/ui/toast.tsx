@@ -84,9 +84,13 @@ const ToastClose = React.forwardRef<
     <X className="size-4" />
   </ToastPrimitives.Close>
 ))
-ToastClose.displayName = ToastPrimitives.Close.displayNameconst ToastTitle = React.forwardRef<
+ToastClose.displayName = ToastPrimitives.Close.displayName
+
+const ToastTitle = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Title>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Title> & { children?: React.ReactNode }
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Title> & {
+    children?: React.ReactNode
+  }
 >(({ className, children, ...props }, ref) => (
   <ToastPrimitives.Title
     ref={ref}
@@ -98,10 +102,11 @@ ToastClose.displayName = ToastPrimitives.Close.displayNameconst ToastTitle = Rea
 ))
 ToastTitle.displayName = ToastPrimitives.Title.displayName
 
-
 const ToastDescription = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Description>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description> & { children?: React.ReactNode }
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description> & {
+    children?: React.ReactNode
+  }
 >(({ className, children, ...props }, ref) => (
   <ToastPrimitives.Description
     ref={ref}
