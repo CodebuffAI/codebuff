@@ -12,6 +12,7 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  open?: boolean
 }
 
 let count = 0
@@ -154,7 +155,7 @@ function toast({ title, description, ...props }: Toast) {
       title,
       description,
       open: true,
-      onOpenChange: (open) => {
+      onOpenChange: (open: boolean) => {
         if (!open) dismiss()
       },
     },

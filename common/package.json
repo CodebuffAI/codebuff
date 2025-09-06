@@ -3,6 +3,12 @@
   "version": "1.0.0",
   "description": "Common utilities for Codebuff",
   "private": true,
+  "files": [
+    "dist",
+    "src",
+    "bin/**/*",
+    "LICENSE.ripgrep"
+  ],
   "type": "module",
   "exports": {
     "./db": {
@@ -16,7 +22,14 @@
       "import": "./src/*.ts",
       "types": "./src/*.ts",
       "default": "./src/*.ts"
-    }
+    },
+    "./native/ripgrep": {
+      "bun": "./src/native/ripgrep.ts",
+      "import": "./src/native/ripgrep.ts",
+      "types": "./src/native/ripgrep.ts",
+      "default": "./src/native/ripgrep.ts"
+    },
+    "./bin/ripgrep/*": "./bin/ripgrep/*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
@@ -24,7 +37,8 @@
     "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
     "db:migrate": "drizzle-kit push --config=./src/db/drizzle.config.ts",
     "db:start": "docker compose -f ./src/db/docker-compose.yml up --wait && bun run db:generate && (timeout 1 || sleep 1) && bun run db:migrate",
-    "db:studio": "drizzle-kit studio --config=./src/db/drizzle.config.ts"
+    "db:studio": "drizzle-kit studio --config=./src/db/drizzle.config.ts",
+    "update-rg": "bun run scripts/update-rg.ts"
   },
   "sideEffects": false,
   "engines": {

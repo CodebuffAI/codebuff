@@ -58,7 +58,7 @@
     "url": "https://github.com/CodebuffAI/codebuff/issues"
   },
   "dependencies": {
-    "@vscode/ripgrep": "1.15.14",
+    "@codebuff/common": "^1.0.0",
     "@vscode/tree-sitter-wasm": "0.1.4",
     "ai": "^5.0.0",
     "diff": "8.0.2",

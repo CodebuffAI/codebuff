@@ -1,11 +1,11 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
 
-import { rgPath } from '@vscode/ripgrep'
+import { getRgPath } from '../../../common/src/native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
-export function codeSearch({
+export async function codeSearch({
   projectPath,
   pattern,
   flags,
@@ -16,6 +16,7 @@ export function codeSearch({
   flags?: string
   cwd?: string
 }): Promise<CodebuffToolOutput<'code_search'>> {
+  const rgPath = await getRgPath()
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
