@@ -217,6 +217,15 @@ export const callMainPrompt = async (
     })
   }
 
+  sendAction(ws, {
+    type: 'response-chunk',
+    userInputId: promptId,
+    chunk: {
+      type: 'start',
+      agentId: action.sessionState.mainAgentState.agentType ?? undefined,
+    },
+  })
+
   const result = await mainPrompt(ws, action, {
     userId,
     clientSessionId,

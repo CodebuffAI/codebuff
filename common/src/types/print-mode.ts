@@ -2,6 +2,12 @@ import z from 'zod/v4'
 
 import { toolResultOutputSchema } from './messages/content-part'
 
+export const printModeStartSchema = z.object({
+  type: z.literal('start'),
+  agentId: z.string().optional(),
+})
+export type PrintModeStart = z.infer<typeof printModeStartSchema>
+
 export const printModeErrorSchema = z.object({
   type: z.literal('error'),
   message: z.string(),
@@ -49,6 +55,7 @@ export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeErrorSchema,
   printModeDownloadStatusSchema,
   printModeFinishSchema,
+  printModeStartSchema,
   printModeTextSchema,
   printModeToolCallSchema,
   printModeToolResultSchema,
