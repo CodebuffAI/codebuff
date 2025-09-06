@@ -14,8 +14,7 @@
  *   export default definition
  */
 
-import type { Message } from './codebuff-message'
-import { ToolResultOutput } from './content-part'
+import type { Message, ToolResultOutput, JsonObjectSchema } from './util-types'
 import type * as Tools from './tools'
 type ToolName = Tools.ToolName
 
@@ -225,26 +224,6 @@ export type ToolCall<T extends ToolName = ToolName> = {
     includeToolCall?: boolean
   }
 }[T]
-
-/**
- * JSON Schema definition (for prompt schema or output schema)
- */
-export type JsonSchema = {
-  type?:
-    | 'object'
-    | 'array'
-    | 'string'
-    | 'number'
-    | 'boolean'
-    | 'null'
-    | 'integer'
-  description?: string
-  properties?: Record<string, JsonSchema | boolean>
-  required?: string[]
-  enum?: Array<string | number | boolean | null>
-  [k: string]: unknown
-}
-export type JsonObjectSchema = JsonSchema & { type: 'object' }
 
 // ============================================================================
 // Available Tools
