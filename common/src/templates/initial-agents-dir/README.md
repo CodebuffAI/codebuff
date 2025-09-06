@@ -2,6 +2,18 @@
 
 Create specialized agent workflows that coordinate multiple AI agents to tackle complex engineering tasks. Instead of a single agent trying to handle everything, you can orchestrate teams of focused specialists that work together.
 
+## Getting Started
+
+1. **Edit an existing agent**: Start with `my-custom-agent.ts` and modify it for your needs
+2. **Test your agent**: Run `codebuff --agent your-agent-name`
+3. **Publish your agent**: Run `codebuff publish your-agent-name`
+
+## Need Help?
+
+- For detailed documentation, see [agent-guide.md](./agent-guide.md).
+- For examples, check the `examples/` directory.
+- Join our [Discord community](https://codebuff.com/discord) and ask your questions!
+
 ## Context Window Management
 
 ### Why Agent Workflows?
@@ -42,11 +54,3 @@ export default {
 ```
 
 This agent systematically analyzes changes, reads relevant files for context, then creates commits with clear, meaningful messages that explain the "why" behind changes.
-
-## Getting started
-
-Edit `my-custom-agent.ts` with your team's patterns, then run `codebuff --agent my-custom-agent` to test it.
-
-For detailed documentation, see [agent-guide.md](./agent-guide.md).
-For examples, check the `examples/` directory.
-For help, join our [Discord community](https://codebuff.com/discord).

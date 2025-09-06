@@ -15,6 +15,7 @@
  */
 
 import type { Message } from './codebuff-message'
+import { ToolResultOutput } from './content-part'
 import type * as Tools from './tools'
 type ToolName = Tools.ToolName
 
@@ -184,7 +185,7 @@ export interface AgentDefinition {
     void,
     {
       agentState: AgentState
-      toolResult: string | undefined
+      toolResult: ToolResultOutput[] | undefined
       stepsComplete: boolean
     }
   >
@@ -324,6 +325,7 @@ export type ModelName =
 
   // X-AI
   | 'x-ai/grok-4-07-09'
+  | 'x-ai/grok-code-fast-1'
 
   // Qwen
   | 'qwen/qwen3-coder'
