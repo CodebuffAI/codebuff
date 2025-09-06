@@ -21,7 +21,7 @@ import { CodebuffClient } from '@codebuff/sdk'
 
 async function main() {
   const client = new CodebuffClient({
-    // Note: You need to pass in your own API key here.
+    // Note: You need to pass in your own API key here. Get one: https://www.codebuff.com/profile?tab=api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
     cwd: process.cwd(),
     onError: (e) => console.error('Codebuff error:', e.message),
@@ -52,91 +52,77 @@ async function main() {
 main()
 ```
 
-### Advanced Example with Custom Agents, Tools, and Images
+### Example 2: Custom Agents and Tools
 
 ```typescript
 import { z } from 'zod'
 import {
   CodebuffClient,
-  generateInitialRunState,
-  withAdditionalMessage,
+  AgentDefinition,
   getCustomToolDefinition,
 } from '@codebuff/sdk'
 
 async function main() {
   const client = new CodebuffClient({
-    // Note: You need to pass in your own API key here.
+    // Note: You need to pass in your own API key. Get it here: https://www.codebuff.com/profile?tab=api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
     cwd: process.cwd(),
     onError: (e) => console.error('Codebuff error:', e.message),
   })
 
-  // Create a run with an image
-  const emptyRun = await generateInitialRunState({ cwd: process.cwd() })
-  const runWithImage = withAdditionalMessage({
-    runState: emptyRun,
-    message: {
-      role: 'user',
-      content: [
-        {
-          type: 'image',
-          image: new URL(
-            'https://upload.wikimedia.org/wikipedia/en/a/a9/Example.jpg',
-          ),
-        },
-      ],
-    },
-  })
+  const myCustomAgent: AgentDefinition = {
+    id: 'my-custom-agent',
+    model: 'openai/gpt-5',
+    displayName: 'Sentiment analyzer',
+    instructionsPrompt: `
+1. Describe the different sentiments in the given prompt.
+2. Score the prompt along the following 5 dimensions:
+  happiness, sadness, anger, fear, and surprise.`,
+    // ... other AgentDefinition properties
+  }
 
-  const result = await client.run({
-    agent: 'my-custom-agent',
-    prompt: 'Analyze this image and create code based on what you see',
-    previousRun: runWithImage,
-
-    // Custom agent definitions
-    agentDefinitions: [
-      {
-        id: 'my-custom-agent',
-        model: 'openai/gpt-5',
-        displayName: 'Image Analyzer',
-        instructionsPrompt:
-          '1. describe all the details in the image. 2. answer the user prompt',
-        // ... other AgentDefinition properties
-      },
-    ],
-
-    // Custom tool definitions
-    customToolDefinitions: [
-      getCustomToolDefinition({
-        toolName: 'fetch_api_data',
-        description: 'Fetch data from an API endpoint',
-        inputSchema: z.object({
-          url: z.string().url(),
-          method: z.enum(['GET', 'POST']).default('GET'),
-          headers: z.record(z.string()).optional(),
+  const myCustomTool = getCustomToolDefinition({
+    toolName: 'fetch_api_data',
+    description: 'Fetch data from an API endpoint',
+    inputSchema: z.object({
+      url: z.url(),
+      method: z.enum(['GET', 'POST']).default('GET'),
+      headers: z.record(z.string(), z.string()).optional(),
+    }),
+    outputSchema: z.array(
+      z.object({
+        type: z.literal('json'),
+        value: z.object({
+          message: z.string(),
         }),
-        exampleInputs: [
-          { url: 'https://api.example.com/data', method: 'GET' },
-          {
-            url: 'https://api.example.com/submit',
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          },
-        ],
-        handler: async ({ url, method, headers }) => {
-          const response = await fetch(url, { method, headers })
-          const data = await response.text()
-          return {
-            toolResultMessage: `API Response: ${data.slice(0, 5000)}...`,
-          }
-        },
       }),
-    ],
-
-    handleEvent: (event) => {
-      console.log('Agent progress:', event)
+    ),
+    exampleInputs: [{ url: 'https://api.example.com/data', method: 'GET' }],
+    handler: async ({ url, method, headers }) => {
+      const response = await fetch(url, { method, headers })
+      const data = await response.text()
+      return [
+        {
+          type: 'json' as const,
+          value: {
+            message: `API Response: ${data.slice(0, 5000)}...`,
+          },
+        },
+      ]
     },
   })
+
+  const { output } = await client.run({
+    agent: 'my-custom-agent',
+    prompt: "Today I'm feeling very happy!",
+    agentDefinitions: [myCustomAgent],
+    customToolDefinitions: [myCustomTool],
+    handleEvent: (event) => {
+      console.log(event)
+    },
+  })
+
+  console.log('Final output:', output)
 
   client.closeConnection()
 }
