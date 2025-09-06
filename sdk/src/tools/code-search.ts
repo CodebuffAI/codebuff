@@ -1,7 +1,7 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
 
-import { getRgPath } from '@codebuff/common/native/ripgrep'
+import { getRgPath } from '../../../common/src/native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
