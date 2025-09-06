@@ -4,11 +4,11 @@ import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   API_KEY_ENV_VAR,
   ASYNC_AGENTS_ENABLED,
 } from '@codebuff/common/old-constants'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   getAllAgents,
   getAgentDisplayName,
@@ -109,7 +109,6 @@ import { withHangDetection } from './utils/with-hang-detection'
 import type { CliOptions, GitCommand } from './types'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
 import type { CostMode } from '@codebuff/common/old-constants'
-import type { PrintModeFinish } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 // Cache for local agent info to avoid async issues in sync methods
@@ -1372,17 +1371,6 @@ export class CLI {
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
-    if (printModeIsEnabled()) {
-      const finishObj: PrintModeFinish = {
-        type: 'finish',
-        totalCost: totalCreditsUsedThisSession,
-      }
-      const agentId = CLI.getInstance().agent
-      if (agentId) {
-        finishObj.agentId = agentId
-      }
-      printModeLog(finishObj)
-    }
     let exitUsageMessage = `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session`
     if (client.usageData.remainingBalance !== null) {
       exitUsageMessage += `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`

@@ -1,12 +1,12 @@
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import db from '@codebuff/common/db/index'
+import * as schema from '@codebuff/common/db/schema'
 import {
   ASYNC_AGENTS_ENABLED,
   toOptionalFile,
 } from '@codebuff/common/old-constants'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import db from '@codebuff/common/db/index'
-import * as schema from '@codebuff/common/db/schema'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -233,6 +233,16 @@ export const callMainPrompt = async (
   })
 
   const { sessionState, output } = result
+
+  sendAction(ws, {
+    type: 'response-chunk',
+    userInputId: promptId,
+    chunk: {
+      type: 'finish',
+      agentId: sessionState.mainAgentState.agentType ?? undefined,
+      totalCost: sessionState.mainAgentState.creditsUsed,
+    },
+  })
 
   // Send prompt data back
   sendAction(ws, {
