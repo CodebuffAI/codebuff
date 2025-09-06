@@ -15,6 +15,7 @@
  */
 
 import type { Message } from './codebuff-message'
+import { ToolResultOutput } from './content-part'
 import type * as Tools from './tools'
 type ToolName = Tools.ToolName
 
@@ -184,7 +185,7 @@ export interface AgentDefinition {
     void,
     {
       agentState: AgentState
-      toolResult: string | undefined
+      toolResult: ToolResultOutput[] | undefined
       stepsComplete: boolean
     }
   >
