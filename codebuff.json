@@ -15,7 +15,7 @@
   "fileChangeHooks": [
     {
       "name": "backend-unit-tests",
-      "command": "../scripts/run-tests-summary",
+      "command": "bun test",
       "cwd": "backend",
       "filePattern": "backend/**/*.ts"
     },
@@ -27,7 +27,7 @@
     },
     {
       "name": "npm-app-unit-tests",
-      "command": "../scripts/run-tests-summary",
+      "command": "bun test",
       "cwd": "npm-app",
       "filePattern": "npm-app/**/*.ts"
     },
@@ -45,7 +45,7 @@
     },
     {
       "name": "common-unit-tests",
-      "command": "../scripts/run-tests-summary",
+      "command": "bun test",
       "cwd": "common",
       "filePattern": "common/**/*.ts"
     },
@@ -57,7 +57,7 @@
     },
     {
       "name": "prettier-format",
-      "command": "set -o pipefail && CHANGED=\"$(git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|json|md)$' | xargs -r npx prettier --list-different || true)\"; [ -n \"$CHANGED\" ] && echo \"$CHANGED\" | xargs -r npx prettier --write --log-level=warn && printf '%s\\n' \"$CHANGED\" || true",
+      "command": "npx prettier --write --log-level=warn .",
       "filePattern": "**/*.{ts,tsx,json,md}"
     },
     {
@@ -73,7 +73,7 @@
     },
     {
       "name": "eslint-fix-imports",
-      "command": "set -o pipefail && git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx)$' | xargs -r npx eslint --fix --quiet",
+      "command": "npx eslint --fix --quiet .",
       "filePattern": "**/*.{ts,tsx,js,jsx}"
     }
   ]

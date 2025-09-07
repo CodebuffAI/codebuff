@@ -289,11 +289,11 @@ When the user requests a new git commit, please follow these steps closely:
    EOF
    )"
    \`\`\`
-   (Make sure to end each line with ^ on Windows:)
+   On Windows, use standard multi-line string syntax:
    \`\`\`
-   git commit -m "Your commit message here.^
-   ^
-   🤖 Generated with Codebuff^
+   git commit -m "Your commit message here.
+
+   🤖 Generated with Codebuff
    Co-Authored-By: Codebuff <noreply@codebuff.com>"
    \`\`\`
 
