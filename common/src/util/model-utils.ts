@@ -8,8 +8,11 @@ function getExplicitlyDefinedModels(): Set<string> {
   if (explicitlyDefinedModels === null) {
     // Dynamically import to avoid circular dependency issues
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { models } = require('../old-constants')
-    explicitlyDefinedModels = new Set(Object.values(models) as string[])
+    const { models, shouldCacheModels } = require('../old-constants')
+    explicitlyDefinedModels = new Set([
+      ...(Object.values(models) as string[]),
+      ...(Object.values(shouldCacheModels) as string[]),
+    ])
   }
   return explicitlyDefinedModels
 }

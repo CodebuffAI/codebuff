@@ -299,6 +299,13 @@ export const providerModelNames = {
 
 export type Model = (typeof models)[keyof typeof models] | (string & {})
 
+export const shouldCacheModels = [
+  'anthropic/claude-opus-4.1',
+  'anthropic/claude-sonnet-4',
+  'anthropic/claude-opus-4',
+  'anthropic/claude-3.7-sonnet',
+  'anthropic/claude-3.5-haiku',
+]
 const nonCacheableModels = [
   models.openrouter_grok_4,
 ] satisfies string[] as string[]
