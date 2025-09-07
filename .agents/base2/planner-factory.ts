@@ -14,7 +14,7 @@ export const plannerFactory = (
   model,
   displayName: 'Peter Plan',
   spawnerPrompt:
-    'Creates comprehensive plans by exploring the codebase, doing research on the web, and thinking deeply. You can also use it get deep answer to any question. This is a slow agent -- prefer to use it for complex tasks that require thinking.',
+    'Creates comprehensive plans by exploring the codebase, doing research on the web, and thinking deeply. Is a codebase expert. You can also use it get a deep answer to any question. Use this agent for tasks that require thinking.',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -28,6 +28,7 @@ export const plannerFactory = (
     'file-explorer',
     'web-researcher',
     'docs-researcher',
+    'read-only-commander',
     'thinker-gpt-5-high',
   ],
 
@@ -39,8 +40,10 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
   instructionsPrompt: `You are gathering information which will be used to create a plan.
   
-- It's helpful to spawn a file-explorer to find all the relevant parts of the codebase. In parallel as part of the same spawn_agents tool call, you may also spawn a web-researcher or docs-researcher to search the web or technical documentation for relevant information.
-- After you are satisfied with the information you have gathered from these agents, stop and use the end_turn tool. The plan will be created in a separate step. Do not spawn thinker-gpt-5-high in this step.`,
+- It's helpful to spawn a file-explorer and read-only-commander to find all the relevant parts of the codebase. In parallel as part of the same spawn_agents tool call, you may also spawn a web-researcher or docs-researcher to search the web or technical documentation for relevant information. Note: for the read-only-commander, be sure to ask it to list the file paths of all the relevant files for this task as absolute paths (e.g. src/example.ts, packages/components/Example.js, etc.).
+- Read all the file paths that are relevant using the read_files tool.
+- Read more and more files to get any information that could possibly help you make the best plan. It's good to read 20+ files.
+- After you are satisfied with the information you have gathered from these agents, use the set_output tool to describe the relevant information and insights you have. Then stop and use the end_turn tool. The plan will be created in a separate step. Do not spawn thinker-gpt-5-high in this step.`,
 
   handleSteps: function* ({ prompt }) {
     // Step 1: Gather information

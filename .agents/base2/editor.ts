@@ -8,7 +8,7 @@ import {
 const editor: SecretAgentDefinition = {
   id: 'editor',
   publisher,
-  model: 'anthropic/claude-4-sonnet-20250522',
+  model: 'anthropic/claude-sonnet-4',
   displayName: 'Code Editor',
   spawnerPrompt:
     'Expert code editor with access to tools to find and edit files, run terminal commands, and search the web. Can handle small to medium sized tasks, or work off of a plan for more complex tasks. For easy tasks, you can spawn this agent directly rather than invoking a scout or planner first.',
@@ -111,7 +111,7 @@ User: <tool_result>
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
-  instructionsPrompt: `Implement the requested changes. Feel free to ignore the plan if it seems incorrect.
+  instructionsPrompt: `Implement the requested changes, using your judgment as needed, but referring to the original <user-message> as the most important source of information.
 
 # Instructions
 
