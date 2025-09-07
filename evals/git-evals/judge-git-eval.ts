@@ -8,7 +8,7 @@ import { JudgingAnalysisSchema } from './types'
 
 import type { EvalRunLog } from './types'
 
-const MAX_TOKENS = 1_000_000 // 1 million token limit
+const MAX_TOKENS = 1_000_000 * 0.95 // 1 million token limit, with 5% fudge factor
 
 function buildAnalysisPrompt(
   evalRun: EvalRunLog,
