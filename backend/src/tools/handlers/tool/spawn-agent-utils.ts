@@ -233,6 +233,7 @@ export function createConversationHistoryMessage(messages: Message[]): Message {
       null,
       2,
     )}`,
+    keepDuringTruncation: true,
   }
 }
 
