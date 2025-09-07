@@ -566,7 +566,6 @@ export const loopAgentSteps = async (
             clientSessionId,
             fingerprintId,
             onResponseChunk,
-            agentType,
             fileContext,
             ws,
             template: agentTemplate,

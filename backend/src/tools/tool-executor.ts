@@ -126,6 +126,7 @@ export interface ExecuteToolCallParams<T extends string = ToolName> {
   state: Record<string, any>
   userId: string | undefined
   autoInsertEndStepParam?: boolean
+  excludeToolFromMessageHistory?: boolean
 }
 
 export function executeToolCall<T extends ToolName>({
@@ -145,6 +146,7 @@ export function executeToolCall<T extends ToolName>({
   state,
   userId,
   autoInsertEndStepParam = false,
+  excludeToolFromMessageHistory = false,
 }: ExecuteToolCallParams<T>): Promise<void> {
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>(
     {
@@ -264,10 +266,12 @@ export function executeToolCall<T extends ToolName>({
 
     toolResults.push(toolResult)
 
-    state.messages.push({
-      role: 'tool' as const,
-      content: toolResult,
-    })
+    if (!excludeToolFromMessageHistory) {
+      state.messages.push({
+        role: 'tool' as const,
+        content: toolResult,
+      })
+    }
   })
 }
 
@@ -363,6 +367,7 @@ export function executeCustomToolCall({
   state,
   userId,
   autoInsertEndStepParam = false,
+  excludeToolFromMessageHistory = false,
 }: ExecuteToolCallParams<string>): Promise<void> {
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall(
     fileContext.customToolDefinitions,
@@ -461,10 +466,12 @@ export function executeCustomToolCall({
 
       toolResults.push(toolResult)
 
-      state.messages.push({
-        role: 'tool' as const,
-        content: toolResult,
-      } satisfies Message)
+      if (!excludeToolFromMessageHistory) {
+        state.messages.push({
+          role: 'tool' as const,
+          content: toolResult,
+        } satisfies Message)
+      }
       return
     })
 }

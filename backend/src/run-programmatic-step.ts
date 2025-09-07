@@ -18,10 +18,7 @@ import type {
   ToolResultPart,
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type {
-  AgentState,
-  AgentTemplateType,
-} from '@codebuff/common/types/session-state'
+import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -54,7 +51,6 @@ export async function runProgrammaticStep(
     clientSessionId,
     fingerprintId,
     onResponseChunk,
-    agentType,
     fileContext,
     ws,
     localAgentTemplates,
@@ -68,7 +64,6 @@ export async function runProgrammaticStep(
     clientSessionId: string
     fingerprintId: string
     onResponseChunk: (chunk: string | PrintModeEvent) => void
-    agentType: AgentTemplateType
     fileContext: ProjectFileContext
     ws: WebSocket
     localAgentTemplates: Record<string, AgentTemplate>
@@ -194,9 +189,9 @@ export async function runProgrammaticStep(
         )
       }
 
+      const excludeToolFromMessageHistory = toolCall?.includeToolCall === false
       // Add assistant message with the tool call before executing it
-      // Exception: don't add tool call message for add_message since it adds its own message
-      if (toolCall?.includeToolCall !== false) {
+      if (!excludeToolFromMessageHistory) {
         const toolCallString = getToolCallString(
           toolCall.toolName,
           toolCall.input,
@@ -232,6 +227,7 @@ export async function runProgrammaticStep(
         state,
         userId,
         autoInsertEndStepParam: true,
+        excludeToolFromMessageHistory,
       })
 
       // TODO: Remove messages from state and always use agentState.messageHistory.

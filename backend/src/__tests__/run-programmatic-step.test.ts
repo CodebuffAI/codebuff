@@ -120,7 +120,6 @@ describe('runProgrammaticStep', () => {
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
-      agentType: 'test-agent' as any,
       fileContext: mockFileContext,
       assistantMessage: undefined,
       assistantPrefix: undefined,
