@@ -7,7 +7,7 @@ import {
 const readOnlyCommander: SecretAgentDefinition = {
   id: 'read-only-commander',
   publisher,
-  model: 'x-ai/grok-code-fast-1',
+  model: 'openai/gpt-5-chat',
   reasoningOptions: {
     enabled: true,
     effort: 'low',
