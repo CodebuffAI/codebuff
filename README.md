@@ -28,10 +28,13 @@ This multi-agent approach gives you better context understanding, more accurate 
 ## CLI: Install and start coding
 
 Install:
+
 ```bash
 npm install -g codebuff
 ```
+
 Run:
+
 ```
 cd your-project
 codebuff
@@ -72,24 +75,40 @@ export default {
 }
 ```
 
-## SDK: Build custom AI coding tools
+## SDK: Run agents in production
 
 ```typescript
 import { CodebuffClient } from 'codebuff'
 
-// Initialize the client
+// 1. Initialize the client
 const client = new CodebuffClient({
   apiKey: 'your-api-key',
   cwd: '/path/to/your/project',
   onError: (error) => console.error('Codebuff error:', error.message),
 })
 
-// Run a task, like adding error handling to all API endpoints
+// 2. Do a coding task...
 const result = await client.run({
+  agent: 'base', // Codebuff's base coding agent
   prompt: 'Add comprehensive error handling to all API endpoints',
-  agent: 'base',
   handleEvent: (event) => {
-    console.log('Progress:', event)
+    console.log('Progress', event)
+  },
+})
+
+// 3. Or, run a custom agent!
+const myCustomAgent: AgentDefinition = {
+  id: 'greeter',
+  displayName: 'Greeter',
+  model: 'openai/gpt-5',
+  instructionsPrompt: 'Say hello!',
+}
+await client.run({
+  agent: 'greeter',
+  agentDefinitions: [myCustomAgent],
+  prompt: 'My name is Bob.',
+  handleEvent: (event) => {
+    console.log('Progress', event)
   },
 })
 ```
