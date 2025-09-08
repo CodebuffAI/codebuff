@@ -1,12 +1,12 @@
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
-import {
-  ASYNC_AGENTS_ENABLED,
-  toOptionalFile,
-} from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
+import {
+  ASYNC_AGENTS_ENABLED,
+  toOptionalFile,
+} from '@codebuff/common/old-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -30,6 +30,7 @@ import type {
   ServerAction,
   UsageResponse,
 } from '@codebuff/common/actions'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
 
@@ -157,11 +158,14 @@ const onPrompt = async (
       startUserInput(userId, promptId)
 
       try {
-        await callMainPrompt(ws, action, {
+        const result = await callMainPrompt(ws, action, {
           userId,
           promptId,
           clientSessionId,
         })
+        if (result.output.type === 'error') {
+          throw new Error(result.output.message)
+        }
       } catch (e) {
         logger.error({ error: getErrorObject(e) }, 'Error in mainPrompt')
         let response =
@@ -213,6 +217,15 @@ export const callMainPrompt = async (
     })
   }
 
+  sendAction(ws, {
+    type: 'response-chunk',
+    userInputId: promptId,
+    chunk: {
+      type: 'start',
+      agentId: action.sessionState.mainAgentState.agentType ?? undefined,
+    },
+  })
+
   const result = await mainPrompt(ws, action, {
     userId,
     clientSessionId,
@@ -228,15 +241,26 @@ export const callMainPrompt = async (
     },
   })
 
-  const { sessionState, toolCalls, toolResults } = result
+  const { sessionState, output } = result
+
+  sendAction(ws, {
+    type: 'response-chunk',
+    userInputId: promptId,
+    chunk: {
+      type: 'finish',
+      agentId: sessionState.mainAgentState.agentType ?? undefined,
+      totalCost: sessionState.mainAgentState.creditsUsed,
+    },
+  })
 
   // Send prompt data back
   sendAction(ws, {
     type: 'prompt-response',
     promptId,
     sessionState,
-    toolCalls: toolCalls as any[],
-    toolResults,
+    toolCalls: [],
+    toolResults: [],
+    output,
   })
 
   return result
@@ -421,12 +445,7 @@ export async function requestToolCall(
   toolName: string,
   input: Record<string, any> & { timeout_seconds?: number },
 ): Promise<{
-  success: boolean
-  output?: {
-    type: 'text'
-    value: string
-  }
-  error?: string
+  output: ToolResultOutput[]
 }> {
   return new Promise((resolve) => {
     const requestId = generateCompactId()
@@ -443,8 +462,14 @@ export async function requestToolCall(
             () => {
               unsubscribe()
               resolve({
-                success: false,
-                error: `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
+                output: [
+                  {
+                    type: 'json',
+                    value: {
+                      errorMessage: `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
+                    },
+                  },
+                ],
               })
             },
             timeoutInSeconds * 1000 + 5000, // Convert to ms and add a small buffer
@@ -456,9 +481,7 @@ export async function requestToolCall(
         clearTimeout(timeoutHandle)
         unsubscribe()
         resolve({
-          success: action.success,
           output: action.output,
-          error: action.error,
         })
       }
     })

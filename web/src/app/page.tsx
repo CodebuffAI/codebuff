@@ -2,6 +2,8 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
+import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
 import { useEffect, useState, Suspense } from 'react'
 
@@ -24,6 +26,7 @@ import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { storeSearchParams } from '@/lib/trackConversions'
 import { cn } from '@/lib/utils'
+import { ReferralRedirect } from '@/components/referral-redirect'
 
 function SearchParamsHandler() {
   const searchParams = useSearchParams()
@@ -97,6 +100,7 @@ export default function Home() {
       <Suspense>
         <SearchParamsHandler />
       </Suspense>
+      <ReferralRedirect />
 
       <Section background={SECTION_THEMES.hero.background} hero fullViewport>
         <div
@@ -125,6 +129,143 @@ export default function Home() {
       </Section>
 
       <div className={cn('transition-all duration-1000')}>
+        {/* Visual divider between hero and comparison */}
+        <div className="h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
+
+        {/* Prominent Claude Code vs Codebuff Comparison - MOVED TO TOP */}
+        <Section background={BlockColor.DarkForestGreen}>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.6 }}
+              className="space-y-8"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                    className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold tracking-wider shadow-lg"
+                  >
+                    🆕 NEW
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="bg-green-500/20 border border-green-500/50 text-green-400 px-3 py-1 rounded-full text-sm font-semibold"
+                  >
+                    BENCHMARK RESULTS
+                  </motion.div>
+                </div>
+                <h2 className="text-4xl md:text-5xl font-bold text-white">
+                  BuffBench Results
+                </h2>
+                <p className="text-xl text-white/70 max-w-2xl mx-auto">
+                  State of the art coding agent evaluation using generated workflows and judging from open
+                  source repositories
+                </p>
+              </div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.7, delay: 0.2 }}
+                className="relative"
+              >
+                <div className="bg-zinc-900/50 border-2 border-green-500/30 rounded-xl p-8 shadow-2xl shadow-green-500/10">
+                  <Image
+                    src="/codebuff-vs-claude-code.png"
+                    alt="Codebuff vs Claude Code Performance Comparison"
+                    width={800}
+                    height={600}
+                    className="rounded-lg mx-auto"
+                    priority
+                  />
+                </div>
+              </motion.div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.4 }}
+                  className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-6"
+                >
+                  <div className="text-3xl font-bold text-green-400 mb-2">
+                    175+
+                  </div>
+                  <div className="text-white font-semibold mb-1">
+                    Real Tasks
+                  </div>
+                  <div className="text-white/60 text-sm">
+                    Git commit reconstruction from open source projects
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.6 }}
+                  className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-6"
+                >
+                  <div className="text-3xl font-bold text-green-400 mb-2">
+                    5
+                  </div>
+                  <div className="text-white font-semibold mb-1">
+                    Turn Conversations
+                  </div>
+                  <div className="text-white/60 text-sm">
+                    Prompting agent simulates human for multiple turns
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.8 }}
+                  className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-6"
+                >
+                  <div className="text-3xl font-bold text-green-400 mb-2">
+                    4D
+                  </div>
+                  <div className="text-white font-semibold mb-1">
+                    Scoring System
+                  </div>
+                  <div className="text-white/60 text-sm">
+                    Completion, efficiency, code quality, and overall scores
+                  </div>
+                </motion.div>
+              </div>
+
+              <div className="mt-8">
+                <motion.a
+                  href="https://github.com/CodebuffAI/codebuff/tree/main/evals"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 1.0 }}
+                  className="inline-flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors"
+                >
+                  <span>View evaluation methodology</span>
+                  <span className="text-xs">↗</span>
+                </motion.a>
+              </div>
+            </motion.div>
+          </div>
+        </Section>
+
         <FeatureSection
           title={
             <>

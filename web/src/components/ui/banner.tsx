@@ -1,6 +1,6 @@
 'use client'
 
-import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/constants'
+import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import { capitalize } from '@codebuff/common/util/string'
 import { X, Gift } from 'lucide-react'
 import Link from 'next/link'

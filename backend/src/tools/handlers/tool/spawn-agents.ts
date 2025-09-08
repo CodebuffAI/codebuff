@@ -6,15 +6,16 @@ import {
   createAgentState,
   logAgentSpawn,
   executeAgent,
-  formatAgentResult,
-  formatAgentError,
 } from './spawn-agent-utils'
 import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -28,16 +29,17 @@ export type SendSubagentChunk = (data: {
   prompt?: string
 }) => void
 
+type ToolName = 'spawn_agents'
 export const handleSpawnAgents = ((params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'spawn_agents'>
+  toolCall: CodebuffToolCall<ToolName>
 
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
   writeToClient: (chunk: string | PrintModeEvent) => void
 
-  getLatestState: () => { messages: CodebuffMessage[] }
+  getLatestState: () => { messages: Message[] }
   state: {
     ws?: WebSocket
     fingerprintId?: string
@@ -45,10 +47,10 @@ export const handleSpawnAgents = ((params: {
     agentTemplate?: AgentTemplate
     localAgentTemplates?: Record<string, AgentTemplate>
     sendSubagentChunk?: SendSubagentChunk
-    messages?: CodebuffMessage[]
+    messages?: Message[]
     agentState?: AgentState
   }
-}): { result: Promise<string>; state: {} } => {
+}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -95,7 +97,7 @@ export const handleSpawnAgents = ((params: {
 
         validateAgentInput(agentTemplate, agentType, prompt, params)
 
-        const subAgentMessages: CodebuffMessage[] = []
+        const subAgentMessages: Message[] = []
         if (agentTemplate.includeMessageHistory) {
           subAgentMessages.push(conversationHistoryMessage)
         }
@@ -145,34 +147,26 @@ export const handleSpawnAgents = ((params: {
             })
           },
         })
-
-        return {
-          ...result,
-          agentType,
-          agentName: agentTemplate.displayName,
-        }
+        return { ...result, agentType, agentName: agentTemplate.displayName }
       }),
     )
 
     const reports = await Promise.all(
       results.map(async (result, index) => {
-        const agentInfo = agents[index]
-        const agentTypeStr = agentInfo.agent_type
-
         if (result.status === 'fulfilled') {
-          const { agentState } = result.value
-          const { agentTemplate } = await validateAndGetAgentTemplate(
-            agentState.agentType!,
-            parentAgentTemplate,
-            localAgentTemplates,
-          )
-          return await formatAgentResult(
-            result.value,
-            agentTemplate,
-            agentTypeStr,
-          )
+          const { output, agentType, agentName } = result.value
+          return {
+            agentName,
+            agentType,
+            value: output,
+          }
         } else {
-          return formatAgentError(agentTypeStr, result.reason)
+          const agentTypeStr = agents[index].agent_type
+          return {
+            agentType: agentTypeStr,
+            agentName: agentTypeStr,
+            value: { errorMessage: `Error spawning agent: ${result.reason}` },
+          }
         }
       }),
     )
@@ -184,14 +178,15 @@ export const handleSpawnAgents = ((params: {
 
       if (result.status === 'fulfilled') {
         subAgentCredits = result.value.agentState.creditsUsed || 0
-        logger.debug(
-          {
-            parentAgentId: validatedState.agentState.agentId,
-            subAgentType: agentInfo.agent_type,
-            subAgentCredits,
-          },
-          'Aggregating successful subagent cost',
-        )
+        // Note (James): Try not to include frequent logs with narrow debugging value.
+        // logger.debug(
+        //   {
+        //     parentAgentId: validatedState.agentState.agentId,
+        //     subAgentType: agentInfo.agent_type,
+        //     subAgentCredits,
+        //   },
+        //   'Aggregating successful subagent cost',
+        // )
       } else if (result.reason?.agentState?.creditsUsed) {
         // Even failed agents may have incurred partial costs
         subAgentCredits = result.reason.agentState.creditsUsed || 0
@@ -207,23 +202,30 @@ export const handleSpawnAgents = ((params: {
 
       if (subAgentCredits > 0) {
         validatedState.agentState.creditsUsed += subAgentCredits
-        logger.debug(
-          {
-            parentAgentId: validatedState.agentState.agentId,
-            addedCredits: subAgentCredits,
-            totalCredits: validatedState.agentState.creditsUsed,
-          },
-          'Updated parent agent total cost',
-        )
+        // Note (James): Try not to include frequent logs with narrow debugging value.
+        // logger.debug(
+        //   {
+        //     parentAgentId: validatedState.agentState.agentId,
+        //     addedCredits: subAgentCredits,
+        //     totalCredits: validatedState.agentState.creditsUsed,
+        //   },
+        //   'Updated parent agent total cost',
+        // )
       }
     })
 
     return reports
-      .map((report: string) => `<agent_report>${report}</agent_report>`)
-      .join('\n')
   }
   return {
-    result: previousToolCallFinished.then(triggerSpawnAgents),
+    result: (async () => {
+      await previousToolCallFinished
+      return [
+        {
+          type: 'json',
+          value: await triggerSpawnAgents(),
+        },
+      ]
+    })(),
     state: {},
   }
-}) satisfies CodebuffToolHandlerFunction<'spawn_agents'>
+}) satisfies CodebuffToolHandlerFunction<ToolName>

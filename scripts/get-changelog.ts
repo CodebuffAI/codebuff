@@ -2,7 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import prettier from 'prettier'
 

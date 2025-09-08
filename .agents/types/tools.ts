@@ -1,3 +1,5 @@
+import type { Message } from './util-types'
+
 /**
  * Union type of all available tool names
  */
@@ -118,15 +120,7 @@ export interface RunTerminalCommandParams {
  * Set the conversation history to the provided messages.
  */
 export interface SetMessagesParams {
-  messages: {
-    role: 'user' | 'assistant'
-    content:
-      | string
-      | {
-          type: 'text'
-          text: string
-        }[]
-  }[]
+  messages: Message[]
 }
 
 /**

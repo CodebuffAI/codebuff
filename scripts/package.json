@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Scripts package for Codebuff",
   "private": true,
-  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     ".": {

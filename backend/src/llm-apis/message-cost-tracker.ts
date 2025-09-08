@@ -4,10 +4,10 @@ import {
   getUserCostPerCredit,
 } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
-import { models, TEST_USER_ID } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
+import { models, TEST_USER_ID } from '@codebuff/common/old-constants'
 import { withRetry } from '@codebuff/common/util/promise'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
@@ -22,7 +22,7 @@ import { SWITCHBOARD } from '../websockets/server'
 import { sendAction } from '../websockets/websocket-action'
 
 import type { ClientState } from '../websockets/switchboard'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 export const PROFIT_MARGIN = 0.055
 
@@ -332,7 +332,7 @@ type InsertMessageParams = {
   fingerprintId: string
   userInputId: string
   model: string
-  request: CodebuffMessage[]
+  request: Message[]
   response: string
   inputTokens: number
   outputTokens: number
@@ -533,7 +533,7 @@ export const saveMessage = async (value: {
   fingerprintId: string
   userInputId: string
   model: string
-  request: CodebuffMessage[]
+  request: Message[]
   response: string
   inputTokens: number
   outputTokens: number

@@ -3,26 +3,11 @@ import * as path from 'path'
 // Import some types for wasm & .scm files
 import './types'
 
-/* ------------------------------------------------------------------ */
-/* 1 .  WASM files
-/* ------------------------------------------------------------------ */
-// Import WASM files from @vscode/tree-sitter-wasm
-import csharpWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-c-sharp.wasm' with { type: 'file' }
-import cppWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-cpp.wasm' with { type: 'file' }
-import goWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-go.wasm' with { type: 'file' }
-import javaWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-java.wasm' with { type: 'file' }
-import javascriptWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-javascript.wasm' with { type: 'file' }
-import pythonWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-python.wasm' with { type: 'file' }
-import rubyWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-ruby.wasm' with { type: 'file' }
-import rustWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-rust.wasm' with { type: 'file' }
-import tsxWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-tsx.wasm' with { type: 'file' }
-import typescriptWasmPath from '@vscode/tree-sitter-wasm/wasm/tree-sitter-typescript.wasm' with { type: 'file' }
 import { Language, Parser, Query } from 'web-tree-sitter'
-
 import { DEBUG_PARSING } from './parse'
 
 /* ------------------------------------------------------------------ */
-/* 2 .  Queries
+/* 1. Query imports (these work in all bundled environments)         */
 /* ------------------------------------------------------------------ */
 import csharpQuery from './tree-sitter-queries/tree-sitter-c_sharp-tags.scm'
 import cppQuery from './tree-sitter-queries/tree-sitter-cpp-tags.scm'
@@ -35,7 +20,7 @@ import rustQuery from './tree-sitter-queries/tree-sitter-rust-tags.scm'
 import typescriptQuery from './tree-sitter-queries/tree-sitter-typescript-tags.scm'
 
 /* ------------------------------------------------------------------ */
-/* 2 .  Data structures                                                */
+/* 2. Types and interfaces                                           */
 /* ------------------------------------------------------------------ */
 export interface LanguageConfig {
   extensions: string[]
@@ -48,108 +33,268 @@ export interface LanguageConfig {
   language?: Language
 }
 
-const languageTable: LanguageConfig[] = [
+export interface RuntimeLanguageLoader {
+  loadLanguage(wasmFile: string): Promise<Language>
+  initParser(): Promise<void>
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. WASM file manifest                                             */
+/* ------------------------------------------------------------------ */
+export const WASM_FILES = {
+  'tree-sitter-c-sharp.wasm': 'tree-sitter-c-sharp.wasm',
+  'tree-sitter-cpp.wasm': 'tree-sitter-cpp.wasm',
+  'tree-sitter-go.wasm': 'tree-sitter-go.wasm',
+  'tree-sitter-java.wasm': 'tree-sitter-java.wasm',
+  'tree-sitter-javascript.wasm': 'tree-sitter-javascript.wasm',
+  'tree-sitter-python.wasm': 'tree-sitter-python.wasm',
+  'tree-sitter-ruby.wasm': 'tree-sitter-ruby.wasm',
+  'tree-sitter-rust.wasm': 'tree-sitter-rust.wasm',
+  'tree-sitter-tsx.wasm': 'tree-sitter-tsx.wasm',
+  'tree-sitter-typescript.wasm': 'tree-sitter-typescript.wasm',
+} as const
+
+/* ------------------------------------------------------------------ */
+/* 4. Language table                                                 */
+/* ------------------------------------------------------------------ */
+export const languageTable: LanguageConfig[] = [
   {
     extensions: ['.ts'],
-    wasmFile: typescriptWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-typescript.wasm'],
     queryText: typescriptQuery,
   },
   {
     extensions: ['.tsx'],
-    wasmFile: tsxWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-tsx.wasm'],
     queryText: typescriptQuery,
   },
   {
     extensions: ['.js', '.jsx'],
-    wasmFile: javascriptWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-javascript.wasm'],
     queryText: javascriptQuery,
   },
   {
     extensions: ['.py'],
-    wasmFile: pythonWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-python.wasm'],
     queryText: pythonQuery,
   },
   {
     extensions: ['.java'],
-    wasmFile: javaWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-java.wasm'],
     queryText: javaQuery,
   },
   {
     extensions: ['.cs'],
-    wasmFile: csharpWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-c-sharp.wasm'],
     queryText: csharpQuery,
   },
-  // Note: C WASM not available in @vscode/tree-sitter-wasm, keeping disabled for now
-  // {
-  //   extensions: ['.c', '.h'],
-  //   wasmFile: cWasm,
-  //   queryText: cQuery,
-  // },
   {
     extensions: ['.cpp', '.hpp'],
-    wasmFile: cppWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-cpp.wasm'],
     queryText: cppQuery,
   },
   {
     extensions: ['.rs'],
-    wasmFile: rustWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-rust.wasm'],
     queryText: rustQuery,
   },
   {
     extensions: ['.rb'],
-    wasmFile: rubyWasmPath,
+    wasmFile: WASM_FILES['tree-sitter-ruby.wasm'],
     queryText: rubyQuery,
   },
-  { extensions: ['.go'], wasmFile: goWasmPath, queryText: goQuery },
-  // Note: PHP WASM not available in @vscode/tree-sitter-wasm, keeping disabled for now
-  // {
-  //   extensions: ['.php'],
-  //   wasmFile: phpWasm,
-  //   queryText: phpQuery,
-  // },
+  {
+    extensions: ['.go'],
+    wasmFile: WASM_FILES['tree-sitter-go.wasm'],
+    queryText: goQuery,
+  },
 ]
 
 /* ------------------------------------------------------------------ */
-/* 4 .  One-time library init                                          */
+/* 5. WASM directory management                                      */
 /* ------------------------------------------------------------------ */
-// Initialize tree-sitter - in binary builds, WASM files are bundled as assets
-const parserReady = Parser.init()
+let customWasmDir: string | undefined
+
+/**
+ * Set a custom WASM directory for loading tree-sitter WASM files.
+ * This can be useful for custom packaging or deployment scenarios.
+ */
+export function setWasmDir(dir: string): void {
+  customWasmDir = dir
+}
+
+export function getWasmDir(): string | undefined {
+  return customWasmDir
+}
 
 /* ------------------------------------------------------------------ */
-/* 5 .  Public helper                                                  */
+/* 6. WASM path resolver                                             */
 /* ------------------------------------------------------------------ */
-export async function getLanguageConfig(
+
+/**
+ * Resolve the path to a WASM file in a Node.js or Bun environment.
+ * Works for both ESM and CJS builds of the SDK.
+ */
+function resolveWasmPath(wasmFileName: string): string {
+  const customWasmDirPath = getWasmDir()
+  if (customWasmDirPath) {
+    return path.join(customWasmDirPath, wasmFileName)
+  }
+
+  // Try environment variable override
+  const envWasmDir = process.env.CODEBUFF_WASM_DIR
+  if (envWasmDir) {
+    return path.join(envWasmDir, wasmFileName)
+  }
+
+  // Get the directory of this module
+  const moduleDir = (() => {
+    if (typeof __dirname !== 'undefined') {
+      return __dirname
+    }
+    // For ESM builds, we can't reliably get the module directory in all environments
+    // So we fall back to process.cwd() which works for our use case
+    return process.cwd()
+  })()
+
+  // For bundled SDK: WASM files are in a shared wasm directory
+  const possiblePaths = [
+    // Shared WASM directory (new approach to avoid duplication)
+    path.join(moduleDir, '..', 'wasm', wasmFileName),
+    // WASM files in the same directory as this module (for bundled builds)
+    path.join(moduleDir, 'wasm', wasmFileName),
+    // Development scenario - shared wasm directory in SDK dist
+    path.join(process.cwd(), 'dist', 'wasm', wasmFileName),
+  ]
+
+  // Try each path and return the first one that exists (we'll fallback to package resolution if none work)
+  for (const wasmPath of possiblePaths) {
+    try {
+      // Don't actually check file existence here, let the Language.load() call handle it
+      // and fall back to package resolution if it fails
+      return wasmPath
+    } catch {
+      continue
+    }
+  }
+
+  // Default fallback
+  return possiblePaths[0]
+}
+
+/**
+ * Fallback: try to resolve from the original package for development
+ */
+function tryResolveFromPackage(wasmFileName: string): string | null {
+  try {
+    // This works in development/monorepo scenarios
+    return require.resolve(`@vscode/tree-sitter-wasm/wasm/${wasmFileName}`)
+  } catch {
+    return null
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. One-time library init                                          */
+/* ------------------------------------------------------------------ */
+// Initialize tree-sitter with Node.js-specific configuration
+import { initTreeSitterForNode } from './init-node'
+
+/* ------------------------------------------------------------------ */
+/* 8. Unified runtime loader                                         */
+/* ------------------------------------------------------------------ */
+class UnifiedLanguageLoader implements RuntimeLanguageLoader {
+  private parserReady: Promise<void>
+
+  constructor() {
+    this.parserReady = initTreeSitterForNode()
+  }
+
+  async initParser(): Promise<void> {
+    await this.parserReady
+  }
+
+  async loadLanguage(wasmFile: string): Promise<Language> {
+    // Resolve WASM file path
+    let wasmPath = resolveWasmPath(wasmFile)
+
+    // Try to load the language using Node.js-specific method if available
+    let lang: Language
+    try {
+      lang = await Language.load(wasmPath)
+    } catch (err) {
+      // Fallback: try resolving from the original package (development)
+      const fallbackPath = tryResolveFromPackage(wasmFile)
+      if (fallbackPath) {
+        lang = await Language.load(fallbackPath)
+      } else {
+        throw err
+      }
+    }
+
+    return lang
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 9. Helper functions                                               */
+/* ------------------------------------------------------------------ */
+export function findLanguageConfigByExtension(
   filePath: string,
-): Promise<LanguageConfig | undefined> {
+): LanguageConfig | undefined {
   const ext = path.extname(filePath)
-  const cfg = languageTable.find((c) => c.extensions.includes(ext))
-  if (!cfg) return undefined
+  return languageTable.find((c) => c.extensions.includes(ext))
+}
+
+/* ------------------------------------------------------------------ */
+/* 10. Language configuration loader                                 */
+/* ------------------------------------------------------------------ */
+export async function createLanguageConfig(
+  filePath: string,
+  runtimeLoader: RuntimeLanguageLoader,
+): Promise<LanguageConfig | undefined> {
+  const cfg = findLanguageConfigByExtension(filePath)
+  if (!cfg) {
+    return undefined
+  }
 
   if (!cfg.parser) {
     try {
-      await parserReady
-      // Use the imported WASM file directly
+      await runtimeLoader.initParser()
+
+      // Load the language using the runtime-specific loader
+      const lang = await runtimeLoader.loadLanguage(cfg.wasmFile)
+
+      // Create parser and query
       const parser = new Parser()
-      // NOTE (James): For some reason, Bun gives the wrong path to the imported WASM file,
-      // so we need to delete one level of ../.
-      let lang
-      try {
-        const actualPath = cfg.wasmFile.replace('../', '')
-        lang = await Language.load(actualPath)
-      } catch (err) {
-        lang = await Language.load(cfg.wasmFile)
-      }
       parser.setLanguage(lang)
 
       cfg.language = lang
       cfg.parser = parser
       cfg.query = new Query(lang, cfg.queryText)
     } catch (err) {
-      if (DEBUG_PARSING)
-        console.error('[tree-sitter] load error for', filePath, err)
-      return undefined
+      // Let the runtime-specific implementation handle error logging
+      throw err
     }
   }
 
   return cfg
+}
+
+/* ------------------------------------------------------------------ */
+/* 11. Public API                                                    */
+/* ------------------------------------------------------------------ */
+const unifiedLoader = new UnifiedLanguageLoader()
+
+export async function getLanguageConfig(
+  filePath: string,
+): Promise<LanguageConfig | undefined> {
+  try {
+    return await createLanguageConfig(filePath, unifiedLoader)
+  } catch (err) {
+    if (DEBUG_PARSING) {
+      console.error('[tree-sitter] Load error for', filePath, err)
+    }
+    return undefined
+  }
 }

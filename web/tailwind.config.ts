@@ -68,6 +68,8 @@ const config = {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        // Codebuff brand colors
+        'acid-green': '#00FF95',
       },
       borderRadius: {
         lg: 'var(--radius)',

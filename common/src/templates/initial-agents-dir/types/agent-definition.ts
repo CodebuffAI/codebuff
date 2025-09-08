@@ -14,6 +14,10 @@
  *   export default definition
  */
 
+import type { Message, ToolResultOutput, JsonObjectSchema } from './util-types'
+import type * as Tools from './tools'
+type ToolName = Tools.ToolName
+
 // ============================================================================
 // Agent Definition and Utility Types
 // ============================================================================
@@ -180,7 +184,7 @@ export interface AgentDefinition {
     void,
     {
       agentState: AgentState
-      toolResult: string | undefined
+      toolResult: ToolResultOutput[] | undefined
       stepsComplete: boolean
     }
   >
@@ -202,25 +206,6 @@ export interface AgentState {
 }
 
 /**
- * Message in conversation history
- */
-export interface Message {
-  role: 'user' | 'assistant'
-  content:
-    | string
-    | Array<
-        | {
-            type: 'text'
-            text: string
-          }
-        | {
-            type: 'image'
-            image: string
-          }
-      >
-}
-
-/**
  * Context provided to handleSteps generator function
  */
 export interface AgentStepContext {
@@ -236,28 +221,9 @@ export type ToolCall<T extends ToolName = ToolName> = {
   [K in T]: {
     toolName: K
     input: Tools.GetToolParams<K>
+    includeToolCall?: boolean
   }
 }[T]
-
-/**
- * JSON Schema definition (for prompt schema or output schema)
- */
-export type JsonSchema = {
-  type?:
-    | 'object'
-    | 'array'
-    | 'string'
-    | 'number'
-    | 'boolean'
-    | 'null'
-    | 'integer'
-  description?: string
-  properties?: Record<string, JsonSchema | boolean>
-  required?: string[]
-  enum?: Array<string | number | boolean | null>
-  [k: string]: unknown
-}
-export type JsonObjectSchema = JsonSchema & { type: 'object' }
 
 // ============================================================================
 // Available Tools
@@ -338,6 +304,7 @@ export type ModelName =
 
   // X-AI
   | 'x-ai/grok-4-07-09'
+  | 'x-ai/grok-code-fast-1'
 
   // Qwen
   | 'qwen/qwen3-coder'
@@ -362,6 +329,4 @@ export type ModelName =
   | 'z-ai/glm-4.5:nitro'
   | (string & {})
 
-import type * as Tools from './tools'
 export type { Tools }
-type ToolName = Tools.ToolName

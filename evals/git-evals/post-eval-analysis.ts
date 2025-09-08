@@ -1,6 +1,6 @@
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { countTokens } from '@codebuff/backend/util/token-counter'
-import { geminiModels } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
@@ -52,7 +52,6 @@ function buildAnalysisPrompt(evalResult: FullEvalLog): string {
   const metricsSection = `
 Overall Performance Metrics:
 - Average Completion Score: ${metrics.average_completion.toFixed(2)}/10
-- Average Efficiency Score: ${metrics.average_efficiency.toFixed(2)}/10
 - Average Code Quality Score: ${metrics.average_code_quality.toFixed(2)}/10
 - Average Overall Score: ${metrics.average_overall.toFixed(2)}/10
 - Average Duration: ${(metrics.average_duration_ms / 1000).toFixed(1)} seconds
@@ -73,7 +72,6 @@ Error: ${run.error || 'None'}
 
 Scores:
 - Completion: ${judging.metrics.completionScore}/10
-- Efficiency: ${judging.metrics.efficiencyScore}/10
 - Code Quality: ${judging.metrics.codeQualityScore}/10
 - Overall: ${judging.metrics.overallScore}/10
 
@@ -184,7 +182,7 @@ export async function analyzeEvalResults(
   return promptAiSdkStructured({
     messages: [{ role: 'user', content: finalPrompt }],
     schema: PostEvalAnalysisSchema,
-    model: geminiModels.gemini2_5_pro_preview,
+    model: models.openrouter_gemini2_5_pro_preview,
     clientSessionId: generateCompactId(),
     fingerprintId: generateCompactId(),
     userInputId: generateCompactId(),

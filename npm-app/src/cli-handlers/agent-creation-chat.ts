@@ -1,4 +1,4 @@
-import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/old-constants'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { green, gray, red } from 'picocolors'
 

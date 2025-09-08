@@ -1,5 +1,5 @@
 import { trackEvent } from '@codebuff/common/analytics'
-import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/constants'
+import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import db from '@codebuff/common/db'

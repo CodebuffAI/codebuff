@@ -2,7 +2,7 @@ import { z } from 'zod/v4'
 
 import type { AgentStep } from '../scaffolding'
 import type { PostEvalAnalysis } from './post-eval-analysis'
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 
 export interface FileState {
   path: string
@@ -45,10 +45,15 @@ export interface EvalRunLog {
   error?: string
   gitDiff: string
   durationMs: number
+  costUsd: number
 }
 
 export interface EvalRunJudged extends EvalRunLog {
   judging_results: z.infer<typeof JudgingAnalysisSchema>
+  computed_metrics: {
+    runtime_sec: number
+    cost_usd: number
+  }
 }
 
 export interface FullEvalLog {
@@ -56,8 +61,9 @@ export interface FullEvalLog {
   generation_date: string
   eval_runs: EvalRunJudged[]
   overall_metrics: {
+    average_runtime_sec: number
+    average_cost_usd: number
     average_completion: number
-    average_efficiency: number
     average_code_quality: number
     average_overall: number
     average_duration_ms: number
@@ -88,7 +94,6 @@ export const JudgingAnalysisSchema = z.object({
   weaknesses: z.array(z.string()),
   metrics: z.object({
     completionScore: z.number().min(0).max(10),
-    efficiencyScore: z.number().min(0).max(10),
     codeQualityScore: z.number().min(0).max(10),
     overallScore: z.number().min(0).max(10),
   }),

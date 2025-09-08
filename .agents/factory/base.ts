@@ -10,7 +10,10 @@ import { AgentTemplateTypes } from '../types/secret-agent-definition'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { ModelName } from 'types/agent-definition'
 
-export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
+export const base = (
+  model: ModelName,
+  mode: 'lite' | 'normal' | 'max' | 'experimental',
+): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: AGENT_PERSONAS.base.displayName,
   spawnerPrompt: AGENT_PERSONAS.base.purpose,
@@ -56,7 +59,7 @@ export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
   ],
 
   systemPrompt: baseAgentSystemPrompt(model),
-  instructionsPrompt: baseAgentUserInputPrompt(model),
+  instructionsPrompt: baseAgentUserInputPrompt(model, mode),
   stepPrompt: baseAgentAgentStepPrompt(model),
 
   handleSteps: function* ({ params }) {
@@ -68,6 +71,7 @@ export const base = (model: ModelName): Omit<SecretAgentDefinition, 'id'> => ({
           agent_type: 'context-pruner',
           params: params ?? {},
         },
+        includeToolCall: false,
       } as any
 
       const { stepsComplete } = yield 'STEP'

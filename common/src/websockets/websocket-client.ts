@@ -161,7 +161,9 @@ export class APIRealtimeClient {
 
     // Immediately attempt to reconnect
     this.connect().catch((err) => {
-      console.error('Failed to reconnect after server shutdown notice:', err)
+      if (VERBOSE_LOGGING) {
+        console.error('Failed to reconnect after server shutdown notice:', err)
+      }
       // Still set up delayed reconnect as fallback
       this.waitAndReconnect()
     })
@@ -185,7 +187,9 @@ export class APIRealtimeClient {
           const txn = this.txns.get(msg.txid)
           if (txn == null) {
             // mqp: only reason this should happen is getting an ack after timeout
-            console.warn(`Websocket message with old txid=${msg.txid}.`)
+            if (VERBOSE_LOGGING) {
+              console.warn(`Websocket message with old txid=${msg.txid}.`)
+            }
           } else {
             clearTimeout(txn.timeout)
             if (msg.error != null) {
@@ -199,7 +203,9 @@ export class APIRealtimeClient {
         return
       }
       default:
-        console.warn(`Unknown API websocket message type received: ${msg}`)
+        if (VERBOSE_LOGGING) {
+          console.warn(`Unknown API websocket message type received: ${msg}`)
+        }
     }
   }
 

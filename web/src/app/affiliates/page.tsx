@@ -3,7 +3,7 @@
 import {
   CREDITS_REFERRAL_BONUS,
   AFFILIATE_USER_REFFERAL_LIMIT,
-} from '@codebuff/common/constants'
+} from '@codebuff/common/old-constants'
 import { env } from '@codebuff/internal'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'

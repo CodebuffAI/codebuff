@@ -1,30 +1,21 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/old-constants'
 import {
   filterCustomAgentFiles,
   extractAgentIdFromFileName,
 } from '@codebuff/common/util/agent-file-utils'
 import { green, yellow, cyan, magenta, bold, gray, red } from 'picocolors'
-// Import files to replicate in the user's .agents directory. Bun bundler requires relative paths.
-// @ts-ignore - It complains about the .md file, but it works.
-import readmeContent from '../../../common/src/templates/initial-agents-dir/README.md' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import agentDefinitionTypes from '../../../common/src/templates/initial-agents-dir/types/agent-definition' with { type: 'text' }
-// @ts-ignore - No default import, but we are importing as text so it's fine
-import toolsTypes from '../../../common/src/templates/initial-agents-dir/types/tools' with { type: 'text' }
-import basicDiffReviewer from '../../../common/src/templates/initial-agents-dir/examples/01-basic-diff-reviewer' with { type: 'text' }
-import intermediateGitCommitter from '../../../common/src/templates/initial-agents-dir/examples/02-intermediate-git-committer' with { type: 'text' }
-import advancedFileExplorer from '../../../common/src/templates/initial-agents-dir/examples/03-advanced-file-explorer' with { type: 'text' }
-import myCustomAgent from '../../../common/src/templates/initial-agents-dir/my-custom-agent' with { type: 'text' }
 
 import {
   loadLocalAgents,
   getLoadedAgentNames,
   loadedAgents,
 } from '../agents/load-agents'
-import { CLI } from '../cli'
+import { getAllTsFiles } from '../agents/agent-utils'
+import { CLI, getLocalAgentInfo } from '../cli'
+import { createExampleAgentFiles } from './init-agents'
 import { getProjectRoot } from '../project-files'
 import { Spinner } from '../utils/spinner'
 import {
@@ -64,8 +55,8 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
     return
   }
 
-  // Load local agents
-  await loadLocalAgents({ verbose: false })
+  // Load local agents using the same logic as CLI startup
+  await getLocalAgentInfo() // This updates the cache properly
   const localAgents = getLoadedAgentNames()
 
   // Build management actions section with header
@@ -86,28 +77,50 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
     },
   ]
 
-  // Get custom agent files for display purposes
-  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
-  let customAgentFiles: string[] = []
-  if (fs.existsSync(agentsDir)) {
-    const files = fs.readdirSync(agentsDir)
-    customAgentFiles = filterCustomAgentFiles(files)
-  }
-
   // Build agent list starting with management actions
   agentList = [...actions]
 
-  // Collect custom agents from .agents/templates
-  const agentEntries = customAgentFiles.map((file) => {
-    const agentId = extractAgentIdFromFileName(file)
-    const filePath = path.join(agentsDir, file)
+  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
+
+  const allAgentFiles = fs.existsSync(agentsDir) ? getAllTsFiles(agentsDir) : []
+
+  const agentEntries = Object.entries(loadedAgents).map(([agentId, def]) => {
+    // Find the file path for this agent by looking for files that match the agent ID
+    const matchingPath = allAgentFiles.find((filePath) => {
+      const relativePath = path.relative(agentsDir, filePath).replace('.ts', '')
+
+      return (
+        relativePath === agentId ||
+        path.basename(filePath, '.ts').endsWith(agentId)
+      )
+    })
+
     let mtime = 0
-    try {
-      mtime = fs.statSync(filePath).mtimeMs
-    } catch {}
-    const def = (loadedAgents as any)[agentId]
-    return { file, agentId, filePath, mtime, def }
+    let filePath = ''
+    if (matchingPath) {
+      filePath = matchingPath
+      try {
+        mtime = fs.statSync(matchingPath).mtimeMs
+      } catch {}
+    }
+
+    return {
+      file: matchingPath
+        ? path.relative(agentsDir, matchingPath)
+        : `${agentId}.ts`,
+      agentId,
+      filePath,
+      mtime,
+      def,
+    }
   })
+
+  // Create agent description with file location
+  const createAgentDescription = (entry: any) => {
+    return entry.def?.description
+      ? `${entry.def.description}`
+      : `Custom user-defined agent`
+  }
 
   const validAgents = agentEntries
     .filter((e) => e.def && e.def.id && e.def.model)
@@ -131,10 +144,12 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
       for (const entry of recentAgents) {
         const agentName =
           localAgents[entry.agentId] || entry.def?.displayName || entry.agentId
+        const description = createAgentDescription(entry)
+
         agentList.push({
           id: entry.agentId,
           name: agentName,
-          description: entry.def?.description || 'Custom user-defined agent',
+          description,
           isBuiltIn: false,
           filePath: entry.filePath,
         })
@@ -155,10 +170,12 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
       for (const entry of otherAgents) {
         const agentName =
           localAgents[entry.agentId] || entry.def?.displayName || entry.agentId
+        const description = createAgentDescription(entry)
+
         agentList.push({
           id: entry.agentId,
           name: agentName,
-          description: entry.def?.description || 'Custom user-defined agent',
+          description,
           isBuiltIn: false,
           filePath: entry.filePath,
         })
@@ -170,7 +187,7 @@ export async function enterAgentsBuffer(rl: any, onExit: () => void) {
       id: '__agents_header__',
       name:
         bold(cyan('Custom Agents')) +
-        gray(` • ${customAgentFiles.length} in ${AGENT_TEMPLATES_DIR}`),
+        gray(` • ${allAgentFiles.length} in ${AGENT_TEMPLATES_DIR}`),
       description: '',
       isBuiltIn: false,
       isSectionHeader: true,
@@ -516,7 +533,7 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
             .then(() => {
               cliInstance.freshPrompt()
             })
-            .catch((error) => {
+            .catch((error: any) => {
               Spinner.get().stop()
               console.error(red('Error switching to agent:'), error)
               onExit()
@@ -623,69 +640,6 @@ async function startDirectAgentCreation(onExit: () => void) {
   }
 
   onExit()
-}
-
-async function createExampleAgentFiles() {
-  const agentsDir = path.join(getProjectRoot(), AGENT_TEMPLATES_DIR)
-  const typesDir = path.join(agentsDir, 'types')
-  const examplesDir = path.join(agentsDir, 'examples')
-
-  // Create directories
-  if (!fs.existsSync(agentsDir)) {
-    fs.mkdirSync(agentsDir, { recursive: true })
-  }
-  if (!fs.existsSync(typesDir)) {
-    fs.mkdirSync(typesDir, { recursive: true })
-  }
-  if (!fs.existsSync(examplesDir)) {
-    fs.mkdirSync(examplesDir, { recursive: true })
-  }
-
-  const filesToCreate = [
-    {
-      path: path.join(agentsDir, 'README.md'),
-      content: readmeContent,
-      description: 'Documentation for your agents',
-    },
-    {
-      path: path.join(typesDir, 'agent-definition.ts'),
-      content: agentDefinitionTypes,
-      description: 'TypeScript type definitions for agents',
-    },
-    {
-      path: path.join(typesDir, 'tools.ts'),
-      content: toolsTypes,
-      description: 'TypeScript type definitions for tools',
-    },
-    {
-      path: path.join(agentsDir, 'my-custom-agent.ts'),
-      content: myCustomAgent,
-      description: 'Your first custom agent example',
-    },
-    {
-      path: path.join(examplesDir, '01-basic-diff-reviewer.ts'),
-      content: basicDiffReviewer,
-      description: 'Basic diff reviewer agent example',
-    },
-    {
-      path: path.join(examplesDir, '02-intermediate-git-committer.ts'),
-      content: intermediateGitCommitter,
-      description: 'Intermediate git commiter agent example',
-    },
-    {
-      path: path.join(examplesDir, '03-advanced-file-explorer.ts'),
-      content: advancedFileExplorer,
-      description: 'Advanced file explorer agent example',
-    },
-  ]
-
-  console.log(green('\n📁 Creating agent files:'))
-
-  for (const file of filesToCreate) {
-    fs.writeFileSync(file.path, file.content)
-    const relativePath = path.relative(getProjectRoot(), file.path)
-    console.log(gray(`  ✓ ${relativePath} - ${file.description}`))
-  }
 }
 
 // Cleanup function

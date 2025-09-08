@@ -1,0 +1,32 @@
+name: Mirror subdir to dot-agents
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'common/src/templates/initial-agents-dir/**'
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # (belt-and-suspenders) ensure the injected header is gone even if persist-credentials isn't honored
+      - name: Clear default GitHub auth header
+        run: git config --global --unset-all http.https://github.com/.extraheader || true
+
+      - name: Configure Git
+        run: |
+          git config user.name "codebuff mirror bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Push subtree
+        env:
+          TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+        run: |
+          git subtree push --prefix=common/src/templates/initial-agents-dir \
+            https://x-access-token:${TOKEN}@github.com/codebuffai/codebuff-dot-agents.git \
+            main

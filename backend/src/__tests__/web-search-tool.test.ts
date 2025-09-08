@@ -3,7 +3,7 @@ process.env.LINKUP_API_KEY = 'test-api-key'
 
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   clearMockedModules,
   mockModule,
@@ -22,6 +22,7 @@ import {
   test,
 } from 'bun:test'
 
+import researcherAgent from '../../../.agents/researcher'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
@@ -31,7 +32,6 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
-import researcherAgent from '../../../.agents/researcher'
 
 import type { WebSocket } from 'ws'
 
@@ -62,8 +62,12 @@ describe('web_search tool with researcher agent', () => {
     spyOn(websocketAction, 'requestFiles').mockImplementation(async () => ({}))
     spyOn(websocketAction, 'requestFile').mockImplementation(async () => null)
     spyOn(websocketAction, 'requestToolCall').mockImplementation(async () => ({
-      success: true,
-      result: 'Tool call success' as any,
+      output: [
+        {
+          type: 'json',
+          value: 'Tool call success',
+        },
+      ],
     }))
 
     // Mock LLM APIs
@@ -121,7 +125,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -165,7 +171,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -193,15 +201,12 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the search results were added to the message history
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockSearchResult,
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain(mockSearchResult)
   })
 
   test('should handle custom depth parameter', async () => {
@@ -227,7 +232,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       userId: TEST_USER_ID,
@@ -268,7 +275,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -297,15 +306,12 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the "no results found" message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No search results found',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('No search results found')
   })
 
   test('should handle API errors gracefully', async () => {
@@ -329,7 +335,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -355,18 +363,15 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error performing web search',
-    )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Linkup API timeout',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Error performing web search')
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Linkup API timeout')
   })
 
   test('should handle null response from searchWeb', async () => {
@@ -386,7 +391,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -430,7 +437,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -456,15 +465,12 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error performing web search',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Error performing web search')
   })
 
   test('should format search results correctly', async () => {
@@ -489,7 +495,9 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(mockFileContextWithAgents)
+    const { agentTemplates } = assembleLocalAgentTemplates(
+      mockFileContextWithAgents,
+    )
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -515,14 +523,11 @@ describe('web_search tool with researcher agent', () => {
 
     // Check that the search results were formatted correctly
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('web_search'),
+      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockSearchResult,
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain(mockSearchResult)
   })
 })

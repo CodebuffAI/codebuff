@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { EXISTING_CODE_MARKER } from '../../constants'
+import { EXISTING_CODE_MARKER } from '../../old-constants'
 import { pluralize, replaceNonStandardPlaceholderComments } from '../string'
 
 describe('pluralize', () => {

@@ -1,6 +1,6 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   clearMockedModules,
   mockModule,
@@ -19,6 +19,7 @@ import {
   test,
 } from 'bun:test'
 
+import researcherAgent from '../../../.agents/researcher'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
@@ -28,7 +29,6 @@ import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
-import researcherAgent from '../../../.agents/researcher'
 
 import type { WebSocket } from 'ws'
 
@@ -106,8 +106,12 @@ describe('read_docs tool with researcher agent', () => {
       websocketAction,
       'requestToolCall',
     ).mockImplementation(async () => ({
-      success: true,
-      result: 'Tool call success' as any,
+      output: [
+        {
+          type: 'json',
+          value: 'Tool call success',
+        },
+      ],
     }))
     mockedFunctions.push({
       name: 'websocketAction.requestToolCall',
@@ -336,15 +340,12 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the documentation was added to the message history
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      mockDocumentation,
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain(JSON.stringify(mockDocumentation).slice(1, -1))
   }, 10000)
 
   test('should fetch documentation with topic and max_tokens', async () => {
@@ -458,15 +459,12 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the "no documentation found" message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No documentation found for "NonExistentLibrary"',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('No documentation found for \\"NonExistentLibrary\\"')
   }, 10000)
 
   test('should handle API errors gracefully', async () => {
@@ -530,18 +528,15 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error fetching documentation for "React"',
-    )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Network timeout',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Error fetching documentation for \\"React\\"')
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Network timeout')
   }, 10000)
 
   test('should include topic in error message when specified', async () => {
@@ -601,14 +596,13 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the topic is included in the error message
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'No documentation found for "React" with topic "server-components"',
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain(
+      'No documentation found for \\"React\\" with topic \\"server-components\\"',
     )
   }, 10000)
 
@@ -671,17 +665,14 @@ describe('read_docs tool with researcher agent', () => {
 
     // Check that the generic error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
-      (m) =>
-        m.role === 'user' &&
-        typeof m.content === 'string' &&
-        m.content.includes('read_docs'),
+      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
     expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Error fetching documentation for "React"',
-    )
-    expect(toolResultMessages[toolResultMessages.length - 1].content).toContain(
-      'Unknown error',
-    )
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Error fetching documentation for \\"React\\"')
+    expect(
+      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
+    ).toContain('Unknown error')
   }, 10000)
 })

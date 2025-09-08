@@ -114,7 +114,6 @@ describe('QuickJS Sandbox Generator', () => {
     mockAgentState.agentType = 'test-vm-agent-error'
 
     mockParams.template = mockTemplate
-    mockParams.agentType = 'test-vm-agent-error'
     mockParams.params = {}
     mockParams.localAgentTemplates = { 'test-vm-agent-error': mockTemplate }
 

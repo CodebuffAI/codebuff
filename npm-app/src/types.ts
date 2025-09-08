@@ -1,4 +1,4 @@
-import type { CostMode } from '@codebuff/common/constants'
+import type { CostMode } from '@codebuff/common/old-constants'
 
 export type GitCommand = 'stage' | undefined
 

@@ -6,7 +6,7 @@ import path from 'path'
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
 import { assembleLocalAgentTemplates } from '@codebuff/backend/templates/agent-registry'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { mockModule } from '@codebuff/common/testing/mock-modules'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { handleToolCall } from '@codebuff/npm-app/tool-handlers'
@@ -27,14 +27,16 @@ import type {
   requestFiles as originalRequestFiles,
   requestToolCall as originalRequestToolCall,
 } from '@codebuff/backend/websockets/websocket-action'
-import type { FileChanges } from '@codebuff/common/actions'
 import type { ClientToolCall } from '@codebuff/common/tools/list'
+import type {
+  ToolResultOutput,
+  ToolResultPart,
+} from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
   SessionState,
-  ToolResult,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -53,7 +55,7 @@ export type ToolUseBlock = Extract<
 export type AgentStep = {
   response: string
   toolCalls: (ClientToolCall | ToolUseBlock)[]
-  toolResults: (ToolResult | ToolResultBlockParam)[]
+  toolResults: (ToolResultPart | ToolResultBlockParam)[]
 }
 
 function readMockFile(projectRoot: string, filePath: string): string | null {
@@ -66,7 +68,7 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
 }
 
 let toolCalls: ClientToolCall[] = []
-let toolResults: ToolResult[] = []
+let toolResults: ToolResultPart[] = []
 export function createFileReadingMock(projectRoot: string) {
   mockModule('@codebuff/backend/websockets/websocket-action', () => ({
     requestFiles: ((ws: WebSocket, filePaths: string[]) => {
@@ -93,6 +95,7 @@ export function createFileReadingMock(projectRoot: string) {
       try {
         const toolResult = await handleToolCall(toolCall as any)
         toolResults.push({
+          type: 'tool-result',
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
           output: toolResult.output,
@@ -100,22 +103,25 @@ export function createFileReadingMock(projectRoot: string) {
 
         // Send successful response back to backend
         return {
-          success: true,
           output: toolResult.output,
         }
       } catch (error) {
         // Send error response back to backend
         const resultString =
           error instanceof Error ? error.message : String(error)
+        const output = [
+          {
+            type: 'json',
+            value: { errorMessage: resultString },
+          },
+        ] satisfies ToolResultOutput[]
         toolResults.push({
+          type: 'tool-result',
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
-          output: { type: 'text', value: resultString },
+          output,
         })
-        return {
-          success: false,
-          error: resultString,
-        }
+        return { output }
       }
     }) satisfies typeof originalRequestToolCall,
   }))
@@ -202,7 +208,7 @@ export async function runAgentStepScaffolding(
 }
 
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
-  const toolResults: ToolResult[] = []
+  const toolResults: ToolResultPart[] = []
   for (const toolCall of toolCalls) {
     const toolResult = await handleToolCall(toolCall)
     toolResults.push(toolResult)

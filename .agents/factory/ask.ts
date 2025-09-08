@@ -11,7 +11,7 @@ import {
 } from '../types/secret-agent-definition'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 
 export const ask = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
   model,

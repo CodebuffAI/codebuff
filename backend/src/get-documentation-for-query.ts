@@ -1,4 +1,4 @@
-import { geminiModels } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { closeXml } from '@codebuff/common/util/xml'
 import { uniq } from 'lodash'
 import { z } from 'zod/v4'
@@ -166,7 +166,7 @@ ${closeXml('user_query')}
       ...options,
       messages: [{ role: 'user', content: prompt }],
       userId: options.userId,
-      model: geminiModels.gemini2flash,
+      model: models.openrouter_gemini2_5_flash,
       temperature: 0,
       schema: z.object({
         libraries: z.array(
@@ -227,7 +227,7 @@ ${closeXml('documentation_chunks')}
       userInputId: options.userInputId,
       fingerprintId: options.fingerprintId,
       userId: options.userId,
-      model: geminiModels.gemini2_5_flash,
+      model: models.openrouter_gemini2_5_flash,
       temperature: 0,
       schema: z.object({
         relevant_chunks: z.array(z.number()),

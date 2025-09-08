@@ -1,5 +1,5 @@
+import { Message } from 'types/util-types'
 import { publisher } from '../constants'
-
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
@@ -8,7 +8,7 @@ import {
 const editor: SecretAgentDefinition = {
   id: 'editor',
   publisher,
-  model: 'anthropic/claude-4-sonnet-20250522',
+  model: 'openai/gpt-5-chat',
   displayName: 'Code Editor',
   spawnerPrompt:
     'Expert code editor with access to tools to find and edit files, run terminal commands, and search the web. Can handle small to medium sized tasks, or work off of a plan for more complex tasks. For easy tasks, you can spawn this agent directly rather than invoking a scout or planner first.',
@@ -111,7 +111,7 @@ User: <tool_result>
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
-  instructionsPrompt: `Implement the requested changes. Feel free to ignore the plan if it seems incorrect.
+  instructionsPrompt: `Implement the requested changes, using your judgment as needed, but referring to the original <user-message> as the most important source of information.
 
 # Instructions
 
@@ -122,20 +122,30 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
   - An answer to the user prompt (if they asked a question).
   - An explanation of the changes made.
   - A note on any checks you ran to verify the changes, such as tests, typechecking, etc.
+  - Do not include a section on the benefits of the changes, as we're most interested in the changes themselves and what still needs to be done.
 - Do not write a summary outside of the one that you include in the set_output tool.
 - As soon as you use set_output, you must end your turn using the end_turn tool.
 `,
 
   handleSteps: function* ({ agentState: initialAgentState }) {
-    const stepLimit = 20
+    const stepLimit = 25
     let stepCount = 0
     let agentState = initialAgentState
+    let accumulatedEditToolResults: any[] = []
 
     while (true) {
       stepCount++
 
       const stepResult = yield 'STEP'
       agentState = stepResult.agentState // Capture the latest state
+
+      // Accumulate new tool messages from this step
+      const { messageHistory } = agentState
+
+      // Extract and accumulate new edit tool results using helper function
+      accumulatedEditToolResults.push(
+        ...getLatestEditToolResults(messageHistory),
+      )
 
       if (stepResult.stepsComplete) {
         break
@@ -148,65 +158,58 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
           input: {
             role: 'user',
             content:
-              'You have reached the step limit. Please use the set_output tool now to summarize your progress so far, what you still need to solve, and provide any insights that could help complete the remaining work. Please end your turn after using the set_output tool with the end_turn tool.',
+              'You have reached the step limit. Please use the set_output tool now to summarize your progress so far including all specific actions you took (note that any file changes will be included automatically in the output), what you still need to solve, and provide any insights that could help complete the remaining work. Please end your turn after using the set_output tool with the end_turn tool.',
           },
+          includeToolCall: false,
         }
 
         // One final step to produce the summary
         const finalStepResult = yield 'STEP'
         agentState = finalStepResult.agentState
+
+        // Extract and accumulate final edit tool results using helper function
+        accumulatedEditToolResults.push(
+          ...getLatestEditToolResults(agentState.messageHistory),
+        )
         break
       }
     }
 
-    // Collect all the edits from the conversation
-    const { messageHistory, output } = agentState
-    const editToolResults: string[] = []
-    for (const message of messageHistory) {
-      if (
-        message.role === 'user' &&
-        typeof message.content === 'string' &&
-        message.content.includes('<tool_result>')
-      ) {
-        // Parse out tool results for write_file and str_replace
-        const writeFileMatches = message.content.match(
-          /<tool_result>\s*<tool>write_file<\/tool>\s*<result>([\s\S]*?)<\/result>\s*<\/tool_result>/g,
-        )
-        const strReplaceMatches = message.content.match(
-          /<tool_result>\s*<tool>str_replace<\/tool>\s*<result>([\s\S]*?)<\/result>\s*<\/tool_result>/g,
-        )
-
-        // Extract inner <result> content from write_file matches
-        if (writeFileMatches) {
-          for (const match of writeFileMatches) {
-            const resultMatch = match.match(/<result>([\s\S]*?)<\/result>/)
-            if (resultMatch) {
-              editToolResults.push(resultMatch[1])
-            }
-          }
-        }
-
-        // Extract inner <result> content from str_replace matches
-        if (strReplaceMatches) {
-          for (const match of strReplaceMatches) {
-            const resultMatch = match.match(/<result>([\s\S]*?)<\/result>/)
-            if (resultMatch) {
-              editToolResults.push(resultMatch[1])
-            }
-          }
-        }
-      }
-    }
-    const successfulEdits = editToolResults.filter(
-      (edit) => edit.includes('successfully') && edit.includes('Changes made:'),
-    )
-
     yield {
       toolName: 'set_output',
       input: {
-        ...output,
-        edits: successfulEdits,
+        ...agentState.output,
+        edits: accumulatedEditToolResults,
       },
+    }
+
+    function getLatestEditToolResults(messageHistory: Message[]) {
+      const lastAssistantMessageIndex = messageHistory.findLastIndex(
+        (message) => message.role === 'assistant',
+      )
+
+      // Get all edit tool messages after the last assistant message
+      const newToolMessages = messageHistory
+        .slice(lastAssistantMessageIndex + 1)
+        .filter((message) => message.role === 'tool')
+        .filter(
+          (message) =>
+            message.content.toolName === 'write_file' ||
+            message.content.toolName === 'str_replace',
+        )
+
+      // Extract and return new edit tool results
+      return (
+        newToolMessages
+          .flatMap((message) => message.content.output)
+          .filter((output) => output.type === 'json')
+          .map((output) => output.value)
+          // Only successful edits!
+          .filter(
+            (toolResult) =>
+              toolResult && !('errorMessage' in (toolResult as any)),
+          )
+      )
     }
   },
 }

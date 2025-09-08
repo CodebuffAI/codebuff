@@ -1,6 +1,5 @@
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
-import { renderToolResults } from '@codebuff/common/tools/utils'
-import { escapeString, generateCompactId } from '@codebuff/common/util/string'
+import { escapeString } from '@codebuff/common/util/string'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
@@ -74,27 +73,25 @@ export async function formatPrompt(
     [PLACEHOLDER.USER_CWD]: fileContext.cwd,
     [PLACEHOLDER.USER_INPUT_PROMPT]: escapeString(lastUserInput ?? ''),
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: escapeString(intitialAgentPrompt ?? ''),
-    [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: renderToolResults(
-      Object.entries({
-        ...Object.fromEntries(
-          Object.entries(fileContext.knowledgeFiles)
-            .filter(([path]) =>
-              [
-                'knowledge.md',
-                'CLAUDE.md',
-                'codebuff.json',
-                'codebuff.jsonc',
-              ].includes(path),
-            )
-            .map(([path, content]) => [path, content.trim()]),
-        ),
-        ...fileContext.userKnowledgeFiles,
-      }).map(([path, content]) => ({
-        toolName: 'read_files',
-        toolCallId: generateCompactId(),
-        output: { type: 'text', value: JSON.stringify({ path, content }) },
-      })),
-    ),
+    [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: Object.entries({
+      ...Object.fromEntries(
+        Object.entries(fileContext.knowledgeFiles)
+          .filter(([path]) =>
+            [
+              'knowledge.md',
+              'CLAUDE.md',
+              'codebuff.json',
+              'codebuff.jsonc',
+            ].includes(path),
+          )
+          .map(([path, content]) => [path, content.trim()]),
+      ),
+      ...fileContext.userKnowledgeFiles,
+    })
+      .map(([path, content]) => {
+        return `\`\`\`${path}\n${content.trim()}\n\`\`\``
+      })
+      .join('\n\n'),
   }
 
   for (const varName of placeholderValues) {

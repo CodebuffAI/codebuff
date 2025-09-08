@@ -12,6 +12,7 @@ import { Command, Flags } from '@oclif/core'
 
 import { createFileReadingMock } from '../scaffolding'
 import { setupTestEnvironmentVariables } from '../test-setup'
+import { createGithubUrl } from './pick-commits'
 import { runSingleEval } from './run-git-evals'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 
@@ -203,6 +204,18 @@ async function runSingleEvalTask(options: {
     const duration = Date.now() - startTime
     console.log(`✅ Evaluation completed in ${(duration / 1000).toFixed(1)}s`)
 
+    // Repeat spec before printing judge ruling
+    console.log(`Spec for commit:`)
+    console.log(evalCommit.spec)
+
+    // Print GitHub commit link after judging results
+    try {
+      const githubUrl = createGithubUrl(evalData.repoUrl, evalCommit.sha)
+      console.log(`🔗 GitHub commit: ${githubUrl}`)
+    } catch (error) {
+      // Ignore errors if URL generation fails (e.g., non-GitHub repos)
+    }
+
     // Display results
     if (result.error) {
       console.log(`❌ Error occurred: ${result.error}`)
@@ -212,7 +225,6 @@ async function runSingleEvalTask(options: {
         const metrics = result.judging_results.metrics
         console.log(`  Overall Score: ${metrics.overallScore.toFixed(2)}/10`)
         console.log(`  Completion: ${metrics.completionScore.toFixed(2)}/10`)
-        console.log(`  Efficiency: ${metrics.efficiencyScore.toFixed(2)}/10`)
         console.log(`  Code Quality: ${metrics.codeQualityScore.toFixed(2)}/10`)
 
         if (result.judging_results.strengths.length > 0) {

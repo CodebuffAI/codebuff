@@ -1,12 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { pluralize } from '@codebuff/common/util/string'
-import { uniq } from 'lodash'
-
-import { getLanguageConfig } from './languages'
-
-import type { LanguageConfig } from './languages'
+import { getLanguageConfig, LanguageConfig } from './languages'
 import type { Parser, Query } from 'web-tree-sitter'
 
 export const DEBUG_PARSING = false
@@ -39,11 +34,15 @@ export async function getFileTokenScores(
     const fullPath = path.join(projectRoot, filePath)
     const languageConfig = await getLanguageConfig(fullPath)
     if (languageConfig) {
-      const { identifiers, calls, numLines } = parseTokens(
-        filePath,
-        languageConfig,
-        readFile,
-      )
+      let parseResults
+      if (readFile) {
+        // When readFile is provided, use relative filePath
+        parseResults = parseTokens(filePath, languageConfig, readFile)
+      } else {
+        // When readFile is not provided, use full path to read from file system
+        parseResults = parseTokens(fullPath, languageConfig)
+      }
+      const { identifiers, calls, numLines } = parseResults
 
       const tokenScoresForFile: { [token: string]: number } = {}
       tokenScores[filePath] = tokenScoresForFile
@@ -130,19 +129,21 @@ export async function getFileTokenScores(
 
   if (DEBUG_PARSING) {
     const endTime = Date.now()
-    console.log(
-      `Parsed ${pluralize(filePaths.length, 'file')} in ${endTime - startTime}ms`,
-    )
+    console.log(`Parsed ${filePaths.length} files in ${endTime - startTime}ms`)
 
-    fs.writeFileSync(
-      '../debug/debug-parse.json',
-      JSON.stringify({
-        tokenCallers,
-        tokenScores,
-        fileCallsMap,
-        externalCalls,
-      }),
-    )
+    try {
+      fs.writeFileSync(
+        '../debug/debug-parse.json',
+        JSON.stringify({
+          tokenCallers,
+          tokenScores,
+          fileCallsMap,
+          externalCalls,
+        }),
+      )
+    } catch {
+      // Silently ignore debug file write errors in test environments
+    }
   }
 
   return { tokenScores, tokenCallers }
@@ -156,7 +157,9 @@ export function parseTokens(
   const { parser, query } = languageConfig
 
   try {
-    const sourceCode = readFile ? readFile(filePath) : fs.readFileSync(filePath, 'utf8')
+    const sourceCode = readFile
+      ? readFile(filePath)
+      : fs.readFileSync(filePath, 'utf8')
     if (sourceCode === null) {
       return {
         numLines: 0,
@@ -169,8 +172,8 @@ export function parseTokens(
       throw new Error('Parser or query not found')
     }
     const parseResults = parseFile(parser, query, sourceCode)
-    const identifiers = uniq(parseResults.identifier)
-    const calls = uniq(parseResults['call.identifier'])
+    const identifiers = Array.from(new Set(parseResults.identifier))
+    const calls = Array.from(new Set(parseResults['call.identifier']))
 
     if (DEBUG_PARSING) {
       console.log(`\nParsing ${filePath}:`)

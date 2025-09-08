@@ -1,6 +1,6 @@
 import path from 'path'
 
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   clearMockedModules,
   mockModule,

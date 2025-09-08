@@ -10,7 +10,7 @@ npm install @codebuff/sdk
 
 ## Prerequisites
 
-Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/profile?tab=api-keys).
+- Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/profile?tab=api-keys).
 
 ## Usage
 
@@ -19,119 +19,115 @@ Create a Codebuff account and get your [Codebuff API key here](https://www.codeb
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
 
-const client = new CodebuffClient({
-  // Note: You need to pass in your own API key here.
-  apiKey: process.env.CODEBUFF_API_KEY,
-  cwd: process.cwd(),
-  onError: (e) => console.error('Codebuff error:', e.message),
-})
+async function main() {
+  const client = new CodebuffClient({
+    // Note: You need to pass in your own API key here. Get one: https://www.codebuff.com/profile?tab=api-keys
+    apiKey: process.env.CODEBUFF_API_KEY,
+    cwd: process.cwd(),
+    onError: (e) => console.error('Codebuff error:', e.message),
+  })
 
-// First run
-const run1 = await client.run({
-  agent: 'base',
-  prompt: 'Create a simple calculator class',
-})
+  // First run
+  const run1 = await client.run({
+    agent: 'base',
+    prompt: 'Create a simple calculator class',
+    handleEvent: (event) => {
+      console.log(event) // Log all events
+    },
+  })
 
-// Continue the same session with a follow-up
-const run2 = await client.run({
-  agent: 'base',
-  prompt: 'Add unit tests for the calculator',
-  previousRun: run1,
-  handleEvent: (event) => {
-    // Log all events
-    console.log('Progress:', event)
-  },
-})
+  // Continue the same session with a follow-up
+  const run2 = await client.run({
+    agent: 'base',
+    prompt: 'Add unit tests for the calculator',
+    previousRun: run1,
+    handleEvent: (event) => {
+      console.log(event) // Log all events
+    },
+  })
 
-client.closeConnection()
+  client.closeConnection()
+}
+
+main()
 ```
 
-### Advanced Example with Custom Agents, Tools, and Images
+### Example 2: Custom Agents and Tools
 
 ```typescript
 import { z } from 'zod'
 import {
   CodebuffClient,
-  generateInitialRunState,
-  withAdditionalMessage,
+  AgentDefinition,
   getCustomToolDefinition,
 } from '@codebuff/sdk'
 
-const client = new CodebuffClient({
-  // Note: You need to pass in your own API key here.
-  apiKey: process.env.CODEBUFF_API_KEY,
-  cwd: process.cwd(),
-  onError: (e) => console.error('Codebuff error:', e.message),
-})
+async function main() {
+  const client = new CodebuffClient({
+    // Note: You need to pass in your own API key. Get it here: https://www.codebuff.com/profile?tab=api-keys
+    apiKey: process.env.CODEBUFF_API_KEY,
+    cwd: process.cwd(),
+    onError: (e) => console.error('Codebuff error:', e.message),
+  })
 
-// Create a run with an image
-const emptyRun = await generateInitialRunState({ cwd: process.cwd() })
-const runWithImage = withAdditionalMessage({
-  runState: emptyRun,
-  message: {
-    role: 'user',
-    content: [
-      {
-        type: 'image',
-        image: new URL(
-          'https://upload.wikimedia.org/wikipedia/en/a/a9/Example.jpg',
-        ),
-      },
-    ],
-  },
-})
+  const myCustomAgent: AgentDefinition = {
+    id: 'my-custom-agent',
+    model: 'openai/gpt-5',
+    displayName: 'Sentiment analyzer',
+    instructionsPrompt: `
+1. Describe the different sentiments in the given prompt.
+2. Score the prompt along the following 5 dimensions:
+  happiness, sadness, anger, fear, and surprise.`,
+    // ... other AgentDefinition properties
+  }
 
-const result = await client.run({
-  agent: 'my-custom-agent',
-  prompt: 'Analyze this image and create code based on what you see',
-  previousRun: runWithImage,
-
-  // Custom agent definitions
-  agentDefinitions: [
-    {
-      id: 'my-custom-agent',
-      model: 'openai/gpt-5',
-      displayName: 'Image Analyzer',
-      instructionsPrompt:
-        '1. describe all the details in the image. 2. answer the user prompt',
-      // ... other AgentDefinition properties
-    },
-  ],
-
-  // Custom tool definitions
-  customToolDefinitions: [
-    getCustomToolDefinition({
-      toolName: 'fetch_api_data',
-      description: 'Fetch data from an API endpoint',
-      inputSchema: z.object({
-        url: z.string().url(),
-        method: z.enum(['GET', 'POST']).default('GET'),
-        headers: z.record(z.string()).optional(),
-      }),
-      exampleInputs: [
-        { url: 'https://api.example.com/data', method: 'GET' },
-        {
-          url: 'https://api.example.com/submit',
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ],
-      handler: async ({ url, method, headers }) => {
-        const response = await fetch(url, { method, headers })
-        const data = await response.text()
-        return {
-          toolResultMessage: `API Response: ${data.slice(0, 5000)}...`,
-        }
-      },
+  const myCustomTool = getCustomToolDefinition({
+    toolName: 'fetch_api_data',
+    description: 'Fetch data from an API endpoint',
+    inputSchema: z.object({
+      url: z.url(),
+      method: z.enum(['GET', 'POST']).default('GET'),
+      headers: z.record(z.string(), z.string()).optional(),
     }),
-  ],
+    outputSchema: z.array(
+      z.object({
+        type: z.literal('json'),
+        value: z.object({
+          message: z.string(),
+        }),
+      }),
+    ),
+    exampleInputs: [{ url: 'https://api.example.com/data', method: 'GET' }],
+    handler: async ({ url, method, headers }) => {
+      const response = await fetch(url, { method, headers })
+      const data = await response.text()
+      return [
+        {
+          type: 'json' as const,
+          value: {
+            message: `API Response: ${data.slice(0, 5000)}...`,
+          },
+        },
+      ]
+    },
+  })
 
-  handleEvent: (event) => {
-    console.log('Agent progress:', event)
-  },
-})
+  const { output } = await client.run({
+    agent: 'my-custom-agent',
+    prompt: "Today I'm feeling very happy!",
+    agentDefinitions: [myCustomAgent],
+    customToolDefinitions: [myCustomTool],
+    handleEvent: (event) => {
+      console.log(event)
+    },
+  })
 
-client.closeConnection()
+  console.log('Final output:', output)
+
+  client.closeConnection()
+}
+
+main()
 ```
 
 ## API Reference
@@ -142,7 +138,7 @@ Runs a Codebuff agent with the specified options.
 
 #### Parameters
 
-- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, or specify a custom agent ID if you made your own agent config.
+- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, or specify a custom agent ID if you made your own agent definition (passed with the `agentDefinitions` param).
 
 - **`prompt`** (string, required): The user prompt describing what you want the agent to do.
 
@@ -156,7 +152,7 @@ Runs a Codebuff agent with the specified options.
 
 - **`knowledgeFiles`** (object, optional): Knowledge files to inject into every `run()` call. Uses the same schema as `projectFiles` - keys are file paths and values are file contents. These files are added directly to the agent's context.
 
-- **`agentDefinitions`** (array, optional): Array of custom agent configurations. Each object should satisfy the AgentConfig type.
+- **`agentDefinitions`** (array, optional): Array of custom agent definitions. Each object should satisfy the AgentDefinition type.
 
 - **`customToolDefinitions`** (array, optional): Array of custom tool definitions that extend the agent's capabilities. Each tool definition includes a name, Zod schema for input validation, and a handler function. These tools can be called by the agent during execution.
 

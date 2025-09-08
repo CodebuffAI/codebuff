@@ -7,7 +7,7 @@ import {
   toolNameParam,
 } from '@codebuff/common/tools/constants'
 
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 import type {
   PrintModeError,
   PrintModeText,

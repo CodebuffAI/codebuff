@@ -1,7 +1,7 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 
 export const researcher = (
   model: Model,

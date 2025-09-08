@@ -11,16 +11,15 @@ import path from 'path'
 import process from 'process'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { buildArray } from '@codebuff/common/util/array'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
-import { closeXml } from '@codebuff/common/util/xml'
 import { gray, red } from 'picocolors'
 import { z } from 'zod/v4'
 
 import { CONFIG_DIR } from './credentials'
 import { logger } from './utils/logger'
 
-import type { ToolResult } from '@codebuff/common/types/session-state'
+import type { JSONObject } from '@codebuff/common/types/json'
+import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type {
   ChildProcessByStdio,
   ChildProcessWithoutNullStreams,
@@ -88,67 +87,83 @@ function getOutputWithContext(
 /**
  * Formats a single background process's info into a string
  */
-export function getBackgroundProcessInfoString(
-  info: BackgroundProcessInfo,
-): string {
+export function getBackgroundProcessUpdate(info: BackgroundProcessInfo) {
+  const previousStdoutLength = info.lastReportedStdoutLength
   const newStdout = info.stdoutBuffer
     .join('')
     .slice(info.lastReportedStdoutLength)
+  info.lastReportedStdoutLength += newStdout.length
+  const previousStderrLength = info.lastReportedStderrLength
   const newStderr = info.stderrBuffer
     .join('')
     .slice(info.lastReportedStderrLength)
+  info.lastReportedStderrLength += newStderr.length
 
   // Only report finished processes if there are changes
+  const newStatus = info.status
   if (
-    info.status !== 'running' &&
+    newStatus !== 'running' &&
     !newStdout &&
     !newStderr &&
-    info.status === info.lastReportedStatus
+    newStatus === info.lastReportedStatus
   ) {
-    return ''
+    return null
   }
+  info.lastReportedStatus = newStatus
 
   // Calculate duration in milliseconds
   const duration = info.endTime
     ? info.endTime - info.startTime
     : Date.now() - info.startTime
 
-  return buildArray(
-    '<background_process>',
-    `<process_id>${info.pid}${closeXml('process_id')}`,
-    `<command>${info.command}${closeXml('command')}`,
-    `<start_time_utc>${new Date(info.startTime).toISOString()}${closeXml('start_time_utc')}`,
-    `<duration_ms>${duration}${closeXml('duration_ms')}`,
-    newStdout &&
-      `<stdout>${truncateStringWithMessage({
-        str: getOutputWithContext(newStdout, info.lastReportedStdoutLength),
-        maxLength: COMMAND_OUTPUT_LIMIT,
-        remove: 'START',
-      })}${closeXml('stdout')}`,
-    newStderr &&
-      `<stderr>${truncateStringWithMessage({
-        str: getOutputWithContext(newStderr, info.lastReportedStderrLength),
-        maxLength: COMMAND_OUTPUT_LIMIT,
-        remove: 'START',
-      })}${closeXml('stderr')}`,
-    `<status>${info.status}${closeXml('status')}`,
-    info.process.exitCode !== null &&
-      `<exit_code>${info.process.exitCode}${closeXml('exit_code')}`,
-    info.process.signalCode &&
-      `<signal_code>${info.process.signalCode}${closeXml('signal_code')}`,
-    closeXml('background_process'),
-  ).join('\n')
+  return {
+    command: info.command,
+    processId: info.pid,
+    startTimeUtc: new Date(info.startTime).toISOString(),
+    durationMs: duration,
+    ...(newStdout
+      ? {
+          stdout: truncateStringWithMessage({
+            str: getOutputWithContext(newStdout, previousStdoutLength),
+            maxLength: COMMAND_OUTPUT_LIMIT,
+            remove: 'START',
+          }),
+        }
+      : {}),
+    ...(newStderr
+      ? {
+          stderr: truncateStringWithMessage({
+            str: getOutputWithContext(newStderr, previousStderrLength),
+            maxLength: COMMAND_OUTPUT_LIMIT,
+            remove: 'START',
+          }),
+        }
+      : {}),
+    backgroundProcessStatus: newStatus,
+    ...(info.process.exitCode !== null
+      ? { exitCode: info.process.exitCode }
+      : {}),
+    ...(info.process.signalCode ? { signalCode: info.process.signalCode } : {}),
+  }
 }
 
 /**
  * Gets updates from all background processes and updates tracking info
  */
-export function getBackgroundProcessUpdates(): ToolResult[] {
+export function getBackgroundProcessUpdates(): ToolResultPart[] {
   const updates = Array.from(backgroundProcesses.values())
     .map((bgProcess) => {
-      return [getBackgroundProcessInfoString(bgProcess), bgProcess.toolCallId]
+      return [
+        getBackgroundProcessUpdate(bgProcess),
+        bgProcess.toolCallId,
+      ] satisfies [JSONObject | null, string]
     })
-    .filter(([update]) => Boolean(update))
+    .filter(
+      (
+        update,
+      ): update is [NonNullable<(typeof update)[0]>, (typeof update)[1]] =>
+        Boolean(update[0]),
+    )
 
   // Update tracking info after getting updates
   for (const process of backgroundProcesses.values()) {
@@ -162,10 +177,11 @@ export function getBackgroundProcessUpdates(): ToolResult[] {
 
   return updates.map(([update, toolCallId]) => {
     return {
+      type: 'tool-result',
       toolCallId,
-      toolName: 'background_process_updates',
-      output: { type: 'text', value: update },
-    }
+      toolName: 'background_process_update',
+      output: [{ type: 'json', value: update }],
+    } satisfies ToolResultPart
   })
 }
 

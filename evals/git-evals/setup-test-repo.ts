@@ -135,15 +135,19 @@ export async function setupTestRepo(
       // Local development or public repos
       console.log(`Local environment detected - cloning from: ${repoUrl}`)
 
-      execFileSync('git', ['clone', '--no-checkout', repoUrl, repoDir], {
-        timeout: 120_000, // 2 minute timeout for cloning
-        stdio: 'inherit',
-      })
-      execFileSync('git', ['fetch', 'origin', commitSha], {
+      execFileSync(
+        'git',
+        ['clone', '--no-checkout', '--quiet', repoUrl, repoDir],
+        {
+          timeout: 120_000, // 2 minute timeout for cloning
+          stdio: 'inherit',
+        },
+      )
+      execFileSync('git', ['fetch', 'origin', '--quiet', commitSha], {
         cwd: repoDir,
         stdio: 'inherit',
       })
-      execFileSync('git', ['checkout', commitSha], {
+      execFileSync('git', ['checkout', '--quiet', commitSha], {
         cwd: repoDir,
         stdio: 'inherit',
       })

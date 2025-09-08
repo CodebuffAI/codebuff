@@ -1,10 +1,8 @@
 import { publisher } from './constants'
 
-import type {
-  AgentDefinition,
-  Message,
-  ToolCall,
-} from './types/agent-definition'
+import type { AgentDefinition, ToolCall } from './types/agent-definition'
+import type { Message, ToolMessage } from './types/util-types'
+import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 
 const definition: AgentDefinition = {
   id: 'context-pruner',
@@ -43,31 +41,13 @@ const definition: AgentDefinition = {
 
     let currentMessages = [...messages]
 
-    // Find and remove context-pruner spawn_agent_inline call and following messages
-    const lastAssistantMessageIndex = currentMessages.findLastIndex(
-      (message) => message.role === 'assistant',
-    )
-    const lastAssistantMessage = currentMessages[lastAssistantMessageIndex]
-    const lastAssistantMessageIsToolCall =
-      typeof lastAssistantMessage?.content === 'string' &&
-      lastAssistantMessage.content.includes('spawn_agent_inline') &&
-      lastAssistantMessage.content.includes('context-pruner')
-
-    if (lastAssistantMessageIsToolCall && lastAssistantMessageIndex >= 0) {
-      // Remove tool call and any following messages.
-      const messagesToRemove =
-        currentMessages.length - lastAssistantMessageIndex
-      currentMessages.splice(lastAssistantMessageIndex, messagesToRemove)
-    }
-
-    // Initial check - if already under limit, return (with inline agent tool call removed)
+    // Initial check - if already under limit, return
     const initialTokens = countTokensJson(currentMessages)
     if (initialTokens < maxMessageTokens) {
       yield {
         toolName: 'set_messages',
-        input: {
-          messages: currentMessages,
-        },
+        input: { messages: currentMessages },
+        includeToolCall: false,
       }
       return
     }
@@ -78,25 +58,41 @@ const definition: AgentDefinition = {
 
     for (let i = currentMessages.length - 1; i >= 0; i--) {
       const message = currentMessages[i]
-      let processedContent =
-        typeof message.content === 'string'
-          ? message.content
-          : JSON.stringify(message.content)
 
-      if (processedContent.includes('<tool>run_terminal_command</tool>')) {
+      // Handle tool messages with new object format
+      if (
+        message.role === 'tool' &&
+        message.content.toolName === 'run_terminal_command'
+      ) {
+        const toolMessage =
+          message as CodebuffToolMessage<'run_terminal_command'>
+
         if (numKeptTerminalCommands < numTerminalCommandsToKeep) {
           numKeptTerminalCommands++
-          afterTerminalPass.unshift({ ...message, content: processedContent })
+          afterTerminalPass.unshift(message)
         } else {
-          // Simplify terminal command result
-          processedContent = processedContent.replace(
-            /<tool_result>\s*<tool>run_terminal_command<\/tool>\s*<result>[\s\S]*?<\/result>\s*<\/tool_result>/g,
-            '<tool_result><tool>run_terminal_command</tool><result>[Output omitted]</result></tool_result>',
-          )
-          afterTerminalPass.unshift({ ...message, content: processedContent })
+          // Simplify terminal command result by replacing output
+          const simplifiedMessage: CodebuffToolMessage<'run_terminal_command'> =
+            {
+              ...toolMessage,
+              content: {
+                ...toolMessage.content,
+                output: [
+                  {
+                    type: 'json',
+                    value: {
+                      command:
+                        toolMessage.content.output[0]?.value?.command || '',
+                      stdoutOmittedForLength: true,
+                    },
+                  },
+                ],
+              },
+            }
+          afterTerminalPass.unshift(simplifiedMessage)
         }
       } else {
-        afterTerminalPass.unshift({ ...message, content: processedContent })
+        afterTerminalPass.unshift(message)
       }
     }
 
@@ -108,28 +104,37 @@ const definition: AgentDefinition = {
         input: {
           messages: afterTerminalPass,
         },
+        includeToolCall: false,
       }
       return
     }
 
-    // PASS 2: Remove large tool results (any tool result > 1000 chars)
+    // PASS 2: Remove large tool results (any tool result output > 1000 chars when stringified)
     const afterToolResultsPass = afterTerminalPass.map((message) => {
-      let processedContent =
-        typeof message.content === 'string'
-          ? message.content
-          : JSON.stringify(message.content)
+      if (message.role === 'tool') {
+        const outputSize = JSON.stringify(message.content.output).length
 
-      if (
-        processedContent.includes('<tool_result>') &&
-        processedContent.length > 1000
-      ) {
-        processedContent = processedContent.replace(
-          /<result>[\s\S]*?<\/result>/g,
-          '<result>[Large tool result omitted]</result>',
-        )
+        if (outputSize > 1000) {
+          // Replace with simplified output
+          const simplifiedMessage: ToolMessage = {
+            ...message,
+            content: {
+              ...message.content,
+              output: [
+                {
+                  type: 'json',
+                  value: {
+                    message: '[LARGE_TOOL_RESULT_OMITTED]',
+                    originalSize: outputSize,
+                  },
+                },
+              ],
+            },
+          }
+          return simplifiedMessage
+        }
       }
-
-      return { ...message, content: processedContent }
+      return message
     })
 
     // Check if tool results pass was enough
@@ -140,7 +145,8 @@ const definition: AgentDefinition = {
         input: {
           messages: afterToolResultsPass,
         },
-      } satisfies ToolCall
+        includeToolCall: false,
+      } satisfies ToolCall<'set_messages'>
       return
     }
 
@@ -162,10 +168,7 @@ const definition: AgentDefinition = {
     const filteredMessages: any[] = []
 
     for (const message of afterToolResultsPass) {
-      if (
-        removedTokens >= tokensToRemove ||
-        (message as any).keepDuringTruncation
-      ) {
+      if (removedTokens >= tokensToRemove || message.keepDuringTruncation) {
         filteredMessages.push(message)
         continue
       }
@@ -190,7 +193,8 @@ const definition: AgentDefinition = {
       input: {
         messages: finalMessages,
       },
-    } satisfies ToolCall
+      includeToolCall: false,
+    } satisfies ToolCall<'set_messages'>
   },
 }
 

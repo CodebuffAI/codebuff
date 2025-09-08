@@ -28,13 +28,6 @@ function main() {
 
   log('Starting SDK publishing process...')
 
-  // Clean and build
-  log('Cleaning previous build...')
-  run('bun run clean')
-
-  log('Building TypeScript...')
-  run('bun run build')
-
   // Verify the package
   log('Verifying package contents...')
   run('npm pack --dry-run')

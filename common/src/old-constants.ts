@@ -256,8 +256,8 @@ export const models = {
 } as const
 
 export const shortModelNames = {
-  'gemini-2.5-pro': models.gemini2_5_pro_preview,
-  'flash-2.5': models.gemini2_5_flash,
+  'gemini-2.5-pro': models.openrouter_gemini2_5_pro_preview,
+  'flash-2.5': models.openrouter_gemini2_5_flash,
   'opus-4': models.openrouter_claude_opus_4,
   'sonnet-4': models.openrouter_claude_sonnet_4,
   'sonnet-3.7': models.openrouter_claude_sonnet_4,
@@ -299,6 +299,15 @@ export const providerModelNames = {
 
 export type Model = (typeof models)[keyof typeof models] | (string & {})
 
+export const shouldCacheModels = [
+  'anthropic/claude-opus-4.1',
+  'anthropic/claude-sonnet-4',
+  'anthropic/claude-opus-4',
+  'anthropic/claude-3.7-sonnet',
+  'anthropic/claude-3.5-haiku',
+  'z-ai/glm-4.5',
+  'qwen/qwen3-coder',
+]
 const nonCacheableModels = [
   models.openrouter_grok_4,
 ] satisfies string[] as string[]

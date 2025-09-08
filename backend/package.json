@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Backend server for Codebuff",
   "private": true,
-  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./*": {

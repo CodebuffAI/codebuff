@@ -44,13 +44,10 @@ ${getToolCallString(toolName, {
 })}
 
 ${getToolCallString(toolName, {
-  command: `git commit -m "$(cat <<'EOF'
-Your commit message here.
+  command: `git commit -m "Your commit message here.
 
 🤖 Generated with Codebuff
-Co-Authored-By: Codebuff <noreply@codebuff.com>
-EOF
-)"`,
+Co-Authored-By: Codebuff <noreply@codebuff.com>"`,
 })}
     `.trim(),
 } satisfies ToolDescription

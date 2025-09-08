@@ -6,7 +6,7 @@ import path from 'path'
 import { mapLimit } from 'async'
 
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { z } from 'zod/v4'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
@@ -295,7 +295,7 @@ function basicFilter(commits: CommitInfo[]): CommitInfo[] {
   })
 }
 
-function createGithubUrl(repoUrl: string, sha: string): string {
+export function createGithubUrl(repoUrl: string, sha: string): string {
   // Convert repo URL to GitHub commit URL
   let baseUrl = repoUrl
   if (baseUrl.endsWith('.git')) {

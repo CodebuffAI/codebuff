@@ -1,14 +1,11 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
-import {
-  getToolCallString,
-  renderToolResults,
-} from '@codebuff/common/tools/utils'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
@@ -159,8 +156,12 @@ describe('mainPrompt', () => {
         timeout: number = 30_000,
       ) => {
         return {
-          success: true,
-          result: `Tool call success: ${{ toolName, input }}` as any,
+          output: [
+            {
+              type: 'json',
+              value: `Tool call success: ${{ toolName, input }}`,
+            },
+          ],
         }
       },
     )
@@ -229,18 +230,21 @@ describe('mainPrompt', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     // Simulate a previous read_files result being in the history
     sessionState.mainAgentState.messageHistory.push({
-      role: 'user',
-      content: renderToolResults([
-        {
-          toolCallId: 'prev-read',
-          toolName: 'read_files',
-          output: {
-            type: 'text',
-            value:
-              '<read_file>\n<path>test.txt</path>\n<content>old content</content>\n</read_file>',
+      role: 'tool',
+      content: {
+        type: 'tool-result',
+        toolCallId: 'prev-read',
+        toolName: 'read_files',
+        output: [
+          {
+            type: 'json',
+            value: {
+              path: 'test.txt',
+              content: 'old content',
+            },
           },
-        },
-      ]),
+        ],
+      },
     })
 
     const action = {
@@ -299,23 +303,18 @@ describe('mainPrompt', () => {
     // It's usually the message right before the final assistant response.
     const toolResultMessages =
       newSessionState.mainAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('<tool_result>'),
+        (m) => m.role === 'tool',
       )
 
     // Find the specific tool result message that contains file_updates
     const fileUpdateMessage = toolResultMessages.find(
-      (m) =>
-        typeof m.content === 'string' &&
-        m.content.includes('<tool>read_files</tool>'),
+      (m) => m.content.toolName === 'read_files',
     )
 
     expect(fileUpdateMessage).toBeDefined()
-    expect(fileUpdateMessage?.content).toContain('test.txt')
+    expect(JSON.stringify(fileUpdateMessage?.content)).toContain('test.txt')
     // Check that the content reflects the *new* mock content within the file_updates result
-    expect(fileUpdateMessage?.content).toContain('old content')
+    expect(JSON.stringify(fileUpdateMessage?.content)).toContain('old content')
   })
 
   it('should handle direct terminal command', async () => {
@@ -336,7 +335,7 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls, sessionState: newSessionState } = await mainPrompt(
+    const { sessionState: newSessionState, output } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -362,13 +361,13 @@ describe('mainPrompt', () => {
       }),
     )
 
+    // Verify that the output contains the expected structure
+    expect(output.type).toBeDefined()
+
     // Verify that a tool result was added to message history
     const toolResultMessages =
       newSessionState.mainAgentState.messageHistory.filter(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('<tool_result>'),
+        (m) => m.role === 'tool',
       )
     expect(toolResultMessages.length).toBeGreaterThan(0)
   })
@@ -470,7 +469,7 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls } = await mainPrompt(
+    const { output } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -481,7 +480,7 @@ describe('mainPrompt', () => {
       },
     )
 
-    expect(toolCalls).toHaveLength(0) // No tool calls expected
+    expect(output.type).toBeDefined() // Output should exist
   })
 
   it('should update consecutiveAssistantMessages when new prompt is received', async () => {
@@ -560,7 +559,7 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { toolCalls } = await mainPrompt(
+    const { output } = await mainPrompt(
       new MockWebSocket() as unknown as WebSocket,
       action,
       {
@@ -571,7 +570,7 @@ describe('mainPrompt', () => {
       },
     )
 
-    expect(toolCalls).toHaveLength(0) // No tool calls expected for empty response
+    expect(output.type).toBeDefined() // Output should exist even for empty response
   })
 
   it('should unescape ampersands in run_terminal_command tool calls', async () => {

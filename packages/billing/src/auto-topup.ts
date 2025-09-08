@@ -1,6 +1,6 @@
 import { env } from 'process'
 
-import { CREDIT_PRICING } from '@codebuff/common/constants'
+import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'

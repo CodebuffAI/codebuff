@@ -16,6 +16,8 @@ import {
   UsageReponseSchema,
 } from '@codebuff/common/actions'
 import { READABLE_NAME } from '@codebuff/common/api-keys/constants'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
 import {
   ASKED_CONFIG,
   CREDITS_REFERRAL_BONUS,
@@ -26,9 +28,7 @@ import {
   UserState,
   ASYNC_AGENTS_ENABLED,
   API_KEY_ENV_VAR,
-} from '@codebuff/common/constants'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
+} from '@codebuff/common/old-constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   getAllAgents,
@@ -98,12 +98,10 @@ import type {
   UsageResponse,
 } from '@codebuff/common/actions'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import type { CostMode } from '@codebuff/common/constants'
+import type { CostMode } from '@codebuff/common/old-constants'
+import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type {
-  SessionState,
-  ToolResult,
-} from '@codebuff/common/types/session-state'
+import type { SessionState } from '@codebuff/common/types/session-state'
 import type { User } from '@codebuff/common/util/credentials'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
@@ -208,7 +206,7 @@ export class Client {
   public user: User | undefined
   public lastWarnedPct: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
-  public lastToolResults: ToolResult[] = []
+  public lastToolResults: ToolResultPart[] = []
   public model: string | undefined
   public oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
     Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
@@ -812,10 +810,16 @@ export class Client {
         sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
-          success: false,
-          error: ASYNC_AGENTS_ENABLED
-            ? `User input ID mismatch: expected one of ${this.nonCancelledUserInputIds.join(', ')}, got ${userInputId}. That user input id might have been cancelled by the user.`
-            : `User input ID mismatch: expected ${this.userInputId}, got ${userInputId}. Most likely cancelled by user.`,
+          output: [
+            {
+              type: 'json',
+              value: {
+                errorMessage: ASYNC_AGENTS_ENABLED
+                  ? `User input ID mismatch: expected one of ${this.nonCancelledUserInputIds.join(', ')}, got ${userInputId}. That user input id might have been cancelled by the user.`
+                  : `User input ID mismatch: expected ${this.userInputId}, got ${userInputId}. Most likely cancelled by user.`,
+              },
+            },
+          ],
         })
         return
       }
@@ -838,7 +842,6 @@ export class Client {
         sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
-          success: true,
           output: toolResult.output,
         })
       } catch (error) {
@@ -857,8 +860,15 @@ export class Client {
         sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
+          output: [
+            {
+              type: 'json',
+              value: {
+                errorMessage:
+                  error instanceof Error ? error.message : String(error),
+              },
+            },
+          ],
         })
       }
     })
@@ -978,8 +988,10 @@ export class Client {
       },
     ])
 
+    const codebuffConfig = loadCodebuffConfig()
+
     this.sessionState.mainAgentState.stepsRemaining =
-      loadCodebuffConfig().maxAgentSteps
+      codebuffConfig.maxAgentSteps
 
     this.sessionState.fileContext.cwd = getWorkingDirectory()
     this.sessionState.fileContext.agentTemplates = await loadLocalAgents({})
@@ -1038,9 +1050,15 @@ export class Client {
       ...(this.lastToolResults || []),
       ...getBackgroundProcessUpdates(),
       scrapedContent && {
+        type: 'tool-result',
         toolName: 'web-scraper',
-        toolCallId: generateCompactId(),
-        output: { type: 'text' as const, value: scrapedContent },
+        toolCallId: generateCompactId('web-scraper-'),
+        output: [
+          {
+            type: 'json',
+            value: { scrapedContent },
+          },
+        ],
       },
     )
 
@@ -1310,7 +1328,7 @@ export class Client {
         Spinner.get().stop()
 
         this.sessionState = a.sessionState
-        const toolResults: ToolResult[] = []
+        const toolResults: ToolResultPart[] = []
 
         stepsCount++
         console.log('\n')

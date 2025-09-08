@@ -1,13 +1,13 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
 import { insertTrace } from '@codebuff/bigquery'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import {
   finetunedVertexModels,
   models,
   type FinetunedVertexModel,
-} from '@codebuff/common/constants'
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
+} from '@codebuff/common/old-constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { and, eq } from 'drizzle-orm'
 import { range, shuffle, uniq } from 'lodash'
@@ -29,7 +29,7 @@ import type {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,
 } from '@codebuff/bigquery'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
@@ -123,7 +123,7 @@ export async function requestRelevantFiles(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -221,7 +221,7 @@ export async function requestRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
@@ -302,7 +302,7 @@ async function getRelevantFiles(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   userPrompt: string,
@@ -344,7 +344,7 @@ async function getRelevantFiles(
   let response = await promptFlashWithFallbacks(codebuffMessages, {
     clientSessionId,
     userInputId,
-    model: models.gemini2flash,
+    model: models.openrouter_gemini2_5_flash,
     userId,
     useFinetunedModel: finetunedModel,
     fingerprintId,
@@ -385,7 +385,7 @@ async function getRelevantFilesForTraining(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   userPrompt: string,

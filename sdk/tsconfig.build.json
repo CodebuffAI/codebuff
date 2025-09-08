@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "esnext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": false,
+
+    "outDir": "dist/esm",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "skipLibCheck": true,
+    "emitDeclarationOnly": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitReturns": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["**/*.test.ts", "**/*.spec.ts", "node_modules", "dist"]
+}

@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'read_docs'
 const endsAgentStep = true
@@ -31,4 +31,12 @@ export const readDocsParams = {
     .describe(
       `Fetch up-to-date documentation for libraries and frameworks using Context7 API.`,
     ),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z.object({
+        documentation: z.string(),
+      }),
+    }),
+  ]),
+} satisfies $ToolParams

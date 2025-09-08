@@ -1,6 +1,8 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import { updateFileResultSchema } from './str-replace'
+
+import type { $ToolParams } from '../../constants'
 
 const toolName = 'write_file'
 const endsAgentStep = false
@@ -19,4 +21,10 @@ export const writeFileParams = {
       content: z.string().describe(`Edit snippet to apply to the file.`),
     })
     .describe(`Create or edit a file with the given content.`),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: updateFileResultSchema,
+    }),
+  ]),
+} satisfies $ToolParams

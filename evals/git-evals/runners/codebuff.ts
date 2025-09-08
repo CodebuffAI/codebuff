@@ -1,6 +1,7 @@
 import path from 'path'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
 
@@ -23,7 +24,7 @@ export class CodebuffRunner implements Runner {
     this.agent = agent ?? 'base'
   }
 
-  async run(prompt: string): Promise<{ steps: AgentStep[] }> {
+  async run(prompt: string): ReturnType<Runner['run']> {
     const steps: AgentStep[] = []
     let responseText = ''
     let toolCalls: AgentStep['toolCalls'] = []
@@ -84,13 +85,16 @@ export class CodebuffRunner implements Runner {
       handleStreamChunk: (chunk) => {
         process.stdout.write(chunk)
       },
-      maxAgentSteps: 20,
+      maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
       agentDefinitions: localAgentDefinitions,
     })
     flushStep()
 
     client.closeConnection()
 
-    return { steps }
+    return {
+      steps,
+      totalCostUsd: this.runState.sessionState.mainAgentState.creditsUsed / 100,
+    }
   }
 }

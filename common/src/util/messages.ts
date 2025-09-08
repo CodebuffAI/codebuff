@@ -4,11 +4,11 @@ import { buildArray } from './array'
 import { getToolCallString } from '../tools/utils'
 
 import type {
-  AssistantCodebuffMessage,
-  CodebuffMessage,
-  SystemCodebuffMessage,
-  ToolCodebuffMessage,
-  UserCodebuffMessage,
+  AssistantMessage,
+  Message,
+  SystemMessage,
+  ToolMessage,
+  UserMessage,
 } from '../types/messages/codebuff-message'
 import type { ProviderMetadata } from '../types/messages/provider-metadata'
 import type { ModelMessage } from 'ai'
@@ -83,20 +83,20 @@ type NonStringContent<Message extends { content: any }> = Omit<
 }
 
 function userToCodebuffMessage(
-  message: Omit<UserCodebuffMessage, 'content'> & {
-    content: Exclude<UserCodebuffMessage['content'], string>[number]
+  message: Omit<UserMessage, 'content'> & {
+    content: Exclude<UserMessage['content'], string>[number]
   },
-): NonStringContent<UserCodebuffMessage> {
-  return { ...message, content: [message.content] }
+): NonStringContent<UserMessage> {
+  return cloneDeep({ ...message, content: [message.content] })
 }
 
 function assistantToCodebuffMessage(
-  message: Omit<AssistantCodebuffMessage, 'content'> & {
-    content: Exclude<AssistantCodebuffMessage['content'], string>[number]
+  message: Omit<AssistantMessage, 'content'> & {
+    content: Exclude<AssistantMessage['content'], string>[number]
   },
-): NonStringContent<AssistantCodebuffMessage> {
+): NonStringContent<AssistantMessage> {
   if (message.content.type === 'tool-call') {
-    return {
+    return cloneDeep({
       ...message,
       content: [
         {
@@ -108,27 +108,22 @@ function assistantToCodebuffMessage(
           ),
         },
       ],
-    }
+    })
   }
-  return { ...message, content: [message.content] }
+  return cloneDeep({ ...message, content: [message.content] })
 }
 
 function toolToCodebuffMessage(
-  message: Omit<ToolCodebuffMessage, 'content'> & {
-    content: Exclude<ToolCodebuffMessage['content'], string>[number]
-  },
-): Nested<
-  | NonStringContent<UserCodebuffMessage>
-  | NonStringContent<AssistantCodebuffMessage>
-> {
-  return message.content.output.value.map((o) => {
+  message: ToolMessage,
+): Nested<NonStringContent<UserMessage> | NonStringContent<AssistantMessage>> {
+  return message.content.output.map((o) => {
     if (o.type === 'json') {
       const toolResult = {
-        tool_name: message.content.toolName,
-        id: message.content.toolCallId,
+        toolName: message.content.toolName,
+        toolCallId: message.content.toolCallId,
         output: o.value,
       }
-      return {
+      return cloneDeep({
         ...message,
         role: 'user',
         content: [
@@ -137,14 +132,14 @@ function toolToCodebuffMessage(
             text: `<tool_result>\n${JSON.stringify(toolResult, null, 2)}\n</tool_result>`,
           },
         ],
-      } satisfies NonStringContent<UserCodebuffMessage>
+      } satisfies NonStringContent<UserMessage>)
     }
     if (o.type === 'media') {
-      return {
+      return cloneDeep({
         ...message,
         role: 'user',
         content: [{ type: 'file', data: o.data, mediaType: o.mediaType }],
-      } satisfies NonStringContent<UserCodebuffMessage>
+      } satisfies NonStringContent<UserMessage>)
     }
     o satisfies never
     const oAny = o as any
@@ -153,21 +148,21 @@ function toolToCodebuffMessage(
 }
 
 function convertToolMessages(
-  message: CodebuffMessage,
+  message: Message,
 ): Nested<
-  | SystemCodebuffMessage
-  | NonStringContent<UserCodebuffMessage>
-  | NonStringContent<AssistantCodebuffMessage>
+  | SystemMessage
+  | NonStringContent<UserMessage>
+  | NonStringContent<AssistantMessage>
 > {
   if (message.role === 'system') {
-    return message
+    return cloneDeep(message)
   }
   if (message.role === 'user') {
     if (typeof message.content === 'string') {
-      return {
+      return cloneDeep({
         ...message,
         content: [{ type: 'text' as const, text: message.content }],
-      }
+      })
     }
     return message.content.map((c) => {
       return userToCodebuffMessage({
@@ -178,10 +173,10 @@ function convertToolMessages(
   }
   if (message.role === 'assistant') {
     if (typeof message.content === 'string') {
-      return {
+      return cloneDeep({
         ...message,
         content: [{ type: 'text' as const, text: message.content }],
-      }
+      })
     }
     return message.content.map((c) => {
       return assistantToCodebuffMessage({
@@ -195,19 +190,14 @@ function convertToolMessages(
     const messageAny = message as any
     throw new Error(`Invalid message role: ${messageAny.role}`)
   }
-  return message.content.map((c) => {
-    return toolToCodebuffMessage({
-      ...message,
-      content: c,
-    })
-  })
+  return toolToCodebuffMessage(message)
 }
 
 export function convertCbToModelMessages({
   messages,
   includeCacheControl = true,
 }: {
-  messages: CodebuffMessage[]
+  messages: Message[]
   includeCacheControl?: boolean
 }): ModelMessage[] {
   const noToolMessages = buildArray(messages.map((m) => convertToolMessages(m)))
@@ -221,8 +211,8 @@ export function convertCbToModelMessages({
 
     const lastMessage = aggregated[aggregated.length - 1]
     if (
-      lastMessage.keepDuringTruncation !== message.keepDuringTruncation &&
-      lastMessage.timeToLive !== message.timeToLive &&
+      lastMessage.keepDuringTruncation !== message.keepDuringTruncation ||
+      lastMessage.timeToLive !== message.timeToLive ||
       !isEqual(lastMessage.providerOptions, message.providerOptions)
     ) {
       aggregated.push(message)

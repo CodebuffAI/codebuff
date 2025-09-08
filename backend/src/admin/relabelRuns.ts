@@ -8,16 +8,14 @@ import {
   finetunedVertexModels,
   models,
   TEST_USER_ID,
-} from '@codebuff/common/constants'
+} from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { rerank } from '../llm-apis/relace-api'
-import {
-  promptAiSdk,
-  transformMessages,
-} from '../llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { logger } from '../util/logger'
+import { messagesWithSystem } from '../util/messages'
 
 import type { System } from '../llm-apis/claude'
 import type {
@@ -27,7 +25,7 @@ import type {
   GetRelevantFilesTrace,
   Relabel,
 } from '@codebuff/bigquery'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { Request, Response } from 'express'
 
 // --- GET Handler Logic ---
@@ -171,8 +169,8 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             const system = payload.system
 
             output = await promptAiSdk({
-              messages: transformMessages(
-                messages as CodebuffMessage[],
+              messages: messagesWithSystem(
+                messages as Message[],
                 system as System,
               ),
               model: model,
@@ -397,10 +395,7 @@ export async function relabelWithClaudeWithFullFileContext(
   }
 
   const output = await promptAiSdk({
-    messages: transformMessages(
-      trace.payload.messages as CodebuffMessage[],
-      system,
-    ),
+    messages: messagesWithSystem(trace.payload.messages as Message[], system),
     model: model as any, // Model type is string here for flexibility
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',

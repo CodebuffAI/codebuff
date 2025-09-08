@@ -1,4 +1,4 @@
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 
 // Mock imports needed for setup within the test
 import { getToolCallString } from '@codebuff/common/tools/utils'
@@ -18,7 +18,6 @@ import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import { logger } from '../util/logger'
-import { renderReadFilesResult } from '../util/parse-tool-call-xml'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -91,8 +90,12 @@ describe.skip('mainPrompt (Integration)', () => {
         input: Record<string, any>,
       ) => {
         return {
-          success: true,
-          result: `Tool call success: ${{ toolName, input }}` as any,
+          output: [
+            {
+              type: 'json',
+              value: `Tool call success: ${{ toolName, input }}`,
+            },
+          ],
         }
       },
     )
@@ -352,16 +355,21 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         }),
       },
       {
-        role: 'user',
-        content: renderReadFilesResult(
-          [
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          output: [
             {
-              path: 'src/util/messages.ts',
-              content: initialContent,
+              type: 'json',
+              value: {
+                path: 'src/util/messages.ts',
+                content: initialContent,
+              },
             },
           ],
-          {},
-        ),
+        },
       },
     )
 
@@ -375,21 +383,21 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       toolResults: [],
     }
 
-    const {
-      toolCalls,
-      toolResults,
-      sessionState: finalSessionState,
-    } = await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session-delete-function-integration',
-      localAgentTemplates: mockLocalAgentTemplates,
-      onResponseChunk: (chunk: string | PrintModeEvent) => {
-        if (typeof chunk !== 'string') {
-          return
-        }
-        process.stdout.write(chunk)
+    const { output, sessionState: finalSessionState } = await mainPrompt(
+      new MockWebSocket() as unknown as WebSocket,
+      action,
+      {
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session-delete-function-integration',
+        localAgentTemplates: mockLocalAgentTemplates,
+        onResponseChunk: (chunk: string | PrintModeEvent) => {
+          if (typeof chunk !== 'string') {
+            return
+          }
+          process.stdout.write(chunk)
+        },
       },
-    })
+    )
     const requestToolCallSpy = websocketAction.requestToolCall as any
 
     // Find the write_file tool call
@@ -437,16 +445,21 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
           }),
         },
         {
-          role: 'user',
-          content: renderReadFilesResult(
-            [
+          role: 'tool',
+          content: {
+            type: 'tool-result',
+            toolName: 'read_files',
+            toolCallId: 'test-id',
+            output: [
               {
-                path: 'packages/backend/src/index.ts',
-                content: initialContent,
+                type: 'json',
+                value: {
+                  path: 'packages/backend/src/index.ts',
+                  content: initialContent,
+                },
               },
             ],
-            {},
-          ),
+          },
         },
       )
 

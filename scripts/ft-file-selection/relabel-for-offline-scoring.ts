@@ -1,8 +1,8 @@
+import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import {
-  promptAiSdk,
-  transformMessages,
-} from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { castAssistantMessage } from '@codebuff/backend/util/messages'
+  castAssistantMessage,
+  messagesWithSystem,
+} from '@codebuff/backend/util/messages'
 import {
   getTracesAndRelabelsForUser,
   insertRelabel,
@@ -13,7 +13,7 @@ import {
   finetunedVertexModels,
   geminiModels,
   TEST_USER_ID,
-} from '@codebuff/common/constants'
+} from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { isValidationSample } from './collect-tuning-data'
@@ -24,7 +24,7 @@ import type {
   GetRelevantFilesTrace,
   Relabel,
 } from '@codebuff/bigquery'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
@@ -166,10 +166,10 @@ async function relabelTraceForModel(
   dataset: string,
 ) {
   const payload = trace.payload as GetRelevantFilesPayload
-  const messages = payload.messages as CodebuffMessage[]
+  const messages = payload.messages as Message[]
   const system = payload.system as System
 
-  let transformedMessages = transformMessages(messages, system)
+  let transformedMessages = messagesWithSystem(messages, system)
   if (modelToTest === finetunedVertexModels.ft_filepicker_010) {
     transformedMessages = transformedMessages
       .map((msg, i) => {

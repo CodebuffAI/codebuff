@@ -1,6 +1,19 @@
 import z from 'zod/v4'
 
-import type { ToolParams } from '../../constants'
+import type { $ToolParams } from '../../constants'
+
+export const updateFileResultSchema = z.union([
+  z.object({
+    file: z.string(),
+    message: z.string(),
+    unifiedDiff: z.string(),
+  }),
+  z.object({
+    file: z.string(),
+    errorMessage: z.string(),
+    patch: z.string().optional(),
+  }),
+])
 
 const toolName = 'str_replace'
 const endsAgentStep = false
@@ -42,4 +55,10 @@ export const strReplaceParams = {
         .describe('Array of replacements to make.'),
     })
     .describe(`Replace strings in a file with new strings.`),
-} satisfies ToolParams
+  outputs: z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: updateFileResultSchema,
+    }),
+  ]),
+} satisfies $ToolParams

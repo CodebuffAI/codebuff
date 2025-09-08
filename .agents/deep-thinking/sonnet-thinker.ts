@@ -1,8 +1,10 @@
+import { publisher } from '../constants'
 import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'sonnet-thinker',
   displayName: 'Claude Sonnet Deep Thinker',
+  publisher,
   model: 'anthropic/claude-4-sonnet-20250522',
 
   inputSchema: {

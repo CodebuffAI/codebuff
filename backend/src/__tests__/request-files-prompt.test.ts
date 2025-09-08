@@ -1,4 +1,4 @@
-import { finetunedVertexModels } from '@codebuff/common/constants'
+import { finetunedVertexModels } from '@codebuff/common/old-constants'
 import {
   beforeEach,
   mock as bunMockFn,
@@ -11,8 +11,8 @@ import {
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
 
-import type { CostMode } from '@codebuff/common/constants'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { CostMode } from '@codebuff/common/old-constants'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { Mock } from 'bun:test'
 
@@ -52,9 +52,7 @@ bunMockFn.module('@codebuff/bigquery', () => ({
 }))
 
 describe('requestRelevantFiles', () => {
-  const mockMessages: CodebuffMessage[] = [
-    { role: 'user', content: 'test prompt' },
-  ]
+  const mockMessages: Message[] = [{ role: 'user', content: 'test prompt' }]
   const mockSystem = 'test system'
   const mockFileContext: ProjectFileContext = {
     projectRoot: '/test/project',

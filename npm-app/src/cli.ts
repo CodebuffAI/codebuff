@@ -4,11 +4,11 @@ import { homedir } from 'os'
 import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   API_KEY_ENV_VAR,
   ASYNC_AGENTS_ENABLED,
-} from '@codebuff/common/constants'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+} from '@codebuff/common/old-constants'
 import {
   getAllAgents,
   getAgentDisplayName,
@@ -108,8 +108,7 @@ import { withHangDetection } from './utils/with-hang-detection'
 
 import type { CliOptions, GitCommand } from './types'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import type { CostMode } from '@codebuff/common/constants'
-import type { PrintModeFinish } from '@codebuff/common/types/print-mode'
+import type { CostMode } from '@codebuff/common/old-constants'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 // Cache for local agent info to avoid async issues in sync methods
@@ -122,7 +121,7 @@ let cachedLocalAgentInfo: Record<
  * Get local agent names using the proper agent loading logic
  * @returns Record of agent type to agent info
  */
-async function getLocalAgentInfo(): Promise<
+export async function getLocalAgentInfo(): Promise<
   Record<string, { displayName: string; purpose?: string }>
 > {
   try {
@@ -738,6 +737,8 @@ export class CLI {
     this.detectPasting()
     if (this.isPasting) {
       this.pastedContent += line + '\n'
+      // Suppress the prompt during paste mode to avoid multiple ">" prompts
+      this.rl.setPrompt('')
     } else if (!this.isReceivingResponse) {
       const input = (this.pastedContent + line).trim()
       this.pastedContent = ''
@@ -863,13 +864,10 @@ export class CLI {
       if (mode === 'lite') {
         console.log(yellow('✨ Switched to lite mode (faster, cheaper)'))
       } else if (mode === 'normal') {
-        console.log(green('⚖️ Switched to normal mode (balanced)'))
+        console.log(green('⚖️  Switched to normal mode (balanced)'))
       } else if (mode === 'max') {
         console.log(
           blueBright('⚡ Switched to max mode (slower, more thorough)'),
-        )
-        console.log(
-          blueBright('New Jul 2: Even more powerful (though more expensive)'),
         )
       } else if (mode === 'experimental') {
         console.log(magenta('🧪 Switched to experimental mode (cutting-edge)'))
@@ -1373,17 +1371,6 @@ export class CLI {
       .flat()
       .reduce((sum, credits) => sum + credits, 0)
 
-    if (printModeIsEnabled()) {
-      const finishObj: PrintModeFinish = {
-        type: 'finish',
-        totalCost: totalCreditsUsedThisSession,
-      }
-      const agentId = CLI.getInstance().agent
-      if (agentId) {
-        finishObj.agentId = agentId
-      }
-      printModeLog(finishObj)
-    }
     let exitUsageMessage = `${pluralize(totalCreditsUsedThisSession, 'credit')} used this session`
     if (client.usageData.remainingBalance !== null) {
       exitUsageMessage += `, ${client.usageData.remainingBalance.toLocaleString()} credits left.`
@@ -1432,6 +1419,8 @@ export class CLI {
       this.consecutiveFastInputs = 0
       if (this.isPasting) {
         this.isPasting = false
+        // Restore the normal prompt when paste mode ends
+        this.setPrompt()
       }
     }
     this.lastInputTime = currentTime

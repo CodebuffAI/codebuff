@@ -8,7 +8,7 @@ import {
 } from '../prompts'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 import type { ToolCall } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 const baseAgentToolNames = [
@@ -54,7 +54,7 @@ export const thinkingBase = (
     : baseAgentSubagents,
 
   systemPrompt: baseAgentSystemPrompt(model),
-  instructionsPrompt: baseAgentUserInputPrompt(model),
+  instructionsPrompt: baseAgentUserInputPrompt(model, 'normal'),
   stepPrompt: baseAgentAgentStepPrompt(model),
 
   handleSteps: function* ({ agentState, prompt, params }) {

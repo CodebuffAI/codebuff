@@ -1,4 +1,4 @@
-import { openaiModels, openrouterModels } from '@codebuff/common/constants'
+import { openaiModels, openrouterModels } from '@codebuff/common/old-constants'
 
 import { logger } from '../util/logger'
 import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
@@ -6,9 +6,9 @@ import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 import type {
   CostMode,
   FinetunedVertexModel,
-  GeminiModel,
-} from '@codebuff/common/constants'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+  Model,
+} from '@codebuff/common/old-constants'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -36,12 +36,12 @@ import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-m
  * @throws If all API calls (primary and fallbacks) fail.
  */
 export async function promptFlashWithFallbacks(
-  messages: CodebuffMessage[],
+  messages: Message[],
   options: {
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: GeminiModel
+    model: Model
     userId: string | undefined
     maxTokens?: number
     temperature?: number

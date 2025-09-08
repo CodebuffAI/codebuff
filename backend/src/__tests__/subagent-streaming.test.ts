@@ -1,4 +1,4 @@
-import { TEST_USER_ID } from '@codebuff/common/constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -89,6 +89,7 @@ describe('Subagent Streaming', () => {
             { role: 'assistant', content: 'Test response from subagent' },
           ],
         },
+        output: { type: 'lastMessage', value: 'Test response from subagent' },
       }
     })
 

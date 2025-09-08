@@ -1,6 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { validateAgents } from '@codebuff/common/templates/agent-validation'
+import { validateAgentsWithSpawnableAgents } from '@codebuff/common/templates/agent-validation'
 import { publishAgentsRequestSchema } from '@codebuff/common/types/api/agents/publish'
 import {
   checkAuthToken,
@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
       {} as Record<string, any>
     )
 
-    const { validationErrors, dynamicTemplates } = validateAgents(agentMap)
+    const { validationErrors, dynamicTemplates } =
+      await validateAgentsWithSpawnableAgents(agentMap)
     const agents = Object.values(dynamicTemplates)
 
     if (validationErrors.length > 0) {
@@ -131,7 +132,6 @@ export async function POST(request: NextRequest) {
     }
 
     const requestedPublisherId = publisherIds[0]!
-
 
     // Verify user has access to the requested publisher
     const publisherResult = await db

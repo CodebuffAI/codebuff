@@ -2,9 +2,9 @@ import { z } from 'zod/v4'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 import { ProjectFileContextSchema } from '../util/file'
-import { codebuffMessageSchema } from './messages/codebuff-message'
+import { messageSchema } from './messages/codebuff-message'
 
-import type { CodebuffMessage } from './messages/codebuff-message'
+import type { Message } from './messages/codebuff-message'
 import type { ProjectFileContext } from '../util/file'
 
 export const toolCallSchema = z.object({
@@ -13,16 +13,6 @@ export const toolCallSchema = z.object({
   input: z.record(z.string(), z.any()),
 })
 export type ToolCall = z.infer<typeof toolCallSchema>
-
-export const toolResultSchema = z.object({
-  toolName: z.string(),
-  toolCallId: z.string(),
-  output: z.object({
-    type: z.literal('text'),
-    value: z.string(),
-  }),
-})
-export type ToolResult = z.infer<typeof toolResultSchema>
 
 export const subgoalSchema = z.object({
   objective: z.string().optional(),
@@ -39,7 +29,7 @@ export const AgentStateSchema: z.ZodType<{
   agentType: AgentTemplateType | null
   agentContext: Record<string, Subgoal>
   subagents: AgentState[]
-  messageHistory: CodebuffMessage[]
+  messageHistory: Message[]
   stepsRemaining: number
   creditsUsed: number
   output?: Record<string, any>
@@ -50,7 +40,7 @@ export const AgentStateSchema: z.ZodType<{
     agentType: z.string().nullable(),
     agentContext: z.record(z.string(), subgoalSchema),
     subagents: AgentStateSchema.array(),
-    messageHistory: codebuffMessageSchema.array(),
+    messageHistory: messageSchema.array(),
     stepsRemaining: z.number(),
     creditsUsed: z.number().default(0),
     output: z.record(z.string(), z.any()).optional(),
@@ -58,6 +48,26 @@ export const AgentStateSchema: z.ZodType<{
   }),
 )
 export type AgentState = z.infer<typeof AgentStateSchema>
+
+export const AgentOutputSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('structuredOutput'),
+    value: z.record(z.string(), z.any()).or(z.null()),
+  }),
+  z.object({
+    type: z.literal('lastMessage'),
+    value: z.any(),
+  }),
+  z.object({
+    type: z.literal('allMessages'),
+    value: z.array(z.any()),
+  }),
+  z.object({
+    type: z.literal('error'),
+    message: z.string(),
+  }),
+])
+export type AgentOutput = z.infer<typeof AgentOutputSchema>
 
 export const AgentTemplateTypeList = [
   // Base agents

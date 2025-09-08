@@ -1,4 +1,7 @@
+import { DynamicAgentValidationError } from '../templates/agent-validation'
+import { fetchAgent } from '../templates/fetch-agent'
 import { AgentTemplateTypes } from '../types/session-state'
+import { parseAgentId } from './agent-id-parsing'
 
 export interface SubagentValidationResult {
   valid: boolean
@@ -9,24 +12,56 @@ export interface SubagentValidationResult {
  * Centralized validation for spawnable agents.
  * Validates that all spawnable agents reference valid agent types.
  */
-export function validateSpawnableAgents(
+export async function validateSpawnableAgents(
   spawnableAgents: string[],
   dynamicAgentIds: string[],
-): SubagentValidationResult & { availableAgents: string[] } {
+): Promise<
+  SubagentValidationResult & {
+    availableAgents: string[]
+    validationErrors: DynamicAgentValidationError[]
+  }
+> {
   // Build complete list of available agent types (normalized)
   const availableAgentTypes = [
     ...Object.values(AgentTemplateTypes),
     ...dynamicAgentIds,
   ]
+  const parsedIds = spawnableAgents.map((id) => parseAgentId(id))
+  const invalidIds: string[] = []
+  const validationErrors: DynamicAgentValidationError[] = []
+  for (const id of parsedIds) {
+    const { publisherId, agentId, version, givenAgentId } = id
 
-  // Find invalid agents (those not in available types after normalization)
-  const invalidAgents = spawnableAgents.filter(
-    (agent, index) => !availableAgentTypes.includes(spawnableAgents[index]),
-  )
+    if (availableAgentTypes.includes(givenAgentId)) {
+      // Agent provided by dynamic definitions.
+      continue
+    }
+    if (!publisherId || !agentId || !version) {
+      invalidIds.push(givenAgentId)
+      validationErrors.push({
+        filePath: givenAgentId,
+        message: `Invalid agent ID: ${givenAgentId}. Not found. You must include the publisher, agent id, and version if the agent is not defined locally.`,
+      })
+      continue
+    }
+
+    // Check if agent exists in database.
+    const agent = await fetchAgent(agentId, version, publisherId)
+    if (!agent) {
+      invalidIds.push(givenAgentId)
+      validationErrors.push({
+        filePath: givenAgentId,
+        message: `Invalid agent ID: ${givenAgentId}. Agent not found in database.`,
+      })
+      continue
+    }
+    availableAgentTypes.push(givenAgentId)
+  }
 
   return {
-    valid: invalidAgents.length === 0,
-    invalidAgents,
+    valid: validationErrors.length === 0,
+    invalidAgents: invalidIds,
+    validationErrors,
     availableAgents: availableAgentTypes,
   }
 }

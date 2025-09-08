@@ -1,4 +1,5 @@
 import { generateCompactId } from '@codebuff/common/util/string'
+import { has } from 'lodash'
 import micromatch from 'micromatch'
 import { bold, gray } from 'picocolors'
 
@@ -8,21 +9,27 @@ import { runTerminalCommand } from '../terminal/run-command'
 import { logger } from '../utils/logger'
 import { Spinner } from '../utils/spinner'
 
-import type { ToolResult } from '@codebuff/common/types/session-state'
+import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 
 /**
  * Runs file change hooks defined in the codebuff.json configuration.
  * Returns an array of tool results for any hooks that fail.
  */
-export async function runFileChangeHooks(
-  filesChanged: string[],
-): Promise<{ toolResults: ToolResult[]; someHooksFailed: boolean }> {
+export async function runFileChangeHooks(filesChanged: string[]): Promise<{
+  toolResults: CodebuffToolOutput<'run_file_change_hooks'>
+  someHooksFailed: boolean
+}> {
   const config = loadCodebuffConfig()
-  const toolResults: ToolResult[] = []
+  const toolResults: CodebuffToolOutput<'run_file_change_hooks'> = [
+    { type: 'json', value: [] },
+  ]
   let someHooksFailed = false
 
   if (!config?.fileChangeHooks) {
-    return { toolResults, someHooksFailed }
+    return {
+      toolResults,
+      someHooksFailed,
+    }
   }
 
   for (const hook of config.fileChangeHooks) {
@@ -60,7 +67,7 @@ export async function runFileChangeHooks(
         undefined,
         undefined,
       )
-      if (result.exitCode !== 0) {
+      if (has(result[0].value, 'exitCode') && result[0].value.exitCode !== 0) {
         someHooksFailed = true
         // Show user this hook failed?
         // logger.warn(
@@ -68,10 +75,10 @@ export async function runFileChangeHooks(
         //   'File change hook failed with non-zero exit code'
         // )
       }
-      toolResults.push({
-        toolName: hookName,
-        toolCallId: hookId,
-        output: { type: 'text', value: result.result },
+
+      toolResults[0].value.push({
+        hookName,
+        ...result[0].value,
       })
     } catch (error) {
       logger.error(

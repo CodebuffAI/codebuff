@@ -4,7 +4,7 @@ import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
@@ -13,6 +13,7 @@ import pLimit from 'p-limit'
 import { resetRepoToCommit } from '../scaffolding'
 import { createInitialSessionState } from '../test-setup'
 import { judgeEvalRun } from './judge-git-eval'
+import { createGithubUrl } from './pick-commits'
 import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
@@ -45,6 +46,7 @@ export async function runSingleEval(
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
   let error: string | undefined
+  let totalCostUsd = 0
 
   // Add process-level error handlers for this eval
   const originalUncaughtHandler = process.listeners('uncaughtException')
@@ -75,7 +77,10 @@ export async function runSingleEval(
       runner = new CodebuffRunner(
         {
           sessionState: await createInitialSessionState(projectPath),
-          toolResults: [],
+          output: {
+            type: 'error',
+            message: 'No output yet',
+          },
         },
         agent,
       )
@@ -130,7 +135,7 @@ Note that files can only be changed with tools. If no tools are called, no files
 
 You must decide whether to:
 1. 'continue' - Generate a follow-up prompt for Codebuff
-2. 'complete' - The implementation is done and satisfies the spec
+2. 'complete' - The implementation is done and fully satisfies the spec, including tests, documentation, and any other relevant artifacts
 3. 'halt' - The implementation is off track and unlikely to be completed within ${MAX_ATTEMPTS - attempts} more attempts
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
@@ -138,7 +143,7 @@ Explain your reasoning in detail.`,
             },
           ],
           schema: AgentDecisionSchema,
-          model: models.gemini2_5_flash,
+          model: models.openrouter_gemini2_5_flash,
           clientSessionId,
           fingerprintId,
           userInputId: generateCompactId(),
@@ -170,6 +175,8 @@ Explain your reasoning in detail.`,
           60_000 * 30,
         )
 
+        // Track credits used
+        totalCostUsd += codebuffResult.totalCostUsd
         trace.push({ prompt, steps: codebuffResult.steps })
       }
 
@@ -220,19 +227,26 @@ Explain your reasoning in detail.`,
     error,
     gitDiff: fileStates,
     durationMs,
+    costUsd: totalCostUsd,
   }
 
   // Add judging results even for failed runs
   try {
     const judgingResults = await judgeEvalRun(evalRun)
     console.log('Judging results:', judgingResults)
+
     return {
       ...evalRun,
       judging_results: judgingResults,
+      computed_metrics: {
+        runtime_sec: durationMs / 1000,
+        cost_usd: totalCostUsd,
+      },
     }
   } catch (judgingError) {
     console.error('Error in judging:', judgingError)
     // Return without judging results if judging fails
+
     return {
       ...evalRun,
       judging_results: {
@@ -241,10 +255,13 @@ Explain your reasoning in detail.`,
         weaknesses: ['Judging process encountered an error'],
         metrics: {
           completionScore: 0,
-          efficiencyScore: 0,
           codeQualityScore: 0,
           overallScore: 0,
         },
+      },
+      computed_metrics: {
+        runtime_sec: durationMs / 1000,
+        cost_usd: totalCostUsd,
       },
     }
   }
@@ -489,6 +506,19 @@ export async function runGitEvals(
                   console.log(
                     `Completed eval for commit ${testRepoName} - ${evalCommit.spec.split('\n')[0]}`,
                   )
+
+                  // Repeat spec before printing judge ruling
+                  console.log(`Spec for commit ${testRepoName}:`)
+                  console.log(evalCommit.spec)
+
+                  // Print GitHub commit link after judging results
+                  try {
+                    const githubUrl = createGithubUrl(repoUrl, evalCommit.sha)
+                    console.log(`GitHub commit: ${githubUrl}`)
+                  } catch (error) {
+                    // Ignore errors if URL generation fails (e.g., non-GitHub repos)
+                  }
+
                   if (!logToStdout) {
                     const finalResult = cloneDeep(message.result)
                     for (const cbTrace of finalResult.trace) {
@@ -588,14 +618,19 @@ export async function runGitEvals(
 
 function calculateOverallMetrics(evalRuns: EvalRunJudged[]) {
   return {
+    average_runtime_sec:
+      evalRuns.reduce(
+        (sum, run) => sum + (run.computed_metrics?.runtime_sec || 0),
+        0,
+      ) / evalRuns.length,
+    average_cost_usd:
+      evalRuns.reduce(
+        (sum, run) => sum + (run.computed_metrics?.cost_usd || 0),
+        0,
+      ) / evalRuns.length,
     average_completion:
       evalRuns.reduce(
         (sum, run) => sum + (run.judging_results.metrics.completionScore || 0),
-        0,
-      ) / evalRuns.length,
-    average_efficiency:
-      evalRuns.reduce(
-        (sum, run) => sum + (run.judging_results.metrics.efficiencyScore || 0),
         0,
       ) / evalRuns.length,
     average_code_quality:

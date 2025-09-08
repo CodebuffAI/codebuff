@@ -1,10 +1,10 @@
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
 import { processAndGrantCredit } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
-import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { stripeServer } from '@codebuff/common/util/stripe'
@@ -141,14 +141,26 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
+      console.log('🟡 NextAuth redirect callback:', { url, baseUrl })
+
       const potentialRedirectUrl = new URL(url, baseUrl)
       const authCode = potentialRedirectUrl.searchParams.get('auth_code')
+      let referralCode = potentialRedirectUrl.searchParams.get('referral_code')
+
+      console.log('🟡 NextAuth redirect parsed params:', {
+        authCode: !!authCode,
+        referralCode,
+        allParams: Object.fromEntries(
+          potentialRedirectUrl.searchParams.entries()
+        ),
+      })
 
       if (authCode) {
         const onboardUrl = new URL(`${baseUrl}/onboard`)
         potentialRedirectUrl.searchParams.forEach((value, key) => {
           onboardUrl.searchParams.set(key, value)
         })
+        console.log('🟡 NextAuth CLI flow redirect to:', onboardUrl.toString())
         logger.info(
           { url, authCode, redirectTarget: onboardUrl.toString() },
           'Redirecting CLI flow to /onboard'
@@ -157,6 +169,10 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (url.startsWith('/') || potentialRedirectUrl.origin === baseUrl) {
+        console.log(
+          '🟡 NextAuth web flow redirect to:',
+          potentialRedirectUrl.toString()
+        )
         logger.info(
           { url, redirectTarget: potentialRedirectUrl.toString() },
           'Redirecting web flow to callbackUrl'
@@ -164,6 +180,10 @@ export const authOptions: NextAuthOptions = {
         return potentialRedirectUrl.toString()
       }
 
+      console.log(
+        '🟡 NextAuth external/invalid URL, redirect to baseUrl:',
+        baseUrl
+      )
       logger.info(
         { url, baseUrl, redirectTarget: baseUrl },
         'Callback URL is external or invalid, redirecting to baseUrl'

@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { AGENT_TEMPLATES_DIR } from '@codebuff/common/constants'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/old-constants'
 import { codebuffConfigFile } from '@codebuff/common/json-config/constants'
 import { isValidProjectRoot } from '@codebuff/common/util/file'
 import {
@@ -20,7 +20,7 @@ import {
 
 import { getProjectRoot } from './project-files'
 
-import type { CostMode } from '@codebuff/common/constants'
+import type { CostMode } from '@codebuff/common/old-constants'
 import type { Formatter } from 'picocolors/types'
 
 export interface CommandInfo {
@@ -198,7 +198,7 @@ export const interactiveCommandDetails: CommandInfo[] = [
     description: `Manage custom agent templates in ${AGENT_TEMPLATES_DIR}`,
     isSlashCommand: true,
     commandText: '"agents"',
-    aliases: ['agent'],
+    aliases: ['agent', 'agnet', 'agnets'],
     requireSlash: false,
   },
 

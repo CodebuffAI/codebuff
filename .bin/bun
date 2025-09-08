@@ -78,7 +78,7 @@ load_from_cache() {
     set -a  # automatically export all variables
     source "$CACHE_FILE" 2>/dev/null
     set +a
-    
+
     # Verify that key variables are set to confirm success
     if [ -n "$PORT" ] || [ -n "$DATABASE_URL" ] || [ -n "$ANTHROPIC_API_KEY" ]; then
         return 0
@@ -88,7 +88,27 @@ load_from_cache() {
     fi
 }
 
+# Function to load worktree env if it exists
+load_worktree_env() {
+    if [ -f "$PROJECT_ROOT/.env.worktree" ]; then
+        if [ "$1" = "override" ]; then
+            echo "🔧 Loading worktree environment variables from .env.worktree (overriding Infisical)"
+        else
+            echo "🔧 Loading worktree environment variables from .env.worktree"
+        fi
+        set -a
+        source "$PROJECT_ROOT/.env.worktree"
+        set +a
+    fi
+}
 
+# Function to finalize and exec bun with secrets loaded
+finalize_and_exec() {
+    export NEXT_PUBLIC_INFISICAL_UP=true
+    # Load worktree overrides AFTER Infisical cache to ensure they take precedence
+    load_worktree_env "override"
+    exec "$REAL_BUN" "$@"
+}
 
 # Function to create cache from infisical
 create_cache() {
@@ -98,11 +118,11 @@ create_cache() {
     # Run infisical export in a subshell from project root to avoid cd in main shell
     local output
     local temp_file=$(mktemp)
-    
+
     # Run infisical export in background from project root, suppress stderr to avoid cluttered output
     (cd "$PROJECT_ROOT" && infisical export > "$temp_file" 2>/dev/null; echo $? > "$temp_file.exit") &
     local pid=$!
-    
+
     # Wait up to 10 seconds
     local count=0
     while [ $count -lt 100 ]; do  # 100 * 0.1s = 10s
@@ -117,7 +137,7 @@ create_cache() {
         sleep 0.1
         count=$((count + 1))
     done
-    
+
     # If still running, kill it (timeout)
     if kill -0 $pid 2>/dev/null; then
         kill $pid 2>/dev/null
@@ -235,32 +255,24 @@ doesnt_need_secrets() {
     esac
 }
 
-# Check if we're in a worktree and source worktree-specific env vars
-if [ -f ".env.worktree" ]; then
-    echo "🔧 Loading worktree environment variables from .env.worktree"
-    set -a  # automatically export all variables
-    source .env.worktree
-    set +a
-fi
-
 # Main logic - determine execution path based on secrets requirement
 if doesnt_need_secrets "$@"; then
     # Path 1: Command doesn't need secrets - run directly
+    # But still load worktree overrides for commands that don't need secrets
+    load_worktree_env
     exec "$REAL_BUN" "$@"
 fi
 
 # Path 2: Command needs secrets - try cache first, then create if needed
 if is_cache_valid && load_from_cache; then
-    # Path 2a: Valid cache exists - use it
-    export NEXT_PUBLIC_INFISICAL_UP=true
-    exec "$REAL_BUN" "$@"
+    # Path 2a: Valid cache exists - use it, then apply worktree overrides
+    finalize_and_exec "$@"
 fi
 
 # Path 2b: No valid cache - create new one
 if create_cache; then
     load_from_cache
-    export NEXT_PUBLIC_INFISICAL_UP=true
-    exec "$REAL_BUN" "$@"
+    finalize_and_exec "$@"
 fi
 
 # Path 2c: Cache creation failed - exit with error

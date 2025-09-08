@@ -1,11 +1,11 @@
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { PLACEHOLDER } from '../types/secret-agent-definition'
 
-import type { Model } from '@codebuff/common/constants'
+import type { Model } from '@codebuff/common/old-constants'
 
 export const baseAgentSystemPrompt = (model: Model) => {
   const isGPT5 = model === models.openrouter_gpt5
@@ -217,24 +217,28 @@ ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}`
 }
 
-export const baseAgentUserInputPrompt = (model: Model) => {
+export const baseAgentUserInputPrompt = (
+  model: Model,
+  mode: 'lite' | 'normal' | 'max' | 'experimental',
+) => {
   const isFlash =
     model === models.gemini2_5_flash ||
     model === models.gemini2_5_flash_thinking
   const isGeminiPro = model === models.gemini2_5_pro_preview
   const isGPT5 = model === models.openrouter_gpt5
+  const isLite = mode === 'lite'
 
   return (
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
     '\n\n<system_instructions>' +
     buildArray(
-      'Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. Then, finally you must use the end_turn tool at the end of your response. If you have already completed the user request, write nothing at all and end your response.',
+      `Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. ${isLite ? '' : 'If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. '}Then, finally you must use the end_turn tool at the end of your response. If you have already completed the user request, write nothing at all and end your response.`,
 
       "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.",
 
       'Use the spawn_agents tool (and not spawn_agent_inline!) to spawn agents to help you complete the user request. You can spawn as many agents as you want.',
 
-      'It is a good idea to spawn a file explorer agent first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the file picker, only spawn it *after* you have the file picker results. Finally, you must spawn the reviewer agent to review your code changes.',
+      `It is a good idea to spawn a file explorer agent first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the file picker, only spawn it *after* you have the file picker results. ${isLite ? '' : 'Finally, you must spawn the reviewer agent to review your code changes.'}`,
       "Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read 20 files. The more files you read, the better context you have on the codebase and the better your response will be.",
 
       'If the users uses "@AgentName" in their message, you must spawn the agent with the name "@AgentName". Spawn all the agents that the user mentions.',
@@ -284,8 +288,8 @@ export const baseAgentUserInputPrompt = (model: Model) => {
 
       'Important: When editing an existing file with the write_file tool, do not rewrite the entire file, write just the parts of the file that have changed. Do not start writing the first line of the file. Instead, use comments surrounding your edits like "// ... existing code ..." (or "# ... existing code ..." or "/* ... existing code ... */" or "<!-- ... existing code ... -->", whichever is appropriate for the language) plus a few lines of context from the original file, to show just the sections that have changed.',
 
-      (isFlash || isGeminiPro) &&
-        'You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. Finally, you must spawn the reviewer agent to review your code changes.',
+      (isLite || isFlash || isGeminiPro) &&
+        `You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. ${isLite ? '' : 'Finally, you must spawn the reviewer agent to review your code changes.'}`,
 
       'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
 

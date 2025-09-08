@@ -4,7 +4,7 @@ import path from 'path'
 import { mapLimit } from 'async'
 
 import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/constants'
+import { models } from '@codebuff/common/old-constants'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'

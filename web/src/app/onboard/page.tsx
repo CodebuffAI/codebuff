@@ -1,6 +1,6 @@
 'use server'
 
-import { MAX_DATE } from '@codebuff/common/constants'
+import { MAX_DATE } from '@codebuff/common/old-constants'
 import { db } from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { genAuthCode } from '@codebuff/common/util/credentials'
@@ -14,7 +14,7 @@ import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import { redeemReferralCode } from '../api/referrals/helpers'
 
 import CardWithBeams from '@/components/card-with-beams'
-import { toast } from '@/components/ui/use-toast'
+import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
 
 interface PageProps {
   searchParams?: {
@@ -29,14 +29,54 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
   const session = await getServerSession(authOptions)
   const user = session?.user
 
-  // Check if values are present
-  if (!authCode || !user) {
-    toast({
-      title: 'Uh-oh, spaghettio!',
-      description:
-        'No valid session or auth code. Please try again and reach out to support@codebuff.com if the problem persists.',
-    })
+  console.log('🟢 Onboard Server: Page loaded with params', {
+    authCode: !!authCode,
+    referralCode,
+    hasUser: !!user,
+    userId: user?.id,
+  })
+
+  // Handle referral-only flow (no CLI auth required)
+  if (!user) {
+    console.log('🟢 Onboard Server: No user session, redirecting to app URL')
     return redirect(env.NEXT_PUBLIC_CODEBUFF_APP_URL)
+  }
+
+  // Handle all non-CLI flows (web users with or without referral codes)
+  if (!authCode) {
+    const hasReferralInUrl = !!referralCode
+    console.log('🟢 Onboard Server: Non-CLI flow detected', {
+      hasReferralInUrl,
+      referralCode,
+    })
+    const successCard = CardWithBeams({
+      title: 'Welcome to Codebuff!',
+      description: hasReferralInUrl
+        ? "Once you've installed Codebuff, you can close this window."
+        : 'You can close this window.',
+      content: (
+        <div className="flex flex-col space-y-2">
+          <Image
+            src="/auth-success.png"
+            alt="Successful authentication"
+            width={600}
+            height={600}
+          />
+          {hasReferralInUrl && (
+            <p className="text-center text-muted-foreground">
+              Don't forget to enter your referral code in the CLI to claim your
+              bonus credits!
+            </p>
+          )}
+        </div>
+      ),
+    })
+
+    return (
+      <OnboardClientWrapper hasReferralCode={hasReferralInUrl}>
+        {successCard}
+      </OnboardClientWrapper>
+    )
   }
 
   const [fingerprintId, expiresAt, receivedfingerprintHash] =
@@ -166,41 +206,25 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
     return !!session.length
   })
 
-  let redeemReferralMessage = <></>
+  // No longer auto-redeem referral codes - users must enter them in CLI
+  let referralMessage = <></>
   if (referralCode) {
-    try {
-      const redeemReferralResp = await redeemReferralCode(referralCode, user.id)
-      const respJson = await redeemReferralResp.json()
-      if (!redeemReferralResp.ok) {
-        throw new Error(respJson.error)
-      }
-      redeemReferralMessage = (
-        <p>
-          You just earned an extra {respJson.credits_redeemed} credits from your
-          referral code!
-        </p>
-      )
-    } catch (e) {
-      console.error(e)
-      const error = e as Error
-      redeemReferralMessage = (
-        <div className="flex flex-col space-y-2">
-          <p>Uh-oh, we couldn't apply your referral code. {error.message}</p>
-          <p>
-            Please try again and reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if
-            the problem persists.
-          </p>
-        </div>
-      )
-    }
+    referralMessage = (
+      <p className="text-center text-muted-foreground">
+        Don't forget to enter your referral code in the CLI to claim your bonus
+        credits!
+      </p>
+    )
   }
 
-  // Render the result
+  // Render the result for CLI flow
   if (didInsert) {
-    return CardWithBeams({
+    const isReferralUser = !!referralCode
+    const successCard = CardWithBeams({
       title: 'Nicely done!',
-      description:
-        'Feel free to close this window and head back to your terminal.',
+      description: isReferralUser
+        ? 'Follow the steps above to install Codebuff, then you can close this window.'
+        : 'Feel free to close this window and head back to your terminal.',
       content: (
         <div className="flex flex-col space-y-2">
           <Image
@@ -209,10 +233,16 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
             width={600}
             height={600}
           />
-          {redeemReferralMessage}
+          {referralMessage}
         </div>
       ),
     })
+
+    return (
+      <OnboardClientWrapper hasReferralCode={isReferralUser}>
+        {successCard}
+      </OnboardClientWrapper>
+    )
   }
   return CardWithBeams({
     title: 'Uh-oh, spaghettio!',

@@ -14,8 +14,11 @@ import { requestFiles } from '../../../websockets/websocket-action'
 import type { TextBlock } from '../../../llm-apis/claude'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { CodebuffMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -37,9 +40,9 @@ export const handleFindFiles = ((params: {
     fingerprintId?: string
     userId?: string
     repoId?: string
-    messages?: CodebuffMessage[]
+    messages?: Message[]
   }
-}): { result: Promise<string>; state: {} } => {
+}): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -73,7 +76,9 @@ export const handleFindFiles = ((params: {
     userId,
   })
 
-  const triggerFindFiles = async () => {
+  const triggerFindFiles: () => Promise<
+    CodebuffToolOutput<'find_files'>
+  > = async () => {
     const requestedFiles = await requestRelevantFiles(
       { messages, system },
       fileContext,
@@ -119,16 +124,41 @@ export const handleFindFiles = ((params: {
       }
 
       if (addedFiles.length > 0) {
-        return renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
+        return [
+          {
+            type: 'json',
+            value: renderReadFilesResult(
+              addedFiles,
+              fileContext.tokenCallers ?? {},
+            ),
+          },
+        ]
       }
-      return `No new relevant files found for prompt: ${prompt}`
+      return [
+        {
+          type: 'json',
+          value: {
+            message: `No new relevant files found for prompt: ${prompt}`,
+          },
+        },
+      ]
     } else {
-      return `No relevant files found for prompt: ${prompt}`
+      return [
+        {
+          type: 'json',
+          value: {
+            message: `No relevant files found for prompt: ${prompt}`,
+          },
+        },
+      ]
     }
   }
 
   return {
-    result: previousToolCallFinished.then(triggerFindFiles),
+    result: (async () => {
+      await previousToolCallFinished
+      return await triggerFindFiles()
+    })(),
     state: {},
   }
 }) satisfies CodebuffToolHandlerFunction<'find_files'>
@@ -139,7 +169,7 @@ async function uploadExpandedFileContextForTraining(
     messages,
     system,
   }: {
-    messages: CodebuffMessage[]
+    messages: Message[]
     system: string | Array<TextBlock>
   },
   fileContext: ProjectFileContext,
