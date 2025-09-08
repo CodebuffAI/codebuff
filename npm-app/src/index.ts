@@ -121,6 +121,7 @@ Examples:
   $ codebuff --cwd my-project                 # Start in specific directory
   $ codebuff --trace                          # Enable subagent trace logging to .agents/traces/*.log
   $ codebuff --create nextjs my-app           # Create and scaffold a new Next.js project
+  $ codebuff init-agents                      # Create example agent files in .agents directory
   $ codebuff publish my-agent                 # Publish agent template to store
   $ codebuff --agent file-picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
