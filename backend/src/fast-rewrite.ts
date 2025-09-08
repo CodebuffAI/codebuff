@@ -1,4 +1,4 @@
-import { models, openaiModels } from '@codebuff/common/old-constants'
+import { models, openaiModels } from '@codebuff/common/model-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'

@@ -28,7 +28,7 @@ import {
   UserState,
   ASYNC_AGENTS_ENABLED,
   API_KEY_ENV_VAR,
-} from '@codebuff/common/old-constants'
+} from '@codebuff/common/model-constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   getAllAgents,
@@ -98,7 +98,7 @@ import type {
   UsageResponse,
 } from '@codebuff/common/actions'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import type { CostMode } from '@codebuff/common/old-constants'
+import type { CostMode } from '@codebuff/common/model-constants'
 import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'

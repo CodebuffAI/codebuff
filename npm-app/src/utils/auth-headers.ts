@@ -1,5 +1,5 @@
 import { getUserCredentials } from '../credentials'
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { API_KEY_ENV_VAR } from '@codebuff/common/model-constants'
 
 /**
  * Get the auth token from user credentials or environment variable

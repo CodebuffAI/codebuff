@@ -7,7 +7,7 @@ import {
   finetunedVertexModels,
   models,
   type FinetunedVertexModel,
-} from '@codebuff/common/old-constants'
+} from '@codebuff/common/model-constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { and, eq } from 'drizzle-orm'
 import { range, shuffle, uniq } from 'lodash'

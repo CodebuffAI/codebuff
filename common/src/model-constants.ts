@@ -313,8 +313,8 @@ const nonCacheableModels = [
 ] satisfies string[] as string[]
 export function supportsCacheControl(model: Model): boolean {
   if (!isExplicitlyDefinedModel(model)) {
-    // Default to no cache control for unknown models
-    return false
+    // Default to cache control enabled for better cost optimization
+    return true
   }
   return !nonCacheableModels.includes(model)
 }

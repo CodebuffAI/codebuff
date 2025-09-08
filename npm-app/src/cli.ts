@@ -8,7 +8,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   API_KEY_ENV_VAR,
   ASYNC_AGENTS_ENABLED,
-} from '@codebuff/common/old-constants'
+} from '@codebuff/common/model-constants'
 import {
   getAllAgents,
   getAgentDisplayName,
@@ -108,7 +108,7 @@ import { withHangDetection } from './utils/with-hang-detection'
 
 import type { CliOptions, GitCommand } from './types'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
-import type { CostMode } from '@codebuff/common/old-constants'
+import type { CostMode } from '@codebuff/common/model-constants'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 // Cache for local agent info to avoid async issues in sync methods

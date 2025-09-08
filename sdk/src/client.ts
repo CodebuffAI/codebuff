@@ -13,7 +13,7 @@ import {
   type ServerAction,
 } from '../../common/src/actions'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
-import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
+import { API_KEY_ENV_VAR } from '../../common/src/model-constants'
 import { toolNames } from '../../common/src/tools/constants'
 
 import {

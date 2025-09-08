@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { AGENT_TEMPLATES_DIR } from '@codebuff/common/old-constants'
+import { AGENT_TEMPLATES_DIR } from '@codebuff/common/model-constants'
 import {
   filterCustomAgentFiles,
   extractAgentIdFromFileName,

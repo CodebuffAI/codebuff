@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { type CostMode } from '@codebuff/common/old-constants'
+import { type CostMode } from '@codebuff/common/model-constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { Command, Option } from 'commander'
 import { red, yellow, green, bold } from 'picocolors'

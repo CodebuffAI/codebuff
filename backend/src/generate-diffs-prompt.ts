@@ -1,4 +1,4 @@
-import { models } from '@codebuff/common/old-constants'
+import { models } from '@codebuff/common/model-constants'
 import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,

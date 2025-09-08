@@ -1,6 +1,6 @@
 'use server'
 
-import { MAX_DATE } from '@codebuff/common/old-constants'
+import { MAX_DATE } from '@codebuff/common/model-constants'
 import { db } from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { genAuthCode } from '@codebuff/common/util/credentials'

@@ -1,6 +1,6 @@
 'use client'
 
-import { getLogoForModel, models } from '@codebuff/common/old-constants'
+import { getLogoForModel, models } from '@codebuff/common/model-constants'
 import { useState } from 'react'
 
 import type * as schema from '@codebuff/common/db/schema'

@@ -1,4 +1,4 @@
-import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/old-constants'
+import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/model-constants'
 
 import { logger } from './util/logger'
 

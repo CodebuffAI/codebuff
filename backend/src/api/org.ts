@@ -1,5 +1,5 @@
 import { findOrganizationForRepository } from '@codebuff/billing'
-import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/model-constants'
 import { z } from 'zod/v4'
 
 import { extractAuthTokenFromHeader } from '../util/auth-helpers'

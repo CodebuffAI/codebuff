@@ -1,4 +1,4 @@
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { TEST_USER_ID } from '@codebuff/common/model-constants'
 
 // Mock imports needed for setup within the test
 import { getToolCallString } from '@codebuff/common/tools/utils'

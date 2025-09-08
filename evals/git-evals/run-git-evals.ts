@@ -4,7 +4,7 @@ import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/old-constants'
+import { models } from '@codebuff/common/model-constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'

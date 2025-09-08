@@ -2,7 +2,7 @@ import {
   finetunedVertexModelNames, // Restore usage
   costModes,
   type CostMode,
-} from '@codebuff/common/old-constants'
+} from '@codebuff/common/model-constants'
 import { z } from 'zod/v4'
 
 // Create the customFileCounts shape using the centralized costModes

@@ -1,4 +1,4 @@
-import { models, TEST_USER_ID } from '@codebuff/common/old-constants'
+import { models, TEST_USER_ID } from '@codebuff/common/model-constants'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'

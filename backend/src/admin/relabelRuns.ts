@@ -8,7 +8,7 @@ import {
   finetunedVertexModels,
   models,
   TEST_USER_ID,
-} from '@codebuff/common/old-constants'
+} from '@codebuff/common/model-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 

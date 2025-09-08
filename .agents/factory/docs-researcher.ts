@@ -1,5 +1,5 @@
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/old-constants'
+import type { Model } from '@codebuff/common/model-constants'
 
 export const docsResearcher = (
   model: Model,

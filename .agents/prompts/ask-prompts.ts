@@ -1,11 +1,11 @@
-import { models } from '@codebuff/common/old-constants'
+import { models } from '@codebuff/common/model-constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { PLACEHOLDER } from '../types/secret-agent-definition'
 
-import type { Model } from '@codebuff/common/old-constants'
+import type { Model } from '@codebuff/common/model-constants'
 
 export const askAgentSystemPrompt = (model: Model) => {
   return `# Persona: Buffy - The Enthusiastic Coding Assistant

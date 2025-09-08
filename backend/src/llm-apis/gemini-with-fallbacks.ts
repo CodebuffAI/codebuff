@@ -1,4 +1,4 @@
-import { openaiModels, openrouterModels } from '@codebuff/common/old-constants'
+import { openaiModels, openrouterModels } from '@codebuff/common/model-constants'
 
 import { logger } from '../util/logger'
 import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
@@ -7,7 +7,7 @@ import type {
   CostMode,
   FinetunedVertexModel,
   Model,
-} from '@codebuff/common/old-constants'
+} from '@codebuff/common/model-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 /**

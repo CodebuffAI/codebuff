@@ -2,7 +2,7 @@ import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/old-constants'
+import type { Model } from '@codebuff/common/model-constants'
 
 export const superagent = (
   model: Model,

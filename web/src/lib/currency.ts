@@ -1,4 +1,4 @@
-import { CREDIT_PRICING } from '@codebuff/common/old-constants'
+import { CREDIT_PRICING } from '@codebuff/common/model-constants'
 
 /**
  * Format a cents amount to dollars, showing cents only when non-zero

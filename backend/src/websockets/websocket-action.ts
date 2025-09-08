@@ -6,7 +6,7 @@ import * as schema from '@codebuff/common/db/schema'
 import {
   ASYNC_AGENTS_ENABLED,
   toOptionalFile,
-} from '@codebuff/common/old-constants'
+} from '@codebuff/common/model-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'

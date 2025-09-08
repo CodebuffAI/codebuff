@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-import { costModes } from './old-constants'
+import { costModes } from './model-constants'
 import { GrantTypeValues } from './types/grant'
 import {
   toolResultOutputSchema,

@@ -10,7 +10,7 @@ import {
   AGENT_TEMPLATES_DIR,
   FILE_READ_STATUS,
   toOptionalFile,
-} from '@codebuff/common/old-constants'
+} from '@codebuff/common/model-constants'
 import {
   codebuffConfigFile,
   codebuffConfigFileBackup,
