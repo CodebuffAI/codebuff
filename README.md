@@ -35,7 +35,7 @@ npm install -g codebuff
 
 Run:
 
-```
+```bash
 cd your-project
 codebuff
 ```
@@ -48,9 +48,17 @@ Then just tell Codebuff what you want and it handles the rest:
 
 Codebuff will find the right files, makes changes across your codebase, and runs tests to make sure nothing breaks.
 
-### Create custom agents
+## Create custom agents
 
-You can create specialized agents for your workflows using TypeScript generators for more programmatic control.
+To get started building your own agents, run:
+
+```bash
+codebuff init-agents
+```
+
+You can write agent definition files that give you maximum control over agent behavior.
+
+Implement your workflows by specifying tools, which agents can be spawned, and prompts. We even have TypeScript generators for more programmatic control.
 
 For example, here's a `git-committer` agent that creates git commits based on the current git state. Notice that it runs `git diff` and `git log` to analyze changes, but then hands control over to the LLM to craft a meaningful commit messagea and perform the actual commit.
 
@@ -107,6 +115,7 @@ await client.run({
   agent: 'greeter',
   agentDefinitions: [myCustomAgent],
   prompt: 'My name is Bob.',
+  customToolDefinitions: [], // Add custom tools too!
   handleEvent: (event) => {
     console.log('Progress', event)
   },
@@ -117,9 +126,11 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
 ## Why choose Codebuff
 
+**Deep customizability**: Create sophisticated agent workflows with TypeScript generators that mix AI generation with programmatic control. Define custom agents that spawn subagents, implement conditional logic, and orchestrate complex multi-step processes that adapt to your specific use cases.
+
 **Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebuff supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
 
-**Deep customizability**: Create sophisticated agent workflows with TypeScript generators that mix AI generation with programmatic control. Define custom agents that spawn subagents, implement conditional logic, and orchestrate complex multi-step processes that adapt to your specific use cases.
+**Reuse any published agent**: Compose existing [published agents](https://www.codebuff.com/agents) to get a leg up. Codebuff agents are the new MCP!
 
 **Fully customizable SDK**: Build Codebuff's capabilities directly into your applications with a complete TypeScript SDK. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
 
