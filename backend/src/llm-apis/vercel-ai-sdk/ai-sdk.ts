@@ -75,6 +75,7 @@ export const promptAiSdkStream = async function* (
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
+    resolveMessageId?: (messageId: string) => unknown
   } & Omit<Parameters<typeof streamText>[0], 'model' | 'messages'>,
 ) {
   if (
@@ -163,6 +164,10 @@ export const promptAiSdkStream = async function* (
   }
 
   const messageId = (await response.response).id
+  if (options.resolveMessageId) {
+    options.resolveMessageId(messageId)
+  }
+
   const providerMetadata = (await response.providerMetadata) ?? {}
   const usage = await response.usage
   let inputTokens = usage.inputTokens || 0

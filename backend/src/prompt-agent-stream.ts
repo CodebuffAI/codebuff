@@ -35,6 +35,9 @@ export const getAgentStreamFromTemplate = (params: {
 
   const { model } = template
 
+  const { promise: messageIdPromise, resolve: resolveMessageId } =
+    Promise.withResolvers<string>()
+
   const getStream = (messages: Message[]) => {
     const options: Parameters<typeof promptAiSdkStream>[0] = {
       messages,
@@ -48,6 +51,7 @@ export const getAgentStreamFromTemplate = (params: {
       onCostCalculated,
       includeCacheControl,
       agentId,
+      resolveMessageId,
     }
 
     // Add Gemini-specific options if needed
@@ -76,5 +80,5 @@ export const getAgentStreamFromTemplate = (params: {
     return promptAiSdkStream(options)
   }
 
-  return getStream
+  return { getStream, messageIdPromise }
 }

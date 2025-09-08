@@ -28,10 +28,14 @@ export const AgentStateSchema: z.ZodType<{
   agentId: string
   agentType: AgentTemplateType | null
   agentContext: Record<string, Subgoal>
+  ancestorRunIds: string[]
+  runId?: string
   subagents: AgentState[]
+  childRunIds: string[]
   messageHistory: Message[]
   stepsRemaining: number
   creditsUsed: number
+  directCreditsUsed: number
   output?: Record<string, any>
   parentId?: string
 }> = z.lazy(() =>
@@ -39,10 +43,20 @@ export const AgentStateSchema: z.ZodType<{
     agentId: z.string(),
     agentType: z.string().nullable(),
     agentContext: z.record(z.string(), subgoalSchema),
+    ancestorRunIds: z
+      .string()
+      .array()
+      .default(() => []),
+    runId: z.string().optional(),
     subagents: AgentStateSchema.array(),
+    childRunIds: z
+      .string()
+      .array()
+      .default(() => []),
     messageHistory: messageSchema.array(),
     stepsRemaining: z.number(),
     creditsUsed: z.number().default(0),
+    directCreditsUsed: z.number().default(0),
     output: z.record(z.string(), z.any()).optional(),
     parentId: z.string().optional(),
   }),
@@ -113,20 +127,28 @@ export const SessionStateSchema = z.object({
 })
 export type SessionState = z.infer<typeof SessionStateSchema>
 
+export function getInitialAgentState(): AgentState {
+  return {
+    agentId: 'main-agent',
+    agentType: null,
+    agentContext: {},
+    ancestorRunIds: [],
+    runId: undefined,
+    subagents: [],
+    childRunIds: [],
+    messageHistory: [],
+    stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
+    creditsUsed: 0,
+    directCreditsUsed: 0,
+    output: undefined,
+    parentId: undefined,
+  }
+}
 export function getInitialSessionState(
   fileContext: ProjectFileContext,
 ): SessionState {
   return {
-    mainAgentState: {
-      agentId: 'main-agent',
-      agentType: null,
-      agentContext: {},
-      subagents: [],
-      messageHistory: [],
-      stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
-      creditsUsed: 0,
-      output: undefined,
-    },
+    mainAgentState: getInitialAgentState(),
     fileContext,
   }
 }

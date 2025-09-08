@@ -1,12 +1,10 @@
-import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { generateCompactId } from '@codebuff/common/util/string'
-
 import {
   validateSpawnState,
   validateAndGetAgentTemplate,
   validateAgentInput,
   logAgentSpawn,
   executeAgent,
+  createAgentState,
 } from './spawn-agent-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -75,17 +73,12 @@ export const handleSpawnAgentInline = ((params: {
     validateAgentInput(agentTemplate, agentType, prompt, agentParams)
 
     // Create child agent state that shares message history with parent
-    const childAgentState: AgentState = {
-      agentId: generateCompactId(),
+    const childAgentState: AgentState = createAgentState(
       agentType,
-      agentContext: agentState.agentContext, // Inherit parent context directly
-      subagents: [],
-      messageHistory: getLatestState().messages, // Share the same message array
-      stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
-      creditsUsed: 0,
-      output: undefined,
-      parentId: agentState.agentId,
-    }
+      agentState,
+      getLatestState().messages,
+      agentState.agentContext,
+    )
 
     logAgentSpawn(
       agentTemplate,
@@ -103,6 +96,7 @@ export const handleSpawnAgentInline = ((params: {
       prompt: prompt || '',
       params: agentParams,
       agentTemplate,
+      parentAgentState: agentState,
       agentState: childAgentState,
       fingerprintId,
       fileContext,
