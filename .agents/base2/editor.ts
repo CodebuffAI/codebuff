@@ -8,7 +8,7 @@ import {
 const editor: SecretAgentDefinition = {
   id: 'editor',
   publisher,
-  model: 'anthropic/claude-sonnet-4',
+  model: 'openai/gpt-5-chat',
   displayName: 'Code Editor',
   spawnerPrompt:
     'Expert code editor with access to tools to find and edit files, run terminal commands, and search the web. Can handle small to medium sized tasks, or work off of a plan for more complex tasks. For easy tasks, you can spawn this agent directly rather than invoking a scout or planner first.',

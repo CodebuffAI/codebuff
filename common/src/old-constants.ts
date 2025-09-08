@@ -305,6 +305,8 @@ export const shouldCacheModels = [
   'anthropic/claude-opus-4',
   'anthropic/claude-3.7-sonnet',
   'anthropic/claude-3.5-haiku',
+  'z-ai/glm-4.5',
+  'qwen/qwen3-coder',
 ]
 const nonCacheableModels = [
   models.openrouter_grok_4,

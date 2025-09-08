@@ -63,8 +63,19 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
   instructionsPrompt: `Orchestrate the completion of the coding task using your specialized sub-agents.
 
+## Simple workflow
+
+Use this workflow to solve a medium or complex coding task:
+1. Spawn a planner to come up with a plan.
+2. Spawn an editor to implement the plan.
+3. Spawn a reviewer to review the code. If changes are needed, go back to step 2.
+
+Feel free to modify this workflow as needed. 
+
+## Guidelines
+
 - You can spawn agents to help you complete the task. Iterate by spawning more agents as needed.
-- Don't mastermind the task. Rely on your agents to do so.
+- Don't mastermind the task. Rely on your agents' judgement to plan, implement, and review the code.
 - Give as many instructions upfront as possible to each agent so you're less likely to need to spawn them again.
 - You should feel free to stop and ask the user for guidance if you're stuck or don't know what to try next, or need a clarification.
 - When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include much context.
