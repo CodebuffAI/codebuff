@@ -581,7 +581,10 @@ export const saveMessage = async (value: {
             )
           : 0
 
-      const creditsUsed = Math.max(0, costInCents)
+      // Implement minimum 1-credit floor to prevent unlimited free sub-cent calls
+      const creditsUsed = value.chargeUser ?? true
+        ? Math.max(1, costInCents)  // Minimum 1 credit per call
+        : 0
 
       if (value.userId === TEST_USER_ID) {
         logger.info(

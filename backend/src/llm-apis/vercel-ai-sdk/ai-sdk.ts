@@ -264,7 +264,7 @@ export const promptAiSdk = async function (
   })
   const content = response.text
   const inputTokens = response.usage.inputTokens || 0
-  const outputTokens = response.usage.inputTokens || 0
+  const outputTokens = response.usage.outputTokens || 0
 
   const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
@@ -341,7 +341,7 @@ export const promptAiSdkStructured = async function <T>(options: {
     : withTimeout(responsePromise, options.timeout))
   const content = response.object
   const inputTokens = response.usage.inputTokens || 0
-  const outputTokens = response.usage.inputTokens || 0
+  const outputTokens = response.usage.outputTokens || 0
 
   const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
