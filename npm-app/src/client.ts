@@ -1031,7 +1031,7 @@ export class Client {
           return
         }
         Spinner.get().stop()
-        process.stdout.write('\n' + green(underline('Codebuff') + ': '))
+        process.stdout.write('\n' + green(underline('Codebuff') + ':') + '\n\n')
       },
       prompt,
       startTime,

@@ -9,6 +9,7 @@ import { Saxy } from '@codebuff/common/util/saxy'
 import { defaultToolCallRenderer } from './tool-renderers'
 
 import type { ToolCallRenderer } from './tool-renderers'
+import { MarkdownStreamRenderer } from '../display/markdown-renderer'
 
 /**
  * Creates a transform stream that processes XML tool calls
@@ -22,6 +23,12 @@ export function createXMLStreamParser(
 ) {
   // Create parser with tool schema validation
   const parser = new Saxy({ [toolXmlName]: [] })
+
+  const md = new MarkdownStreamRenderer({
+    width: process.stdout.columns || 80,
+    isTTY: process.stdout.isTTY,
+    syntaxHighlight: true,
+  })
 
   // Current state
   let inToolCallTag = false
@@ -54,10 +61,10 @@ export function createXMLStreamParser(
 
   parser.on('text', (data) => {
     if (!inToolCallTag) {
-      // Text outside of tool tags
-      parser.push(data.contents)
-      if (callback) {
-        callback(data.contents)
+      const outs = md.write(data.contents)
+      for (const out of outs) {
+        parser.push(out)
+        if (callback) callback(out)
       }
       return
     }
@@ -219,9 +226,14 @@ export function createXMLStreamParser(
     completedParams = []
   })
 
-  parser.on('end', () => {
-    parser.end()
-  })
+  parser._flush = function (done: (error?: Error | null) => void) {
+    const rem = md.end()
+    if (rem) {
+      this.push(rem)
+      if (callback) callback(rem)
+    }
+    done()
+  }
 
   return parser
 }
