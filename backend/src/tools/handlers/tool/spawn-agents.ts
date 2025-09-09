@@ -106,6 +106,7 @@ export const handleSpawnAgents = ((params: {
           agentType,
           agentState,
           subAgentMessages,
+          {},
         )
 
         logAgentSpawn(
@@ -123,6 +124,7 @@ export const handleSpawnAgents = ((params: {
           prompt: prompt || '',
           params,
           agentTemplate,
+          parentAgentState: agentState,
           agentState: subAgentState,
           fingerprintId,
           fileContext,

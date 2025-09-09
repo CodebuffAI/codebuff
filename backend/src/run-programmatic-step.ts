@@ -1,6 +1,7 @@
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
 
+import { addAgentStep } from './agent-run'
 import { executeToolCall } from './tools/tool-executor'
 import { logger } from './util/logger'
 import { SandboxManager } from './util/quickjs-sandbox'
@@ -55,6 +56,7 @@ export async function runProgrammaticStep(
     ws,
     localAgentTemplates,
     stepsComplete,
+    stepNumber,
   }: {
     template: AgentTemplate
     prompt: string | undefined
@@ -68,8 +70,9 @@ export async function runProgrammaticStep(
     ws: WebSocket
     localAgentTemplates: Record<string, AgentTemplate>
     stepsComplete: boolean
+    stepNumber: number
   },
-): Promise<{ agentState: AgentState; endTurn: boolean }> {
+): Promise<{ agentState: AgentState; endTurn: boolean; stepNumber: number }> {
   if (!template.handleSteps) {
     throw new Error('No step handler found for agent template ' + template.id)
   }
@@ -108,7 +111,7 @@ export async function runProgrammaticStep(
       // Clear the STEP_ALL mode. Stepping can continue if handleSteps doesn't return.
       agentIdToStepAll.delete(agentState.agentId)
     } else {
-      return { agentState, endTurn: false }
+      return { agentState, endTurn: false, stepNumber }
     }
   }
 
@@ -147,9 +150,17 @@ export async function runProgrammaticStep(
   let toolResult: ToolResultOutput[] = []
   let endTurn = false
 
+  let startTime = new Date()
+  let creditsBefore = agentState.directCreditsUsed
+  let childrenBefore = agentState.childRunIds.length
+
   try {
     // Execute tools synchronously as the generator yields them
     do {
+      startTime = new Date()
+      creditsBefore = agentState.directCreditsUsed
+      childrenBefore = agentState.childRunIds.length
+
       const result = sandbox
         ? await sandbox.executeStep({
             agentState: getPublicAgentState(state.agentState),
@@ -237,13 +248,28 @@ export async function runProgrammaticStep(
       // Get the latest tool result
       toolResult = toolResults[toolResults.length - 1]?.output
 
+      if (agentState.runId) {
+        await addAgentStep({
+          userId,
+          agentRunId: agentState.runId,
+          stepNumber,
+          credits: agentState.directCreditsUsed - creditsBefore,
+          childRunIds: agentState.childRunIds.slice(childrenBefore),
+          status: 'completed',
+          startTime,
+        })
+      } else {
+        logger.error('No runId found for agent state after finishing agent run')
+      }
+      stepNumber++
+
       if (toolCall.toolName === 'end_turn') {
         endTurn = true
         break
       }
     } while (true)
 
-    return { agentState: state.agentState, endTurn }
+    return { agentState: state.agentState, endTurn, stepNumber }
   } catch (error) {
     endTurn = true
 
@@ -269,9 +295,25 @@ export async function runProgrammaticStep(
       error: errorMessage,
     }
 
+    if (agentState.runId) {
+      await addAgentStep({
+        userId,
+        agentRunId: agentState.runId,
+        stepNumber,
+        credits: agentState.directCreditsUsed - creditsBefore,
+        childRunIds: agentState.childRunIds.slice(childrenBefore),
+        status: 'skipped',
+        startTime,
+      })
+    } else {
+      logger.error('No runId found for agent state after failed agent run')
+    }
+    stepNumber++
+
     return {
       agentState: state.agentState,
       endTurn,
+      stepNumber,
     }
   } finally {
     if (endTurn) {

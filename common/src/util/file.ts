@@ -48,7 +48,7 @@ export const customToolDefinitionsSchema = z
       exampleInputs: z.record(z.string(), z.any()).array().optional(),
     }),
   )
-  .default({})
+  .default(() => ({}))
 export type CustomToolDefinitions = z.input<typeof customToolDefinitionsSchema>
 
 export const ProjectFileContextSchema = z.object({
@@ -61,7 +61,7 @@ export const ProjectFileContextSchema = z.object({
     .optional(),
   knowledgeFiles: z.record(z.string(), z.string()),
   userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
-  agentTemplates: z.record(z.string(), z.any()).default({}),
+  agentTemplates: z.record(z.string(), z.any()).default(() => ({})),
   customToolDefinitions: customToolDefinitionsSchema,
   codebuffConfig: CodebuffConfigSchema.optional(),
   gitChanges: z.object({

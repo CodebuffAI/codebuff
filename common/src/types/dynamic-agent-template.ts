@@ -114,8 +114,15 @@ export const DynamicAgentDefinitionSchema = z.object({
     .optional(),
 
   // Tools and spawnable agents
-  toolNames: z.string().array().optional().default([]),
-  spawnableAgents: z.array(z.string()).optional().default([]),
+  toolNames: z
+    .string()
+    .array()
+    .optional()
+    .default(() => []),
+  spawnableAgents: z
+    .array(z.string())
+    .optional()
+    .default(() => []),
 
   // Input and output
   inputSchema: InputSchemaObjectSchema,

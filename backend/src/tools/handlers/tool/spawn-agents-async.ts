@@ -114,6 +114,7 @@ export const handleSpawnAgentsAsync = ((params: {
           agentType,
           agentState,
           subAgentMessages,
+          {},
         )
 
         logAgentSpawn(
@@ -134,6 +135,7 @@ export const handleSpawnAgentsAsync = ((params: {
               prompt: prompt || '',
               params,
               agentTemplate,
+              parentAgentState: agentState,
               agentState: asyncAgentState,
               fingerprintId,
               fileContext,

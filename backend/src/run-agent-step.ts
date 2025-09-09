@@ -1,14 +1,16 @@
 import { insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   ASYNC_AGENTS_ENABLED,
   supportsCacheControl,
 } from '@codebuff/common/old-constants'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { generateCompactId } from '@codebuff/common/util/string'
 
+import { addAgentStep, finishAgentRun, startAgentRun } from './agent-run'
 import { asyncAgentManager } from './async-agent-manager'
 import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
@@ -49,7 +51,6 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-import { getErrorObject } from '@codebuff/common/util/error'
 
 export interface AgentOptions {
   userId: string | undefined
@@ -74,6 +75,7 @@ export const runAgentStep = async (
   agentState: AgentState
   fullResponse: string
   shouldEndTurn: boolean
+  messageId: string | undefined
 }> => {
   const {
     userId,
@@ -259,12 +261,13 @@ export const runAgentStep = async (
       agentState,
       fullResponse: stepWarningMessage,
       shouldEndTurn: true,
+      messageId: undefined,
     }
   }
 
   const { model } = agentTemplate
 
-  const getStream = getAgentStreamFromTemplate({
+  const { getStream, messageIdPromise } = getAgentStreamFromTemplate({
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -274,6 +277,7 @@ export const runAgentStep = async (
     onCostCalculated: async (credits: number) => {
       try {
         agentState.creditsUsed += credits
+        agentState.directCreditsUsed += credits
         // Transactional cost attribution: ensure costs are actually deducted
         // This is already handled by the saveMessage function which calls updateUserCycleUsage
         // If that fails, the promise rejection will bubble up and halt agent execution
@@ -443,6 +447,7 @@ export const runAgentStep = async (
     agentState,
     fullResponse,
     shouldEndTurn,
+    messageId: await messageIdPromise,
   }
 }
 
@@ -486,6 +491,15 @@ export const loopAgentSteps = async (
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
+
+  const runId = crypto.randomUUID()
+  agentState.runId = runId
+  await startAgentRun({
+    runId,
+    userId,
+    agentId: agentType,
+    ancestorRunIds: agentState.ancestorRunIds,
+  })
 
   // Initialize message history with user prompt and instructions on first iteration
   const hasPrompt = Boolean(
@@ -554,27 +568,40 @@ export const loopAgentSteps = async (
   let shouldEndTurn = false
   let currentPrompt = prompt
   let currentParams = params
+  let totalSteps = 0
 
   try {
-    while (checkLiveUserInput(userId, userInputId, clientSessionId)) {
+    while (true) {
+      totalSteps++
+      if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
+        break
+      }
+
+      const startTime = new Date()
+
       // 1. Run programmatic step first if it exists
       if (agentTemplate.handleSteps) {
-        const { agentState: programmaticAgentState, endTurn } =
-          await runProgrammaticStep(currentAgentState, {
-            userId,
-            userInputId,
-            clientSessionId,
-            fingerprintId,
-            onResponseChunk,
-            fileContext,
-            ws,
-            template: agentTemplate,
-            localAgentTemplates,
-            prompt: currentPrompt,
-            params: currentParams,
-            stepsComplete: shouldEndTurn,
-          })
+        const {
+          agentState: programmaticAgentState,
+          endTurn,
+          stepNumber,
+        } = await runProgrammaticStep(currentAgentState, {
+          userId,
+          userInputId,
+          clientSessionId,
+          fingerprintId,
+          onResponseChunk,
+          fileContext,
+          ws,
+          template: agentTemplate,
+          localAgentTemplates,
+          prompt: currentPrompt,
+          params: currentParams,
+          stepsComplete: shouldEndTurn,
+          stepNumber: totalSteps,
+        })
         currentAgentState = programmaticAgentState
+        totalSteps = stepNumber
 
         if (endTurn) {
           shouldEndTurn = true
@@ -594,20 +621,40 @@ export const loopAgentSteps = async (
         break
       }
 
-      const { agentState: newAgentState, shouldEndTurn: llmShouldEndTurn } =
-        await runAgentStep(ws, {
+      const creditsBefore = currentAgentState.directCreditsUsed
+      const childrenBefore = currentAgentState.childRunIds.length
+      const {
+        agentState: newAgentState,
+        shouldEndTurn: llmShouldEndTurn,
+        messageId,
+      } = await runAgentStep(ws, {
+        userId,
+        userInputId,
+        clientSessionId,
+        fingerprintId,
+        onResponseChunk,
+        localAgentTemplates,
+        agentType,
+        fileContext,
+        agentState: currentAgentState,
+        prompt: currentPrompt,
+        params: currentParams,
+      })
+
+      if (newAgentState.runId) {
+        await addAgentStep({
           userId,
-          userInputId,
-          clientSessionId,
-          fingerprintId,
-          onResponseChunk,
-          localAgentTemplates,
-          agentType,
-          fileContext,
-          agentState: currentAgentState,
-          prompt: currentPrompt,
-          params: currentParams,
+          agentRunId: newAgentState.runId,
+          stepNumber: totalSteps,
+          credits: newAgentState.directCreditsUsed - creditsBefore,
+          childRunIds: newAgentState.childRunIds.slice(childrenBefore),
+          messageId,
+          status: 'completed',
+          startTime,
         })
+      } else {
+        logger.error('No runId found for agent state after finishing agent run')
+      }
 
       currentAgentState = newAgentState
       shouldEndTurn = llmShouldEndTurn
@@ -623,6 +670,18 @@ export const loopAgentSteps = async (
       )
     }
 
+    const status = checkLiveUserInput(userId, userInputId, clientSessionId)
+      ? 'completed'
+      : 'cancelled'
+    await finishAgentRun({
+      userId,
+      runId,
+      status,
+      totalSteps,
+      directCredits: currentAgentState.directCreditsUsed,
+      totalCredits: currentAgentState.creditsUsed,
+    })
+
     return {
       agentState: currentAgentState,
       output: getAgentOutput(currentAgentState, agentTemplate),
@@ -636,6 +695,21 @@ export const loopAgentSteps = async (
       },
       'Agent execution failed',
     )
+    const errorMessage = typeof error === 'string' ? error : `${error}`
+
+    const status = checkLiveUserInput(userId, userInputId, clientSessionId)
+      ? 'failed'
+      : 'cancelled'
+    await finishAgentRun({
+      userId,
+      runId,
+      status,
+      totalSteps,
+      directCredits: currentAgentState.directCreditsUsed,
+      totalCredits: currentAgentState.creditsUsed,
+      errorMessage,
+    })
+
     const errorObject = getErrorObject(error)
     return {
       agentState: currentAgentState,

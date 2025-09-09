@@ -9,6 +9,8 @@ import type { ToolName } from '../tools/constants'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 import type { z } from 'zod/v4'
 
+export type AgentId = `${string}/${string}@${number}.${number}.${number}`
+
 export type AgentTemplate<
   P = string | undefined,
   T = Record<string, any> | undefined,

@@ -11,6 +11,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
+  Subgoal,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -244,17 +245,24 @@ export function createAgentState(
   agentType: string,
   parentAgentState: AgentState,
   messageHistory: Message[],
+  agentContext: Record<string, Subgoal>,
 ): AgentState {
   const agentId = generateCompactId()
 
   return {
     agentId,
     agentType,
-    agentContext: {},
+    agentContext,
+    ancestorRunIds: [
+      ...parentAgentState.ancestorRunIds,
+      parentAgentState.runId ?? 'NULL',
+    ],
     subagents: [],
+    childRunIds: [],
     messageHistory,
     stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
     creditsUsed: 0,
+    directCreditsUsed: 0,
     output: undefined,
     parentId: parentAgentState.agentId,
   }
@@ -293,6 +301,7 @@ export async function executeAgent({
   prompt,
   params,
   agentTemplate,
+  parentAgentState,
   agentState,
   fingerprintId,
   fileContext,
@@ -308,6 +317,7 @@ export async function executeAgent({
   prompt: string
   params: any
   agentTemplate: AgentTemplate
+  parentAgentState: AgentState
   agentState: AgentState
   fingerprintId: string
   fileContext: ProjectFileContext
@@ -361,6 +371,12 @@ export async function executeAgent({
     onResponseChunk(
       `\n\n${dashesForEndedAgent} ${endedFullAgentName} ${dashesForEndedAgent}\n\n`,
     )
+  }
+
+  if (result.agentState.runId) {
+    parentAgentState.childRunIds.push(result.agentState.runId)
+  } else {
+    logger.error('No runId found for agent state after executing agent')
   }
 
   return result

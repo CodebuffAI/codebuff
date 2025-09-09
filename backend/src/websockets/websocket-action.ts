@@ -204,6 +204,7 @@ export const callMainPrompt = async (
   // Enforce server-side state authority: reset creditsUsed to 0
   // The server controls cost tracking, clients cannot manipulate this value
   action.sessionState.mainAgentState.creditsUsed = 0
+  action.sessionState.mainAgentState.directCreditsUsed = 0
 
   // Assemble local agent templates from fileContext
   const { agentTemplates: localAgentTemplates, validationErrors } =

@@ -32,6 +32,22 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { WebSocket } from 'ws'
 
+function mockAgentStream(content: string | string[]) {
+  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+    resolveMessageId,
+  }) {
+    if (typeof content === 'string') {
+      content = [content]
+    }
+    for (const chunk of content) {
+      yield chunk
+    }
+    if (resolveMessageId) {
+      resolveMessageId('mock-message-id')
+    }
+  })
+}
+
 describe('read_docs tool with researcher agent', () => {
   // Track all mocked functions to verify they're being used
   const mockedFunctions: Array<{ name: string; spy: any }> = []
@@ -252,10 +268,7 @@ describe('read_docs tool with researcher agent', () => {
     // Test that our async generator mock properly completes
     const mockResponse = 'test response'
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-      return // Explicit return to complete the generator
-    })
+    mockAgentStream(mockResponse)
 
     const generator = aisdk.promptAiSdkStream({} as any)
     const results = []
@@ -300,10 +313,7 @@ describe('read_docs tool with researcher agent', () => {
         topic: 'hooks',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-      return
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -376,10 +386,7 @@ describe('read_docs tool with researcher agent', () => {
         max_tokens: 5000,
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-      return
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -426,10 +433,7 @@ describe('read_docs tool with researcher agent', () => {
         topic: 'blah',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-      return
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -495,10 +499,7 @@ describe('read_docs tool with researcher agent', () => {
         topic: 'hooks',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-      return
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -563,10 +564,7 @@ describe('read_docs tool with researcher agent', () => {
         topic: 'server-components',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-      return
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -632,10 +630,7 @@ describe('read_docs tool with researcher agent', () => {
         topic: 'hooks',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-      return
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {

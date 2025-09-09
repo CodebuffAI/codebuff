@@ -1,5 +1,6 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
+import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   clearMockedModules,
@@ -63,6 +64,17 @@ describe('runAgentStep - set_output tool', () => {
       instructionsPrompt: 'Test instructions prompt',
       stepPrompt: 'Test agent step prompt',
     }
+
+    // Setup spies for database operations
+    spyOn(db, 'insert').mockReturnValue({
+      values: mock(() => Promise.resolve({ id: 'test-run-id' })),
+    } as any)
+
+    spyOn(db, 'update').mockReturnValue({
+      set: mock(() => ({
+        where: mock(() => Promise.resolve()),
+      })),
+    } as any)
 
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -164,8 +176,13 @@ describe('runAgentStep - set_output tool', () => {
       '\n\n' +
       getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+      resolveMessageId,
+    }) {
       yield mockResponse
+      if (resolveMessageId) {
+        resolveMessageId('mock-message-id')
+      }
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -205,8 +222,13 @@ describe('runAgentStep - set_output tool', () => {
         findings: ['Bug in auth.ts', 'Missing validation'],
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+      resolveMessageId,
+    }) {
       yield mockResponse
+      if (resolveMessageId) {
+        resolveMessageId('mock-message-id')
+      }
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -247,8 +269,13 @@ describe('runAgentStep - set_output tool', () => {
         existingField: 'updated value',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+      resolveMessageId,
+    }) {
       yield mockResponse
+      if (resolveMessageId) {
+        resolveMessageId('mock-message-id')
+      }
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -289,8 +316,13 @@ describe('runAgentStep - set_output tool', () => {
     const mockResponse =
       getToolCallString('set_output', {}) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+      resolveMessageId,
+    }) {
       yield mockResponse
+      if (resolveMessageId) {
+        resolveMessageId('mock-message-id')
+      }
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -368,8 +400,13 @@ describe('runAgentStep - set_output tool', () => {
     )
 
     // Mock the LLM stream to return a response that doesn't end the turn
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+      resolveMessageId,
+    }) {
       yield 'Continuing with the analysis...' // Non-empty response, no tool calls
+      if (resolveMessageId) {
+        resolveMessageId('mock-message-id')
+      }
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -513,11 +550,16 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock the LLM stream to spawn the inline agent
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+      resolveMessageId,
+    }) {
       yield getToolCallString('spawn_agent_inline', {
         agent_type: 'message-deleter-agent',
         prompt: 'Delete the last two assistant messages',
       })
+      if (resolveMessageId) {
+        resolveMessageId('mock-message-id')
+      }
     })
 
     const sessionState = getInitialSessionState(mockFileContext)

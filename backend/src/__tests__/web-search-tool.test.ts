@@ -35,6 +35,22 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { WebSocket } from 'ws'
 
+function mockAgentStream(content: string | string[]) {
+  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+    resolveMessageId,
+  }) {
+    if (typeof content === 'string') {
+      content = [content]
+    }
+    for (const chunk of content) {
+      yield chunk
+    }
+    if (resolveMessageId) {
+      resolveMessageId('mock-message-id')
+    }
+  })
+}
+
 describe('web_search tool with researcher agent', () => {
   beforeAll(() => {
     // Mock logger
@@ -116,9 +132,7 @@ describe('web_search tool with researcher agent', () => {
         query: 'test query',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -162,9 +176,7 @@ describe('web_search tool with researcher agent', () => {
         query: 'Next.js 15 new features',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -223,9 +235,7 @@ describe('web_search tool with researcher agent', () => {
         depth: 'deep',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -266,9 +276,7 @@ describe('web_search tool with researcher agent', () => {
         query: 'very obscure search query that returns nothing',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -326,9 +334,7 @@ describe('web_search tool with researcher agent', () => {
         query: 'test query',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -382,9 +388,7 @@ describe('web_search tool with researcher agent', () => {
         query: 'test query',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -428,9 +432,7 @@ describe('web_search tool with researcher agent', () => {
         query: 'test query',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -486,9 +488,7 @@ describe('web_search tool with researcher agent', () => {
         query: 'test formatting',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield mockResponse
-    })
+    mockAgentStream(mockResponse)
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {

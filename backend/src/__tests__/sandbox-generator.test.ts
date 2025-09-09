@@ -1,3 +1,7 @@
+import {
+  getInitialAgentState,
+  type AgentState,
+} from '@codebuff/common/types/session-state'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import {
@@ -7,7 +11,6 @@ import {
 import { mockFileContext, MockWebSocket } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
-import type { AgentState } from '@codebuff/common/types/session-state'
 import type { WebSocket } from 'ws'
 
 describe('QuickJS Sandbox Generator', () => {
@@ -20,14 +23,9 @@ describe('QuickJS Sandbox Generator', () => {
 
     // Reuse common test data structure
     mockAgentState = {
+      ...getInitialAgentState(),
       agentId: 'test-agent-123',
       agentType: 'test-vm-agent',
-      messageHistory: [],
-      output: undefined,
-      agentContext: {},
-      subagents: [],
-      stepsRemaining: 10,
-      creditsUsed: 0,
     }
 
     // Base template structure - will be customized per test

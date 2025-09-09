@@ -37,6 +37,19 @@ export type GrantType = (typeof grantTypeEnum.enumValues)[number]
 
 export const sessionTypeEnum = pgEnum('session_type', ['web', 'pat', 'cli'])
 
+export const agentRunStatus = pgEnum('agent_run_status', [
+  'running',
+  'completed',
+  'failed',
+  'cancelled',
+])
+
+export const agentStepStatus = pgEnum('agent_step_status', [
+  'running',
+  'completed',
+  'skipped',
+])
+
 export const user = pgTable('user', {
   id: text('id')
     .primaryKey()
@@ -105,8 +118,8 @@ export const creditLedger = pgTable(
       .defaultNow(),
     org_id: text('org_id').references(() => org.id, { onDelete: 'cascade' }),
   },
-  (table) => ({
-    idx_credit_ledger_active_balance: index('idx_credit_ledger_active_balance')
+  (table) => [
+    index('idx_credit_ledger_active_balance')
       .on(
         table.user_id,
         table.balance,
@@ -115,8 +128,8 @@ export const creditLedger = pgTable(
         table.created_at,
       )
       .where(sql`${table.balance} != 0 AND ${table.expires_at} IS NULL`),
-    idx_credit_ledger_org: index('idx_credit_ledger_org').on(table.org_id),
-  }),
+    index('idx_credit_ledger_org').on(table.org_id),
+  ],
 )
 
 export const syncFailure = pgTable(
@@ -139,11 +152,11 @@ export const syncFailure = pgTable(
     retry_count: integer('retry_count').notNull().default(1),
     last_error: text('last_error').notNull(),
   },
-  (table) => ({
-    idx_sync_failure_retry: index('idx_sync_failure_retry')
+  (table) => [
+    index('idx_sync_failure_retry')
       .on(table.retry_count, table.last_attempt_at)
       .where(sql`${table.retry_count} < 5`),
-  }),
+  ],
 )
 
 export const referral = pgTable(
@@ -353,16 +366,11 @@ export const orgInvite = pgTable(
     accepted_at: timestamp('accepted_at', { mode: 'date', withTimezone: true }),
     accepted_by: text('accepted_by').references(() => user.id),
   },
-  (table) => ({
-    idx_org_invite_token: index('idx_org_invite_token').on(table.token),
-    idx_org_invite_email: index('idx_org_invite_email').on(
-      table.org_id,
-      table.email,
-    ),
-    idx_org_invite_expires: index('idx_org_invite_expires').on(
-      table.expires_at,
-    ),
-  }),
+  (table) => [
+    index('idx_org_invite_token').on(table.token),
+    index('idx_org_invite_email').on(table.org_id, table.email),
+    index('idx_org_invite_expires').on(table.expires_at),
+  ],
 )
 
 export const orgFeature = pgTable(
@@ -449,13 +457,13 @@ export const publisher = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => ({
+  (table) => [
     // Constraint to ensure exactly one owner type
-    publisherSingleOwner: sql`CONSTRAINT publisher_single_owner CHECK (
+    sql`CONSTRAINT publisher_single_owner CHECK (
     (${table.user_id} IS NOT NULL AND ${table.org_id} IS NULL) OR
     (${table.user_id} IS NULL AND ${table.org_id} IS NOT NULL)
   )`,
-  }),
+  ],
 )
 
 export const agentConfig = pgTable(
@@ -491,5 +499,157 @@ export const agentConfig = pgTable(
   (table) => [
     primaryKey({ columns: [table.publisher_id, table.id, table.version] }),
     index('idx_agent_config_publisher').on(table.publisher_id),
+  ],
+)
+
+export const agentRun = pgTable(
+  'agent_run',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+
+    // Identity and relationships
+    user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+
+    // Agent identity (either "publisher/agent@version" OR a plain string with no '/' or '@')
+    agent_id: text('agent_id').notNull(),
+
+    // Agent identity (full versioned ID like "CodebuffAI/reviewer@1.0.0")
+    publisher_id: text('publisher_id').generatedAlwaysAs(
+      sql`CASE
+             WHEN agent_id ~ '^[^/@]+/[^/@]+@[^/@]+$'
+               THEN split_part(agent_id, '/', 1)
+             ELSE NULL
+           END`,
+    ),
+    // agent_name: middle part for full pattern; otherwise the whole id
+    agent_name: text('agent_name').generatedAlwaysAs(
+      sql`CASE
+             WHEN agent_id ~ '^[^/@]+/[^/@]+@[^/@]+$'
+               THEN split_part(split_part(agent_id, '/', 2), '@', 1)
+             ELSE agent_id
+           END`,
+    ),
+    agent_version: text('agent_version').generatedAlwaysAs(
+      sql`CASE
+             WHEN agent_id ~ '^[^/@]+/[^/@]+@[^/@]+$'
+               THEN split_part(agent_id, '@', 2)
+             ELSE NULL
+           END`,
+    ),
+
+    // Hierarchy tracking
+    ancestor_run_ids: text('ancestor_run_ids').array(), // array of ALL run IDs from root (inclusive) to self (exclusive)
+    // Derived from ancestor_run_ids - root is first element
+    root_run_id: text('root_run_id').generatedAlwaysAs(
+      sql`CASE WHEN array_length(ancestor_run_ids, 1) >= 1 THEN ancestor_run_ids[1] ELSE id END`,
+    ),
+    // Derived from ancestor_run_ids - parent is second-to-last element
+    parent_run_id: text('parent_run_id').generatedAlwaysAs(
+      sql`CASE WHEN array_length(ancestor_run_ids, 1) >= 1 THEN ancestor_run_ids[array_length(ancestor_run_ids, 1)] ELSE NULL END`,
+    ),
+    // Derived from ancestor_run_ids - depth is array length minus 1
+    depth: integer('depth').generatedAlwaysAs(
+      sql`COALESCE(array_length(ancestor_run_ids, 1), 1)`,
+    ),
+
+    // Performance metrics
+    duration_ms: integer('duration_ms').generatedAlwaysAs(
+      sql`CASE WHEN completed_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000 ELSE NULL END::integer`,
+    ), // total time from start to completion in milliseconds
+    total_steps: integer('total_steps').default(0), // denormalized count
+
+    // Credit tracking
+    direct_credits: numeric('direct_credits', {
+      precision: 10,
+      scale: 6,
+    }).default('0'), // credits used by this agent only
+    total_credits: numeric('total_credits', {
+      precision: 10,
+      scale: 6,
+    }).default('0'), // credits used by this agent + all descendants
+
+    // Status tracking
+    status: agentRunStatus('status').notNull().default('running'),
+    error_message: text('error_message'),
+
+    // Timestamps
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completed_at: timestamp('completed_at', {
+      mode: 'date',
+      withTimezone: true,
+    }),
+  },
+  (table) => [
+    // Performance indices
+    index('idx_agent_run_user_id').on(table.user_id, table.created_at),
+    index('idx_agent_run_parent').on(table.parent_run_id),
+    index('idx_agent_run_root').on(table.root_run_id),
+    index('idx_agent_run_agent_id').on(table.agent_id, table.created_at),
+    index('idx_agent_run_publisher').on(table.publisher_id, table.created_at),
+    index('idx_agent_run_status')
+      .on(table.status)
+      .where(sql`${table.status} = 'running'`),
+    index('idx_agent_run_ancestors_gin').using('gin', table.ancestor_run_ids),
+  ],
+)
+
+export const agentStep = pgTable(
+  'agent_step',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+
+    // Relationship to run
+    agent_run_id: text('agent_run_id')
+      .notNull()
+      .references(() => agentRun.id, { onDelete: 'cascade' }),
+    step_number: integer('step_number').notNull(), // sequential within the run
+
+    // Performance metrics
+    duration_ms: integer('duration_ms').generatedAlwaysAs(
+      sql`CASE WHEN completed_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000 ELSE NULL END::integer`,
+    ), // total time from start to completion in milliseconds
+    credits: numeric('credits', {
+      precision: 10,
+      scale: 6,
+    })
+      .notNull()
+      .default('0'), // credits used by this step
+
+    // Spawned agents tracking
+    child_run_ids: text('child_run_ids').array(), // array of agent_run IDs created by this step
+    spawned_count: integer('spawned_count').generatedAlwaysAs(
+      sql`array_length(child_run_ids, 1)`,
+    ),
+
+    // Message tracking (if applicable)
+    message_id: text('message_id'), // reference to message table if needed
+
+    // Status
+    status: agentStepStatus('status').notNull().default('completed'),
+    error_message: text('error_message'),
+
+    // Timestamps
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completed_at: timestamp('completed_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Unique constraint for step numbers per run
+    sql`CONSTRAINT unique_step_number_per_run UNIQUE (agent_run_id, step_number)`,
+    // Performance indices
+    index('idx_agent_step_run_id').on(table.agent_run_id),
+    index('idx_agent_step_children_gin').using('gin', table.child_run_ids),
   ],
 )
