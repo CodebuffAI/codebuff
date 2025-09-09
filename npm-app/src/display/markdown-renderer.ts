@@ -642,9 +642,33 @@ export class MarkdownStreamRenderer {
     // Pattern: code\n\n\nparagraph -> code\n\nparagraph (single blank line after)
     rendered = rendered.replace(/(\x1b\[0m\n)\n+(\x1b\[0m[^0])/g, '$1\n$2')
 
+    // Preserve spacing around agent completion messages (lines with dashes)
+    // First, protect agent completion messages from normalization
+    const protectedLines: string[] = []
+    let protectionIndex = 0
+
+    // Find and protect lines that look like agent messages (start and end with dashes)
+    rendered = rendered.replace(
+      /\n*([-]{2,}[^\n]*[-]{2,})\n*/g,
+      (match, agentMessage) => {
+        const placeholder = `__PROTECTED_AGENT_MESSAGE_${protectionIndex++}__`
+        // Store the agent message with exactly 2 newlines above and below
+        protectedLines.push(`\n\n${agentMessage}\n\n`)
+        return placeholder
+      },
+    )
+
+    // Apply normal normalization
     rendered = rendered.replace(/\n{3,}/g, '\n\n')
     rendered = rendered.replace(/^\n+/, '')
     rendered = rendered.replace(/\n+$/, '\n')
+
+    // Restore protected agent messages
+    protectionIndex = 0
+    rendered = rendered.replace(
+      /__PROTECTED_AGENT_MESSAGE_(\d+)__/g,
+      () => protectedLines[protectionIndex++],
+    )
 
     return rendered
   }
