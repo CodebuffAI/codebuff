@@ -7,14 +7,14 @@ import { Worker } from 'worker_threads'
 
 import { getFileTokenScores } from '@codebuff/code-map'
 import {
+  codebuffConfigFile,
+  codebuffConfigFileBackup,
+} from '@codebuff/common/json-config/constants'
+import {
   AGENT_TEMPLATES_DIR,
   FILE_READ_STATUS,
   toOptionalFile,
 } from '@codebuff/common/old-constants'
-import {
-  codebuffConfigFile,
-  codebuffConfigFileBackup,
-} from '@codebuff/common/json-config/constants'
 import {
   flattenTree,
   getProjectFileTree,
@@ -292,8 +292,6 @@ export const getProjectFileContext = async (
     const userKnowledgeFilesWithScrapedContent =
       await addScrapedContentToFiles(userKnowledgeFiles)
 
-    const shellConfigFiles = loadShellConfigFiles()
-
     const { tokenScores, tokenCallers } = await getFileTokenScores(
       projectRoot,
       allFilePaths,
@@ -312,7 +310,7 @@ export const getProjectFileContext = async (
       agentTemplates: await loadLocalAgents({ verbose: false }),
       customToolDefinitions: {},
       codebuffConfig,
-      shellConfigFiles,
+      shellConfigFiles: {},
       systemInfo: getSystemInfo(),
       userKnowledgeFiles: userKnowledgeFilesWithScrapedContent,
       gitChanges,
@@ -621,23 +619,6 @@ export function setFiles(files: Record<string, string>) {
     const fullPath = path.join(projectRoot, filePath)
     fs.writeFileSync(fullPath, content, 'utf8')
   }
-}
-
-const loadShellConfigFiles = () => {
-  const homeDir = os.homedir()
-  const configFiles = [
-    path.join(homeDir, '.bashrc'),
-    path.join(homeDir, '.bash_profile'),
-    path.join(homeDir, '.bash_login'),
-    path.join(homeDir, '.profile'),
-    path.join(homeDir, '.zshrc'),
-    path.join(homeDir, '.kshrc'),
-  ]
-  const files = getFilesAbsolutePath(configFiles, { silent: true })
-  return filterObject(files, (value) => value !== null) as Record<
-    string,
-    string
-  >
 }
 
 /*
