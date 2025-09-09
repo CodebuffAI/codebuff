@@ -17,7 +17,6 @@ import { getAllTsFiles } from '../agents/agent-utils'
 import { CLI, getLocalAgentInfo } from '../cli'
 import { createExampleAgentFiles } from './init-agents'
 import { getProjectRoot } from '../project-files'
-import { Spinner } from '../utils/spinner'
 import {
   ENTER_ALT_BUFFER,
   EXIT_ALT_BUFFER,
@@ -504,7 +503,7 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
       return
     }
 
-    // Handle Enter - switch to selected agent, create new, or edit
+    // Handle Enter - add @<agent-name> to input field or create new agent
     if (key && key.name === 'return') {
       if (agentList.length > 0 && selectedIndex < agentList.length) {
         const selectedAgent = agentList[selectedIndex]
@@ -523,21 +522,10 @@ function setupAgentsKeyHandler(rl: any, onExit: () => void) {
           startDirectAgentCreation(onExit)
         } else {
           exitAgentsBuffer(rl)
-          // Start spinner for agent switching
-          Spinner.get().start(`Switching to agent: ${selectedAgent.name}...`)
-
-          // Use resetAgent to switch to the selected agent
+          // Instead of switching agents, add @<agent-name> to the input field
           const cliInstance = CLI.getInstance()
-          cliInstance
-            .resetAgent(selectedAgent.id)
-            .then(() => {
-              cliInstance.freshPrompt()
-            })
-            .catch((error: any) => {
-              Spinner.get().stop()
-              console.error(red('Error switching to agent:'), error)
-              onExit()
-            })
+          const agentName = selectedAgent.name.replace(/\s*\(.*\)$/, '') // Remove any (id) suffix
+          cliInstance.freshPrompt(`@${agentName} `)
         }
       }
       return
