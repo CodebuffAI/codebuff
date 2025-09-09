@@ -31,7 +31,7 @@ const createHeadingWithCopyLink = (
     ...props
   }: HTMLAttributes<HTMLHeadingElement>) => {
     const [copied, setCopied] = useState(false)
-    const [showCopyButton, setShowCopyButton] = useState(false)
+    const [showMobileBadge, setShowMobileBadge] = useState(false)
     const isMobile = useIsMobile()
 
     useEffect(() => {
@@ -42,14 +42,14 @@ const createHeadingWithCopyLink = (
       return undefined
     }, [copied])
 
-    // Auto-hide copy button on mobile after 3 seconds
+    // Auto-hide mobile badge after 3 seconds
     useEffect(() => {
-      if (isMobile && showCopyButton) {
-        const timer = setTimeout(() => setShowCopyButton(false), 1_500)
+      if (isMobile && showMobileBadge) {
+        const timer = setTimeout(() => setShowMobileBadge(false), 3000)
         return () => clearTimeout(timer)
       }
       return undefined
-    }, [isMobile, showCopyButton])
+    }, [isMobile, showMobileBadge])
 
     const title = children?.toString()
 
@@ -77,7 +77,7 @@ const createHeadingWithCopyLink = (
         <HeadingComponent
           {...props}
           className={cn(
-            'group relative hover:cursor-pointer hover:underline scroll-m-20',
+            'hover:cursor-pointer hover:underline scroll-m-20',
             defaultClasses,
             className
           )}
@@ -102,48 +102,78 @@ const createHeadingWithCopyLink = (
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
       }
 
-      // On mobile, toggle copy button visibility when title is tapped
+      // On mobile, show floating badge when title is tapped
       if (isMobile) {
-        setShowCopyButton(!showCopyButton)
+        setShowMobileBadge(true)
       }
     }
 
-    // Determine button visibility based on device type
-    const buttonVisibilityClass = isMobile
-      ? showCopyButton
-        ? 'opacity-100'
-        : 'opacity-0'
-      : 'xs:opacity-100 xl:opacity-0 group-hover:opacity-100'
+    // Extract margin classes from defaultClasses for container
+    const marginClasses =
+      defaultClasses
+        .match(
+          /(?:^|\s)(mt-\S+|mb-\S+|my-\S+|m-\S+|first:mt-\S+|first:mb-\S+)(?=\s|$)/g
+        )
+        ?.join(' ') || ''
+    const textClasses = defaultClasses
+      .replace(
+        /(?:^|\s)(?:mt-\S+|mb-\S+|my-\S+|m-\S+|first:mt-\S+|first:mb-\S+)(?=\s|$)/g,
+        ''
+      )
+      .trim()
 
     return (
-      <div className="group">
-        <HeadingComponent
-          {...props}
-          id={id}
-          className={cn(
-            'hover:cursor-pointer hover:underline scroll-m-20 inline-flex items-center gap-2',
-            defaultClasses,
-            className
-          )}
-          onClick={handleClick}
-        >
-          {children}
-          <button
-            onClick={handleCopy}
+      <div className={cn(marginClasses)}>
+        <div className="group inline-flex items-baseline">
+          <HeadingComponent
+            {...props}
+            id={id}
             className={cn(
-              buttonVisibilityClass,
-              'p-1.5 rounded-md bg-muted/50 hover:bg-muted border border-border/50 hover:border-border transition-all duration-200 ease-in-out inline-flex items-center justify-center shadow-sm hover:shadow-md',
-              isMobile ? 'min-h-[44px] min-w-[44px]' : 'h-auto w-auto'
+              'relative hover:cursor-pointer hover:underline scroll-m-20',
+              textClasses,
+              className
             )}
-            aria-label="Copy link to section"
+            onClick={handleClick}
           >
-            {copied ? (
-              <Check className="text-green-500 h-4 w-4" />
-            ) : (
-              <Link className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            {children}
+            {/* Mobile floating badge */}
+            {isMobile && showMobileBadge && (
+              <div className="absolute -top-12 left-0 z-10">
+                <button
+                  onClick={handleCopy}
+                  className="bg-background border border-border rounded-lg px-3 py-2 shadow-lg flex items-center gap-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-200 hover:bg-muted transition-colors cursor-pointer"
+                  aria-label="Copy link to section"
+                >
+                  <div className="flex items-center justify-center p-1.5 rounded-md bg-muted/50 border border-border/50">
+                    {copied ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Link className="h-3 w-3 text-muted-foreground" />
+                    )}
+                  </div>
+                  <span className="text-sm font-medium">
+                    {copied ? 'Copied!' : 'Copy link'}
+                  </span>
+                </button>
+              </div>
             )}
-          </button>
-        </HeadingComponent>
+          </HeadingComponent>
+
+          {/* Desktop copy button right next to heading */}
+          {!isMobile && (
+            <button
+              onClick={handleCopy}
+              className="flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 rounded-md bg-muted/50 hover:bg-muted border border-border/50 hover:border-border flex items-center justify-center shadow-sm hover:shadow-md"
+              aria-label="Copy link to section"
+            >
+              {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+              ) : (
+                <Link className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+              )}
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -247,7 +277,7 @@ const components = {
   code: ({ className, ...props }: HTMLAttributes<HTMLElement>) => (
     <code
       className={cn(
-        'relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm bg-muted',
+        'relative rounded px-[0.3rem] py-[0.2rem] mx-2 font-mono text-sm bg-muted',
         className
       )}
       {...props}

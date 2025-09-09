@@ -161,3 +161,32 @@
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border) / 0.6) transparent;
 }
+
+/* Code blocks within headings - lighter styling to prevent mobile layout issues */
+:where(h1, h2, h3, h4, h5, h6) code {
+  @apply border-0 text-current;
+  padding: 0.15em 0.75em;
+  margin: 0 0.4em;
+  font-size: 0.9em;
+  font-weight: inherit;
+  border-radius: 2px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Ensure proper text wrapping in headings on mobile */
+@media (max-width: 767px) {
+  :where(h1, h2, h3, h4, h5, h6) {
+    /* Use flexbox for robust wrapping */
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    line-height: 1; /* Minimal line spacing */
+    gap: 0; /* Remove gap between items */
+    margin-top: 0rem; /* Reduce top margin */
+  }
+
+  /* Keep code snippets from breaking on mobile */
+  :where(h1, h2, h3, h4, h5, h6) code {
+    white-space: nowrap;
+  }
+}
