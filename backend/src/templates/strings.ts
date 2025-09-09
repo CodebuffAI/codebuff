@@ -95,9 +95,7 @@ export async function formatPrompt(
   }
 
   for (const varName of placeholderValues) {
-    if (toInject[varName]) {
-      prompt = prompt.replaceAll(varName, toInject[varName])
-    }
+    prompt = prompt.replaceAll(varName, toInject[varName] ?? '')
   }
   return prompt
 }
