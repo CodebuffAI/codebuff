@@ -1,6 +1,8 @@
 import MarkdownIt from 'markdown-it'
 import terminal from 'markdown-it-terminal'
 import { highlight } from 'cli-highlight'
+import { gray } from 'picocolors'
+import wrapAnsi from 'wrap-ansi'
 
 export type MarkdownStreamRendererOptions = {
   width?: number
@@ -8,6 +10,28 @@ export type MarkdownStreamRendererOptions = {
   syntaxHighlight?: boolean
   theme?: 'light' | 'dark'
   maxBufferKB?: number
+  streamingMode?: 'smart' | 'conservative'
+}
+
+type BlockType =
+  | 'paragraph'
+  | 'heading'
+  | 'list'
+  | 'code-fence'
+  | 'table'
+  | 'blockquote'
+  | 'unknown'
+
+interface BlockState {
+  type: BlockType
+  buffer: string
+  startTime: number
+  metadata?: {
+    fenceMarker?: '```' | '~~~'
+    fenceLang?: string
+    listIndent?: number
+    tableHeaderSeen?: boolean
+  }
 }
 
 export class MarkdownStreamRenderer {
@@ -15,20 +39,42 @@ export class MarkdownStreamRenderer {
   private isTTY: boolean
   private syntaxHighlight: boolean
   private maxBufferBytes: number
-  private normalBuffer = ''
-  private codeFenceBuffer = ''
-  private inFence = false
-  private fenceMarker: '```' | '~~~' | null = null
-  private fenceLang: string | null = null
-  private inList = false
-  private listIndentLevel = 0
+  private streamingMode: 'smart' | 'conservative'
   private md: MarkdownIt
+
+  // Smart buffering state
+  private currentBlock: BlockState | null = null
+  private lookaheadBuffer = ''
+  private consumedIndex = 0
+  private sourceBuffer = ''
+  private lastFlushTime = Date.now()
+
+  // Loading indicator state
+  private loadingIndicatorTimer: NodeJS.Timeout | null = null
+  private isShowingIndicator = false
+  private indicatorStartTime = 0
+  private indicatorFrame = 0
+  private resizeHandler?: () => void
+  // Three dots expanding and contracting animation
+  private readonly indicatorFrames = [
+    '···',
+    '•··', 
+    '●•·',
+    '●●•',
+    '●●●',
+    '●●•',
+    '●•·',
+    '•··'
+  ]
+  private readonly indicatorThresholdMs = 200
+  private readonly indicatorUpdateMs = 150
 
   constructor(opts: MarkdownStreamRendererOptions = {}) {
     this.width = opts.width ?? (process.stdout.columns || 80)
     this.isTTY = opts.isTTY ?? process.stdout.isTTY
     this.syntaxHighlight = opts.syntaxHighlight ?? true
     this.maxBufferBytes = (opts.maxBufferKB ?? 64) * 1024
+    this.streamingMode = opts.streamingMode ?? 'smart'
 
     // Initialize markdown-it with terminal renderer
     this.md = new MarkdownIt({
@@ -61,194 +107,539 @@ export class MarkdownStreamRenderer {
         listitem: (text: string) => `  • ${text}`,
         // Customize ordered list items to include periods after numbers
         orderedlistitem: (text: string, num: number) => `  ${num}. ${text}`,
+        // Code blocks should preserve formatting with minimal spacing
+        code_block: (text: string) => `${text}`,
+        fence: (text: string, lang?: string) => `${text}`,
       },
     })
 
     if (process.stdout && 'on' in process.stdout) {
-      process.stdout.on('resize', () => {
+      this.resizeHandler = () => {
         this.width = process.stdout.columns || this.width
-      })
+      }
+      process.stdout.on('resize', this.resizeHandler)
     }
   }
 
   write(chunk: string): string[] {
     const outs: string[] = []
-    const lines = chunk.split(/(\n)/)
 
-    for (const line of lines) {
-      if (!line) continue
-      if (this.inFence) {
-        this.codeFenceBuffer += line
-        if (line.trim().startsWith(this.fenceMarker!)) {
-          const rendered = this.renderFence()
-          outs.push(rendered)
-          this.codeFenceBuffer = ''
-          this.inFence = false
-          this.fenceMarker = null
-          this.fenceLang = null
-        }
-        continue
-      }
-      if (line.trim().match(/^(```|~~~)/)) {
-        const m = line.trim().match(/(```|~~~)\s*([a-zA-Z0-9_+\-]*)?/)
-        if (m) {
-          this.flushNormal(outs)
-          this.inFence = true
-          this.fenceMarker = m[1] as '```' | '~~~'
-          this.fenceLang = m[2] || null
-          this.codeFenceBuffer = line + '\n'
-          continue
-        }
-      }
+    // Append to source buffer (never drop content)
+    this.sourceBuffer += chunk
 
-      // Track if we're in a list
-      const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s/)
-      if (listMatch) {
-        this.inList = true
-        this.listIndentLevel = listMatch[1].length
-      }
-
-      // Simply concatenate without adding spaces
-      // The original text should already have proper spacing
-      this.normalBuffer += line
-
-      // Special handling for headings - always flush after a complete heading line
-      if (line === '\n' && this.normalBuffer.length > 0) {
-        const lines = this.normalBuffer.split('\n')
-        const previousLine = lines[lines.length - 2] || ''
-        if (this.isHeading(previousLine)) {
-          // We have a complete heading followed by a newline, flush it
-          this.flushNormal(outs)
-          this.inList = false
-          this.listIndentLevel = 0
-          continue
-        }
-      }
-
-      // Check if we should flush
-      const shouldFlush = this.shouldFlushBuffer()
-
-      if (shouldFlush) {
-        this.flushNormal(outs)
-        this.inList = false
-        this.listIndentLevel = 0
-      } else if (this.normalBuffer.length > this.maxBufferBytes) {
-        outs.push(this.render(this.normalBuffer))
-        this.normalBuffer = ''
-        this.inList = false
-        this.listIndentLevel = 0
-      }
-    }
-
-    // For non-markdown plain text streaming
-    // If we have a small buffer that doesn't look like it's building markdown,
-    // flush it for better streaming experience
-    if (
-      !this.inFence &&
-      this.normalBuffer.length > 0 &&
-      this.normalBuffer.length < 50 &&
-      !this.hasMarkdownIndicators(this.normalBuffer) &&
-      !this.normalBuffer.includes('*') &&
-      !this.normalBuffer.includes('_')
-    ) {
-      // Check if we should flush - flush on word boundaries
-      const endsWithSpace = this.normalBuffer.endsWith(' ')
-      const endsWithNewline = this.normalBuffer.endsWith('\n')
-      const endsWithPunctuation = /[.!?,;:]$/.test(this.normalBuffer)
-
-      if (endsWithSpace || endsWithNewline || endsWithPunctuation) {
-        outs.push(this.normalBuffer)
-        this.normalBuffer = ''
-      } else if (this.normalBuffer.length > 40) {
-        // Buffer is getting long, flush up to the last word boundary
-        const lastSpaceIndex = this.normalBuffer.lastIndexOf(' ')
-        if (lastSpaceIndex !== -1) {
-          const partToFlush = this.normalBuffer.substring(0, lastSpaceIndex + 1)
-          outs.push(partToFlush)
-          this.normalBuffer = this.normalBuffer.substring(lastSpaceIndex + 1)
-        }
-      }
+    // Smart mode: analyze content and decide when to flush
+    if (this.streamingMode === 'smart') {
+      this.processSmartMode(chunk, outs)
+    } else {
+      // Conservative mode: original behavior
+      this.processConservativeMode(chunk, outs)
     }
 
     return outs
   }
 
-  end(): string | null {
-    const outputs: string[] = []
-    this.flushNormal(outputs)
-    if (this.codeFenceBuffer) {
-      outputs.push(this.render(this.codeFenceBuffer))
-      this.codeFenceBuffer = ''
+  private processSmartMode(text: string, outs: string[]) {
+    // Add to lookahead buffer
+    this.lookaheadBuffer += text
+
+    // Process line by line with lookahead
+    const lines = this.lookaheadBuffer.split('\n')
+
+    // Keep last line as lookahead (unless it's empty at the end)
+    const linesToProcess = lines.slice(0, -1)
+    const remainingLookahead = lines[lines.length - 1]
+
+    for (let i = 0; i < linesToProcess.length; i++) {
+      const line = linesToProcess[i]
+      const nextLine =
+        i < linesToProcess.length - 1
+          ? linesToProcess[i + 1]
+          : remainingLookahead
+
+      this.processLine(line, nextLine, outs)
     }
+
+    // Update lookahead
+    this.lookaheadBuffer = remainingLookahead
+
+    // Check if we should force flush due to age or size
+    this.checkForceFlush(outs)
+
+    // Update loading indicator
+    this.updateLoadingIndicator()
+  }
+
+  private processLine(
+    line: string,
+    nextLine: string | undefined,
+    outs: string[],
+  ) {
+    // Detect block type if we don't have one
+    if (!this.currentBlock) {
+      const blockType = this.detectBlockType(line, nextLine)
+      if (blockType !== 'unknown') {
+        this.currentBlock = {
+          type: blockType,
+          buffer: '',
+          startTime: Date.now(),
+          metadata: this.getBlockMetadata(blockType, line),
+        }
+      }
+    }
+
+    if (!this.currentBlock) {
+      // Plain text, render and flush immediately
+      const content = line + '\n'
+      const rendered = this.render(content)
+      outs.push(rendered)
+      this.consumedIndex += content.length
+      return
+    }
+
+    // Add line to current block
+    this.currentBlock.buffer += line + '\n'
+
+    // Check if block is complete
+    if (this.isBlockComplete(this.currentBlock, line, nextLine)) {
+      this.flushBlock(outs)
+    }
+  }
+
+  private detectBlockType(
+    line: string,
+    nextLine: string | undefined,
+  ): BlockType {
+    const trimmed = line.trim()
+
+    // Code fence
+    if (trimmed.match(/^(```|~~~)/)) {
+      return 'code-fence'
+    }
+
+    // Heading
+    if (trimmed.match(/^#+\s/)) {
+      return 'heading'
+    }
+
+    // List
+    if (trimmed.match(/^\s*([-*+]|\d+\.)\s/)) {
+      return 'list'
+    }
+
+    // Table (needs header + separator)
+    if (trimmed.includes('|') && nextLine?.trim().match(/^\|?\s*[-:]+\s*\|/)) {
+      return 'table'
+    }
+
+    // Blockquote
+    if (trimmed.startsWith('>')) {
+      return 'blockquote'
+    }
+
+    // Paragraph
+    if (trimmed.length > 0) {
+      return 'paragraph'
+    }
+
+    return 'unknown'
+  }
+
+  private getBlockMetadata(
+    type: BlockType,
+    line: string,
+  ): BlockState['metadata'] {
+    if (type === 'code-fence') {
+      const match = line.trim().match(/(```|~~~)\s*([a-zA-Z0-9_+\-]*)?/)
+      if (match) {
+        return {
+          fenceMarker: match[1] as '```' | '~~~',
+          fenceLang: match[2] || undefined,
+        }
+      }
+    }
+
+    if (type === 'list') {
+      const match = line.match(/^(\s*)([-*+]|\d+\.)\s/)
+      if (match) {
+        return { listIndent: match[1].length }
+      }
+    }
+
+    return {}
+  }
+
+  private isBlockComplete(
+    block: BlockState,
+    currentLine: string,
+    nextLine: string | undefined,
+  ): boolean {
+    const trimmedNext = nextLine?.trim() || ''
+
+    switch (block.type) {
+      case 'heading':
+        // Headings are complete after the line
+        return true
+
+      case 'paragraph':
+        // Complete on blank line or start of new block
+        return (
+          trimmedNext === '' ||
+          this.detectBlockType(nextLine || '', undefined) !== 'unknown'
+        )
+
+      case 'code-fence':
+        if (block.metadata?.fenceMarker) {
+          return currentLine.trim() === block.metadata.fenceMarker
+        }
+        return false
+
+      case 'list':
+        // For lists, be smarter about when to complete
+        if (trimmedNext === '') {
+          // Don't complete on blank line if there might be more list items
+          // Check remaining lookahead for potential list items  
+          const remainingLines = this.lookaheadBuffer.split('\n').slice(1)
+          const hasMoreListItems = remainingLines.some(line => 
+            line.trim().match(/^(\s*)([-*+]|\d+\.)\s/)
+          )
+          return !hasMoreListItems
+        }
+        const nextListMatch = nextLine?.match(/^(\s*)([-*+]|\d+\.)\s/)
+        if (!nextListMatch) return true
+        // Check for different indent level
+        return nextListMatch[1].length !== block.metadata?.listIndent
+
+      case 'table':
+        // Complete on non-table line
+        return !trimmedNext.includes('|')
+
+      case 'blockquote':
+        // Complete on non-quote line
+        return !trimmedNext.startsWith('>')
+
+      default:
+        return true
+    }
+  }
+
+  private flushBlock(outs: string[]) {
+    if (!this.currentBlock) return
+
+    // Hide loading indicator if showing
+    this.hideLoadingIndicator()
+
+    // Render the block
+    const rendered = this.render(this.currentBlock.buffer)
+    outs.push(rendered)
+
+    // Update consumed index
+    this.consumedIndex =
+      this.sourceBuffer.indexOf(this.currentBlock.buffer, this.consumedIndex) +
+      this.currentBlock.buffer.length
+
+    // Reset block state
+    this.currentBlock = null
+    this.lastFlushTime = Date.now()
+  }
+
+  private checkForceFlush(outs: string[]) {
+    if (!this.currentBlock) return
+    if (this.currentBlock.type === 'code-fence') return
+
+    const now = Date.now()
+    const age = now - this.currentBlock.startTime
+    const size = this.currentBlock.buffer.length
+
+    // Force flush conditions
+    const shouldForceFlush =
+      age > 500 || // 500ms max wait
+      size > 4096 || // 4KB max buffer
+      (age > 250 && this.currentBlock.type === 'paragraph') || // Paragraphs flush faster
+      (age > 1000 && this.currentBlock.type === 'list') // Lists get extra time to accumulate
+
+    if (shouldForceFlush) {
+      // Try to find a soft boundary for force flush
+      const buffer = this.currentBlock.buffer
+      const sentenceEnd = buffer.lastIndexOf('. ')
+      const lineEnd = buffer.lastIndexOf('\n')
+
+      let flushPoint = Math.max(sentenceEnd, lineEnd)
+      if (flushPoint > 0 && flushPoint < buffer.length - 1) {
+        // Flush up to soft boundary
+        const toFlush = buffer.substring(0, flushPoint + 1)
+        this.currentBlock.buffer = buffer.substring(flushPoint + 1)
+
+        const rendered = this.render(toFlush)
+        outs.push(rendered)
+        this.consumedIndex += toFlush.length
+        this.lastFlushTime = now
+
+        // Hide indicator since we flushed something
+        this.hideLoadingIndicator()
+      }
+    }
+  }
+
+  private updateLoadingIndicator() {
+    if (!this.currentBlock || !this.isTTY) return
+
+    const now = Date.now()
+    const age = now - this.currentBlock.startTime
+
+    // Show indicator if buffering for too long
+    if (age > this.indicatorThresholdMs && !this.isShowingIndicator) {
+      this.showLoadingIndicator()
+    }
+  }
+
+  private showLoadingIndicator() {
+    if (this.isShowingIndicator || !this.isTTY) return
+
+    this.isShowingIndicator = true
+    this.indicatorStartTime = Date.now()
+    this.indicatorFrame = 0
+
+    // Write initial indicator
+    this.writeIndicator()
+
+    // Start update timer
+    this.loadingIndicatorTimer = setInterval(() => {
+      this.indicatorFrame =
+        (this.indicatorFrame + 1) % this.indicatorFrames.length
+      this.writeIndicator()
+    }, this.indicatorUpdateMs)
+  }
+
+  private writeIndicator() {
+    if (!this.isShowingIndicator) return
+
+    const dot = this.indicatorFrames[this.indicatorFrame]
+    const message = gray(` ${dot} `)
+
+    // Write to stderr to avoid interfering with stdout
+    process.stderr.write(`\r${message}`)
+  }
+
+  private hideLoadingIndicator() {
+    if (!this.isShowingIndicator) return
+
+    this.isShowingIndicator = false
+
+    // Clear the indicator line (3 characters max width: '●●●' + 2 spaces for padding)
+    process.stderr.write('\r' + ' '.repeat(5) + '\r')
+
+    // Clear timer
+    if (this.loadingIndicatorTimer) {
+      clearInterval(this.loadingIndicatorTimer)
+      this.loadingIndicatorTimer = null
+    }
+  }
+
+  private processConservativeMode(text: string, outs: string[]) {
+    // This is a simplified version of the original behavior
+    // Just accumulate and flush on double newlines
+    const accumulated = this.lookaheadBuffer + text
+    const parts = accumulated.split('\n\n')
+
+    // Flush all complete parts
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i] + '\n\n'
+      const rendered = this.render(part)
+      outs.push(rendered)
+      this.consumedIndex += part.length
+    }
+
+    // Keep last part as lookahead
+    this.lookaheadBuffer = parts[parts.length - 1]
+  }
+
+  end(): string | null {
+    // Hide any loading indicator
+    this.hideLoadingIndicator()
+
+    const outputs: string[] = []
+
+    // Flush current block if any
+    if (this.currentBlock) {
+      outputs.push(this.render(this.currentBlock.buffer))
+    }
+
+    // Flush any remaining lookahead
+    if (this.lookaheadBuffer) {
+      outputs.push(this.render(this.lookaheadBuffer))
+    }
+
+    // Reset all state
+    this.sourceBuffer = ''
+    this.consumedIndex = 0
+    this.lookaheadBuffer = ''
+    this.currentBlock = null
+
+    // Cleanup event listeners
+    this.cleanup()
+
     return outputs.length ? outputs.join('') : null
   }
 
-  private flushNormal(outs: string[], addSpacePrefix = false) {
-    if (this.normalBuffer.trim().length > 0) {
-      const buffer =
-        addSpacePrefix && !this.normalBuffer.startsWith(' ')
-          ? ' ' + this.normalBuffer
-          : this.normalBuffer
-      outs.push(this.render(buffer))
-      this.normalBuffer = ''
+  private cleanup() {
+    if (this.resizeHandler && process.stdout && 'off' in process.stdout) {
+      process.stdout.off('resize', this.resizeHandler)
     }
   }
 
-  private renderFence(): string {
-    return this.render(this.codeFenceBuffer)
-  }
-
-  private hasMarkdownIndicators(text: string): boolean {
-    // Check if text contains markdown formatting that needs buffering
-    // Include single asterisks and underscores for italic formatting
-    return /^[*\-+]\s|^\d+\.\s|^#+\s|\*\*|\*[^*\s]|__|\_[^_\s]|\[.*\]\(.*\)/m.test(
-      text,
-    )
-  }
-
-  private isHeading(text: string): boolean {
-    // Check if the text starts with a heading pattern
-    return /^#+\s/.test(text.trim())
-  }
-
-  private shouldFlushBuffer(): boolean {
-    // Don't flush if we're in the middle of a list
-    if (this.inList) {
-      // Check if the buffer ends with a pattern that suggests the list continues
-      const lines = this.normalBuffer.split('\n')
-      const lastLine = lines[lines.length - 1] || ''
-      const secondLastLine = lines[lines.length - 2] || ''
-
-      // If last line is empty and second last line isn't a list item, list is probably done
-      if (lastLine.trim() === '' && secondLastLine.trim() !== '') {
-        const isListItem = /^\s*([-*+]|\d+\.)\s/.test(secondLastLine)
-        if (!isListItem) {
-          return true
+  private normalizeListItems(md: string): string {
+    // Fix ordered lists that have blank lines between items
+    // This ensures markdown-it treats them as a single list with proper numbering
+    const lines = md.split('\n')
+    const result: string[] = []
+    let i = 0
+    
+    while (i < lines.length) {
+      const line = lines[i]
+      
+      // Check if current line starts an ordered list item
+      if (line.match(/^\s*\d+\.\s/)) {
+        result.push(line)
+        i++
+        
+        // Look ahead for more list items separated by blank lines
+        while (i < lines.length) {
+          // Skip blank lines
+          while (i < lines.length && lines[i].trim() === '') {
+            i++
+          }
+          
+          // Check if next non-blank line is also a list item
+          if (i < lines.length && lines[i].match(/^\s*\d+\.\s/)) {
+            result.push(lines[i])
+            i++
+          } else {
+            // Not a list item, add back any blank lines we skipped and the line
+            if (i < lines.length) {
+              result.push('') // Add one blank line before non-list content
+              result.push(lines[i])
+              i++
+            }
+            break
+          }
         }
+      } else {
+        result.push(line)
+        i++
       }
-
-      // If we have double newline after a non-list item, flush
-      if (this.normalBuffer.includes('\n\n')) {
-        const parts = this.normalBuffer.split('\n\n')
-        const lastPart = parts[parts.length - 1]
-        // Check if the part after double newline is a list
-        if (!lastPart.match(/^\s*([-*+]|\d+\.)\s/)) {
-          return true
-        }
-      }
-
-      return false
     }
-
-    // Normal flush conditions when not in a list
-    return this.normalBuffer.includes('\n\n')
+    
+    return result.join('\n')
   }
 
   private render(md: string): string {
     if (!this.isTTY) return md
 
-    // Always use markdown-it-terminal to render, as it handles both
-    // plain text and markdown appropriately without wrapping
-    return this.md.render(md)
+    // Preprocess markdown to fix separated list items
+    md = this.normalizeListItems(md)
+
+    const codeBlockRegex = /(```|~~~)([^\n]*)\n([\s\S]*?)\1/g
+    const codeBlocks: string[] = []
+    let codeBlockIndex = 0
+
+    const padLeft = '  '
+    const padRight = '  '
+
+    const mdWithPlaceholders = md.replace(
+      codeBlockRegex,
+      (match, fence, lang, code) => {
+        const cleanCode = code.replace(/\n$/, '')
+
+        let formattedCode = cleanCode
+        if (this.syntaxHighlight && lang) {
+          try {
+            formattedCode = highlight(cleanCode, {
+              language: lang,
+              ignoreIllegals: true,
+            })
+          } catch {}
+        }
+
+        const bgGray = '\x1b[48;5;236m'
+        const reset = '\x1b[0m'
+        const reapplyBg = (s: string) =>
+          s.replace(/\x1b\[0m/g, `${reset}${bgGray}`)
+        formattedCode = reapplyBg(formattedCode)
+
+        const lines = formattedCode.split('\n')
+        const wrapWidth = Math.max(
+          20,
+          Math.min(this.width - padLeft.length - padRight.length, 120),
+        )
+        const wrappedLines: string[] = []
+
+        for (const line of lines) {
+          const leadingWsMatch = line.match(/^\s*/)
+          const leadingWs = leadingWsMatch ? leadingWsMatch[0] : ''
+          const content = line.slice(leadingWs.length)
+          const avail = Math.max(1, wrapWidth - leadingWs.length)
+          const wrapped = wrapAnsi(content, avail, { hard: true }).split('\n')
+          wrapped.forEach((seg) => {
+            const visibleLen =
+              leadingWs.length + seg.replace(/\x1b\[[^m]*m/g, '').length
+            const padding = Math.max(0, wrapWidth - visibleLen)
+            wrappedLines.push(
+              `${bgGray}${padLeft}${leadingWs}${seg}${' '.repeat(padding)}${padRight}${reset}`,
+            )
+          })
+        }
+
+        const bufferLine = `${bgGray}${padLeft}${' '.repeat(wrapWidth)}${padRight}${reset}`
+        const backgroundCode = [bufferLine, ...wrappedLines, bufferLine, ''].join(
+          '\n',
+        )
+
+        codeBlocks.push(backgroundCode)
+        return `CODE_BLOCK_PLACEHOLDER_${codeBlockIndex++}`
+      },
+    )
+
+    let rendered = this.md.render(mdWithPlaceholders)
+
+    codeBlockIndex = 0
+    rendered = rendered.replace(
+      /CODE_BLOCK_PLACEHOLDER_(\d+)/g,
+      (match, idx, offset, str) => {
+        const block = codeBlocks[codeBlockIndex++] || ''
+        if (!block) return ''
+
+        // Count surrounding newlines
+        let leftNL = 0
+        for (let i = offset - 1; i >= 0 && str[i] === '\n'; i--) leftNL++
+        let rightNL = 0
+        for (
+          let i = offset + match.length;
+          i < str.length && str[i] === '\n';
+          i++
+        )
+          rightNL++
+
+        // Don't add extra newlines - rely on cleanup to normalize spacing
+        const needLeft = 0
+        const needRight = 0
+
+        return `${'\n'.repeat(needLeft)}${block}${'\n'.repeat(needRight)}`
+      },
+    )
+
+    rendered = rendered.replace(/^   \x1b\[0m\* /gm, '   \x1b[0m• ')
+    rendered = rendered.replace(/^   \x1b\[0m(\d+) /gm, '   \x1b[0m$1. ')
+
+    // Normalize spacing around code blocks to ensure consistent single blank lines
+    // Pattern: paragraph\n\n\ncode -> paragraph\n\ncode (single blank line before)
+    rendered = rendered.replace(/(\x1b\[0m\n)\n+(\x1b\[0m\n\x1b\[48;5;236m)/g, '$1\n$2')
+    // Pattern: code\n\n\nparagraph -> code\n\nparagraph (single blank line after)  
+    rendered = rendered.replace(/(\x1b\[0m\n)\n+(\x1b\[0m[^0])/g, '$1\n$2')
+    
+    rendered = rendered.replace(/\n{3,}/g, '\n\n')
+    rendered = rendered.replace(/^\n+/, '')
+    rendered = rendered.replace(/\n+$/, '\n')
+
+    return rendered
   }
 }

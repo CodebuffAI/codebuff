@@ -28,6 +28,7 @@ export function createXMLStreamParser(
     width: process.stdout.columns || 80,
     isTTY: process.stdout.isTTY,
     syntaxHighlight: true,
+    streamingMode: 'smart', // Use smart content-aware streaming with loading indicators
   })
 
   // Current state
