@@ -85,8 +85,15 @@ export default {
 
 ## SDK: Run agents in production
 
+Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk) -- note this is different than the CLI codebuff package.
+```bash
+npm install @codebuff/sdk
+```
+
+Import the client and run agents!
+
 ```typescript
-import { CodebuffClient } from 'codebuff'
+import { CodebuffClient } from '@codebuff/sdk'
 
 // 1. Initialize the client
 const client = new CodebuffClient({
