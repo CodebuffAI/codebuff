@@ -109,7 +109,9 @@ export function Footer() {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="#"
+                  href="https://github.com/CodebuffAI/codebuff"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-sm text-zinc-400 hover:text-white transition-colors duration-300"
                 >
                   GitHub
@@ -149,7 +151,9 @@ export function Footer() {
           </div>
           <div className="flex space-x-6">
             <Link
-              href="#"
+              href="https://github.com/CodebuffAI/codebuff"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-zinc-400 hover:text-white transition-colors duration-300"
             >
               <svg

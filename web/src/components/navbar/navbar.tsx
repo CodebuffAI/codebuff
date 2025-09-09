@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { Icons } from '../icons'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { cn } from '@/lib/utils'
@@ -53,6 +54,15 @@ export const Navbar = async () => {
           className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
           Pricing
+        </Link>
+        <Link
+          href="https://github.com/CodebuffAI/codebuff"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
+        >
+          <Icons.github className="h-4 w-4" />
+          GitHub
         </Link>
         {/* <Link
           href="/agents"
@@ -89,6 +99,17 @@ export const Navbar = async () => {
               <Link href="/pricing" className="flex items-center">
                 <DollarSign className="mr-2 h-4 w-4" />
                 Pricing
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                href="https://github.com/CodebuffAI/codebuff"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center"
+              >
+                <Icons.github className="mr-2 h-4 w-4" />
+                GitHub
               </Link>
             </DropdownMenuItem>
             {/* <DropdownMenuItem asChild>

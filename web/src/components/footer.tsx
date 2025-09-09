@@ -24,6 +24,11 @@ const legalLinks: LinkInfo[] = [
 ]
 
 const communityLinks: LinkInfo[] = [
+  {
+    text: 'GitHub',
+    href: 'https://github.com/CodebuffAI/codebuff',
+    target: '_blank',
+  },
   { text: 'Discord', href: 'https://discord.gg/mcWTGjgTj3', target: '_blank' },
 ]
 
