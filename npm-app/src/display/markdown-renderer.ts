@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it'
+// @ts-ignore: Type definitions not available for markdown-it-terminal
 import terminal from 'markdown-it-terminal'
 import { highlight } from 'cli-highlight'
 import { gray } from 'picocolors'

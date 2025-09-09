@@ -2,6 +2,8 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "skipLibCheck": true,
+    "types": ["bun", "node"],
     "paths": {
       "@codebuff/common/*": ["../common/src/*"]
     }
