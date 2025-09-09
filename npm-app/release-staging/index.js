@@ -117,6 +117,7 @@ function streamToString(stream) {
 }
 
 function getCurrentVersion() {
+  console.log('asdf', { CONFIG })
   if (!fs.existsSync(CONFIG.binaryPath)) return null
 
   try {
