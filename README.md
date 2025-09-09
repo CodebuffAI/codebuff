@@ -6,7 +6,7 @@ Codebuff is an AI coding assistant that edits your codebase through natural lang
   <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
 </div>
 
-Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 200+ coding tasks over multiple open-source repos that simulate real-world tasks.
+Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
 
 ![Codebuff Demo](./assets/demo.gif)
 
