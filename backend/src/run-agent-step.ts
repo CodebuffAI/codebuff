@@ -643,6 +643,7 @@ export const loopAgentSteps = async (
 
       if (newAgentState.runId) {
         await addAgentStep({
+          userId,
           agentRunId: newAgentState.runId,
           stepNumber: totalSteps,
           credits: newAgentState.directCreditsUsed - creditsBefore,
@@ -673,6 +674,7 @@ export const loopAgentSteps = async (
       ? 'completed'
       : 'cancelled'
     await finishAgentRun({
+      userId,
       runId,
       status,
       totalSteps,
@@ -699,6 +701,7 @@ export const loopAgentSteps = async (
       ? 'failed'
       : 'cancelled'
     await finishAgentRun({
+      userId,
       runId,
       status,
       totalSteps,

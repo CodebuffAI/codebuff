@@ -250,6 +250,7 @@ export async function runProgrammaticStep(
 
       if (agentState.runId) {
         await addAgentStep({
+          userId,
           agentRunId: agentState.runId,
           stepNumber,
           credits: agentState.directCreditsUsed - creditsBefore,
@@ -296,6 +297,7 @@ export async function runProgrammaticStep(
 
     if (agentState.runId) {
       await addAgentStep({
+        userId,
         agentRunId: agentState.runId,
         stepNumber,
         credits: agentState.directCreditsUsed - creditsBefore,

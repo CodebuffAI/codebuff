@@ -190,6 +190,9 @@ describe('Cost Aggregation Integration Tests', () => {
           // Subagent writes a file
           yield '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "hello.txt", "instructions": "Create hello world file", "content": "Hello, World!"}\n</codebuff_tool_call>'
         }
+        if (options.resolveMessageId) {
+          options.resolveMessageId('mock-message-id')
+        }
       },
     )
 
@@ -347,6 +350,10 @@ describe('Cost Aggregation Integration Tests', () => {
           // Second-level subagent does actual work
           yield '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "nested.txt", "instructions": "Create nested file", "content": "Nested content"}\n</codebuff_tool_call>'
         }
+
+        if (options.resolveMessageId) {
+          options.resolveMessageId('mock-message-id')
+        }
       },
     )
 
@@ -399,6 +406,10 @@ describe('Cost Aggregation Integration Tests', () => {
           // Subagent fails after incurring cost
           yield 'Some response'
           throw new Error('Subagent execution failed')
+        }
+
+        if (options.resolveMessageId) {
+          options.resolveMessageId('mock-message-id')
         }
       },
     )

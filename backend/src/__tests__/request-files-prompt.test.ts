@@ -1,5 +1,11 @@
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
 import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
+  afterAll,
+  beforeAll,
   beforeEach,
   mock as bunMockFn,
   spyOn as bunSpyOn,
@@ -15,41 +21,6 @@ import type { CostMode } from '@codebuff/common/old-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { Mock } from 'bun:test'
-
-bunMockFn.module('../llm-apis/gemini-with-fallbacks', () => ({
-  promptFlashWithFallbacks: bunMockFn(() =>
-    Promise.resolve('file1.ts\nfile2.ts'),
-  ),
-}))
-
-bunMockFn.module('../websockets/request-context', () => ({
-  getRequestContext: bunMockFn(() => ({
-    approvedOrgIdForRepo: 'org123',
-    isRepoApprovedForUserInOrg: true,
-  })),
-}))
-
-bunMockFn.module('../util/logger', () => ({
-  logger: {
-    info: bunMockFn(() => {}),
-    error: bunMockFn(() => {}),
-    warn: bunMockFn(() => {}),
-    debug: bunMockFn(() => {}),
-  },
-}))
-
-bunMockFn.module('@codebuff/common/db', () => ({
-  default: {
-    insert: bunMockFn(() => ({
-      values: bunMockFn(() => ({
-        onConflictDoNothing: bunMockFn(() => Promise.resolve()),
-      })),
-    })),
-  },
-}))
-bunMockFn.module('@codebuff/bigquery', () => ({
-  insertTrace: bunMockFn(() => Promise.resolve()),
-}))
 
 describe('requestRelevantFiles', () => {
   const mockMessages: Message[] = [{ role: 'user', content: 'test prompt' }]
@@ -89,6 +60,47 @@ describe('requestRelevantFiles', () => {
   const mockRepoId = 'owner/repo'
 
   let getCustomFilePickerConfigForOrgSpy: any // Explicitly typed as any
+
+  beforeAll(() => {
+    mockModule('@codebuff/backend/llm-apis/gemini-with-fallbacks', () => ({
+      promptFlashWithFallbacks: bunMockFn(() =>
+        Promise.resolve('file1.ts\nfile2.ts'),
+      ),
+    }))
+
+    mockModule('@codebuff/backend/websockets/request-context', () => ({
+      getRequestContext: bunMockFn(() => ({
+        approvedOrgIdForRepo: 'org123',
+        isRepoApprovedForUserInOrg: true,
+      })),
+    }))
+
+    mockModule('@codebuff/backend/util/logger', () => ({
+      logger: {
+        info: bunMockFn(() => {}),
+        error: bunMockFn(() => {}),
+        warn: bunMockFn(() => {}),
+        debug: bunMockFn(() => {}),
+      },
+    }))
+
+    mockModule('@codebuff/common/db', () => ({
+      default: {
+        insert: bunMockFn(() => ({
+          values: bunMockFn(() => ({
+            onConflictDoNothing: bunMockFn(() => Promise.resolve()),
+          })),
+        })),
+      },
+    }))
+    mockModule('@codebuff/bigquery', () => ({
+      insertTrace: bunMockFn(() => Promise.resolve()),
+    }))
+  })
+
+  afterAll(() => {
+    clearMockedModules()
+  })
 
   beforeEach(() => {
     // If the spy was created in a previous test, restore it

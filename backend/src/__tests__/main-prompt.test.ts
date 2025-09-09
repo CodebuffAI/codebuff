@@ -36,8 +36,13 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 const mockAgentStream = (streamOutput: string) => {
-  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+    resolveMessageId,
+  }) {
     yield streamOutput
+    if (resolveMessageId) {
+      resolveMessageId('mock-message-id')
+    }
   })
 }
 
@@ -118,10 +123,7 @@ describe('mainPrompt', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response'),
     )
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-      yield 'Test response'
-      return
-    })
+    mockAgentStream('Test response')
 
     // Mock websocket actions
     spyOn(websocketAction, 'requestFiles').mockImplementation(

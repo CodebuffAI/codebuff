@@ -1,5 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { eq } from 'drizzle-orm'
 
 import { logger } from './util/logger'
@@ -18,6 +19,10 @@ export async function startAgentRun({
   agentId: string
   ancestorRunIds: string[]
 }): Promise<string> {
+  if (userId === TEST_USER_ID) {
+    return 'test-run-id'
+  }
+
   const id = runId ?? crypto.randomUUID()
 
   try {
@@ -44,6 +49,7 @@ export async function startAgentRun({
  * Completes an agent run by updating its status and metrics
  */
 export async function finishAgentRun({
+  userId,
   runId,
   status,
   totalSteps,
@@ -51,6 +57,7 @@ export async function finishAgentRun({
   totalCredits,
   errorMessage,
 }: {
+  userId: string | undefined
   runId: string
   status: 'completed' | 'failed' | 'cancelled'
   totalSteps: number
@@ -58,6 +65,10 @@ export async function finishAgentRun({
   totalCredits: number
   errorMessage?: string
 }): Promise<void> {
+  if (userId === TEST_USER_ID) {
+    return
+  }
+
   try {
     await db
       .update(schema.agentRun)
@@ -80,6 +91,7 @@ export async function finishAgentRun({
  * Adds a completed step to the agent_step table
  */
 export async function addAgentStep({
+  userId,
   agentRunId,
   stepNumber,
   credits,
@@ -89,6 +101,7 @@ export async function addAgentStep({
   errorMessage,
   startTime,
 }: {
+  userId: string | undefined
   agentRunId: string
   stepNumber: number
   credits?: number
@@ -98,6 +111,9 @@ export async function addAgentStep({
   errorMessage?: string
   startTime: Date
 }): Promise<string> {
+  if (userId === TEST_USER_ID) {
+    return 'test-step-id'
+  }
   const stepId = crypto.randomUUID()
 
   try {

@@ -1,9 +1,11 @@
 import * as analytics from '@codebuff/common/analytics'
+import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -20,6 +22,7 @@ import {
 import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { mockFileContext, MockWebSocket } from './test-utils'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 
 import type { AgentTemplate } from '../templates/types'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
@@ -84,38 +87,43 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         getMessages: () => [],
       },
     }))
-
-    // Mock stream parser
-    mockModule('@codebuff/backend/tools/stream-parser', () => ({
-      processStreamWithTools: async (options: any) => {
-        llmCallCount++ // Count LLM calls here since this is where the stream is processed
-        return {
-          toolCalls: [],
-          toolResults: [],
-          state: {
-            agentState: options.agentState || mockAgentState,
-            agentContext: {},
-            messages: options.messages || [],
-          },
-          fullResponse: 'LLM response',
-          fullResponseChunks: ['LLM response'],
-        }
-      },
-    }))
   })
 
   beforeEach(() => {
     llmCallCount = 0
 
+    // Setup spies for database operations
+    spyOn(db, 'insert').mockReturnValue({
+      values: mock(() => {
+        return Promise.resolve({ id: 'test-run-id' })
+      }),
+    } as any)
+
+    spyOn(db, 'update').mockReturnValue({
+      set: mock(() => ({
+        where: mock(() => {
+          return Promise.resolve()
+        }),
+      })),
+    } as any)
+
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
+      resolveMessageId,
+    }) {
+      llmCallCount++
+      yield `LLM response\n\n${getToolCallString('end_turn', {})}`
+      if (resolveMessageId) {
+        resolveMessageId('mock-message-id')
+      }
+    })
+
     // Mock analytics
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics()
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
 
     // Mock crypto.randomUUID
     spyOn(crypto, 'randomUUID').mockImplementation(
-      () =>
-        'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`,
+      () => 'mock-uuid-0000-0000-0000-000000000000' as const,
     )
 
     // Create mock template with programmatic agent
@@ -154,7 +162,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     clearAgentGeneratorCache()
   })
 
-  llmCallCount = 0 // Reset LLM call count
   afterAll(() => {
     clearMockedModules()
   })
@@ -640,15 +647,18 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     let runProgrammaticStepCalls: any[] = []
 
     // Mock runProgrammaticStep module to capture calls and verify stepsComplete parameter
-    mockModule('@codebuff/backend/run-programmatic-step', () => ({
-      runProgrammaticStep: async (agentState: any, options: any) => {
-        runProgrammaticStepCalls.push({ agentState, options })
-        // Return default behavior
-        return { agentState, endTurn: false }
-      },
-      clearAgentGeneratorCache: () => {},
-      agentIdToStepAll: new Set(),
-    }))
+    const mockedRunProgrammaticStep = await mockModule(
+      '@codebuff/backend/run-programmatic-step',
+      () => ({
+        runProgrammaticStep: async (agentState: any, options: any) => {
+          runProgrammaticStepCalls.push({ agentState, options })
+          // Return default behavior
+          return { agentState, endTurn: false }
+        },
+        clearAgentGeneratorCache: () => {},
+        agentIdToStepAll: new Set(),
+      }),
+    )
 
     const mockGeneratorFunction = function* () {
       yield 'STEP' // Hand control to LLM
@@ -659,26 +669,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const localAgentTemplates = {
       'test-agent': mockTemplate,
     }
-
-    // Mock the stream parser to simulate LLM calling end_turn tool
-    mockModule('@codebuff/backend/tools/stream-parser', () => ({
-      processStreamWithTools: async (options: any) => {
-        llmCallCount++
-        return {
-          toolCalls: [
-            { toolName: 'end_turn', input: {}, toolCallId: 'test-id' },
-          ],
-          toolResults: [],
-          state: {
-            agentState: options.agentState,
-            agentContext: {},
-            messages: options.messages,
-          },
-          fullResponse: 'LLM response with end_turn',
-          fullResponseChunks: ['LLM response with end_turn'],
-        }
-      },
-    }))
 
     // Mock checkLiveUserInput to allow the loop to run
     const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
@@ -700,6 +690,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
     })
+
+    mockedRunProgrammaticStep.clear()
 
     // Verify that runProgrammaticStep was called twice:
     // 1. First with stepsComplete: false (initial call)
