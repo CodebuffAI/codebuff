@@ -194,11 +194,13 @@ export async function runProgrammaticStep(
         includeToolCall?: boolean
       }
 
-      if (!template.toolNames.includes(toolCall.toolName)) {
-        throw new Error(
-          `Tool ${toolCall.toolName} is not available for agent ${template.id}. Available tools: ${template.toolNames.join(', ')}`,
-        )
-      }
+      // Note: We don't check if the tool is available for the agent template anymore.
+      // You can run any tool from handleSteps now!
+      // if (!template.toolNames.includes(toolCall.toolName)) {
+      //   throw new Error(
+      //     `Tool ${toolCall.toolName} is not available for agent ${template.id}. Available tools: ${template.toolNames.join(', ')}`,
+      //   )
+      // }
 
       const excludeToolFromMessageHistory = toolCall?.includeToolCall === false
       // Add assistant message with the tool call before executing it
