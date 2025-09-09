@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -10,6 +11,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
 import { GrantTypeValues } from '../types/grant'
@@ -459,10 +461,11 @@ export const publisher = pgTable(
   },
   (table) => [
     // Constraint to ensure exactly one owner type
-    sql`CONSTRAINT publisher_single_owner CHECK (
-    (${table.user_id} IS NOT NULL AND ${table.org_id} IS NULL) OR
-    (${table.user_id} IS NULL AND ${table.org_id} IS NOT NULL)
-  )`,
+    check(
+      'publisher_single_owner',
+      sql`(${table.user_id} IS NOT NULL AND ${table.org_id} IS NULL) OR
+    (${table.user_id} IS NULL AND ${table.org_id} IS NOT NULL)`,
+    ),
   ],
 )
 
@@ -647,7 +650,10 @@ export const agentStep = pgTable(
   },
   (table) => [
     // Unique constraint for step numbers per run
-    sql`CONSTRAINT unique_step_number_per_run UNIQUE (agent_run_id, step_number)`,
+    uniqueIndex('unique_step_number_per_run').on(
+      table.agent_run_id,
+      table.step_number,
+    ),
     // Performance indices
     index('idx_agent_step_run_id').on(table.agent_run_id),
     index('idx_agent_step_children_gin').using('gin', table.child_run_ids),
