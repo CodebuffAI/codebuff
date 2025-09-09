@@ -41,12 +41,15 @@
     "@vscode/ripgrep": "1.15.9",
     "ai": "5.0.0",
     "axios": "1.7.4",
+    "cli-highlight": "^2.1.11",
     "commander": "^13.1.0",
     "diff": "8.0.2",
     "git-url-parse": "^16.1.0",
     "ignore": "7.0.3",
     "isomorphic-git": "^1.29.0",
     "lodash": "*",
+    "markdown-it": "^14.1.0",
+    "markdown-it-terminal": "^0.4.0",
     "micromatch": "^4.0.8",
     "nanoid": "5.0.7",
     "onetime": "5.1.2",
@@ -60,5 +63,8 @@
     "wrap-ansi": "^9.0.0",
     "ws": "8.18.0",
     "zod": "3.25.67"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2"
   }
 }

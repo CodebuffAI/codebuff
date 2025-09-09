@@ -4,7 +4,7 @@
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "baseUrl": ".",
-    "types": ["@testing-library/jest-dom"],
+    "types": ["bun", "node"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -32,7 +32,7 @@
     "**/*.mjs",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".contentlayer"],
+  "exclude": ["node_modules", ".contentlayer", "**/__tests__/**"],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }
