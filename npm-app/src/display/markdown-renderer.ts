@@ -58,13 +58,13 @@ export class MarkdownStreamRenderer {
   // Three dots expanding and contracting animation
   private readonly indicatorFrames = [
     '···',
-    '•··', 
+    '•··',
     '●•·',
     '●●•',
     '●●●',
     '●●•',
     '●•·',
-    '•··'
+    '•··',
   ]
   private readonly indicatorThresholdMs = 200
   private readonly indicatorUpdateMs = 150
@@ -297,10 +297,10 @@ export class MarkdownStreamRenderer {
         // For lists, be smarter about when to complete
         if (trimmedNext === '') {
           // Don't complete on blank line if there might be more list items
-          // Check remaining lookahead for potential list items  
+          // Check remaining lookahead for potential list items
           const remainingLines = this.lookaheadBuffer.split('\n').slice(1)
-          const hasMoreListItems = remainingLines.some(line => 
-            line.trim().match(/^(\s*)([-*+]|\d+\.)\s/)
+          const hasMoreListItems = remainingLines.some((line) =>
+            line.trim().match(/^(\s*)([-*+]|\d+\.)\s/),
           )
           return !hasMoreListItems
         }
@@ -481,7 +481,7 @@ export class MarkdownStreamRenderer {
     return outputs.length ? outputs.join('') : null
   }
 
-  private cleanup() {
+  cleanup() {
     if (this.resizeHandler && process.stdout && 'off' in process.stdout) {
       process.stdout.off('resize', this.resizeHandler)
     }
@@ -493,22 +493,22 @@ export class MarkdownStreamRenderer {
     const lines = md.split('\n')
     const result: string[] = []
     let i = 0
-    
+
     while (i < lines.length) {
       const line = lines[i]
-      
+
       // Check if current line starts an ordered list item
       if (line.match(/^\s*\d+\.\s/)) {
         result.push(line)
         i++
-        
+
         // Look ahead for more list items separated by blank lines
         while (i < lines.length) {
           // Skip blank lines
           while (i < lines.length && lines[i].trim() === '') {
             i++
           }
-          
+
           // Check if next non-blank line is also a list item
           if (i < lines.length && lines[i].match(/^\s*\d+\.\s/)) {
             result.push(lines[i])
@@ -528,7 +528,7 @@ export class MarkdownStreamRenderer {
         i++
       }
     }
-    
+
     return result.join('\n')
   }
 
@@ -590,9 +590,12 @@ export class MarkdownStreamRenderer {
         }
 
         const bufferLine = `${bgGray}${padLeft}${' '.repeat(wrapWidth)}${padRight}${reset}`
-        const backgroundCode = [bufferLine, ...wrappedLines, bufferLine, ''].join(
-          '\n',
-        )
+        const backgroundCode = [
+          bufferLine,
+          ...wrappedLines,
+          bufferLine,
+          '',
+        ].join('\n')
 
         codeBlocks.push(backgroundCode)
         return `CODE_BLOCK_PLACEHOLDER_${codeBlockIndex++}`
@@ -632,10 +635,13 @@ export class MarkdownStreamRenderer {
 
     // Normalize spacing around code blocks to ensure consistent single blank lines
     // Pattern: paragraph\n\n\ncode -> paragraph\n\ncode (single blank line before)
-    rendered = rendered.replace(/(\x1b\[0m\n)\n+(\x1b\[0m\n\x1b\[48;5;236m)/g, '$1\n$2')
-    // Pattern: code\n\n\nparagraph -> code\n\nparagraph (single blank line after)  
+    rendered = rendered.replace(
+      /(\x1b\[0m\n)\n+(\x1b\[0m\n\x1b\[48;5;236m)/g,
+      '$1\n$2',
+    )
+    // Pattern: code\n\n\nparagraph -> code\n\nparagraph (single blank line after)
     rendered = rendered.replace(/(\x1b\[0m\n)\n+(\x1b\[0m[^0])/g, '$1\n$2')
-    
+
     rendered = rendered.replace(/\n{3,}/g, '\n\n')
     rendered = rendered.replace(/^\n+/, '')
     rendered = rendered.replace(/\n+$/, '\n')

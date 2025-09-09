@@ -236,5 +236,12 @@ export function createXMLStreamParser(
     done()
   }
 
+  // Override destroy to ensure markdown renderer cleanup
+  const originalDestroy = parser.destroy.bind(parser)
+  parser.destroy = function (error?: Error) {
+    md.cleanup()
+    return originalDestroy(error)
+  }
+
   return parser
 }
