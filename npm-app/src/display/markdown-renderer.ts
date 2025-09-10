@@ -67,7 +67,7 @@ export class MarkdownStreamRenderer {
     '●•·',
     '•··',
   ]
-  private readonly indicatorThresholdMs = 1000
+  private readonly indicatorThresholdMs = 50
   private readonly indicatorUpdateMs = 150
 
   constructor(opts: MarkdownStreamRendererOptions = {}) {
@@ -80,7 +80,7 @@ export class MarkdownStreamRenderer {
     // Initialize markdown-it with terminal renderer
     this.md = new MarkdownIt({
       html: false,
-      breaks: false,
+      breaks: true, // Enable breaks to preserve newlines in code-like content
       linkify: false,
       typographer: false,
       highlight: this.syntaxHighlight
@@ -219,6 +219,11 @@ export class MarkdownStreamRenderer {
       return 'code-fence'
     }
 
+    // Indented code block (4+ spaces)
+    if (line.match(/^    /) && trimmed.length > 0) {
+      return 'code-fence' // Treat as code-fence for consistent handling
+    }
+
     // Heading
     if (trimmed.match(/^#+\s/)) {
       return 'heading'
@@ -291,8 +296,13 @@ export class MarkdownStreamRenderer {
         )
 
       case 'code-fence':
+        // Handle fenced code blocks
         if (block.metadata?.fenceMarker) {
           return currentLine.trim() === block.metadata.fenceMarker
+        }
+        // Handle indented code blocks - complete when next line isn't indented
+        if (!block.metadata?.fenceMarker) {
+          return !nextLine?.match(/^    /) && trimmedNext !== ''
         }
         return false
 
@@ -636,9 +646,9 @@ export class MarkdownStreamRenderer {
         )
           rightNL++
 
-        // Don't add extra newlines - rely on cleanup to normalize spacing
-        const needLeft = 0
-        const needRight = 0
+        // Add padding: ensure at least one blank line before and after code blocks
+        const needLeft = leftNL < 2 ? 2 - leftNL : 0
+        const needRight = rightNL < 2 ? 2 - rightNL : 0
 
         return `${'\n'.repeat(needLeft)}${block}${'\n'.repeat(needRight)}`
       },
@@ -646,15 +656,6 @@ export class MarkdownStreamRenderer {
 
     rendered = rendered.replace(/^   \x1b\[0m\* /gm, '   \x1b[0m• ')
     rendered = rendered.replace(/^   \x1b\[0m(\d+) /gm, '   \x1b[0m$1. ')
-
-    // Normalize spacing around code blocks to ensure consistent single blank lines
-    // Pattern: paragraph\n\n\ncode -> paragraph\n\ncode (single blank line before)
-    rendered = rendered.replace(
-      /(\x1b\[0m\n)\n+(\x1b\[0m\n\x1b\[48;5;236m)/g,
-      '$1\n$2',
-    )
-    // Pattern: code\n\n\nparagraph -> code\n\nparagraph (single blank line after)
-    rendered = rendered.replace(/(\x1b\[0m\n)\n+(\x1b\[0m[^0])/g, '$1\n$2')
 
     // Preserve spacing around agent completion messages (lines with dashes)
     // First, protect agent completion messages from normalization
@@ -681,7 +682,7 @@ export class MarkdownStreamRenderer {
     protectionIndex = 0
     rendered = rendered.replace(
       /__PROTECTED_AGENT_MESSAGE_(\d+)__/g,
-      () => protectedLines[protectionIndex++],
+      (_, idx) => protectedLines[+idx] ?? '',
     )
 
     return rendered

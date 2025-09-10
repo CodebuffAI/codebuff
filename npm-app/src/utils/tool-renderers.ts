@@ -97,7 +97,11 @@ export const defaultToolCallRenderer: ToolCallRenderer = {
   },
 
   onParamChunk: (content, paramName, toolName) => {
-    if (toolStart && content.startsWith('\n')) content = content.slice(1)
+    if (content == null || content === '') return null
+    // Only trim the first newline if there are multiple leading newlines
+    if (toolStart && content.startsWith('\n\n')) {
+      content = content.slice(1)
+    }
     toolStart = false
     return gray(content)
   },

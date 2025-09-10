@@ -81,10 +81,15 @@ export function createXMLStreamParser(
 
   // Set up event handlers
   parser.on('tagopen', (tag) => {
-    inToolCallTag = true
+    if (tag.name === toolXmlName) {
+      inToolCallTag = true
+    }
   })
 
   parser.on('text', (data) => {
+    if (!data || typeof data.contents !== 'string') {
+      return
+    }
     if (!inToolCallTag) {
       const outs = ensureRenderer().write(data.contents)
       for (const out of outs) {
@@ -133,7 +138,11 @@ export function createXMLStreamParser(
 
       // handle tool params
       const stringValue =
-        typeof value === 'string' ? value : JSON.stringify(value)
+        value == null
+          ? ''
+          : typeof value === 'string'
+            ? value
+            : JSON.stringify(value) ?? ''
       if (key === endsAgentStepParam) {
         continue
       }
@@ -144,7 +153,7 @@ export function createXMLStreamParser(
           const output = toolRenderer.onParamEnd(
             currentParam,
             toolName,
-            result[currentParam],
+            result[currentParam] ?? '',
           )
           if (typeof output === 'string') {
             parser.push(output)
@@ -172,7 +181,7 @@ export function createXMLStreamParser(
           }
         }
       }
-      if (toolRenderer.onParamChunk) {
+      if (toolRenderer.onParamChunk && stringValue !== '') {
         const output = toolRenderer.onParamChunk(stringValue, key, toolName)
         if (typeof output === 'string') {
           parser.push(output)
@@ -187,9 +196,11 @@ export function createXMLStreamParser(
           const output = toolRenderer.onParamEnd(
             key,
             toolName,
-            typeof result[key] === 'string'
-              ? result[key]
-              : JSON.stringify(result[key]),
+            result[key] == null
+              ? ''
+              : typeof result[key] === 'string'
+                ? result[key]
+                : JSON.stringify(result[key]) ?? '',
           )
           if (typeof output === 'string') {
             parser.push(output)
@@ -205,7 +216,7 @@ export function createXMLStreamParser(
     params = Object.fromEntries(
       Object.entries(result).map(([k, v]) => [
         k,
-        typeof v === 'string' ? v : JSON.stringify(v),
+        v == null ? '' : typeof v === 'string' ? v : JSON.stringify(v) ?? '',
       ]),
     )
   })
@@ -222,7 +233,7 @@ export function createXMLStreamParser(
         const output = toolRenderer.onParamEnd(
           currentParam,
           toolName,
-          params[currentParam],
+          params[currentParam] ?? '',
         )
         if (typeof output === 'string') {
           parser.push(output)
