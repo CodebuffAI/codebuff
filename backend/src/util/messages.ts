@@ -304,7 +304,11 @@ export function getPreviouslyReadFiles(messages: Message[]): {
           m,
         ): m is ToolMessage & {
           content: { toolName: 'read_files' }
-        } => m.role === 'tool' && m.content.toolName === 'read_files',
+        } =>
+          m.role === 'tool' &&
+          (m.content.toolName === 'read_files' ||
+            m.content.toolName === 'find_files' ||
+            m.content.toolName === 'file_updates'),
       )
       .map((m) => {
         try {

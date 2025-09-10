@@ -8,7 +8,12 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { trimMessagesToFitTokenLimit, messagesWithSystem } from '../messages'
+import { logger } from '../logger'
+import {
+  trimMessagesToFitTokenLimit,
+  messagesWithSystem,
+  getPreviouslyReadFiles,
+} from '../messages'
 import * as tokenCounter from '../token-counter'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -415,5 +420,385 @@ describe('trimMessagesToFitTokenLimit', () => {
       )
       expect(replacementMessages.length).toBeGreaterThan(0)
     })
+  })
+})
+
+describe('getPreviouslyReadFiles', () => {
+  it('returns empty array when no messages provided', () => {
+    const result = getPreviouslyReadFiles([])
+    expect(result).toEqual([])
+  })
+
+  it('returns empty array when no tool messages with relevant tool names', () => {
+    const messages: Message[] = [
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi' },
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'write_file',
+          toolCallId: 'test-id',
+          output: [{ type: 'json', value: { file: 'test.ts' } }],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([])
+  })
+
+  it('extracts files from read_files tool messages', () => {
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'src/test.ts',
+                  content: 'export function test() {}',
+                  referencedBy: { 'main.ts': ['line 10'] },
+                },
+                {
+                  path: 'src/utils.ts',
+                  content: 'export const utils = {}',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([
+      {
+        path: 'src/test.ts',
+        content: 'export function test() {}',
+        referencedBy: { 'main.ts': ['line 10'] },
+      },
+      {
+        path: 'src/utils.ts',
+        content: 'export const utils = {}',
+      },
+    ])
+  })
+
+  it('extracts files from find_files tool messages', () => {
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'find_files',
+          toolCallId: 'test-id',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'components/Button.tsx',
+                  content: 'export const Button = () => {}',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([
+      {
+        path: 'components/Button.tsx',
+        content: 'export const Button = () => {}',
+      },
+    ])
+  })
+
+  it('extracts files from file_updates tool messages', () => {
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'file_updates',
+          toolCallId: 'test-id',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'config/database.ts',
+                  content: 'export const dbConfig = {}',
+                  referencedBy: { 'app.ts': ['line 5', 'line 20'] },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([
+      {
+        path: 'config/database.ts',
+        content: 'export const dbConfig = {}',
+        referencedBy: { 'app.ts': ['line 5', 'line 20'] },
+      },
+    ])
+  })
+
+  it('combines files from multiple tool messages', () => {
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id-1',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'file1.ts',
+                  content: 'content 1',
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'find_files',
+          toolCallId: 'test-id-2',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'file2.ts',
+                  content: 'content 2',
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        role: 'user',
+        content: 'Some user message',
+      },
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'file_updates',
+          toolCallId: 'test-id-3',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'file3.ts',
+                  content: 'content 3',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([
+      { path: 'file1.ts', content: 'content 1' },
+      { path: 'file2.ts', content: 'content 2' },
+      { path: 'file3.ts', content: 'content 3' },
+    ])
+  })
+
+  it('handles contentOmittedForLength files by filtering them out', () => {
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'small-file.ts',
+                  content: 'small content',
+                },
+                {
+                  path: 'large-file.ts',
+                  contentOmittedForLength: true,
+                },
+                {
+                  path: 'another-small-file.ts',
+                  content: 'another small content',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([
+      { path: 'small-file.ts', content: 'small content' },
+      { path: 'another-small-file.ts', content: 'another small content' },
+    ])
+  })
+
+  it('handles malformed tool message output gracefully', () => {
+    const mockLoggerError = spyOn(logger, 'error').mockImplementation(() => {})
+
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          output: null, // Invalid output
+        } as any,
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([])
+    expect(mockLoggerError).toHaveBeenCalled()
+
+    mockLoggerError.mockRestore()
+  })
+
+  it('handles find_files tool messages with error message instead of files', () => {
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'find_files',
+          toolCallId: 'test-id',
+          output: [
+            {
+              type: 'json',
+              value: {
+                message: 'No files found matching the criteria',
+              },
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([])
+  })
+
+  it('ignores non-tool messages', () => {
+    const messages: Message[] = [
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi there' },
+      { role: 'system', content: 'system message' },
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'test.ts',
+                  content: 'test content',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([{ path: 'test.ts', content: 'test content' }])
+  })
+
+  it('handles empty file arrays in tool output', () => {
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          output: [
+            {
+              type: 'json',
+              value: [], // Empty array
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    expect(result).toEqual([])
+  })
+
+  it('handles multiple outputs in single tool message', () => {
+    const messages: Message[] = [
+      {
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          output: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'file1.ts',
+                  content: 'content 1',
+                },
+              ],
+            },
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'file2.ts',
+                  content: 'content 2',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ]
+
+    const result = getPreviouslyReadFiles(messages)
+    // Function uses output[0], so only first output is processed
+    expect(result).toEqual([{ path: 'file1.ts', content: 'content 1' }])
   })
 })
