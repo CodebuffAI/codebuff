@@ -27,6 +27,9 @@ describe('Subagent Streaming', () => {
   let mockSendSubagentChunk: Mock<SendSubagentChunk>
   let mockLoopAgentSteps: Mock<(typeof runAgentStep)['loopAgentSteps']>
   let mockAgentTemplate: any
+  let mockWriteToClient: Mock<
+    Parameters<typeof handleSpawnAgents>[0]['writeToClient']
+  >
 
   beforeEach(() => {
     // Setup common mock agent template
@@ -93,6 +96,8 @@ describe('Subagent Streaming', () => {
       }
     })
 
+    mockWriteToClient = mock(() => {})
+
     // Mock assembleLocalAgentTemplates
     spyOn(
       { assembleLocalAgentTemplates },
@@ -144,7 +149,7 @@ describe('Subagent Streaming', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
-      writeToClient: () => {},
+      writeToClient: mockWriteToClient,
       getLatestState: () => ({ messages: [] }),
       state: {
         ws,
@@ -163,12 +168,19 @@ describe('Subagent Streaming', () => {
     await result
 
     // Verify that subagent streaming messages were sent
-    expect(mockSendSubagentChunk).toHaveBeenCalledTimes(4)
+    expect(mockSendSubagentChunk).toHaveBeenCalledTimes(2)
+    expect(mockWriteToClient).toHaveBeenCalledTimes(2)
 
     // First streaming chunk is a labled divider
+    expect(mockWriteToClient).toHaveBeenNthCalledWith(1, {
+      type: 'subagent_start',
+      agentId: 'thinker',
+      displayName: 'Thinker',
+      onlyChild: true,
+    })
 
-    // Check second streaming chunk
-    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(2, {
+    // Check first streaming chunk
+    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(1, {
       userInputId: 'test-input',
       agentId: expect.any(String),
       agentType: 'thinker',
@@ -176,8 +188,8 @@ describe('Subagent Streaming', () => {
       prompt: 'Think about this problem',
     })
 
-    // Check third streaming chunk
-    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(3, {
+    // Check second streaming chunk
+    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(2, {
       userInputId: 'test-input',
       agentId: expect.any(String),
       agentType: 'thinker',
@@ -186,6 +198,12 @@ describe('Subagent Streaming', () => {
     })
 
     // Last streaming chunk is a labeled divider
+    expect(mockWriteToClient).toHaveBeenNthCalledWith(2, {
+      type: 'subagent_finish',
+      agentId: 'thinker',
+      displayName: 'Thinker',
+      onlyChild: true,
+    })
   })
 
   it('should include correct agentId and agentType in streaming messages', async () => {
