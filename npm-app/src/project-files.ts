@@ -283,8 +283,15 @@ export const getProjectFileContext = async (
     )
 
     const knowledgeFiles = getExistingFiles(filteredKnowledgeFilePaths)
-    const knowledgeFilesWithScrapedContent =
-      await addScrapedContentToFiles(knowledgeFiles)
+    const knowledgeFilesWithScrapedContent = await addScrapedContentToFiles(
+      Object.fromEntries(
+        Object.entries(knowledgeFiles).filter(
+          ([filePath]) =>
+            filePath !== codebuffConfigFile.toLowerCase() &&
+            filePath !== codebuffConfigFileBackup.toLowerCase(),
+        ),
+      ),
+    )
 
     // Get knowledge files from user's home directory
     const homeDir = os.homedir()
