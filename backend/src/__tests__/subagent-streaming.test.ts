@@ -168,8 +168,7 @@ describe('Subagent Streaming', () => {
     await result
 
     // Verify that subagent streaming messages were sent
-    expect(mockSendSubagentChunk).toHaveBeenCalledTimes(2)
-    expect(mockWriteToClient).toHaveBeenCalledTimes(2)
+    expect(mockWriteToClient).toHaveBeenCalledTimes(4)
 
     // First streaming chunk is a labled divider
     expect(mockWriteToClient).toHaveBeenNthCalledWith(1, {
@@ -180,25 +179,16 @@ describe('Subagent Streaming', () => {
     })
 
     // Check first streaming chunk
-    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(1, {
-      userInputId: 'test-input',
-      agentId: expect.any(String),
-      agentType: 'thinker',
-      chunk: 'Thinking about the problem...',
-      prompt: 'Think about this problem',
-    })
+    expect(mockWriteToClient).toHaveBeenNthCalledWith(
+      2,
+      'Thinking about the problem...',
+    )
 
     // Check second streaming chunk
-    expect(mockSendSubagentChunk).toHaveBeenNthCalledWith(2, {
-      userInputId: 'test-input',
-      agentId: expect.any(String),
-      agentType: 'thinker',
-      chunk: 'Found a solution!',
-      prompt: 'Think about this problem',
-    })
+    expect(mockWriteToClient).toHaveBeenNthCalledWith(3, 'Found a solution!')
 
     // Last streaming chunk is a labeled divider
-    expect(mockWriteToClient).toHaveBeenNthCalledWith(2, {
+    expect(mockWriteToClient).toHaveBeenNthCalledWith(4, {
       type: 'subagent_finish',
       agentId: 'thinker',
       displayName: 'Thinker',
