@@ -484,8 +484,10 @@ export class CLI {
     }
 
     // Handle @ prefix for agent name completion
-    if (lastWord.startsWith('@')) {
-      const searchTerm = lastWord.substring(1).toLowerCase() // Remove @ prefix
+    if (line.includes('@')) {
+      const $split = line.split('@')
+      const atAgentPrefix = `@${$split[$split.length - 1]}`
+      const searchTerm = atAgentPrefix.substring(1).toLowerCase() // Remove @ prefix
 
       // Get all agent names using functional API
       const localAgentInfo = getCachedLocalAgentInfo()
@@ -503,12 +505,12 @@ export class CLI {
       if (matchingAgents.length > 0) {
         // Return completions with @ prefix
         const completions = matchingAgents.map((name) => `@${name}`)
-        return [completions, lastWord]
+        return [completions, atAgentPrefix]
       }
 
       // If no agent matches, return empty completions for better UX
       // Users typing @ likely intend to mention an agent
-      return [[], lastWord]
+      return [[], atAgentPrefix]
     }
 
     // Original file path completion logic (unchanged)
