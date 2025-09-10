@@ -1,5 +1,6 @@
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { cloneDeep } from 'lodash'
 
 import { addAgentStep } from './agent-run'
 import { executeToolCall } from './tools/tool-executor'
@@ -142,9 +143,9 @@ export async function runProgrammaticStep(
         ...data,
       })
     },
-    agentState: { ...agentState },
-    agentContext: agentState.agentContext,
-    messages: agentState.messageHistory.map((msg) => ({ ...msg })),
+    agentState: cloneDeep(agentState),
+    agentContext: cloneDeep(agentState.agentContext),
+    messages: cloneDeep(agentState.messageHistory),
   }
 
   let toolResult: ToolResultOutput[] = []
@@ -158,8 +159,8 @@ export async function runProgrammaticStep(
     // Execute tools synchronously as the generator yields them
     do {
       startTime = new Date()
-      creditsBefore = agentState.directCreditsUsed
-      childrenBefore = agentState.childRunIds.length
+      creditsBefore = state.agentState.directCreditsUsed
+      childrenBefore = state.agentState.childRunIds.length
 
       const result = sandbox
         ? await sandbox.executeStep({
@@ -181,7 +182,7 @@ export async function runProgrammaticStep(
         break
       }
       if (result.value === 'STEP_ALL') {
-        agentIdToStepAll.add(agentState.agentId)
+        agentIdToStepAll.add(state.agentState.agentId)
         break
       }
 
@@ -216,8 +217,8 @@ export async function runProgrammaticStep(
         })
         state.sendSubagentChunk({
           userInputId,
-          agentId: agentState.agentId,
-          agentType: agentState.agentType!,
+          agentId: state.agentState.agentId,
+          agentType: state.agentState.agentType!,
           chunk: toolCallString,
         })
       }
@@ -250,13 +251,13 @@ export async function runProgrammaticStep(
       // Get the latest tool result
       toolResult = toolResults[toolResults.length - 1]?.output
 
-      if (agentState.runId) {
+      if (state.agentState.runId) {
         await addAgentStep({
           userId,
-          agentRunId: agentState.runId,
+          agentRunId: state.agentState.runId,
           stepNumber,
-          credits: agentState.directCreditsUsed - creditsBefore,
-          childRunIds: agentState.childRunIds.slice(childrenBefore),
+          credits: state.agentState.directCreditsUsed - creditsBefore,
+          childRunIds: state.agentState.childRunIds.slice(childrenBefore),
           status: 'completed',
           startTime,
         })
