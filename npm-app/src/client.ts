@@ -74,6 +74,7 @@ import {
   startNewChat,
 } from './project-files'
 import { logAndHandleStartup } from './startup-process-handler'
+import { printSubagentHeader } from './subagent-headers'
 import {
   clearSubagentStorage,
   getAllSubagentIds,
@@ -1018,11 +1019,8 @@ export class Client {
           DiffManager.receivedResponse()
           process.stdout.write(chunk)
         } else {
-          if (chunk.type === 'error') {
-            printModeLog(chunk)
-          } else {
-            printModeLog(chunk)
-          }
+          printModeLog(chunk)
+          printSubagentHeader(chunk)
         }
       },
       userInputId,

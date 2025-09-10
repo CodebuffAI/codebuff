@@ -51,11 +51,33 @@ export const printModeFinishSchema = z.object({
 })
 export type PrintModeFinish = z.infer<typeof printModeFinishSchema>
 
+export const printModeSubagentStartSchema = z.object({
+  type: z.literal('subagent_start'),
+  agentId: z.string(),
+  displayName: z.string(),
+  onlyChild: z.boolean(),
+})
+export type PrintModeSubagentStart = z.infer<
+  typeof printModeSubagentStartSchema
+>
+
+export const printModeSubagentFinishSchema = z.object({
+  type: z.literal('subagent_finish'),
+  agentId: z.string(),
+  displayName: z.string(),
+  onlyChild: z.boolean(),
+})
+export type PrintModeSubagentFinish = z.infer<
+  typeof printModeSubagentFinishSchema
+>
+
 export const printModeEventSchema = z.discriminatedUnion('type', [
-  printModeErrorSchema,
   printModeDownloadStatusSchema,
+  printModeErrorSchema,
   printModeFinishSchema,
   printModeStartSchema,
+  printModeSubagentFinishSchema,
+  printModeSubagentStartSchema,
   printModeTextSchema,
   printModeToolCallSchema,
   printModeToolResultSchema,

@@ -328,18 +328,12 @@ export async function executeAgent({
   isOnlyChild?: boolean
   clearUserPromptMessagesAfterResponse?: boolean
 }) {
-  const width = 60
-  const fullAgentName = `${agentTemplate.displayName} (${agentTemplate.id})`
-  const dashesLength = Math.max(
-    0,
-    Math.floor((width - fullAgentName.length - 2) / 2),
-  )
-  const dashes = '-'.repeat(dashesLength)
-
-  // Send agent start notification if this is the only child
-  if (isOnlyChild) {
-    onResponseChunk(`\n\n${dashes} ${fullAgentName} ${dashes}\n\n`)
-  }
+  onResponseChunk({
+    type: 'subagent_start',
+    agentId: agentTemplate.id,
+    displayName: agentTemplate.displayName,
+    onlyChild: isOnlyChild,
+  })
 
   // Import loopAgentSteps dynamically to avoid circular dependency
   const { loopAgentSteps } = await import('../../../run-agent-step')
@@ -360,18 +354,12 @@ export async function executeAgent({
     clearUserPromptMessagesAfterResponse,
   })
 
-  // Send agent end notification if this is the only child
-  if (isOnlyChild) {
-    const endedFullAgentName = `Completed: ${fullAgentName}`
-    const dashesLength = Math.max(
-      0,
-      Math.floor((width - endedFullAgentName.length - 2) / 2),
-    )
-    const dashesForEndedAgent = '-'.repeat(dashesLength)
-    onResponseChunk(
-      `\n\n${dashesForEndedAgent} ${endedFullAgentName} ${dashesForEndedAgent}\n\n`,
-    )
-  }
+  onResponseChunk({
+    type: 'subagent_finish',
+    agentId: agentTemplate.id,
+    displayName: agentTemplate.displayName,
+    onlyChild: isOnlyChild,
+  })
 
   if (result.agentState.runId) {
     parentAgentState.childRunIds.push(result.agentState.runId)

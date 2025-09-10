@@ -27,8 +27,15 @@ export class Spinner {
     return Spinner.instance
   }
 
-  start(text: string) {
-    this.text = text
+  /**
+   * Start the spinner with the given text.
+   *
+   * @param text The text to display in the spinner. If this is `null`, the spinner will resume with the previous text.
+   */
+  start(text: string | null): void {
+    if (text !== null) {
+      this.text = text
+    }
     if (this.loadingInterval) {
       return
     }
@@ -47,12 +54,21 @@ export class Spinner {
     }, 100)
   }
 
-  stop() {
+  isActive(): boolean {
+    return !!this.loadingInterval
+  }
+
+  /**
+   * Stop the spinner and restore the cursor.
+   *
+   * @returns `true` if the spinner was active before calling this method, `false` otherwise.
+   */
+  stop(): boolean {
     // Clear hang detection
     this.hangDetector.stop()
 
     if (!this.loadingInterval) {
-      return
+      return false
     }
 
     clearInterval(this.loadingInterval)
@@ -64,6 +80,7 @@ export class Spinner {
       setPrevious(this.previous)
     }
     this.previous = null
+    return true
   }
 
   restoreCursor() {
