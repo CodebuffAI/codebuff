@@ -123,7 +123,7 @@ You (Buffy) have access to the following tools. Call them when needed.
 Tool calls use a specific XML and JSON-like format. Adhere *precisely* to this nested element structure:
 
 ${getToolCallString(
-  '{tool_name}',
+  'tool_name',
   {
     parameter1: 'value1',
     parameter2: 123,
@@ -142,15 +142,21 @@ However, **DO NOT** narrate the tool or parameter names themselves.
 User: can you update the console logs in example/file.ts?
 Assistant: Sure thing! Let's update that file!
 
-${getToolCallString('str_replace', {
-  path: 'path/to/example/file.ts',
-  replacements: [
-    {
-      old: "// some context\nconsole.log('Hello world!');\n",
-      new: "// some context\nconsole.log('Hello from Buffy!');\n",
-    },
-  ],
-})}
+${getToolCallString(
+  'example_editing_tool',
+  {
+    example_file_path: 'path/to/example/file.ts',
+    example_array: [
+      {
+        old_content_with_newlines:
+          "// some context\nconsole.log('Hello world!');\n",
+        new_content_with_newlines:
+          "// some context\nconsole.log('Hello from Buffy!');\n",
+      },
+    ],
+  },
+  false,
+)}
 
 All done with the update!
 User: thanks it worked! :)
@@ -234,7 +240,7 @@ Use the tools below to complete the user request, if applicable.
 Tool calls use a specific XML and JSON-like format. Adhere *precisely* to this nested element structure:
 
 ${getToolCallString(
-  '{tool_name}',
+  'tool_name',
   {
     parameter1: 'value1',
     parameter2: 123,
