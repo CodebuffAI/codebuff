@@ -1,36 +1,33 @@
+import type { AgentDefinition } from './types/agent-definition'
 import { publisher } from './constants'
 
-import type {
-  AgentDefinition,
-  AgentStepContext,
-} from './types/agent-definition'
-
 const definition: AgentDefinition = {
-  id: 'changes-reviewer',
+  id: 'deep-code-reviewer',
   publisher,
-  displayName: 'Changes Reviewer',
-  model: 'x-ai/grok-4',
+  displayName: 'Deep Code Reviewer',
+  model: 'anthropic/claude-sonnet-4',
 
   includeMessageHistory: false,
 
   spawnerPrompt:
     'Spawn when you need to review code changes in the git diff or staged changes',
 
-  toolNames: ['read_files', 'run_terminal_command', 'spawn_agents'],
-  spawnableAgents: ['file-explorer'],
+  toolNames: [
+    'read_files',
+    'code_search',
+    'run_terminal_command',
+    'spawn_agents',
+  ],
+  spawnableAgents: ['file-explorer', 'deep-thinker'],
 
-  inputSchema: {
-    prompt: {
-      type: 'string',
-      description:
-        'Please provide a short description of the changes you want to review',
-    },
-  },
+  instructionsPrompt: `Instructions:
+1. Use git diff to get the changes, but also get untracked files.
+2. Read the files that have changed.
+3. Spawn a file explorer to find all related and relevant files.
+4. Read all the files that could be relevant to the changes.
+5. Spawn 5 deep-thinker agents to review the changes from different perspectives.
+6. Synthesize the insights from the deep-thinker agents into a single review.
 
-  systemPrompt:
-    'You are an expert software developer. Your job is to review code changes and provide helpful feedback.',
-
-  instructionsPrompt: `
 Use the following guidelines to review the changes and suggest improvements:
 - Find ways to simplify the code
 - Reuse existing code as much as possible instead of writing new code
@@ -42,14 +39,12 @@ Use the following guidelines to review the changes and suggest improvements:
 - Look for any other bugs
     `.trim(),
 
-  handleSteps: function* ({ agentState, prompt, params }: AgentStepContext) {
+  handleSteps: function* () {
     // Step 1: Get list of changed files from git diff
     const { toolResult: gitDiffResult } = yield {
       toolName: 'run_terminal_command',
       input: {
         command: 'git diff HEAD --name-only',
-        process_type: 'SYNC',
-        timeout_seconds: 30,
       },
     }
 
@@ -58,8 +53,6 @@ Use the following guidelines to review the changes and suggest improvements:
       toolName: 'run_terminal_command',
       input: {
         command: 'git status --porcelain',
-        process_type: 'SYNC',
-        timeout_seconds: 30,
       },
     }
 
@@ -68,8 +61,6 @@ Use the following guidelines to review the changes and suggest improvements:
       toolName: 'run_terminal_command',
       input: {
         command: 'git diff HEAD',
-        process_type: 'SYNC',
-        timeout_seconds: 30,
       },
     }
 
@@ -100,17 +91,6 @@ Use the following guidelines to review the changes and suggest improvements:
           paths: allFilesToRead,
         },
       }
-    }
-
-    // Step 5: Put words in the AI's mouth to get it to spawn the file explorer.
-    yield {
-      toolName: 'add_message',
-      input: {
-        role: 'assistant',
-        content:
-          'Now I will spawn a file explorer to find any missing codebase context, and then review the changes.',
-      },
-      includeToolCall: false,
     }
 
     yield 'STEP_ALL'
