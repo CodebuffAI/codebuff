@@ -11,6 +11,9 @@ import { defaultToolCallRenderer } from './tool-renderers'
 import type { ToolCallRenderer } from './tool-renderers'
 import { MarkdownStreamRenderer } from '../display/markdown-renderer'
 
+// Track active renderer instances with reference counting
+let activeRendererCount = 0
+
 /**
  * Creates a transform stream that processes XML tool calls
  * @param renderer Custom renderer for tool calls or a map of renderers per tool
@@ -24,12 +27,33 @@ export function createXMLStreamParser(
   // Create parser with tool schema validation
   const parser = new Saxy({ [toolXmlName]: [] })
 
-  const md = new MarkdownStreamRenderer({
-    width: process.stdout.columns || 80,
-    isTTY: process.stdout.isTTY,
-    syntaxHighlight: true,
-    streamingMode: 'smart', // Use smart content-aware streaming with loading indicators
-  })
+  let md: MarkdownStreamRenderer | null = null
+
+  function ensureRenderer() {
+    if (!md) {
+      md = new MarkdownStreamRenderer({
+        width: process.stdout.columns || 80,
+        isTTY: process.stdout.isTTY,
+        syntaxHighlight: true,
+        streamingMode: 'smart', // Use smart content-aware streaming with loading indicators
+      })
+      activeRendererCount++
+    }
+    return md
+  }
+
+  function safeCleanup() {
+    if (md) {
+      try {
+        md.cleanup()
+      } catch (e) {
+        // swallow errors to guarantee cleanup
+      } finally {
+        md = null
+        activeRendererCount = Math.max(0, activeRendererCount - 1)
+      }
+    }
+  }
 
   // Current state
   let inToolCallTag = false
@@ -62,7 +86,7 @@ export function createXMLStreamParser(
 
   parser.on('text', (data) => {
     if (!inToolCallTag) {
-      const outs = md.write(data.contents)
+      const outs = ensureRenderer().write(data.contents)
       for (const out of outs) {
         parser.push(out)
         if (callback) callback(out)
@@ -228,20 +252,27 @@ export function createXMLStreamParser(
   })
 
   parser._flush = function (done: (error?: Error | null) => void) {
-    const rem = md.end()
-    if (rem) {
-      this.push(rem)
-      if (callback) callback(rem)
+    if (md) {
+      const rem = md.end()
+      if (rem) {
+        this.push(rem)
+        if (callback) callback(rem)
+      }
     }
+    safeCleanup()
     done()
   }
 
   // Override destroy to ensure markdown renderer cleanup
   const originalDestroy = parser.destroy.bind(parser)
   parser.destroy = function (error?: Error) {
-    md.cleanup()
+    safeCleanup()
     return originalDestroy(error)
   }
 
   return parser
+}
+
+export function getActiveRendererCount() {
+  return activeRendererCount
 }

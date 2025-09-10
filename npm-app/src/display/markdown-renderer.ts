@@ -67,7 +67,7 @@ export class MarkdownStreamRenderer {
     '●•·',
     '•··',
   ]
-  private readonly indicatorThresholdMs = 200
+  private readonly indicatorThresholdMs = 1000
   private readonly indicatorUpdateMs = 150
 
   constructor(opts: MarkdownStreamRendererOptions = {}) {
@@ -119,7 +119,8 @@ export class MarkdownStreamRenderer {
       this.resizeHandler = () => {
         this.width = process.stdout.columns || this.width
       }
-      process.stdout.on('resize', this.resizeHandler)
+      // Use .once with bound handler tracker to avoid duplication
+      process.stdout.addListener('resize', this.resizeHandler)
     }
   }
 
@@ -486,6 +487,7 @@ export class MarkdownStreamRenderer {
   cleanup() {
     if (this.resizeHandler && process.stdout && 'off' in process.stdout) {
       process.stdout.off('resize', this.resizeHandler)
+      this.resizeHandler = undefined
     }
   }
 
@@ -569,9 +571,19 @@ export class MarkdownStreamRenderer {
         formattedCode = reapplyBg(formattedCode)
 
         const lines = formattedCode.split('\n')
+
+        // Calculate actual width needed based on longest line
+        const maxLineLength = lines.reduce((max: number, line: string) => {
+          // Remove ANSI escape codes to get actual visible length
+          const visibleLength = line.replace(/\x1b\[[^m]*m/g, '').length
+          return Math.max(max, visibleLength)
+        }, 0)
+
+        // Use the actual content width, but cap it at terminal width
+        const availableWidth = this.width - padLeft.length - padRight.length
         const wrapWidth = Math.max(
-          20,
-          Math.min(this.width - padLeft.length - padRight.length, 120),
+          20, // minimum width
+          Math.min(maxLineLength, availableWidth, 120), // cap at available terminal width or 120
         )
         const wrappedLines: string[] = []
 

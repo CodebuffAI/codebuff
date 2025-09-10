@@ -137,8 +137,12 @@ export function exitSubagentBuffer(rl: any) {
     originalKeyHandlers = []
   }
 
-  // Remove resize listener
-  process.stdout.removeAllListeners('resize')
+  // Remove our specific resize listener if it exists
+  process.stdout.listeners('resize').forEach((listener) => {
+    if (listener.name === 'handleResize') {
+      process.stdout.off('resize', listener as (...args: any[]) => void)
+    }
+  })
 
   // Exit alternate screen buffer
   process.stdout.write(SHOW_CURSOR)
