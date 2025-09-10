@@ -101,16 +101,17 @@ export class MarkdownStreamRenderer {
     this.md.use(terminal, {
       style: {
         // Add spacing after headings
-        heading: (text: string) => `\n${text}\n`,
+        heading: (text: string) => `\n${text || ''}\n`,
         // Add spacing around paragraphs
-        paragraph: (text: string) => `${text}\n`,
+        paragraph: (text: string) => `${text || ''}\n`,
         // Customize list items with Unicode bullet points for unordered lists
-        listitem: (text: string) => `  • ${text}`,
+        listitem: (text: string) => `  • ${text || ''}`,
         // Customize ordered list items to include periods after numbers
-        orderedlistitem: (text: string, num: number) => `  ${num}. ${text}`,
+        orderedlistitem: (text: string, num: number) =>
+          `  ${num || ''}. ${text || ''}`,
         // Code blocks should preserve formatting with minimal spacing
-        code_block: (text: string) => `${text}`,
-        fence: (text: string, lang?: string) => `${text}`,
+        code_block: (text: string) => `${text || ''}`,
+        fence: (text: string, lang?: string) => `${text || ''}`,
       },
     })
 
