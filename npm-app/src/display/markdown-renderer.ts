@@ -440,8 +440,9 @@ export class MarkdownStreamRenderer {
 
     this.isShowingIndicator = false
 
-    // Clear the indicator line (3 characters max width: '●●●' + 2 spaces for padding)
-    process.stderr.write('\r' + ' '.repeat(5) + '\r')
+    // Clear the indicator line completely and move cursor to beginning of line
+    // Use enough spaces to clear the longest possible indicator (5 chars + padding)
+    process.stderr.write('\r' + ' '.repeat(10) + '\r')
 
     // Clear timer
     if (this.loadingIndicatorTimer) {
@@ -630,29 +631,16 @@ export class MarkdownStreamRenderer {
 
     let rendered = this.md.render(mdWithPlaceholders)
 
-    codeBlockIndex = 0
     rendered = rendered.replace(
-      /CODE_BLOCK_PLACEHOLDER_(\d+)/g,
-      (match, idx, offset, str) => {
-        const block = codeBlocks[codeBlockIndex++] || ''
+      // Match optional newlines before and after the placeholder
+      /\n*CODE_BLOCK_PLACEHOLDER_(\d+)\n*/g,
+      (match, idx) => {
+        // Use the captured index from the placeholder for robustness
+        const block = codeBlocks[+idx] || ''
         if (!block) return ''
 
-        // Count surrounding newlines
-        let leftNL = 0
-        for (let i = offset - 1; i >= 0 && str[i] === '\n'; i--) leftNL++
-        let rightNL = 0
-        for (
-          let i = offset + match.length;
-          i < str.length && str[i] === '\n';
-          i++
-        )
-          rightNL++
-
-        // Add padding: ensure at least one blank line before and after code blocks
-        const needLeft = leftNL < 2 ? 2 - leftNL : 0
-        const needRight = rightNL < 2 ? 2 - rightNL : 0
-
-        return `${'\n'.repeat(needLeft)}${block}${'\n'.repeat(needRight)}`
+        // Ensure exactly one newline before and after the block
+        return `\n${block.trimEnd()}\n`
       },
     )
 

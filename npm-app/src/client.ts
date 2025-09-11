@@ -1419,8 +1419,10 @@ Go to https://www.codebuff.com/config for more information.`) +
           this.freshPrompt()
         }
 
+        // Always cleanup xmlStreamParser to prevent memory leaks and MaxListenersExceededWarning
+        xmlStreamParser.end()
+
         if (!ASYNC_AGENTS_ENABLED) {
-          xmlStreamParser.end()
           unsubscribeChunks()
           unsubscribeComplete()
         }
