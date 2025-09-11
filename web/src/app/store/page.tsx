@@ -54,8 +54,8 @@ const EDITORS_CHOICE_AGENTS = [
   'base-lite',
   'base2',
   'reviewer',
-  'thinker',
   'deep-thinker',
+  'deep-code-reviewer'
 ]
 
 const AgentStorePage = () => {
@@ -302,36 +302,6 @@ const AgentStorePage = () => {
           </p>
         </AnimatedElement>
 
-        {/* Search and Filters */}
-        <AnimatedElement type="slide" delay={0.1} className="mb-8">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-end">
-            <div className="relative flex-1 max-w-[200px]">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder=""
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-3">
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-40">
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cost">Weekly Usage</SelectItem>
-                  <SelectItem value="usage">Total Runs</SelectItem>
-                  <SelectItem value="unique_users">Unique Users</SelectItem>
-                  <SelectItem value="newest">Newest</SelectItem>
-                  <SelectItem value="name">Name</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </AnimatedElement>
-
         {/* Agent Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -388,6 +358,36 @@ const AgentStorePage = () => {
                 </motion.div>
               </div>
             )}
+
+            {/* Search and Filters */}
+            <AnimatedElement type="slide" delay={0.1} className="mb-8">
+              <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center md:justify-end">
+                <div className="relative w-full md:flex-1 md:max-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Search agents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 w-full"
+                  />
+                </div>
+                <div className="flex gap-3 w-full md:w-auto">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-full md:w-40">
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cost">Weekly Usage</SelectItem>
+                      <SelectItem value="usage">Total Runs</SelectItem>
+                      <SelectItem value="unique_users">Unique Users</SelectItem>
+                      <SelectItem value="newest">Newest</SelectItem>
+                      <SelectItem value="name">Name</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </AnimatedElement>
 
             {/* All Agents Section */}
             {filteredAndSortedAgents.length > 0 && (
