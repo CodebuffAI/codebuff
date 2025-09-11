@@ -10,6 +10,7 @@ import {
   ChevronRight,
   DollarSign,
   Play,
+  Star,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { AnimatedElement } from '@/components/ui/landing/animated-element'
 import { formatRelativeTime } from '@/lib/date-utils'
+import { cn } from '@/lib/utils'
 
 interface AgentData {
   id: string
@@ -46,6 +48,16 @@ interface AgentData {
   tags?: string[]
 }
 
+// Hard-coded list of editor's choice agents
+const EDITORS_CHOICE_AGENTS = [
+  'base',
+  'base-lite',
+  'base2',
+  'reviewer',
+  'thinker',
+  'deep-thinker',
+]
+
 const AgentStorePage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('cost')
@@ -61,6 +73,10 @@ const AgentStorePage = () => {
       return await response.json()
     },
   })
+
+  const editorsChoice = useMemo(() => {
+    return agents.filter((agent) => EDITORS_CHOICE_AGENTS.includes(agent.id))
+  }, [agents])
 
   const filteredAndSortedAgents = useMemo(() => {
     let filtered = agents.filter((agent) => {
@@ -93,6 +109,18 @@ const AgentStorePage = () => {
     })
   }, [agents, searchQuery, sortBy])
 
+  const filteredEditorsChoice = useMemo(() => {
+    return editorsChoice.filter((agent) => {
+      const matchesSearch =
+        agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        agent.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        agent.tags?.some((tag) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      return matchesSearch
+    })
+  }, [editorsChoice, searchQuery])
+
   const formatCurrency = (amount?: number) => {
     if (!amount) return '$0.00'
     if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}k`
@@ -106,10 +134,148 @@ const AgentStorePage = () => {
     return count.toString()
   }
 
+  const AgentCard = ({
+    agent,
+    isEditorsChoice = false,
+  }: {
+    agent: AgentData
+    isEditorsChoice?: boolean
+  }) => (
+    <Link
+      href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
+      className="block"
+    >
+      <Card
+        className={cn(
+          'h-full transition-all duration-300 cursor-pointer group border hover:border-accent/50 bg-card/50 hover:bg-card/80',
+          isEditorsChoice && 'ring-2 ring-amber-500/50 border-amber-500/30'
+        )}
+      >
+        {/* Header - Agent ID and Publisher */}
+        <CardHeader className="pb-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg font-mono text-primary truncate">
+                  {agent.id}
+                </CardTitle>
+                <Badge
+                  variant="outline"
+                  className="text-xs font-mono px-1.5 py-0 shrink-0"
+                >
+                  v{agent.version}
+                </Badge>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-3">
+              <div className="flex flex-col items-end gap-2">
+                <ChevronRight className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-accent shrink-0" />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground truncate">
+                @{agent.publisher.id}
+              </span>
+              {agent.publisher.verified && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs px-1.5 py-0 shrink-0"
+                >
+                  ✓
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-end gap-2">
+              {agent.last_used && (
+                <span
+                  className="text-xs text-muted-foreground shrink-0"
+                  title={new Date(agent.last_used).toLocaleString()}
+                >
+                  {formatRelativeTime(agent.last_used)}
+                </span>
+              )}
+              {isEditorsChoice && (
+                <Badge
+                  variant="default"
+                  className="text-xs px-1.5 py-0 bg-amber-500 text-amber-950 hover:bg-amber-600 shrink-0"
+                >
+                  <Star className="h-3 w-3 mr-1" />
+                  Editor's Choice
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="pt-4 space-y-3">
+          {/* Single Row Metrics with Labels */}
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-1">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="font-medium text-emerald-300">
+                  {formatCurrency(agent.weekly_spent)}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">Weekly</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-1">
+                <Play className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{formatUsageCount(agent.usage_count)}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Runs</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>
+                  {formatCurrency(agent.avg_cost_per_invocation).replace(
+                    '$',
+                    ''
+                  )}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">Per run</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-1">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{agent.unique_users || 0}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Users</span>
+            </div>
+          </div>
+
+          {/* Tags */}
+          {agent.tags && agent.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {agent.tags.slice(0, 3).map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className="text-xs px-2 py-0"
+                >
+                  {tag}
+                </Badge>
+              ))}
+              {agent.tags.length > 3 && (
+                <Badge variant="secondary" className="text-xs px-2 py-0">
+                  +{agent.tags.length - 3}
+                </Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
+  )
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-7xl mx-auto">
-        {' '}
         {/* Header */}
         <AnimatedElement type="fade" className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4 text-white">Agent Store</h1>
@@ -117,6 +283,7 @@ const AgentStorePage = () => {
             Browse all published AI agents. Run, compose, or fork them.
           </p>
         </AnimatedElement>
+
         {/* Search and Filters */}
         <AnimatedElement type="slide" delay={0.1} className="mb-8">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-end">
@@ -146,6 +313,7 @@ const AgentStorePage = () => {
             </div>
           </div>
         </AnimatedElement>
+
         {/* Agent Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -167,152 +335,89 @@ const AgentStorePage = () => {
             ))}
           </div>
         ) : (
-          <motion.div
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            layout
-          >
-            {filteredAndSortedAgents.map((agent, index) => (
-              <motion.div
-                key={agent.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.5 }}
-                whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              >
-                <Link
-                  href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
-                  className="block"
+          <>
+            {/* Editor's Choice Section */}
+            {filteredEditorsChoice.length > 0 && (
+              <div className="mb-12">
+                <AnimatedElement type="fade" className="mb-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Star className="h-6 w-6 text-amber-500" />
+                    <h2 className="text-2xl font-bold text-amber-400">
+                      Editor's Choice
+                    </h2>
+                  </div>
+                  <p className="text-muted-foreground max-w-2xl">
+                    Handpicked agents recommended by our team for their
+                    reliability, performance, and versatility.
+                  </p>
+                </AnimatedElement>
+                <motion.div
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                  layout
                 >
-                  <Card className="h-full transition-all duration-300 cursor-pointer group border hover:border-accent/50 bg-card/50 hover:bg-card/80">
-                    {/* Header - Agent ID and Publisher */}
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <CardTitle className="text-lg font-mono text-primary truncate">
-                              {agent.id}
-                            </CardTitle>
-                            <Badge
-                              variant="outline"
-                              className="text-xs font-mono px-1.5 py-0 shrink-0"
-                            >
-                              v{agent.version}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm text-muted-foreground truncate">
-                              @{agent.publisher.id}
-                            </span>
-                            {agent.publisher.verified && (
-                              <Badge
-                                variant="secondary"
-                                className="text-xs px-1.5 py-0 shrink-0"
-                              >
-                                ✓
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-3">
-                          <ChevronRight className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-accent shrink-0" />
-                          {agent.last_used && (
-                            <span
-                              className="text-xs text-muted-foreground shrink-0"
-                              title={new Date(agent.last_used).toLocaleString()}
-                            >
-                              {formatRelativeTime(agent.last_used)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
+                  {filteredEditorsChoice.map((agent, index) => (
+                    <motion.div
+                      key={agent.id}
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1, duration: 0.5 }}
+                      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                    >
+                      <AgentCard agent={agent} isEditorsChoice={true} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </div>
+            )}
 
-                    <CardContent className="pt-4 space-y-3">
-                      {/* Single Row Metrics with Labels */}
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex items-center gap-1">
-                            <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                            <span className="font-medium text-emerald-300">
-                              {formatCurrency(agent.weekly_spent)}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            Weekly
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex items-center gap-1">
-                            <Play className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{formatUsageCount(agent.usage_count)}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            Runs
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>
-                              {formatCurrency(
-                                agent.avg_cost_per_invocation
-                              ).replace('$', '')}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            Per run
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{agent.unique_users || 0}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            Users
-                          </span>
-                        </div>
-                      </div>
+            {/* All Agents Section */}
+            {filteredAndSortedAgents.length > 0 && (
+              <div>
+                <AnimatedElement type="fade" className="mb-6">
+                  <h2 className="text-2xl font-bold mb-2">All Agents</h2>
+                  <p className="text-muted-foreground">
+                    Explore the complete collection of published agents.
+                  </p>
+                </AnimatedElement>
+                <motion.div
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                  layout
+                >
+                  {filteredAndSortedAgents.map((agent, index) => (
+                    <motion.div
+                      key={agent.id}
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1, duration: 0.5 }}
+                      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                    >
+                      <AgentCard
+                        agent={agent}
+                        isEditorsChoice={EDITORS_CHOICE_AGENTS.includes(
+                          agent.id
+                        )}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </div>
+            )}
+          </>
+        )}
 
-                      {/* Tags */}
-                      {agent.tags && agent.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {agent.tags.slice(0, 3).map((tag) => (
-                            <Badge
-                              key={tag}
-                              variant="secondary"
-                              className="text-xs px-2 py-0"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          {agent.tags.length > 3 && (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs px-2 py-0"
-                            >
-                              +{agent.tags.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-        {filteredAndSortedAgents.length === 0 && !isLoading && (
-          <AnimatedElement type="fade" className="text-center py-12">
-            <div className="text-muted-foreground">
-              <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium mb-2">No agents found</h3>
-              <p>Try adjusting your search or filter criteria</p>
-            </div>
-          </AnimatedElement>
-        )}
+        {filteredAndSortedAgents.length === 0 &&
+          filteredEditorsChoice.length === 0 &&
+          !isLoading && (
+            <AnimatedElement type="fade" className="text-center py-12">
+              <div className="text-muted-foreground">
+                <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">No agents found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+              </div>
+            </AnimatedElement>
+          )}
       </div>
     </div>
   )
