@@ -81,7 +81,6 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
     .from(schema.agentConfig)
     .where(eq(schema.agentConfig.publisher_id, publisherData.id))
     .orderBy(schema.agentConfig.created_at)
-    .limit(50) // Show more agents for grouping
 
   // Group agents by name
   const groupedAgents: Record<string, GroupedAgent> = {}
