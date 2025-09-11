@@ -302,7 +302,7 @@ async function ensureBinaryExists() {
         console.error(
           JSON.stringify({
             type: 'error',
-            message: 'Failed to determinie latest version.',
+            message: 'Failed to determine latest version.',
           }),
         )
       } else {

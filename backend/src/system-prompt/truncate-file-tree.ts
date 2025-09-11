@@ -274,7 +274,7 @@ function pruneFileTokenScores(
       }
     }
 
-    // Note: The below function can take a while, so we optmized to have few loop iterations.
+    // Note: The below function can take a while, so we optimized to have few loop iterations.
     printedTree = printFileTreeWithTokens(fileTree, pruned)
     totalTokens = countTokensJson(printedTree)
     index += batchSize

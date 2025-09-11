@@ -95,7 +95,7 @@ export interface AgentDefinition {
 
   /** How the agent should output a response to its parent (defaults to 'last_message')
    *
-   * last_message: The last message from the agent, typcically after using tools.
+   * last_message: The last message from the agent, typically after using tools.
    *
    * all_messages: All messages from the agent, including tool calls and results.
    *
