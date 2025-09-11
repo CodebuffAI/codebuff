@@ -134,6 +134,14 @@ const AgentStorePage = () => {
     return count.toString()
   }
 
+  const isNewAgent = (createdAt: string) => {
+    const now = new Date()
+    const created = new Date(createdAt)
+    const timeDiff = now.getTime() - created.getTime()
+    const hoursDiff = timeDiff / (1000 * 3600)
+    return hoursDiff <= 24
+  }
+
   const AgentCard = ({
     agent,
     isEditorsChoice = false,
@@ -196,15 +204,25 @@ const AgentStorePage = () => {
                   {formatRelativeTime(agent.last_used)}
                 </span>
               )}
-              {isEditorsChoice && (
-                <Badge
-                  variant="default"
-                  className="text-xs px-1.5 py-0 bg-amber-500 text-amber-950 hover:bg-amber-600 shrink-0"
-                >
-                  <Star className="h-3 w-3 mr-1" />
-                  Editor's Choice
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {isNewAgent(agent.created_at) && (
+                  <Badge
+                    variant="default"
+                    className="text-xs px-1.5 py-0 bg-emerald-500 text-emerald-950 hover:bg-emerald-600 shrink-0"
+                  >
+                    New
+                  </Badge>
+                )}
+                {isEditorsChoice && (
+                  <Badge
+                    variant="default"
+                    className="text-xs px-1.5 py-0 bg-amber-500 text-amber-950 hover:bg-amber-600 shrink-0"
+                  >
+                    <Star className="h-3 w-3 mr-1" />
+                    Editor's Choice
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
