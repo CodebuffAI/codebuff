@@ -95,49 +95,53 @@ export async function GET() {
       }
     })
 
-    // Transform the data to include parsed agent data and real usage metrics
-    const transformedAgents = agents.map((agent) => {
+    // First, group agents by publisher/name to get the latest version of each
+    const latestAgents = new Map()
+    agents.forEach((agent) => {
       const agentData =
         typeof agent.data === 'string' ? JSON.parse(agent.data) : agent.data
       const agentName = agentData.name || agent.id
+      const key = `${agent.publisher.id}/${agentName}`
 
-      const agentKey = `${agent.publisher.id}/${agentName}`
-      const metrics = metricsMap.get(agentKey) || {
-        weekly_dollars: 0,
-        total_dollars: 0,
-        total_invocations: 0,
-        avg_cost_per_run: 0,
-        unique_users: 0,
-        last_used: null,
-      }
-
-      return {
-        id: agent.id,
-        name: agentName,
-        description: agentData.description,
-        publisher: agent.publisher,
-        version: agent.version,
-        created_at: agent.created_at,
-        usage_count: metrics.total_invocations,
-        weekly_spent: metrics.weekly_dollars,
-        total_spent: metrics.total_dollars,
-        avg_cost_per_invocation: metrics.avg_cost_per_run,
-        unique_users: metrics.unique_users,
-        last_used: metrics.last_used,
-        tags: agentData.tags || [],
-      }
-    })
-
-    // Group by agent name and keep only the latest version of each (without version in output)
-    const latestAgents = new Map()
-    transformedAgents.forEach((agent) => {
-      const key = `${agent.publisher.id}/${agent.name}`
       if (!latestAgents.has(key)) {
-        latestAgents.set(key, agent)
+        latestAgents.set(key, {
+          agent,
+          agentData,
+          agentName,
+        })
       }
     })
 
-    const result = Array.from(latestAgents.values())
+    // Transform the latest agents with their aggregated metrics
+    const result = Array.from(latestAgents.values()).map(
+      ({ agent, agentData, agentName }) => {
+        const agentKey = `${agent.publisher.id}/${agentName}`
+        const metrics = metricsMap.get(agentKey) || {
+          weekly_dollars: 0,
+          total_dollars: 0,
+          total_invocations: 0,
+          avg_cost_per_run: 0,
+          unique_users: 0,
+          last_used: null,
+        }
+
+        return {
+          id: agent.id,
+          name: agentName,
+          description: agentData.description,
+          publisher: agent.publisher,
+          version: agent.version,
+          created_at: agent.created_at,
+          usage_count: metrics.total_invocations,
+          weekly_spent: metrics.weekly_dollars,
+          total_spent: metrics.total_dollars,
+          avg_cost_per_invocation: metrics.avg_cost_per_run,
+          unique_users: metrics.unique_users,
+          last_used: metrics.last_used,
+          tags: agentData.tags || [],
+        }
+      }
+    )
 
     // Sort by weekly usage (most prominent metric)
     result.sort((a, b) => (b.weekly_spent || 0) - (a.weekly_spent || 0))
