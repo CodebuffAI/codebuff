@@ -7,7 +7,7 @@ import { sleep } from '@codebuff/common/util/promise'
 import { ensureUrlProtocol } from '@codebuff/common/util/string'
 import puppeteer from 'puppeteer-core'
 
-import { getCurrentChatDir, getProjectDataDir } from './project-files'
+import { getCurrentChatDir } from './project-files'
 import { logger } from './utils/logger'
 
 import type {
@@ -319,13 +319,6 @@ export class BrowserRunner {
     this.consecutiveErrors = 0
     this.totalErrors = 0
 
-    // Set up user data directory for profile persistence, scoped to current project
-    let userDataDir: string | undefined = undefined
-    try {
-      userDataDir = path.join(getProjectDataDir(), BROWSER_DEFAULTS.userDataDir)
-      ensureDirectoryExists(userDataDir)
-    } catch (error) {}
-
     try {
       // Define helper to find Chrome in standard locations
       const findChrome = () => {
@@ -345,7 +338,6 @@ export class BrowserRunner {
           height: BROWSER_DEFAULTS.viewportHeight,
         },
         headless: BROWSER_DEFAULTS.headless,
-        userDataDir,
         waitForInitialPage: true,
         args: [
           '--window-size=1200,800',
