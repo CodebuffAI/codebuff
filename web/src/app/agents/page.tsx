@@ -77,6 +77,8 @@ const AgentStorePage = () => {
       switch (sortBy) {
         case 'usage':
           return (b.usage_count || 0) - (a.usage_count || 0)
+        case 'unique_users':
+          return (b.unique_users || 0) - (a.unique_users || 0)
         case 'newest':
           return (
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -136,6 +138,7 @@ const AgentStorePage = () => {
                 <SelectContent>
                   <SelectItem value="cost">Weekly Usage</SelectItem>
                   <SelectItem value="usage">Total Runs</SelectItem>
+                  <SelectItem value="unique_users">Unique Users</SelectItem>
                   <SelectItem value="newest">Newest</SelectItem>
                   <SelectItem value="name">Name</SelectItem>
                 </SelectContent>
@@ -216,9 +219,7 @@ const AgentStorePage = () => {
                           {agent.last_used && (
                             <span
                               className="text-xs text-muted-foreground shrink-0"
-                              title={new Date(
-                                agent.last_used
-                              ).toLocaleString()}
+                              title={new Date(agent.last_used).toLocaleString()}
                             >
                               {formatRelativeTime(agent.last_used)}
                             </span>

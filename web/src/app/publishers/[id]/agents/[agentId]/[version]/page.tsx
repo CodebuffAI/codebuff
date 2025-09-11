@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { JsonViewer } from '@/components/agent/json-viewer'
 import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
 import { cn } from '@/lib/utils'
+import { AgentUsageMetrics } from './agent-usage-metrics'
 
 interface AgentDetailPageProps {
   params: {
@@ -186,6 +187,9 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
             </div>
           </CardHeader>
         </Card>
+
+        {/* Usage Metrics */}
+        <AgentUsageMetrics publisherId={params.id} agentId={params.agentId} />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Version Navigation */}
