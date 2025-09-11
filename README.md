@@ -1,6 +1,6 @@
 # Codebuff
 
-**Open-source AI coding assistant** that edits your codebase through natural language instructions. Instead of using one model for everything, it coordinates specialized agents that work together to understand your project and make precise changes.
+Codebuff is an **open-source AI coding assistant** that edits your codebase through natural language instructions. Instead of using one model for everything, it coordinates specialized agents that work together to understand your project and make precise changes.
 
 <div align="center">
   <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
@@ -8,18 +8,16 @@
 
 Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
 
-> **🎆 Built by the community, for the community** - Join us in making AI coding assistance better for everyone!
-
 ![Codebuff Demo](./assets/demo.gif)
 
 ## How it works
 
 When you ask Codebuff to "add authentication to my API," it might invoke:
 
-1. A **File Explorer Agent** scans your codebase to understand the architecture and find relevant files
-2. An **Planner Agent** plans which files need changes and in what order
-3. An **Implementation Agents** make precise edits
-4. A **Review Agents** validate changes
+1. A **File Explorer Agent** to scan your codebase to understand the architecture and find relevant files
+2. A **Planner Agent** to plan which files need changes and in what order
+3. An **Editor Agent** to make precise edits
+4. A **Reviewer Agent** to validate changes
 
 <div align="center">
   <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="250">
@@ -88,6 +86,7 @@ export default {
 ## SDK: Run agents in production
 
 Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk) -- note this is different than the CLI codebuff package.
+
 ```bash
 npm install @codebuff/sdk
 ```
@@ -145,13 +144,14 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
 ## Contributing to Codebuff
 
-🚀 **Codebuff is open source!** We love contributions from the community - whether you're fixing bugs, building new agents, or improving documentation.
+We ❤️ contributions from the community - whether you're fixing bugs, tweaking our agents, or improving documentation.
 
 **Want to contribute?** Check out our [Contributing Guide](./CONTRIBUTING.md) to get started.
 
 Some ways you can help:
+
 - 🐛 **Fix bugs** or add features
-- 🤖 **Create specialized agents** for different languages/frameworks  
+- 🤖 **Create specialized agents** and publish them to the Agent Store
 - 📚 **Improve documentation** or write tutorials
 - 💡 **Share ideas** in our [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
 
@@ -165,14 +165,12 @@ Some ways you can help:
 
 ### Resources
 
-**Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
-
-**Local Development**: [local-development.md](./local-development.md) - Detailed setup guide
-
 **Documentation**: [codebuff.com/docs](https://codebuff.com/docs)
 
 **Community**: [Discord](https://codebuff.com/discord) - Join our friendly community
 
 **Issues & Ideas**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
+
+**Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
 
 **Support**: [support@codebuff.com](mailto:support@codebuff.com)

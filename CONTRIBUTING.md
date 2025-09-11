@@ -22,6 +22,7 @@ Before you begin, you'll need to install a few tools:
 ### Setting Up Your Development Environment
 
 1. **Hook direnv into your shell** (one-time setup):
+
    - For zsh: `echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc && source ~/.zshrc`
    - For bash: `echo 'eval "$(direnv hook bash)"' >> ~/.bashrc && source ~/.bashrc`
    - For fish: `echo 'direnv hook fish | source' >> ~/.config/fish/config.fish && source ~/.config/fish/config.fish`
@@ -29,12 +30,14 @@ Before you begin, you'll need to install a few tools:
 2. **Restart your shell**: Run `exec $SHELL` or restart your terminal
 
 3. **Clone the repository**:
+
    ```bash
    git clone https://github.com/CodebuffAI/codebuff.git
    cd codebuff
    ```
 
 4. **Set up secrets management**:
+
    ```bash
    infisical login
    # Select "US" region when prompted
@@ -42,23 +45,26 @@ Before you begin, you'll need to install a few tools:
    ```
 
 5. **Configure environment**:
+
    ```bash
    direnv allow
    ```
 
 6. **Install dependencies**:
+
    ```bash
    bun install
    ```
 
 7. **Start development services** (requires 3 terminals):
+
    ```bash
    # Terminal 1 - Backend server
    bun run start-server
-   
+
    # Terminal 2 - Web server
    bun run start-web
-   
+
    # Terminal 3 - CLI client
    bun run start-bin
    ```
@@ -98,7 +104,7 @@ Here's how we like to work together:
 4. **Type check** - Run `bun run typecheck` to catch any TypeScript issues
 5. **Submit a PR** - Open a pull request with a clear description of what you built and why
 
-*Pro tip: Small, focused PRs are easier to review and merge quickly!*
+_Pro tip: Small, focused PRs are easier to review and merge quickly!_
 
 ### Code Style Guidelines
 
@@ -139,23 +145,29 @@ test: add unit tests for file operations
 There are tons of ways to make Codebuff better! Here are some areas where your skills could really shine:
 
 ### 🤖 **Agent Development**
+
 Build specialized agents in `.agents/` for different languages, frameworks, or workflows. Think React experts, Python debuggers, or Git wizards!
 
-### 🔧 **Tool System** 
+### 🔧 **Tool System**
+
 Add new capabilities in `backend/src/tools.ts` - file operations, API integrations, development environment helpers. The sky's the limit!
 
 ### 📦 **SDK Improvements**
+
 Make the SDK in `sdk/` even more powerful with new methods, better TypeScript support, or killer integration examples.
 
 ### 💻 **CLI Magic**
+
 Enhance the user experience in `npm-app/` with smoother commands, better error messages, or interactive features that make developers smile.
 
 ### 🌐 **Web Dashboard**
+
 Level up the web interface in `web/` with better agent management, project templates, analytics, or any UX improvements you can dream up.
 
 ## Getting Help
 
 **Setup issues?**
+
 - **direnv problems?** Make sure it's hooked into your shell, run `direnv allow`, and restart your terminal
 - **Script errors?** Double-check you're using bun for all commands
 - **Can't find files?** See our [local development guide](./local-development.md) for more detailed setup
@@ -164,7 +176,6 @@ Level up the web interface in `web/` with better agent management, project templ
 
 ## Resources
 
-- **Detailed setup guide**: [local-development.md](./local-development.md)
 - **Documentation**: [codebuff.com/docs](https://codebuff.com/docs)
 - **Community Discord**: [codebuff.com/discord](https://codebuff.com/discord)
 - **Report issues**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
