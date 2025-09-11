@@ -9,8 +9,8 @@ export const superagent = (
   allAvailableAgents?: string[],
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
-  displayName: AGENT_PERSONAS.superagent.displayName,
-  spawnerPrompt: AGENT_PERSONAS.superagent.purpose,
+  displayName: 'Superagent',
+  spawnerPrompt: 'Superagent that can spawn multiple code editing agents to complete a task.',
   inputSchema: {
     prompt: {
       type: 'string',
