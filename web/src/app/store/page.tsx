@@ -45,6 +45,17 @@ interface AgentData {
   avg_cost_per_invocation?: number // In dollars
   unique_users?: number
   last_used?: string
+  version_stats?: Record<
+    string,
+    {
+      weekly_dollars: number
+      total_dollars: number
+      total_invocations: number
+      avg_cost_per_run: number
+      unique_users: number
+      last_used?: Date
+    }
+  >
   tags?: string[]
 }
 

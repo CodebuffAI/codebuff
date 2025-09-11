@@ -189,7 +189,11 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
         </Card>
 
         {/* Usage Metrics */}
-        <AgentUsageMetrics publisherId={params.id} agentId={params.agentId} />
+        <AgentUsageMetrics
+          publisherId={params.id}
+          agentId={params.agentId}
+          version={params.version}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Version Navigation */}

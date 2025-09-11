@@ -29,7 +29,7 @@ export async function GET() {
       )
       .orderBy(sql`${schema.agentConfig.created_at} DESC`)
 
-    // Get all-time usage metrics for published agents only (those with publisher_id and agent_name)
+    // Get aggregated all-time usage metrics across all versions
     const usageMetrics = await db
       .select({
         publisher_id: schema.agentRun.publisher_id,
@@ -51,7 +51,7 @@ export async function GET() {
       )
       .groupBy(schema.agentRun.publisher_id, schema.agentRun.agent_name)
 
-    // Get weekly usage metrics for published agents only
+    // Get aggregated weekly usage metrics across all versions
     const weeklyMetrics = await db
       .select({
         publisher_id: schema.agentRun.publisher_id,
@@ -70,6 +70,59 @@ export async function GET() {
       )
       .groupBy(schema.agentRun.publisher_id, schema.agentRun.agent_name)
 
+    // Get per-version usage metrics for all-time
+    const perVersionMetrics = await db
+      .select({
+        publisher_id: schema.agentRun.publisher_id,
+        agent_name: schema.agentRun.agent_name,
+        agent_version: schema.agentRun.agent_version,
+        total_invocations: sql<number>`COUNT(*)`,
+        total_dollars: sql<number>`COALESCE(SUM(${schema.agentRun.total_credits}) / 100.0, 0)`,
+        avg_cost_per_run: sql<number>`COALESCE(AVG(${schema.agentRun.total_credits}) / 100.0, 0)`,
+        unique_users: sql<number>`COUNT(DISTINCT ${schema.agentRun.user_id})`,
+        last_used: sql<Date>`MAX(${schema.agentRun.created_at})`,
+      })
+      .from(schema.agentRun)
+      .where(
+        and(
+          eq(schema.agentRun.status, 'completed'),
+          sql`${schema.agentRun.agent_id} != 'test-agent'`,
+          sql`${schema.agentRun.publisher_id} IS NOT NULL`,
+          sql`${schema.agentRun.agent_name} IS NOT NULL`,
+          sql`${schema.agentRun.agent_version} IS NOT NULL`
+        )
+      )
+      .groupBy(
+        schema.agentRun.publisher_id,
+        schema.agentRun.agent_name,
+        schema.agentRun.agent_version
+      )
+
+    // Get per-version weekly usage metrics
+    const perVersionWeeklyMetrics = await db
+      .select({
+        publisher_id: schema.agentRun.publisher_id,
+        agent_name: schema.agentRun.agent_name,
+        agent_version: schema.agentRun.agent_version,
+        weekly_dollars: sql<number>`COALESCE(SUM(${schema.agentRun.total_credits}) / 100.0, 0)`,
+      })
+      .from(schema.agentRun)
+      .where(
+        and(
+          eq(schema.agentRun.status, 'completed'),
+          gte(schema.agentRun.created_at, oneWeekAgo),
+          sql`${schema.agentRun.agent_id} != 'test-agent'`,
+          sql`${schema.agentRun.publisher_id} IS NOT NULL`,
+          sql`${schema.agentRun.agent_name} IS NOT NULL`,
+          sql`${schema.agentRun.agent_version} IS NOT NULL`
+        )
+      )
+      .groupBy(
+        schema.agentRun.publisher_id,
+        schema.agentRun.agent_name,
+        schema.agentRun.agent_version
+      )
+
     // Create weekly metrics map by publisher/agent_name
     const weeklyMap = new Map()
     weeklyMetrics.forEach((metric) => {
@@ -79,7 +132,7 @@ export async function GET() {
       }
     })
 
-    // Create a map of usage metrics by publisher/agent_name
+    // Create a map of aggregated usage metrics by publisher/agent_name
     const metricsMap = new Map()
     usageMetrics.forEach((metric) => {
       if (metric.publisher_id && metric.agent_name) {
@@ -93,6 +146,41 @@ export async function GET() {
           last_used: metric.last_used,
         })
       }
+    })
+
+    // Create per-version weekly metrics map
+    const perVersionWeeklyMap = new Map()
+    perVersionWeeklyMetrics.forEach((metric) => {
+      if (metric.publisher_id && metric.agent_name && metric.agent_version) {
+        const key = `${metric.publisher_id}/${metric.agent_name}@${metric.agent_version}`
+        perVersionWeeklyMap.set(key, Number(metric.weekly_dollars))
+      }
+    })
+
+    // Create per-version metrics map
+    const perVersionMetricsMap = new Map()
+    perVersionMetrics.forEach((metric) => {
+      if (metric.publisher_id && metric.agent_name && metric.agent_version) {
+        const key = `${metric.publisher_id}/${metric.agent_name}@${metric.agent_version}`
+        perVersionMetricsMap.set(key, {
+          weekly_dollars: perVersionWeeklyMap.get(key) || 0,
+          total_dollars: Number(metric.total_dollars),
+          total_invocations: Number(metric.total_invocations),
+          avg_cost_per_run: Number(metric.avg_cost_per_run),
+          unique_users: Number(metric.unique_users),
+          last_used: metric.last_used,
+        })
+      }
+    })
+
+    // Group per-version metrics by agent
+    const versionMetricsByAgent = new Map()
+    perVersionMetricsMap.forEach((metrics, key) => {
+      const [publisherAgentKey, version] = key.split('@')
+      if (!versionMetricsByAgent.has(publisherAgentKey)) {
+        versionMetricsByAgent.set(publisherAgentKey, {})
+      }
+      versionMetricsByAgent.get(publisherAgentKey)[version] = metrics
     })
 
     // First, group agents by publisher/name to get the latest version of each
@@ -125,6 +213,10 @@ export async function GET() {
           last_used: null,
         }
 
+        // Use agent.id (config ID) to get version stats since that's what the runs table uses as agent_name
+        const versionStatsKey = `${agent.publisher.id}/${agent.id}`
+        const version_stats = versionMetricsByAgent.get(versionStatsKey) || {}
+
         return {
           id: agent.id,
           name: agentName,
@@ -132,12 +224,15 @@ export async function GET() {
           publisher: agent.publisher,
           version: agent.version,
           created_at: agent.created_at,
+          // Aggregated stats across all versions (for agent store)
           usage_count: metrics.total_invocations,
           weekly_spent: metrics.weekly_dollars,
           total_spent: metrics.total_dollars,
           avg_cost_per_invocation: metrics.avg_cost_per_run,
           unique_users: metrics.unique_users,
           last_used: metrics.last_used,
+          // Per-version stats for agent detail pages
+          version_stats,
           tags: agentData.tags || [],
         }
       }
