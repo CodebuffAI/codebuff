@@ -4,35 +4,13 @@ import type { AgentTemplateTypes } from '../types/session-state'
 export const AGENT_PERSONAS = {
   // Base agents - all use Buffy persona
   base: {
-    displayName: 'Buffy the Enthusiastic Coding Assistant',
+    displayName: 'Buffy the Base Agent',
     purpose: 'Base agent that orchestrates the full response.',
-  } as const,
-  'base-lite': {
-    displayName: 'Buffy the Enthusiastic Coding Assistant',
-    purpose: 'Base agent that orchestrates the full response.',
-  } as const,
-  'base-max': {
-    displayName: 'Buffy the Enthusiastic Coding Assistant',
-    purpose: 'Base agent that orchestrates the full response.',
-  } as const,
-  'base-experimental': {
-    displayName: 'Buffy the Enthusiastic Coding Assistant',
-    purpose: 'Base agent that orchestrates the full response.',
-  } as const,
-  'claude4-gemini-thinking': {
-    displayName: 'Buffy the Enthusiastic Coding Assistant',
-    purpose: 'Base agent that orchestrates the full response.',
-  } as const,
-
-  superagent: {
-    displayName: 'Superagent',
-    purpose:
-      'Superagent that can spawn multiple code editing agents to complete a task.',
   } as const,
 
   // Ask mode
   ask: {
-    displayName: 'Buffy the Enthusiastic Coding Assistant',
+    displayName: 'Ask Mode Agent',
     purpose: 'Base ask-mode agent that orchestrates the full response.',
   } as const,
 
@@ -55,13 +33,8 @@ export const AGENT_PERSONAS = {
     purpose: 'Expert at researching topics using web search and documentation.',
   } as const,
   planner: {
-    displayName: 'Peter Plan the Planner',
+    displayName: 'Peter Plan',
     purpose: 'Agent that formulates a comprehensive plan to a prompt.',
-    hidden: true,
-  } as const,
-  'dry-run': {
-    displayName: 'Sketch the Dry Runner',
-    purpose: 'Agent that takes a plan and try to implement it in a dry run.',
     hidden: true,
   } as const,
   reviewer: {
