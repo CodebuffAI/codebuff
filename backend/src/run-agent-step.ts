@@ -500,7 +500,7 @@ export const loopAgentSteps = async (
   await startAgentRun({
     runId,
     userId,
-    agentId: agentType,
+    agentId: agentTemplate.id,
     ancestorRunIds: agentState.ancestorRunIds,
   })
 
