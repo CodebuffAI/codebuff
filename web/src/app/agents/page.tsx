@@ -6,10 +6,10 @@ import { motion } from 'framer-motion'
 import {
   Search,
   TrendingUp,
-  Clock,
-  Star,
   Users,
   ChevronRight,
+  DollarSign,
+  Play,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AnimatedElement } from '@/components/ui/landing/animated-element'
+import { formatRelativeTime } from '@/lib/date-utils'
 
 interface AgentData {
   id: string
@@ -92,7 +93,8 @@ const AgentStorePage = () => {
 
   const formatCurrency = (amount?: number) => {
     if (!amount) return '$0.00'
-    return `${amount.toFixed(2)}`
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}k`
+    return `$${amount.toFixed(2)}`
   }
 
   const formatUsageCount = (count?: number) => {
@@ -177,98 +179,101 @@ const AgentStorePage = () => {
               >
                 <Link
                   href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
+                  className="block"
                 >
-                  <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-gray-300 dark:hover:border-gray-600">
-                    <CardHeader className="pb-3">
+                  <Card className="h-full transition-all duration-300 cursor-pointer group border hover:border-accent/50 bg-card/50 hover:bg-card/80">
+                    {/* Header - Agent ID and Publisher */}
+                    <CardHeader className="pb-4">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg transition-colors">
-                            {agent.name}
-                          </CardTitle>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-lg font-mono text-primary truncate">
+                              {agent.id}
+                            </CardTitle>
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-mono px-1.5 py-0 shrink-0"
+                            >
+                              v{agent.version}
+                            </Badge>
+                          </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm text-muted-foreground">
-                              by @{agent.publisher.id}
+                            <span className="text-sm text-muted-foreground truncate">
+                              @{agent.publisher.id}
                             </span>
                             {agent.publisher.verified && (
                               <Badge
                                 variant="secondary"
-                                className="text-xs px-1.5 py-0"
+                                className="text-xs px-1.5 py-0 shrink-0"
                               >
                                 ✓
                               </Badge>
                             )}
                           </div>
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-colors" />
+                        <div className="flex flex-col items-end gap-3">
+                          <ChevronRight className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-accent shrink-0" />
+                          {agent.last_used && (
+                            <span
+                              className="text-xs text-muted-foreground shrink-0"
+                              title={new Date(
+                                agent.last_used
+                              ).toLocaleString()}
+                            >
+                              {formatRelativeTime(agent.last_used)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="pt-0">
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                        {agent.description}
-                      </p>
 
-                      {/* Primary Metric - Weekly Usage */}
-                      <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg border">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-green-600" />
-                            <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                              Weekly Usage
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-green-700 dark:text-green-400">
+                    <CardContent className="pt-4 space-y-3">
+                      {/* Single Row Metrics with Labels */}
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                            <span className="font-medium text-emerald-300">
                               {formatCurrency(agent.weekly_spent)}
-                            </div>
-                            <div className="text-xs text-green-600 dark:text-green-500">
-                              {formatUsageCount(agent.usage_count)} runs
-                            </div>
+                            </span>
                           </div>
+                          <span className="text-xs text-muted-foreground">
+                            Weekly
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1">
+                            <Play className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{formatUsageCount(agent.usage_count)}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            Runs
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>
+                              {formatCurrency(
+                                agent.avg_cost_per_invocation
+                              ).replace('$', '')}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            Per run
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{agent.unique_users || 0}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            Users
+                          </span>
                         </div>
                       </div>
 
-                      {/* Secondary Stats */}
-                      <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-orange-500" />
-                          <span className="font-medium">
-                            {formatCurrency(agent.avg_cost_per_invocation)}
-                          </span>
-                          <span className="text-muted-foreground">
-                            avg cost
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 text-purple-500" />
-                          <span className="font-medium">
-                            {formatCurrency(agent.total_spent)}
-                          </span>
-                          <span className="text-muted-foreground">total</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3 text-blue-500" />
-                          <span className="font-medium">
-                            {agent.unique_users || 0}
-                          </span>
-                          <span className="text-muted-foreground">users</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Badge
-                            variant="outline"
-                            className="text-xs px-1.5 py-0"
-                          >
-                            v{agent.version}
-                          </Badge>
-                        </div>
-                        {agent.last_used && (
-                          <div className="flex items-center gap-1 col-span-2">
-                            <span className="text-xs text-muted-foreground">
-                              Last:{' '}
-                              {new Date(agent.last_used).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
                       {/* Tags */}
                       {agent.tags && agent.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
