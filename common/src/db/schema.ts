@@ -29,6 +29,7 @@ export const apiKeyTypeEnum = pgEnum('api_key_type', [
   'anthropic',
   'gemini',
   'openai',
+  'z-ai',
 ])
 
 export const grantTypeEnum = pgEnum('grant_type', [

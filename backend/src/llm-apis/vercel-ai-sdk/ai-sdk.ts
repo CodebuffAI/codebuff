@@ -4,6 +4,7 @@ import {
   finetunedVertexModels,
   geminiModels,
   openaiModels,
+  zAiModels,
 } from '@codebuff/common/old-constants'
 import {
   endToolTag,
@@ -21,12 +22,14 @@ import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { logger } from '../../util/logger'
 import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
+import { zAi } from './z-ai'
 import { vertexFinetuned } from './vertex-finetuned'
 
 import type {
   GeminiModel,
   Model,
   OpenAIModel,
+  ZAiModel,
 } from '@codebuff/common/old-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
@@ -53,6 +56,9 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
   }
   if (Object.values(openaiModels).includes(model as OpenAIModel)) {
     return openai.languageModel(model)
+  }
+  if (Object.values(zAiModels).includes(model as ZAiModel)) {
+    return zAi.languageModel(model)
   }
   // All other models go through OpenRouter
   return openRouterLanguageModel(model)

@@ -22,6 +22,7 @@ export const ALLOWED_MODEL_PREFIXES = [
   'openai',
   'google',
   'x-ai',
+  'z-ai',
 ] as const
 
 export const DEFAULT_IGNORED_PATHS = [
@@ -136,25 +137,25 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return {
-      lite: models.openrouter_gemini2_5_flash,
-      normal: models.openrouter_claude_sonnet_4,
-      max: models.openrouter_claude_sonnet_4,
+      lite: models.glm4_5,
+      normal: models.glm4_5,
+      max: models.glm4_5,
       experimental: models.openrouter_gemini2_5_pro_preview,
       ask: models.openrouter_gemini2_5_pro_preview,
     }[costMode]
   }
   if (operation === 'file-requests') {
     return {
-      lite: models.openrouter_claude_3_5_haiku,
-      normal: models.openrouter_claude_3_5_haiku,
+      lite: models.glm4_5,
+      normal: models.glm4_5,
       max: models.openrouter_claude_sonnet_4,
       experimental: models.openrouter_claude_sonnet_4,
-      ask: models.openrouter_claude_3_5_haiku,
+      ask: models.glm4_5,
     }[costMode]
   }
   if (operation === 'check-new-files') {
     return {
-      lite: models.openrouter_claude_3_5_haiku,
+      lite: models.glm4_5,
       normal: models.openrouter_claude_sonnet_4,
       max: models.openrouter_claude_sonnet_4,
       experimental: models.openrouter_claude_sonnet_4,
@@ -219,6 +220,11 @@ export const deepseekModels = {
 } as const
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
+export const zAiModels = {
+  glm4_5: 'glm-4.5',
+} as const
+export type ZAiModel = (typeof zAiModels)[keyof typeof zAiModels]
+
 // Vertex uses "endpoint IDs" for finetuned models, which are just integers
 export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
@@ -251,6 +257,7 @@ export const models = {
   ...openaiModels,
   ...geminiModels,
   ...deepseekModels,
+  ...zAiModels,
   ...openrouterModels,
   ...finetunedVertexModels,
 } as const
@@ -268,6 +275,7 @@ export const shortModelNames = {
   o3: models.o3,
   'o4-mini': models.o4mini,
   'o3-pro': models.o3pro,
+  'glm-4.5': models.glm4_5,
 }
 
 export const providerModelNames = {
@@ -290,6 +298,12 @@ export const providerModelNames = {
     ]),
   ),
   ...Object.fromEntries(
+    Object.entries(zAiModels).map(([name, model]) => [
+      model,
+      'z-ai' as const,
+    ]),
+  ),
+  ...Object.fromEntries(
     Object.entries(openrouterModels).map(([name, model]) => [
       model,
       'openrouter' as const,
@@ -305,6 +319,7 @@ export const shouldCacheModels = [
   'anthropic/claude-opus-4',
   'anthropic/claude-3.7-sonnet',
   'anthropic/claude-3.5-haiku',
+  'glm-4.5',
   'z-ai/glm-4.5',
   'qwen/qwen3-coder',
 ]
@@ -353,6 +368,8 @@ export function getLogoForModel(modelName: string): string | undefined {
     domain = providerDomains.openai
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
     domain = providerDomains.deepseek
+  else if (Object.values(zAiModels).includes(modelName as ZAiModel))
+    domain = 'z.ai'
   else if (modelName.includes('claude')) domain = providerDomains.anthropic
   else if (modelName.includes('grok')) domain = providerDomains.xai
 
