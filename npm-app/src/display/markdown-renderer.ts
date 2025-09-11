@@ -112,6 +112,8 @@ export class MarkdownStreamRenderer {
         // Code blocks should preserve formatting with minimal spacing
         code_block: (text: string) => `${text || ''}`,
         fence: (text: string, lang?: string) => `${text || ''}`,
+        // Disable bold color styling - use same color as default text
+        strong: (text: string) => text || '',
       },
     })
 
