@@ -95,15 +95,7 @@ export type CodebuffToolResult<
 
 export type CodebuffToolMessage<
   T extends ToolName | ResultOnlyToolName = ToolName,
-> = ToolMessage &
-  {
-    [K in ToolName | ResultOnlyToolName]: {
-      toolName: K
-      content: {
-        output: CodebuffToolOutput<K>
-      }
-    }
-  }[T]
+> = ToolMessage & { content: CodebuffToolResult<T> }
 
 // Tool call to send to client
 export type ClientToolName = (typeof clientToolNames)[number]

@@ -14,7 +14,7 @@ export const fileUpdatesResultSchema = {
           z.object({
             path: z.string(),
             content: z.string(),
-            referencedBy: z.record(z.string(), z.array(z.string())),
+            referencedBy: z.record(z.string(), z.string().array()).optional(),
           }),
         ),
       }),

@@ -16,7 +16,11 @@ import {
 } from '../messages'
 import * as tokenCounter from '../token-counter'
 
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
+import type {
+  Message,
+  UserMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {
@@ -49,7 +53,7 @@ describe('trimMessagesToFitTokenLimit', () => {
     mock.restore()
   })
 
-  const testMessages = [
+  const testMessages: Message[] = [
     // Regular message without tool calls - should never be shortened, but won't fit in the final array
     {
       role: 'assistant',
@@ -142,14 +146,11 @@ describe('trimMessagesToFitTokenLimit', () => {
         // Regular message - should never be shortened
         {
           type: 'image',
-          source: {
-            type: 'base64',
-            media_type: 'image/jpeg',
-            data: 'xyz',
-          },
+          image: 'xyz',
+          mediaType: 'image/jpeg',
         },
       ],
-    },
+    } satisfies UserMessage,
     {
       // Terminal output 5 - should be preserved (3rd most recent)
       role: 'tool',
@@ -198,12 +199,14 @@ describe('trimMessagesToFitTokenLimit', () => {
     // Regular message - should never be shortened
     {
       role: 'assistant',
-      content: {
-        type: 'text',
-        text: 'Another long message that should never be shortened because it has no tool calls in it at all',
-      },
+      content: [
+        {
+          type: 'text',
+          text: 'Another long message that should never be shortened because it has no tool calls in it at all',
+        },
+      ],
     },
-  ] as Message[]
+  ]
 
   it('handles all features working together correctly', () => {
     const maxTotalTokens = 3000
@@ -286,7 +289,7 @@ describe('trimMessagesToFitTokenLimit', () => {
 
   describe('keepDuringTruncation functionality', () => {
     it('preserves messages marked with keepDuringTruncation=true', () => {
-      const messages = [
+      const messages: Message[] = [
         { role: 'user', content: 'A'.repeat(500) }, // Large message to force truncation
         { role: 'user', content: 'B'.repeat(500) }, // Large message to force truncation
         {
@@ -300,7 +303,7 @@ describe('trimMessagesToFitTokenLimit', () => {
           content: 'Message 5 - keep me too!',
           keepDuringTruncation: true,
         },
-      ] as Message[]
+      ]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
 
@@ -341,12 +344,12 @@ describe('trimMessagesToFitTokenLimit', () => {
     })
 
     it('handles consecutive replacement messages correctly', () => {
-      const messages = [
+      const messages: Message[] = [
         { role: 'user', content: 'A'.repeat(1000) }, // Large message to be removed
         { role: 'user', content: 'B'.repeat(1000) }, // Large message to be removed
         { role: 'user', content: 'C'.repeat(1000) }, // Large message to be removed
         { role: 'user', content: 'Keep this', keepDuringTruncation: true },
-      ] as Message[]
+      ]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
 
@@ -367,7 +370,7 @@ describe('trimMessagesToFitTokenLimit', () => {
     })
 
     it('calculates token removal correctly with keepDuringTruncation', () => {
-      const messages = [
+      const messages: Message[] = [
         { role: 'user', content: 'A'.repeat(500) }, // Will be removed
         { role: 'user', content: 'B'.repeat(500) }, // Will be removed
         {
@@ -376,7 +379,7 @@ describe('trimMessagesToFitTokenLimit', () => {
           keepDuringTruncation: true,
         },
         { role: 'user', content: 'C'.repeat(100) }, // Might be kept
-      ] as Message[]
+      ]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 2000)
 
@@ -394,13 +397,13 @@ describe('trimMessagesToFitTokenLimit', () => {
     })
 
     it('handles mixed keepDuringTruncation and regular messages', () => {
-      const messages = [
+      const messages: Message[] = [
         { role: 'user', content: 'A'.repeat(800) }, // Large message to force truncation
         { role: 'user', content: 'Keep 1', keepDuringTruncation: true },
         { role: 'user', content: 'B'.repeat(800) }, // Large message to force truncation
         { role: 'user', content: 'Keep 2', keepDuringTruncation: true },
         { role: 'user', content: 'C'.repeat(800) }, // Large message to force truncation
-      ] as Message[]
+      ]
 
       const result = trimMessagesToFitTokenLimit(messages, 0, 500)
 
@@ -439,9 +442,11 @@ describe('getPreviouslyReadFiles', () => {
           type: 'tool-result',
           toolName: 'write_file',
           toolCallId: 'test-id',
-          output: [{ type: 'json', value: { file: 'test.ts' } }],
+          output: [
+            { type: 'json', value: { file: 'test.ts', errorMessage: 'error' } },
+          ],
         },
-      },
+      } satisfies CodebuffToolMessage<'write_file'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
@@ -473,7 +478,7 @@ describe('getPreviouslyReadFiles', () => {
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
@@ -510,7 +515,7 @@ describe('getPreviouslyReadFiles', () => {
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'find_files'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
@@ -533,17 +538,18 @@ describe('getPreviouslyReadFiles', () => {
           output: [
             {
               type: 'json',
-              value: [
-                {
-                  path: 'config/database.ts',
-                  content: 'export const dbConfig = {}',
-                  referencedBy: { 'app.ts': ['line 5', 'line 20'] },
-                },
-              ],
+              value: {
+                files: [
+                  {
+                    path: 'config/database.ts',
+                    content: 'export const dbConfig = {}',
+                  },
+                ],
+              },
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'file_updates'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
@@ -551,7 +557,6 @@ describe('getPreviouslyReadFiles', () => {
       {
         path: 'config/database.ts',
         content: 'export const dbConfig = {}',
-        referencedBy: { 'app.ts': ['line 5', 'line 20'] },
       },
     ])
   })
@@ -576,7 +581,7 @@ describe('getPreviouslyReadFiles', () => {
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'read_files'>,
       {
         role: 'tool',
         content: {
@@ -595,7 +600,7 @@ describe('getPreviouslyReadFiles', () => {
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'find_files'>,
       {
         role: 'user',
         content: 'Some user message',
@@ -609,16 +614,18 @@ describe('getPreviouslyReadFiles', () => {
           output: [
             {
               type: 'json',
-              value: [
-                {
-                  path: 'file3.ts',
-                  content: 'content 3',
-                },
-              ],
+              value: {
+                files: [
+                  {
+                    path: 'file3.ts',
+                    content: 'content 3',
+                  },
+                ],
+              },
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'file_updates'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
@@ -657,7 +664,7 @@ describe('getPreviouslyReadFiles', () => {
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
@@ -706,7 +713,7 @@ describe('getPreviouslyReadFiles', () => {
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'find_files'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
@@ -736,7 +743,7 @@ describe('getPreviouslyReadFiles', () => {
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
@@ -758,47 +765,10 @@ describe('getPreviouslyReadFiles', () => {
             },
           ],
         },
-      },
+      } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
     expect(result).toEqual([])
-  })
-
-  it('handles multiple outputs in single tool message', () => {
-    const messages: Message[] = [
-      {
-        role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'read_files',
-          toolCallId: 'test-id',
-          output: [
-            {
-              type: 'json',
-              value: [
-                {
-                  path: 'file1.ts',
-                  content: 'content 1',
-                },
-              ],
-            },
-            {
-              type: 'json',
-              value: [
-                {
-                  path: 'file2.ts',
-                  content: 'content 2',
-                },
-              ],
-            },
-          ],
-        },
-      },
-    ]
-
-    const result = getPreviouslyReadFiles(messages)
-    // Function uses output[0], so only first output is processed
-    expect(result).toEqual([{ path: 'file1.ts', content: 'content 1' }])
   })
 })
