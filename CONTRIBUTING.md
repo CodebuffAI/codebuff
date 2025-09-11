@@ -39,10 +39,13 @@ Before you begin, you'll need to install a few tools:
 4. **Set up secrets management**:
 
    ```bash
+   infisical init
    infisical login
    # Select "US" region when prompted
    infisical secrets  # Verify setup works
    ```
+
+   You will need to populate all the secrets in the infisical UI at https://app.infisical.com. You can provide dummy values for the secrets if you get an error about missing secrets, but you will need to update them with real values in order to use the associated feature.
 
 5. **Configure environment**:
 
