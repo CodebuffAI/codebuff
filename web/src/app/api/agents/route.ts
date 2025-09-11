@@ -49,10 +49,7 @@ export async function GET() {
           sql`${schema.agentRun.agent_name} IS NOT NULL`
         )
       )
-      .groupBy(
-        schema.agentRun.publisher_id,
-        schema.agentRun.agent_name
-      )
+      .groupBy(schema.agentRun.publisher_id, schema.agentRun.agent_name)
 
     // Get weekly usage metrics for published agents only
     const weeklyMetrics = await db
@@ -71,10 +68,7 @@ export async function GET() {
           sql`${schema.agentRun.agent_name} IS NOT NULL`
         )
       )
-      .groupBy(
-        schema.agentRun.publisher_id,
-        schema.agentRun.agent_name
-      )
+      .groupBy(schema.agentRun.publisher_id, schema.agentRun.agent_name)
 
     // Create weekly metrics map by publisher/agent_name
     const weeklyMap = new Map()
@@ -122,6 +116,7 @@ export async function GET() {
         name: agentName,
         description: agentData.description,
         publisher: agent.publisher,
+        version: agent.version,
         created_at: agent.created_at,
         usage_count: metrics.total_invocations,
         weekly_spent: metrics.weekly_dollars,
