@@ -37,16 +37,17 @@ interface AgentData {
   version: string
   created_at: string
   usage_count?: number
-  total_spent?: number
-  avg_cost_per_invocation?: number
-  avg_response_time?: number
-
+  weekly_spent?: number // In dollars
+  total_spent?: number // In dollars
+  avg_cost_per_invocation?: number // In dollars
+  unique_users?: number
+  last_used?: string
   tags?: string[]
 }
 
 const AgentStorePage = () => {
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState('usage')
+  const [sortBy, setSortBy] = useState('cost')
 
   // Fetch agents from the API
   const { data: agents = [], isLoading } = useQuery<AgentData[]>({
@@ -82,7 +83,7 @@ const AgentStorePage = () => {
         case 'name':
           return a.name.localeCompare(b.name)
         case 'cost':
-          return (b.total_spent || 0) - (a.total_spent || 0)
+          return (b.weekly_spent || 0) - (a.weekly_spent || 0)
         default:
           return 0
       }
@@ -131,10 +132,10 @@ const AgentStorePage = () => {
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="usage">Most Used</SelectItem>
+                  <SelectItem value="cost">Weekly Usage</SelectItem>
+                  <SelectItem value="usage">Total Runs</SelectItem>
                   <SelectItem value="newest">Newest</SelectItem>
                   <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="cost">Total Spent</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -204,29 +205,52 @@ const AgentStorePage = () => {
                     <CardContent className="pt-0">
                       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                         {agent.description}
-                      </p>{' '}
-                      {/* Usage Stats */}
+                      </p>
+
+                      {/* Primary Metric - Weekly Usage */}
+                      <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                              Weekly Usage
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-green-700 dark:text-green-400">
+                              {formatCurrency(agent.weekly_spent)}
+                            </div>
+                            <div className="text-xs text-green-600 dark:text-green-500">
+                              {formatUsageCount(agent.usage_count)} runs
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Secondary Stats */}
                       <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3 text-blue-500" />
-                          <span className="font-medium">
-                            {formatUsageCount(agent.usage_count)}
-                          </span>
-                          <span className="text-muted-foreground">uses</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 text-green-500" />
-                          <span className="font-medium text-green-600">
-                            {formatCurrency(agent.total_spent)}
-                          </span>
-                          <span className="text-muted-foreground">spent</span>
-                        </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3 text-orange-500" />
                           <span className="font-medium">
                             {formatCurrency(agent.avg_cost_per_invocation)}
                           </span>
-                          <span className="text-muted-foreground">per use</span>
+                          <span className="text-muted-foreground">
+                            avg cost
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Star className="h-3 w-3 text-purple-500" />
+                          <span className="font-medium">
+                            {formatCurrency(agent.total_spent)}
+                          </span>
+                          <span className="text-muted-foreground">total</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3 text-blue-500" />
+                          <span className="font-medium">
+                            {agent.unique_users || 0}
+                          </span>
+                          <span className="text-muted-foreground">users</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Badge
@@ -236,6 +260,14 @@ const AgentStorePage = () => {
                             v{agent.version}
                           </Badge>
                         </div>
+                        {agent.last_used && (
+                          <div className="flex items-center gap-1 col-span-2">
+                            <span className="text-xs text-muted-foreground">
+                              Last:{' '}
+                              {new Date(agent.last_used).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       {/* Tags */}
                       {agent.tags && agent.tags.length > 0 && (
