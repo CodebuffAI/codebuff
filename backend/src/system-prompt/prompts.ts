@@ -85,7 +85,7 @@ If the user sends you the url to a page that is helpful now or could be helpful 
 const initPrompt = `
 User has typed "init". Trigger initialization flow:
 
-First, read knowldge.md and ${codebuffConfigFile} top level directory.
+First, read knowledge.md and ${codebuffConfigFile} top level directory.
 
 Knowledge file:
 - If it does not exist, create a new one with updated information.

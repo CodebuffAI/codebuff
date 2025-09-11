@@ -22,7 +22,7 @@ For a technical plan, act as an expert architect engineer and provide direction 
 - Just show the changes needed.
 
 What to include in the plan:
-- Include key snippets of code -- not full files of it. Use psuedo code. For example, include interfaces between modules, function signatures, and other code that is not immediately obvious should be written out explicitly. Function and method bodies could be written out in psuedo code.
+- Include key snippets of code -- not full files of it. Use pseudo code. For example, include interfaces between modules, function signatures, and other code that is not immediately obvious should be written out explicitly. Function and method bodies could be written out in psuedo code.
 - Do not waste time on much background information, focus on the exact steps of the implementation.
 - Do not wrap the path content in markdown code blocks, e.g. \`\`\`.
 

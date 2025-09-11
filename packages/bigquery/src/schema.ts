@@ -7,7 +7,7 @@ interface BaseEvent {
 }
 
 interface BasePayload {
-  user_input_id: string // ID of a given user input in a sesson
+  user_input_id: string // ID of a given user input in a session
   client_session_id: string // ID for a given client session
   fingerprint_id: string // ID for a specific device
 }

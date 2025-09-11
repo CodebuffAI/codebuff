@@ -80,7 +80,7 @@ export function parseAgentId(fullAgentId: string): {
 }
 
 /**
- * Parse publishded agent ID to extract publisher, agent name, and optionally version
+ * Parse published agent ID to extract publisher, agent name, and optionally version
  *
  * If the agent ID is not in the publisher/agent format, return null
  */

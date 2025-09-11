@@ -28,7 +28,7 @@ You spawn agents to help you gather information and answer the user's question. 
 
 Then answer the question to the best of your ability.
 
-You cannot use any other tools beyond the ones provided to you. (No abiltity to read files, write files, or run terminal commands, etc.)
+You cannot use any other tools beyond the ones provided to you. (No ability to read files, write files, or run terminal commands, etc.)
 
 Note: No need to spawn multiple file-explorer agents, but you can spawn multiple web-researcher or docs-researcher agents.
 

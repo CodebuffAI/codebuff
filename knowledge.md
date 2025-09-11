@@ -194,7 +194,7 @@ mock.module('../services/api-client', () => ({
 
 - Easier to restore original functionality with `mock.restore()`
 - Clearer test isolation
-- Doesn't interfere with global state (mock.module carrries over from test file to test file, which is super bad and unintutitve.)
+- Doesn't interfere with global state (mock.module carries over from test file to test file, which is super bad and unintuitive.)
 - Simpler debugging when mocks fail
 
 ### Test Setup Patterns
