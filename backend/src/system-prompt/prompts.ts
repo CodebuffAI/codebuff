@@ -278,28 +278,24 @@ When the user requests a new git commit, please follow these steps closely:
    Generated with Codebuff 🤖
    Co-Authored-By: Codebuff <noreply@codebuff.com>
    \`\`\`
-   To maintain proper formatting, use cross-platform compatible commit messages:
+   To maintain proper formatting and ensure cross-platform compatibility, use the commit helper script:
    
-   **For Unix/bash shells:**
    \`\`\`
-   git commit -m "$(cat <<'EOF'
-   Your commit message here.
-
-   🤖 Generated with Codebuff
-   Co-Authored-By: Codebuff <noreply@codebuff.com>
-   EOF
-   )"
-   \`\`\`
-   
-   **For Windows Command Prompt:**
-   \`\`\`
-   git commit -m "Your commit message here.
+   npm run commit "Your commit message here.
 
    🤖 Generated with Codebuff
    Co-Authored-By: Codebuff <noreply@codebuff.com>"
    \`\`\`
    
-   Always detect the platform and use the appropriate syntax. HEREDOC syntax (\`<<'EOF'\`) only works in bash/Unix shells and will fail on Windows Command Prompt.
+   Or directly with bun:
+   \`\`\`
+   bun scripts/commit-helper.ts "Your commit message here.
+
+   🤖 Generated with Codebuff
+   Co-Authored-By: Codebuff <noreply@codebuff.com>"
+   \`\`\`
+   
+   **IMPORTANT**: Always use the commit helper script instead of direct git commit commands with heredoc syntax, as heredocs (\`<<'EOF'\`) fail on Windows systems. The commit helper handles multi-line messages correctly on all platforms.
 
 **Important details**
 
