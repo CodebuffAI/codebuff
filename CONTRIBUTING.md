@@ -39,13 +39,19 @@ Before you begin, you'll need to install a few tools:
 4. **Set up secrets management**:
 
    ```bash
+   npm install -g @infisical/cli
    infisical init
    infisical login
    # Select "US" region when prompted
-   infisical secrets  # Verify setup works
    ```
 
-   You will need to populate all the secrets in the infisical UI at https://app.infisical.com. You can provide dummy values for the secrets if you get an error about missing secrets, but you will need to update them with real values in order to use the associated feature.
+   Follow the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for detailed setup instructions.
+
+   Load all environment variables at once:
+   ```bash
+   infisical secrets set --file .env.example
+   infisical secrets set DATABASE_URL=postgresql://postgres:secretpassword_local@localhost:5432/codebuff
+   ```
 
 5. **Configure environment**:
 
@@ -62,15 +68,20 @@ Before you begin, you'll need to install a few tools:
 7. **Start development services** (requires 3 terminals):
 
    ```bash
-   # Terminal 1 - Backend server
+   # Terminal 1 - Backend server (start first)
    bun run start-server
+   # Expected: 🚀 Server is running on port 4242
 
-   # Terminal 2 - Web server
+   # Terminal 2 - Web server (start second)
    bun run start-web
+   # Expected: Ready on http://localhost:3000
 
-   # Terminal 3 - CLI client
+   # Terminal 3 - CLI client (start last)
    bun run start-bin
+   # Expected: Welcome to Codebuff! + agent list
    ```
+
+   **Note**: CLI requires both backend and web server running for authentication.
 
 ## Understanding the Codebase
 
@@ -173,7 +184,7 @@ Level up the web interface in `web/` with better agent management, project templ
 
 - **direnv problems?** Make sure it's hooked into your shell, run `direnv allow`, and restart your terminal
 - **Script errors?** Double-check you're using bun for all commands
-- **Can't find files?** See our [local development guide](./local-development.md) for more detailed setup
+- **Infisical issues?** See our [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for step-by-step instructions
 
 **Questions?** Jump into our [Discord community](https://codebuff.com/discord) - we're friendly and always happy to help!
 
