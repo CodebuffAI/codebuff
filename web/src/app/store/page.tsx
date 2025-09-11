@@ -55,7 +55,7 @@ const EDITORS_CHOICE_AGENTS = [
   'base2',
   'reviewer',
   'deep-thinker',
-  'deep-code-reviewer'
+  'deep-code-reviewer',
 ]
 
 const AgentStorePage = () => {
@@ -134,7 +134,7 @@ const AgentStorePage = () => {
     return count.toString()
   }
 
-  const isNewAgent = (createdAt: string) => {
+  const isRecentlyUpdated = (createdAt: string) => {
     const now = new Date()
     const created = new Date(createdAt)
     const timeDiff = now.getTime() - created.getTime()
@@ -205,12 +205,12 @@ const AgentStorePage = () => {
                 </span>
               )}
               <div className="flex items-center gap-2">
-                {isNewAgent(agent.created_at) && (
+                {isRecentlyUpdated(agent.created_at) && (
                   <Badge
                     variant="default"
                     className="text-xs px-1.5 py-0 bg-emerald-500 text-emerald-950 hover:bg-emerald-600 shrink-0"
                   >
-                    New
+                    Updated
                   </Badge>
                 )}
                 {isEditorsChoice && (
@@ -237,14 +237,16 @@ const AgentStorePage = () => {
                   {formatCurrency(agent.weekly_spent)}
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground">Weekly</span>
+              <span className="text-xs text-muted-foreground">
+                Weekly spent
+              </span>
             </div>
             <div className="flex flex-col items-center gap-1">
               <div className="flex items-center gap-1">
                 <Play className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>{formatUsageCount(agent.usage_count)}</span>
               </div>
-              <span className="text-xs text-muted-foreground">Runs</span>
+              <span className="text-xs text-muted-foreground">Weekly runs</span>
             </div>
             <div className="flex flex-col items-center gap-1">
               <div className="flex items-center gap-1">
