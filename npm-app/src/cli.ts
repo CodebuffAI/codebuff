@@ -508,12 +508,25 @@ export class CLI {
       return null
     }
     const allFiles = this.getAllFilePaths(client.fileContext.fileTree)
-    // high priority first
+    // low priority first
     function priority(filePath: string): number {
-      if (!filePath.endsWith('/')) {
-        return 0
+      let p = 0
+      if (filePath.endsWith('/')) {
+        return 1
       }
-      return 1
+
+      let hasPrefix = false
+      while (filePath.includes(searchTerm)) {
+        if (filePath.startsWith(searchTerm)) {
+          hasPrefix = true
+        }
+        filePath = filePath.split(path.sep).slice(1).join(path.sep)
+      }
+      if (!hasPrefix) {
+        p += 2
+      }
+
+      return p
     }
     const matchingPaths = uniq(
       allFiles
@@ -638,7 +651,7 @@ export class CLI {
     })
 
     const tip = gray(
-      'Tip: Type "@" followed by an agent name to request a specific agent, e.g., @reid find relevant files',
+      'Tip: Type "@" followed by an agent name to request a specific agent\n- You can also use "@" to search for files',
     )
 
     console.log(`\n\n${agentLines.join('\n')}\n${tip}\n`)
