@@ -3,6 +3,7 @@ import * as os from 'os'
 import * as path from 'path'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
+import { detectShell } from '../../../npm-app/src/utils/detect-shell'
 
 export function runTerminalCommand({
   command,
@@ -21,8 +22,13 @@ export function runTerminalCommand({
 
   return new Promise((resolve, reject) => {
     const isWindows = os.platform() === 'win32'
-    const shell = isWindows ? 'cmd.exe' : 'bash'
-    const shellArgs = isWindows ? ['/c'] : ['-c']
+    const detectedShell = detectShell()
+    const shell = isWindows 
+      ? (detectedShell === 'powershell' ? 'powershell.exe' : 'cmd.exe')
+      : 'bash'
+    const shellArgs = isWindows
+      ? (detectedShell === 'powershell' ? ['-Command'] : ['/c'])
+      : ['-c']
 
     // Resolve cwd to absolute path
     const resolvedCwd = path.resolve(cwd)

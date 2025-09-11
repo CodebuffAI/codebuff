@@ -10,6 +10,7 @@ import {
   backgroundProcesses,
   spawnAndTrack,
 } from '../background-process-manager'
+import { detectShell } from '../utils/detect-shell'
 
 import type { BackgroundProcessInfo } from '../background-process-manager'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
@@ -28,8 +29,13 @@ export function runBackgroundCommand(
 ): void {
   const { toolCallId, command, mode, cwd, stdoutFile, stderrFile } = options
   const isWindows = os.platform() === 'win32'
-  const shell = isWindows ? 'cmd.exe' : 'bash'
-  const shellArgs = isWindows ? ['/c'] : ['-c']
+  const detectedShell = detectShell()
+  const shell = isWindows 
+    ? (detectedShell === 'powershell' ? 'powershell.exe' : 'cmd.exe')
+    : 'bash'
+  const shellArgs = isWindows
+    ? (detectedShell === 'powershell' ? ['-Command'] : ['/c'])
+    : ['-c']
 
   if (mode === 'assistant') {
     console.log(green(`Running background process...\n> ${command}`))
