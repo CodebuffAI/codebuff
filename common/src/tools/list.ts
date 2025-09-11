@@ -77,17 +77,13 @@ export type CodebuffToolCall<T extends ToolName = ToolName> = {
 
 export type CodebuffToolOutput<
   T extends ToolName | ResultOnlyToolName = ToolName,
-> = T extends ToolName
-  ? {
-      [K in ToolName]: z.infer<(typeof $toolParams)[K]['outputs']>
-    }[T]
-  : T extends ResultOnlyToolName
-    ? {
-        [K in ResultOnlyToolName]: z.infer<
-          (typeof additionalToolResultSchemas)[K]['outputs']
-        >
-      }[T]
-    : never
+> = {
+  [K in ToolName | ResultOnlyToolName]: K extends ToolName
+    ? z.infer<(typeof $toolParams)[K]['outputs']>
+    : K extends ResultOnlyToolName
+      ? z.infer<(typeof additionalToolResultSchemas)[K]['outputs']>
+      : never
+}[T]
 export type CodebuffToolResult<
   T extends ToolName | ResultOnlyToolName = ToolName,
 > = {
