@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-    // Get all published agents with their publisher info and real usage metrics
+    // Get all published agents with their publisher info
     const agents = await db
       .select({
         id: schema.agentConfig.id,
@@ -29,13 +29,11 @@ export async function GET() {
       )
       .orderBy(sql`${schema.agentConfig.created_at} DESC`)
 
-    // Get all-time usage metrics for all agents
+    // Get all-time usage metrics for published agents only (those with publisher_id and agent_name)
     const usageMetrics = await db
       .select({
-        agent_id: schema.agentRun.agent_id,
         publisher_id: schema.agentRun.publisher_id,
         agent_name: schema.agentRun.agent_name,
-        agent_version: schema.agentRun.agent_version,
         total_invocations: sql<number>`COUNT(*)`,
         total_dollars: sql<number>`COALESCE(SUM(${schema.agentRun.total_credits}) / 100.0, 0)`,
         avg_cost_per_run: sql<number>`COALESCE(AVG(${schema.agentRun.total_credits}) / 100.0, 0)`,
@@ -46,20 +44,19 @@ export async function GET() {
       .where(
         and(
           eq(schema.agentRun.status, 'completed'),
-          sql`${schema.agentRun.agent_id} != 'test-agent'`
+          sql`${schema.agentRun.agent_id} != 'test-agent'`,
+          sql`${schema.agentRun.publisher_id} IS NOT NULL`,
+          sql`${schema.agentRun.agent_name} IS NOT NULL`
         )
       )
       .groupBy(
-        schema.agentRun.agent_id,
         schema.agentRun.publisher_id,
-        schema.agentRun.agent_name,
-        schema.agentRun.agent_version
+        schema.agentRun.agent_name
       )
 
-    // Get weekly usage metrics separately
+    // Get weekly usage metrics for published agents only
     const weeklyMetrics = await db
       .select({
-        agent_id: schema.agentRun.agent_id,
         publisher_id: schema.agentRun.publisher_id,
         agent_name: schema.agentRun.agent_name,
         weekly_dollars: sql<number>`COALESCE(SUM(${schema.agentRun.total_credits}) / 100.0, 0)`,
@@ -69,54 +66,39 @@ export async function GET() {
         and(
           eq(schema.agentRun.status, 'completed'),
           gte(schema.agentRun.created_at, oneWeekAgo),
-          sql`${schema.agentRun.agent_id} != 'test-agent'`
+          sql`${schema.agentRun.agent_id} != 'test-agent'`,
+          sql`${schema.agentRun.publisher_id} IS NOT NULL`,
+          sql`${schema.agentRun.agent_name} IS NOT NULL`
         )
       )
       .groupBy(
-        schema.agentRun.agent_id,
         schema.agentRun.publisher_id,
         schema.agentRun.agent_name
       )
 
-    // Create weekly metrics map
+    // Create weekly metrics map by publisher/agent_name
     const weeklyMap = new Map()
     weeklyMetrics.forEach((metric) => {
-      const keys = [
-        metric.agent_id,
-        metric.publisher_id && metric.agent_name
-          ? `${metric.publisher_id}/${metric.agent_name}`
-          : null,
-      ].filter(Boolean)
-
-      keys.forEach((key) => {
+      if (metric.publisher_id && metric.agent_name) {
+        const key = `${metric.publisher_id}/${metric.agent_name}`
         weeklyMap.set(key, Number(metric.weekly_dollars))
-      })
+      }
     })
 
-    // Create a map of usage metrics by agent identifier
+    // Create a map of usage metrics by publisher/agent_name
     const metricsMap = new Map()
     usageMetrics.forEach((metric) => {
-      // Try to match by full agent_id first, then by publisher/name combination
-      const keys = [
-        metric.agent_id,
-        metric.publisher_id && metric.agent_name
-          ? `${metric.publisher_id}/${metric.agent_name}`
-          : null,
-      ].filter(Boolean)
-
-      keys.forEach((key) => {
-        const existingMetric = metricsMap.get(key)
-        if (!existingMetric || existingMetric.last_used < metric.last_used) {
-          metricsMap.set(key, {
-            weekly_dollars: weeklyMap.get(key) || 0,
-            total_dollars: Number(metric.total_dollars),
-            total_invocations: Number(metric.total_invocations),
-            avg_cost_per_run: Number(metric.avg_cost_per_run),
-            unique_users: Number(metric.unique_users),
-            last_used: metric.last_used,
-          })
-        }
-      })
+      if (metric.publisher_id && metric.agent_name) {
+        const key = `${metric.publisher_id}/${metric.agent_name}`
+        metricsMap.set(key, {
+          weekly_dollars: weeklyMap.get(key) || 0,
+          total_dollars: Number(metric.total_dollars),
+          total_invocations: Number(metric.total_invocations),
+          avg_cost_per_run: Number(metric.avg_cost_per_run),
+          unique_users: Number(metric.unique_users),
+          last_used: metric.last_used,
+        })
+      }
     })
 
     // Transform the data to include parsed agent data and real usage metrics
@@ -126,22 +108,20 @@ export async function GET() {
       const agentName = agentData.name || agent.id
 
       const agentKey = `${agent.publisher.id}/${agentName}`
-      const metrics = metricsMap.get(agentKey) ||
-        metricsMap.get(agent.id) || {
-          weekly_dollars: 0,
-          total_dollars: 0,
-          total_invocations: 0,
-          avg_cost_per_run: 0,
-          unique_users: 0,
-          last_used: null,
-        }
+      const metrics = metricsMap.get(agentKey) || {
+        weekly_dollars: 0,
+        total_dollars: 0,
+        total_invocations: 0,
+        avg_cost_per_run: 0,
+        unique_users: 0,
+        last_used: null,
+      }
 
       return {
         id: agent.id,
         name: agentName,
         description: agentData.description,
         publisher: agent.publisher,
-        version: agent.version,
         created_at: agent.created_at,
         usage_count: metrics.total_invocations,
         weekly_spent: metrics.weekly_dollars,
@@ -153,7 +133,7 @@ export async function GET() {
       }
     })
 
-    // Group by agent name and keep only the latest version of each
+    // Group by agent name and keep only the latest version of each (without version in output)
     const latestAgents = new Map()
     transformedAgents.forEach((agent) => {
       const key = `${agent.publisher.id}/${agent.name}`
