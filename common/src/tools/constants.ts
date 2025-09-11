@@ -71,3 +71,8 @@ export type $ToolParams<T extends ToolName = ToolName> = {
   parameters: z.ZodType
   outputs: z.ZodType<ToolResultOutput[]>
 }
+
+export type $ToolResults = {
+  toolName: string
+  outputs: $ToolParams['outputs']
+}

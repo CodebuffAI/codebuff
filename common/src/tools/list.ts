@@ -7,6 +7,7 @@ import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
 import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
+import { fileUpdatesResultSchema } from './params/tool/file-updates'
 import { findFilesParams } from './params/tool/find-files'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
@@ -23,7 +24,12 @@ import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
 
-import type { ToolName, $ToolParams, PublishedToolName } from './constants'
+import type {
+  $ToolParams,
+  $ToolResults,
+  PublishedToolName,
+  ToolName,
+} from './constants'
 import type { ToolMessage } from '../types/messages/codebuff-message'
 import type {
   ToolCallPart,
@@ -56,6 +62,11 @@ export const $toolParams = {
   [K in ToolName]: $ToolParams<K>
 }
 
+export const additionalToolResultSchemas = {
+  file_updates: fileUpdatesResultSchema,
+} satisfies Record<string, $ToolResults>
+type ResultOnlyToolName = keyof typeof additionalToolResultSchemas
+
 // Tool call from LLM
 export type CodebuffToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
@@ -64,19 +75,33 @@ export type CodebuffToolCall<T extends ToolName = ToolName> = {
   } & Omit<ToolCallPart, 'type'>
 }[T]
 
-export type CodebuffToolOutput<T extends ToolName = ToolName> = {
-  [K in ToolName]: z.infer<(typeof $toolParams)[K]['outputs']>
-}[T]
-export type CodebuffToolResult<T extends ToolName = ToolName> = {
-  [K in ToolName]: {
+export type CodebuffToolOutput<
+  T extends ToolName | ResultOnlyToolName = ToolName,
+> = T extends ToolName
+  ? {
+      [K in ToolName]: z.infer<(typeof $toolParams)[K]['outputs']>
+    }[T]
+  : T extends ResultOnlyToolName
+    ? {
+        [K in ResultOnlyToolName]: z.infer<
+          (typeof additionalToolResultSchemas)[K]['outputs']
+        >
+      }[T]
+    : never
+export type CodebuffToolResult<
+  T extends ToolName | ResultOnlyToolName = ToolName,
+> = {
+  [K in ToolName | ResultOnlyToolName]: {
     toolName: K
     output: CodebuffToolOutput<K>
   } & Omit<ToolResultPart, 'type'>
 }[T]
 
-export type CodebuffToolMessage<T extends ToolName = ToolName> = ToolMessage &
+export type CodebuffToolMessage<
+  T extends ToolName | ResultOnlyToolName = ToolName,
+> = ToolMessage &
   {
-    [K in ToolName]: {
+    [K in ToolName | ResultOnlyToolName]: {
       toolName: K
       content: {
         output: CodebuffToolOutput<K>

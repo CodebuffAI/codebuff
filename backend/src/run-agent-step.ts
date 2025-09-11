@@ -36,7 +36,10 @@ import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
-import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolMessage,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
   AssistantMessage,
@@ -195,7 +198,7 @@ export const runAgentStep = async (
             ),
           },
         },
-      ],
+      ] satisfies CodebuffToolOutput<'file_updates'>,
     })
   }
 
