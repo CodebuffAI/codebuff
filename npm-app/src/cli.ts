@@ -15,6 +15,7 @@ import {
 } from '@codebuff/common/util/agent-name-resolver'
 import { isDir } from '@codebuff/common/util/file'
 import { pluralize } from '@codebuff/common/util/string'
+import { uniq } from 'lodash'
 import {
   blueBright,
   bold,
@@ -458,6 +459,84 @@ export class CLI {
     process.stdin.on('keypress', (str, key) => this.handleKeyPress(str, key))
   }
 
+  private calculateAgentNameCompletions(
+    line: string,
+  ): [string[], string] | null {
+    if (!line.includes('@')) {
+      return null
+    }
+
+    const $split = line.split('@')
+    const atAgentPrefix = `@${$split[$split.length - 1]}`
+    const searchTerm = atAgentPrefix.substring(1).toLowerCase() // Remove @ prefix
+
+    // Get all agent names using functional API
+    const localAgentInfo = getCachedLocalAgentInfo()
+    const allAgentNames = [
+      ...new Set(
+        getAllAgents(localAgentInfo).map((agent) => agent.displayName),
+      ),
+    ]
+
+    // Filter agent names that match the search term
+    const matchingAgents = allAgentNames.filter((name) =>
+      name.toLowerCase().startsWith(searchTerm),
+    )
+
+    if (matchingAgents.length > 0) {
+      // Return completions with @ prefix
+      const completions = matchingAgents.map((name) => `@${name}`)
+      return [completions, atAgentPrefix]
+    }
+
+    return null
+  }
+
+  private calculateAtFilenameCompletions(
+    line: string,
+  ): [string[], string] | null {
+    if (!line.includes('@')) {
+      return null
+    }
+
+    const $split = line.split('@')
+    const atFilePrefix = `@${$split[$split.length - 1]}`
+    const searchTerm = atFilePrefix.substring(1).toLowerCase() // Remove @ prefix
+
+    const client = Client.getInstance()
+    if (!client.fileContext) {
+      return null
+    }
+    const allFiles = this.getAllFilePaths(client.fileContext.fileTree)
+    // high priority first
+    function priority(filePath: string): number {
+      if (!filePath.endsWith('/')) {
+        return 0
+      }
+      return 1
+    }
+    const matchingPaths = uniq(
+      allFiles
+        .map((filePath) => {
+          let candidate = null
+          while (filePath.includes(searchTerm)) {
+            candidate = filePath
+            filePath = path.dirname(filePath) + '/'
+          }
+          return candidate
+        })
+        .filter((filePath): filePath is string => !!filePath),
+    ).sort((a, b) => priority(a) - priority(b))
+
+    if (matchingPaths.length > 0) {
+      // Return completions with @ prefix
+      const completions = matchingPaths.map((path) => `@${path}`)
+      return [completions, atFilePrefix]
+    }
+
+    return null
+  }
+
   private inputCompleter(line: string): [string[], string] {
     const lastWord = line.split(' ').pop() || ''
 
@@ -483,34 +562,19 @@ export class CLI {
       return [[], line] // No slash command matches
     }
 
-    // Handle @ prefix for agent name completion
-    if (line.includes('@')) {
-      const $split = line.split('@')
-      const atAgentPrefix = `@${$split[$split.length - 1]}`
-      const searchTerm = atAgentPrefix.substring(1).toLowerCase() // Remove @ prefix
-
-      // Get all agent names using functional API
-      const localAgentInfo = getCachedLocalAgentInfo()
-      const allAgentNames = [
-        ...new Set(
-          getAllAgents(localAgentInfo).map((agent) => agent.displayName),
-        ),
-      ]
-
-      // Filter agent names that match the search term
-      const matchingAgents = allAgentNames.filter((name) =>
-        name.toLowerCase().startsWith(searchTerm),
-      )
-
-      if (matchingAgents.length > 0) {
-        // Return completions with @ prefix
-        const completions = matchingAgents.map((name) => `@${name}`)
-        return [completions, atAgentPrefix]
-      }
-
-      // If no agent matches, return empty completions for better UX
-      // Users typing @ likely intend to mention an agent
-      return [[], atAgentPrefix]
+    const agentCompletions = this.calculateAgentNameCompletions(line)
+    const atFilenameCompletions = this.calculateAtFilenameCompletions(line)
+    const atCompletion: [string[], string] = [[], '']
+    if (agentCompletions) {
+      atCompletion[0].push(...agentCompletions[0])
+      atCompletion[1] = agentCompletions[1]
+    }
+    if (atFilenameCompletions) {
+      atCompletion[0].push(...atFilenameCompletions[0])
+      atCompletion[1] = atFilenameCompletions[1]
+    }
+    if (atCompletion[1]) {
+      return atCompletion
     }
 
     // Original file path completion logic (unchanged)
