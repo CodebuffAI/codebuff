@@ -96,10 +96,13 @@ async function getLatestVersion() {
       `https://registry.npmjs.org/${packageName}/latest`,
     )
 
+    console.log('asdf', { code: res.statusCode })
     if (res.statusCode !== 200) return null
 
     const body = await streamToString(res)
+    console.log('asdf body', body)
     const packageData = JSON.parse(body)
+    console.log('asdf packageData', JSON.stringify(packageData, null, 2))
 
     return packageData.version || null
   } catch (error) {
