@@ -93,7 +93,7 @@ export const handleFindFiles = ((params: {
 
     if (requestedFiles && requestedFiles.length > 0) {
       const { addedFiles, updatedFilePaths, printedPaths } =
-        await getFileReadingUpdates(ws, messages, fileContext, {
+        await getFileReadingUpdates(ws, messages, {
           requestedFiles,
           agentStepId,
           clientSessionId,

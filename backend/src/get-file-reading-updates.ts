@@ -8,33 +8,11 @@ import { countTokensJson } from './util/token-counter'
 import { requestFiles } from './websockets/websocket-action'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-
-const getInitialFiles = (fileContext: ProjectFileContext) => {
-  const { userKnowledgeFiles, knowledgeFiles } = fileContext
-  return [
-    // Include user-level knowledge files.
-    ...Object.entries(userKnowledgeFiles ?? {}).map(([path, content]) => ({
-      path,
-      content,
-    })),
-
-    // Include top-level project knowledge files.
-    ...Object.entries(knowledgeFiles)
-      .map(([path, content]) => ({
-        path,
-        content,
-      }))
-      // Only keep top-level knowledge files.
-      .filter((f) => f.path.split('/').length === 1),
-  ]
-}
 
 export async function getFileReadingUpdates(
   ws: WebSocket,
   messages: Message[],
-  fileContext: ProjectFileContext,
   options: {
     requestedFiles?: string[]
     agentStepId: string
@@ -66,7 +44,6 @@ export async function getFileReadingUpdates(
 
   const requestedFiles = options.requestedFiles ?? []
 
-  const isFirstRead = previousFileList.length === 0
   const allFilePaths = uniq([
     ...requestedFiles,
     ...editedFilePaths,

@@ -63,7 +63,6 @@ export const handleReadFiles = ((params: {
     const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
       ws,
       messages,
-      fileContext,
       {
         requestedFiles: paths,
         agentStepId,

@@ -148,7 +148,7 @@ export const runAgentStep = async (
   }
 
   const { addedFiles, updatedFilePaths, clearReadFileToolResults } =
-    await getFileReadingUpdates(ws, messageHistory, fileContext, {
+    await getFileReadingUpdates(ws, messageHistory, {
       agentStepId,
       clientSessionId,
       fingerprintId,
