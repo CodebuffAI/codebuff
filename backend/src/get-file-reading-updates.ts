@@ -67,13 +67,7 @@ export async function getFileReadingUpdates(
   const requestedFiles = options.requestedFiles ?? []
 
   const isFirstRead = previousFileList.length === 0
-  const initialFiles = getInitialFiles(fileContext)
-  const includedInitialFiles = isFirstRead
-    ? initialFiles.map(({ path }) => path)
-    : []
-
   const allFilePaths = uniq([
-    ...includedInitialFiles,
     ...requestedFiles,
     ...editedFilePaths,
     ...previousFilePaths,
@@ -89,10 +83,7 @@ export async function getFileReadingUpdates(
     }
     return tokenCount < 10_000
   })
-  const newFiles = difference(
-    [...filteredRequestedFiles, ...includedInitialFiles],
-    previousFilePaths,
-  )
+  const newFiles = difference(filteredRequestedFiles, previousFilePaths)
   const newFilesToRead = uniq([
     // NOTE: When the assistant specifically asks for a file, we force it to be shown even if it's not new or changed.
     ...(options.requestedFiles ?? []),
@@ -106,11 +97,7 @@ export async function getFileReadingUpdates(
     },
   )
 
-  const addedFiles = uniq([
-    ...includedInitialFiles,
-    ...updatedFilePaths,
-    ...newFilesToRead,
-  ])
+  const addedFiles = uniq([...updatedFilePaths, ...newFilesToRead])
     .map((path) => {
       return {
         path,
@@ -127,7 +114,7 @@ export async function getFileReadingUpdates(
       path,
       content: loadedFiles[path]!,
     }))
-    const newFiles = uniq([...initialFiles, ...requestedLoadedFiles])
+    const newFiles = uniq(requestedLoadedFiles)
     while (countTokensJson(newFiles) > FILE_TOKEN_BUDGET) {
       newFiles.pop()
     }
