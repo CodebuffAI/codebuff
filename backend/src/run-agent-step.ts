@@ -8,11 +8,9 @@ import {
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
-import { generateCompactId } from '@codebuff/common/util/string'
 
 import { addAgentStep, finishAgentRun, startAgentRun } from './agent-run'
 import { asyncAgentManager } from './async-agent-manager'
-import { getFileReadingUpdates } from './get-file-reading-updates'
 import { checkLiveUserInput } from './live-user-inputs'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
@@ -28,18 +26,11 @@ import {
   messagesWithSystem,
   expireMessages,
   getMessagesSubset,
-  isSystemInstruction,
 } from './util/messages'
-import { renderReadFilesResult } from './util/parse-tool-call-xml'
-import { simplifyReadFileResults } from './util/simplify-tool-results'
 import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
-import type {
-  CodebuffToolMessage,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
   AssistantMessage,
@@ -147,61 +138,6 @@ export const runAgentStep = async (
     }
   }
 
-  const { addedFiles, updatedFilePaths, clearReadFileToolResults } =
-    await getFileReadingUpdates(ws, messageHistory, {
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      repoId,
-    })
-  if (clearReadFileToolResults) {
-    // Update message history.
-    for (const message of messageHistory) {
-      if (
-        message.role === 'tool' &&
-        message.content.toolName === 'read_files'
-      ) {
-        const m = message as CodebuffToolMessage<'read_files'>
-        m.content.output = simplifyReadFileResults(m.content.output)
-      }
-    }
-
-    messageHistory = messageHistory.filter((message) => {
-      return (
-        typeof message.content !== 'string' ||
-        !isSystemInstruction(message.content)
-      )
-    })
-  }
-
-  const toolResults: ToolResultPart[] = []
-
-  const updatedFiles = addedFiles.filter((f) =>
-    updatedFilePaths.includes(f.path),
-  )
-
-  if (updatedFiles.length > 0) {
-    toolResults.push({
-      type: 'tool-result',
-      toolName: 'file_updates',
-      toolCallId: generateCompactId(),
-      output: [
-        {
-          type: 'json',
-          value: {
-            message: `These are the updates made to the files since the last response (either by you or by the user). These are the most recent versions of these files. You MUST be considerate of the user's changes.`,
-            files: renderReadFilesResult(
-              updatedFiles,
-              fileContext.tokenCallers ?? {},
-            ),
-          },
-        },
-      ] satisfies CodebuffToolOutput<'file_updates'>,
-    })
-  }
-
   if (ASYNC_AGENTS_ENABLED) {
     // Register this agent in the async manager so it can receive messages
     const isRegistered = asyncAgentManager.getAgent(agentState.agentId)
@@ -240,13 +176,6 @@ export const runAgentStep = async (
 
   const agentMessagesUntruncated = buildArray<Message>(
     ...expireMessages(messageHistory, 'agentStep'),
-
-    toolResults.map((result) => {
-      return {
-        role: 'tool',
-        content: result,
-      }
-    }),
 
     stepPrompt && {
       role: 'user' as const,
@@ -326,7 +255,6 @@ export const runAgentStep = async (
       prompt,
       params,
       agentContext,
-      toolResults,
       systemTokens,
       agentTemplate,
     },
@@ -334,7 +262,7 @@ export const runAgentStep = async (
   )
 
   let fullResponse = ''
-  toolResults.length = 0
+  const toolResults: ToolResultPart[] = []
 
   const stream = getStream(messagesWithSystem(agentMessages, system))
 
@@ -464,7 +392,6 @@ export const loopAgentSteps = async (
     params,
     fingerprintId,
     fileContext,
-    toolResults,
     localAgentTemplates,
     userId,
     clientSessionId,
@@ -478,7 +405,6 @@ export const loopAgentSteps = async (
     params: Record<string, any> | undefined
     fingerprintId: string
     fileContext: ProjectFileContext
-    toolResults: ToolResultPart[]
     localAgentTemplates: Record<string, AgentTemplate>
     clearUserPromptMessagesAfterResponse?: boolean
 
@@ -526,13 +452,6 @@ export const loopAgentSteps = async (
       ...m,
       keepDuringTruncation: false,
     })),
-
-    toolResults.map((result) => {
-      return {
-        role: 'tool' as const,
-        content: result,
-      }
-    }),
 
     hasPrompt && [
       {

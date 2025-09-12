@@ -60,19 +60,7 @@ export const handleReadFiles = ((params: {
   }
 
   const readFilesResultsPromise = (async () => {
-    const { addedFiles, updatedFilePaths } = await getFileReadingUpdates(
-      ws,
-      messages,
-      {
-        requestedFiles: paths,
-        agentStepId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        repoId,
-      },
-    )
+    const addedFiles = await getFileReadingUpdates(ws, paths)
 
     return renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
   })()

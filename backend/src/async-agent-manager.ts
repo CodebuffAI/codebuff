@@ -192,7 +192,6 @@ export class AsyncAgentManager {
           fingerprintId: agent.fingerprintId,
           fileContext: agent.fileContext,
           localAgentTemplates,
-          toolResults: [],
           userId: agent.userId,
           clientSessionId: sessionId,
           onResponseChunk: () => {}, // Async agents don't stream to parent

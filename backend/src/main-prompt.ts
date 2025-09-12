@@ -187,7 +187,6 @@ export const mainPrompt = async (
     agentState: mainAgentState,
     fingerprintId,
     fileContext,
-    toolResults: [],
     userId,
     clientSessionId,
     onResponseChunk,

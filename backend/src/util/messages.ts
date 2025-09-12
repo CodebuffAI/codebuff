@@ -342,26 +342,6 @@ export function getPreviouslyReadFiles(messages: Message[]): {
         )
       }
     }
-
-    if (message.content.toolName === 'file_updates') {
-      try {
-        files.push(
-          ...(
-            message as CodebuffToolMessage<'file_updates'>
-          ).content.output[0].value.files.filter(
-            (
-              file,
-            ): file is typeof file & { contentOmittedForLength: undefined } =>
-              !('contentOmittedForLength' in file),
-          ),
-        )
-      } catch (error) {
-        logger.error(
-          { error: errorToObject(error), message },
-          'Error parsing find_files output from message',
-        )
-      }
-    }
   }
   return files
 }

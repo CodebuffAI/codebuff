@@ -7,7 +7,6 @@ import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
 import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
-import { fileUpdatesResultSchema } from './params/tool/file-updates'
 import { findFilesParams } from './params/tool/find-files'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
@@ -63,7 +62,7 @@ export const $toolParams = {
 }
 
 export const additionalToolResultSchemas = {
-  file_updates: fileUpdatesResultSchema,
+  // None for now!
 } satisfies Record<string, $ToolResults>
 type ResultOnlyToolName = keyof typeof additionalToolResultSchemas
 

@@ -527,40 +527,6 @@ describe('getPreviouslyReadFiles', () => {
     ])
   })
 
-  it('extracts files from file_updates tool messages', () => {
-    const messages: Message[] = [
-      {
-        role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'file_updates',
-          toolCallId: 'test-id',
-          output: [
-            {
-              type: 'json',
-              value: {
-                files: [
-                  {
-                    path: 'config/database.ts',
-                    content: 'export const dbConfig = {}',
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      } satisfies CodebuffToolMessage<'file_updates'>,
-    ]
-
-    const result = getPreviouslyReadFiles(messages)
-    expect(result).toEqual([
-      {
-        path: 'config/database.ts',
-        content: 'export const dbConfig = {}',
-      },
-    ])
-  })
-
   it('combines files from multiple tool messages', () => {
     const messages: Message[] = [
       {
@@ -605,34 +571,12 @@ describe('getPreviouslyReadFiles', () => {
         role: 'user',
         content: 'Some user message',
       },
-      {
-        role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'file_updates',
-          toolCallId: 'test-id-3',
-          output: [
-            {
-              type: 'json',
-              value: {
-                files: [
-                  {
-                    path: 'file3.ts',
-                    content: 'content 3',
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      } satisfies CodebuffToolMessage<'file_updates'>,
     ]
 
     const result = getPreviouslyReadFiles(messages)
     expect(result).toEqual([
       { path: 'file1.ts', content: 'content 1' },
       { path: 'file2.ts', content: 'content 2' },
-      { path: 'file3.ts', content: 'content 3' },
     ])
   })
 
