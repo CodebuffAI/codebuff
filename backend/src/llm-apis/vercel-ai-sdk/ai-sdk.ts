@@ -21,6 +21,7 @@ import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { logger } from '../../util/logger'
 import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
+import { systemPromptCache, responseCache } from '../prompt-cache'
 import { vertexFinetuned } from './vertex-finetuned'
 
 import type {
@@ -35,6 +36,93 @@ import type {
 } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
+
+// Cost optimization: Task-based parameter optimization
+interface TaskBasedParameters {
+  temperature: number
+  maxTokens: number
+}
+
+type TaskType = 'file-operations' | 'simple-query' | 'code-generation' | 'analysis' | 'creative' | 'complex-reasoning' | 'default'
+
+const getOptimalParametersByTask = (taskType: TaskType): TaskBasedParameters => {
+  const paramConfigs: Record<TaskType, TaskBasedParameters> = {
+    'file-operations': { temperature: 0.0, maxTokens: 1000 },      // Deterministic file ops
+    'simple-query': { temperature: 0.0, maxTokens: 500 },         // Quick factual responses  
+    'code-generation': { temperature: 0.1, maxTokens: 2000 },     // Consistent code output
+    'analysis': { temperature: 0.3, maxTokens: 1500 },            // Balanced analysis
+    'creative': { temperature: 0.8, maxTokens: 4000 },            // High creativity
+    'complex-reasoning': { temperature: 0.4, maxTokens: 3000 },   // Deep thinking
+    'default': { temperature: 0.3, maxTokens: 2000 }              // Balanced default
+  }
+  
+  return paramConfigs[taskType] || paramConfigs['default']
+}
+
+const detectTaskTypeFromMessages = (messages: Message[]): TaskType => {
+  const lastMessage = messages[messages.length - 1]
+  const content = typeof lastMessage?.content === 'string' 
+    ? lastMessage.content.toLowerCase() 
+    : JSON.stringify(lastMessage?.content || '').toLowerCase()
+  
+  // Tool-based detection
+  if (content.includes('write_file') || content.includes('str_replace') || content.includes('read_files')) {
+    return 'file-operations'
+  }
+  if (content.includes('run_terminal_command') || content.includes('browser_logs')) {
+    return 'file-operations'
+  }
+  if (content.includes('spawn_agents') || content.includes('think_deeply')) {
+    return 'complex-reasoning'
+  }
+  if (content.includes('code_search') || content.includes('create_plan')) {
+    return 'analysis'
+  }
+  
+  // Content-based detection
+  if (content.length < 100) {
+    return 'simple-query'
+  }
+  if (content.includes('write') && (content.includes('code') || content.includes('function') || content.includes('class'))) {
+    return 'code-generation'
+  }
+  if (content.includes('analyze') || content.includes('explain') || content.includes('review')) {
+    return 'analysis'
+  }
+  if (content.includes('creative') || content.includes('story') || content.includes('poem')) {
+    return 'creative'
+  }
+  if (content.includes('complex') || content.includes('architecture') || content.includes('design')) {
+    return 'complex-reasoning'
+  }
+  
+  return 'default'
+}
+
+// Cost optimization: Cache system prompts and common responses
+const isCacheableSystemPrompt = (messages: Message[]): boolean => {
+  // Cache system prompts (first message is usually system)
+  if (messages.length > 0 && messages[0].role === 'system') {
+    const content = typeof messages[0].content === 'string' 
+      ? messages[0].content 
+      : JSON.stringify(messages[0].content || '')
+    
+    // Cache if it's a system prompt > 500 chars (likely to be reused)
+    return content.length > 500
+  }
+  return false
+}
+
+const generateCacheKey = (messages: Message[], model: string, options: any): string => {
+  // Create cache key from messages + model + key parameters
+  const cacheableContent = {
+    messages: messages.slice(0, 2), // Only first 2 messages (system + first user)
+    model,
+    temperature: options.temperature,
+    maxTokens: options.maxTokens
+  }
+  return JSON.stringify(cacheableContent)
+}
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModel => {
@@ -100,8 +188,19 @@ export const promptAiSdkStream = async function* (
 
   let aiSDKModel = modelToAiSDKModel(options.model)
 
-  const response = streamText({
+  // Cost optimization: Apply task-based parameter optimization
+  const taskType = detectTaskTypeFromMessages(options.messages)
+  const optimalParams = getOptimalParametersByTask(taskType)
+  
+  // Only override if not explicitly set by caller
+  const finalOptions = {
     ...options,
+    temperature: options.temperature ?? optimalParams.temperature,
+    maxTokens: options.maxTokens ?? optimalParams.maxTokens,
+  }
+
+  const response = streamText({
+    ...finalOptions,
     model: aiSDKModel,
     maxRetries: options.maxRetries,
     messages: convertCbToModelMessages(options),
@@ -262,14 +361,49 @@ export const promptAiSdk = async function (
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
-  const response = await generateText({
+  // Cost optimization: Apply task-based parameter optimization
+  const taskType = detectTaskTypeFromMessages(options.messages)
+  const optimalParams = getOptimalParametersByTask(taskType)
+  
+  // Only override if not explicitly set by caller
+  const finalOptions = {
     ...options,
+    temperature: options.temperature ?? optimalParams.temperature,
+    maxTokens: options.maxTokens ?? optimalParams.maxTokens,
+  }
+
+  // Cost optimization: Check cache for similar requests  
+  const cacheKey = generateCacheKey(options.messages, options.model, finalOptions)
+  const cachedResponse = responseCache.get(cacheKey)
+  
+  if (cachedResponse && isCacheableSystemPrompt(options.messages)) {
+    logger.debug({ cacheKey: cacheKey.substring(0, 32) + '...' }, 'Cache hit for prompt')
+    
+    // Return cached response but still track for cost accounting
+    const creditsUsed = 0 // Cache hits are free!
+    if (options.onCostCalculated) {
+      await options.onCostCalculated(creditsUsed)
+    }
+    
+    return cachedResponse
+  }
+
+  const response = await generateText({
+    ...finalOptions,
     model: aiSDKModel,
     messages: convertCbToModelMessages(options),
   })
+  
   const content = response.text
+  
+  // Cache successful responses for cacheable system prompts
+  if (isCacheableSystemPrompt(options.messages) && content.length > 0) {
+    responseCache.set(cacheKey, content, 15 * 60 * 1000) // 15 min cache
+    logger.debug({ cacheKey: cacheKey.substring(0, 32) + '...' }, 'Cached prompt response')
+  }
+  
   const inputTokens = response.usage.inputTokens || 0
-  const outputTokens = response.usage.inputTokens || 0
+  const outputTokens = response.usage.outputTokens || 0
 
   const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
@@ -334,8 +468,19 @@ export const promptAiSdkStructured = async function <T>(options: {
   const startTime = Date.now()
   let aiSDKModel = modelToAiSDKModel(options.model)
 
-  const responsePromise = generateObject<z.ZodType<T>, 'object'>({
+  // Cost optimization: Apply task-based parameter optimization
+  const taskType = detectTaskTypeFromMessages(options.messages)
+  const optimalParams = getOptimalParametersByTask(taskType)
+  
+  // Only override if not explicitly set by caller
+  const finalOptions = {
     ...options,
+    temperature: options.temperature ?? optimalParams.temperature,
+    maxTokens: options.maxTokens ?? optimalParams.maxTokens,
+  }
+
+  const responsePromise = generateObject<z.ZodType<T>, 'object'>({
+    ...finalOptions,
     model: aiSDKModel,
     output: 'object',
     messages: convertCbToModelMessages(options),
