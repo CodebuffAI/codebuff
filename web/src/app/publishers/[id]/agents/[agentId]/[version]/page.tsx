@@ -179,10 +179,13 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                     className="p-1 text-muted-foreground/60 hover:text-muted-foreground"
                   />
                 </div>
+                {/*
+                Hide download button for now. (It doesn't do anything)
                 <Button variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
+                */}
               </div>
             </div>
           </CardHeader>
