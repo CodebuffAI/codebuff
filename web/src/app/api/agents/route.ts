@@ -5,6 +5,10 @@ import { NextResponse } from 'next/server'
 
 import { logger } from '@/util/logger'
 
+// Force dynamic rendering to ensure fresh metrics data
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET() {
   try {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
