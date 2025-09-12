@@ -118,8 +118,8 @@ const generateCacheKey = (messages: Message[], model: string, options: any): str
   const cacheableContent = {
     messages: messages.slice(0, 2), // Only first 2 messages (system + first user)
     model,
-    temperature: options.temperature,
-    maxTokens: options.maxTokens
+    temperature: (options as any).temperature,
+    maxTokens: (options as any).maxTokens
   }
   return JSON.stringify(cacheableContent)
 }
@@ -195,8 +195,8 @@ export const promptAiSdkStream = async function* (
   // Only override if not explicitly set by caller
   const finalOptions = {
     ...options,
-    temperature: options.temperature ?? optimalParams.temperature,
-    maxTokens: options.maxTokens ?? optimalParams.maxTokens,
+    temperature: (options as any).temperature ?? optimalParams.temperature,
+    maxTokens: (options as any).maxTokens ?? optimalParams.maxTokens,
   }
 
   const response = streamText({
@@ -368,8 +368,8 @@ export const promptAiSdk = async function (
   // Only override if not explicitly set by caller
   const finalOptions = {
     ...options,
-    temperature: options.temperature ?? optimalParams.temperature,
-    maxTokens: options.maxTokens ?? optimalParams.maxTokens,
+    temperature: (options as any).temperature ?? optimalParams.temperature,
+    maxTokens: (options as any).maxTokens ?? optimalParams.maxTokens,
   }
 
   // Cost optimization: Check cache for similar requests  
@@ -475,8 +475,8 @@ export const promptAiSdkStructured = async function <T>(options: {
   // Only override if not explicitly set by caller
   const finalOptions = {
     ...options,
-    temperature: options.temperature ?? optimalParams.temperature,
-    maxTokens: options.maxTokens ?? optimalParams.maxTokens,
+    temperature: (options as any).temperature ?? optimalParams.temperature,
+    maxTokens: (options as any).maxTokens ?? optimalParams.maxTokens,
   }
 
   const responsePromise = generateObject<z.ZodType<T>, 'object'>({
