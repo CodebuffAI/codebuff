@@ -52,12 +52,16 @@ export const handleStrReplace = ((params: {
     fileProcessingState.promisesByPath[path] = []
   }
 
-  const latestContentPromise = Promise.all(
-    fileProcessingState.promisesByPath[path],
-  ).then((results) => {
-    const previousEdit = results.findLast((r) => 'content' in r)
-    return previousEdit ? previousEdit.content : requestOptionalFile(ws, path)
-  })
+  const previousPromises = fileProcessingState.promisesByPath[path]
+  const previousEdit = previousPromises[previousPromises.length - 1]
+
+  const latestContentPromise = previousEdit
+    ? previousEdit.then((maybeResult) =>
+        maybeResult && 'content' in maybeResult
+          ? maybeResult.content
+          : requestOptionalFile(ws, path),
+      )
+    : requestOptionalFile(ws, path)
 
   const newPromise = processStrReplace(path, replacements, latestContentPromise)
     .catch((error: any) => {
