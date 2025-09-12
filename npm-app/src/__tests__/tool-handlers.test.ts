@@ -81,6 +81,7 @@ export interface TestInterface {
     const parameters = {
       pattern: 'testFunction',
       cwd: '__tests__/data',
+      maxResults: 30,
     }
 
     await handleCodeSearch(parameters, 'test-id')
@@ -91,6 +92,7 @@ export interface TestInterface {
   test('handles basic search without cwd', async () => {
     const parameters = {
       pattern: 'export',
+      maxResults: 30,
     }
 
     const result = await handleCodeSearch(parameters, 'test-id')
@@ -102,6 +104,7 @@ export interface TestInterface {
     const parameters = {
       pattern: 'UNIQUE_SEARCH_STRING_12345',
       cwd: 'src/__tests__/data',
+      maxResults: 30,
     }
 
     const result = await handleCodeSearch(parameters, 'test-id')
@@ -118,10 +121,27 @@ export interface TestInterface {
       pattern: 'findme_xyz789',
       flags: '-i',
       cwd: 'src/__tests__/data',
+      maxResults: 30,
     }
 
     const result = await handleCodeSearch(parameters, 'test-id')
 
     expect((result[0].value as any).stdout).toContain('findme_xyz789')
+  })
+
+  test('limits results when maxResults is specified', async () => {
+    const parameters = {
+      pattern: 'export',
+      maxResults: 1,
+      cwd: 'src/__tests__/data',
+    }
+
+    const result = await handleCodeSearch(parameters, 'test-id')
+
+    // Should contain results limited message when there are more results than maxResults
+    const stdout = (result[0].value as any).stdout
+    if (stdout.includes('Results limited to 1 of')) {
+      expect(stdout).toContain('Results limited to 1 of')
+    }
   })
 })

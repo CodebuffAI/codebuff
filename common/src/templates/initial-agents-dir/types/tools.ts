@@ -1,5 +1,3 @@
-import type { Message } from './util-types'
-
 /**
  * Union type of all available tool names
  */
@@ -59,6 +57,8 @@ export interface CodeSearchParams {
   flags?: string
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
+  /** Maximum number of results to return. Defaults to 30. */
+  maxResults?: number
 }
 
 /**
@@ -78,11 +78,11 @@ export interface FindFilesParams {
  * Fetch up-to-date documentation for libraries and frameworks using Context7 API.
  */
 export interface ReadDocsParams {
-  /** The exact library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation, not a search query. */
+  /** The library or framework name (e.g., "Next.js", "MongoDB", "React"). Use the official name as it appears in documentation if possible. Only public libraries available in Context7's database are supported, so small or private libraries may not be available. */
   libraryTitle: string
-  /** Optional specific topic to focus on (e.g., "routing", "hooks", "authentication") */
-  topic?: string
-  /** Optional maximum number of tokens to return. Defaults to 10000. Values less than 10000 are automatically increased to 10000. */
+  /** Specific topic to focus on (e.g., "routing", "hooks", "authentication") */
+  topic: string
+  /** Optional maximum number of tokens to return. Defaults to 20000. Values less than 10000 are automatically increased to 10000. */
   max_tokens?: number
 }
 
@@ -120,7 +120,7 @@ export interface RunTerminalCommandParams {
  * Set the conversation history to the provided messages.
  */
 export interface SetMessagesParams {
-  messages: Message[]
+  messages: any
 }
 
 /**
@@ -129,7 +129,7 @@ export interface SetMessagesParams {
 export interface SetOutputParams {}
 
 /**
- * Spawn multiple agents and send a prompt to each of them.
+ * Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.
  */
 export interface SpawnAgentsParams {
   agents: {
