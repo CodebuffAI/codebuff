@@ -22,7 +22,7 @@ export function printSubagentHeader(event: PrintModeEvent) {
   )
   const dashes = '-'.repeat(dashesLength)
 
-  const shouldResumeSpinner = Spinner.get().stop()
+  const stoppedSpinner = Spinner.get().stop()
   if (event.type === 'subagent_start') {
     console.log(`\n\n${dashes} ${fullAgentName} ${dashes}\n`)
   } else {
@@ -39,7 +39,7 @@ export function printSubagentHeader(event: PrintModeEvent) {
     )
     console.log(``)
   }
-  if (shouldResumeSpinner) {
-    return Spinner.get().start(null)
+  if (stoppedSpinner && stoppedSpinner.type === 'text') {
+    return Spinner.get().start(stoppedSpinner.text)
   }
 }

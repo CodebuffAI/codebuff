@@ -7,9 +7,9 @@ import { getPartialJsonDelta } from '@codebuff/common/util/partial-json-delta'
 import { Saxy } from '@codebuff/common/util/saxy'
 
 import { defaultToolCallRenderer } from './tool-renderers'
+import { MarkdownStreamRenderer } from '../display/markdown-renderer'
 
 import type { ToolCallRenderer } from './tool-renderers'
-import { MarkdownStreamRenderer } from '../display/markdown-renderer'
 
 // Track active renderer instances with reference counting
 let activeRendererCount = 0
