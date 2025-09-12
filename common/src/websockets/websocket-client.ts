@@ -10,6 +10,7 @@ import type {
 // mqp: useful for debugging
 const VERBOSE_LOGGING = false
 
+// Timeout for websocket messages waiting for acknowledgment (2 minutes)
 const TIMEOUT_MS = 120_000
 
 const RECONNECT_WAIT_MS = 5_000
