@@ -134,7 +134,7 @@ jobs:
       new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
       artifact-name: updated-staging-package
       checkout-ref: ${{ github.event.pull_request.head.sha }}
-      env-overrides: '{"NEXT_PUBLIC_CB_ENVIRONMENT": "prod", "NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "backend-pr-221-we0m.onrender.com"}'
+      env-overrides: '{"NEXT_PUBLIC_CB_ENVIRONMENT": "prod", "NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "backend-pr-285-vwm3.onrender.com"}'
     secrets: inherit
 
   # Create GitHub prerelease with all binaries
