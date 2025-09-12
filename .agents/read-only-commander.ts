@@ -1,8 +1,8 @@
-import { publisher } from '../constants'
+import { publisher } from './constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
+} from './types/secret-agent-definition'
 
 const readOnlyCommander: SecretAgentDefinition = {
   id: 'read-only-commander',
@@ -15,7 +15,7 @@ const readOnlyCommander: SecretAgentDefinition = {
   },
   displayName: 'ReadOnly Commander',
   spawnerPrompt:
-    'Can run quick read-only terminal commands and report back on the results. Has a basic understanding of the codebase.',
+    'Can run quick read-only terminal commands and report back on the results. Has a decent understanding of the codebase.',
   inputSchema: {
     prompt: {
       type: 'string',
