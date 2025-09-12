@@ -257,7 +257,7 @@ const AgentStorePage = () => {
             <div className="flex items-end gap-2">
               {agent.last_used && (
                 <span
-                  className="text-xs text-muted-foreground shrink-0"
+                  className="text-xs text-muted-foreground shrink-0 hidden"
                   title={new Date(agent.last_used).toLocaleString()}
                 >
                   {formatRelativeTime(agent.last_used)}
@@ -297,7 +297,7 @@ const AgentStorePage = () => {
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">
-                Weekly spent
+                Weekly spend
               </span>
             </div>
             <div className="flex flex-col items-center gap-1">
