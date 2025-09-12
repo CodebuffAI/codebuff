@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import {
   Search,
@@ -11,12 +12,15 @@ import {
   DollarSign,
   Play,
   Star,
+  Plus,
+  User,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -27,6 +31,7 @@ import {
 import { AnimatedElement } from '@/components/ui/landing/animated-element'
 import { formatRelativeTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
+import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
 interface AgentData {
   id: string
@@ -72,6 +77,7 @@ const EDITORS_CHOICE_AGENTS = [
 const AgentStorePage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('cost')
+  const { data: session } = useSession()
 
   // Fetch agents from the API
   const { data: agents = [], isLoading } = useQuery<AgentData[]>({
@@ -83,6 +89,19 @@ const AgentStorePage = () => {
       }
       return await response.json()
     },
+  })
+
+  // Fetch user's publishers if signed in
+  const { data: publishers = [] } = useQuery<PublisherProfileResponse[]>({
+    queryKey: ['user-publishers'],
+    queryFn: async () => {
+      const response = await fetch('/api/publishers')
+      if (!response.ok) {
+        throw new Error('Failed to load publishers')
+      }
+      return response.json()
+    },
+    enabled: !!session?.user?.id,
   })
 
   const editorsChoice = useMemo(() => {
@@ -131,6 +150,35 @@ const AgentStorePage = () => {
       return matchesSearch
     })
   }, [editorsChoice, searchQuery])
+
+  // Publisher button logic
+  const renderPublisherButton = () => {
+    if (!session) {
+      return null // Don't show anything if signed out
+    }
+
+    if (publishers.length === 0) {
+      // User is signed in but has no publishers - show create button
+      return (
+        <Link href="/publishers/new">
+          <Button variant="outline" className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Create Publisher
+          </Button>
+        </Link>
+      )
+    } else {
+      // User has publishers - link to their publishers page
+      return (
+        <Link href="/publishers">
+          <Button variant="outline" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            My Publishers
+          </Button>
+        </Link>
+      )
+    }
+  }
 
   const formatCurrency = (amount?: number) => {
     if (!amount) return '$0.00'
@@ -309,7 +357,13 @@ const AgentStorePage = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <AnimatedElement type="fade" className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4 text-white">Agent Store</h1>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex-1" />
+            <h1 className="text-4xl font-bold text-white">Agent Store</h1>
+            <div className="flex-1 flex justify-end">
+              {renderPublisherButton()}
+            </div>
+          </div>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Browse all published AI agents. Run, compose, or fork them.
           </p>
