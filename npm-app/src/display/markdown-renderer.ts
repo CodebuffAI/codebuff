@@ -440,15 +440,16 @@ export class MarkdownStreamRenderer {
 
     this.isShowingIndicator = false
 
-    // Clear the indicator line completely and move cursor to beginning of line
-    // Use enough spaces to clear the longest possible indicator (5 chars + padding)
-    process.stderr.write('\r' + ' '.repeat(10) + '\r')
-
-    // Clear timer
+    // Clear timer first to prevent race conditions
     if (this.loadingIndicatorTimer) {
       clearInterval(this.loadingIndicatorTimer)
       this.loadingIndicatorTimer = null
     }
+
+    // Clear the indicator line completely and move cursor to beginning of line
+    // Use enough spaces to clear the longest possible indicator + padding
+    // Format is ' ●●● ' so we need at least 5 chars + some buffer
+    process.stderr.write('\r' + ' '.repeat(20) + '\r')
   }
 
   private processConservativeMode(text: string, outs: string[]) {
