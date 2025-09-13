@@ -8,10 +8,11 @@
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
-  "types": "./dist/esm/sdk/src/index.d.ts",
+  "types": "./dist/esm/index.d.ts",
+  "typings": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/esm/sdk/src/index.d.ts",
+      "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js",
       "default": "./dist/esm/index.js"

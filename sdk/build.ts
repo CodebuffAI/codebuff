@@ -73,7 +73,25 @@ async function build() {
   console.log('📂 Copying WASM files for tree-sitter...')
   await copyWasmFiles()
 
+  console.log('📝 Creating colocated declaration files...')
+  await createColocatedDeclarations()
+
   console.log('✅ Build complete!')
+}
+
+/**
+ * Create colocated declaration files for better TypeScript compatibility
+ */
+async function createColocatedDeclarations() {
+  // Create colocated ESM declaration file
+  const esmDeclaration = 'export * from "./sdk/src/index";\n'
+  await Bun.write('dist/esm/index.d.ts', esmDeclaration)
+  console.log('  ✓ Created dist/esm/index.d.ts')
+
+  // Create colocated CJS declaration file for extra compatibility
+  const cjsDeclaration = 'export * from "../esm/index";\n'
+  await Bun.write('dist/cjs/index.d.ts', cjsDeclaration)
+  console.log('  ✓ Created dist/cjs/index.d.ts')
 }
 
 /**
