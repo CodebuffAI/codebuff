@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { JsonViewer } from '@/components/agent/json-viewer'
 import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
 import { cn } from '@/lib/utils'
@@ -146,9 +147,17 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                     v{params.version}
                   </Badge>
                 </div>
-                <p className="text-muted-foreground mb-2">
-                  by @{publisherData.id}
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={publisherData.avatar_url || undefined} />
+                    <AvatarFallback className="text-xs">
+                      {publisherData.name[0]?.toUpperCase() || publisherData.id[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-muted-foreground">
+                    @{publisherData.id}
+                  </span>
+                </div>
                 {agentData.description && (
                   <p className="text-sm mb-4">{agentData.description}</p>
                 )}

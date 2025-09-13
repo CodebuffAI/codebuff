@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ interface AgentData {
     id: string
     name: string
     verified: boolean
+    avatar_url?: string | null
   }
   version: string
   created_at: string
@@ -242,6 +244,12 @@ const AgentStorePage = () => {
           </div>
           <div className="flex justify-between gap-2">
             <div className="flex items-center gap-2">
+              <Avatar className="h-5 w-5 shrink-0">
+                <AvatarImage src={agent.publisher.avatar_url || undefined} />
+                <AvatarFallback className="text-xs">
+                  {agent.publisher.name[0]?.toUpperCase() || agent.publisher.id[0]?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
               <span className="text-sm text-muted-foreground truncate">
                 @{agent.publisher.id}
               </span>

@@ -24,6 +24,7 @@ export async function GET() {
           id: schema.publisher.id,
           name: schema.publisher.name,
           verified: schema.publisher.verified,
+          avatar_url: schema.publisher.avatar_url,
         },
       })
       .from(schema.agentConfig)
