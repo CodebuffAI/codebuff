@@ -2,6 +2,10 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.1.30]
+
+Types updates.
+
 ## [0.1.20]
 
 - You can now retrieve the output of an agent in `result.output` if result is the output of an awaited `client.run(...)` call.
