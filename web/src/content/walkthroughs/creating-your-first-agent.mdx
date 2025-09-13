@@ -9,6 +9,35 @@ order: 1
 
 This walkthrough will guide you through creating, testing, and publishing your first custom agent. We'll build a simple code reviewer agent from scratch.
 
+## Video Walkthrough
+
+<div
+  style={{
+    position: 'relative',
+    paddingBottom: '56.25%',
+    height: 0,
+    overflow: 'hidden',
+    maxWidth: '100%',
+  }}
+>
+  <iframe
+    src="https://www.youtube.com/embed/mR2OOHv5p_4"
+    title="Creating Your First Codebuff Agent"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen
+    style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+    }}
+  ></iframe>
+</div>
+
+_Follow along with this video or continue reading below for the step-by-step guide._
+
 ## Step 1: Install and Initialize
 
 First, install Codebuff globally:
@@ -60,6 +89,7 @@ const definition: AgentDefinition = {
   ],
 
   // Other agents this agent can spawn
+  // Browse https://www.codebuff.com/store to see available agents
   spawnableAgents: ['codebuff/file-explorer@0.0.2'],
 
   // When should other agents spawn this one?
@@ -195,9 +225,10 @@ const definition: AgentDefinition = {
   ],
 
   // Use fully qualified agent names with publisher and version
+  // Browse https://www.codebuff.com/store to see available agents
   spawnableAgents: [
-    'codebuff/file-explorer@0.0.1',
-    'codebuff/deep-thinker@0.0.4',
+    'codebuff/file-explorer@0.0.4',
+    'codebuff/deep-thinker@0.0.3',
   ],
 
   instructionsPrompt: `Review code changes comprehensively:
@@ -316,6 +347,35 @@ The `handleSteps` generator function gives you **precise control** over your age
 - **Creative tasks** that benefit from LLM flexibility
 - **Quick prototypes** that don't need complex logic
 
+## Spawnable Agents
+
+Your agents can spawn other agents to help with specific tasks. This creates powerful workflows where specialized agents collaborate.
+
+### Agent Store vs Local Agents
+
+**Agent Store Agents (Use Fully Qualified IDs):**
+
+When spawning agents from the [Codebuff Agent Store](https://www.codebuff.com/store), always use the full `publisher/agent-name@version` format:
+
+```typescript
+spawnableAgents: [
+  'codebuff/file-explorer@0.0.4', // ✅ Correct
+  'john-smith/security-scanner@2.1.4', // ✅ Correct
+]
+```
+
+**Local Agents (Use Simple IDs):**
+
+When spawning agents defined in your own `.agents` directory, use just the agent ID:
+
+```typescript
+spawnableAgents: [
+  'my-custom-reviewer', // ✅ Correct for local agent
+  'database-migrator', // ✅ Correct for local agent
+  'codebuff/file-explorer@0.0.4', // ✅ Also correct: you can mix local and published agents.
+]
+```
+
 ---
 
 🎉 **Congratulations!** You've successfully:
@@ -328,3 +388,7 @@ The `handleSteps` generator function gives you **precise control** over your age
 - ✅ Explored advanced programmatic control with `handleSteps`
 
 You're now ready to build sophisticated agents and contribute to the Codebuff ecosystem!
+
+```
+
+```
