@@ -6,13 +6,14 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { BackButton } from '@/components/ui/back-button'
 import { JsonViewer } from '@/components/agent/json-viewer'
 import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
 import { cn } from '@/lib/utils'
 import { AgentUsageMetrics } from './agent-usage-metrics'
+import { Button } from '@/components/ui/button'
 
 interface AgentDetailPageProps {
   params: {
@@ -125,15 +126,9 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
 
   return (
     <div className="container mx-auto py-6 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Navigation */}
+      <div className="max-w-4xl mx-auto">        {/* Navigation */}
         <div className="mb-6">
-          <Link href={`/publishers/${params.id}`}>
-            <Button variant="ghost" className="mb-4">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to {publisherData.name}
-            </Button>
-          </Link>
+          <BackButton />
         </div>
 
         {/* Agent Header */}
@@ -148,11 +143,17 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                   </Badge>
                 </div>
                 <div className="mb-2">
-                  <Link href={`/publishers/${publisherData.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                  <Link
+                    href={`/publishers/${publisherData.id}`}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
                     <Avatar className="h-6 w-6">
-                      <AvatarImage src={publisherData.avatar_url || undefined} />
+                      <AvatarImage
+                        src={publisherData.avatar_url || undefined}
+                      />
                       <AvatarFallback className="text-xs">
-                        {publisherData.name[0]?.toUpperCase() || publisherData.id[0]?.toUpperCase()}
+                        {publisherData.name[0]?.toUpperCase() ||
+                          publisherData.id[0]?.toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <span className="text-muted-foreground">
