@@ -785,6 +785,9 @@ export class Client {
         files,
         requestId,
       })
+        if (this.userInputId) {
+          Spinner.get().start('Reading through files...')
+        }
     })
 
     // Handle backend-initiated tool call requests
