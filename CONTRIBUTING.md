@@ -50,7 +50,7 @@ Before you begin, you'll need to install a few tools:
    Load all environment variables at once:
    ```bash
    infisical secrets set --file .env.example
-   infisical secrets set DATABASE_URL=postgresql://postgres:secretpassword_local@localhost:5432/codebuff
+   infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
    ```
 
 5. **Configure environment**:
@@ -185,6 +185,12 @@ Level up the web interface in `web/` with better agent management, project templ
 - **direnv problems?** Make sure it's hooked into your shell, run `direnv allow`, and restart your terminal
 - **Script errors?** Double-check you're using bun for all commands
 - **Infisical issues?** See our [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for step-by-step instructions
+- **Database connection errors?** If you see `password authentication failed for user "postgres"` errors:
+  1. Ensure DATABASE_URL uses the correct credentials: `postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local`
+  2. Update both your local `.env` file and Infisical secret: `infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local`
+  3. Run the database migration: `infisical run -- bun run db:migrate`
+  4. Restart your development services
+- **Empty Agent Store in dev mode?** This is expected behavior - agents from `.agents/` directory need to be published to the database to appear in the marketplace
 
 **Questions?** Jump into our [Discord community](https://codebuff.com/discord) - we're friendly and always happy to help!
 
