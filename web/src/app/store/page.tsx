@@ -70,10 +70,10 @@ interface AgentData {
 const EDITORS_CHOICE_AGENTS = [
   'base',
   'base-lite',
-  'base2',
   'reviewer',
   'deep-thinker',
   'deep-code-reviewer',
+  'codebase-commands-explorer',
 ]
 
 const AgentStorePage = () => {
