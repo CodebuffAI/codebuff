@@ -52,7 +52,7 @@ export const handleSetOutput = ((params: {
       try {
         agentTemplate.outputSchema.parse(output)
       } catch (error) {
-        const errorMessage = `Output validation failed for agent ${agentState.agentType}: ${error}`
+        const errorMessage = `Output validation error: Output failed to match the output schema and was ignored. You might want to try again! Issues: ${error}`
         logger.error(
           {
             output,
@@ -62,7 +62,7 @@ export const handleSetOutput = ((params: {
           },
           'set_output validation error',
         )
-        throw new Error(errorMessage)
+        return errorMessage
       }
     }
 

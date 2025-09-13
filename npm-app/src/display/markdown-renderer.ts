@@ -1,9 +1,10 @@
+import { highlight } from 'cli-highlight'
 import MarkdownIt from 'markdown-it'
 // @ts-ignore: Type definitions not available for markdown-it-terminal
 import terminal from 'markdown-it-terminal'
-import { highlight } from 'cli-highlight'
-import { gray } from 'picocolors'
 import wrapAnsi from 'wrap-ansi'
+
+import { Spinner } from '../utils/spinner'
 
 export type MarkdownStreamRendererOptions = {
   width?: number
@@ -39,7 +40,6 @@ export class MarkdownStreamRenderer {
   private width: number
   private isTTY: boolean
   private syntaxHighlight: boolean
-  private maxBufferBytes: number
   private streamingMode: 'smart' | 'conservative'
   private md: MarkdownIt
 
@@ -48,33 +48,14 @@ export class MarkdownStreamRenderer {
   private lookaheadBuffer = ''
   private consumedIndex = 0
   private sourceBuffer = ''
-  private lastFlushTime = Date.now()
 
   // Loading indicator state
-  private loadingIndicatorTimer: NodeJS.Timeout | null = null
-  private isShowingIndicator = false
-  private indicatorStartTime = 0
-  private indicatorFrame = 0
   private resizeHandler?: () => void
-  // Three dots expanding and contracting animation
-  private readonly indicatorFrames = [
-    '···',
-    '•··',
-    '●•·',
-    '●●•',
-    '●●●',
-    '●●•',
-    '●•·',
-    '•··',
-  ]
-  private readonly indicatorThresholdMs = 50
-  private readonly indicatorUpdateMs = 150
 
   constructor(opts: MarkdownStreamRendererOptions = {}) {
     this.width = opts.width ?? (process.stdout.columns || 80)
     this.isTTY = opts.isTTY ?? process.stdout.isTTY
     this.syntaxHighlight = opts.syntaxHighlight ?? true
-    this.maxBufferBytes = (opts.maxBufferKB ?? 64) * 1024
     this.streamingMode = opts.streamingMode ?? 'smart'
 
     // Initialize markdown-it with terminal renderer
@@ -170,8 +151,7 @@ export class MarkdownStreamRenderer {
     // Check if we should force flush due to age or size
     this.checkForceFlush(outs)
 
-    // Update loading indicator
-    this.updateLoadingIndicator()
+    Spinner.get().start(null, true)
   }
 
   private processLine(
@@ -341,7 +321,7 @@ export class MarkdownStreamRenderer {
     if (!this.currentBlock) return
 
     // Hide loading indicator if showing
-    this.hideLoadingIndicator()
+    Spinner.get().stop()
 
     // Render the block
     const rendered = this.render(this.currentBlock.buffer)
@@ -354,7 +334,6 @@ export class MarkdownStreamRenderer {
 
     // Reset block state
     this.currentBlock = null
-    this.lastFlushTime = Date.now()
   }
 
   private checkForceFlush(outs: string[]) {
@@ -373,6 +352,9 @@ export class MarkdownStreamRenderer {
       (age > 1000 && this.currentBlock.type === 'list') // Lists get extra time to accumulate
 
     if (shouldForceFlush) {
+      // Hide indicator since we flushed something
+      Spinner.get().stop()
+
       // Try to find a soft boundary for force flush
       const buffer = this.currentBlock.buffer
       const sentenceEnd = buffer.lastIndexOf('. ')
@@ -387,69 +369,8 @@ export class MarkdownStreamRenderer {
         const rendered = this.render(toFlush)
         outs.push(rendered)
         this.consumedIndex += toFlush.length
-        this.lastFlushTime = now
-
-        // Hide indicator since we flushed something
-        this.hideLoadingIndicator()
       }
     }
-  }
-
-  private updateLoadingIndicator() {
-    if (!this.currentBlock || !this.isTTY) return
-
-    const now = Date.now()
-    const age = now - this.currentBlock.startTime
-
-    // Show indicator if buffering for too long
-    if (age > this.indicatorThresholdMs && !this.isShowingIndicator) {
-      this.showLoadingIndicator()
-    }
-  }
-
-  private showLoadingIndicator() {
-    if (this.isShowingIndicator || !this.isTTY) return
-
-    this.isShowingIndicator = true
-    this.indicatorStartTime = Date.now()
-    this.indicatorFrame = 0
-
-    // Write initial indicator
-    this.writeIndicator()
-
-    // Start update timer
-    this.loadingIndicatorTimer = setInterval(() => {
-      this.indicatorFrame =
-        (this.indicatorFrame + 1) % this.indicatorFrames.length
-      this.writeIndicator()
-    }, this.indicatorUpdateMs)
-  }
-
-  private writeIndicator() {
-    if (!this.isShowingIndicator) return
-
-    const dot = this.indicatorFrames[this.indicatorFrame]
-    const message = gray(` ${dot} `)
-
-    // Write to stderr to avoid interfering with stdout
-    process.stderr.write(`\r${message}`)
-  }
-
-  private hideLoadingIndicator() {
-    if (!this.isShowingIndicator) return
-
-    this.isShowingIndicator = false
-
-    // Clear timer first to prevent race conditions
-    if (this.loadingIndicatorTimer) {
-      clearInterval(this.loadingIndicatorTimer)
-      this.loadingIndicatorTimer = null
-    }
-
-    // Clear the indicator line completely and move cursor to beginning of line
-    // Use enough spaces to clear the longest possible indicator + padding
-    // Format is ' ●●● ' so we need at least 5 chars + some buffer
-    process.stderr.write('\r' + ' '.repeat(20) + '\r')
   }
 
   private processConservativeMode(text: string, outs: string[]) {
@@ -472,7 +393,7 @@ export class MarkdownStreamRenderer {
 
   end(): string | null {
     // Hide any loading indicator
-    this.hideLoadingIndicator()
+    Spinner.get().stop()
 
     const outputs: string[] = []
 
@@ -617,7 +538,7 @@ export class MarkdownStreamRenderer {
           })
         }
 
-        const bufferLine = `${bgGray}${padLeft}${' '.repeat(wrapWidth)}${padRight}${reset}`
+        const bufferLine = `${bgGray}\`\`\`${padLeft}${' '.repeat(wrapWidth - 3)}${padRight}${reset}`
         const backgroundCode = [
           bufferLine,
           ...wrappedLines,

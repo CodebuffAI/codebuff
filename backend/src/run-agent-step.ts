@@ -366,6 +366,7 @@ export const runAgentStep = async (
       shouldEndTurn,
       duration: Date.now() - startTime,
       fullResponse,
+      fullResponseChunks,
       finalMessageHistoryWithToolResults: agentState.messageHistory,
       toolCalls,
       toolResults,

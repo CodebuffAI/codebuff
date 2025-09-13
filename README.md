@@ -174,3 +174,7 @@ Some ways you can help:
 **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
 
 **Support**: [support@codebuff.com](mailto:support@codebuff.com)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=CodebuffAI/codebuff&type=Date)](https://www.star-history.com/#CodebuffAI/codebuff&Date)

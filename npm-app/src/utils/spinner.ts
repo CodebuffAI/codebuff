@@ -1,12 +1,26 @@
 import * as readline from 'readline'
 
-import { green } from 'picocolors'
+import { gray, green } from 'picocolors'
 
 import { createTimeoutDetector } from './rage-detector'
 import { HIDE_CURSOR_ALT, SHOW_CURSOR_ALT } from './terminal'
 import { getPrevious, setPrevious } from '../display/squash-newlines'
 
-const chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const textFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const textlessFrames = ['···', '•··', '●•·', '●●•', '●●●', '●●•', '●•·', '•··']
+function getFrame(
+  textless: boolean,
+  frameNumber: number,
+  text: string,
+): string {
+  const frames = textless ? textlessFrames : textFrames
+  const index = frameNumber % frames.length
+  const frame = frames[index]
+  if (textless) {
+    return gray(` ${frame} `)
+  }
+  return green(`${frame} ${text}`)
+}
 
 export class Spinner {
   private static instance: Spinner | null = null
@@ -17,6 +31,7 @@ export class Spinner {
   })
   private previous: string | null = null
   private text: string = 'Thinking'
+  private textless: boolean = false
 
   private constructor() {}
 
@@ -31,11 +46,13 @@ export class Spinner {
    * Start the spinner with the given text.
    *
    * @param text The text to display in the spinner. If this is `null`, the spinner will resume with the previous text.
+   * @param textless Whether to use textless spinner frames.
    */
-  start(text: string | null): void {
+  start(text: string | null, textless: boolean = false): void {
     if (text !== null) {
       this.text = text
     }
+    this.textless = textless
     if (this.loadingInterval) {
       return
     }
@@ -49,8 +66,8 @@ export class Spinner {
     // Hide cursor while spinner is active
     process.stdout.write(HIDE_CURSOR_ALT)
     this.loadingInterval = setInterval(() => {
-      this.rewriteLine(green(`${chars[i]} ${this.text}`))
-      i = (i + 1) % chars.length
+      this.rewriteLine(getFrame(this.textless, i, this.text))
+      i++
     }, 100)
   }
 
@@ -63,12 +80,12 @@ export class Spinner {
    *
    * @returns `true` if the spinner was active before calling this method, `false` otherwise.
    */
-  stop(): boolean {
+  stop(): { type: 'text'; text: string } | { type: 'textless' } | null {
     // Clear hang detection
     this.hangDetector.stop()
 
     if (!this.loadingInterval) {
-      return false
+      return null
     }
 
     clearInterval(this.loadingInterval)
@@ -80,7 +97,9 @@ export class Spinner {
       setPrevious(this.previous)
     }
     this.previous = null
-    return true
+    return this.textless
+      ? { type: 'textless' }
+      : { type: 'text', text: this.text }
   }
 
   restoreCursor() {

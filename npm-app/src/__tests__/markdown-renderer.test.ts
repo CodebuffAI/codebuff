@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+
 import { MarkdownStreamRenderer } from '../display/markdown-renderer'
 
 describe('MarkdownStreamRenderer', () => {
@@ -15,7 +16,7 @@ describe('MarkdownStreamRenderer', () => {
 
       // Should have sequential numbering
       expect(output).toContain('1. First item')
-      expect(output).toContain('2. Second item') 
+      expect(output).toContain('2. Second item')
       // Note: Due to streaming behavior, third item might sometimes be numbered as 1
       // This is expected behavior in the current implementation
       expect(output).toMatch(/[13]\. Third item/)
@@ -38,7 +39,7 @@ describe('MarkdownStreamRenderer', () => {
       expect(output).toContain('2. Second item')
       // Third item might be numbered as 1 due to streaming - this is acceptable
       expect(output).toMatch(/[13]\. Third item/)
-      
+
       // Should have some proper sequential numbering (1, 2 at minimum)
       expect(output).toContain('1. ')
       expect(output).toContain('2. ')
@@ -46,18 +47,18 @@ describe('MarkdownStreamRenderer', () => {
 
     it('should handle streaming list items', async () => {
       const renderer = new MarkdownStreamRenderer({ isTTY: true })
-      
+
       // Simulate streaming input
       let results1 = renderer.write('1. First item\n\n2. Second item\n\n')
-      
+
       // Wait a bit to simulate real streaming
-      await new Promise(resolve => setTimeout(resolve, 10))
-      
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
       let results2 = renderer.write('3. Third item\n\n4. Fourth item')
       const final = renderer.end()
-      
+
       const output = [...results1, ...results2, final].filter(Boolean).join('')
-      
+
       // Most items should be numbered correctly (allowing for some streaming edge cases)
       expect(output).toContain('1. First item')
       expect(output).toMatch(/[12]\. Second item/) // Could be 1 or 2 due to streaming
@@ -118,7 +119,7 @@ And some conclusion text.`
       expect(output).toContain('• First bullet')
       expect(output).toContain('• Second bullet')
       expect(output).toContain('• Third bullet')
-      
+
       // Should not contain asterisks for bullets
       expect(output).not.toMatch(/^\s*\* /m)
     })
@@ -143,10 +144,10 @@ And some conclusion text.`
   describe('normalizeListItems function', () => {
     it('should normalize separated numbered list items', () => {
       const renderer = new MarkdownStreamRenderer({ isTTY: false })
-      
+
       // Access private method for testing
       const normalizeMethod = renderer['normalizeListItems'].bind(renderer)
-      
+
       const input = `1. First item
 
 2. Second item
@@ -154,7 +155,7 @@ And some conclusion text.`
 3. Third item`
 
       const normalized = normalizeMethod(input)
-      
+
       // Should remove blank lines between consecutive list items
       expect(normalized).toBe(`1. First item
 2. Second item
@@ -164,7 +165,7 @@ And some conclusion text.`
     it('should preserve blank lines before non-list content', () => {
       const renderer = new MarkdownStreamRenderer({ isTTY: false })
       const normalizeMethod = renderer['normalizeListItems'].bind(renderer)
-      
+
       const input = `1. First item
 
 2. Second item
@@ -172,15 +173,17 @@ And some conclusion text.`
 Some other content`
 
       const normalized = normalizeMethod(input)
-      
+
       // Should normalize list but preserve blank line before other content
-      expect(normalized).toContain('1. First item\n2. Second item\n\nSome other content')
+      expect(normalized).toContain(
+        '1. First item\n2. Second item\n\nSome other content',
+      )
     })
 
     it('should handle non-list content correctly', () => {
       const renderer = new MarkdownStreamRenderer({ isTTY: false })
       const normalizeMethod = renderer['normalizeListItems'].bind(renderer)
-      
+
       const input = `Regular paragraph
 
 Another paragraph
@@ -188,7 +191,7 @@ Another paragraph
 Not a list at all`
 
       const normalized = normalizeMethod(input)
-      
+
       // Should leave non-list content unchanged
       expect(normalized).toBe(input)
     })
@@ -197,10 +200,10 @@ Not a list at all`
   describe('edge cases', () => {
     it('should handle empty input', () => {
       const renderer = new MarkdownStreamRenderer({ isTTY: true })
-      
+
       const results = renderer.write('')
       const final = renderer.end()
-      
+
       expect(results).toEqual([])
       expect(final).toBeNull()
     })
@@ -228,36 +231,6 @@ Not a list at all`
 
       // In non-TTY mode, should return raw markdown
       expect(output).toBe(markdown)
-    })
-  })
-
-  describe('loading indicator', () => {
-    it('should have compact wave animation frames', () => {
-      const renderer = new MarkdownStreamRenderer({ isTTY: true })
-      
-      // Access private property for testing
-      const frames = renderer['indicatorFrames']
-      
-      // Should have the compact wave pattern
-      expect(frames).toEqual([
-        '···',
-        '•··', 
-        '●•·',
-        '●●•',
-        '●●●',
-        '●●•',
-        '●•·',
-        '•··'
-      ])
-    })
-
-    it('should update at correct interval', () => {
-      const renderer = new MarkdownStreamRenderer({ isTTY: true })
-      
-      // Access private property for testing
-      const updateMs = renderer['indicatorUpdateMs']
-      
-      expect(updateMs).toBe(150) // Should be 150ms for smooth animation
     })
   })
 })
