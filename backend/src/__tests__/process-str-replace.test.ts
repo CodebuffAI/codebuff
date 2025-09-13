@@ -26,8 +26,8 @@ describe('processStrReplace', () => {
 
   it('should handle Windows line endings', async () => {
     const initialContent = 'const x = 1;\r\nconst y = 2;\r\n'
-    const oldStr = 'const y = 2;'
-    const newStr = 'const y = 3;'
+    const oldStr = 'const y = 2;\r\n'
+    const newStr = 'const y = 3;\r\n'
 
     const result = await processStrReplace(
       'test.ts',
