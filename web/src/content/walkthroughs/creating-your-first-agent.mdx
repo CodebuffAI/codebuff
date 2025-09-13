@@ -1,0 +1,392 @@
+---
+title: 'Creating Your First Agent'
+section: 'walkthroughs'
+tags: ['walkthrough', 'agents', 'getting-started', 'publishing']
+order: 1
+---
+
+# Creating Your First Agent
+
+This walkthrough will guide you through creating, testing, and publishing your first custom agent. We'll build a simple code reviewer agent from scratch.
+
+## Video Walkthrough
+
+<div
+  style={{
+    position: 'relative',
+    paddingBottom: '56.25%',
+    height: 0,
+    overflow: 'hidden',
+    maxWidth: '100%',
+  }}
+>
+  <iframe
+    src="https://www.youtube.com/embed/mR2OOHv5p_4"
+    title="Creating Your First Codebuff Agent"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen
+    style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+    }}
+  ></iframe>
+</div>
+
+_Follow along with this video or continue reading below for the step-by-step guide._
+
+## Step 1: Install and Initialize
+
+First, install Codebuff globally:
+
+```bash
+npm install -g codebuff
+```
+
+Then navigate to your project and run:
+
+```bash
+codebuff init-agents
+```
+
+This creates a `.agents` directory with:
+
+- Type definitions in `.agents/types/`
+- Example agents in `.agents/examples/`
+- A starter template: `.agents/my-custom-agent.ts`
+
+You should see output like:
+
+```
+📁 Creating agent files:
+  ✓ .agents/README.md - Documentation for your agents
+  ✓ .agents/types/agent-definition.ts - TypeScript type definitions for agents
+  ✓ .agents/my-custom-agent.ts - Your first custom agent example
+  ✓ .agents/examples/01-basic-diff-reviewer.ts - Basic diff reviewer agent example
+```
+
+## Step 2: Create Your Agent
+
+Create a new file `.agents/simple-code-reviewer.ts`:
+
+```typescript
+import type { AgentDefinition } from './types/agent-definition'
+
+const definition: AgentDefinition = {
+  id: 'simple-code-reviewer',
+  displayName: 'Simple Code Reviewer',
+  model: 'anthropic/claude-4-sonnet-20250522',
+
+  // Tools this agent can use
+  toolNames: [
+    'read_files',
+    'run_terminal_command',
+    'code_search',
+    'spawn_agents',
+  ],
+
+  // Other agents this agent can spawn
+  // Browse https://www.codebuff.com/store to see available agents
+  spawnableAgents: ['codebuff/file-explorer@0.0.2'],
+
+  // When should other agents spawn this one?
+  spawnerPrompt: 'Spawn when you need to review local code changes',
+
+  // System prompt defines the agent's identity
+  systemPrompt: `You are an expert software developer specializing in code review.
+Your job is to review code changes and provide helpful, constructive feedback.`,
+
+  // Instructions for what the agent should do
+  instructionsPrompt: `Review code changes by following these steps:
+1. Use git diff to see what changed
+2. Read the modified files to understand the context
+3. Look for potential issues: bugs, security problems, style violations
+4. Suggest specific improvements with examples
+5. Highlight what was done well`,
+}
+
+export default definition
+```
+
+**💡 Quick tip:** You can also invoke `@Bob the Agent Builder` inside Codebuff to help you build an agent. However, we recommend trying to build your first agent manually to understand the fundamentals.
+
+## Step 3: Test Your Agent Locally
+
+Now test your agent with Codebuff:
+
+1. **Start Codebuff:**
+
+   ```bash
+   codebuff
+   ```
+
+2. **Have Codebuff spawn your agent using the @ command:**
+
+   ```
+   @Simple Code Reviewer please review my recent changes
+   ```
+
+3. **Watch it work:**
+   - Your spawned agent will run `git diff` to see changes
+   - Read the modified files
+   - Provide a detailed code review
+
+Make some changes to a file first to give it something to review!
+
+## Step 4: Create a Publisher Profile
+
+Before publishing, you need a publisher profile:
+
+1. **Visit the publisher creation page:**
+
+   Go to [https://www.codebuff.com/publishers/new](https://www.codebuff.com/publishers/new)
+
+2. **Choose ownership type:**
+   - **Personal**: Publish under your own name
+   - **Organization**: Publish under a team/company
+
+3. **Fill in basic information:**
+   - **Publisher Name**: Your display name (e.g., "John Smith")
+   - **Publisher ID**: URL-friendly identifier (e.g., "john-smith")
+   - **Email**: Contact email (optional)
+
+4. **Add profile details:**
+   - **Bio**: Brief description of yourself
+   - **Avatar**: Profile picture (optional)
+
+5. **Create your profile**
+
+## Step 5: Prepare for Publishing
+
+Add your publisher ID to your agent definition:
+
+```typescript
+// Add this field to your agent definition
+const definition: AgentDefinition = {
+  id: 'simple-code-reviewer',
+  displayName: 'Simple Code Reviewer',
+  publisher: 'your-publisher-id', // ← Add this line
+  model: 'anthropic/claude-4-sonnet-20250522',
+  // ... rest of your definition
+}
+```
+
+Replace `'your-publisher-id'` with the ID you created in Step 4.
+
+## Step 6: Publish Your Agent
+
+Publish your agent to the Codebuff store:
+
+```bash
+codebuff publish simple-code-reviewer
+```
+
+You should see:
+
+```
+Publishing:
+  - Simple Code Reviewer (simple-code-reviewer)
+✅ Successfully published:
+  - Simple Code Reviewer (your-publisher-id/simple-code-reviewer@1.0.0)
+```
+
+## Step 7: Test Your Published Agent
+
+Now anyone can use your agent:
+
+```bash
+codebuff --agent @your-publisher-id/simple-code-reviewer@0.0.1
+```
+
+## Advanced Example: Deep Code Reviewer
+
+Once you're comfortable with basic agents, try building something more sophisticated using **programmatic control**. Here's an advanced agent that demonstrates the power of the `handleSteps` generator function:
+
+`.agents/deep-code-reviewer.ts`:
+
+```typescript
+import type { AgentDefinition } from './types/agent-definition'
+
+const definition: AgentDefinition = {
+  id: 'deep-code-reviewer',
+  displayName: 'Deep Code Reviewer',
+  publisher: 'your-publisher-id',
+  model: 'anthropic/claude-sonnet-4',
+
+  spawnerPrompt:
+    'Spawn when you need to review code changes in the git diff or staged changes',
+
+  toolNames: [
+    'read_files',
+    'code_search',
+    'run_terminal_command',
+    'spawn_agents',
+  ],
+
+  // Use fully qualified agent names with publisher and version
+  // Browse https://www.codebuff.com/store to see available agents
+  spawnableAgents: [
+    'codebuff/file-explorer@0.0.4',
+    'codebuff/deep-thinker@0.0.3',
+  ],
+
+  instructionsPrompt: `Review code changes comprehensively:
+1. Analyze git diff and untracked files
+2. Find related files using file explorer
+3. Use multiple perspectives for thorough review
+4. Look for simplification opportunities
+5. Check for logical errors and edge cases`,
+
+  // This is where the magic happens - programmatic control!
+  handleSteps: function* () {
+    // Step 1: Get changed files from git
+    const { toolResult: gitDiffResult } = yield {
+      toolName: 'run_terminal_command',
+      input: { command: 'git diff HEAD --name-only' },
+    }
+
+    // Step 2: Get untracked files
+    const { toolResult: gitStatusResult } = yield {
+      toolName: 'run_terminal_command',
+      input: { command: 'git status --porcelain' },
+    }
+
+    // Step 3: Show the actual diff
+    yield {
+      toolName: 'run_terminal_command',
+      input: { command: 'git diff HEAD' },
+    }
+
+    // Step 4: Parse file paths (with error handling)
+    const changedFiles = (gitDiffResult || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.includes('OSC'))
+
+    const untrackedFiles = (gitStatusResult || '')
+      .split('\n')
+      .filter((line) => line.startsWith('??'))
+      .map((line) => line.substring(3).trim())
+      .filter((file) => file)
+
+    const allFiles = [...changedFiles, ...untrackedFiles]
+
+    // Step 5: Read all the files
+    if (allFiles.length > 0) {
+      yield {
+        toolName: 'read_files',
+        input: { paths: allFiles },
+      }
+    }
+
+    // Step 6: Spawn file explorer to find related files
+    yield {
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'codebuff/file-explorer@0.0.1',
+            prompt: 'Find files related to the changed code',
+          },
+        ],
+      },
+    }
+
+    // Step 7: Let the LLM generate the final review
+    yield 'STEP_ALL'
+  },
+}
+
+export default definition
+```
+
+### Understanding `handleSteps`
+
+The `handleSteps` generator function gives you **precise control** over your agent's execution:
+
+**Key Concepts:**
+
+1. **`yield` tool calls**: Execute tools and get results
+
+   ```typescript
+   const { toolResult, toolError } = yield {
+     toolName: 'run_terminal_command',
+     input: { command: 'git status' }
+   }
+   ```
+
+2. **`yield 'STEP_ALL'`**: Let the LLM take over and generate responses
+
+   ```typescript
+   yield 'STEP_ALL' // LLM runs until completion
+   ```
+
+3. **`yield 'STEP'`**: Let the LLM take one step, then return control
+
+   ```typescript
+   yield 'STEP' // LLM takes one turn, then back to your code
+   ```
+
+4. **`return`**: End the agent's execution immediately
+   ```typescript
+   return // Agent stops here
+   ```
+
+**When to Use Programmatic Control:**
+
+- **Complex workflows** with multiple steps
+- **Conditional logic** based on file contents
+- **Error handling** for tool failures
+- **Dynamic agent spawning** based on analysis
+- **Data transformation** between steps
+
+**When to Use Simple Prompts:**
+
+- **Straightforward tasks** with clear instructions
+- **Creative tasks** that benefit from LLM flexibility
+- **Quick prototypes** that don't need complex logic
+
+## Spawnable Agents
+
+Your agents can spawn other agents to help with specific tasks. This creates powerful workflows where specialized agents collaborate.
+
+### Agent Store vs Local Agents
+
+**Agent Store Agents (Use Fully Qualified IDs):**
+
+When spawning agents from the [Codebuff Agent Store](https://www.codebuff.com/store), always use the full `publisher/agent-name@version` format:
+
+```typescript
+spawnableAgents: [
+  'codebuff/file-explorer@0.0.4', // ✅ Correct
+  'john-smith/security-scanner@2.1.4', // ✅ Correct
+]
+```
+
+**Local Agents (Use Simple IDs):**
+
+When spawning agents defined in your own `.agents` directory, use just the agent ID:
+
+```typescript
+spawnableAgents: [
+  'my-custom-reviewer', // ✅ Correct for local agent
+  'database-migrator', // ✅ Correct for local agent
+  'codebuff/file-explorer@0.0.4', // ✅ Also correct: you can mix local and published agents.
+]
+```
+
+---
+
+🎉 **Congratulations!** You've successfully:
+
+- ✅ Created a custom agent from scratch
+- ✅ Tested it locally with the @ command
+- ✅ Set up a publisher profile
+- ✅ Published your agent to the store
+- ✅ Learned the basics of agent architecture
+- ✅ Explored advanced programmatic control with `handleSteps`
+
+You're now ready to build sophisticated agents and contribute to the Codebuff ecosystem!

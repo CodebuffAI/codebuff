@@ -92,16 +92,7 @@ export const handleFindFiles = ((params: {
     )
 
     if (requestedFiles && requestedFiles.length > 0) {
-      const { addedFiles, updatedFilePaths, printedPaths } =
-        await getFileReadingUpdates(ws, messages, fileContext, {
-          requestedFiles,
-          agentStepId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-          repoId,
-        })
+      const addedFiles = await getFileReadingUpdates(ws, requestedFiles)
 
       if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
         uploadExpandedFileContextForTraining(

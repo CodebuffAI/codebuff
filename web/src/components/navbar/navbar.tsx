@@ -64,12 +64,13 @@ export const Navbar = async () => {
           <Icons.github className="h-4 w-4" />
           GitHub
         </Link>
-        {/* <Link
-          href="/agents"
-          className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
+        <Link
+          href="/store"
+          className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
         >
+          <Bot className="h-4 w-4" />
           Agent Store
-        </Link> */}
+        </Link>
 
         {session && (
           <Link
@@ -112,12 +113,12 @@ export const Navbar = async () => {
                 GitHub
               </Link>
             </DropdownMenuItem>
-            {/* <DropdownMenuItem asChild>
-              <Link href="/agents" className="flex items-center">
+            <DropdownMenuItem asChild>
+              <Link href="/store" className="flex items-center">
                 <Bot className="mr-2 h-4 w-4" />
                 Agent Store
               </Link>
-            </DropdownMenuItem> */}
+            </DropdownMenuItem>
 
             {session && (
               <DropdownMenuItem asChild>

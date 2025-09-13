@@ -31,3 +31,4 @@ debug/
 # Infisical cache (contains secrets, should not be committed)
 .infisical-cache
 .infisical-cache.tmp
+.infisical.json

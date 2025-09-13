@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { BackButton } from '@/components/ui/back-button'
 
 interface PublisherPageProps {
   params: {
@@ -81,7 +81,6 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
     .from(schema.agentConfig)
     .where(eq(schema.agentConfig.publisher_id, publisherData.id))
     .orderBy(schema.agentConfig.created_at)
-    .limit(50) // Show more agents for grouping
 
   // Group agents by name
   const groupedAgents: Record<string, GroupedAgent> = {}
@@ -128,6 +127,11 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="max-w-4xl mx-auto">
+        {' '}
+        {/* Navigation */}
+        <div className="mb-6">
+          <BackButton />
+        </div>
         {/* Publisher Header */}
         <Card className="mb-8">
           <CardHeader>
@@ -192,7 +196,6 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
             </div>
           </CardHeader>
         </Card>
-
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card>
@@ -218,7 +221,6 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
             </CardContent>
           </Card>
         </div>
-
         {/* Published Agents - Grouped */}
         <Card>
           <CardHeader>

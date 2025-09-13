@@ -297,36 +297,51 @@ export function getPreviouslyReadFiles(messages: Message[]): {
   content: string
   referencedBy?: Record<string, string[]>
 }[] {
-  return buildArray(
-    messages
-      .filter(
-        (
-          m,
-        ): m is ToolMessage & {
-          content: { toolName: 'read_files' }
-        } =>
-          m.role === 'tool' &&
-          (m.content.toolName === 'read_files' ||
-            m.content.toolName === 'find_files' ||
-            m.content.toolName === 'file_updates'),
-      )
-      .map((m) => {
-        try {
-          return (
-            m as CodebuffToolMessage<'read_files'>
-          ).content.output[0].value.map((file) => {
-            if ('contentOmittedForLength' in file) {
-              return undefined
-            }
-            return file
-          })
-        } catch (error) {
-          logger.error(
-            { error: errorToObject(error), m },
-            'Error parsing read_files output from message',
-          )
-          return []
+  const files: ReturnType<typeof getPreviouslyReadFiles> = []
+  for (const message of messages) {
+    if (message.role !== 'tool') continue
+    if (message.content.toolName === 'read_files') {
+      try {
+        files.push(
+          ...(
+            message as CodebuffToolMessage<'read_files'>
+          ).content.output[0].value.filter(
+            (
+              file,
+            ): file is typeof file & { contentOmittedForLength: undefined } =>
+              !('contentOmittedForLength' in file),
+          ),
+        )
+      } catch (error) {
+        logger.error(
+          { error: errorToObject(error), message },
+          'Error parsing read_files output from message',
+        )
+      }
+    }
+
+    if (message.content.toolName === 'find_files') {
+      try {
+        const v = (message as CodebuffToolMessage<'find_files'>).content
+          .output[0].value
+        if ('message' in v) {
+          continue
         }
-      }),
-  )
+        files.push(
+          ...v.filter(
+            (
+              file,
+            ): file is typeof file & { contentOmittedForLength: undefined } =>
+              !('contentOmittedForLength' in file),
+          ),
+        )
+      } catch (error) {
+        logger.error(
+          { error: errorToObject(error), message },
+          'Error parsing find_files output from message',
+        )
+      }
+    }
+  }
+  return files
 }

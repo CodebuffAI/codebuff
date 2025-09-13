@@ -10,11 +10,13 @@ export function codeSearch({
   pattern,
   flags,
   cwd,
+  maxResults = 30,
 }: {
   projectPath: string
   pattern: string
   flags?: string
   cwd?: string
+  maxResults?: number
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let stdout = ''
@@ -55,12 +57,24 @@ export function codeSearch({
     })
 
     childProcess.on('close', (code) => {
+      // Limit results to maxResults
+      const lines = stdout.split('\n')
+      const limitedLines = lines.slice(0, maxResults)
+      const limitedStdout = limitedLines.join('\n')
+
+      // Add truncation message if results were limited
+      const finalStdout =
+        lines.length > maxResults
+          ? limitedStdout +
+            `\n\n[Results limited to ${maxResults} of ${lines.length} total matches]`
+          : limitedStdout
+
       // Truncate output to prevent memory issues
       const maxLength = 10000
       const truncatedStdout =
-        stdout.length > maxLength
-          ? stdout.substring(0, maxLength) + '\n\n[Output truncated]'
-          : stdout
+        finalStdout.length > maxLength
+          ? finalStdout.substring(0, maxLength) + '\n\n[Output truncated]'
+          : finalStdout
 
       const maxErrorLength = 1000
       const truncatedStderr =

@@ -31,7 +31,13 @@ export const userMessageSchema = z
     role: z.literal('user'),
     content: z.union([
       z.string(),
-      z.union([textPartSchema, imagePartSchema, filePartSchema]).array(),
+      z
+        .discriminatedUnion('type', [
+          textPartSchema,
+          imagePartSchema,
+          filePartSchema,
+        ])
+        .array(),
     ]),
   })
   .and(auxiliaryDataSchema)
@@ -43,7 +49,11 @@ export const assistantMessageSchema = z
     content: z.union([
       z.string(),
       z
-        .union([textPartSchema, reasoningPartSchema, toolCallPartSchema])
+        .discriminatedUnion('type', [
+          textPartSchema,
+          reasoningPartSchema,
+          toolCallPartSchema,
+        ])
         .array(),
     ]),
   })

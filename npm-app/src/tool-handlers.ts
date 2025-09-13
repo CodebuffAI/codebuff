@@ -178,6 +178,7 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
 ) => {
   const projectPath = getProjectRoot()
   const rgPath = await getRgPath()
+  const maxResults = parameters.maxResults ?? 30
 
   return new Promise((resolve) => {
     let stdout = ''
@@ -228,18 +229,32 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
 
     childProcess.on('close', (code) => {
       const lines = stdout.split('\n').filter((line) => line.trim())
-      const maxResults = 3
-      const previewResults = lines.slice(0, maxResults)
+      const limitedLines = lines.slice(0, maxResults)
+      const previewResults = limitedLines.slice(0, 3)
       if (previewResults.length > 0) {
         console.log(previewResults.join('\n'))
-        if (lines.length > maxResults) {
+        if (limitedLines.length > 3) {
           console.log('...')
         }
       }
-      console.log(green(`Found ${lines.length} results`))
+      console.log(
+        green(
+          `Found ${limitedLines.length} results${lines.length > maxResults ? ` (limited from ${lines.length})` : ''}`,
+        ),
+      )
+
+      // Limit results to maxResults
+      const limitedStdout = limitedLines.join('\n')
+
+      // Add truncation message if results were limited
+      const finalStdout =
+        lines.length > maxResults
+          ? limitedStdout +
+            `\n\n[Results limited to ${maxResults} of ${lines.length} total matches]`
+          : limitedStdout
 
       const truncatedStdout = truncateStringWithMessage({
-        str: stdout,
+        str: finalStdout,
         maxLength: 10000,
       })
       const truncatedStderr = truncateStringWithMessage({

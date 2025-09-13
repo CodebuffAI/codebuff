@@ -1391,6 +1391,11 @@ Go to https://www.codebuff.com/config for more information.`) +
           )
         }
 
+        // Print structured output as JSON if available
+        if (a.output?.type === 'structuredOutput') {
+          console.log('\n' + JSON.stringify(a.output.value, null, 2))
+        }
+
         if (DiffManager.getChanges().length > 0) {
           let checkpointAddendum = ''
           try {
@@ -1419,8 +1424,10 @@ Go to https://www.codebuff.com/config for more information.`) +
           this.freshPrompt()
         }
 
+        // Always cleanup xmlStreamParser to prevent memory leaks and MaxListenersExceededWarning
+        xmlStreamParser.end()
+
         if (!ASYNC_AGENTS_ENABLED) {
-          xmlStreamParser.end()
           unsubscribeChunks()
           unsubscribeComplete()
         }

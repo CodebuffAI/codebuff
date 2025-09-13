@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 interface AgentUsageMetricsProps {
   publisherId: string
   agentId: string
+  version?: string
 }
 
 interface AgentData {
@@ -20,6 +21,17 @@ interface AgentData {
   avg_cost_per_invocation?: number
   unique_users?: number
   last_used?: string
+  version_stats?: Record<
+    string,
+    {
+      weekly_dollars: number
+      total_dollars: number
+      total_invocations: number
+      avg_cost_per_run: number
+      unique_users: number
+      last_used?: Date
+    }
+  >
 }
 
 const formatCurrency = (amount?: number) => {
@@ -38,6 +50,7 @@ const formatUsageCount = (count?: number) => {
 export const AgentUsageMetrics = ({
   publisherId,
   agentId,
+  version,
 }: AgentUsageMetricsProps) => {
   const { data: agents, isLoading } = useQuery<AgentData[]>({
     queryKey: ['agents'],
@@ -50,9 +63,29 @@ export const AgentUsageMetrics = ({
     },
   })
 
-  const usageMetrics = agents?.find(
+  const agent = agents?.find(
     (agent) => agent.id === agentId && agent.publisher.id === publisherId
   )
+
+  // Use version-specific stats if version is provided and exists, otherwise use zero stats
+  const usageMetrics = version
+    ? agent?.version_stats?.[version]
+      ? {
+          weekly_spent: agent.version_stats[version].weekly_dollars,
+          usage_count: agent.version_stats[version].total_invocations,
+          avg_cost_per_invocation:
+            agent.version_stats[version].avg_cost_per_run,
+          unique_users: agent.version_stats[version].unique_users,
+          last_used: agent.version_stats[version].last_used?.toString(),
+        }
+      : {
+          weekly_spent: 0,
+          usage_count: 0,
+          avg_cost_per_invocation: 0,
+          unique_users: 0,
+          last_used: undefined,
+        }
+    : agent
 
   if (isLoading) {
     return (

@@ -43,5 +43,6 @@ ${getToolCallString(toolName, { pattern: 'foo\\.bar = 1\\.0' })}
 ${getToolCallString(toolName, { pattern: 'import.*foo', cwd: 'src' })}
 ${getToolCallString(toolName, { pattern: 'function.*authenticate', flags: '-i -t ts' })}
 ${getToolCallString(toolName, { pattern: 'TODO', flags: '-n --type-not test' })}
+${getToolCallString(toolName, { pattern: 'getUserData', maxResults: 10 })}
     `.trim(),
 } satisfies ToolDescription

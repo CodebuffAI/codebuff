@@ -347,7 +347,6 @@ export async function executeAgent({
     fingerprintId,
     fileContext,
     localAgentTemplates,
-    toolResults: [],
     userId,
     clientSessionId,
     onResponseChunk,

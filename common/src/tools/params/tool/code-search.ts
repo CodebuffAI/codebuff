@@ -25,6 +25,13 @@ export const codeSearchParams = {
         .describe(
           `Optional working directory to search within, relative to the project root. Defaults to searching the entire project.`,
         ),
+      maxResults: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .default(30)
+        .describe(`Maximum number of results to return. Defaults to 30.`),
     })
     .describe(
       `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`,

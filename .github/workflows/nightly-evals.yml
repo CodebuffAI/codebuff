@@ -9,7 +9,7 @@ on:
 jobs:
   run-nightly-evals:
     runs-on: ubuntu-latest
-    timeout-minutes: 540
+    timeout-minutes: 360 # 6 hours is the max for any hosted github action
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3

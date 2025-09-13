@@ -70,11 +70,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
     // Mock file reading updates
     mockModule('@codebuff/backend/get-file-reading-updates', () => ({
-      getFileReadingUpdates: async () => ({
-        addedFiles: [],
-        updatedFilePaths: [],
-        clearReadFileToolResults: false,
-      }),
+      getFileReadingUpdates: async () => [],
     }))
 
     // Mock async agent manager
@@ -167,16 +163,16 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   it('should verify correct STEP behavior - LLM called once after STEP', async () => {
-    // This test verifies that programmatic agents don't call the LLM,
-    // and that STEP yielding works correctly without LLM involvement
+    // This test verifies that when a programmatic agent yields STEP,
+    // the LLM should be called once in the next iteration
 
     let stepCount = 0
     const mockGeneratorFunction = function* () {
       stepCount++
       // Execute a tool, then STEP
       yield { toolName: 'read_files', input: { paths: ['file1.txt'] } }
-      yield 'STEP' // Should pause here
-      // Continue after LLM runs
+      yield 'STEP' // Should pause here and let LLM run
+      // Continue after LLM runs (this won't be reached in this test since LLM ends turn)
       yield {
         toolName: 'write_file',
         input: { path: 'output.txt', content: 'test' },
@@ -190,14 +186,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    // Mock checkLiveUserInput to return true for multiple iterations
-    let checkCallCount = 0
+    // Mock checkLiveUserInput to allow the loop to continue
     const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
     spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => {
-        checkCallCount++
-        return true
-      },
+      () => true, // Always return true to allow loop to continue
     )
 
     const result = await loopAgentSteps(
@@ -210,7 +202,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -221,14 +212,12 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     console.log(`LLM calls made: ${llmCallCount}`)
     console.log(`Step count: ${stepCount}`)
 
-    // CORRECT BEHAVIOR: After STEP, LLM should be called once, then no more
-    // The programmatic agent yields STEP, then LLM runs once
+    // CORRECT BEHAVIOR: After STEP, LLM should be called once
+    // The programmatic agent yields STEP, then LLM runs once and ends turn
     expect(llmCallCount).toBe(1) // LLM called once after STEP
 
     // The programmatic agent should have been called once (yielded STEP)
     expect(stepCount).toBe(1)
-
-    // After STEP, the LLM should run once, then the loop should continue correctly
   })
 
   it('should demonstrate correct behavior when programmatic agent completes without STEP', async () => {
@@ -260,7 +249,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -301,13 +289,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     // Mock checkLiveUserInput to allow multiple iterations
-    let checkCallCount = 0
     const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
     spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => {
-        checkCallCount++
-        return checkCallCount <= 5 // Allow enough iterations
-      },
+      () => true, // Always return true to allow loop to continue
     )
 
     const result = await loopAgentSteps(
@@ -320,7 +304,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -378,7 +361,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -420,7 +402,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -463,7 +444,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -508,7 +488,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -520,7 +499,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(llmCallCount).toBe(0)
     expect(result.agentState).toBeDefined()
     expect(result.agentState.output?.error).toContain(
-      'Programmatic step failed',
+      'Error executing handleSteps for agent test-agent',
     )
   })
 
@@ -570,7 +549,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -628,7 +606,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         params: undefined,
         fingerprintId: 'test-fingerprint',
         fileContext: mockFileContext,
-        toolResults: [],
         localAgentTemplates,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -684,7 +661,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       params: undefined,
       fingerprintId: 'test-fingerprint',
       fileContext: mockFileContext,
-      toolResults: [],
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',

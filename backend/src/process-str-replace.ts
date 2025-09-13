@@ -3,6 +3,10 @@ import { createPatch } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
+function normalizeLineEndings(str: string): string {
+  return str.replace(/\r\n/g, '\n')
+}
+
 export async function processStrReplace(
   path: string,
   replacements: { old: string; new: string; allowMultiple: boolean }[],
@@ -18,11 +22,19 @@ export async function processStrReplace(
   | { tool: 'str_replace'; path: string; error: string }
 > {
   const initialContent = await initialContentPromise
+  if (initialContent === null) {
+    return {
+      tool: 'str_replace',
+      path,
+      error:
+        'The file does not exist, skipping. Please use the write_file tool to create the file.',
+    }
+  }
 
   // Process each old/new string pair
   let currentContent = initialContent
-  let allPatches: string[] = []
   let messages: string[] = []
+  const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
 
   for (const { old: oldStr, new: newStr, allowMultiple } of replacements) {
     // Regular case: require oldStr for replacements
@@ -32,22 +44,15 @@ export async function processStrReplace(
       )
       continue
     }
-    if (currentContent === null) {
-      messages.push(
-        'The file does not exist, skipping. Please use the write_file tool to create the file.',
-      )
-      continue
-    }
 
-    const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
-    const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
     const normalizedCurrentContent = normalizeLineEndings(currentContent)
     const normalizedOldStr = normalizeLineEndings(oldStr)
+    const normalizedNewStr = normalizeLineEndings(newStr)
 
     const match = tryMatchOldStr(
       normalizedCurrentContent,
       normalizedOldStr,
-      newStr,
+      normalizedNewStr,
       allowMultiple,
     )
     let updatedOldStr: string | null
@@ -59,25 +64,15 @@ export async function processStrReplace(
       updatedOldStr = null
     }
 
-    const updatedContent =
+    currentContent =
       updatedOldStr === null
         ? normalizedCurrentContent
-        : normalizedCurrentContent.replaceAll(updatedOldStr, newStr)
-
-    let patch = createPatch(path, normalizedCurrentContent, updatedContent)
-    const lines = patch.split('\n')
-    const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
-    if (hunkStartIndex !== -1) {
-      patch = lines.slice(hunkStartIndex).join('\n')
-      patch = patch.replaceAll('\n', lineEnding)
-      allPatches.push(patch)
-    }
-
-    // Update current content for next iteration
-    currentContent = updatedContent.replaceAll('\n', lineEnding)
+        : normalizedCurrentContent.replaceAll(updatedOldStr, normalizedNewStr)
   }
 
-  if (allPatches.length === 0) {
+  currentContent = currentContent.replaceAll('\n', lineEnding)
+
+  if (initialContent === currentContent) {
     logger.debug(
       {
         path,
@@ -93,7 +88,13 @@ export async function processStrReplace(
     }
   }
 
-  const finalPatch = allPatches.join('\n')
+  let patch = createPatch(path, initialContent, currentContent)
+  const lines = patch.split('\n')
+  const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
+  if (hunkStartIndex !== -1) {
+    patch = lines.slice(hunkStartIndex).join('\n')
+  }
+  const finalPatch = patch
 
   logger.debug(
     {

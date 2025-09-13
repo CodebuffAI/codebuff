@@ -38,8 +38,6 @@ const definition: AgentDefinition = {
       toolName: 'run_terminal_command',
       input: {
         command: 'git diff',
-        process_type: 'SYNC',
-        timeout_seconds: 30,
       },
     }
 
@@ -47,8 +45,6 @@ const definition: AgentDefinition = {
       toolName: 'run_terminal_command',
       input: {
         command: 'git log --oneline -10',
-        process_type: 'SYNC',
-        timeout_seconds: 30,
       },
     }
 

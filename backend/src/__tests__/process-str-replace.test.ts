@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { applyPatch } from 'diff'
 
 import { processStrReplace } from '../process-str-replace'
 
@@ -25,8 +26,8 @@ describe('processStrReplace', () => {
 
   it('should handle Windows line endings', async () => {
     const initialContent = 'const x = 1;\r\nconst y = 2;\r\n'
-    const oldStr = 'const y = 2;'
-    const newStr = 'const y = 3;'
+    const oldStr = 'const y = 2;\r\n'
+    const newStr = 'const y = 3;\r\n'
 
     const result = await processStrReplace(
       'test.ts',
@@ -97,21 +98,6 @@ describe('processStrReplace', () => {
       'test.ts',
       [{ old: '', new: 'new', allowMultiple: false }],
       Promise.resolve('content'),
-    )
-
-    expect(result).not.toBeNull()
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('old string was empty')
-    }
-  })
-
-  it('should return error when oldStr is empty and file does not exist', async () => {
-    const newContent = 'const x = 1;\nconst y = 2;\n'
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: '', new: newContent, allowMultiple: false }],
-      Promise.resolve(null),
     )
 
     expect(result).not.toBeNull()
@@ -402,5 +388,32 @@ function test3() {
         )
       }
     })
+  })
+
+  it('should handle applying multiple replacements on nearby lines', async () => {
+    const initialContent = 'line 1\nline 2\nline 3\n'
+    const replacements = [
+      {
+        old: 'line 2\n',
+        new: 'this is a new line\n',
+        allowMultiple: false,
+      },
+      {
+        old: 'line 3\n',
+        new: 'new line 3\n',
+        allowMultiple: false,
+      },
+    ]
+
+    const result = await processStrReplace(
+      'test.ts',
+      replacements,
+      Promise.resolve(initialContent),
+    )
+
+    expect('content' in result).toBe(true)
+    expect(applyPatch(initialContent, (result as any).patch)).toBe(
+      'line 1\nthis is a new line\nnew line 3\n',
+    )
   })
 })
