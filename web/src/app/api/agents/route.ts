@@ -7,7 +7,7 @@ import { logger } from '@/util/logger'
 
 // Force dynamic rendering to ensure fresh metrics data
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 60
 
 export async function GET() {
   try {
