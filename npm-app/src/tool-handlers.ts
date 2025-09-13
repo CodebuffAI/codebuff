@@ -12,6 +12,7 @@ import { waitForPreviousCheckpoint } from './cli-handlers/checkpoint'
 import { Client } from './client'
 import { DiffManager } from './diff-manager'
 import { runFileChangeHooks } from './json-config/hooks'
+import { McpServerManager } from './mcp/mcp-server-manager'
 import { getRgPath } from './native/ripgrep'
 import { getProjectRoot } from './project-files'
 import { runTerminalCommand } from './terminal/run-command'
@@ -148,29 +149,29 @@ export const handleRunTerminalCommand: ToolHandler<
   },
   id: string,
 ): Promise<CodebuffToolOutput<'run_terminal_command'>> => {
-  const {
-    command,
-    mode = 'assistant',
-    process_type = 'SYNC',
-    cwd,
-    timeout_seconds = 30,
-  } = parameters
+    const {
+      command,
+      mode = 'assistant',
+      process_type = 'SYNC',
+      cwd,
+      timeout_seconds = 30,
+    } = parameters
 
-  await waitForPreviousCheckpoint()
-  if (mode === 'assistant' && process_type === 'BACKGROUND') {
-    const client = Client.getInstance()
-    client.oneTimeFlags[SHOULD_ASK_CONFIG] = true
+    await waitForPreviousCheckpoint()
+    if (mode === 'assistant' && process_type === 'BACKGROUND') {
+      const client = Client.getInstance()
+      client.oneTimeFlags[SHOULD_ASK_CONFIG] = true
+    }
+
+    return await runTerminalCommand(
+      id,
+      command,
+      mode,
+      process_type.toUpperCase() as 'SYNC' | 'BACKGROUND',
+      timeout_seconds,
+      cwd,
+    )
   }
-
-  return await runTerminalCommand(
-    id,
-    command,
-    mode,
-    process_type.toUpperCase() as 'SYNC' | 'BACKGROUND',
-    timeout_seconds,
-    cwd,
-  )
-}
 
 export const handleCodeSearch: ToolHandler<'code_search'> = async (
   parameters,
@@ -250,7 +251,7 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
       const finalStdout =
         lines.length > maxResults
           ? limitedStdout +
-            `\n\n[Results limited to ${maxResults} of ${lines.length} total matches]`
+          `\n\n[Results limited to ${maxResults} of ${lines.length} total matches]`
           : limitedStdout
 
       const truncatedStdout = truncateStringWithMessage({
@@ -411,10 +412,49 @@ export const toolHandlers: {
   browser_logs: handleBrowserLogs,
 }
 
+const handleMcpTool = async (
+  toolName: string,
+  parameters: any,
+  id: string,
+): Promise<any> => {
+  try {
+    const mcpManager = McpServerManager.getInstance()
+    const result = await mcpManager.callTool(toolName, parameters)
+
+    logger.info({ toolName, parameters, result }, 'MCP tool call completed')
+
+    return {
+      type: 'text',
+      text: JSON.stringify(result, null, 2),
+    }
+  } catch (error) {
+    logger.error({ error, toolName, parameters }, 'MCP tool call failed')
+
+    return {
+      type: 'text',
+      text: `Error calling MCP tool ${toolName}: ${error instanceof Error ? error.message : String(error)}`,
+    }
+  }
+}
+
 export const handleToolCall = async (
   toolCall: ToolCall,
 ): Promise<ToolResultPart> => {
   const { toolName, input, toolCallId } = toolCall
+
+  // Check if this is an MCP tool
+  if (toolName.startsWith('mcp_')) {
+    const content = await handleMcpTool(toolName, input, toolCallId)
+    const contentArray = Array.isArray(content) ? content : [content]
+    return {
+      type: 'tool-result',
+      toolName,
+      toolCallId,
+      output: contentArray,
+    } satisfies ToolResultPart
+  }
+
+  // Handle regular tools
   const handler = toolHandlers[toolName as ClientToolName]
   if (!handler) {
     throw new Error(`No handler found for tool: ${toolName}`)

@@ -74,6 +74,7 @@ import { Client } from './client'
 import { backendUrl, websocketUrl } from './config'
 import { CONFIG_DIR } from './credentials'
 import { DiffManager } from './diff-manager'
+import { McpServerManager } from './mcp/mcp-server-manager'
 import { printModeIsEnabled, printModeLog } from './display/print-mode'
 import {
   disableSquashNewlines,
@@ -288,6 +289,7 @@ export class CLI {
         return client.warmContextCache()
       }),
       Client.getInstance().connect(),
+      McpServerManager.getInstance().initialize(),
     ])
 
     this.setPrompt()
@@ -448,7 +450,7 @@ export class CLI {
 
     // Load and populate history
     const history = this._loadHistory()
-    ;(this.rl as any).history.push(...history)
+      ; (this.rl as any).history.push(...history)
 
     this.rl.on('line', (line) => this.handleLine(line))
     this.rl.on('SIGINT', async () => await this.handleSigint())
@@ -672,7 +674,7 @@ export class CLI {
       (cwd === projectRoot
         ? ''
         : (os.platform() === 'win32' ? '\\' : '/') +
-          path.relative(projectRoot, cwd))
+        path.relative(projectRoot, cwd))
 
     const modeIndicator = this.getModeIndicator()
 
@@ -733,10 +735,10 @@ export class CLI {
     if (client.pendingTopUpMessageAmount > 0) {
       console.log(
         '\n\n' +
-          green(
-            `Auto top-up successful! ${client.pendingTopUpMessageAmount.toLocaleString()} credits added.`,
-          ) +
-          '\n',
+        green(
+          `Auto top-up successful! ${client.pendingTopUpMessageAmount.toLocaleString()} credits added.`,
+        ) +
+        '\n',
       )
       client.pendingTopUpMessageAmount = 0
     }
@@ -894,7 +896,7 @@ export class CLI {
   private handleUnknownCommand(command: string) {
     console.log(
       yellow(`Unknown slash command: ${command}`) +
-        `\nType / to see available commands`,
+      `\nType / to see available commands`,
     )
     this.freshPrompt()
   }
@@ -1156,6 +1158,23 @@ export class CLI {
       await enterAgentsBuffer(this.rl, () => {
         this.freshPrompt()
       })
+      return null
+    }
+
+    // Handle MCP commands
+    if (this.isCommandOrAlias(cleanInput, 'mcp-status')) {
+      const { handleMcpStatus } = await import('./cli-handlers/mcp-status')
+      handleMcpStatus()
+      this.freshPrompt()
+      return null
+    }
+
+    if (cleanInput.startsWith('mcp-test')) {
+      const { handleMcpTest } = await import('./cli-handlers/mcp-status')
+      const parts = cleanInput.split(' ')
+      const toolName = parts[1]
+      await handleMcpTest(toolName)
+      this.freshPrompt()
       return null
     }
 
@@ -1429,6 +1448,13 @@ export class CLI {
     cleanupAgentsBuffer()
     cleanupMiniChat()
 
+    // Shutdown MCP servers
+    try {
+      await McpServerManager.getInstance().shutdown()
+    } catch (error) {
+      logger.error({ error }, 'Error shutting down MCP servers')
+    }
+
     Spinner.get().restoreCursor()
     process.removeAllListeners('unhandledRejection')
     process.removeAllListeners('uncaughtException')
@@ -1470,7 +1496,7 @@ export class CLI {
       if (client.usageData.next_quota_reset) {
         const daysUntilReset = Math.ceil(
           (new Date(client.usageData.next_quota_reset).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24),
+          (1000 * 60 * 60 * 24),
         )
         console.log(
           `Your free credits will reset in ${pluralize(daysUntilReset, 'day')}.`,

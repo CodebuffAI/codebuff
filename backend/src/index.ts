@@ -71,20 +71,24 @@ app.use(
   },
 )
 
-// Initialize BigQuery before starting the server
-setupBigQuery().catch((err) => {
-  logger.error(
-    {
-      error: err,
-      stack: err.stack,
-      message: err.message,
-      name: err.name,
-      code: err.code,
-      details: err.details,
-    },
-    'Failed to initialize BigQuery client',
-  )
-})
+// Initialize BigQuery before starting the server (only in production)
+if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod') {
+  setupBigQuery().catch((err) => {
+    logger.error(
+      {
+        error: err,
+        stack: err.stack,
+        message: err.message,
+        name: err.name,
+        code: err.code,
+        details: err.details,
+      },
+      'Failed to initialize BigQuery client',
+    )
+  })
+} else {
+  logger.debug('Skipping BigQuery initialization in development mode')
+}
 
 initAnalytics()
 
