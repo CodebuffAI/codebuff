@@ -14,7 +14,10 @@ const definition: AgentDefinition = {
   spawnerPrompt: `Analyzes any project's codebase to comprehensively discover all commands needed to build, test, and run the project. Provides detailed analysis of project structure, tech stack, and working commands with confidence scores.`,
 
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: ['codebuff/file-explorer@0.0.4', 'codebuff/read-only-commander-lite@0.0.1'],
+  spawnableAgents: [
+    'codebuff/file-explorer@0.0.4',
+    'codebuff/read-only-commander-lite@0.0.1',
+  ],
 
   inputSchema: {
     prompt: {
@@ -175,10 +178,9 @@ const definition: AgentDefinition = {
 ## Analysis Strategy:
 
 1. **Project Structure Exploration**: First spawn file-explorer to understand the project layout, key files, and technology stack.
+  In parallel, spawn a second file-explorer to learn about the build, lint, and testing processes across the codebase.
 
-2. **Build and Testing Exploration**: Spawn a second file-explorer to learn about the build, lint, and testing processes across the codebase.
-
-3. **Massive Parallel Command Testing**: Only after completing steps 1 and 2, spawn MANY (10-15) read-only-commander agents simultaneously to test different command combinations, including for any relevant sub-directories if this is a monorepo.
+2. **Massive Parallel Command Testing**: Only after fully completing step 1 and getting back the results, spawn MANY (10-15) read-only-commander agents simultaneously to test different command combinations, including for any relevant sub-directories if this is a monorepo.
   Look for commands for the following project types:
    - Web apps: next.js, react, vue, etc. commands (build, test, start, dev, lint, etc.)
    - Node.js projects: npm/yarn/pnpm commands (build, test, start, dev, lint, etc.)
@@ -188,7 +190,7 @@ const definition: AgentDefinition = {
 
   Include CI/CD Analysis: Have agents examine CI/CD files (.github/workflows, .gitlab-ci.yml, etc.) to discover official build processes
 
-4. **Final Analysis**: Use the set_output tool to output the results of the analysis. Rate each working command based on:
+3. **Final Analysis**: Use the set_output tool to output the results of the analysis. Rate each working command based on:
    - Success rate of execution
    - Presence in official documentation/CI
    - Standard conventions for the project type
