@@ -29,7 +29,7 @@ infisical secrets  # Verify setup works
 infisical secrets set --file .env.example
 
 # IMPORTANT: Fix the database password separately
-infisical secrets set DATABASE_URL=postgresql://postgres:secretpassword_local@localhost:5432/codebuff
+infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
 ```
 
 ### 5. Done! Run Codebuff
