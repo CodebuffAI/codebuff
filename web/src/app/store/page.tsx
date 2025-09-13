@@ -244,15 +244,21 @@ const AgentStorePage = () => {
           </div>
           <div className="flex justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Avatar className="h-5 w-5 shrink-0">
-                <AvatarImage src={agent.publisher.avatar_url || undefined} />
-                <AvatarFallback className="text-xs">
-                  {agent.publisher.name[0]?.toUpperCase() || agent.publisher.id[0]?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-muted-foreground truncate">
-                @{agent.publisher.id}
-              </span>
+              <Link
+                href={`/publishers/${agent.publisher.id}`}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              >
+                <Avatar className="h-5 w-5 shrink-0">
+                  <AvatarImage src={agent.publisher.avatar_url || undefined} />
+                  <AvatarFallback className="text-xs">
+                    {agent.publisher.name[0]?.toUpperCase() ||
+                      agent.publisher.id[0]?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-muted-foreground truncate">
+                  @{agent.publisher.id}
+                </span>
+              </Link>
               {agent.publisher.verified && (
                 <Badge
                   variant="secondary"

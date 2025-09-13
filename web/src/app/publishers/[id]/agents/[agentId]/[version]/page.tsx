@@ -147,16 +147,18 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                     v{params.version}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={publisherData.avatar_url || undefined} />
-                    <AvatarFallback className="text-xs">
-                      {publisherData.name[0]?.toUpperCase() || publisherData.id[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-muted-foreground">
-                    @{publisherData.id}
-                  </span>
+                <div className="mb-2">
+                  <Link href={`/publishers/${publisherData.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={publisherData.avatar_url || undefined} />
+                      <AvatarFallback className="text-xs">
+                        {publisherData.name[0]?.toUpperCase() || publisherData.id[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-muted-foreground">
+                      @{publisherData.id}
+                    </span>
+                  </Link>
                 </div>
                 {agentData.description && (
                   <p className="text-sm mb-4">{agentData.description}</p>
