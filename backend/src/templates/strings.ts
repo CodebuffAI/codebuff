@@ -60,7 +60,7 @@ export async function formatPrompt(
     ),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
       fileContext,
-      20_000,
+      10_000,
       'agent',
     ),
     [PLACEHOLDER.GIT_CHANGES_PROMPT]: getGitChangesPrompt(fileContext),

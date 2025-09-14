@@ -53,7 +53,7 @@ export const thinkingBase = (
     ? (allAvailableAgents as any[])
     : baseAgentSubagents,
 
-  systemPrompt: baseAgentSystemPrompt(model),
+  systemPrompt: baseAgentSystemPrompt(model, 'normal'),
   instructionsPrompt: baseAgentUserInputPrompt(model, 'normal'),
   stepPrompt: baseAgentAgentStepPrompt(model),
 

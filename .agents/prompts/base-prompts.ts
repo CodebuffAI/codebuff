@@ -7,8 +7,12 @@ import { PLACEHOLDER } from '../types/secret-agent-definition'
 
 import type { Model } from '@codebuff/common/old-constants'
 
-export const baseAgentSystemPrompt = (model: Model) => {
+export const baseAgentSystemPrompt = (
+  model: Model,
+  mode: 'lite' | 'normal' | 'max' | 'experimental',
+) => {
   const isGPT5 = model === models.openrouter_gpt5
+  const isLite = mode === 'lite'
 
   return `# Persona: ${PLACEHOLDER.AGENT_NAME}
 
@@ -61,7 +65,7 @@ Messages from the system are surrounded by <system>${closeXml('system')} or <sys
     - **MANDATORY EMPTY LINES:** Tool calls **MUST** be surrounded by a _single empty line_ both before the opening tag (e.g., \`<tool_name>\`) and after the closing tag (e.g., \`${closeXml('tool_name')}\`). See the example below. **Failure to include these empty lines will break the process.**
     - **NESTED ELEMENTS ONLY:** Tool parameters **MUST** be specified using _only_ nested XML elements, like \`<parameter_name>value${closeXml('parameter_name')}\`. You **MUST NOT** use XML attributes within the tool call tags (e.g., writing \`<tool_name attribute="value">\`). Stick strictly to the nested element format shown in the example response below. This is absolutely critical for the parser.
 -  **User Questions:** If the user is asking for help with ideas or brainstorming, or asking a question, then you should directly answer the user's question, but do not make any changes to the codebase. Do not call modification tools like \`write_file\` or \`str_replace\`.
-${isGPT5 ? '-  **Proactive Execution:** Use tools comprehensively — read files, search code, spawn agents, run commands that enhance delivery. Work autonomously across multiple tool calls; only call end_turn when complete or explicitly blocked.\n' : ''}
+${isGPT5 ? '-  **Proactive Execution:** Use tools comprehensively — read files, search code, spawn agents, run commands that enhance delivery. Work autonomously across multiple tool calls; only stop when complete or explicitly blocked.\n' : ''}
 -  **Handling Requests:**
     - For complex requests, create a subgoal using \`add_subgoal\` to track objectives from the user request. Use \`update_subgoal\` to record progress. Put summaries of actions taken into the subgoal's \`log\`.
     - For straightforward requests, proceed directly without adding subgoals.
@@ -88,11 +92,15 @@ ${isGPT5 ? '-  **Proactive Execution:** Use tools comprehensively — read files
 
 - **Don't summarize your changes** Omit summaries as much as possible${model === models.openrouter_gpt5 ? '' : '. Be extremely concise when explaining the changes you made'}. There's no need to write a long explanation of what you did. Keep it to 1-2 two sentences max.
 - **Ending Your Response:** Your aim should be to completely fulfill the user's request before using ending your response. DO NOT END TURN IF YOU ARE STILL WORKING ON THE USER'S REQUEST. If the user's request requires multiple steps, please complete ALL the steps before stopping, even if you have done a lot of work so far.
-- **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user _or_ you are explicitly waiting for the user's next typed input, always conclude the message with a standalone \`${getToolCallString('end_turn', {})}\` tool call (surrounded by its required blank lines). This should be at the end of your message, e.g.:
+${
+  !isGPT5 &&
+  `- **FINALLY, YOU MUST USE THE END TURN TOOL** When you have fully answered the user _or_ you are explicitly waiting for the user's next typed input, always conclude the message with a standalone \`${getToolCallString('end_turn', {})}\` tool call (surrounded by its required blank lines). This should be at the end of your message, e.g.:
     <example>
     User: Hi
     Assisistant: Hello, what can I do for you today?\\n\\n${getToolCallString('end_turn', {})}
     ${closeXml('example')}
+    `
+}
 
 ## Verifying Your Changes at the End of Your Response
 
@@ -141,7 +149,7 @@ ${getToolCallString('run_terminal_command', { command: 'npm run typecheck' })}
 
 I see that my changes went through correctly. What would you like to do next?
 
-${getToolCallString('end_turn', {})}
+${isGPT5 ? '' : getToolCallString('end_turn', {})}
 
 ${PLACEHOLDER.TOOLS_PROMPT}
 
@@ -210,7 +218,7 @@ To stop a background process, attempt to close the process using the appropriate
 
 When you want to restart a background process, make sure to run the terminal command in the background.
 
-${PLACEHOLDER.FILE_TREE_PROMPT}
+${isLite ? PLACEHOLDER.FILE_TREE_PROMPT_SMALL : PLACEHOLDER.FILE_TREE_PROMPT}
 
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
@@ -225,21 +233,24 @@ export const baseAgentUserInputPrompt = (
     model === models.gemini2_5_flash ||
     model === models.gemini2_5_flash_thinking
   const isGeminiPro = model === models.gemini2_5_pro_preview
-  const isGPT5 = model === models.openrouter_gpt5
+  const isGPT5 =
+    model === models.openrouter_gpt5 || model === models.openrouter_gpt5_chat
   const isLite = mode === 'lite'
 
   return (
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
     '\n\n<system_instructions>' +
     buildArray(
-      `Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. ${isLite ? '' : 'If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. '}Then, finally you must use the end_turn tool at the end of your response. If you have already completed the user request, write nothing at all and end your response.`,
+      `Proceed toward the user request and any subgoals. Please either 1. clarify the request or 2. complete the entire user request. ${isLite ? '' : 'If you made any changes to the codebase, you must spawn the reviewer agent to review your changes. '}${isGPT5 ? '' : 'Then, finally you must use the end_turn tool at the end of your response. '}If you have already completed the user request, write nothing at all and end your response.`,
 
-      "If there are multiple ways the user's request could be interpreted that would lead to very different outcomes, ask at least one clarifying question that will help you understand what they are really asking for, and then use the end_turn tool.",
+      `If there are multiple ways the user's request could be interpreted that would lead to very different outcomes (not just minor differences), ask at least one clarifying question that will help you understand what they are really asking for${isGPT5 ? '.' : ', and then use the end_turn tool.'}`,
 
       'Use the spawn_agents tool (and not spawn_agent_inline!) to spawn agents to help you complete the user request. You can spawn as many agents as you want.',
 
       `It is a good idea to spawn a file explorer agent first to explore the codebase from different perspectives. Use the researcher agent to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the file picker, only spawn it *after* you have the file picker results. ${isLite ? '' : 'Finally, you must spawn the reviewer agent to review your code changes.'}`,
-      "Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read 20 files. The more files you read, the better context you have on the codebase and the better your response will be.",
+      isGPT5 &&
+        'Important: You must spawn a file-explorer agent first to explore the codebase from different perspectives for non-trivial requests. This is an inexpensive way to get a lot of context on the codebase.',
+      `Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read ${isLite ? '8' : '20'} files. The more files you read, the better context you have on the codebase and the better your response will be.`,
 
       'If the users uses "@AgentName" in their message, you must spawn the agent with the name "@AgentName". Spawn all the agents that the user mentions.',
 
@@ -264,6 +275,8 @@ export const baseAgentUserInputPrompt = (
 
       'Preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
+      'Never write out a tool_result yourself: e.g. {\n  "type": "tool_result", "toolCallId": "...",\n  // ...\n}. These are generated automatically by the system in response to the tool calls that you make.',
+
       'If you are trying to kill background processes, make sure to kill the entire process GROUP (or tree in Windows), and always prefer SIGTERM signals. If you restart the process, make sure to do so with process_type=BACKGROUND',
 
       !isFlash &&
@@ -272,7 +285,8 @@ export const baseAgentUserInputPrompt = (
       (isFlash || isGeminiPro) &&
         'Important: When using write_file, do NOT rewrite the entire file. Only show the parts of the file that have changed and write "// ... existing code ..." comments (or "# ... existing code ..", "/* ... existing code ... */", "<!-- ... existing code ... -->", whichever is appropriate for the language) around the changed area. Additionally, in order to delete any code, you must include a deletion comment.',
 
-      'If the user request is very complex, consider invoking think_deeply.',
+      !isGPT5 &&
+        'If the user request is very complex, consider invoking think_deeply.',
 
       "If the user asks to create a plan, invoke the create_plan tool. Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
 
@@ -291,12 +305,20 @@ export const baseAgentUserInputPrompt = (
       (isLite || isFlash || isGeminiPro) &&
         `You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. ${isLite ? '' : 'Finally, you must spawn the reviewer agent to review your code changes.'}`,
 
-      'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
+      !isGPT5 &&
+        'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
 
       isGPT5 &&
-        'Work autonomously within single turns using comprehensive tool usage. Take thorough action: read extensively, search patterns, spawn agents for complex tasks, validate quality. Avoid excessive caution when actions serve user interests without permanent damage. \
-        \
-        Note: end_turn signals desire for user feedback, not response termination. Use when work chunk complete and need review/direction.',
+        `Work autonomously within single turns using comprehensive tool usage. Take thorough action: read extensively, search patterns, spawn agents for complex tasks, validate quality. Avoid excessive caution when actions serve user interests without permanent damage. Proactively make decisions that the user would want you to make without needing to be told to do so.
+Note: If you seek feedback from the user, don't use any tools, just ask the user a question, but this should be done sparingly.
+
+IMPORTANT: Use must use at least one tool call in every response unless you are done.
+For example, if you write something like:
+"I'll verify and finish the requested type updates by inspecting the current files and making any remaining edits."
+Then you must also include a tool call, e.g.:
+"I'll verify and finish the requested type updates by inspecting the current files and making any remaining edits. ${getToolCallString('read_files', { paths: ['src/components/foo.tsx'] })}"
+If you don't do this, then your response will be cut off and the turn will be ended automatically.
+`,
     ).join('\n\n') +
     closeXml('system_instructions')
   )

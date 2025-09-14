@@ -1,17 +1,12 @@
-import { publisher } from './constants.ts'
-import { base } from './factory/base.ts'
+import { publisher } from './constants'
+import { base } from './factory/base'
 
-import type { SecretAgentDefinition } from './types/secret-agent-definition.ts'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
-  id: 'base-lite',
+  id: 'base-quick',
   publisher,
-  ...base('openai/gpt-5', 'lite'),
-  reasoningOptions: {
-    enabled: true,
-    effort: 'medium',
-    exclude: true,
-  },
+  ...base('openai/gpt-5-chat', 'lite'),
   toolNames: [
     'create_plan',
     'run_terminal_command',

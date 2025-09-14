@@ -5,7 +5,6 @@ import {
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
 } from '../prompts'
-import { AgentTemplateTypes } from '../types/secret-agent-definition'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { ModelName } from 'types/agent-definition'
@@ -50,15 +49,15 @@ export const base = (
     'update_subgoal',
   ],
   spawnableAgents: [
-    AgentTemplateTypes.file_explorer,
-    AgentTemplateTypes.file_picker,
-    AgentTemplateTypes.researcher,
-    AgentTemplateTypes.thinker,
-    AgentTemplateTypes.reviewer,
+    'file-explorer',
+    'file-picker',
+    'researcher',
+    'thinker',
+    'reviewer',
     'context-pruner',
   ],
 
-  systemPrompt: baseAgentSystemPrompt(model),
+  systemPrompt: baseAgentSystemPrompt(model, mode),
   instructionsPrompt: baseAgentUserInputPrompt(model, mode),
   stepPrompt: baseAgentAgentStepPrompt(model),
 
