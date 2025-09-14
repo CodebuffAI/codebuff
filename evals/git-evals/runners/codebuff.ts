@@ -80,6 +80,14 @@ export class CodebuffRunner implements Runner {
         } else if (event.type === 'tool_result') {
           toolResults.push(event as any)
           console.log('\n\n' + JSON.stringify(event, null, 2))
+        } else if (event.type === 'finish') {
+          if (
+            responseText.length > 0 ||
+            toolCalls.length > 0 ||
+            toolResults.length > 0
+          ) {
+            flushStep()
+          }
         }
       },
       handleStreamChunk: (chunk) => {
