@@ -15,8 +15,7 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
  *
  * Attempts to call the specified Gemini model via the standard Gemini API.
  * If that fails, it falls back to using the Vertex AI Gemini endpoint.
- * If Vertex AI also fails, it falls back to either GPT-4o (if `useGPT4oInsteadOfClaude` is true)
- * or a Claude model (Sonnet for 'max' costMode, Haiku otherwise).
+ * If Vertex AI also fails, it falls back to a Claude model (Sonnet for 'max' costMode, Haiku otherwise).
  *
  * This function handles non-streaming requests and returns the complete response string.
  *
@@ -46,17 +45,11 @@ export async function promptFlashWithFallbacks(
     maxTokens?: number
     temperature?: number
     costMode?: CostMode
-    useGPT4oInsteadOfClaude?: boolean
     thinkingBudget?: number
     useFinetunedModel?: FinetunedVertexModel | undefined
   },
 ): Promise<string> {
-  const {
-    costMode,
-    useGPT4oInsteadOfClaude,
-    useFinetunedModel,
-    ...geminiOptions
-  } = options
+  const { costMode, useFinetunedModel, ...geminiOptions } = options
 
   // Try finetuned model first if enabled
   if (useFinetunedModel) {
@@ -78,22 +71,17 @@ export async function promptFlashWithFallbacks(
     // First try Gemini
     return await promptAiSdk({ ...geminiOptions, messages })
   } catch (error) {
-    logger.warn(
-      { error },
-      `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`,
-    )
+    logger.warn({ error }, `Error calling Gemini API, falling back to Claude`)
     return await promptAiSdk({
       ...geminiOptions,
       messages,
-      model: useGPT4oInsteadOfClaude
-        ? openaiModels.gpt4o
-        : {
-            lite: openrouterModels.openrouter_claude_3_5_haiku,
-            normal: openrouterModels.openrouter_claude_3_5_haiku,
-            max: openrouterModels.openrouter_claude_sonnet_4,
-            experimental: openrouterModels.openrouter_claude_3_5_haiku,
-            ask: openrouterModels.openrouter_claude_3_5_haiku,
-          }[costMode ?? 'normal'],
+      model: {
+        lite: openrouterModels.openrouter_claude_3_5_haiku,
+        normal: openrouterModels.openrouter_claude_3_5_haiku,
+        max: openrouterModels.openrouter_claude_sonnet_4,
+        experimental: openrouterModels.openrouter_claude_3_5_haiku,
+        ask: openrouterModels.openrouter_claude_3_5_haiku,
+      }[costMode ?? 'normal'],
     })
   }
 }
