@@ -99,7 +99,6 @@ import { CodebuffClient } from '@codebuff/sdk'
 // 1. Initialize the client
 const client = new CodebuffClient({
   apiKey: 'your-api-key',
-  cwd: '/path/to/your/project',
   onError: (error) => console.error('Codebuff error:', error.message),
 })
 

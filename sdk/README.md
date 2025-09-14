@@ -23,7 +23,6 @@ async function main() {
   const client = new CodebuffClient({
     // Note: You need to pass in your own API key here. Get one: https://www.codebuff.com/profile?tab=api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
-    cwd: process.cwd(),
     onError: (e) => console.error('Codebuff error:', e.message),
   })
 
