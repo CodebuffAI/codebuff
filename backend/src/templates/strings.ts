@@ -53,6 +53,11 @@ export async function formatPrompt(
       ? agentTemplate.displayName || 'Unknown Agent'
       : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: schemaToJsonStr(CodebuffConfigSchema),
+    [PLACEHOLDER.FILE_TREE_PROMPT_SMALL]: getProjectFileTreePrompt(
+      fileContext,
+      2_500,
+      'agent',
+    ),
     [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
       fileContext,
       20_000,
