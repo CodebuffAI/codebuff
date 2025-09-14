@@ -1,5 +1,5 @@
 import { google } from '@ai-sdk/google'
-import { openai } from '@ai-sdk/openai'
+import { createOpenAI, openai } from '@ai-sdk/openai'
 import {
   finetunedVertexModels,
   geminiModels,
@@ -36,6 +36,13 @@ import type {
 import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
 
+const createOpenAIProvider = (baseURL: string, apiKey: string) => {
+  return createOpenAI({
+    baseURL,
+    apiKey,
+  })
+}
+
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModel => {
   if (
@@ -49,9 +56,21 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
     return google.languageModel(model)
   }
   if (model === openaiModels.o3pro || model === openaiModels.o3) {
+    const customEndpoint = process.env.CUSTOM_OPENAI_ENDPOINT
+    const customApiKey = process.env.CUSTOM_OPENAI_API_KEY
+    if (customEndpoint && customApiKey) {
+      const customOpenAI = createOpenAIProvider(customEndpoint, customApiKey)
+      return customOpenAI.responses(model)
+    }
     return openai.responses(model)
   }
   if (Object.values(openaiModels).includes(model as OpenAIModel)) {
+    const customEndpoint = process.env.CUSTOM_OPENAI_ENDPOINT
+    const customApiKey = process.env.CUSTOM_OPENAI_API_KEY
+    if (customEndpoint && customApiKey) {
+      const customOpenAI = createOpenAIProvider(customEndpoint, customApiKey)
+      return customOpenAI.languageModel(model)
+    }
     return openai.languageModel(model)
   }
   // All other models go through OpenRouter
