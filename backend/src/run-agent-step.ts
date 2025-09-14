@@ -366,11 +366,11 @@ export const runAgentStep = async (
       shouldEndTurn,
       duration: Date.now() - startTime,
       fullResponse,
-      fullResponseChunks,
       finalMessageHistoryWithToolResults: agentState.messageHistory,
       toolCalls,
       toolResults,
       agentContext: newAgentContext,
+      fullResponseChunks,
     },
     `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
