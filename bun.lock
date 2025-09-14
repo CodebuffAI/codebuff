@@ -235,7 +235,7 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.1.29",
+      "version": "0.1.30",
       "dependencies": {
         "@vscode/ripgrep": "1.15.14",
         "@vscode/tree-sitter-wasm": "0.1.4",

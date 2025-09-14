@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BackButton } from '@/components/ui/back-button'
-import { JsonViewer } from '@/components/agent/json-viewer'
+import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
 import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
 import { cn } from '@/lib/utils'
 import { AgentUsageMetrics } from './agent-usage-metrics'
@@ -126,11 +126,12 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
 
   return (
     <div className="container mx-auto py-6 px-4">
-      <div className="max-w-4xl mx-auto">        {/* Navigation */}
+      <div className="max-w-4xl mx-auto">
+        {' '}
+        {/* Navigation */}
         <div className="mb-6">
           <BackButton />
         </div>
-
         {/* Agent Header */}
         <Card className="mb-6">
           <CardHeader>
@@ -202,14 +203,12 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
             </div>
           </CardHeader>
         </Card>
-
         {/* Usage Metrics */}
         <AgentUsageMetrics
           publisherId={params.id}
           agentId={params.agentId}
           version={params.version}
         />
-
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Version Navigation */}
           <div className="lg:col-span-1">
@@ -264,17 +263,17 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
             </Card>
           </div>
 
-          {/* Agent Configuration */}
+          {/* Agent Definition */}
           <div className="lg:col-span-3">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Agent Configuration</CardTitle>
+                <CardTitle className="text-lg">Agent Definition</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Complete agent data in JSON format
+                  Complete agent data in TypeScript format
                 </p>
               </CardHeader>
               <CardContent>
-                <JsonViewer data={agentData} />
+                <TypeScriptViewer data={agentData} />
               </CardContent>
             </Card>
           </div>
