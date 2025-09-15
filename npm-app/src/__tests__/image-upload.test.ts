@@ -169,17 +169,15 @@ describe('Image Upload Functionality', () => {
       expect(paths).toEqual(['./ConstellationFS Demo · 1.21am · 09-11.jpeg', '../images/café ñoño (2024).png'])
     })
 
-    test('should auto-detect paths with spaces and special characters', () => {
-      const input =
-        '/Users/brandonchen/Downloads/ConstellationFS Demo · 1.21am · 09-11.jpeg'
+    test('should require quotes for paths with spaces to avoid false positives', () => {
+      const input = '/Users/brandonchen/Downloads/ConstellationFS Demo · 1.21am · 09-11.jpeg'
       const paths = extractImagePaths(input)
-      expect(paths).toEqual([
-        '/Users/brandonchen/Downloads/ConstellationFS Demo · 1.21am · 09-11.jpeg',
-      ])
+      // Unquoted paths with spaces are not auto-detected to avoid false positives
+      expect(paths).toEqual([])
     })
 
-    test('should handle standalone paths with spaces as the entire input', () => {
-      const input = '   /Users/test/My Documents/screenshot file.png   '
+    test('should detect quoted paths with spaces', () => {
+      const input = '"/Users/test/My Documents/screenshot file.png"'
       const paths = extractImagePaths(input)
       expect(paths).toEqual(['/Users/test/My Documents/screenshot file.png'])
     })
