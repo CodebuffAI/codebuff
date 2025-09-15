@@ -1,0 +1,4 @@
+CREATE INDEX IF NOT EXISTS "idx_agent_run_completed_publisher_agent" ON "agent_run" USING btree ("publisher_id","agent_name") WHERE "agent_run"."status" = 'completed';--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_agent_run_completed_recent" ON "agent_run" USING btree ("created_at","publisher_id","agent_name") WHERE "agent_run"."status" = 'completed';--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_agent_run_completed_version" ON "agent_run" USING btree ("publisher_id","agent_name","agent_version","created_at") WHERE "agent_run"."status" = 'completed';--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_agent_run_completed_user" ON "agent_run" USING btree ("user_id") WHERE "agent_run"."status" = 'completed';

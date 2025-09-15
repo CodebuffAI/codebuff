@@ -597,6 +597,19 @@ export const agentRun = pgTable(
       .on(table.status)
       .where(sql`${table.status} = 'running'`),
     index('idx_agent_run_ancestors_gin').using('gin', table.ancestor_run_ids),
+    // Performance indexes for agent store
+    index('idx_agent_run_completed_publisher_agent')
+      .on(table.publisher_id, table.agent_name)
+      .where(sql`${table.status} = 'completed'`),
+    index('idx_agent_run_completed_recent')
+      .on(table.created_at, table.publisher_id, table.agent_name)
+      .where(sql`${table.status} = 'completed'`),
+    index('idx_agent_run_completed_version')
+      .on(table.publisher_id, table.agent_name, table.agent_version, table.created_at)
+      .where(sql`${table.status} = 'completed'`),
+    index('idx_agent_run_completed_user')
+      .on(table.user_id)
+      .where(sql`${table.status} = 'completed'`),
   ],
 )
 

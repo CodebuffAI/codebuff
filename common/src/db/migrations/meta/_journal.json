@@ -204,6 +204,13 @@
       "when": 1757460549573,
       "tag": "0028_magical_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1757916820720,
+      "tag": "0029_abandoned_azazel",
+      "breakpoints": true
     }
   ]
 }

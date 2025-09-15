@@ -320,3 +320,19 @@ codebuff --create <template> [project-name]
 ```
 
 Templates are maintained in the codebuff community repo. Each directory corresponds to a template usable with the --create flag.
+
+## Database Schema and Migrations
+
+**Important**: When adding database indexes or schema changes, modify the schema file directly (`common/src/db/schema.ts`) using Drizzle's index syntax, then run the migration generation script to create the actual migration files.
+
+**Do NOT** write migration SQL files directly. The proper workflow is:
+1. Update `common/src/db/schema.ts` with new indexes using Drizzle syntax
+2. Run the migration generation script to create the SQL migration files
+3. Apply the migrations using the deployment process
+
+Example of adding performance indexes:
+```typescript
+index('idx_table_optimized')
+  .on(table.column1, table.column2)
+  .where(sql`${table.status} = 'completed'`)
+```
