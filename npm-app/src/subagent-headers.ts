@@ -39,7 +39,11 @@ export function printSubagentHeader(event: PrintModeEvent) {
     )
     console.log(``)
   }
+
   if (stoppedSpinner && stoppedSpinner.type === 'text') {
     return Spinner.get().start(stoppedSpinner.text)
+  }
+  if (stoppedSpinner && stoppedSpinner.type === 'textless') {
+    return Spinner.get().start('Thinking')
   }
 }

@@ -4,8 +4,6 @@ import MarkdownIt from 'markdown-it'
 import terminal from 'markdown-it-terminal'
 import wrapAnsi from 'wrap-ansi'
 
-import { Spinner } from '../utils/spinner'
-
 export type MarkdownStreamRendererOptions = {
   width?: number
   isTTY?: boolean
@@ -150,8 +148,6 @@ export class MarkdownStreamRenderer {
 
     // Check if we should force flush due to age or size
     this.checkForceFlush(outs)
-
-    Spinner.get().start(null, true)
   }
 
   private processLine(
@@ -320,9 +316,6 @@ export class MarkdownStreamRenderer {
   private flushBlock(outs: string[]) {
     if (!this.currentBlock) return
 
-    // Hide loading indicator if showing
-    Spinner.get().stop()
-
     // Render the block
     const rendered = this.render(this.currentBlock.buffer)
     outs.push(rendered)
@@ -352,9 +345,6 @@ export class MarkdownStreamRenderer {
       (age > 1000 && this.currentBlock.type === 'list') // Lists get extra time to accumulate
 
     if (shouldForceFlush) {
-      // Hide indicator since we flushed something
-      Spinner.get().stop()
-
       // Try to find a soft boundary for force flush
       const buffer = this.currentBlock.buffer
       const sentenceEnd = buffer.lastIndexOf('. ')
@@ -392,9 +382,6 @@ export class MarkdownStreamRenderer {
   }
 
   end(): string | null {
-    // Hide any loading indicator
-    Spinner.get().stop()
-
     const outputs: string[] = []
 
     // Flush current block if any

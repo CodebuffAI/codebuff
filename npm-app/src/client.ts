@@ -1058,6 +1058,9 @@ export class Client {
           }
           DiffManager.receivedResponse()
           process.stdout.write(chunk)
+          if (chunk.endsWith('\n')) {
+            Spinner.get().start(null, true)
+          }
         } else {
           printModeLog(chunk)
           printSubagentHeader(chunk)
@@ -1280,9 +1283,6 @@ export class Client {
     }
 
     const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
-      if (chunk) {
-        Spinner.get().stop()
-      }
       if (!streamStarted) {
         streamStarted = true
         onStreamStart()
