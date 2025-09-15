@@ -11,8 +11,7 @@ const agent: AgentDefinition = {
   id: 'etl-manager',
   displayName: 'ETL Pipeline Manager',
   model: 'openai/gpt-5',
-  version: '1.0.0',
-  publisher: 'web-demo',
+  publisher: 'brandon',
 
   toolNames: ['spawn_agents', 'think_deeply', 'add_message'],
 

@@ -11,9 +11,9 @@ const agent: AgentDefinition = {
   id: 'extract-agent',
   displayName: 'Extract Agent',
   model: 'anthropic/claude-4-sonnet-20250522',
-  version: '1.0.0',
   outputMode: 'last_message',
   includeMessageHistory: false,
+  publisher: 'brandon',
 
   toolNames: ['web_search', 'end_turn'],
 

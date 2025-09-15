@@ -11,9 +11,9 @@ const agent: AgentDefinition = {
   id: 'transform-agent',
   displayName: 'Transform Agent',
   model: 'anthropic/claude-4-sonnet-20250522',
-  version: '1.0.0',
   outputMode: 'structured_output',
   includeMessageHistory: false,
+  publisher: 'brandon',
 
   toolNames: [
     'read_files',
