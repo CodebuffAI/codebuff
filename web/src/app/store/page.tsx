@@ -240,14 +240,14 @@ const AgentStorePage = () => {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        `codebuff --agent ${agent.id}`
+                        `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
                       )
                       toast({
-                        description: `Agent run command copied to clipboard:\n"codebuff --agent ${agent.id}"`,
+                        description: `Agent run command copied to clipboard:\n"codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}"`,
                       })
                     }}
                     className="p-1 hover:bg-muted/50 rounded transition-colors"
-                    title={`Copy: codebuff --agent ${agent.id}`}
+                    title={`Copy: codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`}
                   >
                     <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                   </button>
