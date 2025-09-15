@@ -1249,6 +1249,9 @@ export class Client {
     }
 
     const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
+      if (chunk) {
+        Spinner.get().stop()
+      }
       if (!streamStarted) {
         streamStarted = true
         onStreamStart()
