@@ -14,6 +14,7 @@ import {
   Star,
   Plus,
   User,
+  Copy,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AnimatedElement } from '@/components/ui/landing/animated-element'
+import { toast } from '@/components/ui/use-toast'
 import { formatRelativeTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
@@ -234,6 +236,22 @@ const AgentStorePage = () => {
                 >
                   v{agent.version}
                 </Badge>
+                <div onClick={(e) => e.preventDefault()}>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `codebuff --agent ${agent.id}`
+                      )
+                      toast({
+                        description: `Agent run command copied to clipboard:\n"codebuff --agent ${agent.id}"`,
+                      })
+                    }}
+                    className="p-1 hover:bg-muted/50 rounded transition-colors"
+                    title={`Copy: codebuff --agent ${agent.id}`}
+                  >
+                    <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                  </button>
+                </div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-3">

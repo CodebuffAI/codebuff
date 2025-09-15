@@ -1,7 +1,7 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { ArrowLeft, Calendar, Code, Download, ExternalLink } from 'lucide-react'
+import { Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -10,9 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BackButton } from '@/components/ui/back-button'
 import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
-import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
+
 import { cn } from '@/lib/utils'
 import { AgentUsageMetrics } from './agent-usage-metrics'
+import { RunAgentButton } from './run-agent-button'
+import { CopyIdButton } from './copy-id-button'
 import { Button } from '@/components/ui/button'
 
 interface AgentDetailPageProps {
@@ -182,16 +184,9 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col items-end space-y-3">
-                <div className="flex items-center space-x-2 text-sm">
-                  <code className="bg-muted/50 px-2 py-1 rounded text-xs font-mono text-muted-foreground">
-                    {publisherData.id}/{params.agentId}@{latestVersion}
-                  </code>
-                  <EnhancedCopyButton
-                    value={fullAgentId}
-                    className="p-1 text-muted-foreground/60 hover:text-muted-foreground"
-                  />
-                </div>
+              <div className="flex items-end space-x-3">
+                <CopyIdButton agentId={fullAgentId} />
+                <RunAgentButton agentId={fullAgentId} />
                 {/*
                 Hide download button for now. (It doesn't do anything)
                 <Button variant="outline" size="sm">
