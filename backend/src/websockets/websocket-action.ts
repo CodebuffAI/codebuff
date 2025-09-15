@@ -224,6 +224,8 @@ export const callMainPrompt = async (
     chunk: {
       type: 'start',
       agentId: action.sessionState.mainAgentState.agentType ?? undefined,
+      messageHistoryLength:
+        action.sessionState.mainAgentState.messageHistory.length,
     },
   })
 

@@ -5,6 +5,7 @@ import { toolResultOutputSchema } from './messages/content-part'
 export const printModeStartSchema = z.object({
   type: z.literal('start'),
   agentId: z.string().optional(),
+  messageHistoryLength: z.number(),
 })
 export type PrintModeStart = z.infer<typeof printModeStartSchema>
 
