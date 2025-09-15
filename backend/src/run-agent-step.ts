@@ -36,7 +36,11 @@ import type {
   AssistantMessage,
   Message,
 } from '@codebuff/common/types/messages/codebuff-message'
-import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
+import type {
+  ToolResultPart,
+  TextPart,
+  ImagePart,
+} from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentTemplateType,
@@ -45,6 +49,49 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
+
+/**
+ * Combines prompt, params, and content into a unified message content structure
+ */
+function buildUserMessageContent(
+  prompt: string | undefined,
+  params: Record<string, any> | undefined,
+  content?: Array<TextPart | ImagePart>,
+): string | Array<TextPart | ImagePart> {
+  const textParts = buildArray([
+    prompt,
+    params && JSON.stringify(params, null, 2),
+  ])
+  const combinedText = textParts.join('\n\n')
+
+  if (!content || content.length === 0) {
+    // Only prompt/params, return as simple text
+    return asUserMessage(combinedText)
+  }
+
+  // If we have both content and prompt/params, combine them
+  const allParts = [...content]
+
+  // Find the first text part and prepend our combined text, or add it as a new text part
+  const firstTextPartIndex = allParts.findIndex((part) => part.type === 'text')
+  if (firstTextPartIndex !== -1) {
+    // Prepend to existing text part
+    const textPart = allParts[firstTextPartIndex]
+    if (textPart.type === 'text') {
+      allParts[firstTextPartIndex] = {
+        type: 'text' as const,
+        text: buildArray([combinedText, textPart.text]).join('\n\n'),
+      }
+    }
+  } else {
+    // Add as new text part at the beginning
+    allParts.unshift({ type: 'text' as const, text: combinedText })
+  }
+
+  return allParts.length === 1 && allParts[0].type === 'text'
+    ? asUserMessage(allParts[0].text)
+    : allParts
+}
 
 export interface AgentOptions {
   userId: string | undefined
@@ -390,6 +437,7 @@ export const loopAgentSteps = async (
     agentType,
     agentState,
     prompt,
+    content,
     params,
     fingerprintId,
     fileContext,
@@ -403,6 +451,7 @@ export const loopAgentSteps = async (
     agentType: AgentTemplateType
     agentState: AgentState
     prompt: string | undefined
+    content?: Array<TextPart | ImagePart>
     params: Record<string, any> | undefined
     fingerprintId: string
     fileContext: ProjectFileContext
@@ -455,11 +504,7 @@ export const loopAgentSteps = async (
       {
         // Actual user prompt!
         role: 'user' as const,
-        content: asUserMessage(
-          buildArray([prompt, params && JSON.stringify(params, null, 2)]).join(
-            '\n\n',
-          ),
-        ),
+        content: buildUserMessageContent(prompt, params, content),
         keepDuringTruncation: true,
       },
       prompt &&

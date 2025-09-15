@@ -169,7 +169,20 @@ const WARNING_CONFIG = {
   },
 } as const
 
-type UsageData = Omit<MakeNullable<UsageResponse, 'remainingBalance'>, 'type'>
+type UsageData = Omit<MakeNullable<UsageResponse, 'remainingBalance'>, 'type'> // Simplified types for sendUserInput return values
+type PromptResponse = ServerAction & {
+  type: 'prompt-response' | 'manager-prompt-response'
+} & { wasStoppedByUser: boolean }
+
+type Stoppable<T> = {
+  responsePromise: Promise<T>
+  stopResponse: () => void
+}
+
+type MessageContent = Array<
+  | { type: 'text'; text: string }
+  | { type: 'image'; image: string; mediaType: string }
+>
 
 interface ClientOptions {
   websocketUrl: string
@@ -972,14 +985,37 @@ export class Client {
     }
   }
 
-  async sendUserInput(prompt: string): Promise<{
-    responsePromise: Promise<
-      ServerAction & { type: 'prompt-response' | 'manager-prompt-response' } & {
-        wasStoppedByUser: boolean
-      }
-    >
-    stopResponse: () => void
-  }> {
+  async sendUserInputWithContent(
+    content: MessageContent,
+  ): Promise<Stoppable<PromptResponse>> {
+    // Extract text content for backwards compatibility
+    const textParts = content.filter((part) => part.type === 'text') as Array<{
+      type: 'text'
+      text: string
+    }>
+    const prompt = textParts
+      .map((part) => part.text)
+      .join(' ')
+      .trim()
+
+    // If there are no image parts, use the original method
+    const imageParts = content.filter((part) => part.type === 'image')
+    if (imageParts.length === 0) {
+      return this.sendUserInput(prompt)
+    }
+
+    // Handle content with images - build user message content
+    return this.sendUserInputInternal(prompt, content)
+  }
+
+  async sendUserInput(prompt: string): Promise<Stoppable<PromptResponse>> {
+    return this.sendUserInputInternal(prompt, [{ type: 'text', text: prompt }])
+  }
+
+  private async sendUserInputInternal(
+    prompt: string,
+    content: MessageContent,
+  ): Promise<Stoppable<PromptResponse>> {
     if (!this.sessionState) {
       throw new Error('Agent state not initialized')
     }
@@ -988,7 +1024,8 @@ export class Client {
       ...this.sessionState.mainAgentState.messageHistory,
       {
         role: 'user',
-        content: prompt,
+        content:
+          content.length === 1 && content[0].type === 'text' ? prompt : content,
       },
     ])
 
@@ -1075,6 +1112,8 @@ export class Client {
       type: 'prompt',
       promptId: userInputId,
       prompt: cleanPrompt,
+      content:
+        content.length > 1 || content[0].type !== 'text' ? content : undefined,
       agentId: cliAgent,
       promptParams: cliParams,
       sessionState: this.sessionState,
@@ -1188,20 +1227,12 @@ export class Client {
     const rawChunkBuffer: string[] = []
     let streamStarted = false
     let responseStopped = false
-    let resolveResponse: (
-      value: ServerAction & { type: 'prompt-response' } & {
-        wasStoppedByUser: boolean
-      },
-    ) => void
+    let resolveResponse: (value: PromptResponse) => void
     let rejectResponse: (reason?: any) => void
     let unsubscribeChunks: () => void
     let unsubscribeComplete: () => void
 
-    const responsePromise = new Promise<
-      ServerAction & { type: 'prompt-response' } & {
-        wasStoppedByUser: boolean
-      }
-    >((resolve, reject) => {
+    const responsePromise = new Promise<PromptResponse>((resolve, reject) => {
       resolveResponse = resolve
       rejectResponse = reject
     })

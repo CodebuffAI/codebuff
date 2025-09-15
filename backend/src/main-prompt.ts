@@ -40,6 +40,7 @@ export const mainPrompt = async (
 
   const {
     prompt,
+    content,
     sessionState: sessionState,
     fingerprintId,
     costMode,
@@ -182,6 +183,7 @@ export const mainPrompt = async (
   const { agentState, output } = await loopAgentSteps(ws, {
     userInputId: promptId,
     prompt,
+    content,
     params: promptParams,
     agentType,
     agentState: mainAgentState,

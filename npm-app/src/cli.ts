@@ -103,6 +103,7 @@ import {
 } from './terminal/run-command'
 import { flushAnalytics, trackEvent } from './utils/analytics'
 import { createAuthHeaders } from './utils/auth-headers'
+import { extractImagePaths, processImageFile } from './utils/image-handler'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
 import { withHangDetection } from './utils/with-hang-detection'
@@ -1240,14 +1241,44 @@ export class CLI {
 
     await saveCheckpoint(cleanedInput, client, this.readyPromise)
 
+    // Auto-detect and process image paths in the prompt
+    const imageParts = await this.autoDetectImagePaths(cleanedInput)
+
+    // Show attachment summary if there are images
+    if (imageParts.length > 0) {
+      const totalSize = imageParts.reduce(
+        (sum, part) => sum + (part.size || 0),
+        0,
+      )
+      const totalSizeKB = (totalSize / 1024).toFixed(1)
+      const summary =
+        imageParts.length === 1
+          ? `1 image (${totalSizeKB}KB)`
+          : `${imageParts.length} images (${totalSizeKB}KB total)`
+      console.log(gray(`📎 ${summary}`))
+    }
+
     Spinner.get().start('Thinking...')
 
     this.isReceivingResponse = true
 
     DiffManager.startUserInput()
 
+    // Build message content with images
+    const messageContent: Array<
+      | { type: 'text'; text: string }
+      | { type: 'image'; image: string; mediaType: string }
+    > = [
+      { type: 'text', text: cleanedInput },
+      ...imageParts.map((part) => ({
+        type: 'image' as const,
+        image: part.image,
+        mediaType: part.mediaType,
+      })),
+    ]
+
     const { responsePromise, stopResponse } =
-      await client.sendUserInput(cleanedInput)
+      await client.sendUserInputWithContent(messageContent)
 
     this.stopResponse = stopResponse
     await responsePromise
@@ -1503,5 +1534,58 @@ export class CLI {
       }
     }
     this.lastInputTime = currentTime
+  }
+
+  private async autoDetectImagePaths(input: string): Promise<
+    Array<{
+      type: 'image'
+      image: string
+      mediaType: string
+      filename?: string
+      size?: number
+    }>
+  > {
+    const imagePaths = extractImagePaths(input)
+    logger.debug('CLI auto-detect: Extracted image paths', {
+      input,
+      imagePaths,
+      count: imagePaths.length,
+    })
+
+    if (imagePaths.length === 0) {
+      return []
+    }
+
+    const cwd = getWorkingDirectory()
+    const imageParts: Array<{
+      type: 'image'
+      image: string
+      mediaType: string
+      filename?: string
+      size?: number
+    }> = []
+
+    // Process each detected image path
+    for (const imagePath of imagePaths) {
+      logger.debug('CLI auto-detect: Processing image path', { imagePath, cwd })
+      const result = await processImageFile(imagePath, cwd)
+
+      if (!result.success) {
+        logger.debug('CLI auto-detect: Failed to process image', {
+          imagePath,
+          error: result.error,
+        })
+        console.log(red(`Failed to attach ${imagePath}: ${result.error}`))
+      } else if (result.imagePart) {
+        logger.debug('CLI auto-detect: Successfully processed image', {
+          imagePath,
+          filename: result.imagePart.filename,
+          size: result.imagePart.size,
+        })
+        imageParts.push(result.imagePart)
+      }
+    }
+
+    return imageParts
   }
 }

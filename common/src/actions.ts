@@ -5,6 +5,8 @@ import { GrantTypeValues } from './types/grant'
 import {
   toolResultOutputSchema,
   toolResultPartSchema,
+  textPartSchema,
+  imagePartSchema,
 } from './types/messages/content-part'
 import { printModeEventSchema } from './types/print-mode'
 import {
@@ -28,6 +30,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('prompt'),
     promptId: z.string(),
     prompt: z.string().or(z.undefined()),
+    content: z.array(z.union([textPartSchema, imagePartSchema])).optional(),
     promptParams: z.record(z.string(), z.any()).optional(), // Additional json params.
     fingerprintId: z.string(),
     authToken: z.string().optional(),

@@ -47,6 +47,7 @@
     "git-url-parse": "^16.1.0",
     "ignore": "7.0.3",
     "isomorphic-git": "^1.29.0",
+    "jimp": "^1.6.0",
     "lodash": "*",
     "markdown-it": "^14.1.0",
     "markdown-it-terminal": "^0.4.0",
