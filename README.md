@@ -1,5 +1,6 @@
 # Codebuff
 
+
 Codebuff is an **open-source AI coding assistant** that edits your codebase through natural language instructions. Instead of using one model for everything, it coordinates specialized agents that work together to understand your project and make precise changes.
 
 <div align="center">
