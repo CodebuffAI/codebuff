@@ -449,10 +449,7 @@ export const loopAgentSteps = async (
 
   // Build the initial message history with user prompt and instructions
   const initialMessages = buildArray<Message>(
-    agentState.messageHistory.map((m) => ({
-      ...m,
-      keepDuringTruncation: false,
-    })),
+    ...agentState.messageHistory,
 
     hasPrompt && [
       {
