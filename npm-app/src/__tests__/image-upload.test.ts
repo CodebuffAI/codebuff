@@ -1,6 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
-import { writeFileSync, unlinkSync, mkdirSync, rmSync } from 'fs'
+import { writeFileSync, mkdirSync, rmSync } from 'fs'
 import path from 'path'
+
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+
 import {
   processImageFile,
   isImageFile,
@@ -163,14 +165,47 @@ describe('Image Upload Functionality', () => {
       expect(paths).toEqual([])
     })
 
-    test('should handle weird characters and spaces in quoted paths', () => {
-      const input = 'Files: "./ConstellationFS Demo · 1.21am · 09-11.jpeg" and \'../images/café ñoño (2024).png\''
+    test('should auto-detect bare relative paths with separators', () => {
+      const input = 'Check assets/multi-agents.png and images/logo.jpg'
       const paths = extractImagePaths(input)
-      expect(paths).toEqual(['./ConstellationFS Demo · 1.21am · 09-11.jpeg', '../images/café ñoño (2024).png'])
+      expect(paths).toEqual(['assets/multi-agents.png', 'images/logo.jpg'])
+    })
+
+    test('should auto-detect Windows-style bare relative paths', () => {
+      const input = 'See assets\\windows\\image.png'
+      const paths = extractImagePaths(input)
+      expect(paths).toEqual(['assets\\windows\\image.png'])
+    })
+
+    test('should NOT auto-detect URLs', () => {
+      const input =
+        'Visit https://example.com/image.png and http://site.com/photo.jpg'
+      const paths = extractImagePaths(input)
+      expect(paths).toEqual([])
+    })
+
+    test('should handle expanded trailing punctuation', () => {
+      const input =
+        'Files: assets/logo.png), ./images/banner.jpg], and ~/photos/pic.png>'
+      const paths = extractImagePaths(input)
+      expect(paths.sort()).toEqual(
+        ['./images/banner.jpg', '~/photos/pic.png', 'assets/logo.png'].sort(),
+      )
+    })
+
+    test('should handle weird characters and spaces in quoted paths', () => {
+      const input =
+        'Files: "./ConstellationFS Demo · 1.21am · 09-11.jpeg" and \'../images/café ñoño (2024).png\''
+      const paths = extractImagePaths(input)
+      expect(paths).toEqual([
+        './ConstellationFS Demo · 1.21am · 09-11.jpeg',
+        '../images/café ñoño (2024).png',
+      ])
     })
 
     test('should require quotes for paths with spaces to avoid false positives', () => {
-      const input = '/Users/brandonchen/Downloads/ConstellationFS Demo · 1.21am · 09-11.jpeg'
+      const input =
+        '/Users/brandonchen/Downloads/ConstellationFS Demo · 1.21am · 09-11.jpeg'
       const paths = extractImagePaths(input)
       // Unquoted paths with spaces are not auto-detected to avoid false positives
       expect(paths).toEqual([])

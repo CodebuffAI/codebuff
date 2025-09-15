@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'fs'
 import { homedir } from 'os'
 import path from 'path'
+
 import { Jimp } from 'jimp'
 
 import { logger } from './logger'
@@ -175,7 +176,6 @@ export async function processImageFile(
         const originalWidth = image.bitmap.width
         const originalHeight = image.bitmap.height
 
-        let bestBuffer = processedBuffer
         let bestBase64Size = base64Size
         let compressionAttempts = []
 
@@ -241,7 +241,6 @@ export async function processImageFile(
 
               // Keep track of the best attempt so far
               if (testBase64Size < bestBase64Size) {
-                bestBuffer = testBuffer
                 bestBase64Size = testBase64Size
               }
             } catch (attemptError) {
@@ -373,12 +372,17 @@ export function extractImagePaths(input: string): string[] {
   const pathRegexes = [
     // Absolute paths: /path/to/file, ~/path, C:\path (Windows)
     new RegExp(
-      `(?:^|\\s)((?:[~/]|[A-Za-z]:\\\\)[^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;])`,
+      `(?:^|\\s)((?:[~/]|[A-Za-z]:\\\\)[^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;)\\]}>])`,
       'gi',
     ),
     // Relative paths with separators: ./path/file, ../path/file
     new RegExp(
-      `(?:^|\\s)(\\.\\.?[\\/\\\\][^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;])`,
+      `(?:^|\\s)(\\.\\.?[\\/\\\\][^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;)\\]}>])`,
+      'gi',
+    ),
+    // Bare relative paths with separators (like assets/image.png)
+    new RegExp(
+      `(?:^|\\s)((?![^\\s]*:\\/\\/)[^\\s"':]*[\\/\\\\][^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;)\\]}>])`,
       'gi',
     ),
     // Quoted paths (single or double quotes)
@@ -388,7 +392,7 @@ export function extractImagePaths(input: string): string[] {
   // Extract paths using all regex patterns
   for (const regex of pathRegexes) {
     while ((match = regex.exec(cleanInput)) !== null) {
-      const path = match[1].replace(/[.,!?;]+$/, '') // Remove trailing punctuation
+      const path = match[1].replace(/[.,!?;)\]}>">]+$/, '') // Remove trailing punctuation
       if (isImageFile(path) && !paths.includes(path)) {
         paths.push(path)
       }

@@ -1164,15 +1164,38 @@ export class Client {
     )
 
     // Replace each @agentName with @agentName (agentId)
-    cleanPrompt = cleanPrompt.replace(agentRegex, (match) => {
-      const agentName = match.substring(1).trim() // Remove @ and trim
-      const agentId = resolveNameToId(agentName, localAgentInfo)
+    // But skip @mentions that look like file paths (contain / or \)
+    cleanPrompt = cleanPrompt.replace(
+      agentRegex,
+      (match, agentName, offset, string) => {
+        // Check if this @ mention is part of a file path
+        const beforeMatch = string.substring(Math.max(0, offset - 10), offset)
+        const afterMatch = string.substring(
+          offset + match.length,
+          offset + match.length + 20,
+        )
 
-      if (agentId) {
-        return `@${agentName} (agent type: ${agentId})`
-      }
-      return match // Return original if no agent ID found
-    })
+        // Skip if this looks like a file path (contains / or \ nearby)
+        if (
+          beforeMatch.includes('/') ||
+          beforeMatch.includes('\\') ||
+          afterMatch.includes('/') ||
+          afterMatch.includes('\\') ||
+          match.includes('/') ||
+          match.includes('\\')
+        ) {
+          return match // Don't modify file paths
+        }
+
+        const trimmedAgentName = agentName.trim()
+        const agentId = resolveNameToId(trimmedAgentName, localAgentInfo)
+
+        if (agentId) {
+          return `@${trimmedAgentName} (agent type: ${agentId})`
+        }
+        return match // Return original if no agent ID found
+      },
+    )
 
     return cleanPrompt
   }
