@@ -96,7 +96,7 @@ const AgentStorePage = () => {
   })
 
   // Fetch user's publishers if signed in
-  const { data: publishers = [] } = useQuery<PublisherProfileResponse[]>({
+  const { data: publishers } = useQuery<PublisherProfileResponse[]>({
     queryKey: ['user-publishers'],
     queryFn: async () => {
       const response = await fetch('/api/publishers')
@@ -157,7 +157,7 @@ const AgentStorePage = () => {
 
   // Publisher button logic
   const renderPublisherButton = () => {
-    if (!session) {
+    if (!session || !publishers) {
       return null // Don't show anything if signed out
     }
 
@@ -388,18 +388,20 @@ const AgentStorePage = () => {
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <AnimatedElement type="fade" className="text-center mb-12">
+        <div className="text-center mb-12">
           <div className="flex items-center justify-between mb-4">
             <div className="flex-1" />
             <h1 className="text-4xl font-bold text-white">Agent Store</h1>
             <div className="flex-1 flex justify-end">
-              {renderPublisherButton()}
+              <AnimatedElement type="slide" delay={0.1}>
+                {renderPublisherButton()}
+              </AnimatedElement>
             </div>
           </div>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Browse all published AI agents. Run, compose, or fork them.
           </p>
-        </AnimatedElement>
+        </div>
 
         {/* Search and Filters */}
         <AnimatedElement type="slide" delay={0.1} className="mb-8">
@@ -452,11 +454,11 @@ const AgentStorePage = () => {
             ))}
           </div>
         ) : (
-          <>
+          <AnimatedElement type="fade" delay={0.1}>
             {/* Editor's Choice Section */}
             {filteredEditorsChoice.length > 0 && (
               <div className="mb-12">
-                <AnimatedElement type="fade" className="mb-6">
+                <div className="mb-6">
                   <div className="flex items-center gap-3 mb-6">
                     <Star className="h-6 w-6 text-amber-500" />
                     <h2 className="text-2xl font-bold text-amber-400">
@@ -467,7 +469,7 @@ const AgentStorePage = () => {
                     Handpicked agents recommended by our team for their
                     reliability, performance, and versatility.
                   </p>
-                </AnimatedElement>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredEditorsChoice.map((agent, index) => (
                     <motion.div
@@ -507,7 +509,7 @@ const AgentStorePage = () => {
                 </div>
               </div>
             )}
-          </>
+          </AnimatedElement>
         )}
 
         {filteredAndSortedAgents.length === 0 &&
