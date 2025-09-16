@@ -72,10 +72,10 @@ interface AgentData {
 const EDITORS_CHOICE_AGENTS = [
   'base',
   'base-lite',
-  'reviewer',
+  'planner',
   'deep-thinker',
   'deep-code-reviewer',
-  'codebase-commands-explorer',
+  'rampup-teacher-agent',
 ]
 
 const AgentStorePage = () => {
