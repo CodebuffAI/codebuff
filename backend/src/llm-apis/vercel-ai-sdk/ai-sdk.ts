@@ -9,6 +9,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
+import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { APICallError, generateObject, generateText, streamText } from 'ai'
 
@@ -99,10 +100,6 @@ export const promptAiSdkStream = async function* (
       },
       'Skipping stream due to canceled user input',
     )
-    yield {
-      type: 'text',
-      text: '',
-    }
     return
   }
   const startTime = Date.now()
@@ -117,8 +114,18 @@ export const promptAiSdkStream = async function* (
   })
 
   let content = ''
+  const stopSequenceHandler = new StopSequenceHandler(options.stopSequences)
 
   for await (const chunk of response.fullStream) {
+    if (chunk.type !== 'text-delta') {
+      const flushed = stopSequenceHandler.flush()
+      if (flushed) {
+        yield {
+          type: 'text',
+          text: flushed,
+        }
+      }
+    }
     if (chunk.type === 'error') {
       logger.error(
         {
@@ -161,11 +168,31 @@ export const promptAiSdkStream = async function* (
       }
     }
     if (chunk.type === 'text-delta') {
-      content += chunk.text
-      yield {
-        type: 'text',
-        text: chunk.text,
+      if (!options.stopSequences) {
+        content += chunk.text
+        if (chunk.text) {
+          yield {
+            type: 'text',
+            text: chunk.text,
+          }
+        }
+        continue
       }
+
+      const stopSequenceResult = stopSequenceHandler.process(chunk.text)
+      if (stopSequenceResult.text) {
+        yield {
+          type: 'text',
+          text: stopSequenceResult.text,
+        }
+      }
+    }
+  }
+  const flushed = stopSequenceHandler.flush()
+  if (flushed) {
+    yield {
+      type: 'text',
+      text: flushed,
     }
   }
 
