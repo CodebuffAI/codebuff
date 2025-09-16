@@ -58,39 +58,20 @@ function buildUserMessageContent(
   params: Record<string, any> | undefined,
   content?: Array<TextPart | ImagePart>,
 ): string | Array<TextPart | ImagePart> {
+  // If we have content, return it as-is (client should have already combined prompt + content)
+  if (content && content.length > 0) {
+    if (content.length === 1 && content[0].type === 'text') {
+      return asUserMessage(content[0].text)
+    }
+    return content
+  }
+
+  // Only prompt/params, combine and return as simple text
   const textParts = buildArray([
     prompt,
     params && JSON.stringify(params, null, 2),
   ])
-  const combinedText = textParts.join('\n\n')
-
-  if (!content || content.length === 0) {
-    // Only prompt/params, return as simple text
-    return asUserMessage(combinedText)
-  }
-
-  // If we have both content and prompt/params, combine them
-  const allParts = [...content]
-
-  // Find the first text part and prepend our combined text, or add it as a new text part
-  const firstTextPartIndex = allParts.findIndex((part) => part.type === 'text')
-  if (firstTextPartIndex !== -1) {
-    // Prepend to existing text part
-    const textPart = allParts[firstTextPartIndex]
-    if (textPart.type === 'text') {
-      allParts[firstTextPartIndex] = {
-        type: 'text' as const,
-        text: buildArray([combinedText, textPart.text]).join('\n\n'),
-      }
-    }
-  } else {
-    // Add as new text part at the beginning
-    allParts.unshift({ type: 'text' as const, text: combinedText })
-  }
-
-  return allParts.length === 1 && allParts[0].type === 'text'
-    ? asUserMessage(allParts[0].text)
-    : allParts
+  return asUserMessage(textParts.join('\n\n'))
 }
 
 export interface AgentOptions {
