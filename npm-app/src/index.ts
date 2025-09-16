@@ -10,6 +10,7 @@ import { CLI } from './cli'
 import { cliArguments, cliOptions } from './cli-definitions'
 import { handlePublish } from './cli-handlers/publish'
 import { handleInitAgents } from './cli-handlers/init-agents'
+import { handleSaveAgent } from './cli-handlers/save-agent'
 import { npmAppVersion, backendUrl } from './config'
 import { createTemplateProject } from './create-template-project'
 import { printModeLog, setPrintMode } from './display/print-mode'
@@ -122,6 +123,7 @@ Examples:
   $ codebuff --trace                          # Enable subagent trace logging to .agents/traces/*.log
   $ codebuff --create nextjs my-app           # Create and scaffold a new Next.js project
   $ codebuff init-agents                      # Create example agent files in .agents directory
+  $ codebuff save-agent my-agent-id           # Add agent ID to spawnable agents list
   $ codebuff publish my-agent                 # Publish agent template to store
   $ codebuff --agent file-picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
@@ -156,6 +158,13 @@ For all commands and options, run 'codebuff' and then type 'help'.
   // Handle init-agents command
   if (args[0] === 'init-agents') {
     await handleInitAgents()
+    process.exit(0)
+  }
+
+  // Handle save-agent command
+  if (args[0] === 'save-agent') {
+    const agentIds = args.slice(1)
+    await handleSaveAgent(agentIds)
     process.exit(0)
   }
 
@@ -225,8 +234,10 @@ For all commands and options, run 'codebuff' and then type 'help'.
   // Remove the first argument if it's the compiled binary path which bun weirdly injects (starts with /$bunfs)
   const filteredArgs = args[0]?.startsWith('/$bunfs') ? args.slice(1) : args
 
-  // If first arg is a command like 'publish', don't treat it as initial input
-  const isCommand = filteredArgs[0] === 'publish'
+  // If first arg is a command like 'publish' or 'save-agent', don't treat it as initial input
+  const isCommand = ['publish', 'init-agents', 'save-agent'].includes(
+    filteredArgs[0],
+  )
   const initialInput = isCommand ? '' : filteredArgs.join(' ')
 
   codebuff({

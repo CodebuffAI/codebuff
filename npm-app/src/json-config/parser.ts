@@ -123,3 +123,21 @@ export function loadCodebuffConfig(): CodebuffConfig {
     return getDefaultConfig()
   }
 }
+
+export function loadRawCodebuffConfig(): Partial<CodebuffConfig> {
+  const projectPath = getProjectRoot()
+  const configPathPrimary = path.join(projectPath, codebuffConfigFile)
+  const configPathBackup = path.join(projectPath, codebuffConfigFileBackup)
+  const configPath = existsSync(configPathBackup)
+    ? configPathBackup
+    : existsSync(configPathPrimary)
+      ? configPathPrimary
+      : null
+
+  if (configPath === null) {
+    return {}
+  }
+
+  const jsoncContent = readFileSync(configPath, 'utf-8')
+  return parseJsonc(jsoncContent)
+}
