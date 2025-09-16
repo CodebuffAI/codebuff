@@ -1,4 +1,4 @@
-// Smoke test script to verify compiled dist builds work correctly with Node.js
+// Smoke test script to verify compiled CJS dist build works correctly with Node.js
 // This ensures the actual published artifacts function properly
 
 import { execSync } from 'child_process'
@@ -51,14 +51,8 @@ async function runDistSmokeTests() {
   // Create package.json and install dependencies for proper Node.js environment
   await setupTestEnvironment()
 
-  // Test ESM dist import
-  await testESMDist()
-
   // Test CJS dist require
   await testCJSDist()
-
-  // Test ESM tree-sitter functionality
-  await testESMTreeSitter()
 
   // Test CJS tree-sitter functionality
   await testCJSTreeSitter()
@@ -91,7 +85,7 @@ async function setupTestEnvironment() {
   const testPackageJson = {
     name: 'sdk-dist-test',
     version: '1.0.0',
-    type: 'module',
+    type: 'commonjs',
     dependencies: {
       'web-tree-sitter': '^0.25.6',
       // Add other dependencies that the built dist files need
@@ -113,57 +107,6 @@ async function setupTestEnvironment() {
   }
 }
 
-async function testESMDist() {
-  console.log('  Testing ESM dist import with Node.js...')
-
-  const testFile = join(testDir, 'test-esm-dist.mjs')
-  const testCode = `
-try {
-  // Import from the built ESM dist files
-  const pkg = await import('../dist/esm/index.js');
-  console.log('ESM dist import successful');
-  
-  // Verify basic structure
-  if (typeof pkg === 'object' && pkg !== null) {
-    const exportKeys = Object.keys(pkg);
-    console.log('Package exports found:', exportKeys.length, 'exports');
-    
-    // Check for expected exports
-    const expectedExports = ['SDK_VERSION', 'SDK_NAME', 'getFileTokenScores', 'setWasmDir'];
-    const foundExports = expectedExports.filter(exp => exp in pkg);
-    
-    if (foundExports.length >= 2) {
-      console.log('✅ ESM dist has expected exports:', foundExports.join(', '));
-      process.exit(0);
-    } else {
-      console.error('❌ Missing expected exports. Found:', foundExports.join(', '));
-      process.exit(1);
-    }
-  } else {
-    console.error('❌ Package is not an object:', typeof pkg);
-    process.exit(1);
-  }
-} catch (error) {
-  console.error('❌ ESM dist import failed:', error.message);
-  process.exit(1);
-}
-`
-
-  writeFileSync(testFile, testCode)
-
-  try {
-    execSync(`node test-esm-dist.mjs`, { stdio: 'pipe', cwd: testDir })
-    testResults.push({ format: 'ESM', test: 'Basic Import', success: true })
-  } catch (error: any) {
-    testResults.push({
-      format: 'ESM',
-      test: 'Basic Import',
-      success: false,
-      error: error.message || 'Unknown error',
-    })
-  }
-}
-
 async function testCJSDist() {
   console.log('  Testing CJS dist require with Node.js...')
 
@@ -171,7 +114,7 @@ async function testCJSDist() {
   const testCode = `
 try {
   // Require from the built CJS dist files
-  const pkg = require('../dist/cjs/index.js');
+  const pkg = require('../dist/index.js');
   console.log('CJS dist require successful');
   
   // Verify basic structure
@@ -215,85 +158,6 @@ try {
   }
 }
 
-async function testESMTreeSitter() {
-  console.log('  Testing ESM dist tree-sitter functionality...')
-
-  const testFile = join(testDir, 'test-esm-treesitter.mjs')
-  const testCode = `
-try {
-  // Import tree-sitter functionality from built ESM dist
-  const { getFileTokenScores, setWasmDir } = await import('../dist/esm/index.js');
-  console.log('ESM tree-sitter imports successful');
-  
-  // Set WASM directory to the correct location for dist tests
-  const path = await import('path');
-  const { fileURLToPath } = await import('url');
-  
-  // Set WASM directory to the built dist location
-  setWasmDir(path.join(process.cwd(), '..', 'dist', 'esm', 'wasm'));
-  console.log('✅ setWasmDir function works');
-  
-  // Test getFileTokenScores with sample TypeScript code
-  const projectFiles = {
-    'test.ts': \`${sampleCode.replace(/`/g, '\\`')}\`
-  };
-  
-  const tokenData = await getFileTokenScores(
-    process.cwd(),
-    ['test.ts'],
-    (filePath) => projectFiles[filePath] || null
-  );
-  
-  const { tokenScores } = tokenData;
-  
-  if (!tokenScores['test.ts']) {
-    throw new Error('No token scores found for test.ts');
-  }
-  
-  const tokens = Object.keys(tokenScores['test.ts']);
-  console.log(\`✅ Found \${tokens.length} tokens in TypeScript file\`);
-  
-  // Check for expected tokens
-  const expectedTokens = ['calculateSum', 'Calculator', 'add', 'getHistory'];
-  const foundTokens = expectedTokens.filter(token => tokens.includes(token));
-  
-  if (foundTokens.length > 0) {
-    console.log(\`✅ Found expected tokens: \${foundTokens.join(', ')}\`);
-    process.exit(0);
-  } else {
-    console.warn('⚠ Warning: No expected tokens found. Found tokens:', tokens.slice(0, 10));
-    process.exit(1);
-  }
-  
-} catch (error) {
-  console.error('❌ ESM tree-sitter test failed:', error.message);
-  process.exit(1);
-}
-`
-
-  writeFileSync(testFile, testCode)
-
-  try {
-    const result = execSync(`node test-esm-treesitter.mjs`, {
-      stdio: 'pipe',
-      cwd: testDir,
-      timeout: 30000,
-      encoding: 'utf8'
-    })
-    console.log('ESM TreeSitter test output:', result)
-    testResults.push({ format: 'ESM', test: 'Tree-sitter', success: true })
-  } catch (error: any) {
-    console.log('ESM TreeSitter test stderr:', error.stderr)
-    console.log('ESM TreeSitter test stdout:', error.stdout)
-    testResults.push({
-      format: 'ESM',
-      test: 'Tree-sitter',
-      success: false,
-      error: error.message || 'Unknown error',
-    })
-  }
-}
-
 async function testCJSTreeSitter() {
   console.log('  Testing CJS dist tree-sitter functionality...')
 
@@ -302,14 +166,14 @@ async function testCJSTreeSitter() {
 const runTest = async () => {
   try {
     // Require tree-sitter functionality from built CJS dist
-    const { getFileTokenScores, setWasmDir } = require('../dist/cjs/index.js');
+    const { getFileTokenScores, setWasmDir } = require('../dist/index.js');
     console.log('CJS tree-sitter imports successful');
     
     // Set WASM directory to the correct location for dist tests
     const path = require('path');
     
     // Set WASM directory to the built dist location
-    setWasmDir(path.join(process.cwd(), '..', 'dist', 'cjs', 'wasm'));
+    setWasmDir(path.join(process.cwd(), '..', 'dist', 'wasm'));
     console.log('✅ setWasmDir function works');
     
     // Test getFileTokenScores with sample TypeScript code
@@ -360,7 +224,7 @@ runTest();
       stdio: 'pipe',
       cwd: testDir,
       timeout: 30000,
-      encoding: 'utf8'
+      encoding: 'utf8',
     })
     console.log('CJS TreeSitter test output:', result)
     testResults.push({ format: 'CJS', test: 'Tree-sitter', success: true })

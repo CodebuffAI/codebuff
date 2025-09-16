@@ -2,20 +2,18 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.1.30",
+  "version": "0.1.31",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "Apache-2.0",
-  "type": "module",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
-  "types": "./dist/esm/index.d.ts",
-  "typings": "./dist/esm/index.d.ts",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typings": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/esm/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
-      "default": "./dist/esm/index.js"
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
   },

@@ -27,24 +27,10 @@ async function build() {
     'util',
   ]
 
-  console.log('📦 Building ESM format...')
-  await Bun.build({
-    entrypoints: ['src/index.ts'],
-    outdir: 'dist/esm',
-    target: 'node',
-    format: 'esm',
-    sourcemap: 'external',
-    minify: false,
-    external,
-    loader: {
-      '.scm': 'text',
-    },
-  })
-
   console.log('📦 Building CJS format...')
   await Bun.build({
     entrypoints: ['src/index.ts'],
-    outdir: 'dist/cjs',
+    outdir: 'dist',
     target: 'node',
     format: 'cjs',
     sourcemap: 'external',
@@ -66,10 +52,6 @@ async function build() {
     console.warn('⚠ TypeScript declaration generation failed, continuing...')
   }
 
-  console.log('📦 Adding CJS package.json for proper CommonJS detection...')
-  const cjsPackageJson = JSON.stringify({ type: 'commonjs' }, null, 2)
-  await Bun.write('dist/cjs/package.json', cjsPackageJson)
-
   console.log('📂 Copying WASM files for tree-sitter...')
   await copyWasmFiles()
 
@@ -83,15 +65,10 @@ async function build() {
  * Create colocated declaration files for better TypeScript compatibility
  */
 async function createColocatedDeclarations() {
-  // Create colocated ESM declaration file
-  const esmDeclaration = 'export * from "./sdk/src/index";\n'
-  await Bun.write('dist/esm/index.d.ts', esmDeclaration)
-  console.log('  ✓ Created dist/esm/index.d.ts')
-
-  // Create colocated CJS declaration file for extra compatibility
-  const cjsDeclaration = 'export * from "../esm/index";\n'
-  await Bun.write('dist/cjs/index.d.ts', cjsDeclaration)
-  console.log('  ✓ Created dist/cjs/index.d.ts')
+  // Create index.d.ts that exports everything from ./sdk/src/index.d.ts
+  const indexDeclaration = 'export * from "./sdk/src/index";\n'
+  await Bun.write('dist/index.d.ts', indexDeclaration)
+  console.log('  ✓ Created dist/index.d.ts')
 }
 
 /**
