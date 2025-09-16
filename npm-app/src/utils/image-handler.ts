@@ -381,8 +381,9 @@ export function extractImagePaths(input: string): string[] {
       'gi',
     ),
     // Bare relative paths with separators (like assets/image.png)
+    // Exclude paths starting with @ to avoid conflicts with @path syntax
     new RegExp(
-      `(?:^|\\s)((?![^\\s]*:\\/\\/)[^\\s"':]*[\\/\\\\][^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;)\\]}>])`,
+      `(?:^|\\s)((?![^\\s]*:\\/\\/|@)[^\\s"':]*[\\/\\\\][^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;)\\]}>])`,
       'gi',
     ),
     // Quoted paths (single or double quotes)

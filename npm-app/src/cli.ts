@@ -1265,11 +1265,30 @@ export class CLI {
     DiffManager.startUserInput()
 
     // Build message content with images
+    const textParts: Array<{ type: 'text'; text: string }> = [
+      { type: 'text', text: cleanedInput },
+    ]
+
+    // Add automatic image descriptions when images are attached
+    if (imageParts.length > 0) {
+      const imageDescriptions = imageParts.map((part, index) => {
+        const filename = part.filename || `image_${index + 1}`
+        return `Image ${index + 1}: ${filename}`
+      })
+
+      const imageDescriptionText =
+        imageParts.length === 1
+          ? `[Attached Image: ${imageDescriptions[0]}]`
+          : `[Attached Images:\n${imageDescriptions.map((desc) => `- ${desc}`).join('\n')}]`
+
+      textParts.push({ type: 'text', text: imageDescriptionText })
+    }
+
     const messageContent: Array<
       | { type: 'text'; text: string }
       | { type: 'image'; image: string; mediaType: string }
     > = [
-      { type: 'text', text: cleanedInput },
+      ...textParts,
       ...imageParts.map((part) => ({
         type: 'image' as const,
         image: part.image,
