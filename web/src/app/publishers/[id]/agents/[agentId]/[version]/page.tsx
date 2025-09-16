@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { AgentUsageMetrics } from './agent-usage-metrics'
 import { RunAgentButton } from './run-agent-button'
 import { CopyIdButton } from './copy-id-button'
+import { SaveAgentButton } from './save-agent-button'
 import { Button } from '@/components/ui/button'
 
 interface AgentDetailPageProps {
@@ -186,6 +187,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
               </div>
               <div className="flex items-end space-x-3">
                 <CopyIdButton agentId={fullAgentId} />
+                <SaveAgentButton agentId={fullAgentId} />
                 <RunAgentButton agentId={fullAgentId} />
                 {/*
                 Hide download button for now. (It doesn't do anything)
