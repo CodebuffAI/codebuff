@@ -15,12 +15,12 @@ import {
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 import { toolNames } from '../../common/src/tools/constants'
+import type { PublishedClientToolName } from '../../common/src/tools/list'
 import {
   clientToolCallSchema,
   type ClientToolCall,
   type ClientToolName,
   type CodebuffToolOutput,
-  PublishedClientToolName,
 } from '../../common/src/tools/list'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -309,12 +309,13 @@ export class CodebuffClient {
   private async handleToolCall(
     action: ServerAction<'tool-call-request'>,
   ): ReturnType<WebSocketHandler['handleToolCall']> {
-    clientToolCallSchema.parse(action)
     const toolName = action.toolName
     const input = action.input
 
     let result: ToolResultOutput[]
-    if (!toolNames.includes(toolName as ToolName)) {
+    if (toolNames.includes(toolName as ToolName)) {
+      clientToolCallSchema.parse(action)
+    } else {
       const customToolHandler =
         this.promptIdToHandlers[action.userInputId].customToolHandler
       if (!customToolHandler) {
