@@ -10,7 +10,7 @@ npm install @codebuff/sdk
 
 ## Prerequisites
 
-- Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/profile?tab=api-keys).
+- Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/api-keys).
 
 ## Usage
 
@@ -21,7 +21,8 @@ import { CodebuffClient } from '@codebuff/sdk'
 
 async function main() {
   const client = new CodebuffClient({
-    // Note: You need to pass in your own API key here. Get one: https://www.codebuff.com/profile?tab=api-keys
+    // You need to pass in your own API key here.
+    // Get one here: https://www.codebuff.com/api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
     cwd: process.cwd(),
     onError: (e) => console.error('Codebuff error:', e.message),
@@ -32,6 +33,7 @@ async function main() {
     agent: 'base',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
+      // This will fire for all events that happen during the run, like when each agent starts/stops and when they respond.
       console.log(event) // Log all events
     },
   })
@@ -40,9 +42,9 @@ async function main() {
   const run2 = await client.run({
     agent: 'base',
     prompt: 'Add unit tests for the calculator',
-    previousRun: run1,
+    previousRun: run1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
-      console.log(event) // Log all events
+      console.log(event)
     },
   })
 
@@ -54,6 +56,8 @@ main()
 
 ### Example 2: Custom Agents and Tools
 
+Here, we create a full agent and custom tools that can be reused between runs.
+
 ```typescript
 import { z } from 'zod'
 import {
@@ -64,12 +68,14 @@ import {
 
 async function main() {
   const client = new CodebuffClient({
-    // Note: You need to pass in your own API key. Get it here: https://www.codebuff.com/profile?tab=api-keys
+    // Note: You need to pass in your own API key.
+    // Get it here: https://www.codebuff.com/profile?tab=api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
     cwd: process.cwd(),
     onError: (e) => console.error('Codebuff error:', e.message),
   })
 
+  // This is a custom agent that can be used instead of the `base` agent or other agents on the Codebuff store (https://codebuff.com/store).
   const myCustomAgent: AgentDefinition = {
     id: 'my-custom-agent',
     model: 'openai/gpt-5',
