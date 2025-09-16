@@ -1,4 +1,9 @@
-import { toolNames } from '@codebuff/common/tools/constants'
+import {
+  endToolTag,
+  startToolTag,
+  toolNameParam,
+  toolNames,
+} from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 
@@ -8,6 +13,7 @@ import { processStreamWithTags } from '../xml-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 
 import type { CustomToolCall } from './tool-executor'
+import type { StreamChunk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
@@ -25,8 +31,8 @@ export type ToolCallError = {
   error: string
 } & Omit<ToolCallPart, 'type'>
 
-export async function processStreamWithTools<T extends string>(options: {
-  stream: AsyncGenerator<T> | ReadableStream<T>
+export async function processStreamWithTools(options: {
+  stream: AsyncGenerator<StreamChunk>
   ws: WebSocket
   agentStepId: string
   clientSessionId: string
@@ -169,9 +175,28 @@ export async function processStreamWithTools<T extends string>(options: {
     },
   )
 
+  let reasoning = false
   for await (const chunk of streamWithTags) {
-    onResponseChunk(chunk)
-    fullResponseChunks.push(chunk)
+    if (chunk.type === 'reasoning') {
+      if (!reasoning) {
+        reasoning = true
+        onResponseChunk(`\n\n${startToolTag}{
+  ${JSON.stringify(toolNameParam)}: "think_deeply",
+  "thought": "`)
+      }
+      onResponseChunk(JSON.stringify(chunk.text).slice(1, -1))
+    } else if (chunk.type === 'text') {
+      if (reasoning) {
+        reasoning = false
+        onResponseChunk(`"\n}${endToolTag}\n\n`)
+      }
+      onResponseChunk(chunk.text)
+      fullResponseChunks.push(chunk.text)
+    } else if (chunk.type === 'error') {
+      onResponseChunk(chunk)
+    } else {
+      chunk satisfies never
+    }
   }
 
   state.messages = buildArray<Message>([

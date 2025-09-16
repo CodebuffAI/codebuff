@@ -5,11 +5,6 @@ import {
   geminiModels,
   openaiModels,
 } from '@codebuff/common/old-constants'
-import {
-  endToolTag,
-  startToolTag,
-  toolNameParam,
-} from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { errorToObject } from '@codebuff/common/util/object'
@@ -35,6 +30,17 @@ import type {
 } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
+
+export type StreamChunk =
+  | {
+      type: 'text'
+      text: string
+    }
+  | {
+      type: 'reasoning'
+      text: string
+    }
+  | { type: 'error'; message: string }
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModel => {
@@ -77,7 +83,7 @@ export const promptAiSdkStream = async function* (
     includeCacheControl?: boolean
     resolveMessageId?: (messageId: string) => unknown
   } & Omit<Parameters<typeof streamText>[0], 'model' | 'messages'>,
-) {
+): AsyncGenerator<StreamChunk> {
   if (
     !checkLiveUserInput(
       options.userId,
@@ -93,7 +99,10 @@ export const promptAiSdkStream = async function* (
       },
       'Skipping stream due to canceled user input',
     )
-    yield ''
+    yield {
+      type: 'text',
+      text: '',
+    }
     return
   }
   const startTime = Date.now()
@@ -108,7 +117,6 @@ export const promptAiSdkStream = async function* (
   })
 
   let content = ''
-  let reasoning = false
 
   for await (const chunk of response.fullStream) {
     if (chunk.type === 'error') {
@@ -131,9 +139,11 @@ export const promptAiSdkStream = async function* (
             ? chunk.error
             : JSON.stringify(chunk.error)
       const errorMessage = `Error from AI SDK (model ${options.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
-      throw new Error(errorMessage, {
-        cause: chunk.error,
-      })
+      yield {
+        type: 'error',
+        message: errorMessage,
+      }
+      return
     }
     if (chunk.type === 'reasoning-delta') {
       if (
@@ -145,21 +155,17 @@ export const promptAiSdkStream = async function* (
       ) {
         continue
       }
-      if (!reasoning) {
-        reasoning = true
-        yield `${startToolTag}{
-  ${JSON.stringify(toolNameParam)}: "think_deeply",
-  "thought": "`
+      yield {
+        type: 'reasoning',
+        text: chunk.text,
       }
-      yield JSON.stringify(chunk.text).slice(1, -1)
     }
     if (chunk.type === 'text-delta') {
-      if (reasoning) {
-        reasoning = false
-        yield `"\n}${endToolTag}\n\n`
-      }
       content += chunk.text
-      yield chunk.text
+      yield {
+        type: 'text',
+        text: chunk.text,
+      }
     }
   }
 

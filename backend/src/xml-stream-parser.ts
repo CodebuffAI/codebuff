@@ -7,6 +7,7 @@ import {
   toolNameParam,
 } from '@codebuff/common/tools/constants'
 
+import type { StreamChunk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import type { Model } from '@codebuff/common/old-constants'
 import type {
   PrintModeError,
@@ -22,7 +23,7 @@ const toolExtractionPattern = new RegExp(
 const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
 
 export async function* processStreamWithTags(
-  stream: AsyncGenerator<string> | ReadableStream<string>,
+  stream: AsyncGenerator<StreamChunk>,
   processors: Record<
     string,
     {
@@ -39,7 +40,7 @@ export async function* processStreamWithTags(
     model?: Model
     agentName?: string
   },
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamChunk> {
   let streamCompleted = false
   let buffer = ''
   let autocompleted = false
@@ -131,9 +132,9 @@ export async function* processStreamWithTags(
     matches.forEach(processToolCallContents)
   }
 
-  function* processChunk(chunk: string | undefined) {
-    if (chunk !== undefined) {
-      buffer += chunk
+  function* processChunk(chunk: StreamChunk | undefined) {
+    if (chunk !== undefined && chunk.type === 'text') {
+      buffer += chunk.text
     }
     extractToolsFromBufferAndProcess()
 
@@ -141,7 +142,10 @@ export async function* processStreamWithTags(
       streamCompleted = true
       if (buffer.includes(startToolTag)) {
         buffer += completionSuffix
-        chunk = completionSuffix
+        chunk = {
+          type: 'text',
+          text: completionSuffix,
+        }
         autocompleted = true
       }
       extractToolsFromBufferAndProcess()
@@ -152,7 +156,7 @@ export async function* processStreamWithTags(
     }
   }
 
-  for await (const chunk of stream as AsyncIterable<string>) {
+  for await (const chunk of stream) {
     if (streamCompleted) {
       break
     }
@@ -162,8 +166,5 @@ export async function* processStreamWithTags(
   if (!streamCompleted) {
     // After the stream ends, try parsing one last time in case there's leftover text
     yield* processChunk(undefined)
-  }
-
-  for await (const chunk of stream as AsyncIterable<string>) {
   }
 }
