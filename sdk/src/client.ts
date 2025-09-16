@@ -15,12 +15,12 @@ import {
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 import { toolNames } from '../../common/src/tools/constants'
-
 import {
   clientToolCallSchema,
   type ClientToolCall,
   type ClientToolName,
   type CodebuffToolOutput,
+  PublishedClientToolName,
 } from '../../common/src/tools/list'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -29,7 +29,6 @@ import type {
   PublishedToolName,
   ToolName,
 } from '../../common/src/tools/constants'
-import type { PublishedClientToolName } from '../../common/src/tools/list'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -144,7 +143,7 @@ export class CodebuffClient {
    *
    * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run. Use result.output to get the agent's output.
    */
-  public async run<A extends string = string, B = any, C = any>({
+  public async run({
     agent,
     prompt,
     params,
@@ -167,7 +166,7 @@ export class CodebuffClient {
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
     agentDefinitions?: AgentDefinition[]
-    customToolDefinitions?: CustomToolDefinition<A, B, C>[]
+    customToolDefinitions?: CustomToolDefinition[]
     maxAgentSteps?: number
     extraToolResults?: ToolResultPart[]
   }): Promise<RunState> {
