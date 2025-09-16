@@ -9,6 +9,7 @@ export function getDefaultConfig(): CodebuffConfig {
     maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
     baseAgent: undefined,
     spawnableAgents: undefined,
+    addedSpawnableAgents: undefined,
+    removedSpawnableAgents: undefined,
   }
 }
-

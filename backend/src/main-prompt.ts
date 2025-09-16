@@ -173,9 +173,19 @@ export const mainPrompt = async (
   let updatedSubagents = mainAgentTemplate.spawnableAgents
   if (!agentId) {
     // If --agent is not specified, use the spawnableAgents from the codebuff config or add all local agents
+    const {
+      spawnableAgents,
+      addedSpawnableAgents = [],
+      removedSpawnableAgents = [],
+    } = fileContext.codebuffConfig ?? {}
     updatedSubagents =
-      fileContext.codebuffConfig?.spawnableAgents ??
+      spawnableAgents ??
       uniq([...mainAgentTemplate.spawnableAgents, ...availableAgents])
+
+    updatedSubagents = uniq([
+      ...updatedSubagents,
+      ...addedSpawnableAgents,
+    ]).filter((subagent) => !removedSpawnableAgents.includes(subagent))
   }
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate

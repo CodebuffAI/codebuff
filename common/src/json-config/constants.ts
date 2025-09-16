@@ -66,7 +66,7 @@ export const FileChangeHook = z
   .describe('Defines a single file change hook.')
 
 export const CodebuffConfigSchema = z
-  .object({
+  .looseObject({
     description: z
       .any()
       .optional()
@@ -87,6 +87,14 @@ export const CodebuffConfigSchema = z
         'Maximum number of turns agent will take before being forced to end',
       ),
     baseAgent: z.string().optional().describe('Specify default base agent'),
+    addedSpawnableAgents: z
+      .array(z.string())
+      .optional()
+      .describe('Specify additional agents that the base agent can spawn'),
+    removedSpawnableAgents: z
+      .array(z.string())
+      .optional()
+      .describe('Specify which agents the base agent cannot spawn'),
     spawnableAgents: z
       .array(z.string())
       .optional()

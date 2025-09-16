@@ -1,5 +1,6 @@
 {
   "description": "Template configuration for this project. See https://www.codebuff.com/config for all options.",
+  "addedSpawnableAgents": ["codebuff/git-commiter@0.0.1"],
   "startupProcesses": [
     {
       "name": "drizzle",
