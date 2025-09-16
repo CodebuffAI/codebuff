@@ -8,7 +8,7 @@ import { processStreamWithTags } from '../xml-stream-parser'
 describe('processStreamWithTags', () => {
   async function* createMockStream(chunks: string[]) {
     for (const chunk of chunks) {
-      yield chunk
+      yield { type: 'text' as const, text: chunk }
     }
   }
 
@@ -43,7 +43,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([
@@ -94,7 +96,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([
@@ -154,7 +158,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([
@@ -213,7 +219,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([
@@ -257,7 +265,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([
@@ -306,7 +316,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([
@@ -362,7 +374,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([
@@ -412,7 +426,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     // Should complete the tool call with the completion suffix
@@ -452,7 +468,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([])
@@ -478,7 +496,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([])
@@ -516,7 +536,9 @@ describe('processStreamWithTags', () => {
       onError,
       () => {},
     )) {
-      result.push(chunk)
+      if (chunk.type === 'text') {
+        result.push(chunk.text)
+      }
     }
 
     expect(events).toEqual([
@@ -569,7 +591,9 @@ describe('processStreamWithTags', () => {
         onError,
         () => {},
       )) {
-        result.push(chunk)
+        if (chunk.type === 'text') {
+          result.push(chunk.text)
+        }
       }
 
       expect(events).toEqual([

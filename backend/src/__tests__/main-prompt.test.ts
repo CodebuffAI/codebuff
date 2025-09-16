@@ -39,7 +39,7 @@ const mockAgentStream = (streamOutput: string) => {
   spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
     resolveMessageId,
   }) {
-    yield streamOutput
+    yield { type: 'text' as const, text: streamOutput }
     if (resolveMessageId) {
       resolveMessageId('mock-message-id')
     }

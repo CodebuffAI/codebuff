@@ -179,7 +179,7 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
       resolveMessageId,
     }) {
-      yield mockResponse
+      yield { type: 'text' as const, text: mockResponse }
       if (resolveMessageId) {
         resolveMessageId('mock-message-id')
       }
@@ -225,7 +225,7 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
       resolveMessageId,
     }) {
-      yield mockResponse
+      yield { type: 'text' as const, text: mockResponse }
       if (resolveMessageId) {
         resolveMessageId('mock-message-id')
       }
@@ -272,7 +272,7 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
       resolveMessageId,
     }) {
-      yield mockResponse
+      yield { type: 'text' as const, text: mockResponse }
       if (resolveMessageId) {
         resolveMessageId('mock-message-id')
       }
@@ -319,7 +319,7 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
       resolveMessageId,
     }) {
-      yield mockResponse
+      yield { type: 'text' as const, text: mockResponse }
       if (resolveMessageId) {
         resolveMessageId('mock-message-id')
       }
@@ -403,7 +403,7 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
       resolveMessageId,
     }) {
-      yield 'Continuing with the analysis...' // Non-empty response, no tool calls
+      yield { type: 'text' as const, text: 'Continuing with the analysis...' } // Non-empty response, no tool calls
       if (resolveMessageId) {
         resolveMessageId('mock-message-id')
       }
@@ -553,10 +553,10 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
       resolveMessageId,
     }) {
-      yield getToolCallString('spawn_agent_inline', {
+      yield { type: 'text' as const, text: getToolCallString('spawn_agent_inline', {
         agent_type: 'message-deleter-agent',
         prompt: 'Delete the last two assistant messages',
-      })
+      }) }
       if (resolveMessageId) {
         resolveMessageId('mock-message-id')
       }

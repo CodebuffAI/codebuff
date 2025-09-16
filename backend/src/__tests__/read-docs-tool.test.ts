@@ -40,7 +40,7 @@ function mockAgentStream(content: string | string[]) {
       content = [content]
     }
     for (const chunk of content) {
-      yield chunk
+      yield { type: 'text' as const, text: chunk }
     }
     if (resolveMessageId) {
       resolveMessageId('mock-message-id')
@@ -279,7 +279,7 @@ describe('read_docs tool with researcher agent', () => {
     }
 
     // Should have yielded exactly one value and then completed
-    expect(results).toEqual([mockResponse])
+    expect(results).toEqual([{ type: 'text', text: mockResponse }])
 
     // Generator should be done
     const { done } = await generator.next()

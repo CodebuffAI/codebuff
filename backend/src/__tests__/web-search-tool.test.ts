@@ -43,7 +43,7 @@ function mockAgentStream(content: string | string[]) {
       content = [content]
     }
     for (const chunk of content) {
-      yield chunk
+      yield { type: 'text' as const, text: chunk }
     }
     if (resolveMessageId) {
       resolveMessageId('mock-message-id')

@@ -107,7 +107,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       resolveMessageId,
     }) {
       llmCallCount++
-      yield `LLM response\n\n${getToolCallString('end_turn', {})}`
+      yield { type: 'text' as const, text: `LLM response\n\n${getToolCallString('end_turn', {})}` }
       if (resolveMessageId) {
         resolveMessageId('mock-message-id')
       }
