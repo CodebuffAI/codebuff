@@ -16,6 +16,7 @@ import { AgentUsageMetrics } from './agent-usage-metrics'
 import { RunAgentButton } from './run-agent-button'
 import { CopyIdButton } from './copy-id-button'
 import { SaveAgentButton } from './save-agent-button'
+import { VersionUsageBadge } from './version-usage-badge'
 import { Button } from '@/components/ui/button'
 
 interface AgentDetailPageProps {
@@ -200,12 +201,6 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
             </div>
           </CardHeader>
         </Card>
-        {/* Usage Metrics */}
-        <AgentUsageMetrics
-          publisherId={params.id}
-          agentId={params.agentId}
-          version={params.version}
-        />
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Version Navigation */}
           <div className="lg:col-span-1">
@@ -236,9 +231,18 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                           className="w-full justify-start group transition-colors"
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="font-mono">
-                              v{version.version}
-                            </span>
+                            <div className="flex items-center">
+                              <span className="font-mono">
+                                v{version.version}
+                              </span>
+                              {index !== 0 && (
+                                <VersionUsageBadge
+                                  publisherId={params.id}
+                                  agentId={params.agentId}
+                                  version={version.version}
+                                />
+                              )}
+                            </div>
                             {index === 0 && (
                               <Badge
                                 className={cn(
@@ -260,17 +264,30 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
             </Card>
           </div>
 
-          {/* Agent Definition */}
+          {/* Agent Definition and Usage Stats Combined */}
           <div className="lg:col-span-3">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Agent Definition</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Complete agent data in TypeScript format
-                </p>
-              </CardHeader>
-              <CardContent>
-                <TypeScriptViewer data={agentData} />
+              <CardContent className="space-y-6 pt-6">
+                {/* Usage Metrics for this version */}
+                <div>
+                  <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                    Usage Statistics
+                    <Badge variant="secondary" className="text-xs">
+                      v{params.version}
+                    </Badge>
+                  </h3>
+                  <AgentUsageMetrics
+                    publisherId={params.id}
+                    agentId={params.agentId}
+                    version={params.version}
+                  />
+                </div>
+
+                {/* Agent Definition */}
+                <div className="border-t pt-6">
+                  <h3 className="text-base font-semibold mb-3">Definition</h3>
+                  <TypeScriptViewer data={agentData} />
+                </div>
               </CardContent>
             </Card>
           </div>

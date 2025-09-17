@@ -1,6 +1,6 @@
 'use client'
 
-import { Copy } from 'lucide-react'
+import { Bookmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 
@@ -12,7 +12,7 @@ export function SaveAgentButton({ agentId }: SaveAgentButtonProps) {
   const handleCopy = () => {
     navigator.clipboard.writeText(`codebuff save-agent ${agentId}`)
     toast({
-      description: `Command copied to clipboard: "codebuff save-agent ${agentId}"`,
+      description: `Command copied! Go to your terminal and paste to save this agent to your project.`,
     })
   }
 
@@ -23,7 +23,7 @@ export function SaveAgentButton({ agentId }: SaveAgentButtonProps) {
       onClick={handleCopy}
       className="flex items-center gap-2"
     >
-      <Copy className="h-4 w-4" />
+      <Bookmark className="h-4 w-4" />
       Save this agent
     </Button>
   )

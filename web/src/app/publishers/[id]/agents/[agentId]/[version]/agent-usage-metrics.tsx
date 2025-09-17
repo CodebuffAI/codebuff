@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, Users, DollarSign, Play, Calendar } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface AgentUsageMetricsProps {
@@ -89,21 +88,14 @@ export const AgentUsageMetrics = ({
 
   if (isLoading) {
     return (
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg">Usage Metrics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex flex-col items-center gap-2">
-                <Skeleton className="h-6 w-16" />
-                <Skeleton className="h-4 w-20" />
-              </div>
-            ))}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex flex-col items-center gap-2">
+            <Skeleton className="h-6 w-16" />
+            <Skeleton className="h-4 w-20" />
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
     )
   }
 
@@ -112,68 +104,63 @@ export const AgentUsageMetrics = ({
   }
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="text-lg">Usage Metrics</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-              <span className="font-medium text-emerald-300">
-                {formatCurrency(usageMetrics.weekly_spent)}
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground">Weekly Usage</span>
+    <div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-emerald-400" />
+            <span className="font-medium text-emerald-300">
+              {formatCurrency(usageMetrics.weekly_spent)}
+            </span>
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2">
-              <Play className="h-4 w-4 text-muted-foreground" />
-              <span>{formatUsageCount(usageMetrics.usage_count)}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">Total Runs</span>
+          <span className="text-xs text-muted-foreground">Weekly Usage</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Play className="h-4 w-4 text-muted-foreground" />
+            <span>{formatUsageCount(usageMetrics.usage_count)}</span>
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span>{usageMetrics.unique_users || 0}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">Unique Users</span>
+          <span className="text-xs text-muted-foreground">Total Runs</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span>{usageMetrics.unique_users || 0}</span>
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <span>
-                {formatCurrency(usageMetrics.avg_cost_per_invocation).replace(
-                  '$',
-                  ''
-                )}
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              Avg Cost per Run
+          <span className="text-xs text-muted-foreground">Unique Users</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <span>
+              {formatCurrency(usageMetrics.avg_cost_per_invocation).replace(
+                '$',
+                ''
+              )}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            Avg Cost per Run
+          </span>
+        </div>
+      </div>
+      {usageMetrics.last_used && (
+        <div className="mt-4 pt-4 border-t border-border/40">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>
+              Last used:{' '}
+              {new Date(usageMetrics.last_used).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
             </span>
           </div>
         </div>
-        {usageMetrics.last_used && (
-          <div className="mt-4 pt-4 border-t border-border/40">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>
-                Last used:{' '}
-                {new Date(usageMetrics.last_used).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   )
 }

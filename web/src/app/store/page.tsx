@@ -197,14 +197,6 @@ const AgentStorePage = () => {
     return count.toString()
   }
 
-  const isRecentlyUpdated = (createdAt: string) => {
-    const now = new Date()
-    const created = new Date(createdAt)
-    const timeDiff = now.getTime() - created.getTime()
-    const hoursDiff = timeDiff / (1000 * 3600)
-    return hoursDiff <= 24
-  }
-
   const AgentCard = ({
     agent,
     isEditorsChoice = false,
@@ -212,176 +204,181 @@ const AgentStorePage = () => {
     agent: AgentData
     isEditorsChoice?: boolean
   }) => (
-    <Link
-      href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
-      className="block"
-    >
-      <Card
-        className={cn(
-          'h-full transition-all duration-300 cursor-pointer group border hover:border-accent/50 bg-card/50 hover:bg-card/80',
-          isEditorsChoice && 'ring-2 ring-amber-500/50 border-amber-500/30'
-        )}
+    <div className="group">
+      <Link
+        href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
+        className="block"
       >
-        {/* Header - Agent ID and Publisher */}
-        <CardHeader className="pb-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg font-mono text-primary truncate">
-                  {agent.id}
-                </CardTitle>
-                <Badge
-                  variant="outline"
-                  className="text-xs font-mono px-1.5 py-0 shrink-0"
-                >
-                  v{agent.version}
-                </Badge>
-                <div onClick={(e) => e.preventDefault()}>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
-                      )
-                      toast({
-                        description: `Agent run command copied to clipboard:\n"codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}"`,
-                      })
-                    }}
-                    className="p-1 hover:bg-muted/50 rounded transition-colors"
-                    title={`Copy: codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`}
-                  >
-                    <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-3">
-              <div className="flex flex-col items-end gap-2">
-                <ChevronRight className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-accent shrink-0" />
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/publishers/${agent.publisher.id}`}
-                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        <Card
+          className={cn(
+            'relative h-full transition-all duration-200 cursor-pointer border bg-card/50 backdrop-blur-sm',
+            'hover:border-accent/50 hover:bg-card/80',
+            isEditorsChoice && 'ring-2 ring-amber-400/50 border-amber-400/30'
+          )}
+        >
+          {/* Editor's Choice Badge - Positioned absolutely for better visual hierarchy */}
+          {isEditorsChoice && (
+            <div className="absolute -top-2 -right-2 z-10">
+              <Badge
+                variant="default"
+                className="bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 shadow-lg border-0 px-2 py-1 text-xs font-medium"
               >
-                <Avatar className="h-5 w-5 shrink-0">
-                  <AvatarImage src={agent.publisher.avatar_url || undefined} />
-                  <AvatarFallback className="text-xs">
-                    {agent.publisher.name[0]?.toUpperCase() ||
-                      agent.publisher.id[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm text-muted-foreground truncate">
-                  @{agent.publisher.id}
-                </span>
-              </Link>
-              {agent.publisher.verified && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs px-1.5 py-0 shrink-0"
-                >
-                  ✓
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-end gap-2">
-              {agent.last_used && (
-                <span
-                  className="text-xs text-muted-foreground shrink-0 hidden"
-                  title={new Date(agent.last_used).toLocaleString()}
-                >
-                  {formatRelativeTime(agent.last_used)}
-                </span>
-              )}
-              <div className="flex items-center gap-2">
-                {isRecentlyUpdated(agent.created_at) && (
-                  <Badge
-                    variant="default"
-                    className="text-xs px-1.5 py-0 bg-emerald-500 text-emerald-950 hover:bg-emerald-600 shrink-0"
-                  >
-                    Updated
-                  </Badge>
-                )}
-                {isEditorsChoice && (
-                  <Badge
-                    variant="default"
-                    className="text-xs px-1.5 py-0 bg-amber-500 text-amber-950 hover:bg-amber-600 shrink-0"
-                  >
-                    <Star className="h-3 w-3 mr-1" />
-                    Editor's Choice
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="pt-4 space-y-3">
-          {/* Single Row Metrics with Labels */}
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex items-center gap-1">
-                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="font-medium text-emerald-300">
-                  {formatCurrency(agent.weekly_spent)}
-                </span>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                Weekly spend
-              </span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex items-center gap-1">
-                <Play className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{formatUsageCount(agent.usage_count)}</span>
-              </div>
-              <span className="text-xs text-muted-foreground">Weekly runs</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>
-                  {formatCurrency(agent.avg_cost_per_invocation).replace(
-                    '$',
-                    ''
-                  )}
-                </span>
-              </div>
-              <span className="text-xs text-muted-foreground">Per run</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex items-center gap-1">
-                <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{agent.unique_users || 0}</span>
-              </div>
-              <span className="text-xs text-muted-foreground">Users</span>
-            </div>
-          </div>
-
-          {/* Tags */}
-          {agent.tags && agent.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {agent.tags.slice(0, 3).map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className="text-xs px-2 py-0"
-                >
-                  {tag}
-                </Badge>
-              ))}
-              {agent.tags.length > 3 && (
-                <Badge variant="secondary" className="text-xs px-2 py-0">
-                  +{agent.tags.length - 3}
-                </Badge>
-              )}
+                <Star className="h-3 w-3 mr-1 fill-current" />
+                Editor's Choice
+              </Badge>
             </div>
           )}
-        </CardContent>
-      </Card>
-    </Link>
+
+          <CardContent className="px-8 py-6 space-y-4">
+            {/* Header Section - Improved spacing and hierarchy */}
+            <div className="space-y-3">
+              {/* Agent Name and Version */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <h3 className="text-xl font-bold font-mono text-foreground truncate group-hover:text-primary transition-colors">
+                    {agent.id}
+                  </h3>
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-mono px-2 py-1 border-border/50 bg-muted/30 shrink-0"
+                  >
+                    v{agent.version}
+                  </Badge>
+                </div>
+                {/* Action buttons */}
+                <div className="flex items-center gap-1">
+                  <div onClick={(e) => e.preventDefault()}>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
+                        )
+                        toast({
+                          description: `Agent run command copied to clipboard!`,
+                        })
+                      }}
+                      className="p-2 hover:bg-muted/50 rounded-lg transition-all duration-200 opacity-60 group-hover:opacity-100"
+                      title={`Copy: codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`}
+                    >
+                      <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </motion.button>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-all duration-300 group-hover:text-primary group-hover:translate-x-1" />
+                </div>
+              </div>
+
+              {/* Publisher Info */}
+              <div className="flex items-center justify-between">
+                <Link
+                  href={`/publishers/${agent.publisher.id}`}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity group/publisher"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Avatar className="h-6 w-6 shrink-0 ring-2 ring-border/30 group-hover/publisher:ring-primary/50 transition-all">
+                    <AvatarImage
+                      src={agent.publisher.avatar_url || undefined}
+                    />
+                    <AvatarFallback className="text-xs bg-muted">
+                      {agent.publisher.name[0]?.toUpperCase() ||
+                        agent.publisher.id[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm text-muted-foreground group-hover/publisher:text-foreground transition-colors">
+                    @{agent.publisher.id}
+                  </span>
+                  {agent.publisher.verified && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    >
+                      ✓
+                    </Badge>
+                  )}
+                </Link>
+                {agent.last_used && (
+                  <span
+                    className="text-xs text-muted-foreground/60"
+                    title={new Date(agent.last_used).toLocaleString()}
+                  >
+                    Used {formatRelativeTime(agent.last_used)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Metrics Grid - Redesigned for better readability */}
+            <div className="grid grid-cols-2 gap-3 py-3 border-t border-border/30">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-400" />
+                  <span className="font-semibold text-emerald-400">
+                    {formatCurrency(agent.weekly_spent)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Weekly spend</p>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Play className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">
+                    {formatUsageCount(agent.usage_count)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Weekly runs</p>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">
+                    {formatCurrency(agent.avg_cost_per_invocation)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Per run</p>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">
+                    {agent.unique_users || 0}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Users</p>
+              </div>
+            </div>
+
+            {/* Tags - Improved design and spacing */}
+            {agent.tags && agent.tags.length > 0 && (
+              <div className="pt-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {agent.tags.slice(0, 4).map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="secondary"
+                      className="text-xs px-2.5 py-1 bg-muted/40 hover:bg-muted/60 transition-colors border-0 rounded-full"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                  {agent.tags.length > 4 && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-2.5 py-1 bg-muted/40 border-0 rounded-full opacity-60"
+                    >
+                      +{agent.tags.length - 4}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </Link>
+    </div>
   )
 
   return (
