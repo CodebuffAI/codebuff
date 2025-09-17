@@ -16,6 +16,7 @@ import { AgentUsageMetrics } from './agent-usage-metrics'
 import { RunAgentButton } from './run-agent-button'
 import { CopyIdButton } from './copy-id-button'
 import { SaveAgentButton } from './save-agent-button'
+import { VersionUsageBadge } from './version-usage-badge'
 import { Button } from '@/components/ui/button'
 
 interface AgentDetailPageProps {
@@ -200,12 +201,6 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
             </div>
           </CardHeader>
         </Card>
-        {/* Usage Metrics */}
-        <AgentUsageMetrics
-          publisherId={params.id}
-          agentId={params.agentId}
-          version={params.version}
-        />
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Version Navigation */}
           <div className="lg:col-span-1">
@@ -236,9 +231,16 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                           className="w-full justify-start group transition-colors"
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="font-mono">
-                              v{version.version}
-                            </span>
+                            <div className="flex items-center">
+                              <span className="font-mono">
+                                v{version.version}
+                              </span>
+                              <VersionUsageBadge
+                                publisherId={params.id}
+                                agentId={params.agentId}
+                                version={version.version}
+                              />
+                            </div>
                             {index === 0 && (
                               <Badge
                                 className={cn(
@@ -262,6 +264,12 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
 
           {/* Agent Definition */}
           <div className="lg:col-span-3">
+            {/* Usage Metrics */}
+            <AgentUsageMetrics
+              publisherId={params.id}
+              agentId={params.agentId}
+              version={params.version}
+            />
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Agent Definition</CardTitle>

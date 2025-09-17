@@ -1,6 +1,6 @@
 'use client'
 
-import { Copy } from 'lucide-react'
+import { Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 
@@ -12,7 +12,7 @@ export function RunAgentButton({ agentId }: RunAgentButtonProps) {
   const handleCopy = () => {
     navigator.clipboard.writeText(`codebuff --agent ${agentId}`)
     toast({
-      description: `Command copied to clipboard: "codebuff --agent ${agentId}"`,
+      description: `Command copied! Go to your terminal and paste to run this agent.`,
     })
   }
 
@@ -23,7 +23,7 @@ export function RunAgentButton({ agentId }: RunAgentButtonProps) {
       onClick={handleCopy}
       className="flex items-center gap-2"
     >
-      <Copy className="h-4 w-4" />
+      <Play className="h-4 w-4" />
       Run this agent
     </Button>
   )

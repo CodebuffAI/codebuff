@@ -240,13 +240,21 @@ For all commands and options, run 'codebuff' and then type 'help'.
   )
   const initialInput = isCommand ? '' : filteredArgs.join(' ')
 
+  // Handle --agent flag by prefilling user input instead of directly invoking
+  let finalInitialInput = initialInput
+  if (options.agent && !initialInput) {
+    finalInitialInput = `@${options.agent}`
+  } else if (options.agent && initialInput) {
+    finalInitialInput = `@${options.agent} ${initialInput}`
+  }
+
   codebuff({
-    initialInput,
+    initialInput: finalInitialInput,
     git,
     costMode,
     runInitFlow: options.init,
     model: options.model,
-    agent: options.agent,
+    agent: undefined, // Don't pass agent to CLI - use prefilled input instead
     params: parsedAgentParams,
     print: options.print,
     cwd: options.cwd,
