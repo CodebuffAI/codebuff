@@ -266,11 +266,7 @@ export const runAgentStep = async (
     )) ?? ''
   const systemTokens = countTokensJson(system)
 
-  // Possibly truncated messagesWithUserMessage + cache.
-  const agentMessages = getMessagesSubset(
-    agentState.messageHistory,
-    systemTokens,
-  )
+  const agentMessages = agentState.messageHistory
 
   logger.debug(
     {
@@ -278,7 +274,7 @@ export const runAgentStep = async (
       agentId: agentState.agentId,
       model,
       duration: Date.now() - startTime,
-      agentMessages,
+      agentMessages: agentState.messageHistory,
       system,
       prompt,
       params,
