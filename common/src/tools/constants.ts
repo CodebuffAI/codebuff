@@ -12,7 +12,6 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'set_output',
   'set_messages',
   'add_message',
-  'add_subgoal',
   'update_subgoal',
   'create_plan',
 ]
