@@ -17,12 +17,12 @@ import {
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 import { toolNames } from '../../common/src/tools/constants'
+import type { PublishedClientToolName } from '../../common/src/tools/list'
 import {
   clientToolCallSchema,
   type ClientToolCall,
   type ClientToolName,
   type CodebuffToolOutput,
-  PublishedClientToolName,
 } from '../../common/src/tools/list'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -325,7 +325,7 @@ export class CodebuffClient {
           `Custom tool handler not found for user input ID ${action.userInputId}`,
         )
       }
-      return customToolHandler(action)
+      return await customToolHandler(action)
     }
 
     try {
