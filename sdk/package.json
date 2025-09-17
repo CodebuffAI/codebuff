@@ -2,7 +2,7 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "Apache-2.0",
   "type": "commonjs",
@@ -31,7 +31,7 @@
     "clean": "rm -rf dist",
     "prepare-dist": "bun run scripts/publish.ts --dry-run",
     "publish-sdk": "bun run scripts/publish.ts --public",
-    "publish-dry-run": "bun run build:verify && node scripts/publish.js --dry-run",
+    "publish-dry-run": "bun run build:verify && bun run scripts/publish.ts --dry-run",
     "prepack": "bun run build",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test"
