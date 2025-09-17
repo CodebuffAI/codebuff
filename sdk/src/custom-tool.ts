@@ -28,7 +28,7 @@ export type CustomToolDefinition<
  * @param description a description of the tool to be passed to the LLM. This should describe what the tool does and when to use it.
  * @param endsAgentStep whether the tool ends the agent step. If `true`, this will be used as a "stop sequence" for the LLM. i.e. it will not be able to call any other tools after this one in a single step and must wait for the tool results. Used for tools that give more information to the LLM.
  * @param exampleInputs an array of example inputs for the tool.
- * @param execute what to do when the tool is called.
+ * @param execute what to do when the tool is called. Can be either a sync or async.
  * @returns The CustomToolDefinition object
  */
 export function getCustomToolDefinition<
@@ -51,7 +51,7 @@ export function getCustomToolDefinition<
   description: string
   endsAgentStep?: boolean
   exampleInputs?: Input[]
-  execute: (params: Args) => Promise<Output>
+  execute: (params: Args) => Promise<Output> | Output
 }): CustomToolDefinition<ToolName, Args, Input, Output> {
   return {
     toolName,
@@ -61,6 +61,8 @@ export function getCustomToolDefinition<
     description,
     endsAgentStep,
     exampleInputs,
-    execute,
+    execute: async (params) => {
+      return await execute(params)
+    },
   }
 }
