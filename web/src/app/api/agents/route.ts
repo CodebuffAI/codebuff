@@ -2,15 +2,16 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { sql, eq, and, gte } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 
 import { logger } from '@/util/logger'
 
-// Force dynamic rendering to ensure fresh metrics data
-export const dynamic = 'force-dynamic'
+// Cache for 60 seconds with stale-while-revalidate
 export const revalidate = 60
 
-export async function GET() {
-  try {
+// Cached function for expensive agent aggregations
+const getCachedAgents = unstable_cache(
+  async () => {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
     // Get all published agents with their publisher info
@@ -246,7 +247,28 @@ export async function GET() {
     // Sort by weekly usage (most prominent metric)
     result.sort((a, b) => (b.weekly_spent || 0) - (a.weekly_spent || 0))
 
-    return NextResponse.json(result)
+    return result
+  },
+  ['agents-data'],
+  {
+    revalidate: 60,
+    tags: ['agents'],
+  }
+)
+
+export async function GET() {
+  try {
+    const result = await getCachedAgents()
+
+    const response = NextResponse.json(result)
+
+    // Add cache headers for CDN and browser caching
+    response.headers.set(
+      'Cache-Control',
+      'public, max-age=60, s-maxage=60, stale-while-revalidate=300'
+    )
+
+    return response
   } catch (error) {
     logger.error({ error }, 'Error fetching agents')
     return NextResponse.json(
