@@ -262,23 +262,30 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
             </Card>
           </div>
 
-          {/* Agent Definition */}
+          {/* Agent Definition and Usage Stats Combined */}
           <div className="lg:col-span-3">
-            {/* Usage Metrics */}
-            <AgentUsageMetrics
-              publisherId={params.id}
-              agentId={params.agentId}
-              version={params.version}
-            />
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Agent Definition</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Complete agent data in TypeScript format
-                </p>
-              </CardHeader>
-              <CardContent>
-                <TypeScriptViewer data={agentData} />
+              <CardContent className="space-y-6 pt-6">
+                {/* Usage Metrics for this version */}
+                <div>
+                  <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                    Usage Statistics
+                    <Badge variant="secondary" className="text-xs">
+                      v{params.version}
+                    </Badge>
+                  </h3>
+                  <AgentUsageMetrics
+                    publisherId={params.id}
+                    agentId={params.agentId}
+                    version={params.version}
+                  />
+                </div>
+
+                {/* Agent Definition */}
+                <div className="border-t pt-6">
+                  <h3 className="text-base font-semibold mb-3">Definition</h3>
+                  <TypeScriptViewer data={agentData} />
+                </div>
               </CardContent>
             </Card>
           </div>
