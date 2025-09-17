@@ -235,11 +235,13 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                               <span className="font-mono">
                                 v{version.version}
                               </span>
-                              <VersionUsageBadge
-                                publisherId={params.id}
-                                agentId={params.agentId}
-                                version={version.version}
-                              />
+                              {index !== 0 && (
+                                <VersionUsageBadge
+                                  publisherId={params.id}
+                                  agentId={params.agentId}
+                                  version={version.version}
+                                />
+                              )}
                             </div>
                             {index === 0 && (
                               <Badge
