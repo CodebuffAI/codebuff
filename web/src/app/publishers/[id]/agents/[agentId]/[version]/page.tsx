@@ -134,7 +134,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
         {' '}
         {/* Navigation */}
         <div className="mb-6">
-          <BackButton />
+          <BackButton fallbackUrl="/store" />
         </div>
         {/* Agent Header */}
         <Card className="mb-6">

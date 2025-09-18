@@ -9,8 +9,7 @@ import type { ReferralCodeResponse } from '../../api/referrals/[code]/route'
 import { authOptions } from '../../api/auth/[...nextauth]/auth-options'
 import CardWithBeams from '@/components/card-with-beams'
 import { Button } from '@/components/ui/button'
-import { ReferralClientWrapper } from '@/components/referral/referral-client-wrapper'
-import { GitHubSignInButton } from '@/components/referral/github-signin-button'
+import ReferralClient from './referral-client'
 
 export const generateMetadata = async ({
   params,
@@ -79,7 +78,7 @@ export default async function ReferralPage({
     )
   }
 
-  // If referrer has maxed out referrals
+  // Handle referrer with maxed out referrals
   if (referralData.status.reason) {
     return (
       <CardWithBeams
@@ -104,55 +103,17 @@ export default async function ReferralPage({
     )
   }
 
-  // Valid referral - show success page and automatically redeem
   const referrerDisplayName =
     referralData.referrerName || referrerName || 'Someone'
 
+  // Pass data to the client component for rendering
   return (
-    <ReferralClientWrapper referralCode={code}>
-      <CardWithBeams
-        title={`${referrerDisplayName} invited you to Codebuff!`}
-        description="You're eligible for bonus credits when you complete the referral."
-        content={
-          <>
-            <div className="text-center space-y-4">
-              <p className="text-muted-foreground">
-                Welcome! Complete your referral to get bonus credits.
-              </p>
-
-              <div className="flex justify-center">
-                {!session && (
-                  <GitHubSignInButton
-                    referralCode={code}
-                    referrerName={referrerName}
-                  />
-                )}
-              </div>
-
-              {/* Complete Referral button positioned at bottom right for logged-in users */}
-              {session && !referralData.isSameUser && (
-                <div className="flex justify-end mt-6">
-                  <Button asChild>
-                    <Link href={`/onboard?referral_code=${code}`}>
-                      Complete Referral
-                    </Link>
-                  </Button>
-                </div>
-              )}
-
-              {/* Show warning if user is viewing their own referral link */}
-              {session && referralData.isSameUser && (
-                <div className="mt-6 p-3 bg-red-800 border border-red-900 rounded-md">
-                  <p className="text-white text-sm font-medium">
-                    ⚠️ This is your own referral link. You will not be able to
-                    redeem your own code.
-                  </p>
-                </div>
-              )}
-            </div>
-          </>
-        }
-      />
-    </ReferralClientWrapper>
+    <ReferralClient
+      code={code}
+      session={session}
+      referralData={referralData}
+      referrerDisplayName={referrerDisplayName}
+      referrerName={referrerName}
+    />
   )
 }
