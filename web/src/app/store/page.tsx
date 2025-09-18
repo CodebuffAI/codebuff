@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, memo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import {
   Search,
   TrendingUp,
@@ -34,6 +35,7 @@ import { AnimatedElement } from '@/components/ui/landing/animated-element'
 import { toast } from '@/components/ui/use-toast'
 import { formatRelativeTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
+import { useResponsiveColumns } from '@/hooks/use-responsive-columns'
 import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
 interface AgentData {
@@ -82,6 +84,7 @@ const AgentStorePage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('cost')
   const { data: session } = useSession()
+  const columns = useResponsiveColumns()
 
   // Fetch agents from the API
   const { data: agents = [], isLoading } = useQuery<AgentData[]>({
@@ -155,6 +158,41 @@ const AgentStorePage = () => {
     })
   }, [editorsChoice, searchQuery])
 
+  // Helper function to get agents for a specific row
+  const getAgentsForRow = useCallback(
+    (agents: AgentData[], rowIndex: number, cols: number) => {
+      const startIndex = rowIndex * cols
+      return agents.slice(startIndex, startIndex + cols)
+    },
+    []
+  )
+
+  // Create virtualized rows for All Agents only
+  const allAgentsRows = useMemo(() => {
+    const rowCount = Math.ceil(filteredAndSortedAgents.length / columns)
+    return Array.from({ length: rowCount }, (_, i) =>
+      getAgentsForRow(filteredAndSortedAgents, i, columns)
+    )
+  }, [filteredAndSortedAgents, columns, getAgentsForRow])
+
+  // Only create virtualizer when we have data and the component is mounted
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Virtualizer for All Agents section only
+  const allAgentsVirtualizer = useWindowVirtualizer({
+    count: isMounted ? allAgentsRows.length : 0,
+    estimateSize: () => 280, // Height for agent rows (card + gap)
+    overscan: 4,
+    useAnimationFrameWithResizeObserver: true,
+  })
+
+  // Determine if we should use virtualization for All Agents section
+  const shouldVirtualizeAllAgents = isMounted && allAgentsRows.length > 6
+
   // Publisher button logic
   const renderPublisherButton = () => {
     if (!session || !publishers) {
@@ -197,188 +235,194 @@ const AgentStorePage = () => {
     return count.toString()
   }
 
-  const AgentCard = ({
-    agent,
-    isEditorsChoice = false,
-  }: {
-    agent: AgentData
-    isEditorsChoice?: boolean
-  }) => (
-    <div className="group">
-      <Link
-        href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
-        className="block"
-      >
-        <Card
-          className={cn(
-            'relative h-full transition-all duration-200 cursor-pointer border bg-card/50 backdrop-blur-sm',
-            'hover:border-accent/50 hover:bg-card/80',
-            isEditorsChoice && 'ring-2 ring-amber-400/50 border-amber-400/30'
-          )}
+  // Memoized AgentCard component to prevent unnecessary re-renders
+  const AgentCard = memo(
+    ({
+      agent,
+      isEditorsChoice = false,
+    }: {
+      agent: AgentData
+      isEditorsChoice?: boolean
+    }) => (
+      <div className="group">
+        <Link
+          href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
+          className="block"
         >
-          {/* Editor's Choice Badge - Positioned absolutely for better visual hierarchy */}
-          {isEditorsChoice && (
-            <div className="absolute -top-2 -right-2 z-10">
-              <Badge
-                variant="default"
-                className="bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 shadow-lg border-0 px-2 py-1 text-xs font-medium"
-              >
-                <Star className="h-3 w-3 mr-1 fill-current" />
-                Editor's Choice
-              </Badge>
-            </div>
-          )}
-
-          <CardContent className="px-8 py-6 space-y-4">
-            {/* Header Section - Improved spacing and hierarchy */}
-            <div className="space-y-3">
-              {/* Agent Name and Version */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <h3 className="text-xl font-bold font-mono text-foreground truncate group-hover:text-primary transition-colors">
-                    {agent.id}
-                  </h3>
-                  <Badge
-                    variant="outline"
-                    className="text-xs font-mono px-2 py-1 border-border/50 bg-muted/30 shrink-0"
-                  >
-                    v{agent.version}
-                  </Badge>
-                </div>
-                {/* Action buttons */}
-                <div className="flex items-center gap-1">
-                  <div onClick={(e) => e.preventDefault()}>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
-                        )
-                        toast({
-                          description: `Agent run command copied to clipboard!`,
-                        })
-                      }}
-                      className="p-2 hover:bg-muted/50 rounded-lg transition-all duration-200 opacity-60 group-hover:opacity-100"
-                      title={`Copy: codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`}
-                    >
-                      <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                    </motion.button>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-all duration-300 group-hover:text-primary group-hover:translate-x-1" />
-                </div>
-              </div>
-
-              {/* Publisher Info */}
-              <div className="flex items-center justify-between">
-                <Link
-                  href={`/publishers/${agent.publisher.id}`}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity group/publisher"
-                  onClick={(e) => e.stopPropagation()}
+          <Card
+            className={cn(
+              'relative h-full transition-all duration-200 cursor-pointer border bg-card/50 backdrop-blur-sm',
+              'hover:border-accent/50 hover:bg-card/80',
+              isEditorsChoice && 'ring-2 ring-amber-400/50 border-amber-400/30'
+            )}
+          >
+            {/* Editor's Choice Badge - Positioned absolutely for better visual hierarchy */}
+            {isEditorsChoice && (
+              <div className="absolute -top-2 -right-2 z-10">
+                <Badge
+                  variant="default"
+                  className="bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 shadow-lg border-0 px-2 py-1 text-xs font-medium"
                 >
-                  <Avatar className="h-6 w-6 shrink-0 ring-2 ring-border/30 group-hover/publisher:ring-primary/50 transition-all">
-                    <AvatarImage
-                      src={agent.publisher.avatar_url || undefined}
-                    />
-                    <AvatarFallback className="text-xs bg-muted">
-                      {agent.publisher.name[0]?.toUpperCase() ||
-                        agent.publisher.id[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm text-muted-foreground group-hover/publisher:text-foreground transition-colors">
-                    @{agent.publisher.id}
-                  </span>
-                  {agent.publisher.verified && (
-                    <Badge
-                      variant="secondary"
-                      className="text-xs px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    >
-                      ✓
-                    </Badge>
-                  )}
-                </Link>
-                {agent.last_used && (
-                  <span
-                    className="text-xs text-muted-foreground/60"
-                    title={new Date(agent.last_used).toLocaleString()}
-                  >
-                    Used {formatRelativeTime(agent.last_used)}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Metrics Grid - Redesigned for better readability */}
-            <div className="grid grid-cols-2 gap-3 py-3 border-t border-border/30">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-emerald-400" />
-                  <span className="font-semibold text-emerald-400">
-                    {formatCurrency(agent.weekly_spent)}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">Weekly spend</p>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Play className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-semibold">
-                    {formatUsageCount(agent.usage_count)}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">Weekly runs</p>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-semibold">
-                    {formatCurrency(agent.avg_cost_per_invocation)}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">Per run</p>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-semibold">
-                    {agent.unique_users || 0}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">Users</p>
-              </div>
-            </div>
-
-            {/* Tags - Improved design and spacing */}
-            {agent.tags && agent.tags.length > 0 && (
-              <div className="pt-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {agent.tags.slice(0, 4).map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="secondary"
-                      className="text-xs px-2.5 py-1 bg-muted/40 hover:bg-muted/60 transition-colors border-0 rounded-full"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                  {agent.tags.length > 4 && (
-                    <Badge
-                      variant="secondary"
-                      className="text-xs px-2.5 py-1 bg-muted/40 border-0 rounded-full opacity-60"
-                    >
-                      +{agent.tags.length - 4}
-                    </Badge>
-                  )}
-                </div>
+                  <Star className="h-3 w-3 mr-1 fill-current" />
+                  Editor's Choice
+                </Badge>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </Link>
-    </div>
+
+            <CardContent className="px-8 py-6 space-y-4">
+              {/* Header Section - Improved spacing and hierarchy */}
+              <div className="space-y-3">
+                {/* Agent Name and Version */}
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <h3 className="text-xl font-bold font-mono text-foreground truncate group-hover:text-primary transition-colors">
+                      {agent.id}
+                    </h3>
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-mono px-2 py-1 border-border/50 bg-muted/30 shrink-0"
+                    >
+                      v{agent.version}
+                    </Badge>
+                  </div>
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1">
+                    <div onClick={(e) => e.preventDefault()}>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
+                          )
+                          toast({
+                            description: `Agent run command copied to clipboard!`,
+                          })
+                        }}
+                        className="p-2 hover:bg-muted/50 rounded-lg transition-all duration-200 opacity-60 group-hover:opacity-100"
+                        title={`Copy: codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`}
+                      >
+                        <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                      </motion.button>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground transition-all duration-300 group-hover:text-primary group-hover:translate-x-1" />
+                  </div>
+                </div>
+
+                {/* Publisher Info */}
+                <div className="flex items-center justify-between">
+                  <div
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity group/publisher cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      window.location.href = `/publishers/${agent.publisher.id}`
+                    }}
+                  >
+                    <Avatar className="h-6 w-6 shrink-0 ring-2 ring-border/30 group-hover/publisher:ring-primary/50 transition-all">
+                      <AvatarImage
+                        src={agent.publisher.avatar_url || undefined}
+                      />
+                      <AvatarFallback className="text-xs bg-muted">
+                        {agent.publisher.name[0]?.toUpperCase() ||
+                          agent.publisher.id[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm text-muted-foreground group-hover/publisher:text-foreground transition-colors">
+                      @{agent.publisher.id}
+                    </span>
+                    {agent.publisher.verified && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      >
+                        ✓
+                      </Badge>
+                    )}
+                  </div>
+                  {agent.last_used && (
+                    <span
+                      className="text-xs text-muted-foreground/60"
+                      title={new Date(agent.last_used).toLocaleString()}
+                    >
+                      Used {formatRelativeTime(agent.last_used)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Metrics Grid - Redesigned for better readability */}
+              <div className="grid grid-cols-2 gap-3 py-3 border-t border-border/30">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-400" />
+                    <span className="font-semibold text-emerald-400">
+                      {formatCurrency(agent.weekly_spent)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Weekly spend</p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Play className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">
+                      {formatUsageCount(agent.usage_count)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Weekly runs</p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">
+                      {formatCurrency(agent.avg_cost_per_invocation)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Per run</p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">
+                      {agent.unique_users || 0}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Users</p>
+                </div>
+              </div>
+
+              {/* Tags - Improved design and spacing */}
+              {agent.tags && agent.tags.length > 0 && (
+                <div className="pt-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {agent.tags.slice(0, 4).map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="text-xs px-2.5 py-1 bg-muted/40 hover:bg-muted/60 transition-colors border-0 rounded-full"
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                    {agent.tags.length > 4 && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs px-2.5 py-1 bg-muted/40 border-0 rounded-full opacity-60"
+                      >
+                        +{agent.tags.length - 4}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+    )
   )
 
   return (
@@ -430,7 +474,7 @@ const AgentStorePage = () => {
           </div>
         </AnimatedElement>
 
-        {/* Agent Grid */}
+        {/* Loading State */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -451,7 +495,7 @@ const AgentStorePage = () => {
             ))}
           </div>
         ) : (
-          <AnimatedElement type="fade" delay={0.1}>
+          <>
             {/* Editor's Choice Section */}
             {filteredEditorsChoice.length > 0 && (
               <div className="mb-12">
@@ -467,8 +511,10 @@ const AgentStorePage = () => {
                     reliability, performance, and versatility.
                   </p>
                 </div>
+
+                {/* Non-virtualized Editor's Choice */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredEditorsChoice.map((agent, index) => (
+                  {filteredEditorsChoice.map((agent) => (
                     <motion.div
                       key={agent.id}
                       whileHover={{ y: -4, transition: { duration: 0.2 } }}
@@ -483,31 +529,84 @@ const AgentStorePage = () => {
             {/* All Agents Section */}
             {filteredAndSortedAgents.length > 0 && (
               <div className="mt-12">
-                <AnimatedElement type="fade" className="mb-6">
+                <div className="mb-6">
                   <h2 className="text-2xl font-bold mb-2">All Agents</h2>
                   <p className="text-muted-foreground">
                     Explore the complete collection of published agents.
                   </p>
-                </AnimatedElement>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredAndSortedAgents.map((agent, index) => (
-                    <motion.div
-                      key={agent.id}
-                      whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                    >
-                      <AgentCard
-                        agent={agent}
-                        isEditorsChoice={EDITORS_CHOICE_AGENTS.includes(
-                          agent.id
-                        )}
-                      />
-                    </motion.div>
-                  ))}
                 </div>
+
+                {shouldVirtualizeAllAgents ? (
+                  // Virtualized All Agents
+                  <div
+                    style={{
+                      height: `${allAgentsVirtualizer.getTotalSize()}px`,
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                    {allAgentsVirtualizer
+                      .getVirtualItems()
+                      .map((virtualItem) => {
+                        const agents = allAgentsRows[virtualItem.index]
+                        return (
+                          <div
+                            key={virtualItem.key}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: `${virtualItem.size}px`,
+                              transform: `translateY(${virtualItem.start}px)`,
+                            }}
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                              {agents?.map((agent) => (
+                                <motion.div
+                                  key={agent.id}
+                                  whileHover={{
+                                    y: -4,
+                                    transition: { duration: 0.2 },
+                                  }}
+                                >
+                                  <AgentCard
+                                    agent={agent}
+                                    isEditorsChoice={EDITORS_CHOICE_AGENTS.includes(
+                                      agent.id
+                                    )}
+                                  />
+                                </motion.div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                ) : (
+                  // Non-virtualized All Agents
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredAndSortedAgents.map((agent) => (
+                      <motion.div
+                        key={agent.id}
+                        whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                      >
+                        <AgentCard
+                          agent={agent}
+                          isEditorsChoice={EDITORS_CHOICE_AGENTS.includes(
+                            agent.id
+                          )}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </AnimatedElement>
+          </>
         )}
+
+        {/* No Results State */}
 
         {filteredAndSortedAgents.length === 0 &&
           filteredEditorsChoice.length === 0 &&
