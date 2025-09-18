@@ -429,22 +429,20 @@ const AgentStorePage = () => {
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="mb-12">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex-1" />
-            <h1 className="text-4xl font-bold text-white">Agent Store</h1>
-            <div className="flex-1 flex justify-end">
-              <AnimatedElement type="slide" delay={0.1}>
-                {renderPublisherButton()}
-              </AnimatedElement>
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2">
+                Agent Store
+              </h1>
+              <p className="text-xl text-muted-foreground">
+                Browse all published AI agents. Run, compose, or fork them.
+              </p>
             </div>
           </div>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Browse all published AI agents. Run, compose, or fork them.
-          </p>
         </div>
 
-        {/* Search and Filters */}
+        {/* Search, Filters, and Publisher Button */}
         <AnimatedElement type="slide" delay={0.1} className="mb-8">
           <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center md:justify-end">
             <div className="relative w-full md:flex-1 md:max-w-[200px]">
@@ -470,6 +468,7 @@ const AgentStorePage = () => {
                   <SelectItem value="name">Name</SelectItem>
                 </SelectContent>
               </Select>
+              {renderPublisherButton()}
             </div>
           </div>
         </AnimatedElement>

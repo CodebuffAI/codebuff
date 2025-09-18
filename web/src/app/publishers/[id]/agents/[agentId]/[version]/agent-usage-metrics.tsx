@@ -88,7 +88,7 @@ export const AgentUsageMetrics = ({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex flex-col items-center gap-2">
             <Skeleton className="h-6 w-16" />
@@ -105,7 +105,7 @@ export const AgentUsageMetrics = ({
 
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-emerald-400" />

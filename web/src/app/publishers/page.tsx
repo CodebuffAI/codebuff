@@ -91,18 +91,18 @@ const PublishersPage = () => {
     <div className="container mx-auto py-6 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div className="flex items-center">
-            <User className="h-8 w-8 text-blue-600 mr-3" />
-            <div>
-              <h1 className="text-3xl font-bold">My Publishers</h1>
-              <p className="text-muted-foreground">
+            <User className="h-8 w-8 text-blue-600 mr-3 flex-shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold">My Publishers</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Manage your publisher profiles and published agents
               </p>
             </div>
           </div>
-          <Link href="/publishers/new">
-            <Button className="flex items-center">
+          <Link href="/publishers/new" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto flex items-center justify-center">
               <Plus className="mr-2 h-4 w-4" />
               Create Publisher
             </Button>

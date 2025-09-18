@@ -7,9 +7,13 @@ import { Button } from '@/components/ui/button'
 
 interface BackButtonProps {
   fallbackUrl?: string
+  children?: React.ReactNode
 }
 
-export const BackButton = ({ fallbackUrl }: BackButtonProps = {}) => {
+export const BackButton = ({
+  fallbackUrl,
+  children = 'Back',
+}: BackButtonProps = {}) => {
   const router = useRouter()
 
   const handleBack = () => {
@@ -24,9 +28,9 @@ export const BackButton = ({ fallbackUrl }: BackButtonProps = {}) => {
   }
 
   return (
-    <Button variant="ghost" className="mb-4" onClick={handleBack}>
+    <Button variant="ghost" className="mb-2" onClick={handleBack}>
       <ArrowLeft className="h-4 w-4 mr-2" />
-      Back
+      {children}
     </Button>
   )
 }

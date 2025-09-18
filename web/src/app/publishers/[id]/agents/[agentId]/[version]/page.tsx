@@ -133,17 +133,22 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
       <div className="max-w-4xl mx-auto">
         {' '}
         {/* Navigation */}
-        <div className="mb-6">
-          <BackButton fallbackUrl="/store" />
+        <div className="mb-3">
+          <BackButton fallbackUrl="/store">Back to store</BackButton>
         </div>
         {/* Agent Header */}
         <Card className="mb-6">
           <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center space-x-3 mb-2">
-                  <CardTitle className="text-2xl">{agentName}</CardTitle>
-                  <Badge variant="outline" className="text-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                  <CardTitle className="text-xl sm:text-2xl break-words">
+                    {agentName}
+                  </CardTitle>
+                  <Badge
+                    variant="outline"
+                    className="text-sm self-start sm:self-auto"
+                  >
                     v{params.version}
                   </Badge>
                 </div>
@@ -186,17 +191,19 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-end space-x-3">
-                <CopyIdButton agentId={fullAgentId} />
-                <SaveAgentButton agentId={fullAgentId} />
-                <RunAgentButton agentId={fullAgentId} />
-                {/*
+              <div className="border-t pt-4 md:border-t-0 md:pt-0">
+                <div className="flex flex-col space-y-2 sm:flex-row sm:items-end sm:space-y-0 sm:space-x-2 md:space-x-3">
+                  <CopyIdButton agentId={fullAgentId} />
+                  <SaveAgentButton agentId={fullAgentId} />
+                  <RunAgentButton agentId={fullAgentId} />
+                  {/*
                 Hide download button for now. (It doesn't do anything)
                 <Button variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
                 */}
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -209,7 +216,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                 <CardTitle className="text-lg">Versions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-1">
+                <div className="space-y-1 max-h-40 overflow-y-auto lg:max-h-none lg:overflow-y-visible">
                   {allVersions
                     .sort(
                       (a, b) =>

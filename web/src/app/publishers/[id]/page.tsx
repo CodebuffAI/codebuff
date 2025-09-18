@@ -135,50 +135,50 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
         {/* Publisher Header */}
         <Card className="mb-8">
           <CardHeader>
-            <div className="flex items-start space-x-4">
+            <div className="flex flex-col sm:flex-row items-start gap-4">
               {publisherData.avatar_url ? (
                 <Image
                   src={publisherData.avatar_url}
                   alt={`${publisherData.name} avatar`}
                   width={80}
                   height={80}
-                  className="rounded-full"
+                  className="rounded-full flex-shrink-0"
                 />
               ) : (
-                <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center">
+                <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
                   <User className="h-10 w-10 text-gray-500" />
                 </div>
               )}
-              <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-2">
-                  <CardTitle className="text-2xl">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                  <CardTitle className="text-xl sm:text-2xl break-words">
                     {publisherData.name}
                   </CardTitle>
                   {publisherData.verified && (
                     <Badge
                       variant="secondary"
-                      className="flex items-center space-x-1"
+                      className="flex items-center space-x-1 self-start sm:self-auto"
                     >
                       <CheckCircle className="h-3 w-3" />
                       <span>Verified</span>
                     </Badge>
                   )}
                 </div>
-                <p className="text-muted-foreground mb-2">
+                <p className="text-muted-foreground mb-2 break-all">
                   @{publisherData.id}
                 </p>
                 {publisherData.bio && (
                   <p className="text-sm mb-4">{publisherData.bio}</p>
                 )}
-                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                   {publisherData.email && (
-                    <div className="flex items-center space-x-1">
-                      <Mail className="h-4 w-4" />
-                      <span>{publisherData.email}</span>
+                    <div className="flex items-center space-x-1 min-w-0">
+                      <Mail className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{publisherData.email}</span>
                     </div>
                   )}
                   <div className="flex items-center space-x-1">
-                    <Calendar className="h-4 w-4" />
+                    <Calendar className="h-4 w-4 flex-shrink-0" />
                     <span>
                       Joined{' '}
                       {new Date(publisherData.created_at).toLocaleDateString(
