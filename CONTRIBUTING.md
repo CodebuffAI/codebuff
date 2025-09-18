@@ -48,6 +48,7 @@ Before you begin, you'll need to install a few tools:
    Follow the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for detailed setup instructions.
 
    Load all environment variables at once:
+
    ```bash
    infisical secrets set --file .env.example
    infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
@@ -81,7 +82,64 @@ Before you begin, you'll need to install a few tools:
    # Expected: Welcome to Codebuff! + agent list
    ```
 
+   Now, you should be able to run the CLI and send commands, but it will error out because you don't have any credits.
+
    **Note**: CLI requires both backend and web server running for authentication.
+
+8. **Giving yourself credits**:
+
+   There are two ways to give yourself credits:
+
+   1. If you have the Stripe environment variables set, you can add billing information (just put in a fake credit card) at http://localhost:3000/usage
+
+   2. However, if you don't have Stripe set up, you will need to manually add credits to your account in the database.
+
+   ```bash
+   bun run start-studio
+   ```
+
+   Then, navigate to https://local.drizzle.studio/
+
+   Create a new row in the `credit_ledger` table. The values should be:
+
+   - `operation_id`: [anything you want should be unique]
+   - `user_id`: [your user ID from the `user` table]
+   - `principal`: [some very large number, one hundred million should last basically indefinitely]
+   - `balance`: [the same as `principal`]
+   - `type`: admin
+   - `priority`: 80
+
+   Now, you should be able to run the CLI commands locally from within the `codebuff` directory.
+
+9. **Running in other directories**:
+
+   a. In order to run the CLI from other directories, you need to first publish the agents to the database.
+
+   First, create a publisher profile at http://localhost:3000/publishers. Make sure the `publisher_id` is `codebuff`.
+
+   Run:
+
+   ```bash
+   bun run start-bin publish base
+   ```
+
+   It will give you an error along the lines of `Invalid agent ID: [some agent ID]`, e.g. `Invalid agent ID: context-pruner`. You need to publish that agent at the same time, e.g.:
+
+   ```bash
+   bun run start-bin publish base context-pruner
+   ```
+
+   Repeat this until there are no more errors. As of the time of writing, the command required is:
+
+   ```bash
+   bun start-bin publish base context-pruner file-explorer file-picker researcher thinker reviewer
+   ```
+
+   b. Now, you can start the CLI in any directory by running:
+
+   ```bash
+   bun run start-bin --cwd [some/other/directory]
+   ```
 
 ## Understanding the Codebase
 
