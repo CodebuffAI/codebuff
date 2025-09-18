@@ -48,11 +48,13 @@ export async function validateSpawnableAgents(
     // Check if agent exists in database.
     const agent = await fetchAgent(agentId, version, publisherId)
     if (!agent) {
-      invalidIds.push(givenAgentId)
-      validationErrors.push({
-        filePath: givenAgentId,
-        message: `Invalid agent ID: ${givenAgentId}. Agent not found in database.`,
-      })
+      if (process.env.NODE_ENV !== 'development') {
+        invalidIds.push(givenAgentId)
+        validationErrors.push({
+          filePath: givenAgentId,
+          message: `Invalid agent ID: ${givenAgentId}. Agent not found in database.`,
+        })
+      }
       continue
     }
     availableAgentTypes.push(givenAgentId)
