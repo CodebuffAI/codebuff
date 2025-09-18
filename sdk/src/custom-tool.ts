@@ -5,8 +5,8 @@ import type { JSONSchema } from 'zod/v4/core'
 
 export type CustomToolDefinition<
   N extends string = string,
-  Args = unknown,
-  Input = unknown,
+  Args extends Record<string, unknown> = Record<string, unknown>,
+  Input extends Record<string, unknown> = Record<string, unknown>,
   Output extends ToolResultOutput[] = ToolResultOutput[],
 > = {
   toolName: N
@@ -33,8 +33,8 @@ export type CustomToolDefinition<
  */
 export function getCustomToolDefinition<
   ToolName extends string,
-  Args,
-  Input,
+  Args extends Record<string, unknown>,
+  Input extends Record<string, unknown>,
   Output extends ToolResultOutput[],
 >({
   toolName,
