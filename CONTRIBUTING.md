@@ -113,33 +113,35 @@ Before you begin, you'll need to install a few tools:
 
 9. **Running in other directories**:
 
-   a. In order to run the CLI from other directories, you need to first publish the agents to the database.
+   In order to run the CLI from other directories, you need to first publish the agents to the database.
 
-   First, create a publisher profile at http://localhost:3000/publishers. Make sure the `publisher_id` is `codebuff`.
+   - First, create a publisher profile at http://localhost:3000/publishers. Make sure the `publisher_id` is `codebuff`.
 
-   Run:
+   - Run:
 
-   ```bash
-   bun run start-bin publish base
-   ```
+     ```bash
+     bun run start-bin publish base
+     ```
 
-   It will give you an error along the lines of `Invalid agent ID: [some agent ID]`, e.g. `Invalid agent ID: context-pruner`. You need to publish that agent at the same time, e.g.:
+   - It will give you an error along the lines of `Invalid agent ID: [some agent ID]`, e.g. `Invalid agent ID: context-pruner`. You need to publish that agent at the same time, e.g.:
 
-   ```bash
-   bun run start-bin publish base context-pruner
-   ```
+     ```bash
+     bun run start-bin publish base context-pruner
+     ```
 
-   Repeat this until there are no more errors. As of the time of writing, the command required is:
+   - Repeat this until there are no more errors.
 
-   ```bash
-   bun start-bin publish base context-pruner file-explorer file-picker researcher thinker reviewer
-   ```
+     - As of the time of writing, the command required is:
 
-   b. Now, you can start the CLI in any directory by running:
+     ```bash
+     bun start-bin publish base context-pruner file-explorer file-picker researcher thinker reviewer
+     ```
 
-   ```bash
-   bun run start-bin --cwd [some/other/directory]
-   ```
+   - Now, you can start the CLI in any directory by running:
+
+     ```bash
+     bun run start-bin --cwd [some/other/directory]
+     ```
 
 ## Understanding the Codebase
 
