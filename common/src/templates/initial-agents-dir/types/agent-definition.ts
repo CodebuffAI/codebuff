@@ -14,8 +14,8 @@
  *   export default definition
  */
 
-import type { Message, ToolResultOutput, JsonObjectSchema } from './util-types'
 import type * as Tools from './tools'
+import type { Message, ToolResultOutput, JsonObjectSchema } from './util-types'
 type ToolName = Tools.ToolName
 
 // ============================================================================
@@ -196,6 +196,7 @@ export interface AgentDefinition {
 
 export interface AgentState {
   agentId: string
+  runId: string
   parentId: string | undefined
 
   /** The agent's conversation history: messages from the user and the assistant. */

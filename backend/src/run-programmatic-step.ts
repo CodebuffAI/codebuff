@@ -28,15 +28,15 @@ import type { WebSocket } from 'ws'
 const sandboxManager = new SandboxManager()
 
 // Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
-const agentIdToGenerator: Record<string, StepGenerator | undefined> = {}
-export const agentIdToStepAll: Set<string> = new Set()
+const runIdToGenerator: Record<string, StepGenerator | undefined> = {}
+export const runIdToStepAll: Set<string> = new Set()
 
 // Function to clear the generator cache for testing purposes
 export function clearAgentGeneratorCache() {
-  for (const key in agentIdToGenerator) {
-    delete agentIdToGenerator[key]
+  for (const key in runIdToGenerator) {
+    delete runIdToGenerator[key]
   }
-  agentIdToStepAll.clear()
+  runIdToStepAll.clear()
   // Clean up QuickJS sandboxes
   sandboxManager.dispose()
 }
@@ -78,16 +78,20 @@ export async function runProgrammaticStep(
     throw new Error('No step handler found for agent template ' + template.id)
   }
 
+  if (!agentState.runId) {
+    throw new Error('Agent state has no run ID')
+  }
+
   // Run with either a generator or a sandbox.
-  let generator = agentIdToGenerator[agentState.agentId]
-  let sandbox = sandboxManager.getSandbox(agentState.agentId)
+  let generator = runIdToGenerator[agentState.runId]
+  let sandbox = sandboxManager.getSandbox(agentState.runId)
 
   // Check if we need to initialize a generator (either native or QuickJS-based)
   if (!generator && !sandbox) {
     if (typeof template.handleSteps === 'string') {
       // Initialize QuickJS sandbox for string-based generator
       sandbox = await sandboxManager.getOrCreateSandbox(
-        agentState.agentId,
+        agentState.runId,
         template.handleSteps,
         {
           agentState,
@@ -102,15 +106,15 @@ export async function runProgrammaticStep(
         prompt,
         params,
       })
-      agentIdToGenerator[agentState.agentId] = generator
+      runIdToGenerator[agentState.runId] = generator
     }
   }
 
   // Check if we're in STEP_ALL mode
-  if (agentIdToStepAll.has(agentState.agentId)) {
+  if (runIdToStepAll.has(agentState.runId)) {
     if (stepsComplete) {
       // Clear the STEP_ALL mode. Stepping can continue if handleSteps doesn't return.
-      agentIdToStepAll.delete(agentState.agentId)
+      runIdToStepAll.delete(agentState.runId)
     } else {
       return { agentState, endTurn: false, stepNumber }
     }
@@ -143,7 +147,9 @@ export async function runProgrammaticStep(
         ...data,
       })
     },
-    agentState: cloneDeep(agentState),
+    agentState: cloneDeep(
+      agentState as AgentState & Required<Pick<AgentState, 'runId'>>,
+    ),
     agentContext: cloneDeep(agentState.agentContext),
     messages: cloneDeep(agentState.messageHistory),
   }
@@ -182,7 +188,7 @@ export async function runProgrammaticStep(
         break
       }
       if (result.value === 'STEP_ALL') {
-        agentIdToStepAll.add(state.agentState.agentId)
+        runIdToStepAll.add(state.agentState.agentId)
         break
       }
 
@@ -322,20 +328,21 @@ export async function runProgrammaticStep(
     if (endTurn) {
       if (sandbox) {
         // Clean up QuickJS sandbox if execution is complete
-        sandboxManager.removeSandbox(agentState.agentId)
+        sandboxManager.removeSandbox(agentState.runId)
       }
-      delete agentIdToGenerator[agentState.agentId]
-      agentIdToStepAll.delete(agentState.agentId)
+      delete runIdToGenerator[agentState.runId]
+      runIdToStepAll.delete(agentState.runId)
     }
   }
 }
 
 export const getPublicAgentState = (
-  agentState: AgentState,
+  agentState: AgentState & Required<Pick<AgentState, 'runId'>>,
 ): PublicAgentState => {
-  const { agentId, parentId, messageHistory, output } = agentState
+  const { agentId, runId, parentId, messageHistory, output } = agentState
   return {
     agentId,
+    runId,
     parentId,
     messageHistory: messageHistory as any as PublicAgentState['messageHistory'],
     output,

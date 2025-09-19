@@ -209,12 +209,12 @@ export class SandboxManager {
    * Create or get a sandbox for the given agent ID
    */
   async getOrCreateSandbox(
-    agentId: string,
+    runId: string,
     generatorCode: string,
     initialInput: any,
     config?: SandboxConfig,
   ): Promise<QuickJSSandbox> {
-    const existing = this.sandboxes.get(agentId)
+    const existing = this.sandboxes.get(runId)
     if (existing && existing.isInitialized()) {
       return existing
     }
@@ -230,25 +230,25 @@ export class SandboxManager {
       initialInput,
       config,
     )
-    this.sandboxes.set(agentId, sandbox)
+    this.sandboxes.set(runId, sandbox)
     return sandbox
   }
 
   /**
    * Get an existing sandbox
    */
-  getSandbox(agentId: string): QuickJSSandbox | undefined {
-    return this.sandboxes.get(agentId)
+  getSandbox(runId: string): QuickJSSandbox | undefined {
+    return this.sandboxes.get(runId)
   }
 
   /**
    * Remove and dispose a sandbox
    */
-  removeSandbox(agentId: string): void {
-    const sandbox = this.sandboxes.get(agentId)
+  removeSandbox(runId: string): void {
+    const sandbox = this.sandboxes.get(runId)
     if (sandbox) {
       sandbox.dispose()
-      this.sandboxes.delete(agentId)
+      this.sandboxes.delete(runId)
     }
   }
 
@@ -256,12 +256,12 @@ export class SandboxManager {
    * Clean up all sandboxes
    */
   dispose(): void {
-    for (const [agentId, sandbox] of this.sandboxes) {
+    for (const [runId, sandbox] of this.sandboxes) {
       try {
         sandbox.dispose()
       } catch (error) {
         logger.warn(
-          { error, agentId },
+          { error, runId },
           'Failed to dispose sandbox during cleanup',
         )
       }
