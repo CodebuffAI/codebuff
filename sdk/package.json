@@ -5,15 +5,16 @@
   "version": "0.2.0",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "Apache-2.0",
-  "type": "commonjs",
-  "main": "./dist/index.js",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "typings": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -25,14 +26,17 @@
   ],
   "scripts": {
     "build": "bun run build.ts",
-    "build:verify": "bun run build && bun run smoke-test && bun run smoke-test:dist",
-    "smoke-test": "bun run smoke-test.ts",
+    "build:types": "tsc -p tsconfig.build.json",
+    "build:verify": "bun run build && bun run smoke-test:dist && bun run test:cjs && bun run test:esm",
     "smoke-test:dist": "bun run smoke-test-dist.ts",
+    "test:cjs": "cd test/cjs-compatibility && npm install --silent && npm run test:all",
+    "test:esm": "cd test/esm-compatibility && npm install --silent && npm run test:all",
     "clean": "rm -rf dist",
     "prepare-dist": "bun run scripts/publish.ts --dry-run",
     "publish-sdk": "bun run scripts/publish.ts --public",
     "publish-dry-run": "bun run build:verify && bun run scripts/publish.ts --dry-run",
     "prepack": "bun run build",
+    "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test"
   },

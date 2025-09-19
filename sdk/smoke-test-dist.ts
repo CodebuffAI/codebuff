@@ -114,7 +114,7 @@ async function testCJSDist() {
   const testCode = `
 try {
   // Require from the built CJS dist files
-  const pkg = require('../dist/index.js');
+  const pkg = require('../dist/index.cjs');
   console.log('CJS dist require successful');
   
   // Verify basic structure
@@ -166,7 +166,7 @@ async function testCJSTreeSitter() {
 const runTest = async () => {
   try {
     // Require tree-sitter functionality from built CJS dist
-    const { getFileTokenScores, setWasmDir } = require('../dist/index.js');
+    const { getFileTokenScores, setWasmDir } = require('../dist/index.cjs');
     console.log('CJS tree-sitter imports successful');
     
     // Set WASM directory to the correct location for dist tests

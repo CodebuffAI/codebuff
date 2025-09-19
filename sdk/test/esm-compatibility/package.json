@@ -1,0 +1,21 @@
+{
+  "name": "esm-compatibility-test",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "setup": "mkdir -p node_modules/@codebuff && cp -r ../../dist node_modules/@codebuff/sdk && cp ../../package.json node_modules/@codebuff/sdk/",
+    "test": "node test-imports.js",
+    "test:types": "tsc --noEmit --skipLibCheck test-types.ts",
+    "test:compile": "tsc test-types.ts --outDir ./dist --skipLibCheck --module ESNext --target ES2022 --moduleResolution bundler && node ./dist/test-types.js",
+    "test:all": "npm run setup && npm run test && npm run test:types && npm run test:compile"
+  },
+  "dependencies": {
+    "@codebuff/sdk": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}
