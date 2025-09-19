@@ -9,11 +9,8 @@ if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
 const envSchema = {
   server: {
     // Backend variables
-    ANTHROPIC_API_KEY: z.string().min(1),
-    ANTHROPIC_API_KEY2: z.string().min(1),
     CODEBUFF_API_KEY: z.string().optional(),
     HELICONE_API_KEY: z.string().min(1),
-    OPEN_AI_KEY: z.string().min(1),
     GEMINI_API_KEY: z.string().min(1),
     DEEPSEEK_API_KEY: z.string().min(1),
     OPEN_ROUTER_API_KEY: z.string().min(1),
@@ -56,11 +53,8 @@ const envSchema = {
   },
   runtimeEnv: {
     // Backend variables
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-    ANTHROPIC_API_KEY2: process.env.ANTHROPIC_API_KEY2,
     CODEBUFF_API_KEY: process.env.CODEBUFF_API_KEY,
     HELICONE_API_KEY: process.env.HELICONE_API_KEY,
-    OPEN_AI_KEY: process.env.OPEN_AI_KEY,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     OPEN_ROUTER_API_KEY: process.env.OPEN_ROUTER_API_KEY,

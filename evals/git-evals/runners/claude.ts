@@ -11,6 +11,11 @@ export class ClaudeRunner implements Runner {
   constructor(cwd: string) {
     this.firstRun = true
     this.cwd = cwd
+
+    // Set ANTHROPIC_API_KEY from CLAUDE_CODE_KEY for @anthropic-ai/claude-code
+    if (process.env.CLAUDE_CODE_KEY) {
+      process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_CODE_KEY
+    }
   }
 
   async run(prompt: string): ReturnType<Runner['run']> {
