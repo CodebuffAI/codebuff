@@ -10,9 +10,6 @@ const envSchema = {
   server: {
     // Backend variables
     CODEBUFF_API_KEY: z.string().optional(),
-    HELICONE_API_KEY: z.string().min(1),
-    GEMINI_API_KEY: z.string().min(1),
-    DEEPSEEK_API_KEY: z.string().min(1),
     OPEN_ROUTER_API_KEY: z.string().min(1),
     RELACE_API_KEY: z.string().min(1),
     LINKUP_API_KEY: z.string().min(1),
@@ -54,9 +51,6 @@ const envSchema = {
   runtimeEnv: {
     // Backend variables
     CODEBUFF_API_KEY: process.env.CODEBUFF_API_KEY,
-    HELICONE_API_KEY: process.env.HELICONE_API_KEY,
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     OPEN_ROUTER_API_KEY: process.env.OPEN_ROUTER_API_KEY,
     RELACE_API_KEY: process.env.RELACE_API_KEY,
     LINKUP_API_KEY: process.env.LINKUP_API_KEY,
