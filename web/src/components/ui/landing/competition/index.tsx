@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
 import { useState, useEffect, useRef } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { CompetitionTabs, type CompetitorType, competitors } from './tabs'
 import { Section } from '../../section'
@@ -96,7 +97,7 @@ export function CompetitionSection() {
       setProgress(0)
       resetTimer()
 
-      posthog.capture('home.competition_tab_changed', {
+      posthog.capture(AnalyticsEvent.HOME_COMPETITION_TAB_CHANGED, {
         competitor: tab,
       })
     }

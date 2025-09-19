@@ -2,6 +2,7 @@
 
 import posthog from 'posthog-js'
 import { useState, useEffect } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -36,13 +37,13 @@ export function CookieConsentCard() {
     localStorage.setItem('cookieConsent', 'true')
     setVisible(false)
     reinitialize()
-    posthog.capture('cookie_consent.accepted')
+    posthog.capture(AnalyticsEvent.COOKIE_CONSENT_ACCEPTED)
   }
 
   const handleDecline = () => {
     localStorage.setItem('cookieConsent', 'false')
     setVisible(false)
-    posthog.capture('cookie_consent.declined')
+    posthog.capture(AnalyticsEvent.COOKIE_CONSENT_DECLINED)
   }
 
   if (!visible || !opacity) {

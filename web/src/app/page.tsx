@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
 import { useEffect, useState, Suspense } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import IDEDemo from '@/components/IDEDemo'
 import { BlockColor, DecorativeBlocks } from '@/components/ui/decorative-blocks'
@@ -89,7 +90,7 @@ export default function Home() {
   }, [session?.user?.id])
 
   const handleFeatureLearnMoreClick = (featureName: string, link: string) => {
-    posthog.capture('home.feature_learn_more_clicked', {
+    posthog.capture(AnalyticsEvent.HOME_FEATURE_LEARN_MORE_CLICKED, {
       feature: featureName,
       link,
     })
@@ -167,8 +168,8 @@ export default function Home() {
                   BuffBench Results
                 </h2>
                 <p className="text-xl text-white/70 max-w-2xl mx-auto">
-                  State of the art coding agent evaluation using generated workflows and judging from open
-                  source repositories
+                  State of the art coding agent evaluation using generated
+                  workflows and judging from open source repositories
                 </p>
               </div>
 

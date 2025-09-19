@@ -4,6 +4,7 @@ import { ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import posthog from 'posthog-js'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Section } from '../section'
 import { SECTION_THEMES } from './constants'
@@ -68,7 +69,7 @@ const ReviewCard = ({
 
 export function TestimonialsSection() {
   const handleTestimonialClick = (author: string, link: string) => {
-    posthog.capture('home.testimonial_clicked', {
+    posthog.capture(AnalyticsEvent.HOME_TESTIMONIAL_CLICKED, {
       author,
       link,
     })

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import posthog from 'posthog-js'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import type { Session } from 'next-auth'
 
@@ -54,7 +55,7 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
-            posthog.capture('auth.logout_completed')
+            posthog.capture(AnalyticsEvent.AUTH_LOGOUT_COMPLETED)
             signOut()
           }}
         >

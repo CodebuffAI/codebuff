@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import posthog from 'posthog-js'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Button } from '@/components/ui/button'
 import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
@@ -156,7 +157,7 @@ export function OnboardingFlow({
       ...prev,
       completedSteps: new Set([...prev.completedSteps, step]),
     }))
-    posthog.capture('onboarding_step_completed', { step })
+    posthog.capture(AnalyticsEvent.ONBOARDING_STEP_COMPLETED, { step })
   }
 
   const getTotalSteps = () =>
@@ -166,7 +167,7 @@ export function OnboardingFlow({
     const totalSteps = getTotalSteps()
     if (progress.currentStep < totalSteps) {
       setProgress((prev) => ({ ...prev, currentStep: prev.currentStep + 1 }))
-      posthog.capture('onboarding_step_viewed', {
+      posthog.capture(AnalyticsEvent.ONBOARDING_STEP_VIEWED, {
         step: progress.currentStep + 1,
       })
     } else if (onComplete) {
@@ -182,7 +183,9 @@ export function OnboardingFlow({
 
   const handlePMChange = (pm: PackageManager) => {
     setProgress((prev) => ({ ...prev, packageManager: pm }))
-    posthog.capture('onboarding_pm_selected', { packageManager: pm })
+    posthog.capture(AnalyticsEvent.ONBOARDING_PM_SELECTED, {
+      packageManager: pm,
+    })
   }
 
   const renderRunCodebuffStep = () => (
@@ -403,7 +406,7 @@ export function OnboardingFlow({
             } else {
               window.open(editor.href, '_blank', 'noopener,noreferrer')
             }
-            posthog.capture('onboarding_editor_opened', {
+            posthog.capture(AnalyticsEvent.ONBOARDING_EDITOR_OPENED, {
               editor: editor.name,
             })
           }}

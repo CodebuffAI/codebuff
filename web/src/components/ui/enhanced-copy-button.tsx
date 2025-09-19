@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Check, Copy, Terminal } from 'lucide-react'
 import posthog from 'posthog-js'
 import { forwardRef, useState } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { BlockColor } from './decorative-blocks'
 
@@ -81,7 +82,7 @@ export function TerminalCopyButton({
   pulseBorder?: boolean
 }) {
   const handleClick = () => {
-    posthog.capture('home.install_command_copied')
+    posthog.capture(AnalyticsEvent.HOME_INSTALL_COMMAND_COPIED)
   }
 
   return (

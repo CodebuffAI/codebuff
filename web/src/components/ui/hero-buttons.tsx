@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
 import { useState } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Button } from './button'
 import { TerminalCopyButton } from './enhanced-copy-button'
@@ -17,7 +18,7 @@ export function HeroButtons({ className }: HeroButtonsProps) {
   const { open: openInstallDialog } = useInstallDialog()
 
   const handleTryFreeClick = () => {
-    posthog.capture('home.try_free_clicked')
+    posthog.capture(AnalyticsEvent.HOME_TRY_FREE_CLICKED)
     openInstallDialog()
   }
 

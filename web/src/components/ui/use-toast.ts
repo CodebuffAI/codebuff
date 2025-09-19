@@ -1,6 +1,7 @@
 // Inspired by react-hot-toast library
 import posthog from 'posthog-js'
 import * as React from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
 
@@ -165,7 +166,7 @@ function toast({ title, description, ...props }: Toast) {
     typeof description === 'string'
       ? description
       : JSON.stringify(description ?? null)
-  posthog.capture('toast.shown', {
+  posthog.capture(AnalyticsEvent.TOAST_SHOWN, {
     title: typeof title === 'string' ? title : JSON.stringify(title ?? null),
     description: descriptionString,
     variant: props.variant ?? 'default',

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import posthog from 'posthog-js'
 import React, { useState, useEffect, useRef } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { match, P } from 'ts-pattern'
 
 import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'
@@ -398,7 +399,7 @@ const TerminalDemo = () => {
     },
     onMutate: (input) => {
       // Track terminal input event
-      posthog.capture('demo_terminal.command_executed', {
+      posthog.capture(AnalyticsEvent.DEMO_TERMINAL_COMMAND_EXECUTED, {
         command: input,
       })
 
@@ -495,7 +496,7 @@ const TerminalDemo = () => {
 
     match(cleanInput)
       .with('help', () => {
-        posthog.capture('demo_terminal.help_viewed')
+        posthog.capture(AnalyticsEvent.DEMO_TERMINAL_HELP_VIEWED)
         setTerminalLines((prev) => [
           ...prev,
           <TerminalOutput key={`help-${Date.now()}`}>
@@ -538,7 +539,7 @@ const TerminalDemo = () => {
         P.string.includes('optimize'),
         P.string.includes('performance'),
         () => {
-          posthog.capture('demo_terminal.optimize_requested')
+          posthog.capture(AnalyticsEvent.DEMO_TERMINAL_OPTIMIZE_REQUESTED)
           const response = SAMPLE_RESPONSES.optimize
 
           setTerminalLines((prev) => [
@@ -624,7 +625,7 @@ const TerminalDemo = () => {
             s.includes('fix') && (s.includes('memory') || s.includes('leak'))
         ),
         () => {
-          posthog.capture('demo_terminal.fix_memory_leak')
+          posthog.capture(AnalyticsEvent.DEMO_TERMINAL_FIX_MEMORY_LEAK)
           setShowError(false)
           const response = SAMPLE_RESPONSES.fix
 
@@ -712,7 +713,7 @@ const TerminalDemo = () => {
       .with(
         P.when((s: string) => s.includes('refactor') && s.includes('auth')),
         () => {
-          posthog.capture('demo_terminal.refactor_requested')
+          posthog.capture(AnalyticsEvent.DEMO_TERMINAL_REFACTOR_REQUESTED)
           const response = SAMPLE_RESPONSES.refactor
 
           setTerminalLines((prev) => [
@@ -815,7 +816,7 @@ const TerminalDemo = () => {
             (s.includes('dark') || s.includes('light')) && s.includes('mode')
         ),
         () => {
-          posthog.capture('demo_terminal.feature_requested')
+          posthog.capture(AnalyticsEvent.DEMO_TERMINAL_FEATURE_REQUESTED)
           const response = SAMPLE_RESPONSES.feature
 
           setTerminalLines((prev) => [
@@ -905,7 +906,7 @@ const TerminalDemo = () => {
         const currentIndex = themes.indexOf(previewTheme)
         const nextTheme = themes[(currentIndex + 1) % themes.length]
 
-        posthog.capture('demo_terminal.theme_changed', {
+        posthog.capture(AnalyticsEvent.DEMO_TERMINAL_THEME_CHANGED, {
           from: previewTheme,
           to: nextTheme,
         })

@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react'
 import { useTransition } from 'react'
 import posthog from 'posthog-js'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Button } from '@/components/ui/button'
 import { Icons } from '@/components/icons'
@@ -37,7 +38,7 @@ export const GitHubSignInButton = ({
         callbackUrl,
       })
 
-      posthog.capture('auth.referral_github_login_started', {
+      posthog.capture(AnalyticsEvent.AUTH_REFERRAL_GITHUB_LOGIN_STARTED, {
         referralCode,
         referrerName,
         callbackUrl,

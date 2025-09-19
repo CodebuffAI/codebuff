@@ -4,6 +4,7 @@ import { sleep } from '@codebuff/common/util/promise'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import posthog from 'posthog-js'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useTransition } from 'react'
 
 import { toast } from '../ui/use-toast'
@@ -85,7 +86,7 @@ export const SignInButton = ({
         }
       }
 
-      posthog.capture('auth.login_started', {
+      posthog.capture(AnalyticsEvent.AUTH_LOGIN_STARTED, {
         provider: providerName,
         callbackUrl: callbackUrl,
       })

@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
 import { useState } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { BlockColor } from '../decorative-blocks'
 import { TerminalCopyButton } from '../enhanced-copy-button'
@@ -76,7 +77,7 @@ export function CTASection() {
   ]
 
   const handleInstallGuideClick = () => {
-    posthog.capture('home.cta_install_guide_clicked')
+    posthog.capture(AnalyticsEvent.HOME_CTA_INSTALL_GUIDE_CLICKED)
     openInstallDialog()
   }
 

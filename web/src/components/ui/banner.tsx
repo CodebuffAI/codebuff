@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { Suspense, useState } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Button } from './button'
 import { useUserProfile } from '@/hooks/use-user-profile'
@@ -55,7 +56,7 @@ function BannerContent() {
               href={'/referrals'}
               className="underline hover:text-black/80"
               onClick={() => {
-                posthog.capture('referral_banner.clicked', {
+                posthog.capture(AnalyticsEvent.REFERRAL_BANNER_CLICKED, {
                   type: isPersonalReferral ? 'personal_referral' : 'general',
                   source: referrer || undefined,
                 })

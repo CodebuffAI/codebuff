@@ -4,6 +4,7 @@ import { ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import posthog from 'posthog-js'
 import { useRef } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { EnhancedCopyButton } from './enhanced-copy-button'
 
@@ -43,19 +44,19 @@ export function InstallInstructions() {
 
   const handleCdCommandCopy = () => {
     navigator.clipboard.writeText('cd /path/to/your-repo')
-    posthog.capture('onboard_page.cd_command_copied')
+    posthog.capture(AnalyticsEvent.ONBOARD_PAGE_CD_COMMAND_COPIED)
     cdCopyButtonRef.current?.click()
   }
 
   const handleRunCommandCopy = () => {
     navigator.clipboard.writeText('codebuff')
-    posthog.capture('onboard_page.run_command_copied')
+    posthog.capture(AnalyticsEvent.ONBOARD_PAGE_RUN_COMMAND_COPIED)
     runCopyButtonRef.current?.click()
   }
 
   const handleInstallCommandCopy = () => {
     navigator.clipboard.writeText('npm install -g codebuff')
-    posthog.capture('onboard_page.install_command_copied')
+    posthog.capture(AnalyticsEvent.ONBOARD_PAGE_INSTALL_COMMAND_COPIED)
     installCopyButtonRef.current?.click()
   }
 

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { HighlightText } from './highlight-text'
 import { DecorativeBlocks, BlockColor } from '../../decorative-blocks'
@@ -31,7 +32,7 @@ function LearnMoreLink({
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => {
-        posthog.capture('home.feature_learn_more_clicked', {
+        posthog.capture(AnalyticsEvent.HOME_FEATURE_LEARN_MORE_CLICKED, {
           feature: text,
           link: href,
         })
