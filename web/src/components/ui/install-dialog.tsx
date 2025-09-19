@@ -105,7 +105,7 @@ export function InstallDialog() {
               <span>Navigate to your project directory</span>
               <div className="mt-3">
                 <div
-                  className="bg-zinc-800/60 border border-zinc-700/50 hover:border-[#00FF9580] hover:shadow-[0_0_15px_#00FF9540] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
+                  className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
                   onClick={handleCdCommandCopy}
                   tabIndex={0}
                   aria-label="Copy command: cd /path/to/your-repo"
@@ -127,7 +127,7 @@ export function InstallDialog() {
               <span>Install Codebuff</span>
               <div className="mt-3">
                 <div
-                  className="bg-zinc-800/60 border border-zinc-700/50 hover:border-[#00FF9580] hover:shadow-[0_0_15px_#00FF9540] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
+                  className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
                   onClick={handleInstallCommandCopy}
                   tabIndex={0}
                   aria-label="Copy command: npm install -g codebuff"
@@ -151,7 +151,7 @@ export function InstallDialog() {
               <span>Run Codebuff</span>
               <div className="mt-3">
                 <div
-                  className="bg-zinc-800/60 border border-zinc-700/50 hover:border-[#00FF9580] hover:shadow-[0_0_15px_#00FF9540] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
+                  className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
                   onClick={handleRunCommandCopy}
                   tabIndex={0}
                   aria-label="Copy command: codebuff"

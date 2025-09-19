@@ -73,7 +73,10 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
     })
 
     return (
-      <OnboardClientWrapper hasReferralCode={hasReferralInUrl}>
+      <OnboardClientWrapper
+        hasReferralCode={hasReferralInUrl}
+        referralCode={referralCode}
+      >
         {successCard}
       </OnboardClientWrapper>
     )
@@ -239,7 +242,10 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
     })
 
     return (
-      <OnboardClientWrapper hasReferralCode={isReferralUser}>
+      <OnboardClientWrapper
+        hasReferralCode={isReferralUser}
+        referralCode={referralCode}
+      >
         {successCard}
       </OnboardClientWrapper>
     )

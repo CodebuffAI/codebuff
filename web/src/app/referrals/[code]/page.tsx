@@ -9,7 +9,7 @@ import type { ReferralCodeResponse } from '../../api/referrals/[code]/route'
 import { authOptions } from '../../api/auth/[...nextauth]/auth-options'
 import CardWithBeams from '@/components/card-with-beams'
 import { Button } from '@/components/ui/button'
-import ReferralClient from './referral-client'
+import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
 
 export const generateMetadata = async ({
   params,
@@ -106,14 +106,18 @@ export default async function ReferralPage({
   const referrerDisplayName =
     referralData.referrerName || referrerName || 'Someone'
 
-  // Pass data to the client component for rendering
+  // Show onboarding flow for valid referrals
   return (
-    <ReferralClient
-      code={code}
-      session={session}
-      referralData={referralData}
-      referrerDisplayName={referrerDisplayName}
-      referrerName={referrerName}
-    />
+    <OnboardClientWrapper hasReferralCode={true} referralCode={code}>
+      <CardWithBeams
+        title="Welcome to Codebuff!"
+        description="You can close this window and continue with the installation."
+        content={
+          <div className="text-center text-muted-foreground">
+            Your referral code is ready to use in the CLI!
+          </div>
+        }
+      />
+    </OnboardClientWrapper>
   )
 }

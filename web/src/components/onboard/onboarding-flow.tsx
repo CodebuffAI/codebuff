@@ -7,6 +7,7 @@ import {
   Check,
   ExternalLink,
   Terminal,
+  HelpCircle,
 } from 'lucide-react'
 import Image from 'next/image'
 import posthog from 'posthog-js'
@@ -26,6 +27,7 @@ import { cn } from '@/lib/utils'
 
 interface OnboardingFlowProps {
   hasReferralCode: boolean
+  referralCode?: string
   onComplete?: () => void
 }
 
@@ -37,7 +39,6 @@ interface StepProgress {
   completedSteps: Set<number>
   os: OS
   packageManager: PackageManager
-  hasDevSetup: boolean
 }
 
 interface TerminalDialogState {
@@ -46,8 +47,13 @@ interface TerminalDialogState {
   osDisplayName: string
 }
 
-const TOTAL_STEPS = 7
-const TOTAL_STEPS_DEV = 3
+interface HelpDialogState {
+  isOpen: boolean
+}
+
+// Dynamic total steps based on whether user has referral code
+const getBaseTotalSteps = () => 3 // Install, Navigate, Run Codebuff
+const getReferralTotalSteps = () => 4 // + Redeem Referral Code
 
 const editors = [
   { name: 'VS Code', href: 'vscode://~/', icon: '/logos/visual-studio.png' },
@@ -90,6 +96,7 @@ const detectOS = (): OS => {
 
 export function OnboardingFlow({
   hasReferralCode,
+  referralCode,
   onComplete,
 }: OnboardingFlowProps) {
   const [mounted, setMounted] = useState(false)
@@ -99,13 +106,15 @@ export function OnboardingFlow({
     instructions: '',
     osDisplayName: 'Linux',
   })
+  const [helpDialog, setHelpDialog] = useState<HelpDialogState>({
+    isOpen: false,
+  })
 
   const [progress, setProgress] = useState<StepProgress>({
-    currentStep: 0,
+    currentStep: 1,
     completedSteps: new Set<number>(),
     os: 'linux' as OS,
     packageManager: 'npm' as PackageManager,
-    hasDevSetup: false,
   })
 
   // Hydrate from localStorage after mount to avoid SSR mismatch
@@ -116,9 +125,10 @@ export function OnboardingFlow({
       try {
         const parsed = JSON.parse(saved)
         setProgress({
-          ...parsed,
+          currentStep: parsed.currentStep || 1,
           completedSteps: new Set(parsed.completedSteps || []),
           os: detectOS(), // Update OS detection after mount
+          packageManager: parsed.packageManager || 'npm',
         })
       } catch {}
     } else {
@@ -150,15 +160,14 @@ export function OnboardingFlow({
   }
 
   const getTotalSteps = () =>
-    progress.hasDevSetup ? TOTAL_STEPS_DEV : TOTAL_STEPS
+    referralCode ? getReferralTotalSteps() : getBaseTotalSteps()
 
   const nextStep = () => {
     const totalSteps = getTotalSteps()
-    if (progress.currentStep < totalSteps - 1) {
+    if (progress.currentStep < totalSteps) {
       setProgress((prev) => ({ ...prev, currentStep: prev.currentStep + 1 }))
       posthog.capture('onboarding_step_viewed', {
         step: progress.currentStep + 1,
-        hasDevSetup: progress.hasDevSetup,
       })
     } else if (onComplete) {
       onComplete()
@@ -166,7 +175,7 @@ export function OnboardingFlow({
   }
 
   const prevStep = () => {
-    if (progress.currentStep > 0) {
+    if (progress.currentStep > 1) {
       setProgress((prev) => ({ ...prev, currentStep: prev.currentStep - 1 }))
     }
   }
@@ -180,108 +189,51 @@ export function OnboardingFlow({
     <div className="space-y-4">
       <h3 className="text-xl font-semibold">Run Codebuff</h3>
       <p className="text-muted-foreground">
-        {progress.hasDevSetup
-          ? 'Run the Codebuff command in your project directory to start the AI assistant.'
-          : 'Now run the Codebuff command to start it in your terminal. It will also open a browser window for authentication.'}
+        Run the Codebuff command in your project directory to start the AI
+        assistant.
       </p>
-      <div className="bg-zinc-800/60 border border-zinc-700/50 hover:border-[#00FF9580] hover:shadow-[0_0_15px_#00FF9540] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group">
+      <div className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group">
         <code className="font-mono text-white/90 select-all text-sm">
           codebuff
         </code>
         <EnhancedCopyButton value="codebuff" />
       </div>
+      <p className="text-muted-foreground text-sm mt-2">
+        This will open your browser to finish logging in.
+      </p>
     </div>
   )
 
-  const renderConnectAccountStep = () => (
+  const renderRedeemReferralStep = () => (
     <div className="space-y-4">
-      <h3 className="text-xl font-semibold">Connect Your Account</h3>
+      <h3 className="text-xl font-semibold">🎉 Redeem Your Referral Code</h3>
       <p className="text-muted-foreground">
-        Codebuff will open your browser to connect your CLI to your account.
+        You're almost done! Paste your referral code in the CLI to claim your
+        bonus credits.
       </p>
-      {hasReferralCode && (
-        <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-6">
-          <p className="text-green-800 dark:text-green-200 text-lg font-semibold mb-3">
-            🎁 Referral Code
-          </p>
-          <p className="text-green-800 dark:text-green-200 text-sm my-2">
-            After logging in, paste this code in the CLI to claim your bonus
-            credits!
-          </p>
-          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-3 flex items-center justify-between">
-            {' '}
-            <code
-              className="font-mono text-gray-900 dark:text-gray-100 font-bold text-lg"
-              suppressHydrationWarning
-            >
-              {mounted && typeof window !== 'undefined'
-                ? new URLSearchParams(window.location.search).get(
-                    'referral_code'
-                  ) || 'REFERRAL_CODE'
-                : 'REFERRAL_CODE'}
-            </code>
-            <EnhancedCopyButton
-              value={
-                mounted && typeof window !== 'undefined'
-                  ? new URLSearchParams(window.location.search).get(
-                      'referral_code'
-                    ) || 'REFERRAL_CODE'
-                  : 'REFERRAL_CODE'
-              }
-            />
-          </div>
+      <div className="bg-acid-matrix/30 border border-acid-matrix/40 rounded-lg p-6">
+        <p className="text-black dark:text-green-200 text-lg font-semibold mb-3">
+          🎁 Your referral code is ready!
+        </p>
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-3 flex items-center justify-between">
+          <code
+            className="font-mono text-gray-900 dark:text-gray-100 font-bold text-lg"
+            suppressHydrationWarning
+          >
+            {referralCode}
+          </code>
+          {referralCode && <EnhancedCopyButton value={referralCode} />}
         </div>
-      )}
+        <p className="text-black/80 dark:text-green-200 text-sm mt-2">
+          Paste this code in the CLI after logging in to claim your bonus
+          credits!
+        </p>
+      </div>
     </div>
   )
 
-  const renderFinishStep = () => (
-    <div className="space-y-4 text-center">
-      <h3 className="text-xl font-semibold">🎉 You're All Set!</h3>
-      <p className="text-muted-foreground">
-        Codebuff is now connected to your account. You can close this window.
-      </p>
-      {hasReferralCode && (
-        <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-6">
-          <p className="text-green-800 dark:text-green-200 text-lg font-semibold mb-3">
-            🎁 Referral Code
-          </p>
-          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-3 flex items-center justify-between">
-            <code
-              className="font-mono text-gray-900 dark:text-gray-100 font-bold text-lg"
-              suppressHydrationWarning
-            >
-              {mounted && typeof window !== 'undefined'
-                ? new URLSearchParams(window.location.search).get(
-                    'referral_code'
-                  ) || 'REFERRAL_CODE'
-                : 'REFERRAL_CODE'}
-            </code>
-            <EnhancedCopyButton
-              value={
-                mounted && typeof window !== 'undefined'
-                  ? new URLSearchParams(window.location.search).get(
-                      'referral_code'
-                    ) || 'REFERRAL_CODE'
-                  : 'REFERRAL_CODE'
-              }
-            />
-          </div>
-          <p className="text-green-800 dark:text-green-200 text-sm mt-2">
-            Paste this in the CLI to claim your bonus credits!
-          </p>
-        </div>
-      )}
-    </div>
-  )
-
-  const renderPrerequisitesStep = () => (
-    <div className="space-y-4">
-      <h3 className="text-xl font-semibold">Check Prerequisites</h3>
-      <p className="text-muted-foreground">
-        First, let's make sure you have Node.js (or Bun/Deno) installed.
-      </p>
-
+  const renderPrerequisitesContent = () => (
+    <>
       <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <p className="text-blue-800 dark:text-blue-200 text-sm">
           <strong>Check your runtime:</strong> Open your terminal and run one
@@ -320,8 +272,10 @@ export function OnboardingFlow({
 
       <div className="space-y-2">
         <p className="text-sm font-medium">Need a runtime?</p>
-        <p className="text-sm">Visit one of these below to set up a runtime:</p>
-        <div className="flex flex-wrap gap-2 pt-4">
+        <p className="text-sm text-muted-foreground">
+          Visit one of these to set up a runtime:
+        </p>
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <a
               href="https://nodejs.org"
@@ -334,7 +288,7 @@ export function OnboardingFlow({
           <Button variant="outline" size="sm" asChild className="relative">
             <a href="https://bun.sh" target="_blank" rel="noopener noreferrer">
               Bun <ExternalLink className="w-3 h-3 ml-1" />
-              <span className="absolute -top-4 -right-5 bg-[#7CFF3F] text-black text-[7px] px-1 py-0.5 rounded-full font-medium transform -rotate-12 whitespace-nowrap">
+              <span className="absolute -top-4 -right-5 bg-acid-matrix text-black text-[7px] px-1 py-0.5 rounded-full font-medium transform -rotate-12 whitespace-nowrap">
                 our fave!
               </span>
             </a>
@@ -350,15 +304,22 @@ export function OnboardingFlow({
           </Button>
         </div>
       </div>
-    </div>
+    </>
   )
 
   const renderInstallStep = () => (
     <div className="space-y-4">
-      <h3 className="text-xl font-semibold">Install Codebuff</h3>
+      <h3 className="text-xl font-semibold">Welcome to Codebuff! 🎉</h3>
       <p className="text-muted-foreground">
-        Now let's install the Codebuff CLI tool globally on your system.
+        Install the Codebuff CLI tool globally on your system.
       </p>
+      {referralCode && (
+        <div className="bg-terminal-yellow/20 border border-terminal-yellow/30 rounded-lg p-4">
+          <p className="text-yellow-900 dark:text-terminal-yellow font-semibold">
+            🎁 You have a referral code for bonus credits!
+          </p>
+        </div>
+      )}
 
       {/* Package Manager Tabs */}
       <div className="inline-flex space-x-1 bg-muted p-1 rounded-lg">
@@ -375,7 +336,7 @@ export function OnboardingFlow({
           >
             {pm}
             <span
-              className={`absolute -top-4 -right-5 bg-[#7CFF3F] text-black text-[7px] px-1 py-0.5 rounded-full font-medium transform -rotate-12 whitespace-nowrap ${
+              className={`absolute -top-4 -right-5 bg-acid-matrix text-black text-[7px] px-1 py-0.5 rounded-full font-medium transform -rotate-12 whitespace-nowrap ${
                 pm === 'bun' ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             >
@@ -386,7 +347,7 @@ export function OnboardingFlow({
       </div>
 
       <div className="space-y-3">
-        <div className="bg-zinc-800/60 border border-zinc-700/50 hover:border-[#00FF9580] hover:shadow-[0_0_15px_#00FF9540] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group">
+        <div className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group">
           <code className="font-mono text-white/90 select-all text-sm">
             {getInstallCommand(progress.packageManager)}
           </code>
@@ -394,78 +355,81 @@ export function OnboardingFlow({
             value={getInstallCommand(progress.packageManager)}
           />
         </div>
+        <div className="flex justify-end">
+          <button
+            onClick={() => setHelpDialog({ isOpen: true })}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Help with prerequisites"
+          >
+            <HelpCircle className="w-4 h-4" />
+            Need help setting up?
+          </button>
+        </div>
       </div>
     </div>
   )
 
-  const renderOpenTerminalStep = () => (
-    <div className="space-y-4">
-      <h3 className="text-xl font-semibold">Open Your Terminal</h3>
-      <p className="text-muted-foreground">
-        Open your terminal in your favorite code editor.
-      </p>
+  const renderEditorSelection = () => (
+    <div className="grid grid-cols-2 gap-2">
+      {editors.map((editor) => (
+        <button
+          key={editor.name}
+          className="relative w-full bg-zinc-800/60 hover:bg-zinc-800/80 rounded-lg border border-zinc-600/70 hover:border-white/40 flex flex-row items-center justify-between group transition-all duration-200 py-2 px-3"
+          onClick={() => {
+            if (editor.name === "Good ol' Terminal") {
+              const os = detectOS()
+              let instructions = ''
+              let osDisplayName = ''
 
-      <div className="grid grid-cols-2 gap-3">
-        {editors.map((editor) => (
-          <button
-            key={editor.name}
-            className="relative w-full bg-zinc-800/60 hover:bg-zinc-800/80 rounded-lg border border-zinc-600/70 hover:border-white/40 flex flex-row items-center justify-between group transition-all duration-200 py-2 px-3"
-            onClick={() => {
-              if (editor.name === "Good ol' Terminal") {
-                const os = detectOS()
-                let instructions = ''
-                let osDisplayName = ''
-
-                if (os === 'macos') {
-                  instructions =
-                    'Press Cmd+Space, type "Terminal", and press Enter'
-                  osDisplayName = 'macOS'
-                } else if (os === 'windows') {
-                  instructions =
-                    'Press Win+R, type "cmd" or "wt", and press Enter'
-                  osDisplayName = 'Windows'
-                } else {
-                  instructions =
-                    'Press Ctrl+Alt+T or search for "Terminal" in your applications'
-                  osDisplayName = 'Linux'
-                }
-
-                setTerminalDialog({
-                  isOpen: true,
-                  instructions,
-                  osDisplayName,
-                })
+              if (os === 'macos') {
+                instructions =
+                  'Press Cmd+Space, type "Terminal", and press Enter'
+                osDisplayName = 'macOS'
+              } else if (os === 'windows') {
+                instructions =
+                  'Press Win+R, type "cmd" or "wt", and press Enter'
+                osDisplayName = 'Windows'
               } else {
-                window.open(editor.href, '_blank', 'noopener,noreferrer')
+                instructions =
+                  'Press Ctrl+Alt+T or search for "Terminal" in your applications'
+                osDisplayName = 'Linux'
               }
-              posthog.capture('onboarding_editor_opened', {
-                editor: editor.name,
+
+              setTerminalDialog({
+                isOpen: true,
+                instructions,
+                osDisplayName,
               })
-            }}
-            aria-label={`Open in ${editor.name}`}
-          >
-            <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  'w-5 h-5 relative flex-shrink-0',
-                  editor.needsWhiteBg && 'bg-white rounded-sm p-[1px]'
-                )}
-              >
-                <Image
-                  src={editor.icon}
-                  alt={editor.name}
-                  fill
-                  className="object-contain"
-                />
-              </div>
-              <span className="text-white/90 font-medium text-sm">
-                {editor.name}
-              </span>
+            } else {
+              window.open(editor.href, '_blank', 'noopener,noreferrer')
+            }
+            posthog.capture('onboarding_editor_opened', {
+              editor: editor.name,
+            })
+          }}
+          aria-label={`Open in ${editor.name}`}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className={cn(
+                'w-5 h-5 relative flex-shrink-0',
+                editor.needsWhiteBg && 'bg-white rounded-sm p-[1px]'
+              )}
+            >
+              <Image
+                src={editor.icon}
+                alt={editor.name}
+                fill
+                className="object-contain"
+              />
             </div>
-            <ExternalLink className="w-3.5 h-3.5 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </button>
-        ))}
-      </div>
+            <span className="text-white/90 font-medium text-sm">
+              {editor.name}
+            </span>
+          </div>
+          <ExternalLink className="w-3.5 h-3.5 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </button>
+      ))}
     </div>
   )
 
@@ -477,7 +441,7 @@ export function OnboardingFlow({
         your coding project folder.
       </p>
 
-      <div className="bg-zinc-800/60 border border-zinc-700/50 hover:border-[#00FF9580] hover:shadow-[0_0_15px_#00FF9540] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group">
+      <div className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group">
         <code className="font-mono text-white/90 select-all text-sm">
           cd /path/to/your-project
         </code>
@@ -489,7 +453,7 @@ export function OnboardingFlow({
         <div className="space-y-1 text-sm text-muted-foreground font-mono">
           <div>cd ~/my-react-app</div>
           <div>cd ~/Documents/my-python-project</div>
-          <div>cd C:\\Users\\username\\my-project</div>
+          <div>cd C:\Users\username\my-project</div>
         </div>
       </div>
     </div>
@@ -537,14 +501,49 @@ export function OnboardingFlow({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>{' '}
+      {/* Help Dialog */}
+      <Dialog
+        open={helpDialog.isOpen}
+        onOpenChange={(open) => setHelpDialog({ isOpen: open })}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5" />
+              Prerequisites Setup
+            </DialogTitle>
+            <DialogDescription>
+              Make sure you have a runtime environment set up before installing
+              Codebuff.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            {renderPrerequisitesContent()}
 
+            <div className="border-t pt-4">
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Open your IDE or Terminal</p>
+                <p className="text-sm text-muted-foreground">
+                  Choose your preferred development environment:
+                </p>
+                {renderEditorSelection()}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setHelpDialog({ isOpen: false })}>
+              Got it!
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="bg-background border rounded-lg max-w-4xl mx-auto flex flex-col h-[calc(100vh-8rem)] md:h-auto md:min-h-[600px]">
-        {/* Progress Breadcrumbs - only show after step 0 on mobile */}
-        {progress.currentStep > 0 && isMobile && (
+        {/* Progress Breadcrumbs - show on mobile */}
+        {isMobile && (
           <div className="flex justify-center pt-6 pb-4">
             <div className="flex items-center gap-2">
-              {Array.from({ length: getTotalSteps() - 1 }, (_, index) => (
+              {Array.from({ length: getTotalSteps() }, (_, index) => (
                 <div
                   key={index}
                   className={cn(
@@ -567,101 +566,15 @@ export function OnboardingFlow({
             isMobile && 'pb-24' // Add bottom padding on mobile to account for fixed buttons
           )}
         >
-          {/* Step 0: Welcome with dev setup choice */}
-          {progress.currentStep === 0 && (
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold">Welcome to Codebuff! 🎉</h3>
-              {!hasReferralCode && (
-                <p className="text-muted-foreground">
-                  Let's get you set up with Codebuff in just a few quick steps.
-                  This should take about 2-3 minutes.
-                </p>
-              )}
-              {hasReferralCode && (
-                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                  <p className="text-green-800 dark:text-green-200 font-medium">
-                    🎁 You have a referral code that will give you bonus
-                    credits!
-                  </p>
-                  <p className="text-green-800 dark:text-green-200 text-sm mt-1">
-                    We'll show you how to redeem it at the end of setup
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <p className="font-medium">
-                  Do you already have a development environment set up?
-                </p>
-                <div className="grid grid-cols-1 gap-3">
-                  <button
-                    className={`p-4 border rounded-lg text-left transition-colors ${
-                      progress.hasDevSetup === false
-                        ? 'border-primary bg-primary/5'
-                        : 'border-muted hover:border-primary/50'
-                    }`}
-                    onClick={() => {
-                      setProgress((prev) => ({ ...prev, hasDevSetup: false }))
-                      posthog.capture('onboarding_dev_setup_selected', {
-                        hasDevSetup: false,
-                      })
-                    }}
-                  >
-                    <div className="font-medium">I don't have a dev setup</div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      We'll walk you through installing Node.js, package
-                      managers, and Codebuff step by step
-                    </div>
-                  </button>
-                  <button
-                    className={`p-4 border rounded-lg text-left transition-colors ${
-                      progress.hasDevSetup === true
-                        ? 'border-primary bg-primary/5'
-                        : 'border-muted hover:border-primary/50'
-                    }`}
-                    onClick={() => {
-                      setProgress((prev) => ({ ...prev, hasDevSetup: true }))
-                      posthog.capture('onboarding_dev_setup_selected', {
-                        hasDevSetup: true,
-                      })
-                    }}
-                  >
-                    <div className="font-medium">I have a dev setup</div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      Skip the setup steps - I already have npm or an equivalent
-                      and can install global packages
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Render other steps based on dev setup choice */}
-          {progress.currentStep > 0 && (
-            <div>
-              {/* Dev setup flow */}
-              {progress.hasDevSetup && (
-                <>
-                  {progress.currentStep === 1 && renderRunCodebuffStep()}
-                  {progress.currentStep === 2 && renderConnectAccountStep()}
-                </>
-              )}
-
-              {/* Full setup flow */}
-              {!progress.hasDevSetup && (
-                <>
-                  {progress.currentStep === 1 && renderPrerequisitesStep()}
-                  {progress.currentStep === 2 && renderInstallStep()}
-                  {progress.currentStep === 3 && renderOpenTerminalStep()}
-                  {progress.currentStep === 4 && renderNavigateStep()}
-                  {progress.currentStep === 5 && renderRunCodebuffStep()}
-                  {progress.currentStep === 6 && renderConnectAccountStep()}
-                  {progress.currentStep >= 7 && renderFinishStep()}
-                </>
-              )}
-            </div>
-          )}
+          {/* Render steps */}
+          <div>
+            {progress.currentStep === 1 && renderInstallStep()}
+            {progress.currentStep === 2 && renderNavigateStep()}
+            {progress.currentStep === 3 && renderRunCodebuffStep()}
+            {progress.currentStep === 4 &&
+              referralCode &&
+              renderRedeemReferralStep()}
+          </div>
         </div>
         {/* Navigation */}
         <div
@@ -671,23 +584,23 @@ export function OnboardingFlow({
               'fixed bottom-0 left-0 right-0 bg-background border-t border-border z-10 rounded-none'
           )}
         >
-          {progress.currentStep > 0 ? (
-            <Button
-              variant="outline"
-              onClick={prevStep}
-              className="flex items-center gap-2"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Previous
-            </Button>
-          ) : (
-            <div /> /* Empty div to balance flexbox */
-          )}
+          <div className="w-24">
+            {progress.currentStep > 1 && (
+              <Button
+                variant="outline"
+                onClick={prevStep}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+            )}
+          </div>
 
           {/* Progress Breadcrumbs - show in footer on desktop */}
-          {progress.currentStep > 0 && !isMobile && (
+          {!isMobile && (
             <div className="flex items-center gap-2">
-              {Array.from({ length: getTotalSteps() - 1 }, (_, index) => (
+              {Array.from({ length: getTotalSteps() }, (_, index) => (
                 <div
                   key={index}
                   className={cn(
@@ -703,12 +616,14 @@ export function OnboardingFlow({
             </div>
           )}
 
-          <Button onClick={nextStep} className="flex items-center gap-2">
-            {progress.currentStep === getTotalSteps() - 1 ? 'Finish' : 'Next'}
-            {progress.currentStep < getTotalSteps() - 1 && (
-              <ChevronRight className="w-4 h-4" />
-            )}
-          </Button>
+          <div className="w-24 flex justify-end">
+            <Button onClick={nextStep} className="flex items-center gap-2">
+              {progress.currentStep === getTotalSteps() ? 'Finish' : 'Next'}
+              {progress.currentStep < getTotalSteps() && (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </>

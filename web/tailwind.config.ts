@@ -78,6 +78,11 @@ const config = {
         },
         // Codebuff brand colors
         'acid-green': '#00FF95',
+        'acid-matrix': '#7CFF3F',
+        'generative-green': '#124921',
+        'terminal-yellow': '#F6FF4A',
+        'crt-amber': '#FF6B0B',
+        'dark-forest-green': '#03100A',
       },
       borderRadius: {
         lg: 'var(--radius)',
