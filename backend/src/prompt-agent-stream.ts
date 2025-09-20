@@ -36,7 +36,7 @@ export const getAgentStreamFromTemplate = (params: {
   const { model } = template
 
   const { promise: messageIdPromise, resolve: resolveMessageId } =
-    Promise.withResolvers<string>()
+    Promise.withResolvers<string | undefined>()
 
   const getStream = (messages: Message[]) => {
     const options: Parameters<typeof promptAiSdkStream>[0] = {

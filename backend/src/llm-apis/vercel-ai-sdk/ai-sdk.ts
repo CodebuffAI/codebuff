@@ -82,7 +82,7 @@ export const promptAiSdkStream = async function* (
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
-    resolveMessageId?: (messageId: string) => unknown
+    resolveMessageId: (messageId: string | undefined) => unknown
   } & Omit<Parameters<typeof streamText>[0], 'model' | 'messages'>,
 ): AsyncGenerator<StreamChunk> {
   if (
@@ -150,6 +150,10 @@ export const promptAiSdkStream = async function* (
         type: 'error',
         message: errorMessage,
       }
+
+      // Important: we need to resolve the message id before returning.
+      options.resolveMessageId(undefined)
+
       return
     }
     if (chunk.type === 'reasoning-delta') {
