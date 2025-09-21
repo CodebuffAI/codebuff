@@ -138,7 +138,7 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
 **Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebuff supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
 
-**Reuse any published agent**: Compose existing [published agents](https://www.codebuff.com/agents) to get a leg up. Codebuff agents are the new MCP!
+**Reuse any published agent**: Compose existing [published agents](https://www.codebuff.com/store) to get a leg up. Codebuff agents are the new MCP!
 
 **Fully customizable SDK**: Build Codebuff's capabilities directly into your applications with a complete TypeScript SDK. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
 
