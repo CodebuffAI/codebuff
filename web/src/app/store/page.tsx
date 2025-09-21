@@ -185,8 +185,8 @@ const AgentStorePage = () => {
   // Virtualizer for All Agents section only
   const allAgentsVirtualizer = useWindowVirtualizer({
     count: isMounted ? allAgentsRows.length : 0,
-    estimateSize: () => 280, // Height for agent rows (card + gap)
-    overscan: 4,
+    estimateSize: () => 270, // Height for agent rows (card + gap)
+    overscan: 6,
     useAnimationFrameWithResizeObserver: true,
   })
 
