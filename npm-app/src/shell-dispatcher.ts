@@ -189,7 +189,6 @@ export function installShims(
     return
   }
 
-  const shimsDir = getShimsDirectory()
   let installed = 0
   let errors = 0
 
@@ -209,51 +208,47 @@ export function installShims(
       const commandName = customCommand || defaultCommandName
 
       createShim(agentId, commandName, force)
-      console.log(green(`✓ ${commandName} → ${agentId}`))
       installed++
+      // Only show command name, not full agent ID
+      console.log(
+        green(
+          `✓ ${commandName} saved as a shim for "codebuff --agent ${agentId}"`,
+        ),
+      )
     } catch (error) {
       console.error(red(`Error creating shim for '${agentSpec}': ${error}`))
       errors++
     }
   }
-
-  console.log(
-    green(
-      `\n✓ Installed ${installed} shim${installed !== 1 ? 's' : ''} in ${shimsDir}`,
-    ),
-  )
   if (errors > 0) {
     console.log(
       red(`✗ Failed to install ${errors} shim${errors !== 1 ? 's' : ''}`),
     )
-  } // Always add to PATH after successful installation
+  }
+
+  // Always add to PATH after successful installation
   if (installed > 0) {
-    console.log('\n' + bold('Adding shims to PATH...'))
     const success = addToPath()
 
     if (success) {
-      console.log(
-        '\n' +
-          green(
-            '🎉 Setup complete! Shims will persist after terminal restart.',
-          ),
-      )
-      console.log('\n' + cyan('For immediate use in this session, run:'))
-      console.log(cyan(`   eval "$(codebuff shims env)"`))
-      console.log('\n' + cyan('Then try:'))
-      // Show the first installed command as an example
+      console.log('\nRun this for immediate use:')
+      if (success !== 'ALREADY_IN_PATH') {
+        console.log(cyan(`eval "$(codebuff shims env)"`))
+      }
+
+      // Show example command
       const firstCommand = agentSpecs[0]
       const [agentId, customCommand] = firstCommand.split(':')
       const defaultCommandName = parseAgentId(agentId)
       const exampleCommand = customCommand || defaultCommandName
       if (exampleCommand) {
-        console.log(cyan(`   ${exampleCommand} "your prompt here"`))
+        console.log(cyan(`${exampleCommand} "your prompt"`))
       }
     } else {
-      console.log(
-        '\n' + yellow('Profile setup failed. Use manual instructions below:'),
-      )
-      showPathInstructions(shimsDir)
+      console.log(yellow('\nCould not auto-configure PATH. Run manually:'))
+      const { evalCommand } = detectShell()
+      const sessionCmd = evalCommand.replace('{dir}', getShimsDirectory())
+      console.log(cyan(sessionCmd))
     }
   }
 }
@@ -655,7 +650,9 @@ function isShimsDirInPath(): boolean {
 /**
  * Add shims directory to shell profile with idempotency
  */
-export function addToPath(options: { force?: boolean } = {}): boolean {
+export function addToPath(
+  options: { force?: boolean } = {},
+): boolean | 'ALREADY_IN_PATH' {
   const { force = false } = options
   const shimsDir = getShimsDirectory()
   const { shell, profileFile } = detectShell()
@@ -667,10 +664,9 @@ export function addToPath(options: { force?: boolean } = {}): boolean {
     return false
   }
 
-  // Check if already in PATH
+  // Check if already in PATH (silent check)
   if (isShimsDirInPath() && !force) {
-    console.log(green('✓ Shims directory is already in PATH'))
-    return true
+    return 'ALREADY_IN_PATH'
   }
 
   try {
@@ -681,10 +677,9 @@ export function addToPath(options: { force?: boolean } = {}): boolean {
     if (existsSync(profilePath)) {
       profileContent = readFileSync(profilePath, 'utf8')
 
-      // Check if our entry already exists
+      // Check if our entry already exists (silent check)
       if (profileContent.includes('# >>> codebuff shims >>>') && !force) {
-        console.log(green('✓ Shims already configured in profile'))
-        return true
+        return 'ALREADY_IN_PATH'
       }
     } else {
       // Create profile directory if it doesn't exist
@@ -713,7 +708,6 @@ export function addToPath(options: { force?: boolean } = {}): boolean {
     const newContent = cleanContent + addition
     writeFileSync(profilePath, newContent, 'utf8')
 
-    console.log(green(`✓ Added shims to PATH in ${profilePath}`))
     return true
   } catch (error) {
     console.error(red(`Failed to update profile: ${error}`))
@@ -771,6 +765,7 @@ function getPowerShellProfile(): string {
   try {
     const result = execSync('powershell -Command "$PROFILE"', {
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'], // Suppress stderr
     })
     return result.trim()
   } catch {
