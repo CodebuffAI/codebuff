@@ -36,18 +36,14 @@ import * as websocketAction from '../websockets/websocket-action'
 import type { WebSocket } from 'ws'
 
 function mockAgentStream(content: string | string[]) {
-  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
-    resolveMessageId,
-  }) {
+  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
     if (typeof content === 'string') {
       content = [content]
     }
     for (const chunk of content) {
       yield { type: 'text' as const, text: chunk }
     }
-    if (resolveMessageId) {
-      resolveMessageId('mock-message-id')
-    }
+    return 'mock-message-id'
   })
 }
 

@@ -10,6 +10,8 @@ describe('processStreamWithTags', () => {
     for (const chunk of chunks) {
       yield { type: 'text' as const, text: chunk }
     }
+
+    return 'mock-message-id'
   }
 
   it('should handle basic tool call parsing', async () => {

@@ -176,13 +176,9 @@ describe('runAgentStep - set_output tool', () => {
       '\n\n' +
       getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
-      resolveMessageId,
-    }) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
-      if (resolveMessageId) {
-        resolveMessageId('mock-message-id')
-      }
+      return 'mock-message-id'
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -222,13 +218,9 @@ describe('runAgentStep - set_output tool', () => {
         findings: ['Bug in auth.ts', 'Missing validation'],
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
-      resolveMessageId,
-    }) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
-      if (resolveMessageId) {
-        resolveMessageId('mock-message-id')
-      }
+      return 'mock-message-id'
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -269,13 +261,9 @@ describe('runAgentStep - set_output tool', () => {
         existingField: 'updated value',
       }) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
-      resolveMessageId,
-    }) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
-      if (resolveMessageId) {
-        resolveMessageId('mock-message-id')
-      }
+      return 'mock-message-id'
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -316,13 +304,9 @@ describe('runAgentStep - set_output tool', () => {
     const mockResponse =
       getToolCallString('set_output', {}) + getToolCallString('end_turn', {})
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
-      resolveMessageId,
-    }) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
-      if (resolveMessageId) {
-        resolveMessageId('mock-message-id')
-      }
+      return 'mock-message-id'
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -400,13 +384,9 @@ describe('runAgentStep - set_output tool', () => {
     )
 
     // Mock the LLM stream to return a response that doesn't end the turn
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
-      resolveMessageId,
-    }) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: 'Continuing with the analysis...' } // Non-empty response, no tool calls
-      if (resolveMessageId) {
-        resolveMessageId('mock-message-id')
-      }
+      return 'mock-message-id'
     })
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -550,16 +530,15 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock the LLM stream to spawn the inline agent
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
-      resolveMessageId,
-    }) {
-      yield { type: 'text' as const, text: getToolCallString('spawn_agent_inline', {
-        agent_type: 'message-deleter-agent',
-        prompt: 'Delete the last two assistant messages',
-      }) }
-      if (resolveMessageId) {
-        resolveMessageId('mock-message-id')
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
+      yield {
+        type: 'text' as const,
+        text: getToolCallString('spawn_agent_inline', {
+          agent_type: 'message-deleter-agent',
+          prompt: 'Delete the last two assistant messages',
+        }),
       }
+      return 'mock-message-id'
     })
 
     const sessionState = getInitialSessionState(mockFileContext)

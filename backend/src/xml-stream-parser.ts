@@ -23,7 +23,7 @@ const toolExtractionPattern = new RegExp(
 const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
 
 export async function* processStreamWithTags(
-  stream: AsyncGenerator<StreamChunk>,
+  stream: AsyncGenerator<StreamChunk, string | null>,
   processors: Record<
     string,
     {
@@ -40,7 +40,7 @@ export async function* processStreamWithTags(
     model?: Model
     agentName?: string
   },
-): AsyncGenerator<StreamChunk> {
+): AsyncGenerator<StreamChunk, string | null> {
   let streamCompleted = false
   let buffer = ''
   let autocompleted = false
@@ -156,15 +156,24 @@ export async function* processStreamWithTags(
     }
   }
 
-  for await (const chunk of stream) {
+  let messageId: string | null = null
+  while (true) {
+    const { value, done } = await stream.next()
+    if (done) {
+      messageId = value
+      break
+    }
     if (streamCompleted) {
       break
     }
-    yield* processChunk(chunk)
+
+    yield* processChunk(value)
   }
 
   if (!streamCompleted) {
     // After the stream ends, try parsing one last time in case there's leftover text
     yield* processChunk(undefined)
   }
+
+  return messageId
 }

@@ -266,6 +266,7 @@ export async function runProgrammaticStep(
           childRunIds: state.agentState.childRunIds.slice(childrenBefore),
           status: 'completed',
           startTime,
+          messageId: null,
         })
       } else {
         logger.error('No runId found for agent state after finishing agent run')
@@ -313,6 +314,7 @@ export async function runProgrammaticStep(
         childRunIds: agentState.childRunIds.slice(childrenBefore),
         status: 'skipped',
         startTime,
+        messageId: null,
       })
     } else {
       logger.error('No runId found for agent state after failed agent run')

@@ -185,14 +185,18 @@ describe('Cost Aggregation Integration Tests', () => {
         // Simulate different responses based on call
         if (callCount === 1) {
           // Main agent spawns a subagent
-          yield { type: 'text' as const, text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write a simple hello world file"}]}\n</codebuff_tool_call>' }
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write a simple hello world file"}]}\n</codebuff_tool_call>',
+          }
         } else {
           // Subagent writes a file
-          yield { type: 'text' as const, text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "hello.txt", "instructions": "Create hello world file", "content": "Hello, World!"}\n</codebuff_tool_call>' }
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "hello.txt", "instructions": "Create hello world file", "content": "Hello, World!"}\n</codebuff_tool_call>',
+          }
         }
-        if (options.resolveMessageId) {
-          options.resolveMessageId('mock-message-id')
-        }
+        return 'mock-message-id'
       },
     )
 
@@ -342,18 +346,25 @@ describe('Cost Aggregation Integration Tests', () => {
 
         if (callCount === 1) {
           // Main agent spawns first-level subagent
-          yield { type: 'text' as const, text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Create files"}]}\n</codebuff_tool_call>' }
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Create files"}]}\n</codebuff_tool_call>',
+          }
         } else if (callCount === 2) {
           // First-level subagent spawns second-level subagent
-          yield { type: 'text' as const, text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write specific file"}]}\n</codebuff_tool_call>' }
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write specific file"}]}\n</codebuff_tool_call>',
+          }
         } else {
           // Second-level subagent does actual work
-          yield { type: 'text' as const, text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "nested.txt", "instructions": "Create nested file", "content": "Nested content"}\n</codebuff_tool_call>' }
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "nested.txt", "instructions": "Create nested file", "content": "Nested content"}\n</codebuff_tool_call>',
+          }
         }
 
-        if (options.resolveMessageId) {
-          options.resolveMessageId('mock-message-id')
-        }
+        return 'mock-message-id'
       },
     )
 
@@ -401,16 +412,17 @@ describe('Cost Aggregation Integration Tests', () => {
 
         if (callCount === 1) {
           // Main agent spawns subagent
-          yield { type: 'text' as const, text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "This will fail"}]}\n</codebuff_tool_call>' }
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "This will fail"}]}\n</codebuff_tool_call>',
+          }
         } else {
           // Subagent fails after incurring cost
           yield { type: 'text' as const, text: 'Some response' }
           throw new Error('Subagent execution failed')
         }
 
-        if (options.resolveMessageId) {
-          options.resolveMessageId('mock-message-id')
-        }
+        return 'mock-message-id'
       },
     )
 

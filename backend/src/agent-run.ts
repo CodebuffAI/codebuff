@@ -106,7 +106,7 @@ export async function addAgentStep({
   stepNumber: number
   credits?: number
   childRunIds?: string[]
-  messageId?: string
+  messageId: string | null
   status?: 'running' | 'completed' | 'skipped'
   errorMessage?: string
   startTime: Date

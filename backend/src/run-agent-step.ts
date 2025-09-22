@@ -25,7 +25,6 @@ import {
   asUserMessage,
   messagesWithSystem,
   expireMessages,
-  getMessagesSubset,
 } from './util/messages'
 import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
@@ -97,7 +96,7 @@ export const runAgentStep = async (
   agentState: AgentState
   fullResponse: string
   shouldEndTurn: boolean
-  messageId: string | undefined
+  messageId: string | null
 }> => {
   const {
     userId,
@@ -221,13 +220,13 @@ export const runAgentStep = async (
       agentState,
       fullResponse: stepWarningMessage,
       shouldEndTurn: true,
-      messageId: undefined,
+      messageId: null,
     }
   }
 
   const { model } = agentTemplate
 
-  const { getStream, messageIdPromise } = getAgentStreamFromTemplate({
+  const { getStream } = getAgentStreamFromTemplate({
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -296,6 +295,7 @@ export const runAgentStep = async (
     state,
     fullResponse: fullResponseAfterStream,
     fullResponseChunks,
+    messageId,
   } = await processStreamWithTools({
     stream,
     ws,
@@ -403,7 +403,7 @@ export const runAgentStep = async (
     agentState,
     fullResponse,
     shouldEndTurn,
-    messageId: await messageIdPromise,
+    messageId,
   }
 }
 

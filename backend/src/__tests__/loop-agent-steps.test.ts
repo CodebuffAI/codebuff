@@ -103,14 +103,13 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       })),
     } as any)
 
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({
-      resolveMessageId,
-    }) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       llmCallCount++
-      yield { type: 'text' as const, text: `LLM response\n\n${getToolCallString('end_turn', {})}` }
-      if (resolveMessageId) {
-        resolveMessageId('mock-message-id')
+      yield {
+        type: 'text' as const,
+        text: `LLM response\n\n${getToolCallString('end_turn', {})}`,
       }
+      return 'mock-message-id'
     })
 
     // Mock analytics

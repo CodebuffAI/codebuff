@@ -82,9 +82,8 @@ export const promptAiSdkStream = async function* (
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
-    resolveMessageId: (messageId: string | undefined) => unknown
   } & Omit<Parameters<typeof streamText>[0], 'model' | 'messages'>,
-): AsyncGenerator<StreamChunk> {
+): AsyncGenerator<StreamChunk, string | null> {
   if (
     !checkLiveUserInput(
       options.userId,
@@ -100,7 +99,7 @@ export const promptAiSdkStream = async function* (
       },
       'Skipping stream due to canceled user input',
     )
-    return
+    return null
   }
   const startTime = Date.now()
 
@@ -151,10 +150,7 @@ export const promptAiSdkStream = async function* (
         message: errorMessage,
       }
 
-      // Important: we need to resolve the message id before returning.
-      options.resolveMessageId(undefined)
-
-      return
+      return null
     }
     if (chunk.type === 'reasoning-delta') {
       if (
@@ -200,11 +196,6 @@ export const promptAiSdkStream = async function* (
     }
   }
 
-  const messageId = (await response.response).id
-  if (options.resolveMessageId) {
-    options.resolveMessageId(messageId)
-  }
-
   const providerMetadata = (await response.providerMetadata) ?? {}
   const usage = await response.usage
   let inputTokens = usage.inputTokens || 0
@@ -236,6 +227,7 @@ export const promptAiSdkStream = async function* (
     }
   }
 
+  const messageId = (await response.response).id
   const creditsUsedPromise = saveMessage({
     messageId,
     userId: options.userId,
@@ -261,6 +253,8 @@ export const promptAiSdkStream = async function* (
     const creditsUsed = await creditsUsedPromise
     await options.onCostCalculated(creditsUsed)
   }
+
+  return messageId
 }
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
