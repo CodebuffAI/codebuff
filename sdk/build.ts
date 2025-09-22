@@ -1,5 +1,5 @@
-// Build script for @codebuff/sdk using Bun's bundler with splitting
-// Creates structured output with separate chunks for better Node.js compatibility
+// Build script for @codebuff/sdk using Bun's bundler with dual package support
+// Creates ESM + CJS bundles with TypeScript declarations
 
 import { execSync } from 'child_process'
 import { mkdir, cp } from 'fs/promises'
@@ -27,6 +27,21 @@ async function build() {
     'util',
   ]
 
+  console.log('📦 Building ESM format...')
+  await Bun.build({
+    entrypoints: ['src/index.ts'],
+    outdir: 'dist',
+    target: 'node',
+    format: 'esm',
+    sourcemap: 'external',
+    minify: false,
+    external,
+    naming: '[dir]/index.mjs',
+    loader: {
+      '.scm': 'text',
+    },
+  })
+
   console.log('📦 Building CJS format...')
   await Bun.build({
     entrypoints: ['src/index.ts'],
@@ -36,6 +51,7 @@ async function build() {
     sourcemap: 'external',
     minify: false,
     external,
+    naming: '[dir]/index.cjs',
     define: {
       'import.meta.url': 'undefined',
       'import.meta': 'undefined',
@@ -48,6 +64,7 @@ async function build() {
   console.log('📝 Generating TypeScript declarations...')
   try {
     execSync('tsc -p tsconfig.build.json', { stdio: 'inherit' })
+    await createSimpleIndexTypes()
   } catch (error) {
     console.warn('⚠ TypeScript declaration generation failed, continuing...')
   }
@@ -55,20 +72,23 @@ async function build() {
   console.log('📂 Copying WASM files for tree-sitter...')
   await copyWasmFiles()
 
-  console.log('📝 Creating colocated declaration files...')
-  await createColocatedDeclarations()
-
   console.log('✅ Build complete!')
+  console.log('  📄 dist/index.mjs (ESM)')
+  console.log('  📄 dist/index.cjs (CJS)')
+  console.log('  📄 dist/index.d.ts (Types)')
 }
 
 /**
- * Create colocated declaration files for better TypeScript compatibility
+ * Create a simple index.d.ts that re-exports from the generated types
  */
-async function createColocatedDeclarations() {
-  // Create index.d.ts that exports everything from ./sdk/src/index.d.ts
-  const indexDeclaration = 'export * from "./sdk/src/index";\n'
-  await Bun.write('dist/index.d.ts', indexDeclaration)
-  console.log('  ✓ Created dist/index.d.ts')
+async function createSimpleIndexTypes() {
+  try {
+    const indexDeclaration = 'export * from "./sdk/src/index";\n'
+    await Bun.write('dist/index.d.ts', indexDeclaration)
+    console.log('  ✓ Created simple re-export types')
+  } catch (error) {
+    console.warn('  ⚠ Warning: Could not create index types:', error.message)
+  }
 }
 
 /**
