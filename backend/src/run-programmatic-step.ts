@@ -188,7 +188,7 @@ export async function runProgrammaticStep(
         break
       }
       if (result.value === 'STEP_ALL') {
-        runIdToStepAll.add(state.agentState.agentId)
+        runIdToStepAll.add(state.agentState.runId)
         break
       }
 
