@@ -53,19 +53,14 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 ## CLI Interface Features
 
 - ESC key to toggle menu or stop AI response
-- CTRL+C to exit the application## Shell Shims (Direct Commands)
+- CTRL+C to exit the application
+
+### Shell Shims (Direct Commands)
 
 Codebuff supports shell shims for direct command invocation without the `codebuff` prefix.
 
-### Features
-
 - **Cross-platform**: Works on Windows (CMD/PowerShell), macOS, and Linux (bash/zsh/fish)
 - **Store integration**: Uses fully qualified agent IDs from the agent store
-- **Auto-naming**: Automatically uses the agent-id part as the command name
-- **Custom names**: Optional custom command names via colon syntax
-- **Safe installation**: Creates executable files in `~/.config/manicode/bin` (Unix) or `%USERPROFILE%/AppData/Local/Manicode/bin` (Windows)
-- **PATH integration**: Provides instructions to add shims directory to shell PATH
-- **Conflict detection**: Warns about existing commands with same names
 - **Easy management**: Install, update, list, and uninstall shims via CLI commands### Quick Start (Recommended)
 
 ```bash
@@ -78,32 +73,6 @@ eval "$(codebuff shims env)"
 # Now use direct commands!
 base-lite "fix this bug"             # Works right away!
 ```
-
-### Management Commands
-
-```bash
-codebuff shims list                  # List installed shims
-codebuff shims upgrade              # Upgrade all shims to latest versions
-codebuff shims doctor               # Check shim health and PATH
-codebuff shims env                  # Get eval command for current session
-codebuff shims uninstall            # Remove all shims
-```
-
-### Agent ID Format
-
-Agent IDs must be fully qualified store IDs:
-
-- Format: `publisher/agent-id@version`
-- Example: `codebuff/base-lite@1.0.0`
-- Custom command: `codebuff/base-lite@1.0.0:fast`
-
-### Benefits of New Setup
-
-- **One command setup**: Install automatically adds to PATH
-- **Shell detection**: Automatically detects bash/zsh/fish/PowerShell
-- **Safe editing**: Creates backups and uses idempotent markers
-- **Immediate use**: `eval` commands work without restarting terminal
-- **Cross-platform**: Works on macOS, Linux, and Windows
 
 ## Package Management
 
