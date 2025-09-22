@@ -11,7 +11,16 @@ import { cliArguments, cliOptions } from './cli-definitions'
 import { handlePublish } from './cli-handlers/publish'
 import { handleInitAgents } from './cli-handlers/init-agents'
 import { handleSaveAgent } from './cli-handlers/save-agent'
-import { npmAppVersion, backendUrl } from './config'
+import {
+  handleShimsInstall,
+  handleShimsUninstall,
+  handleShimsList,
+  handleShimsUpdate,
+  handleShimsDoctor,
+  handleShimsUpgrade,
+} from './cli-handlers/shims'
+import { generateEvalCommand } from './shell-dispatcher'
+import { npmAppVersion } from './config'
 import { createTemplateProject } from './create-template-project'
 import { printModeLog, setPrintMode } from './display/print-mode'
 import { enableSquashNewlines } from './display/squash-newlines'
@@ -128,6 +137,13 @@ Examples:
   $ codebuff --agent file-picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
 
+Direct Commands (via shell shims):
+  $ codebuff shims install codebuff/base-lite@1.0.0               # One-step setup!
+  $ eval "$(codebuff shims env)"              # Run this for immediate use
+  $ base-lite "fix the bug"                   # Direct command (after eval)
+  $ codebuff shims list                       # List installed shims
+  $ codebuff shims upgrade                    # Upgrade all shims to latest versions
+
 For all commands and options, run 'codebuff' and then type 'help'.
 `,
   )
@@ -165,6 +181,46 @@ For all commands and options, run 'codebuff' and then type 'help'.
   if (args[0] === 'save-agent') {
     const agentIds = args.slice(1)
     await handleSaveAgent(agentIds)
+    process.exit(0)
+  }
+
+  // Handle shims command
+  if (args[0] === 'shims') {
+    const subcommand = args[1]
+    const subArgs = args.slice(2)
+
+    switch (subcommand) {
+      case 'install':
+        await handleShimsInstall(subArgs, {
+          force: options.force,
+        })
+        break
+      case 'uninstall':
+      case 'remove':
+        await handleShimsUninstall(subArgs.length > 0 ? subArgs : undefined)
+        break
+      case 'list':
+        await handleShimsList()
+        break
+      case 'update':
+        await handleShimsUpdate(subArgs.length > 0 ? subArgs : undefined)
+        break
+      case 'doctor':
+        await handleShimsDoctor()
+        break
+      case 'upgrade':
+        await handleShimsUpgrade()
+        break
+      case 'env':
+        console.log(generateEvalCommand())
+        break
+      default:
+        console.error(red(`Unknown shims subcommand: ${subcommand}`))
+        console.log(
+          'Available subcommands: install, uninstall, list, update, doctor, upgrade, env',
+        )
+        process.exit(1)
+    }
     process.exit(0)
   }
 
@@ -235,7 +291,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
   const filteredArgs = args[0]?.startsWith('/$bunfs') ? args.slice(1) : args
 
   // If first arg is a command like 'publish' or 'save-agent', don't treat it as initial input
-  const isCommand = ['publish', 'init-agents', 'save-agent'].includes(
+  const isCommand = ['publish', 'init-agents', 'save-agent', 'shims'].includes(
     filteredArgs[0],
   )
   const initialInput = isCommand ? '' : filteredArgs.join(' ')

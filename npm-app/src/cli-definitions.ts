@@ -93,4 +93,9 @@ export const cliOptions: CliParam[] = [
     menuDescription: 'Log subagent messages to trace files',
     hidden: false,
   },
+  {
+    flags: '--force',
+    description: 'Force overwrite existing shims',
+    hidden: true,
+  },
 ]

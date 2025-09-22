@@ -55,6 +55,25 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 - ESC key to toggle menu or stop AI response
 - CTRL+C to exit the application
 
+### Shell Shims (Direct Commands)
+
+Codebuff supports shell shims for direct command invocation without the `codebuff` prefix.
+
+- **Cross-platform**: Works on Windows (CMD/PowerShell), macOS, and Linux (bash/zsh/fish)
+- **Store integration**: Uses fully qualified agent IDs from the agent store
+- **Easy management**: Install, update, list, and uninstall shims via CLI commands### Quick Start (Recommended)
+
+```bash
+# One-step setup: install and add to PATH automatically
+codebuff shims install codebuff/base-lite@1.0.0
+
+# Use immediately in current session (follow the printed instruction)
+eval "$(codebuff shims env)"
+
+# Now use direct commands!
+base-lite "fix this bug"             # Works right away!
+```
+
 ## Package Management
 
 - Use Bun for all package management operations
@@ -326,11 +345,13 @@ Templates are maintained in the codebuff community repo. Each directory correspo
 **Important**: When adding database indexes or schema changes, modify the schema file directly (`common/src/db/schema.ts`) using Drizzle's index syntax, then run the migration generation script to create the actual migration files.
 
 **Do NOT** write migration SQL files directly. The proper workflow is:
+
 1. Update `common/src/db/schema.ts` with new indexes using Drizzle syntax
 2. Run the migration generation script to create the SQL migration files
 3. Apply the migrations using the deployment process
 
 Example of adding performance indexes:
+
 ```typescript
 index('idx_table_optimized')
   .on(table.column1, table.column2)
