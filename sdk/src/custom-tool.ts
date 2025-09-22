@@ -1,12 +1,12 @@
-import z from 'zod/v4'
+import { z } from 'zod/v4'
 
 import type { ToolResultOutput } from '../../common/src/types/messages/content-part'
 import type { JSONSchema } from 'zod/v4/core'
 
 export type CustomToolDefinition<
   N extends string = string,
-  Args extends Record<string, unknown> = Record<string, unknown>,
-  Input extends Record<string, unknown> = Record<string, unknown>,
+  Args extends any = any,
+  Input extends any = any,
   Output extends ToolResultOutput[] = ToolResultOutput[],
 > = {
   toolName: N
@@ -33,8 +33,8 @@ export type CustomToolDefinition<
  */
 export function getCustomToolDefinition<
   ToolName extends string,
-  Args extends Record<string, unknown>,
-  Input extends Record<string, unknown>,
+  Args extends any,
+  Input extends any,
   Output extends ToolResultOutput[],
 >({
   toolName,

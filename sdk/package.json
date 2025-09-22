@@ -2,7 +2,7 @@
   "name": "@codebuff/sdk",
   "private": false,
   "access": "public",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "Apache-2.0",
   "type": "module",
