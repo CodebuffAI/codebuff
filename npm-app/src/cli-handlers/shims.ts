@@ -1,4 +1,4 @@
-import { red, green, yellow } from 'picocolors'
+import { red } from 'picocolors'
 
 import {
   installShims,
@@ -141,5 +141,3 @@ export async function handleShimsUpgrade(): Promise<void> {
     process.exit(1)
   }
 }
-
-

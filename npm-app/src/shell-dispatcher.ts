@@ -1,3 +1,4 @@
+import { execSync } from 'child_process'
 import {
   existsSync,
   mkdirSync,
@@ -6,9 +7,8 @@ import {
   readdirSync,
   readFileSync,
 } from 'fs'
-import path from 'path'
 import os from 'os'
-import { execSync } from 'child_process'
+import path from 'path'
 
 import { yellow, green, red, cyan, bold } from 'picocolors'
 
@@ -16,38 +16,13 @@ import { CONFIG_DIR } from './credentials'
 import { createAuthHeaders } from './utils/auth-headers'
 import { logger } from './utils/logger'
 
-const SHIMS_DIR = path.join(CONFIG_DIR, 'bin')
-const WINDOWS_SHIMS_DIR = path.join(
-  os.homedir(),
-  'AppData',
-  'Local',
-  'Manicode',
-  'bin',
-)
+const SHIMS_DIR = path.join(CONFIG_DIR, 'shims')
 
 /**
  * Get the appropriate shims directory for the current platform
  */
 export function getShimsDirectory(): string {
-  return process.platform === 'win32' ? WINDOWS_SHIMS_DIR : SHIMS_DIR
-}
-
-/**
- * Get the absolute path to the codebuff executable
- */
-function getCodebuffPath(): string {
-  try {
-    if (process.platform === 'win32') {
-      return execSync('where codebuff', { encoding: 'utf8' })
-        .trim()
-        .split('\n')[0]
-    } else {
-      return execSync('which codebuff', { encoding: 'utf8' }).trim()
-    }
-  } catch (error) {
-    // Fallback: assume codebuff is in PATH
-    return 'codebuff'
-  }
+  return SHIMS_DIR
 }
 
 /**
@@ -93,30 +68,22 @@ function validateCommandName(name: string): boolean {
 /**
  * Generate shim content for Unix shells (bash/zsh)
  */
-function generateUnixShim(
-  commandName: string,
-  agentId: string,
-  codebuffPath: string,
-): string {
+function generateUnixShim(commandName: string, agentId: string): string {
   return `#!/bin/sh
 # Auto-generated Codebuff shim for '${commandName}' → ${agentId}
 # Do not edit manually - use 'codebuff shims' commands
-exec "${codebuffPath}" --agent "${agentId}" "$@"
+exec codebuff --agent "${agentId}" "$@"
 `
 }
 
 /**
  * Generate shim content for Windows CMD
  */
-function generateWindowsShim(
-  commandName: string,
-  agentId: string,
-  codebuffPath: string,
-): string {
+function generateWindowsShim(commandName: string, agentId: string): string {
   return `@echo off
 REM Auto-generated Codebuff shim for '${commandName}' → ${agentId}
 REM Do not edit manually - use 'codebuff shims' commands
-"${codebuffPath}" --agent "${agentId}" %*
+codebuff --agent "${agentId}" %*
 `
 }
 
@@ -126,7 +93,6 @@ REM Do not edit manually - use 'codebuff shims' commands
 function createShim(
   agentId: string,
   commandName: string,
-  codebuffPath: string,
   force: boolean,
 ): void {
   if (!validateAgentId(agentId)) {
@@ -163,11 +129,11 @@ function createShim(
 
   if (process.platform === 'win32') {
     const shimPath = path.join(shimsDir, `${commandName}.cmd`)
-    const content = generateWindowsShim(commandName, agentId, codebuffPath)
+    const content = generateWindowsShim(commandName, agentId)
     writeFileSync(shimPath, content, 'utf8')
   } else {
     const shimPath = path.join(shimsDir, commandName)
-    const content = generateUnixShim(commandName, agentId, codebuffPath)
+    const content = generateUnixShim(commandName, agentId)
     writeFileSync(shimPath, content, 'utf8')
     // Make executable
     execSync(`chmod +x "${shimPath}"`)
@@ -213,7 +179,6 @@ export function installShims(
   agentSpecs: string[],
   options: { force?: boolean } = {},
 ): void {
-  const codebuffPath = getCodebuffPath()
   const { force = false } = options
 
   if (!agentSpecs || agentSpecs.length === 0) {
@@ -243,7 +208,7 @@ export function installShims(
 
       const commandName = customCommand || defaultCommandName
 
-      createShim(agentId, commandName, codebuffPath, force)
+      createShim(agentId, commandName, force)
       console.log(green(`✓ ${commandName} → ${agentId}`))
       installed++
     } catch (error) {
@@ -439,13 +404,12 @@ export function updateShims(commandNames?: string[]): void {
     return
   }
 
-  const codebuffPath = getCodebuffPath()
   let updated = 0
   let errors = 0
 
   for (const { commandName, agentId } of targetShims) {
     try {
-      createShim(agentId, commandName, codebuffPath, true)
+      createShim(agentId, commandName, true)
       console.log(green(`✓ Updated ${commandName} → ${agentId}`))
       updated++
     } catch (error) {
@@ -867,7 +831,6 @@ export async function upgradeShims(): Promise<void> {
     ),
   )
 
-  const codebuffPath = getCodebuffPath()
   let upgraded = 0
   let upToDate = 0
   let errors = 0
@@ -905,7 +868,7 @@ export async function upgradeShims(): Promise<void> {
 
       // Upgrade the shim
       const newAgentId = `${publisherId}/${agentName}@${latestVersion}`
-      createShim(newAgentId, commandName, codebuffPath, true)
+      createShim(newAgentId, commandName, true)
       console.log(
         cyan(`↗ ${commandName}: ${currentVersion} → ${latestVersion}`),
       )
