@@ -25,6 +25,15 @@ async function build() {
     'crypto',
     'stream',
     'util',
+    'ws',
+    'bufferutil',
+    'utf-8-validate',
+    'http',
+    'https',
+    'net',
+    'tls',
+    'url',
+    'events',
   ]
 
   console.log('📦 Building ESM format...')
