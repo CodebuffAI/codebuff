@@ -264,15 +264,16 @@ export async function GET() {
 
     const response = NextResponse.json(result)
 
-    // Add cache headers for CDN and browser caching
+    // Add optimized cache headers for better performance
     response.headers.set(
       'Cache-Control',
-      'public, max-age=600, s-maxage=600, stale-while-revalidate=600'
+      'public, max-age=300, s-maxage=600, stale-while-revalidate=3600'
     )
 
-    // Add additional headers for better CDN caching
+    // Add compression and optimization headers
     response.headers.set('Vary', 'Accept-Encoding')
     response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('Content-Type', 'application/json; charset=utf-8')
 
     return response
   } catch (error) {

@@ -83,6 +83,8 @@ export const metadata: Metadata = {
 
 // Enable static site generation with ISR
 export const revalidate = 60 * 10 // Revalidate every 10 minutes
+export const dynamic = 'force-static'
+export const fetchCache = 'force-cache'
 
 // Generate static params for common search/sort combinations
 export async function generateStaticParams() {
