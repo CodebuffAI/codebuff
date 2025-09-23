@@ -6,6 +6,7 @@ import {
 } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { cloneDeep } from 'lodash'
 
 import { expireMessages } from '../util/messages'
 import { sendAction } from '../websockets/websocket-action'
@@ -17,7 +18,10 @@ import type { StreamChunk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
@@ -70,6 +74,7 @@ export async function processStreamWithTools(options: {
   const messages = [...options.messages]
 
   const toolResults: ToolResultPart[] = []
+  const toolResultsToAddAfterStream: ToolResultPart[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
   const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
     Promise.withResolvers<void>()
@@ -160,12 +165,14 @@ export async function processStreamWithTools(options: {
       ]),
     ]),
     (toolName, error) => {
-      toolResults.push({
+      const toolResult: ToolResultPart = {
         type: 'tool-result',
         toolName,
         toolCallId: generateCompactId(),
         output: [{ type: 'json', value: { errorMessage: error } }],
-      })
+      }
+      toolResults.push(cloneDeep(toolResult))
+      toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     },
     onResponseChunk,
     {
@@ -212,6 +219,12 @@ export async function processStreamWithTools(options: {
       role: 'assistant' as const,
       content: fullResponseChunks.join(''),
     },
+    ...toolResultsToAddAfterStream.map((toolResult) => {
+      return {
+        role: 'tool',
+        content: toolResult,
+      } satisfies ToolMessage
+    }),
   ])
 
   resolveStreamDonePromise()

@@ -338,7 +338,7 @@ export const runAgentStep = async (
   // Use the updated agent state from tool execution
   agentState = state.agentState as AgentState
 
-  let finalMessageHistoryWithToolResults = expireMessages(
+  let finalMessageHistoryWithToolResults: Message[] = expireMessages(
     state.messages,
     'agentStep',
   )
