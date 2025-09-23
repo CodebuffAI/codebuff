@@ -230,7 +230,7 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
   if (errors.length > 0) {
     if (errors.length > 1) {
       throw new Error(
-        `Internal error: Unexpected number of matching errors for ${{ toolCall }}, found ${errors.length}, expected 1`,
+        `Internal error: Unexpected number of matching errors for ${JSON.stringify(toolCall)}, found ${errors.length}, expected 1`,
       )
     }
 
@@ -251,7 +251,7 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
   )
   if (changes.length !== 1) {
     throw new Error(
-      `Internal error: Unexpected number of matching changes for ${{ toolCall }}, found ${changes.length}, expected 1`,
+      `Internal error: Unexpected number of matching changes for ${JSON.stringify(toolCall)}, found ${changes.length}, expected 1`,
     )
   }
 
