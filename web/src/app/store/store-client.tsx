@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, memo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { useSession } from 'next-auth/react'
 import {
   Search,
   TrendingUp,
@@ -29,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
-import { formatRelativeTime } from '@/lib/date-utils'
+import { RelativeTime } from '@/components/ui/relative-time'
 import { cn } from '@/lib/utils'
 import { useResponsiveColumns } from '@/hooks/use-responsive-columns'
 import type { Session } from 'next-auth'
@@ -93,9 +94,12 @@ const EDITORS_CHOICE_AGENTS = [
 export default function AgentStoreClient({
   initialAgents,
   initialPublishers,
-  session,
+  session: initialSession,
   searchParams,
 }: AgentStoreClientProps) {
+  // Use client-side session for authentication state
+  const { data: clientSession } = useSession()
+  const session = clientSession || initialSession
   const [searchQuery, setSearchQuery] = useState(
     (searchParams.search as string) || ''
   )
@@ -403,7 +407,7 @@ export default function AgentStoreClient({
                     className="text-xs text-muted-foreground/60"
                     title={new Date(agent.last_used).toLocaleString()}
                   >
-                    Used {formatRelativeTime(agent.last_used)}
+                    Used <RelativeTime date={agent.last_used} />
                   </span>
                 )}
               </div>

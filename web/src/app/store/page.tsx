@@ -1,7 +1,5 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { unstable_cache } from 'next/cache'
 import AgentStoreClient from './store-client'
 
@@ -84,21 +82,19 @@ export const metadata: Metadata = {
   },
 }
 
-// Enable static generation with revalidation
-export const revalidate = 60
+// Enable static site generation with ISR
+export const revalidate = 60 * 10 // Revalidate every hour
 
 interface StorePageProps {
   searchParams: { [key: string]: string | string[] | undefined }
 }
 
 export default async function StorePage({ searchParams }: StorePageProps) {
-  // Get session for conditional rendering
-  const session = await getServerSession(authOptions)
-
-  // Fetch agents data at build time / on revalidation
+  // Fetch agents data at build time
   const agentsData = await getCachedAgentsData()
 
-  // For now, pass empty array for publishers - client will handle this
+  // For static generation, we don't pass session data
+  // The client will handle authentication state
   const userPublishers: PublisherProfileResponse[] = []
 
   return (
@@ -106,7 +102,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
       <AgentStoreClient
         initialAgents={agentsData}
         initialPublishers={userPublishers}
-        session={session}
+        session={null} // Client will handle session
         searchParams={searchParams}
       />
     </Suspense>
