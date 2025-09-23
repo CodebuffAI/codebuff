@@ -289,6 +289,16 @@ export const runAgentStep = async (
 
   const stream = getStream(messagesWithSystem(agentMessages, system))
 
+  logger.info(
+    {
+      agentStepId,
+      userInputId,
+      agentType,
+      agentId: agentState.agentId,
+    },
+    'run-agent-step: About to call processStreamWithTools',
+  )
+
   const {
     toolCalls,
     toolResults: newToolResults,
@@ -313,6 +323,17 @@ export const runAgentStep = async (
     onResponseChunk,
     fullResponse,
   })
+
+  logger.info(
+    {
+      agentStepId,
+      userInputId,
+      toolCallsCount: toolCalls.length,
+      toolResultsCount: newToolResults.length,
+      toolCallTypes: toolCalls.map((tc) => tc.toolName),
+    },
+    'run-agent-step: Completed processStreamWithTools',
+  )
   toolResults.push(...newToolResults)
 
   fullResponse = fullResponseAfterStream

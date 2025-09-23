@@ -33,24 +33,54 @@ function getBenchifyClient(): Benchify | null {
   if (!benchifyClient) {
     let benchifyApiKey: string | undefined
     try {
+      // Log available environment variables (partial for debugging)
+      const envKeys = Object.keys(process.env)
+        .filter((key) => key.includes('BENCHIFY') || key.includes('API'))
+        .slice(0, 10) // Limit to first 10 for safety
+
       benchifyApiKey = env.BENCHIFY_API_KEY
+      logger.info(
+        {
+          hasApiKey: !!benchifyApiKey,
+          apiKeyLength: benchifyApiKey?.length || 0,
+          apiKeyPrefix: benchifyApiKey?.substring(0, 8) || 'none',
+          availableEnvKeys: envKeys,
+          nodeEnv: process.env.NODE_ENV,
+        },
+        'getBenchifyClient: Attempting to access BENCHIFY_API_KEY from environment',
+      )
     } catch (error) {
       logger.warn(
         {
           error: error instanceof Error ? error.message : String(error),
+          nodeEnv: process.env.NODE_ENV,
         },
-        'Failed to access BENCHIFY_API_KEY from environment',
+        'getBenchifyClient: Failed to access BENCHIFY_API_KEY from environment',
       )
       return null
     }
 
     if (!benchifyApiKey) {
+      logger.warn(
+        'getBenchifyClient: No BENCHIFY_API_KEY found, returning null',
+      )
       return null
     }
 
-    benchifyClient = new Benchify({
-      apiKey: benchifyApiKey,
-    })
+    try {
+      benchifyClient = new Benchify({
+        apiKey: benchifyApiKey,
+      })
+      logger.info('getBenchifyClient: Successfully created Benchify client')
+    } catch (error) {
+      logger.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'getBenchifyClient: Failed to create Benchify client',
+      )
+      return null
+    }
   }
   return benchifyClient
 }
@@ -84,7 +114,20 @@ export async function executeBatchStrReplaces({
   state: Record<string, any>
   userId: string | undefined
 }) {
+  logger.info(
+    {
+      deferredCount: deferredStrReplaces.length,
+      agentStepId,
+      userInputId,
+      userId,
+    },
+    'executeBatchStrReplaces: Starting batch execution',
+  )
+
   if (deferredStrReplaces.length === 0) {
+    logger.info(
+      'executeBatchStrReplaces: No deferred str_replace operations, returning early',
+    )
     return
   }
 
@@ -103,10 +146,23 @@ export async function executeBatchStrReplaces({
     const { toolCall } = deferredStrReplaces[i]
 
     // Read original content before any modifications (only once per file)
-    if (
-      benchifyCanFixLanguage(toolCall.input.path) &&
-      !originalContents[toolCall.input.path]
-    ) {
+    const isFileEligibleForBenchify = benchifyCanFixLanguage(
+      toolCall.input.path,
+    )
+
+    if (!isFileEligibleForBenchify) {
+      logger.debug(
+        {
+          path: toolCall.input.path,
+          supportedExtensions: BENCHIFY_FILE_TYPES,
+          agentStepId,
+          userInputId,
+        },
+        'executeBatchStrReplaces: File not eligible for benchify (unsupported file type)',
+      )
+    }
+
+    if (isFileEligibleForBenchify && !originalContents[toolCall.input.path]) {
       try {
         const originalContent = await extractOriginalContent(
           toolCall.input.path,
@@ -148,6 +204,15 @@ export async function executeBatchStrReplaces({
               contents: intendedContent,
             })
           }
+          logger.debug(
+            {
+              path: toolCall.input.path,
+              intendedContentLength: intendedContent.length,
+              agentStepId,
+              userInputId,
+            },
+            'executeBatchStrReplaces: Successfully extracted intended content for benchify',
+          )
         }
       } catch (error) {
         logger.warn(
@@ -155,9 +220,20 @@ export async function executeBatchStrReplaces({
             error: error instanceof Error ? error.message : String(error),
             path: toolCall.input.path,
           },
-          'Failed to extract intended content for benchify',
+          'executeBatchStrReplaces: Failed to extract intended content for benchify',
         )
       }
+    } else {
+      logger.debug(
+        {
+          path: toolCall.input.path,
+          canFixLanguage: benchifyCanFixLanguage(toolCall.input.path),
+          hasOriginalContent: !!originalContents[toolCall.input.path],
+          agentStepId,
+          userInputId,
+        },
+        'executeBatchStrReplaces: Skipping intended content extraction (not benchify-compatible file or no original content)',
+      )
     }
 
     // Chain each str_replace to the previous one to ensure proper ordering
@@ -268,6 +344,24 @@ export async function executeBatchStrReplaces({
           toolCallId: toolCall.toolCallId,
           output: errorResult.output,
         })
+
+        // Add to message history even for errors
+        state.messages.push({
+          role: 'tool' as const,
+          content: errorResult,
+        })
+
+        logger.info(
+          {
+            toolCallId: toolCall.toolCallId,
+            path: toolCall.input.path,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            agentStepId,
+            userInputId,
+          },
+          'executeBatchStrReplaces: str_replace failed, but continuing with batch execution for benchify',
+        )
       }
     })
 
@@ -280,9 +374,45 @@ export async function executeBatchStrReplaces({
   // Wait for all batched operations to complete
   await Promise.all(batchPromises)
 
+  logger.info(
+    {
+      totalOperations: deferredStrReplaces.length,
+      successfulEdits: editedFiles.length,
+      intendedChangesCount: intendedChanges.length,
+      benchifyEligibleFiles: deferredStrReplaces.filter((d) =>
+        benchifyCanFixLanguage(d.toolCall.input.path),
+      ).length,
+      agentStepId,
+      userInputId,
+    },
+    'executeBatchStrReplaces: Batch operations completed, summary before benchify call',
+  )
+
   // Call benchify with intended changes (even if str_replace operations failed)
+  logger.info(
+    {
+      intendedChangesCount: intendedChanges.length,
+      editedFilesCount: editedFiles.length,
+      intendedChangeFiles: intendedChanges.map((f) => f.path),
+      editedFilesList: editedFiles.map((f) => f.path),
+      agentStepId,
+      userInputId,
+    },
+    'executeBatchStrReplaces: Preparing to call benchify',
+  )
+
   const client = getBenchifyClient()
-  if (!client || intendedChanges.length === 0) {
+  if (!client) {
+    logger.warn(
+      'executeBatchStrReplaces: No benchify client available, skipping benchify call',
+    )
+    return
+  }
+
+  if (intendedChanges.length === 0) {
+    logger.warn(
+      'executeBatchStrReplaces: No intended changes for benchify, skipping benchify call',
+    )
     return
   }
 
@@ -340,26 +470,68 @@ async function callBenchify(
     userId: string | undefined
   },
 ): Promise<{ path: string; contents: string }[] | null> {
+  logger.info(
+    {
+      editedFilesCount: editedFiles.length,
+      editedFilesList: editedFiles.map((f) => f.path),
+      totalContentLength: editedFiles.reduce(
+        (sum, f) => sum + f.contents.length,
+        0,
+      ),
+      ...context,
+    },
+    'callBenchify: Starting benchify API call',
+  )
+
   const client = getBenchifyClient()
   if (!client) {
+    logger.error('callBenchify: No benchify client available')
     return null
   }
 
-  const response = await client.runFixer(editedFiles, {
-    fix_types: ['string_literals'],
-  })
+  try {
+    logger.info(
+      {
+        fixTypes: ['string_literals'],
+        ...context,
+      },
+      'callBenchify: Calling client.runFixer',
+    )
 
-  logger.info(
-    {
-      responseReceived: !!response,
-      responseLength: response?.length || 0,
-      responseFiles: response?.map((r) => r.path) || [],
-      ...context,
-    },
-    'Benchify runFixer API response received',
-  )
+    const response = await client.runFixer(editedFiles, {
+      fix_types: ['string_literals'],
+    })
 
-  return response
+    logger.info(
+      {
+        responseReceived: !!response,
+        responseLength: response?.length || 0,
+        responseFiles: response?.map((r) => r.path) || [],
+        responseContentLengths: response?.map((r) => r.contents.length) || [],
+        ...context,
+      },
+      'callBenchify: Benchify runFixer API response received successfully',
+    )
+
+    return response
+  } catch (error) {
+    logger.error(
+      {
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : String(error),
+        editedFilesCount: editedFiles.length,
+        ...context,
+      },
+      'callBenchify: Failed to call benchify API',
+    )
+    throw error
+  }
 }
 
 /**
@@ -376,7 +548,25 @@ async function applyBenchifyResults(
     userInputId: string
   },
 ) {
+  logger.info(
+    {
+      benchifyFilesCount: benchifyFiles.length,
+      benchifyFilesList: benchifyFiles.map((f) => f.path),
+      toolCallsCount: context.toolCalls.length,
+      userInputId: context.userInputId,
+    },
+    'applyBenchifyResults: Starting to apply benchify results',
+  )
+
   for (const benchifyFile of benchifyFiles) {
+    logger.debug(
+      {
+        fileName: benchifyFile.path,
+        contentLength: benchifyFile.contents.length,
+        userInputId: context.userInputId,
+      },
+      'applyBenchifyResults: Processing benchify file',
+    )
     try {
       // Find the corresponding tool call for this file
       const relatedToolCall = context.toolCalls.find(
@@ -385,11 +575,26 @@ async function applyBenchifyResults(
 
       if (!relatedToolCall) {
         logger.warn(
-          { fileName: benchifyFile.path },
-          'No matching tool call found for benchify result',
+          {
+            fileName: benchifyFile.path,
+            availableToolCallPaths: context.toolCalls.map(
+              (tc) => tc.input.path,
+            ),
+            userInputId: context.userInputId,
+          },
+          'applyBenchifyResults: No matching tool call found for benchify result',
         )
         continue
       }
+
+      logger.debug(
+        {
+          fileName: benchifyFile.path,
+          relatedToolCallId: relatedToolCall.toolCallId,
+          userInputId: context.userInputId,
+        },
+        'applyBenchifyResults: Found matching tool call for benchify result',
+      )
 
       // Get the original file content from our stored contents
       const originalContent =
@@ -505,16 +710,27 @@ async function extractIntendedContent(
             currentContent.substring(0, index) +
             newStr +
             currentContent.substring(index + old.length)
+          logger.debug(
+            {
+              old: old.substring(0, 100) + (old.length > 100 ? '...' : ''),
+              new:
+                newStr.substring(0, 100) + (newStr.length > 100 ? '...' : ''),
+              path: toolCall.input.path,
+            },
+            'extractIntendedContent: Successfully applied replacement for benchify',
+          )
         } else {
           // If we can't find the old string, log it but continue with other replacements
           logger.warn(
             {
-              old,
-              new: newStr,
+              old: old.substring(0, 200) + (old.length > 200 ? '...' : ''),
+              new:
+                newStr.substring(0, 100) + (newStr.length > 100 ? '...' : ''),
               allowMultiple,
-              currentContent,
+              path: toolCall.input.path,
+              contentLength: currentContent.length,
             },
-            'Failed to find old string in currentContent',
+            'extractIntendedContent: Failed to find old string in currentContent for benchify',
           )
         }
       }

@@ -129,6 +129,18 @@ export async function processStreamWithTools(options: {
 
           batchState.deferredStrReplaces.push({ toolCall })
 
+          logger.debug(
+            {
+              toolCallId,
+              filePath: input.path,
+              replacementsCount: input.replacements?.length || 0,
+              currentDeferredCount: batchState.deferredStrReplaces.length,
+              agentStepId,
+              userInputId,
+            },
+            'stream-parser: Deferring str_replace tool for batch execution',
+          )
+
           // Still emit the tool call event
           onResponseChunk({
             type: 'tool_call',
@@ -291,16 +303,27 @@ export async function processStreamWithTools(options: {
       {
         triggeringEvent: 'stream_end',
         deferredCount: batchState.deferredStrReplaces.length,
+        deferredFiles: batchState.deferredStrReplaces.map(
+          (d) => d.toolCall.input.path,
+        ),
         agentStepId,
         userInputId,
       },
-      `toolCallback: Triggering batch str_replace execution (${batchState.deferredStrReplaces.length} deferred tools) due to stream end`,
+      `stream-parser: Triggering batch str_replace execution (${batchState.deferredStrReplaces.length} deferred tools) due to stream end`,
     )
 
     batchState.strReplacePhaseComplete = true
 
     // Execute all deferred str_replace tools as a batch
     previousToolCallFinished = previousToolCallFinished.then(async () => {
+      logger.info(
+        {
+          agentStepId,
+          userInputId,
+          deferredCount: batchState.deferredStrReplaces.length,
+        },
+        'stream-parser: About to call executeBatchStrReplaces from stream end handler',
+      )
       await executeBatchStrReplaces({
         deferredStrReplaces: batchState.deferredStrReplaces,
         toolCalls,
@@ -316,6 +339,13 @@ export async function processStreamWithTools(options: {
         state,
         userId,
       })
+      logger.info(
+        {
+          agentStepId,
+          userInputId,
+        },
+        'stream-parser: Completed executeBatchStrReplaces from stream end handler',
+      )
     })
   }
 

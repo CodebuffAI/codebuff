@@ -21,8 +21,22 @@ export async function processStrReplace(
     }
   | { tool: 'str_replace'; path: string; error: string }
 > {
+  logger.debug(
+    {
+      path,
+      replacementsCount: replacements.length,
+    },
+    'processStrReplace: Starting to process str_replace',
+  )
+
   const initialContent = await initialContentPromise
   if (initialContent === null) {
+    logger.warn(
+      {
+        path,
+      },
+      'processStrReplace: File does not exist',
+    )
     return {
       tool: 'str_replace',
       path,
@@ -30,6 +44,15 @@ export async function processStrReplace(
         'The file does not exist, skipping. Please use the write_file tool to create the file.',
     }
   }
+
+  logger.debug(
+    {
+      path,
+      initialContentLength: initialContent.length,
+      hasContent: !!initialContent,
+    },
+    'processStrReplace: Successfully read initial file content',
+  )
 
   // Process each old/new string pair
   let currentContent = initialContent
