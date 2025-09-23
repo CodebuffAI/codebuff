@@ -217,15 +217,6 @@ export async function processStreamWithTools(options: {
   resolveStreamDonePromise()
   await previousToolCallFinished
 
-  console.log({
-    toolCalls,
-    toolResults,
-    state,
-    fullResponse: fullResponseChunks.join(''),
-    fullResponseChunks,
-    messageId,
-  })
-
   return {
     toolCalls,
     toolResults,
