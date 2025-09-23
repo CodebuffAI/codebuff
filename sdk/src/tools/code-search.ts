@@ -1,7 +1,7 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
 
-import { rgPath } from '@vscode/ripgrep'
+import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
@@ -43,6 +43,7 @@ export function codeSearch({
 
     const args = [...flagsArray, pattern, '.']
 
+    const rgPath = getBundledRgPath(import.meta.url)
     const childProcess = spawn(rgPath, args, {
       cwd: searchCwd,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -102,7 +103,7 @@ export function codeSearch({
         {
           type: 'json',
           value: {
-            errorMessage: `Failed to execute ripgrep: ${error.message}. Make sure ripgrep is installed and available in PATH.`,
+            errorMessage: `Failed to execute ripgrep: ${error.message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
           },
         },
       ])

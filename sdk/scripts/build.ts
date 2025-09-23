@@ -81,6 +81,9 @@ async function build() {
   console.log('📂 Copying WASM files for tree-sitter...')
   await copyWasmFiles()
 
+  console.log('📂 Copying vendored ripgrep binaries...')
+  await copyRipgrepVendor()
+
   console.log('✅ Build complete!')
   console.log('  📄 dist/index.mjs (ESM)')
   console.log('  📄 dist/index.cjs (CJS)')
@@ -130,6 +133,20 @@ async function copyWasmFiles() {
     } catch (error) {
       console.warn(`  ⚠ Warning: Could not copy ${wasmFile}:`, error.message)
     }
+  }
+}
+
+async function copyRipgrepVendor() {
+  const vendorSrc = 'vendor/ripgrep'
+  const vendorDest = 'dist/vendor/ripgrep'
+  try {
+    await mkdir(vendorDest, { recursive: true })
+    await cp(vendorSrc, vendorDest, { recursive: true })
+    console.log('  ✓ Copied vendored ripgrep binaries')
+  } catch (e) {
+    console.warn(
+      '  ⚠ No vendored ripgrep found; skipping (use fetch-ripgrep.ts first)',
+    )
   }
 }
 
