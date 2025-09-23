@@ -96,6 +96,17 @@ const AgentStorePage = () => {
       }
       return await response.json()
     },
+    select: (data) => {
+      // Normalize data once to prevent reference changes and precompute expensive operations
+      return data.map((agent) => ({
+        ...agent,
+        // Precompute expensive operations
+        createdAtMs: new Date(agent.created_at).getTime(),
+        nameLower: agent.name.toLowerCase(),
+        descriptionLower: agent.description?.toLowerCase() || '',
+        tagsLower: agent.tags?.map((tag) => tag.toLowerCase()) || [],
+      }))
+    },
   })
 
   // Fetch user's publishers if signed in
@@ -158,22 +169,17 @@ const AgentStorePage = () => {
     })
   }, [editorsChoice, searchQuery])
 
-  // Helper function to get agents for a specific row
+  // Get agents for a specific row without pre-building all rows
   const getAgentsForRow = useCallback(
-    (agents: AgentData[], rowIndex: number, cols: number) => {
-      const startIndex = rowIndex * cols
-      return agents.slice(startIndex, startIndex + cols)
+    (rowIndex: number) => {
+      const startIndex = rowIndex * columns
+      return filteredAndSortedAgents.slice(startIndex, startIndex + columns)
     },
-    []
+    [filteredAndSortedAgents, columns]
   )
 
-  // Create virtualized rows for All Agents only
-  const allAgentsRows = useMemo(() => {
-    const rowCount = Math.ceil(filteredAndSortedAgents.length / columns)
-    return Array.from({ length: rowCount }, (_, i) =>
-      getAgentsForRow(filteredAndSortedAgents, i, columns)
-    )
-  }, [filteredAndSortedAgents, columns, getAgentsForRow])
+  // Calculate total rows needed
+  const totalRows = Math.ceil(filteredAndSortedAgents.length / columns)
 
   // Only create virtualizer when we have data and the component is mounted
   const [isMounted, setIsMounted] = useState(false)
@@ -184,14 +190,13 @@ const AgentStorePage = () => {
 
   // Virtualizer for All Agents section only
   const allAgentsVirtualizer = useWindowVirtualizer({
-    count: isMounted ? allAgentsRows.length : 0,
+    count: isMounted ? totalRows : 0,
     estimateSize: () => 270, // Height for agent rows (card + gap)
     overscan: 6,
-    useAnimationFrameWithResizeObserver: true,
   })
 
   // Determine if we should use virtualization for All Agents section
-  const shouldVirtualizeAllAgents = isMounted && allAgentsRows.length > 6
+  const shouldVirtualizeAllAgents = isMounted && totalRows > 6
 
   // Publisher button logic
   const renderPublisherButton = () => {
@@ -235,7 +240,6 @@ const AgentStorePage = () => {
     return count.toString()
   }
 
-  // Memoized AgentCard component to prevent unnecessary re-renders
   const AgentCard = memo(
     ({
       agent,
@@ -251,10 +255,14 @@ const AgentStorePage = () => {
         >
           <Card
             className={cn(
-              'relative h-full transition-all duration-200 cursor-pointer border bg-card/50 backdrop-blur-sm',
+              'relative h-full transition-all duration-200 cursor-pointer border bg-card/50',
               'hover:border-accent/50 hover:bg-card/80',
               isEditorsChoice && 'ring-2 ring-amber-400/50 border-amber-400/30'
             )}
+            style={{
+              // Use CSS transforms for hover effects instead of Framer Motion
+              transition: 'all 0.2s ease',
+            }}
           >
             {/* Editor's Choice Badge - Positioned absolutely for better visual hierarchy */}
             {isEditorsChoice && (
@@ -285,12 +293,9 @@ const AgentStorePage = () => {
                       v{agent.version}
                     </Badge>
                   </div>
-                  {/* Action buttons */}
                   <div className="flex items-center gap-1">
                     <div onClick={(e) => e.preventDefault()}>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
+                      <button
                         onClick={() => {
                           navigator.clipboard.writeText(
                             `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
@@ -299,11 +304,11 @@ const AgentStorePage = () => {
                             description: `Agent run command copied to clipboard!`,
                           })
                         }}
-                        className="p-2 hover:bg-muted/50 rounded-lg transition-all duration-200 opacity-60 group-hover:opacity-100"
+                        className="p-2 hover:bg-muted/50 rounded-lg transition-all duration-200 opacity-60 group-hover:opacity-100 hover:scale-110 active:scale-95"
                         title={`Copy: codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`}
                       >
                         <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                      </motion.button>
+                      </button>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground transition-all duration-300 group-hover:text-primary group-hover:translate-x-1" />
                   </div>
@@ -511,9 +516,9 @@ const AgentStorePage = () => {
                   </p>
                 </div>
 
-                {/* Non-virtualized Editor's Choice */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredEditorsChoice.map((agent) => (
+                    // Only use motion for small, non-virtualized sections
                     <motion.div
                       key={agent.id}
                       whileHover={{ y: -4, transition: { duration: 0.2 } }}
@@ -547,7 +552,7 @@ const AgentStorePage = () => {
                     {allAgentsVirtualizer
                       .getVirtualItems()
                       .map((virtualItem) => {
-                        const agents = allAgentsRows[virtualItem.index]
+                        const agents = getAgentsForRow(virtualItem.index)
                         return (
                           <div
                             key={virtualItem.key}
@@ -562,12 +567,10 @@ const AgentStorePage = () => {
                           >
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                               {agents?.map((agent) => (
-                                <motion.div
+                                // No motion for virtualized items - use CSS transitions instead
+                                <div
                                   key={agent.id}
-                                  whileHover={{
-                                    y: -4,
-                                    transition: { duration: 0.2 },
-                                  }}
+                                  className="hover:-translate-y-1 transition-transform duration-200"
                                 >
                                   <AgentCard
                                     agent={agent}
@@ -575,7 +578,7 @@ const AgentStorePage = () => {
                                       agent.id
                                     )}
                                   />
-                                </motion.div>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -586,9 +589,9 @@ const AgentStorePage = () => {
                   // Non-virtualized All Agents
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredAndSortedAgents.map((agent) => (
-                      <motion.div
+                      <div
                         key={agent.id}
-                        whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                        className="hover:-translate-y-1 transition-transform duration-200"
                       >
                         <AgentCard
                           agent={agent}
@@ -596,7 +599,7 @@ const AgentStorePage = () => {
                             agent.id
                           )}
                         />
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
                 )}
