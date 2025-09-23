@@ -4,7 +4,6 @@ import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/old-constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
@@ -136,14 +135,16 @@ Note that files can only be changed with tools. If no tools are called, no files
 You must decide whether to:
 1. 'continue' - Generate a follow-up prompt for Codebuff
 2. 'complete' - The implementation is done and fully satisfies the spec, including tests, documentation, and any other relevant artifacts
+  - In this case, just put an empty string for next_prompt
 3. 'halt' - The implementation is off track and unlikely to be completed within ${MAX_ATTEMPTS - attempts} more attempts
+  - In this case, just put an empty string for next_prompt
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
 Explain your reasoning in detail.`,
             },
           ],
           schema: AgentDecisionSchema,
-          model: models.openrouter_gemini2_5_flash,
+          model: 'x-ai/grok-4-fast:free',
           clientSessionId,
           fingerprintId,
           userInputId: generateCompactId(),
@@ -160,13 +161,9 @@ Explain your reasoning in detail.`,
       console.log('Agent reasoning:', agentResponse.reasoning)
       console.log('Agent prompt:', agentResponse.next_prompt)
 
-      if (agentResponse.decision === 'continue' && !agentResponse.next_prompt) {
-        agentResponse.next_prompt = 'continue'
-      }
-
       // If continuing, run CodeBuff with the agent's prompt
       if (agentResponse.decision === 'continue') {
-        const prompt = agentResponse.next_prompt!
+        const prompt = agentResponse.next_prompt || 'continue'
 
         // Use loopMainPrompt with timeout wrapper
         const codebuffResult = await withTimeout(

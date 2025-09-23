@@ -76,7 +76,7 @@ export interface FullEvalLog {
 export const AgentDecisionSchema = z.object({
   decision: z.enum(['continue', 'complete', 'halt']),
   reasoning: z.string(),
-  next_prompt: z.string().optional(),
+  next_prompt: z.string(),
 })
 
 export const CommitSelectionSchema = z.object({
