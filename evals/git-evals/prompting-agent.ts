@@ -1,7 +1,7 @@
 import type { AgentDecisionSchema } from './types'
+import type { CodebuffClient } from '../../sdk/src'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { z } from 'zod/v4'
-import { CodebuffClient } from '../../sdk/src'
 
 // Agent definition for prompting
 const promptingAgentDefinition: AgentDefinition = {
@@ -104,6 +104,6 @@ Analyze the conversation and decide your next action.`
   return {
     decision: 'halt' as const,
     reasoning: `No valid response from prompting agent.`,
-    next_prompt: undefined,
+    next_prompt: '',
   }
 }
