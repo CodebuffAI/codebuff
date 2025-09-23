@@ -8,6 +8,8 @@ import { logger } from '@/util/logger'
 
 // Enable static generation for API route
 export const revalidate = 600 // Cache for 10 minutes
+export const dynamic = 'force-static' // Force static generation
+export const fetchCache = 'force-cache' // Use cached data when possible
 
 // Cached function for expensive agent aggregations
 const getCachedAgents = unstable_cache(
@@ -251,7 +253,7 @@ const getCachedAgents = unstable_cache(
   },
   ['agents-data'],
   {
-    revalidate: 60 * 10, // Cache for 10 minutes
+    revalidate,
     tags: ['agents'],
   }
 )

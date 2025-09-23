@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { Metadata } from 'next'
 import { unstable_cache } from 'next/cache'
 import AgentStoreClient from './store-client'
@@ -83,7 +82,21 @@ export const metadata: Metadata = {
 }
 
 // Enable static site generation with ISR
-export const revalidate = 60 * 10 // Revalidate every hour
+export const revalidate = 60 * 10 // Revalidate every 10 minutes
+
+// Generate static params for common search/sort combinations
+export async function generateStaticParams() {
+  // Generate static versions for the most common combinations
+  const commonParams = [
+    {}, // Default: no search, default sort
+    { sort: 'usage' },
+    { sort: 'unique_users' },
+    { sort: 'newest' },
+    { sort: 'name' },
+  ]
+
+  return commonParams
+}
 
 interface StorePageProps {
   searchParams: { [key: string]: string | string[] | undefined }
@@ -98,44 +111,11 @@ export default async function StorePage({ searchParams }: StorePageProps) {
   const userPublishers: PublisherProfileResponse[] = []
 
   return (
-    <Suspense fallback={<StorePageSkeleton />}>
-      <AgentStoreClient
-        initialAgents={agentsData}
-        initialPublishers={userPublishers}
-        session={null} // Client will handle session
-        searchParams={searchParams}
-      />
-    </Suspense>
-  )
-}
-
-// Loading skeleton component
-function StorePageSkeleton() {
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Skeleton */}
-        <div className="mb-12">
-          <div className="h-10 bg-muted rounded-lg w-64 mb-4" />
-          <div className="h-6 bg-muted rounded w-96" />
-        </div>
-
-        {/* Search and Filter Skeleton */}
-        <div className="mb-8">
-          <div className="flex gap-4">
-            <div className="h-10 bg-muted rounded flex-1 max-w-sm" />
-            <div className="h-10 bg-muted rounded w-32" />
-            <div className="h-10 bg-muted rounded w-32" />
-          </div>
-        </div>
-
-        {/* Grid Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-64 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
-      </div>
-    </div>
+    <AgentStoreClient
+      initialAgents={agentsData}
+      initialPublishers={userPublishers}
+      session={null} // Client will handle session
+      searchParams={searchParams}
+    />
   )
 }

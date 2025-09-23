@@ -15,6 +15,11 @@ const nextConfig = {
     // Disable ESLint during builds
     ignoreDuringBuilds: true,
   },
+  
+  // Enable experimental features for better SSG performance
+  experimental: {
+    optimizePackageImports: ['@/components/ui'],
+  },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false }
     // Tell Next.js to leave pino and thread-stream unbundled

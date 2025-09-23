@@ -126,9 +126,12 @@ export default function AgentStoreClient({
   session: initialSession,
   searchParams,
 }: AgentStoreClientProps) {
-  // Use client-side session for authentication state
-  const { data: clientSession } = useSession()
+  // Use client-side session for authentication state, but don't block rendering
+  const { data: clientSession, status: sessionStatus } = useSession()
   const session = clientSession || initialSession
+
+  // Don't block rendering on session loading
+  const isSessionReady = sessionStatus !== 'loading'
 
   // Global state for persistence across navigation
   const {
@@ -220,7 +223,7 @@ export default function AgentStoreClient({
     })
   }, [editorsChoice, searchQuery])
 
-  const ITEMS_PER_PAGE = 12
+  const ITEMS_PER_PAGE = 24
 
   // Derive displayed agents from count.
   const displayedAgents = useMemo(() => {
@@ -308,7 +311,7 @@ export default function AgentStoreClient({
     }
   }, [loadMoreItems])
 
-  // Fetch user's publishers if signed in
+  // Fetch user's publishers if signed in, but don't block rendering
   const { data: publishers } = useQuery<PublisherProfileResponse[]>({
     queryKey: ['user-publishers'],
     queryFn: async () => {
@@ -318,13 +321,13 @@ export default function AgentStoreClient({
       }
       return response.json()
     },
-    enabled: !!session?.user?.id,
+    enabled: !!session?.user?.id && isSessionReady,
   })
 
-  // Publisher button logic
   const renderPublisherButton = () => {
-    if (!session) {
-      return null // Don't show anything if signed out
+    // Only render when session is ready to prevent hydration mismatches
+    if (!isSessionReady || !session) {
+      return null
     }
 
     if (!publishers || publishers.length === 0) {
