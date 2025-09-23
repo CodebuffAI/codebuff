@@ -1,0 +1,348 @@
+import path from 'path'
+
+import { initialSessionState, applyOverridesToSessionState } from './run-state'
+import { changeFile } from './tools/change-file'
+import { codeSearch } from './tools/code-search'
+import { getFiles } from './tools/read-files'
+import { runTerminalCommand } from './tools/run-terminal-command'
+import { WebSocketHandler } from './websocket-client'
+import { PromptResponseSchema } from '../../common/src/actions'
+import { toolNames } from '../../common/src/tools/constants'
+import { clientToolCallSchema } from '../../common/src/tools/list'
+
+import type { CustomToolDefinition } from './custom-tool'
+import type { RunState } from './run-state'
+import type { ServerAction } from '../../common/src/actions'
+import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
+import type {
+  PublishedToolName,
+  ToolName,
+} from '../../common/src/tools/constants'
+import type {
+  ClientToolCall,
+  ClientToolName,
+  CodebuffToolOutput,
+  PublishedClientToolName,
+} from '../../common/src/tools/list'
+import type {
+  ToolResultOutput,
+  ToolResultPart,
+} from '../../common/src/types/messages/content-part'
+import type { PrintModeEvent } from '../../common/src/types/print-mode'
+import type { SessionState } from '../../common/src/types/session-state'
+
+export type CodebuffClientOptions = {
+  // Provide an API key or set the CODEBUFF_API_KEY environment variable.
+  apiKey?: string
+
+  cwd?: string
+  projectFiles?: Record<string, string>
+  knowledgeFiles?: Record<string, string>
+  agentDefinitions?: AgentDefinition[]
+  maxAgentSteps?: number
+
+  handleEvent?: (event: PrintModeEvent) => void
+  handleStreamChunk?: (chunk: string) => void
+
+  overrideTools?: Partial<
+    {
+      [K in ClientToolName & PublishedToolName]: (
+        input: ClientToolCall<K>['input'],
+      ) => Promise<CodebuffToolOutput<K>>
+    } & {
+      // Include read_files separately, since it has a different signature.
+      read_files: (input: {
+        filePaths: string[]
+      }) => Promise<Record<string, string | null>>
+    }
+  >
+  customToolDefinitions?: CustomToolDefinition[]
+}
+
+export type RunOptions = {
+  agent: string
+  prompt: string
+  params?: Record<string, any>
+  previousRun?: RunState
+  extraToolResults?: ToolResultPart[]
+}
+
+type RunReturnType = Awaited<ReturnType<typeof run>>
+export async function run({
+  apiKey,
+  fingerprintId,
+
+  cwd,
+  projectFiles,
+  knowledgeFiles,
+  agentDefinitions,
+  maxAgentSteps,
+
+  handleEvent,
+  handleStreamChunk,
+
+  overrideTools,
+  customToolDefinitions,
+
+  agent,
+  prompt,
+  params,
+  previousRun,
+  extraToolResults,
+}: RunOptions &
+  Required<CodebuffClientOptions> & {
+    fingerprintId: string
+  }): Promise<RunState | null> {
+  function onError(error: { message: string }) {
+    handleEvent({ type: 'error', message: error.message })
+  }
+
+  let resolve: (value: RunReturnType) => any = () => {}
+  const promise = new Promise<RunReturnType>((res) => {
+    resolve = res
+  })
+
+  // TODO: bad pattern, switch to using SSE and move off of websockets
+  const websocketHandler = new WebSocketHandler({
+    apiKey,
+    onWebsocketError: (error) => {
+      onError({ message: error.message })
+    },
+    onWebsocketReconnect: () => {},
+    onRequestReconnect: async () => {},
+    onResponseError: async (error) => {
+      onError({ message: error.message })
+    },
+    readFiles: ({ filePaths }) =>
+      readFiles({ filePaths, override: overrideTools.read_files, cwd }),
+    handleToolCall: (action) =>
+      handleToolCall({
+        action,
+        overrides: overrideTools,
+        customToolDefinitions: Object.fromEntries(
+          customToolDefinitions.map((def) => [def.toolName, def]),
+        ),
+        cwd,
+      }),
+    onCostResponse: async () => {},
+
+    onResponseChunk: async (action) => {
+      const { userInputId, chunk } = action
+      if (typeof chunk === 'string') {
+        handleStreamChunk(chunk)
+      } else {
+        handleEvent(chunk)
+      }
+    },
+    onSubagentResponseChunk: async () => {},
+
+    onPromptResponse: (action) =>
+      handlePromptResponse({ action, resolve, onError }),
+    onPromptError: (action) =>
+      handlePromptResponse({ action, resolve, onError }),
+  })
+
+  // Init session state
+  let sessionState: SessionState
+  if (previousRun?.sessionState) {
+    // applyOverridesToSessionState handles deep cloning and applying any provided overrides
+    sessionState = await applyOverridesToSessionState(
+      cwd,
+      previousRun.sessionState,
+      {
+        knowledgeFiles,
+        agentDefinitions,
+        customToolDefinitions,
+        projectFiles,
+        maxAgentSteps,
+      },
+    )
+  } else {
+    // No previous run, so create a fresh session state
+    sessionState = await initialSessionState(cwd, {
+      knowledgeFiles,
+      agentDefinitions,
+      customToolDefinitions,
+      projectFiles,
+      maxAgentSteps,
+    })
+  }
+
+  const promptId = Math.random().toString(36).substring(2, 15)
+
+  // Send input
+  await websocketHandler.connect()
+
+  websocketHandler.sendInput({
+    promptId,
+    prompt,
+    promptParams: params,
+    fingerprintId: fingerprintId,
+    costMode: 'normal',
+    sessionState,
+    toolResults: extraToolResults ?? [],
+    agentId: agent,
+  })
+
+  const result = await promise
+
+  websocketHandler.close()
+
+  return result
+}
+
+async function readFiles({
+  filePaths,
+  override,
+  cwd,
+}: { filePaths: string[] } & (
+  | {
+      override: NonNullable<
+        Required<CodebuffClientOptions>['overrideTools']['read_files']
+      >
+      cwd?: string
+    }
+  | { override: undefined; cwd: string }
+)) {
+  if (override) {
+    return await override({ filePaths })
+  }
+  return getFiles(filePaths, cwd)
+}
+
+async function handleToolCall({
+  action,
+  overrides,
+  customToolDefinitions,
+  cwd,
+}: {
+  action: ServerAction<'tool-call-request'>
+  overrides: NonNullable<CodebuffClientOptions['overrideTools']>
+  customToolDefinitions: Record<string, CustomToolDefinition>
+  cwd: string
+}): ReturnType<WebSocketHandler['handleToolCall']> {
+  const toolName = action.toolName
+  const input = action.input
+
+  let result: ToolResultOutput[]
+  if (toolNames.includes(toolName as ToolName)) {
+    clientToolCallSchema.parse(action)
+  } else {
+    const customToolHandler = customToolDefinitions[toolName]
+
+    if (!customToolHandler) {
+      throw new Error(
+        `Custom tool handler not found for user input ID ${action.userInputId}`,
+      )
+    }
+    return {
+      output: await customToolHandler.execute(action.input),
+    }
+  }
+
+  try {
+    let override = overrides[toolName as PublishedClientToolName]
+    if (!override && toolName === 'str_replace') {
+      // Note: write_file and str_replace have the same implementation, so reuse their write_file override.
+      override = overrides['write_file']
+    }
+    if (override) {
+      result = await override(input as any)
+    } else if (toolName === 'end_turn') {
+      result = []
+    } else if (toolName === 'write_file' || toolName === 'str_replace') {
+      result = changeFile(input, cwd)
+    } else if (toolName === 'run_terminal_command') {
+      result = await runTerminalCommand({
+        ...input,
+        cwd: path.resolve(cwd, input.cwd ?? '.'),
+      } as Parameters<typeof runTerminalCommand>[0])
+    } else if (toolName === 'code_search') {
+      result = await codeSearch({
+        projectPath: cwd,
+        ...input,
+      } as Parameters<typeof codeSearch>[0])
+    } else if (toolName === 'run_file_change_hooks') {
+      // No-op: SDK doesn't run file change hooks
+      result = [
+        {
+          type: 'json',
+          value: {
+            message: 'File change hooks are not supported in SDK mode',
+          },
+        },
+      ]
+    } else {
+      throw new Error(
+        `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
+      )
+    }
+  } catch (error) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            errorMessage:
+              error &&
+              typeof error === 'object' &&
+              'message' in error &&
+              typeof error.message === 'string'
+                ? error.message
+                : typeof error === 'string'
+                  ? error
+                  : 'Unknown error',
+          },
+        },
+      ],
+    }
+  }
+  return {
+    output: result,
+  }
+}
+
+async function handlePromptResponse({
+  action,
+  resolve,
+  onError,
+}: {
+  action: ServerAction<'prompt-response'> | ServerAction<'prompt-error'>
+  resolve: (value: RunReturnType) => any
+  onError: (error: { message: string }) => void
+}) {
+  if (action.type === 'prompt-error') {
+    onError({ message: action.message })
+    resolve(null)
+  } else if (action.type === 'prompt-response') {
+    const parsedAction = PromptResponseSchema.safeParse(action)
+    if (!parsedAction.success) {
+      const message = [
+        'Received invalid prompt response from server:',
+        JSON.stringify(parsedAction.error.issues),
+        'If this issues persists, please contact support@codebuff.com',
+      ].join('\n')
+      onError({
+        message: message,
+      })
+      resolve(null)
+      return
+    }
+
+    const { sessionState, output } = parsedAction.data
+    const state: RunState = {
+      sessionState,
+      output: output ?? {
+        type: 'error',
+        message: 'No output from agent',
+      },
+    }
+    resolve(state)
+  } else {
+    action satisfies never
+    onError({
+      message: 'Internal error: prompt response type not handled',
+    })
+    resolve(null)
+  }
+}

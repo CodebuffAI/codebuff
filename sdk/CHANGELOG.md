@@ -2,6 +2,10 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.3.0]
+
+- New more intuitive interface for `CodebuffClient` and `CodebuffClient.run`.
+
 ## [0.1.30]
 
 Types updates.

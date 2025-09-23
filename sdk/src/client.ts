@@ -1,133 +1,41 @@
-import path from 'path'
-
-import {
-  initialSessionState,
-  applyOverridesToSessionState,
-  type RunState,
-} from './run-state'
-import { changeFile } from './tools/change-file'
-import { codeSearch } from './tools/code-search'
-import { getFiles } from './tools/read-files'
-import { runTerminalCommand } from './tools/run-terminal-command'
-import { WebSocketHandler } from './websocket-client'
-import {
-  PromptResponseSchema,
-  type ServerAction,
-} from '../../common/src/actions'
+import { run } from './run'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
-import { toolNames } from '../../common/src/tools/constants'
 
-import {
-  clientToolCallSchema,
-  type ClientToolCall,
-  type ClientToolName,
-  type CodebuffToolOutput,
-} from '../../common/src/tools/list'
-
-import type { CustomToolDefinition } from './custom-tool'
-import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-import type {
-  PublishedToolName,
-  ToolName,
-} from '../../common/src/tools/constants'
-import type { PublishedClientToolName } from '../../common/src/tools/list'
-import type {
-  ToolResultOutput,
-  ToolResultPart,
-} from '../../common/src/types/messages/content-part'
-import type { PrintModeEvent } from '../../common/src/types/print-mode'
-import type { SessionState } from '../../common/src/types/session-state'
-
-export type CodebuffClientOptions = {
-  // Provide an API key or set the CODEBUFF_API_KEY environment variable.
-  apiKey?: string
-  cwd?: string
-  onError: (error: { message: string }) => void
-  overrideTools?: Partial<
-    {
-      [K in ClientToolName & PublishedToolName]: (
-        input: ClientToolCall<K>['input'],
-      ) => Promise<CodebuffToolOutput<K>>
-    } & {
-      // Include read_files separately, since it has a different signature.
-      read_files: (input: {
-        filePaths: string[]
-      }) => Promise<Record<string, string | null>>
-    }
-  >
-}
+import type { RunOptions, CodebuffClientOptions } from './run'
+import type { RunState } from './run-state'
 
 export class CodebuffClient {
-  public cwd: string
+  public options: Required<CodebuffClientOptions> & { fingerprintId: string }
 
-  private readonly websocketHandler: WebSocketHandler
-  private readonly overrideTools: NonNullable<
-    CodebuffClientOptions['overrideTools']
-  >
-  private readonly fingerprintId = `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
-
-  private readonly promptIdToHandlers: Record<
-    string,
-    {
-      handleEvent?: (event: PrintModeEvent) => void
-      handleStreamChunk?: (chunk: string) => void
-      resolveResponse?: {
-        resolve: (response: any) => void
-        reject: (error: any) => void
-      }
-      customToolHandler?: WebSocketHandler['handleToolCall']
-    }
-  > = {}
-
-  constructor({ apiKey, cwd, onError, overrideTools }: CodebuffClientOptions) {
-    const foundApiKey = apiKey ?? process.env[API_KEY_ENV_VAR]
+  constructor(options: CodebuffClientOptions) {
+    const foundApiKey = options.apiKey ?? process.env[API_KEY_ENV_VAR]
     if (!foundApiKey) {
       throw new Error(
         `Codebuff API key not found. Please provide an apiKey in the constructor of CodebuffClient or set the ${API_KEY_ENV_VAR} environment variable.`,
       )
     }
 
-    this.cwd = cwd ?? process.cwd()
-    this.overrideTools = overrideTools ?? {}
-    this.websocketHandler = new WebSocketHandler({
+    this.options = {
       apiKey: foundApiKey,
-      onWebsocketError: (error) => {
-        onError({ message: error.message })
-      },
-      onWebsocketReconnect: () => {},
-      onRequestReconnect: async () => {},
-      onResponseError: async (error) => {
-        onError({ message: error.message })
-      },
-      readFiles: this.readFiles.bind(this),
-      handleToolCall: this.handleToolCall.bind(this),
-      onCostResponse: async () => {},
-
-      onResponseChunk: async (action) => {
-        const { userInputId, chunk } = action
-        if (typeof chunk === 'string') {
-          const handleStreamChunk =
-            this.promptIdToHandlers[userInputId]?.handleStreamChunk
-          if (handleStreamChunk) {
-            handleStreamChunk(chunk)
-          }
-        } else {
-          const handleEvent = this.promptIdToHandlers[userInputId]?.handleEvent
-          if (handleEvent) {
-            handleEvent(chunk)
-          }
+      cwd: process.cwd(),
+      projectFiles: {},
+      knowledgeFiles: {},
+      agentDefinitions: [],
+      maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
+      handleEvent: (event) => {
+        if (event.type === 'error') {
+          throw new Error(
+            `Received error: ${event.message}.\n\nProvide a handleEvent function to handle this error.`,
+          )
         }
       },
-      onSubagentResponseChunk: async () => {},
-
-      onPromptResponse: this.handlePromptResponse.bind(this),
-      onPromptError: this.handlePromptResponse.bind(this),
-    })
-  }
-
-  public closeConnection() {
-    this.websocketHandler.close()
+      handleStreamChunk: () => {},
+      overrideTools: {},
+      customToolDefinitions: [],
+      fingerprintId: `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`,
+      ...options,
+    }
   }
 
   /**
@@ -146,248 +54,9 @@ export class CodebuffClient {
    *
    * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run. Use result.output to get the agent's output.
    */
-  public async run({
-    agent,
-    prompt,
-    params,
-    handleEvent,
-    handleStreamChunk,
-    previousRun,
-    projectFiles,
-    knowledgeFiles,
-    agentDefinitions,
-    customToolDefinitions,
-    maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
-    extraToolResults,
-  }: {
-    agent: string
-    prompt: string
-    params?: Record<string, any>
-    handleEvent?: (event: PrintModeEvent) => void
-    handleStreamChunk?: (chunk: string) => void
-    previousRun?: RunState
-    projectFiles?: Record<string, string>
-    knowledgeFiles?: Record<string, string>
-    agentDefinitions?: AgentDefinition[]
-    customToolDefinitions?: CustomToolDefinition[]
-    maxAgentSteps?: number
-    extraToolResults?: ToolResultPart[]
-  }): Promise<RunState> {
-    await this.websocketHandler.connect()
-
-    const promptId = Math.random().toString(36).substring(2, 15)
-
-    let sessionState: SessionState
-    if (previousRun?.sessionState) {
-      // applyOverridesToSessionState handles deep cloning and applying any provided overrides
-      sessionState = await applyOverridesToSessionState(
-        this.cwd,
-        previousRun.sessionState,
-        {
-          knowledgeFiles,
-          agentDefinitions,
-          customToolDefinitions,
-          projectFiles,
-          maxAgentSteps,
-        },
-      )
-    } else {
-      // No previous run, so create a fresh session state
-      sessionState = await initialSessionState(this.cwd, {
-        knowledgeFiles,
-        agentDefinitions,
-        customToolDefinitions,
-        projectFiles,
-        maxAgentSteps,
-      })
-    }
-    this.promptIdToHandlers[promptId] = {
-      handleEvent,
-      handleStreamChunk,
-    }
-    if (customToolDefinitions) {
-      this.promptIdToHandlers[promptId].customToolHandler = async ({
-        toolName,
-        input,
-      }) => {
-        const toolDefs = customToolDefinitions.filter(
-          (def) => def.toolName === toolName,
-        )
-        if (toolDefs.length === 0) {
-          throw new Error(
-            `Implementation for custom tool ${toolName} not found.`,
-          )
-        }
-        const toolDef = toolDefs[toolDefs.length - 1]
-        const handler = toolDef.execute
-        try {
-          return {
-            output: toolDef.outputSchema.parse(
-              await handler(toolDef.zodSchema.parse(input)),
-            ),
-          }
-        } catch (error) {
-          return {
-            output: [
-              {
-                type: 'json',
-                value: {
-                  errorMessage:
-                    error &&
-                    typeof error === 'object' &&
-                    'message' in error &&
-                    typeof error.message === 'string'
-                      ? error.message
-                      : typeof error === 'string'
-                        ? error
-                        : 'Unknown error',
-                },
-              },
-            ],
-          }
-        }
-      }
-    }
-    this.websocketHandler.sendInput({
-      promptId,
-      prompt,
-      promptParams: params,
-      fingerprintId: this.fingerprintId,
-      costMode: 'normal',
-      sessionState,
-      toolResults: extraToolResults ?? [],
-      agentId: agent,
-    })
-
-    return new Promise<RunState>((resolve, reject) => {
-      this.promptIdToHandlers[promptId].resolveResponse = { resolve, reject }
-    })
-  }
-
-  private async handlePromptResponse(
-    action: ServerAction<'prompt-response'> | ServerAction<'prompt-error'>,
-  ) {
-    const promptId =
-      action.type === 'prompt-response' ? action.promptId : action.userInputId
-    const promiseActions = this.promptIdToHandlers[promptId]?.resolveResponse
-    if (!promiseActions) {
-      return
-    }
-
-    delete this.promptIdToHandlers[promptId]
-
-    if (action.type === 'prompt-error') {
-      promiseActions.reject(new Error(action.message))
-    } else if (action.type === 'prompt-response') {
-      const parsedAction = PromptResponseSchema.safeParse(action)
-      if (!parsedAction.success) {
-        const message = [
-          'Received invalid prompt response from server:',
-          JSON.stringify(parsedAction.error.issues),
-          'If this issues persists, please contact support@codebuff.com',
-        ].join('\n')
-        promiseActions.reject(new Error(message))
-      } else {
-        const { sessionState, output } = parsedAction.data
-        const state: RunState = {
-          sessionState,
-          output: output ?? {
-            type: 'error',
-            message: 'No output from agent',
-          },
-        }
-        promiseActions.resolve(state)
-      }
-    }
-  }
-
-  private async readFiles({ filePaths }: { filePaths: string[] }) {
-    const override = this.overrideTools.read_files
-    if (override) {
-      return await override({ filePaths })
-    }
-    return getFiles(filePaths, this.cwd)
-  }
-
-  private async handleToolCall(
-    action: ServerAction<'tool-call-request'>,
-  ): ReturnType<WebSocketHandler['handleToolCall']> {
-    const toolName = action.toolName
-    const input = action.input
-
-    let result: ToolResultOutput[]
-    if (toolNames.includes(toolName as ToolName)) {
-      clientToolCallSchema.parse(action)
-    } else {
-      const customToolHandler =
-        this.promptIdToHandlers[action.userInputId].customToolHandler
-      if (!customToolHandler) {
-        throw new Error(
-          `Custom tool handler not found for user input ID ${action.userInputId}`,
-        )
-      }
-      return await customToolHandler(action)
-    }
-
-    try {
-      let override = this.overrideTools[toolName as PublishedClientToolName]
-      if (!override && toolName === 'str_replace') {
-        // Note: write_file and str_replace have the same implementation, so reuse their write_file override.
-        override = this.overrideTools['write_file']
-      }
-      if (override) {
-        result = await override(input as any)
-      } else if (toolName === 'end_turn') {
-        result = []
-      } else if (toolName === 'write_file' || toolName === 'str_replace') {
-        result = changeFile(input, this.cwd)
-      } else if (toolName === 'run_terminal_command') {
-        result = await runTerminalCommand({
-          ...input,
-          cwd: path.resolve(this.cwd, input.cwd ?? '.'),
-        } as Parameters<typeof runTerminalCommand>[0])
-      } else if (toolName === 'code_search') {
-        result = await codeSearch({
-          projectPath: this.cwd,
-          ...input,
-        } as Parameters<typeof codeSearch>[0])
-      } else if (toolName === 'run_file_change_hooks') {
-        // No-op: SDK doesn't run file change hooks
-        result = [
-          {
-            type: 'json',
-            value: {
-              message: 'File change hooks are not supported in SDK mode',
-            },
-          },
-        ]
-      } else {
-        throw new Error(
-          `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
-        )
-      }
-    } catch (error) {
-      return {
-        output: [
-          {
-            type: 'json',
-            value: {
-              errorMessage:
-                error &&
-                typeof error === 'object' &&
-                'message' in error &&
-                typeof error.message === 'string'
-                  ? error.message
-                  : typeof error === 'string'
-                    ? error
-                    : 'Unknown error',
-            },
-          },
-        ],
-      }
-    }
-    return {
-      output: result,
-    }
+  public async run(
+    options: RunOptions & CodebuffClientOptions,
+  ): Promise<RunState | null> {
+    return run({ ...this.options, ...options })
   }
 }

@@ -25,30 +25,37 @@ async function main() {
     // Get one here: https://www.codebuff.com/api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
     cwd: process.cwd(),
-    onError: (e) => console.error('Codebuff error:', e.message),
   })
 
   // First run
+  console.log('------- First run started -------')
   const run1 = await client.run({
     agent: 'base',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
       // This will fire for all events that happen during the run, like when each agent starts/stops and when they respond.
-      console.log(event) // Log all events
+      console.dir(event, { depth: null }) // Log all events
     },
   })
+  console.log('------- First run ended -------')
+
+  if (!run1) {
+    // The previous run failed, handleEvent should have been called with an error
+    console.error('First run failed.')
+    process.exit(1)
+  }
 
   // Continue the same session with a follow-up
+  console.log('------- Second run started -------')
   const run2 = await client.run({
     agent: 'base',
     prompt: 'Add unit tests for the calculator',
     previousRun: run1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
-      console.log(event)
+      console.dir(event, { depth: null })
     },
   })
-
-  client.closeConnection()
+  console.log('------- Second run ended -------')
 }
 
 main()
