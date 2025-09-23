@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback, memo, useEffect, useRef } from 'react'
+import { useMemo, useCallback, memo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { useSession } from 'next-auth/react'
 import {
   Search,
   TrendingUp,
@@ -16,7 +16,7 @@ import {
   Copy,
 } from 'lucide-react'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -29,10 +29,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
-import { formatRelativeTime } from '@/lib/date-utils'
+import { RelativeTime } from '@/components/ui/relative-time'
 import { cn } from '@/lib/utils'
-import { useResponsiveColumns } from '@/hooks/use-responsive-columns'
 import type { Session } from 'next-auth'
+import { create } from 'zustand'
 
 interface AgentData {
   id: string
@@ -47,24 +47,40 @@ interface AgentData {
   version: string
   created_at: string
   usage_count?: number
-  weekly_spent?: number // In dollars
-  total_spent?: number // In dollars
-  avg_cost_per_invocation?: number // In dollars
+  weekly_spent?: number
+  total_spent?: number
+  avg_cost_per_invocation?: number
   unique_users?: number
   last_used?: string
-  version_stats?: Record<
-    string,
-    {
-      weekly_dollars: number
-      total_dollars: number
-      total_invocations: number
-      avg_cost_per_run: number
-      unique_users: number
-      last_used?: Date
-    }
-  >
+  version_stats?: Record<string, any>
   tags?: string[]
 }
+
+interface AgentStoreState {
+  displayedCount: number
+  isLoadingMore: boolean
+  hasMore: boolean
+  searchQuery: string
+  sortBy: string
+  setDisplayedCount: (count: number) => void
+  setIsLoadingMore: (loading: boolean) => void
+  setHasMore: (hasMore: boolean) => void
+  setSearchQuery: (query: string) => void
+  setSortBy: (sortBy: string) => void
+}
+
+const useAgentStoreState = create<AgentStoreState>((set) => ({
+  displayedCount: 0,
+  isLoadingMore: false,
+  hasMore: true,
+  searchQuery: '',
+  sortBy: 'cost',
+  setDisplayedCount: (count) => set({ displayedCount: count }),
+  setIsLoadingMore: (loading) => set({ isLoadingMore: loading }),
+  setHasMore: (hasMore) => set({ hasMore }),
+  setSearchQuery: (query) => set({ searchQuery: query }),
+  setSortBy: (sortBy) => set({ sortBy }),
+}))
 
 interface PublisherProfileResponse {
   id: string
@@ -90,28 +106,71 @@ const EDITORS_CHOICE_AGENTS = [
   'rampup-teacher-agent',
 ]
 
+// Utility functions
+const formatCurrency = (amount?: number) => {
+  if (!amount) return '$0.00'
+  if (amount >= 1000) return `${(amount / 1000).toFixed(1)}k`
+  return `${amount.toFixed(2)}`
+}
+
+const formatUsageCount = (count?: number) => {
+  if (!count) return '0'
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`
+  return count.toString()
+}
+
 export default function AgentStoreClient({
   initialAgents,
   initialPublishers,
-  session,
+  session: initialSession,
   searchParams,
 }: AgentStoreClientProps) {
-  const [searchQuery, setSearchQuery] = useState(
-    (searchParams.search as string) || ''
-  )
-  const [sortBy, setSortBy] = useState((searchParams.sort as string) || 'cost')
-  const columns = useResponsiveColumns()
+  // Use client-side session for authentication state
+  const { data: clientSession } = useSession()
+  const session = clientSession || initialSession
 
-  // Normalize agent data for better performance
+  // Global state for persistence across navigation
+  const {
+    displayedCount,
+    isLoadingMore,
+    hasMore,
+    searchQuery,
+    sortBy,
+    setDisplayedCount,
+    setIsLoadingMore,
+    setHasMore,
+    setSearchQuery,
+    setSortBy,
+  } = useAgentStoreState()
+
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const prevFilters = useRef({ searchQuery: '', sortBy: 'cost' })
+  const isInitialized = useRef(false)
+
+  // Initialize search/sort from URL params on first load only
+  useEffect(() => {
+    if (!isInitialized.current) {
+      const urlSearchQuery = (searchParams.search as string) || ''
+      const urlSortBy = (searchParams.sort as string) || 'cost'
+
+      setSearchQuery(urlSearchQuery)
+      setSortBy(urlSortBy)
+      prevFilters.current = { searchQuery: urlSearchQuery, sortBy: urlSortBy }
+      isInitialized.current = true
+    }
+  }, [searchParams.search, searchParams.sort, setSearchQuery, setSortBy])
+
+  // Use ref to track loading state for IntersectionObserver
+  const loadingStateRef = useRef({ isLoadingMore, hasMore })
+  useEffect(() => {
+    loadingStateRef.current = { isLoadingMore, hasMore }
+  }, [isLoadingMore, hasMore])
+
+  // Use the initial agents directly
   const agents = useMemo(() => {
-    return initialAgents.map((agent) => ({
-      ...agent,
-      // Precompute expensive operations
-      createdAtMs: new Date(agent.created_at).getTime(),
-      nameLower: agent.name.toLowerCase(),
-      descriptionLower: agent.description?.toLowerCase() || '',
-      tagsLower: agent.tags?.map((tag) => tag.toLowerCase()) || [],
-    }))
+    return initialAgents
   }, [initialAgents])
 
   const editorsChoice = useMemo(() => {
@@ -123,7 +182,7 @@ export default function AgentStoreClient({
       const matchesSearch =
         agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        agent.tags?.some((tag) =>
+        agent.tags?.some((tag: string) =>
           tag.toLowerCase().includes(searchQuery.toLowerCase())
         )
       return matchesSearch
@@ -154,99 +213,100 @@ export default function AgentStoreClient({
       const matchesSearch =
         agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        agent.tags?.some((tag) =>
+        agent.tags?.some((tag: string) =>
           tag.toLowerCase().includes(searchQuery.toLowerCase())
         )
       return matchesSearch
     })
   }, [editorsChoice, searchQuery])
 
-  // Get agents for a specific row without pre-building all rows
-  const getAgentsForRow = useCallback(
-    (rowIndex: number) => {
-      const startIndex = rowIndex * columns
-      return filteredAndSortedAgents.slice(startIndex, startIndex + columns)
-    },
-    [filteredAndSortedAgents, columns]
-  )
+  const ITEMS_PER_PAGE = 12
 
-  // Calculate total rows needed
-  const totalRows = Math.ceil(filteredAndSortedAgents.length / columns)
+  // Derive displayed agents from count.
+  const displayedAgents = useMemo(() => {
+    return filteredAndSortedAgents.slice(0, displayedCount)
+  }, [filteredAndSortedAgents, displayedCount])
 
-  // Only create virtualizer when we have data and the component is mounted
-  const [isMounted, setIsMounted] = useState(false)
-  const measurementCache = useRef<Map<number, number>>(new Map())
-
+  // Initialize or reset displayed count when filters change or on initial load
   useEffect(() => {
-    setIsMounted(true)
-  }, [])
+    const filtersHaveChanged =
+      prevFilters.current.searchQuery !== searchQuery ||
+      prevFilters.current.sortBy !== sortBy
 
-  // Dynamic overscan based on device/viewport
-  const getOverscan = () => {
-    if (typeof window === 'undefined') return 6
-    const isMobile = window.innerWidth < 768
-    const isTouchDevice = 'ontouchstart' in window
-    return isMobile || isTouchDevice ? 15 : 8
-  }
-
-  // Dynamic height estimation based on columns
-  const getEstimatedSize = () => {
-    // Base card height + gap between rows
-    const baseCardHeight = 240 // More conservative estimate
-    const rowGap = 24 // gap-6 = 24px
-    return baseCardHeight + rowGap
-  }
-
-  // Virtualizer for All Agents section only
-  const allAgentsVirtualizer = useWindowVirtualizer({
-    count: isMounted ? totalRows : 0,
-    estimateSize: getEstimatedSize,
-    overscan: getOverscan(),
-    measureElement: (element) => {
-      // Cache measurements for better performance
-      const height =
-        element?.getBoundingClientRect().height ?? getEstimatedSize()
-      return height
-    },
-  })
-
-  // Remeasure when columns change or data changes significantly
-  useEffect(() => {
-    if (allAgentsVirtualizer && isMounted) {
-      // Clear cache and remeasure when layout changes
-      measurementCache.current.clear()
-      allAgentsVirtualizer.measure()
-    }
-  }, [columns, filteredAndSortedAgents.length, allAgentsVirtualizer, isMounted])
-
-  // Handle viewport/orientation changes
-  useEffect(() => {
-    if (!isMounted || !allAgentsVirtualizer) return
-
-    const handleResize = () => {
-      // Debounce resize events
-      measurementCache.current.clear()
-      allAgentsVirtualizer.measure()
+    // Only reset if filters have changed or if this is the very first load
+    if (filtersHaveChanged || displayedCount === 0) {
+      const initialCount = Math.min(
+        ITEMS_PER_PAGE,
+        filteredAndSortedAgents.length
+      )
+      setDisplayedCount(initialCount)
+      prevFilters.current = { searchQuery, sortBy } // Update the ref
     }
 
-    let resizeTimeout: NodeJS.Timeout
-    const debouncedResize = () => {
-      clearTimeout(resizeTimeout)
-      resizeTimeout = setTimeout(handleResize, 150)
-    }
+    // Always update hasMore based on the current count vs total available
+    setHasMore(displayedCount < filteredAndSortedAgents.length)
+  }, [
+    searchQuery,
+    sortBy,
+    filteredAndSortedAgents.length,
+    displayedCount,
+    setDisplayedCount,
+    setHasMore,
+  ]) // Load more items function - much simpler with count approach
+  const loadMoreItems = useCallback(() => {
+    if (isLoadingMore || !hasMore) return
 
-    window.addEventListener('resize', debouncedResize)
-    window.addEventListener('orientationchange', debouncedResize)
+    setIsLoadingMore(true)
+
+    // Simulate a small delay to show loading state
+    setTimeout(() => {
+      const newCount = Math.min(
+        displayedCount + ITEMS_PER_PAGE,
+        filteredAndSortedAgents.length
+      )
+
+      setDisplayedCount(newCount)
+      setHasMore(newCount < filteredAndSortedAgents.length)
+      setIsLoadingMore(false)
+    }, 150) // Reduced delay for better UX
+  }, [
+    displayedCount,
+    filteredAndSortedAgents.length,
+    isLoadingMore,
+    hasMore,
+    setDisplayedCount,
+    setHasMore,
+    setIsLoadingMore,
+  ])
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    if (!loadMoreRef.current) return
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0]
+        if (
+          target.isIntersecting &&
+          loadingStateRef.current.hasMore &&
+          !loadingStateRef.current.isLoadingMore
+        ) {
+          loadMoreItems()
+        }
+      },
+      {
+        rootMargin: '400px', // Start loading a full screen's worth before the element is visible
+      }
+    )
+
+    observerRef.current.observe(loadMoreRef.current)
 
     return () => {
-      window.removeEventListener('resize', debouncedResize)
-      window.removeEventListener('orientationchange', debouncedResize)
-      clearTimeout(resizeTimeout)
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
     }
-  }, [allAgentsVirtualizer, isMounted])
-
-  // Determine if we should use virtualization for All Agents section
-  const shouldVirtualizeAllAgents = isMounted && totalRows > 6
+  }, [loadMoreItems])
 
   // Fetch user's publishers if signed in
   const { data: publishers } = useQuery<PublisherProfileResponse[]>({
@@ -288,19 +348,6 @@ export default function AgentStoreClient({
         </Link>
       )
     }
-  }
-
-  const formatCurrency = (amount?: number) => {
-    if (!amount) return '$0.00'
-    if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}k`
-    return `$${amount.toFixed(2)}`
-  }
-
-  const formatUsageCount = (count?: number) => {
-    if (!count) return '0'
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`
-    return count.toString()
   }
 
   const AgentCard = memo(
@@ -349,13 +396,21 @@ export default function AgentStoreClient({
                 <div className="flex items-center gap-1">
                   <div onClick={(e) => e.preventDefault()}>
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
-                        )
-                        toast({
-                          description: `Agent run command copied to clipboard!`,
-                        })
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(
+                            `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
+                          )
+                          toast({
+                            description: `Agent run command copied to clipboard!`,
+                          })
+                        } catch (error) {
+                          toast({
+                            description:
+                              'Failed to copy to clipboard. Please try again.',
+                            variant: 'destructive',
+                          })
+                        }
                       }}
                       className="hidden md:flex p-2 hover:bg-muted/50 rounded-lg transition-opacity duration-150 opacity-60 group-hover:opacity-100"
                       title={`Copy: codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`}
@@ -403,7 +458,7 @@ export default function AgentStoreClient({
                     className="text-xs text-muted-foreground/60"
                     title={new Date(agent.last_used).toLocaleString()}
                   >
-                    Used {formatRelativeTime(agent.last_used)}
+                    Used <RelativeTime date={agent.last_used} />
                   </span>
                 )}
               </div>
@@ -544,74 +599,46 @@ export default function AgentStoreClient({
               </p>
             </div>
 
-            {shouldVirtualizeAllAgents ? (
-              // Virtualized All Agents
+            {/* Infinite Scroll Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayedAgents.map((agent) => (
+                <div
+                  key={agent.id}
+                  className="hover:-translate-y-1 transition-transform duration-150 ease-out"
+                >
+                  <AgentCard
+                    agent={agent}
+                    isEditorsChoice={EDITORS_CHOICE_AGENTS.includes(agent.id)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Loading More Indicator */}
+            {hasMore && (
               <div
-                style={{
-                  height: `${allAgentsVirtualizer.getTotalSize()}px`,
-                  width: '100%',
-                  position: 'relative',
-                }}
+                ref={loadMoreRef}
+                className="flex justify-center items-center py-8 mt-6"
               >
-                {allAgentsVirtualizer.getVirtualItems().map((virtualItem) => {
-                  const agents = getAgentsForRow(virtualItem.index)
-                  return (
-                    <div
-                      key={virtualItem.key}
-                      ref={(node) => allAgentsVirtualizer.measureElement(node)}
-                      data-index={virtualItem.index}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        transform: `translateY(${virtualItem.start}px)`,
-                        // Include padding/margin in measured element
-                        paddingBottom: '24px',
-                      }}
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {agents?.map((agent) => (
-                          // No motion for virtualized items - use CSS transitions instead
-                          <div
-                            key={agent.id}
-                            className="hover:-translate-y-1 transition-transform duration-150 ease-out"
-                          >
-                            <AgentCard
-                              agent={agent}
-                              isEditorsChoice={EDITORS_CHOICE_AGENTS.includes(
-                                agent.id
-                              )}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              // Non-virtualized All Agents
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredAndSortedAgents.map((agent) => (
-                  <div
-                    key={agent.id}
-                    className="hover:-translate-y-1 transition-transform duration-150 ease-out"
-                  >
-                    <AgentCard
-                      agent={agent}
-                      isEditorsChoice={EDITORS_CHOICE_AGENTS.includes(agent.id)}
-                    />
+                {isLoadingMore ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <span>Loading more agents...</span>
                   </div>
-                ))}
+                ) : (
+                  <div className="text-muted-foreground text-sm">
+                    Scroll down to load more
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
         {/* No Results State */}
-        {filteredAndSortedAgents.length === 0 &&
-          filteredEditorsChoice.length === 0 && (
+        {displayedAgents.length === 0 &&
+          filteredEditorsChoice.length === 0 &&
+          filteredAndSortedAgents.length === 0 && (
             <div className="text-center py-12">
               <div className="text-muted-foreground">
                 <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
