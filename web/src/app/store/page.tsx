@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, memo, useEffect } from 'react'
+import { useState, useMemo, useCallback, memo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
@@ -183,17 +183,75 @@ const AgentStorePage = () => {
 
   // Only create virtualizer when we have data and the component is mounted
   const [isMounted, setIsMounted] = useState(false)
+  const measurementCache = useRef<Map<number, number>>(new Map())
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
+  // Dynamic overscan based on device/viewport
+  const getOverscan = () => {
+    if (typeof window === 'undefined') return 6
+    const isMobile = window.innerWidth < 768
+    const isTouchDevice = 'ontouchstart' in window
+    return isMobile || isTouchDevice ? 15 : 8
+  }
+
+  // Dynamic height estimation based on columns
+  const getEstimatedSize = () => {
+    // Base card height + gap between rows
+    const baseCardHeight = 240 // More conservative estimate
+    const rowGap = 24 // gap-6 = 24px
+    return baseCardHeight + rowGap
+  }
+
   // Virtualizer for All Agents section only
   const allAgentsVirtualizer = useWindowVirtualizer({
     count: isMounted ? totalRows : 0,
-    estimateSize: () => 270, // Height for agent rows (card + gap)
-    overscan: 6,
+    estimateSize: getEstimatedSize,
+    overscan: getOverscan(),
+    measureElement: (element) => {
+      // Cache measurements for better performance
+      const height =
+        element?.getBoundingClientRect().height ?? getEstimatedSize()
+      return height
+    },
   })
+
+  // Remeasure when columns change or data changes significantly
+  useEffect(() => {
+    if (allAgentsVirtualizer && isMounted) {
+      // Clear cache and remeasure when layout changes
+      measurementCache.current.clear()
+      allAgentsVirtualizer.measure()
+    }
+  }, [columns, filteredAndSortedAgents.length, allAgentsVirtualizer, isMounted])
+
+  // Handle viewport/orientation changes
+  useEffect(() => {
+    if (!isMounted || !allAgentsVirtualizer) return
+
+    const handleResize = () => {
+      // Debounce resize events
+      measurementCache.current.clear()
+      allAgentsVirtualizer.measure()
+    }
+
+    let resizeTimeout: NodeJS.Timeout
+    const debouncedResize = () => {
+      clearTimeout(resizeTimeout)
+      resizeTimeout = setTimeout(handleResize, 150)
+    }
+
+    window.addEventListener('resize', debouncedResize)
+    window.addEventListener('orientationchange', debouncedResize)
+
+    return () => {
+      window.removeEventListener('resize', debouncedResize)
+      window.removeEventListener('orientationchange', debouncedResize)
+      clearTimeout(resizeTimeout)
+    }
+  }, [allAgentsVirtualizer, isMounted])
 
   // Determine if we should use virtualization for All Agents section
   const shouldVirtualizeAllAgents = isMounted && totalRows > 6
@@ -257,7 +315,9 @@ const AgentStorePage = () => {
             className={cn(
               'relative h-full transition-all duration-200 cursor-pointer border bg-card/50',
               'hover:border-accent/50 hover:bg-card/80',
-              isEditorsChoice && 'ring-2 ring-amber-400/50 border-amber-400/30'
+              isEditorsChoice && 'ring-2 ring-amber-400/50 border-amber-400/30',
+              // Ensure consistent minimum height to reduce layout shifts
+              'min-h-[220px]'
             )}
             style={{
               // Use CSS transforms for hover effects instead of Framer Motion
@@ -286,12 +346,6 @@ const AgentStorePage = () => {
                     <h3 className="text-xl font-bold font-mono text-foreground truncate group-hover:text-primary transition-colors">
                       {agent.id}
                     </h3>
-                    <Badge
-                      variant="outline"
-                      className="text-xs font-mono px-2 py-1 border-border/50 bg-muted/30 shrink-0"
-                    >
-                      v{agent.version}
-                    </Badge>
                   </div>
                   <div className="flex items-center gap-1">
                     <div onClick={(e) => e.preventDefault()}>
@@ -304,7 +358,7 @@ const AgentStorePage = () => {
                             description: `Agent run command copied to clipboard!`,
                           })
                         }}
-                        className="p-2 hover:bg-muted/50 rounded-lg transition-all duration-200 opacity-60 group-hover:opacity-100 hover:scale-110 active:scale-95"
+                        className="hidden md:flex p-2 hover:bg-muted/50 rounded-lg transition-all duration-200 opacity-60 group-hover:opacity-100 hover:scale-110 active:scale-95"
                         title={`Copy: codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`}
                       >
                         <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -398,31 +452,6 @@ const AgentStorePage = () => {
                   <p className="text-xs text-muted-foreground">Users</p>
                 </div>
               </div>
-
-              {/* Tags - Improved design and spacing */}
-              {agent.tags && agent.tags.length > 0 && (
-                <div className="pt-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {agent.tags.slice(0, 4).map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className="text-xs px-2.5 py-1 bg-muted/40 hover:bg-muted/60 transition-colors border-0 rounded-full"
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
-                    {agent.tags.length > 4 && (
-                      <Badge
-                        variant="secondary"
-                        className="text-xs px-2.5 py-1 bg-muted/40 border-0 rounded-full opacity-60"
-                      >
-                        +{agent.tags.length - 4}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </Link>
@@ -556,16 +585,21 @@ const AgentStorePage = () => {
                         return (
                           <div
                             key={virtualItem.key}
+                            ref={(node) =>
+                              allAgentsVirtualizer.measureElement(node)
+                            }
+                            data-index={virtualItem.index}
                             style={{
                               position: 'absolute',
                               top: 0,
                               left: 0,
                               width: '100%',
-                              height: `${virtualItem.size}px`,
                               transform: `translateY(${virtualItem.start}px)`,
+                              // Include padding/margin in measured element
+                              paddingBottom: '24px',
                             }}
                           >
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                               {agents?.map((agent) => (
                                 // No motion for virtualized items - use CSS transitions instead
                                 <div
