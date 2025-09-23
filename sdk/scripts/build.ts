@@ -2,7 +2,7 @@
 // Creates ESM + CJS bundles with TypeScript declarations
 
 import { execSync } from 'child_process'
-import { mkdir, cp } from 'fs/promises'
+import { mkdir, cp, readFile, writeFile } from 'fs/promises'
 
 async function build() {
   console.log('🧹 Cleaning dist directory...')
@@ -70,12 +70,18 @@ async function build() {
     },
   })
 
-  console.log('📝 Generating TypeScript declarations...')
+  console.log('📝 Generating and bundling TypeScript declarations...')
   try {
-    execSync('tsc -p tsconfig.build.json', { stdio: 'inherit' })
-    await createSimpleIndexTypes()
+    execSync(
+      'bunx dts-bundle-generator -o dist/index.d.ts --no-check --export-referenced-types=false src/index.ts',
+      { stdio: 'inherit' },
+    )
+
+    // Fix duplicate imports in the generated file
+    await fixDuplicateImports()
+    console.log('  ✓ Created bundled type definitions')
   } catch (error) {
-    console.warn('⚠ TypeScript declaration generation failed, continuing...')
+    console.warn('⚠ TypeScript declaration bundling failed:', error.message)
   }
 
   console.log('📂 Copying WASM files for tree-sitter...')
@@ -91,15 +97,32 @@ async function build() {
 }
 
 /**
- * Create a simple index.d.ts that re-exports from the generated types
+ * Fix duplicate imports in the generated index.d.ts file
  */
-async function createSimpleIndexTypes() {
+async function fixDuplicateImports() {
   try {
-    const indexDeclaration = 'export * from "./sdk/src/index";\n'
-    await Bun.write('dist/index.d.ts', indexDeclaration)
-    console.log('  ✓ Created simple re-export types')
+    let content = await readFile('dist/index.d.ts', 'utf-8')
+
+    // Remove any duplicate zod default imports (handle various whitespace)
+    const zodDefaultImportRegex = /import\s+z\s+from\s+['"]zod\/v4['"];?\n?/g
+    const zodNamedImportRegex =
+      /import\s+\{\s*z\s*\}\s+from\s+['"]zod\/v4['"];?/
+
+    // If we have both imports, remove all default imports and keep only the named one
+    if (
+      content.match(zodNamedImportRegex) &&
+      content.match(zodDefaultImportRegex)
+    ) {
+      content = content.replace(zodDefaultImportRegex, '')
+    }
+
+    await writeFile('dist/index.d.ts', content)
+    console.log('  ✓ Fixed duplicate imports in bundled types')
   } catch (error) {
-    console.warn('  ⚠ Warning: Could not create index types:', error.message)
+    console.warn(
+      '  ⚠ Warning: Could not fix duplicate imports:',
+      error.message,
+    )
   }
 }
 

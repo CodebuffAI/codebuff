@@ -40,7 +40,7 @@ Take as many steps as you need to gather information first:
 
 You should likely spawn the researcher-file-explorer agent to get a comprehensive understanding of the codebase. You should also spawn the researcher-web and researcher-docs agents to get up-to-date information from the web and docs, if relevant.
 
-Finally, write up a research report that answers the user question to the best of your ability from the information gathered from the agents. Include all the relevant information. Mention which files are relevant to the user question. Be clear and concise.`,
+Finally, write up a research report that answers the user question to the best of your ability from the information gathered from the agents. Don't add any opinions or recommendations, just all the plain facts that are relevant. Mention which files are relevant to the user question. Be clear and concise.`,
 }
 
 export default definition
