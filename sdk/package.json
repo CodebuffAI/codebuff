@@ -1,7 +1,7 @@
 {
   "name": "@codebuff/sdk",
   "private": false,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Official SDK for Codebuff — AI coding agent & framework",
   "license": "Apache-2.0",
   "type": "module",
@@ -63,7 +63,7 @@
     "ai": "^5.0.0",
     "diff": "8.0.2",
     "web-tree-sitter": "0.25.6",
-    "ws": "8.18.0",
+    "ws": "^8.18.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
