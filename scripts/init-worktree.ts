@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { spawn } from 'child_process'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, copyFileSync } from 'fs'
 import { join, resolve } from 'path'
 import { createInterface } from 'readline'
 
@@ -218,6 +218,20 @@ NEXT_PUBLIC_WEB_PORT=${args.webPort}
   console.log('Created .env.worktree with port configurations')
 }
 
+function copyInfisicalConfig(worktreePath: string): void {
+  const sourceInfisicalPath = '.infisical.json'
+  const targetInfisicalPath = join(worktreePath, '.infisical.json')
+
+  if (existsSync(sourceInfisicalPath)) {
+    copyFileSync(sourceInfisicalPath, targetInfisicalPath)
+    console.log('Copied .infisical.json to worktree')
+  } else {
+    console.warn(
+      'Warning: .infisical.json not found in project root, make sure to run `infisical init` in your new worktree!',
+    )
+  }
+}
+
 // Wrapper script no longer needed - .bin/bun handles .env.worktree loading
 // function createWrapperScript(worktreePath: string): void {
 //   // This function is deprecated - the .bin/bun wrapper now handles .env.worktree loading
@@ -294,6 +308,7 @@ async function main(): Promise<void> {
 
     // Create configuration files
     createEnvWorktreeFile(worktreePath, args)
+    copyInfisicalConfig(worktreePath)
     // Note: .bin/bun wrapper now automatically loads .env.worktree
 
     // Run direnv allow
