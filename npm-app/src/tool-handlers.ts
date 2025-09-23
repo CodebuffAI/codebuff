@@ -67,16 +67,26 @@ export const handleUpdateFile = async <
     console.log(green(`- Created ${file} ${counts}`))
   }
   for (const file of modified) {
-    // Calculate added/deleted lines from the diff content
+    // Calculate added/deleted lines from the diff content, excluding metadata
     let addedLines = 0
     let deletedLines = 0
-    lines.forEach((line) => {
+
+    for (const line of lines) {
+      // Skip all diff metadata lines (headers, hunk headers, etc.)
+      if (
+        line.startsWith('---') ||
+        line.startsWith('+++') ||
+        line.startsWith('@@')
+      ) {
+        continue
+      }
+      // Count actual added/removed code lines
       if (line.startsWith('+')) {
         addedLines++
       } else if (line.startsWith('-')) {
         deletedLines++
       }
-    })
+    }
 
     const counts = `(${green(`+${addedLines}`)}, ${red(`-${deletedLines}`)})`
     result.push([
