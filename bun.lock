@@ -236,7 +236,7 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.2.3",
+      "version": "0.2.4",
       "dependencies": {
         "@vscode/tree-sitter-wasm": "0.1.4",
         "ai": "^5.0.0",
