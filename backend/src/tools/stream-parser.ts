@@ -178,7 +178,7 @@ export async function processStreamWithTools(options: {
   let reasoning = false
   let messageId: string | null = null
   while (true) {
-    const { value: chunk, done } = await stream.next()
+    const { value: chunk, done } = await streamWithTags.next()
     if (done) {
       messageId = chunk
       break
@@ -216,6 +216,15 @@ export async function processStreamWithTools(options: {
 
   resolveStreamDonePromise()
   await previousToolCallFinished
+
+  console.log({
+    toolCalls,
+    toolResults,
+    state,
+    fullResponse: fullResponseChunks.join(''),
+    fullResponseChunks,
+    messageId,
+  })
 
   return {
     toolCalls,
