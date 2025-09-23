@@ -16,16 +16,6 @@
     },
     "./package.json": "./package.json"
   },
-  "typesVersions": {
-    "*": {
-      "*": [
-        "dist/*"
-      ],
-      "": [
-        "dist/index.d.ts"
-      ]
-    }
-  },
   "sideEffects": false,
   "files": [
     "dist",
