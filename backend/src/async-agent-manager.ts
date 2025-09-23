@@ -272,10 +272,10 @@ export class AsyncAgentManager {
       this.removeAgent(agentId)
     }
 
-    logger.debug(
-      { sessionId, agentCount: agentIds.size },
-      'Cleaned up session agents',
-    )
+    // logger.debug(
+    //   { sessionId, agentCount: agentIds.size },
+    //   'Cleaned up session agents',
+    // )
   }
 
   /**
