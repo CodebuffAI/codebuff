@@ -79,6 +79,7 @@ Note that files can only be changed with tools. If no tools are called, no files
 
 Analyze the conversation and decide your next action.`
 
+  let lastErrorMessage = ''
   const result = await client.run({
     agent: 'eval-prompting-agent',
     prompt,
@@ -86,8 +87,19 @@ Analyze the conversation and decide your next action.`
     maxAgentSteps: 5,
     handleEvent: (event) => {
       console.log('event:', event)
+      if (event.type === 'error') {
+        lastErrorMessage = event.message
+      }
     },
   })
+
+  if (!result) {
+    return {
+      decision: 'halt',
+      reasoning: `No valid response from prompting agent. Error:\n${lastErrorMessage}`,
+      next_prompt: '',
+    }
+  }
 
   const output = result.sessionState.mainAgentState.output
   if (output) {

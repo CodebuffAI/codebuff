@@ -1,7 +1,7 @@
 import path from 'path'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
 
@@ -41,9 +41,6 @@ export class CodebuffRunner implements Runner {
     const client = new CodebuffClient({
       apiKey,
       cwd: this.runState.sessionState.fileContext.cwd,
-      onError: (error) => {
-        throw new Error(error.message)
-      },
     })
 
     const agentsPath = path.join(__dirname, '../../../.agents')
@@ -57,13 +54,15 @@ export class CodebuffRunner implements Runner {
       localAgentDefinitions.map((a) => a.id),
     )
 
-    this.runState = await client.run({
+    let lastErrorMessage = ''
+    const run = await client.run({
       agent: this.agent,
       previousRun: this.runState,
       prompt,
       handleEvent: (event) => {
         if (event.type === 'error') {
           console.log('\n\n' + JSON.stringify(event, null, 2))
+          lastErrorMessage = event.message
         }
         if (event.type === 'text') {
           if (toolResults.length > 0) {
@@ -98,7 +97,11 @@ export class CodebuffRunner implements Runner {
     })
     flushStep()
 
-    client.closeConnection()
+    if (!run) {
+      throw new Error(`Failed to run Codebuff:\n${lastErrorMessage}`)
+    }
+
+    this.runState = run
 
     return {
       steps,
