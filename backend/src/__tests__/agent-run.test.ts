@@ -337,7 +337,7 @@ describe('Agent Run Database Functions', () => {
         status: 'completed', // Default status
         credits: undefined,
         child_run_ids: undefined,
-        message_id: undefined,
+        message_id: null,
         error_message: undefined,
         created_at: startTime,
         completed_at: expect.any(Date),
