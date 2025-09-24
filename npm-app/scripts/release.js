@@ -28,28 +28,18 @@ function formatTimestamp() {
   return now.toLocaleDateString('en-US', options)
 }
 
-function generateGitHubToken() {
-  try {
-    // Run the generate-github-token script and capture its output
-    const output = execSync('bun run scripts/generate-github-token.ts', {
-      encoding: 'utf8',
-      stdio: 'pipe', // Capture output instead of inheriting
-    })
-
-    // Extract the token from the export command in the output
-    const exportMatch = output.match(/export GITHUB_TOKEN="([^"]+)"/)
-    if (exportMatch && exportMatch[1]) {
-      const token = exportMatch[1]
-      process.env.GITHUB_TOKEN = token
-      return token
-    } else {
-      error(
-        'Failed to extract GitHub token from generate-github-token script output',
-      )
-    }
-  } catch (err) {
-    error(`Failed to generate GitHub token: ${err.message}`)
+function checkGitHubToken() {
+  const token = process.env.CODEBUFF_GITHUB_TOKEN
+  if (!token) {
+    error(
+      'CODEBUFF_GITHUB_TOKEN environment variable is required but not set.\n' +
+      'Please set it with your GitHub personal access token or use the infisical setup.'
+    )
   }
+  
+  // Set GITHUB_TOKEN for compatibility with existing curl commands
+  process.env.GITHUB_TOKEN = token
+  return token
 }
 
 async function triggerWorkflow(versionType) {
@@ -93,8 +83,9 @@ async function main() {
   log('🚀 Initiating release...')
   log(`Date: ${formatTimestamp()}`)
 
-  // Generate GitHub token first
-  generateGitHubToken()
+  // Check for local GitHub token
+  checkGitHubToken()
+  log('✅ Using local CODEBUFF_GITHUB_TOKEN')
 
   log(`Version bump type: ${versionType}`)
 
