@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
-import { unstable_cache } from 'next/cache'
+import { Suspense } from 'react'
 import AgentStoreClient from './store-client'
+import { getAgentsData } from './agents-data'
 
 // Types
 interface AgentData {
@@ -42,35 +43,6 @@ interface PublisherProfileResponse {
   avatar_url?: string | null
 }
 
-// Cache the agents data with 60 second revalidation
-const getCachedAgentsData = unstable_cache(
-  async (): Promise<AgentData[]> => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
-    const response = await fetch(`${baseUrl}/api/agents`, {
-      headers: {
-        'User-Agent': 'Codebuff-Store-Static',
-      },
-    })
-
-    if (!response.ok) {
-      console.error(
-        'Failed to fetch agents:',
-        response.status,
-        response.statusText
-      )
-      return []
-    }
-
-    return await response.json()
-  },
-  ['store-agents-data'],
-  {
-    revalidate: 60, // Revalidate every 60 seconds
-    tags: ['agents', 'store'],
-  }
-)
-
 export const metadata: Metadata = {
   title: 'Agent Store | Codebuff',
   description: 'Browse all published AI agents. Run, compose, or fork them.',
@@ -81,18 +53,22 @@ export const metadata: Metadata = {
   },
 }
 
-// Enable static site generation with ISR
-export const revalidate = 60 * 10 // Revalidate every 10 minutes
+// ISR Configuration - revalidate every 10 minutes
+export const revalidate = 600
 export const dynamic = 'force-static'
-export const fetchCache = 'force-cache'
 
 interface StorePageProps {
   searchParams: { [key: string]: string | string[] | undefined }
 }
 
-export default async function StorePage({ searchParams }: StorePageProps) {
-  // Fetch agents data at build time
-  const agentsData = await getCachedAgentsData()
+// Server Component for fetching and rendering agents data
+async function AgentsDataProvider({
+  searchParams,
+}: {
+  searchParams: StorePageProps['searchParams']
+}) {
+  // Fetch agents data with ISR
+  const agentsData = await getAgentsData()
 
   // For static generation, we don't pass session data
   // The client will handle authentication state
@@ -105,5 +81,38 @@ export default async function StorePage({ searchParams }: StorePageProps) {
       session={null} // Client will handle session
       searchParams={searchParams}
     />
+  )
+}
+
+// Loading component for better UX
+function AgentsLoading() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold text-white mb-2">Agent Store</h1>
+          <p className="text-xl text-muted-foreground">
+            Browse all published AI agents. Run, compose, or fork them.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-[220px] bg-card/50 border rounded-lg animate-pulse"
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default async function StorePage({ searchParams }: StorePageProps) {
+  return (
+    <Suspense fallback={<AgentsLoading />}>
+      <AgentsDataProvider searchParams={searchParams} />
+    </Suspense>
   )
 }
