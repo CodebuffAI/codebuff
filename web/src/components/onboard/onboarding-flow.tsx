@@ -319,7 +319,7 @@ export function OnboardingFlow({
       {referralCode && (
         <div className="bg-terminal-yellow/20 border border-terminal-yellow/30 rounded-lg p-4">
           <p className="text-yellow-900 dark:text-terminal-yellow font-semibold">
-            🎁 You have a referral code for bonus credits!
+            🎁 You're almost there! Follow the next steps to redeem your referral code for bonus credits.
           </p>
         </div>
       )}
