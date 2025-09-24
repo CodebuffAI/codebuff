@@ -1,5 +1,4 @@
 import { Metadata } from 'next'
-import { Suspense } from 'react'
 import AgentStoreClient from './store-client'
 import { getAgentsData } from './agents-data'
 
@@ -28,12 +27,7 @@ interface StorePageProps {
   searchParams: { [key: string]: string | string[] | undefined }
 }
 
-// Server Component for fetching and rendering agents data
-async function AgentsDataProvider({
-  searchParams,
-}: {
-  searchParams: StorePageProps['searchParams']
-}) {
+export default async function StorePage({ searchParams }: StorePageProps) {
   // Fetch agents data with ISR
   const agentsData = await getAgentsData()
 
@@ -48,38 +42,5 @@ async function AgentsDataProvider({
       session={null} // Client will handle session
       searchParams={searchParams}
     />
-  )
-}
-
-// Loading component for better UX
-function AgentsLoading() {
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-white mb-2">Agent Store</h1>
-          <p className="text-xl text-muted-foreground">
-            Browse all published AI agents. Run, compose, or fork them.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-[220px] bg-card/50 border rounded-lg animate-pulse"
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default async function StorePage({ searchParams }: StorePageProps) {
-  return (
-    <Suspense fallback={<AgentsLoading />}>
-      <AgentsDataProvider searchParams={searchParams} />
-    </Suspense>
   )
 }
