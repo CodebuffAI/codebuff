@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { UserDropdown } from './user-dropdown'
 import { Icons } from '../icons'
 import { Button } from '../ui/button'
+import { Skeleton } from '../ui/skeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,9 +27,6 @@ import {
 
 export const Navbar = () => {
   const { data: session, status } = useSession()
-
-  // Don't render auth-dependent content during loading to prevent hydration mismatch
-  const isSessionReady = status !== 'loading'
 
   return (
     <header className="container mx-auto p-4 flex justify-between items-center relative z-10">
@@ -76,7 +74,7 @@ export const Navbar = () => {
         </Link>
 
         {/* Only show Usage link when session is ready and user is authenticated */}
-        {isSessionReady && session && (
+        {status !== 'loading' && session && (
           <Link
             href="/usage"
             className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
@@ -125,7 +123,7 @@ export const Navbar = () => {
             </DropdownMenuItem>
 
             {/* Only show Usage and Login links when session is ready */}
-            {isSessionReady && session && (
+            {status !== 'loading' && session && (
               <DropdownMenuItem asChild>
                 <Link href="/usage" className="flex items-center">
                   <BarChart2 className="mr-2 h-4 w-4" />
@@ -133,7 +131,7 @@ export const Navbar = () => {
                 </Link>
               </DropdownMenuItem>
             )}
-            {isSessionReady && !session && (
+            {status !== 'loading' && !session && (
               <DropdownMenuItem asChild>
                 <Link href="/login" className="flex items-center">
                   <LogIn className="mr-2 h-4 w-4" />
@@ -144,29 +142,29 @@ export const Navbar = () => {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Authentication section - only render when session is ready */}
-        {isSessionReady &&
-          (session ? (
-            <UserDropdown session={session} />
-          ) : (
-            <Link
-              href="/login"
-              className="hidden md:inline-block relative group"
+        {/* Authentication section with loading state */}
+        {status === 'loading' ? (
+          <div className="hidden md:flex items-center">
+            <Skeleton className="h-9 w-16 rounded-md" />
+          </div>
+        ) : session ? (
+          <UserDropdown session={session} />
+        ) : (
+          <Link href="/login" className="hidden md:inline-block relative group">
+            <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-0.5 -translate-y-0.5" />
+            <Button
+              className={cn(
+                'relative',
+                'bg-white text-black hover:bg-white',
+                'border border-white/50',
+                'transition-all duration-300',
+                'group-hover:-translate-x-0.5 group-hover:translate-y-0.5'
+              )}
             >
-              <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-0.5 -translate-y-0.5" />
-              <Button
-                className={cn(
-                  'relative',
-                  'bg-white text-black hover:bg-white',
-                  'border border-white/50',
-                  'transition-all duration-300',
-                  'group-hover:-translate-x-0.5 group-hover:translate-y-0.5'
-                )}
-              >
-                Log in
-              </Button>
-            </Link>
-          ))}
+              Log in
+            </Button>
+          </Link>
+        )}
         {/* <ThemeSwitcher /> */}
       </div>
     </header>
