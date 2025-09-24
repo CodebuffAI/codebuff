@@ -52,6 +52,7 @@ async function codebuff({
   cwd,
   trace,
 }: CliOptions) {
+  console.log('🚀 Starting Codebuff!')
   enableSquashNewlines()
   const workingDir = getWorkingDirectory()
   const projectRoot = getProjectRoot()
