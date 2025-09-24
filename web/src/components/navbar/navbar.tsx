@@ -1,17 +1,8 @@
-import {
-  Menu,
-  DollarSign,
-  LogIn,
-  BarChart2,
-  BookHeart,
-  User,
-  Bot,
-} from 'lucide-react'
+import { Menu, DollarSign, BookHeart, Bot } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { getServerSession } from 'next-auth'
+import dynamic from 'next/dynamic'
 
-import { UserDropdown } from './user-dropdown'
 import { Button } from '../ui/button'
 import {
   DropdownMenu,
@@ -21,12 +12,47 @@ import {
 } from '../ui/dropdown-menu'
 import { Icons } from '../icons'
 
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { cn } from '@/lib/utils'
+// TODO: This dynamic pattern might not be the best way to handle the navbar. Reconsider from first principles.
 
-export const Navbar = async () => {
-  const session = await getServerSession(authOptions)
+// Dynamically import client auth components to prevent SSR and enable SSG
+const ClientAuthNav = dynamic(
+  () =>
+    import('./client-auth-nav').then((mod) => ({ default: mod.ClientAuthNav })),
+  {
+    ssr: false,
+    loading: () => <div className="w-[50px] h-[40px]" />, // Placeholder to prevent layout shift
+  }
+)
 
+const ClientUsageLink = dynamic(
+  () =>
+    import('./client-auth-nav').then((mod) => ({
+      default: mod.ClientUsageLink,
+    })),
+  {
+    ssr: false,
+  }
+)
+
+const ClientMobileUsageLink = dynamic(
+  () =>
+    import('./client-auth-nav').then((mod) => ({
+      default: mod.ClientMobileUsageLink,
+    })),
+  {
+    ssr: false,
+  }
+)
+
+const ClientMobileAuthNav = dynamic(
+  () =>
+    import('./client-auth-nav').then((mod) => ({ default: mod.ClientAuthNav })),
+  {
+    ssr: false,
+  }
+)
+
+export const Navbar = () => {
   return (
     <header className="container mx-auto p-4 flex justify-between items-center relative z-10">
       <Link
@@ -71,15 +97,9 @@ export const Navbar = async () => {
           <Bot className="h-4 w-4" />
           Agent Store
         </Link>
-
-        {session && (
-          <Link
-            href="/usage"
-            className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          >
-            Usage
-          </Link>
-        )}
+        <div className="min-w-[50px] flex items-center">
+          <ClientUsageLink />
+        </div>
       </nav>
       <div className="flex items-center space-x-3">
         <DropdownMenu>
@@ -119,43 +139,13 @@ export const Navbar = async () => {
                 Agent Store
               </Link>
             </DropdownMenuItem>
-
-            {session && (
-              <DropdownMenuItem asChild>
-                <Link href="/usage" className="flex items-center">
-                  <BarChart2 className="mr-2 h-4 w-4" />
-                  Usage
-                </Link>
-              </DropdownMenuItem>
-            )}
-            {!session && (
-              <DropdownMenuItem asChild>
-                <Link href="/login" className="flex items-center">
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Log in
-                </Link>
-              </DropdownMenuItem>
-            )}
+            <ClientMobileUsageLink />
+            <ClientMobileAuthNav isMobile />
           </DropdownMenuContent>
         </DropdownMenu>
-        {session ? (
-          <UserDropdown session={session} />
-        ) : (
-          <Link href="/login" className="hidden md:inline-block relative group">
-            <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-0.5 -translate-y-0.5" />
-            <Button
-              className={cn(
-                'relative',
-                'bg-white text-black hover:bg-white',
-                'border border-white/50',
-                'transition-all duration-300',
-                'group-hover:-translate-x-0.5 group-hover:translate-y-0.5'
-              )}
-            >
-              Log in
-            </Button>
-          </Link>
-        )}
+        <div className="min-w-[50px] h-[44px] flex items-center justify-end -ml-3">
+          <ClientAuthNav />
+        </div>
         {/* <ThemeSwitcher /> */}
       </div>
     </header>
