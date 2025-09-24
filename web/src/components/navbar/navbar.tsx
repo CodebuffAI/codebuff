@@ -1,17 +1,21 @@
+'use client'
+
 import {
   Menu,
   DollarSign,
   LogIn,
   BarChart2,
   BookHeart,
-  User,
   Bot,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { getServerSession } from 'next-auth'
+import { useSession } from 'next-auth/react'
+
+import { cn } from '@/lib/utils'
 
 import { UserDropdown } from './user-dropdown'
+import { Icons } from '../icons'
 import { Button } from '../ui/button'
 import {
   DropdownMenu,
@@ -19,13 +23,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { Icons } from '../icons'
 
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { cn } from '@/lib/utils'
+export const Navbar = () => {
+  const { data: session, status } = useSession()
 
-export const Navbar = async () => {
-  const session = await getServerSession(authOptions)
+  // Don't render auth-dependent content during loading to prevent hydration mismatch
+  const isSessionReady = status !== 'loading'
 
   return (
     <header className="container mx-auto p-4 flex justify-between items-center relative z-10">
@@ -72,7 +75,8 @@ export const Navbar = async () => {
           Agent Store
         </Link>
 
-        {session && (
+        {/* Only show Usage link when session is ready and user is authenticated */}
+        {isSessionReady && session && (
           <Link
             href="/usage"
             className="hover:text-blue-400 transition-colors font-medium px-2 py-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20"
@@ -120,7 +124,8 @@ export const Navbar = async () => {
               </Link>
             </DropdownMenuItem>
 
-            {session && (
+            {/* Only show Usage and Login links when session is ready */}
+            {isSessionReady && session && (
               <DropdownMenuItem asChild>
                 <Link href="/usage" className="flex items-center">
                   <BarChart2 className="mr-2 h-4 w-4" />
@@ -128,7 +133,7 @@ export const Navbar = async () => {
                 </Link>
               </DropdownMenuItem>
             )}
-            {!session && (
+            {isSessionReady && !session && (
               <DropdownMenuItem asChild>
                 <Link href="/login" className="flex items-center">
                   <LogIn className="mr-2 h-4 w-4" />
@@ -138,24 +143,30 @@ export const Navbar = async () => {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        {session ? (
-          <UserDropdown session={session} />
-        ) : (
-          <Link href="/login" className="hidden md:inline-block relative group">
-            <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-0.5 -translate-y-0.5" />
-            <Button
-              className={cn(
-                'relative',
-                'bg-white text-black hover:bg-white',
-                'border border-white/50',
-                'transition-all duration-300',
-                'group-hover:-translate-x-0.5 group-hover:translate-y-0.5'
-              )}
+
+        {/* Authentication section - only render when session is ready */}
+        {isSessionReady &&
+          (session ? (
+            <UserDropdown session={session} />
+          ) : (
+            <Link
+              href="/login"
+              className="hidden md:inline-block relative group"
             >
-              Log in
-            </Button>
-          </Link>
-        )}
+              <div className="absolute inset-0 bg-[rgb(255,110,11)] translate-x-0.5 -translate-y-0.5" />
+              <Button
+                className={cn(
+                  'relative',
+                  'bg-white text-black hover:bg-white',
+                  'border border-white/50',
+                  'transition-all duration-300',
+                  'group-hover:-translate-x-0.5 group-hover:translate-y-0.5'
+                )}
+              >
+                Log in
+              </Button>
+            </Link>
+          ))}
         {/* <ThemeSwitcher /> */}
       </div>
     </header>
