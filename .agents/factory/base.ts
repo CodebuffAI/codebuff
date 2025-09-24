@@ -38,6 +38,7 @@ export const base = (
     'run_terminal_command',
     'str_replace',
     'write_file',
+    'lookup_agent_info',
     'spawn_agents',
     'spawn_agent_inline',
     'add_subgoal',

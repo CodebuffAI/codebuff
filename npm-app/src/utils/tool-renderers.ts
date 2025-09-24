@@ -344,4 +344,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return null
     },
   },
+  lookup_agent_info: {
+    ...defaultToolCallRenderer,
+  },
 }

@@ -5,6 +5,7 @@ import { handleCodeSearch } from './tool/code-search'
 import { handleCreatePlan } from './tool/create-plan'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
+import { handleLookupAgentInfo } from './tool/lookup-agent-info'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
 import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
@@ -40,6 +41,7 @@ export const codebuffToolHandlers = {
   create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
+  lookup_agent_info: handleLookupAgentInfo,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
   run_file_change_hooks: handleRunFileChangeHooks,

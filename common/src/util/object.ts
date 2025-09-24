@@ -1,6 +1,8 @@
 import { isEqual, mapValues, union } from 'lodash'
 
-export const removeUndefinedProps = <T extends object>(obj: T): T => {
+export const removeUndefinedProps = <T extends object>(
+  obj: T
+): { [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined> } => {
   const newObj: any = {}
 
   for (const key of Object.keys(obj)) {

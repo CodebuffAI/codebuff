@@ -6,6 +6,7 @@ export type ToolName =
   | 'code_search'
   | 'end_turn'
   | 'find_files'
+  | 'lookup_agent_info'
   | 'read_docs'
   | 'read_files'
   | 'run_file_change_hooks'
@@ -26,6 +27,7 @@ export interface ToolParamsMap {
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   find_files: FindFilesParams
+  lookup_agent_info: LookupAgentInfoParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   run_file_change_hooks: RunFileChangeHooksParams
@@ -72,6 +74,14 @@ export interface EndTurnParams {}
 export interface FindFilesParams {
   /** A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within. */
   prompt: string
+}
+
+/**
+ * Retrieve information about an agent by ID
+ */
+export interface LookupAgentInfoParams {
+  /** Agent ID (short local or full published format) */
+  agentId: string
 }
 
 /**

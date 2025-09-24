@@ -7,6 +7,7 @@ import { codeSearchTool } from './tool/code-search'
 import { createPlanTool } from './tool/create-plan'
 import { endTurnTool } from './tool/end-turn'
 import { findFilesTool } from './tool/find-files'
+import { lookupAgentInfoTool } from './tool/lookup-agent-info'
 import { readDocsTool } from './tool/read-docs'
 import { readFilesTool } from './tool/read-files'
 import { runFileChangeHooksTool } from './tool/run-file-change-hooks'
@@ -34,6 +35,7 @@ const toolDescriptions = {
   create_plan: createPlanTool,
   end_turn: endTurnTool,
   find_files: findFilesTool,
+  lookup_agent_info: lookupAgentInfoTool,
   read_docs: readDocsTool,
   read_files: readFilesTool,
   run_file_change_hooks: runFileChangeHooksTool,
