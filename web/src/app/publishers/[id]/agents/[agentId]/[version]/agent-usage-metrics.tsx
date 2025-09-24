@@ -16,6 +16,7 @@ interface AgentData {
     id: string
   }
   usage_count?: number
+  weekly_runs?: number
   weekly_spent?: number
   avg_cost_per_invocation?: number
   unique_users?: number
@@ -23,6 +24,7 @@ interface AgentData {
   version_stats?: Record<
     string,
     {
+      weekly_runs: number
       weekly_dollars: number
       total_dollars: number
       total_invocations: number
@@ -70,6 +72,7 @@ export const AgentUsageMetrics = ({
   const usageMetrics = version
     ? agent?.version_stats?.[version]
       ? {
+          weekly_runs: agent.version_stats[version].weekly_runs,
           weekly_spent: agent.version_stats[version].weekly_dollars,
           usage_count: agent.version_stats[version].total_invocations,
           avg_cost_per_invocation:
@@ -78,6 +81,7 @@ export const AgentUsageMetrics = ({
           last_used: agent.version_stats[version].last_used?.toString(),
         }
       : {
+          weekly_runs: 0,
           weekly_spent: 0,
           usage_count: 0,
           avg_cost_per_invocation: 0,
@@ -105,7 +109,7 @@ export const AgentUsageMetrics = ({
 
   return (
     <div>
-      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 xs:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-emerald-400" />
@@ -113,7 +117,16 @@ export const AgentUsageMetrics = ({
               {formatCurrency(usageMetrics.weekly_spent)}
             </span>
           </div>
-          <span className="text-xs text-muted-foreground">Weekly Usage</span>
+          <span className="text-xs text-muted-foreground">Weekly Spend</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Play className="h-4 w-4 text-blue-400" />
+            <span className="font-medium text-blue-300">
+              {formatUsageCount(usageMetrics.weekly_runs)}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground">Weekly Runs</span>
         </div>
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-2">

@@ -3,39 +3,6 @@ import { Suspense } from 'react'
 import AgentStoreClient from './store-client'
 import { getAgentsData } from './agents-data'
 
-// Types
-interface AgentData {
-  id: string
-  name: string
-  description?: string
-  publisher: {
-    id: string
-    name: string
-    verified: boolean
-    avatar_url?: string | null
-  }
-  version: string
-  created_at: string
-  usage_count?: number
-  weekly_spent?: number // In dollars
-  total_spent?: number // In dollars
-  avg_cost_per_invocation?: number // In dollars
-  unique_users?: number
-  last_used?: string
-  version_stats?: Record<
-    string,
-    {
-      weekly_dollars: number
-      total_dollars: number
-      total_invocations: number
-      avg_cost_per_run: number
-      unique_users: number
-      last_used?: Date
-    }
-  >
-  tags?: string[]
-}
-
 interface PublisherProfileResponse {
   id: string
   name: string

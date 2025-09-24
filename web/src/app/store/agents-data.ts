@@ -14,6 +14,7 @@ interface AgentData {
   version: string
   created_at: string
   usage_count?: number
+  weekly_runs?: number
   weekly_spent?: number
   total_spent?: number
   avg_cost_per_invocation?: number
@@ -28,7 +29,7 @@ export const getAgentsData = unstable_cache(
   async (): Promise<AgentData[]> => {
     const baseUrl =
       process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
-    
+
     try {
       const response = await fetch(`${baseUrl}/api/agents`, {
         headers: {

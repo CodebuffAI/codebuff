@@ -47,6 +47,7 @@ interface AgentData {
   version: string
   created_at: string
   usage_count?: number
+  weekly_runs?: number
   weekly_spent?: number
   total_spent?: number
   avg_cost_per_invocation?: number
@@ -483,7 +484,7 @@ export default function AgentStoreClient({
                 <div className="flex items-center gap-2">
                   <Play className="h-4 w-4 text-muted-foreground" />
                   <span className="font-semibold">
-                    {formatUsageCount(agent.usage_count)}
+                    {formatUsageCount(agent.weekly_runs)}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">Weekly runs</p>

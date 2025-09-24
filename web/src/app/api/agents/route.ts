@@ -63,6 +63,7 @@ const getCachedAgents = unstable_cache(
       .select({
         publisher_id: schema.agentRun.publisher_id,
         agent_name: schema.agentRun.agent_name,
+        weekly_runs: sql<number>`COUNT(*)`,
         weekly_dollars: sql<number>`COALESCE(SUM(${schema.agentRun.total_credits}) / 100.0, 0)`,
       })
       .from(schema.agentRun)
@@ -111,6 +112,7 @@ const getCachedAgents = unstable_cache(
         publisher_id: schema.agentRun.publisher_id,
         agent_name: schema.agentRun.agent_name,
         agent_version: schema.agentRun.agent_version,
+        weekly_runs: sql<number>`COUNT(*)`,
         weekly_dollars: sql<number>`COALESCE(SUM(${schema.agentRun.total_credits}) / 100.0, 0)`,
       })
       .from(schema.agentRun)
@@ -135,7 +137,10 @@ const getCachedAgents = unstable_cache(
     weeklyMetrics.forEach((metric) => {
       if (metric.publisher_id && metric.agent_name) {
         const key = `${metric.publisher_id}/${metric.agent_name}`
-        weeklyMap.set(key, Number(metric.weekly_dollars))
+        weeklyMap.set(key, {
+          weekly_runs: Number(metric.weekly_runs),
+          weekly_dollars: Number(metric.weekly_dollars),
+        })
       }
     })
 
@@ -144,8 +149,13 @@ const getCachedAgents = unstable_cache(
     usageMetrics.forEach((metric) => {
       if (metric.publisher_id && metric.agent_name) {
         const key = `${metric.publisher_id}/${metric.agent_name}`
+        const weeklyData = weeklyMap.get(key) || {
+          weekly_runs: 0,
+          weekly_dollars: 0,
+        }
         metricsMap.set(key, {
-          weekly_dollars: weeklyMap.get(key) || 0,
+          weekly_runs: weeklyData.weekly_runs,
+          weekly_dollars: weeklyData.weekly_dollars,
           total_dollars: Number(metric.total_dollars),
           total_invocations: Number(metric.total_invocations),
           avg_cost_per_run: Number(metric.avg_cost_per_run),
@@ -160,7 +170,10 @@ const getCachedAgents = unstable_cache(
     perVersionWeeklyMetrics.forEach((metric) => {
       if (metric.publisher_id && metric.agent_name && metric.agent_version) {
         const key = `${metric.publisher_id}/${metric.agent_name}@${metric.agent_version}`
-        perVersionWeeklyMap.set(key, Number(metric.weekly_dollars))
+        perVersionWeeklyMap.set(key, {
+          weekly_runs: Number(metric.weekly_runs),
+          weekly_dollars: Number(metric.weekly_dollars),
+        })
       }
     })
 
@@ -169,8 +182,13 @@ const getCachedAgents = unstable_cache(
     perVersionMetrics.forEach((metric) => {
       if (metric.publisher_id && metric.agent_name && metric.agent_version) {
         const key = `${metric.publisher_id}/${metric.agent_name}@${metric.agent_version}`
+        const weeklyData = perVersionWeeklyMap.get(key) || {
+          weekly_runs: 0,
+          weekly_dollars: 0,
+        }
         perVersionMetricsMap.set(key, {
-          weekly_dollars: perVersionWeeklyMap.get(key) || 0,
+          weekly_runs: weeklyData.weekly_runs,
+          weekly_dollars: weeklyData.weekly_dollars,
           total_dollars: Number(metric.total_dollars),
           total_invocations: Number(metric.total_invocations),
           avg_cost_per_run: Number(metric.avg_cost_per_run),
@@ -212,6 +230,7 @@ const getCachedAgents = unstable_cache(
       ({ agent, agentData, agentName }) => {
         const agentKey = `${agent.publisher.id}/${agentName}`
         const metrics = metricsMap.get(agentKey) || {
+          weekly_runs: 0,
           weekly_dollars: 0,
           total_dollars: 0,
           total_invocations: 0,
@@ -233,6 +252,7 @@ const getCachedAgents = unstable_cache(
           created_at: agent.created_at,
           // Aggregated stats across all versions (for agent store)
           usage_count: metrics.total_invocations,
+          weekly_runs: metrics.weekly_runs,
           weekly_spent: metrics.weekly_dollars,
           total_spent: metrics.total_dollars,
           avg_cost_per_invocation: metrics.avg_cost_per_run,
