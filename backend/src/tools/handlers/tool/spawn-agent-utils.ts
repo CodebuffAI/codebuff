@@ -173,6 +173,11 @@ export async function validateAndGetAgentTemplate(
   if (!agentTemplate) {
     throw new Error(`Agent type ${agentTypeStr} not found.`)
   }
+  const BASE_AGENTS = ['base', 'base-lite', 'base-max', 'base-experimental']
+  // Base agent can spawn any agent
+  if (BASE_AGENTS.includes(parentAgentTemplate.id)) {
+    return { agentTemplate, agentType: agentTypeStr }
+  }
 
   const agentType = getMatchingSpawn(
     parentAgentTemplate.spawnableAgents,
