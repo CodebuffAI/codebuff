@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { CreditCard, Shield, Users, Key, Menu } from 'lucide-react'
@@ -77,7 +77,7 @@ function ProfileSidebar({
   )
 }
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const { status } = useSession()
   const searchParams = useSearchParams()
   const [activeSection, setActiveSection] = useState('usage')
@@ -193,5 +193,25 @@ export default function ProfilePage() {
         </Sheet>
       </div>
     </div>
+  )
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-center">
+            <div className="w-full max-w-2xl space-y-4">
+              <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+              <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+              <div className="h-64 w-full bg-muted animate-pulse rounded" />
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ProfilePageContent />
+    </Suspense>
   )
 }

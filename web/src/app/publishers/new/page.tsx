@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useDebounce } from 'use-debounce'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -71,7 +71,7 @@ const buildSubmitPayload = (
   }
 }
 
-const CreatePublisherPage = () => {
+const CreatePublisherPageContent = () => {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -513,6 +513,47 @@ const CreatePublisherPage = () => {
         </Card>
       </div>
     </div>
+  )
+}
+
+const CreatePublisherPage = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto py-6 px-4">
+          <div className="max-w-2xl mx-auto">
+            <div className="flex items-center mb-8">
+              <div className="h-8 w-20 mr-4 bg-muted animate-pulse rounded" />
+            </div>
+            <div className="flex items-center mb-8">
+              <div className="h-8 w-8 rounded-full mr-3 bg-muted animate-pulse" />
+              <div>
+                <div className="h-8 w-64 mb-2 bg-muted animate-pulse rounded" />
+                <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+              </div>
+            </div>
+            <Card>
+              <CardHeader>
+                <div className="h-6 w-48 bg-muted animate-pulse rounded" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="h-10 w-full bg-muted animate-pulse rounded" />
+                  <div className="h-10 w-full bg-muted animate-pulse rounded" />
+                  <div className="h-20 w-full bg-muted animate-pulse rounded" />
+                  <div className="flex justify-between pt-6">
+                    <div className="h-10 w-20 bg-muted animate-pulse rounded" />
+                    <div className="h-10 w-24 bg-muted animate-pulse rounded" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      }
+    >
+      <CreatePublisherPageContent />
+    </Suspense>
   )
 }
 
