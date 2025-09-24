@@ -44,6 +44,12 @@ export const cliOptions: CliParam[] = [
     hidden: false,
   },
   {
+    flags: '--spawn <agent-id>',
+    description: 'Spawn a specific agent by ID',
+    menuDescription: 'Spawn a specific agent by ID',
+    hidden: false,
+  },
+  {
     flags: '--model <model>',
     description:
       'Experimental: Specify the main model to use for the agent ("sonnet-3.6", "sonnet-3.7", "gpt-4.1", "gemini-2.5-pro", "o4-mini", "o3"). Be aware codebuff might not work as well with non-default models.',

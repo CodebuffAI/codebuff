@@ -51,6 +51,7 @@ async function codebuff({
   print,
   cwd,
   trace,
+  spawn,
 }: CliOptions) {
   enableSquashNewlines()
   const workingDir = getWorkingDirectory()
@@ -94,6 +95,11 @@ async function codebuff({
     trace,
   })
 
+  // Handle --spawn flag by converting to @agent-id syntax
+  if (spawn) {
+    initialInput = initialInput ? `@${spawn} ${initialInput}` : `@${spawn}`
+  }
+
   const cli = CLI.getInstance()
   await cli.printInitialPrompt({ initialInput, runInitFlow })
 
@@ -136,6 +142,8 @@ Examples:
   $ codebuff publish my-agent                 # Publish agent template to store
   $ codebuff --agent file-picker "find relevant files for authentication"
   $ codebuff --agent reviewer --params '{"focus": "security"}' "review this code"
+  $ codebuff --spawn researcher "analyze this code"
+  $ codebuff --spawn file-picker
 
 Direct Commands (via shell shims):
   $ codebuff shims install codebuff/base-lite@1.0.0               # One-step setup!
@@ -307,5 +315,6 @@ For all commands and options, run 'codebuff' and then type 'help'.
     print: options.print,
     cwd: options.cwd,
     trace: options.trace,
+    spawn: options.spawn,
   })
 }

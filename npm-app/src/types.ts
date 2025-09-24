@@ -14,6 +14,7 @@ export interface CliOptions {
   cwd?: string
   trace?: boolean
   publish?: string
+  spawn?: string
 }
 
 /**
