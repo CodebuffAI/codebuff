@@ -77,7 +77,7 @@ async function fetchAgentFromDatabase(parsedAgentId: {
 
     // Validate the raw agent data with the original agentId (not full identifier)
     const validationResult = validateSingleAgent(
-      { ...rawAgentData, id: agentId },
+      { ...rawAgentData, id: agentId, version: agentConfig.version },
       {
         filePath: `${publisherId}/${agentId}@${agentConfig.version}`,
       },
