@@ -6,10 +6,9 @@ import { unstable_cache } from 'next/cache'
 
 import { logger } from '@/util/logger'
 
-// Enable static generation for API route
+// ISR Configuration for API route
 export const revalidate = 600 // Cache for 10 minutes
-export const dynamic = 'force-static' // Force static generation
-export const fetchCache = 'force-cache' // Use cached data when possible
+export const dynamic = 'force-static'
 
 // Cached function for expensive agent aggregations
 const getCachedAgents = unstable_cache(
@@ -253,8 +252,8 @@ const getCachedAgents = unstable_cache(
   },
   ['agents-data'],
   {
-    revalidate,
-    tags: ['agents'],
+    revalidate: 600, // 10 minutes
+    tags: ['agents', 'api'],
   }
 )
 
