@@ -109,10 +109,22 @@ export function displayLoadedAgents(codebuffConfig: CodebuffConfig) {
     )
   } else if (Object.keys(loadedAgents).length > 0) {
     const loadedAgentNames = Object.values(getLoadedAgentNames())
+    // Calculate terminal width and format agents in columns
+    const terminalWidth = process.stdout.columns || 80
+    const columnWidth = Math.max(...loadedAgentNames.map(name => name.length)) + 2 // Column width based on longest name + padding
+    const columnsPerRow = Math.max(1, Math.floor(terminalWidth / columnWidth))
+    
+    const formattedLines: string[] = []
+    for (let i = 0; i < loadedAgentNames.length; i += columnsPerRow) {
+      const rowAgents = loadedAgentNames.slice(i, i + columnsPerRow)
+      const formattedRow = rowAgents
+        .map(name => cyan(name.padEnd(columnWidth)))
+        .join('')
+      formattedLines.push(formattedRow)
+    }
+
     console.log(
-      `\n${green('Found custom agents:')} ${loadedAgentNames
-        .map((name) => cyan(name))
-        .join(', ')}\n`,
+      `\n${green('Found custom agents:')}\n${formattedLines.join('\n')}\n`,
     )
   } else if (baseAgent) {
     // One more new line.
