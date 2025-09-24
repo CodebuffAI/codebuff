@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'bun:test'
+import * as envModule from '@codebuff/internal/env'
+import { describe, expect, it, spyOn } from 'bun:test'
 import { applyPatch } from 'diff'
 
 import { processStrReplace } from '../process-str-replace'
+import { mockFileContext } from './test-utils'
+import {
+  executeBatchStrReplaces,
+  benchifyCanFixLanguage,
+} from '../tools/batch-str-replace'
 
 describe('processStrReplace', () => {
   it('should replace exact string matches', async () => {
@@ -213,6 +219,25 @@ describe('processStrReplace', () => {
     }
   })
 
+  it('should handle replacement where old string equals new string', async () => {
+    const initialContent = 'const x = 1;\nconst y = 2;\n'
+    const oldStr = 'const y = 2;'
+    const newStr = 'const y = 2;' // Same as old string
+
+    const result = await processStrReplace(
+      'test.ts',
+      [{ old: oldStr, new: newStr, allowMultiple: false }],
+      Promise.resolve(initialContent),
+    )
+
+    expect(result).not.toBeNull()
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe('const x = 1;\nconst y = 2;\n')
+      expect(result.messages).toEqual([])
+    }
+  })
+
   // New comprehensive tests for allowMultiple functionality
   describe('allowMultiple functionality', () => {
     it('should error when multiple occurrences exist and allowMultiple is false', async () => {
@@ -415,5 +440,144 @@ function test3() {
     expect(applyPatch(initialContent, (result as any).patch)).toBe(
       'line 1\nthis is a new line\nnew line 3\n',
     )
+  })
+})
+
+// Tests for Benchify resilience
+describe('Benchify resilience', () => {
+  describe('happy path', () => {
+    it('should identify Benchify-supported file types correctly', () => {
+      const testCases = [
+        { path: 'component.tsx', expected: true },
+        { path: 'utils.ts', expected: true },
+        { path: 'script.js', expected: true },
+        { path: 'styles.jsx', expected: true },
+        { path: 'README.md', expected: false },
+        { path: 'config.json', expected: false },
+        { path: 'styles.css', expected: false },
+        { path: 'index.html', expected: false },
+        { path: 'test.py', expected: false },
+      ]
+
+      for (const { path, expected } of testCases) {
+        const result = benchifyCanFixLanguage(path)
+        expect(result).toBe(expected)
+      }
+    })
+
+    it('should handle file extensions case sensitivity', () => {
+      expect(benchifyCanFixLanguage('Component.TSX')).toBe(false) // Wrong case
+      expect(benchifyCanFixLanguage('component.tsx')).toBe(true) // Correct case
+      expect(benchifyCanFixLanguage('utils.TS')).toBe(false) // Wrong case
+      expect(benchifyCanFixLanguage('utils.ts')).toBe(true) // Correct case
+    })
+
+    it('should handle file paths with multiple dots', () => {
+      expect(benchifyCanFixLanguage('component.test.tsx')).toBe(true)
+      expect(benchifyCanFixLanguage('utils.spec.ts')).toBe(true)
+      expect(benchifyCanFixLanguage('config.local.js')).toBe(true)
+      expect(benchifyCanFixLanguage('styles.module.css')).toBe(false)
+    })
+
+    it('should handle files without extensions', () => {
+      expect(benchifyCanFixLanguage('Dockerfile')).toBe(false)
+      expect(benchifyCanFixLanguage('Makefile')).toBe(false)
+      expect(benchifyCanFixLanguage('README')).toBe(false)
+    })
+  })
+
+  it('should fall back gracefully when Benchify is disabled', async () => {
+    // Test with no API key - spy on the env object directly
+    spyOn(envModule, 'env', 'get').mockReturnValue({
+      // Empty object simulates no BENCHIFY_API_KEY
+    } as any)
+
+    const result = await executeBatchStrReplaces({
+      deferredStrReplaces: [
+        {
+          toolCall: {
+            toolName: 'str_replace' as const,
+            toolCallId: 'test-call',
+            input: {
+              path: 'test.ts',
+              replacements: [{ old: 'old', new: 'new', allowMultiple: false }],
+            },
+          },
+        },
+      ],
+      toolCalls: [],
+      toolResults: [],
+      ws: {} as any,
+      fileContext: mockFileContext,
+      agentStepId: 'test-step',
+      clientSessionId: 'test-session',
+      userInputId: 'test-input',
+      onResponseChunk: () => {},
+      state: { messages: [] },
+      userId: 'test-user',
+    })
+
+    // Should complete without error even when Benchify is unavailable
+    expect(result).toBeUndefined() // Function returns void
+  })
+
+  describe('Batch str_replace integration tests', () => {
+    it('should handle empty deferred list without error', async () => {
+      // Simple test that doesn't require complex mocking
+      expect(
+        executeBatchStrReplaces({
+          deferredStrReplaces: [],
+          toolCalls: [],
+          toolResults: [],
+          ws: {} as any,
+          fileContext: mockFileContext,
+          agentStepId: 'test-step',
+          clientSessionId: 'test-session',
+          userInputId: 'test-input',
+          onResponseChunk: () => {},
+          state: { messages: [] },
+          userId: 'test-user',
+        }),
+      ).resolves.toBeUndefined() // Should complete without throwing
+    })
+  })
+
+  it('should identify Benchify-supported file types correctly', () => {
+    const testCases = [
+      { path: 'component.tsx', expected: true },
+      { path: 'utils.ts', expected: true },
+      { path: 'script.js', expected: true },
+      { path: 'styles.jsx', expected: true },
+      { path: 'README.md', expected: false },
+      { path: 'config.json', expected: false },
+      { path: 'styles.css', expected: false },
+      { path: 'index.html', expected: false },
+      { path: 'test.py', expected: false },
+    ]
+
+    for (const { path, expected } of testCases) {
+      const result = benchifyCanFixLanguage(path)
+      expect(result).toBe(expected)
+    }
+  })
+
+  it('should handle executeBatchStrReplaces with empty list', async () => {
+    // Simple test that doesn't require complex mocking
+    const result = await executeBatchStrReplaces({
+      deferredStrReplaces: [],
+      toolCalls: [],
+      toolResults: [],
+      ws: {} as any,
+      fileContext: mockFileContext,
+      agentStepId: 'test-step',
+      clientSessionId: 'test-session',
+      userInputId: 'test-input',
+      onResponseChunk: () => {},
+      state: { messages: [] },
+      userId: 'test-user',
+    })
+
+    // Should complete without throwing an error
+    expect(result).toBeUndefined() // Function returns void
   })
 })

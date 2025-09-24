@@ -5,13 +5,15 @@ import { Benchify } from 'benchify'
 import { env } from '@codebuff/internal/env'
 import { requestToolCall } from '../websockets/websocket-action'
 import { createPatch } from 'diff'
+import { withRetry, withTimeout } from '@codebuff/common/util/promise'
+import { match, P } from 'ts-pattern'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { AgentTemplate } from '../templates/types'
+
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 import { file } from 'bun'
@@ -28,9 +30,23 @@ export type BatchStrReplaceState = {
 }
 
 const BENCHIFY_FILE_TYPES = ['tsx', 'ts', 'jsx', 'js']
+const BENCHIFY_TIMEOUT_MS = 3000 // 3 second timeout for Benchify calls
+const BENCHIFY_MAX_FILES = 10 // Maximum files to send to Benchify
+const BENCHIFY_MAX_FILE_SIZE = 1024 * 1024 // 1MB max file size
 
 // Global Benchify client instance
 let benchifyClient: Benchify | null = null
+
+// Circuit breaker state for Benchify
+let benchifyCircuitBreaker = {
+  failureCount: 0,
+  lastFailureTime: 0,
+  isOpen: false,
+  openUntil: 0,
+}
+
+const CIRCUIT_BREAKER_THRESHOLD = 3 // Open circuit after 3 consecutive failures
+const CIRCUIT_BREAKER_TIMEOUT = 60000 // Keep circuit open for 1 minute
 
 function getBenchifyClient(): Benchify | null {
   if (!benchifyClient) {
@@ -73,12 +89,10 @@ export async function executeBatchStrReplaces({
   toolCalls,
   toolResults,
   ws,
-  agentTemplate,
   fileContext,
   agentStepId,
   clientSessionId,
   userInputId,
-  fullResponse,
   onResponseChunk,
   state,
   userId,
@@ -87,12 +101,10 @@ export async function executeBatchStrReplaces({
   toolCalls: (CodebuffToolCall | any)[]
   toolResults: ToolResultPart[]
   ws: WebSocket
-  agentTemplate: AgentTemplate
   fileContext: ProjectFileContext
   agentStepId: string
   clientSessionId: string
   userInputId: string
-  fullResponse: string
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   state: Record<string, any>
   userId: string | undefined
@@ -428,7 +440,7 @@ function handleStrReplaceError(
 }
 
 /**
- * Applies benchify results if there are intended changes
+ * Applies benchify results if there are intended changes (with graceful failure handling)
  */
 async function applyBenchifyIfNeeded(
   batchContext: BatchContext,
@@ -441,17 +453,47 @@ async function applyBenchifyIfNeeded(
     toolCalls: CodebuffToolCall<'str_replace'>[]
   },
 ) {
+  // Early exit conditions - fail gracefully without blocking user edits
   const client = getBenchifyClient()
   if (!client || batchContext.intendedChanges.size === 0) {
     return
   }
 
-  try {
-    const intendedChangesArray = Array.from(
-      batchContext.intendedChanges.entries(),
-    ).map(([path, contents]) => ({ path, contents }))
+  // Check circuit breaker
+  if (isBenchifyCircuitOpen()) {
+    logger.debug(
+      {
+        circuitState: benchifyCircuitBreaker,
+        agentStepId: options.agentStepId,
+        userInputId: options.userInputId,
+      },
+      'Benchify circuit breaker is open, skipping call',
+    )
+    return
+  }
 
-    const benchifyResult = await callBenchify(intendedChangesArray, options)
+  try {
+    // Filter and validate intended changes for Benchify
+    const filteredChanges = filterBenchifyFiles(
+      Array.from(batchContext.intendedChanges.entries()).map(
+        ([path, contents]) => ({ path, contents }),
+      ),
+      options.agentStepId,
+    )
+
+    if (filteredChanges.length === 0) {
+      logger.debug(
+        { agentStepId: options.agentStepId },
+        'No valid files for Benchify after filtering',
+      )
+      return
+    }
+
+    // Call Benchify with timeout and retry logic
+    const benchifyResult = await callBenchifyWithResilience(
+      filteredChanges,
+      options,
+    )
 
     if (benchifyResult && benchifyResult.length > 0) {
       logger.info(
@@ -464,7 +506,8 @@ async function applyBenchifyIfNeeded(
         `executeBatchStrReplaces: Benchify returned ${benchifyResult.length} results, applying them`,
       )
 
-      await applyBenchifyResults(benchifyResult, {
+      // Apply results with individual error handling to prevent one failure from blocking others
+      await applyBenchifyResultsGracefully(benchifyResult, {
         ws: batchContext.ws,
         onResponseChunk: batchContext.onResponseChunk,
         state: {
@@ -474,25 +517,67 @@ async function applyBenchifyIfNeeded(
         toolResults: options.toolResults,
         toolCalls: options.toolCalls,
         userInputId: options.userInputId,
+        agentStepId: options.agentStepId,
       })
     }
+
+    // Reset circuit breaker on success
+    resetBenchifyCircuitBreaker()
   } catch (error) {
-    logger.error(
-      {
-        error: error instanceof Error ? error.message : String(error),
-        intendedChangeFiles: Array.from(batchContext.intendedChanges.keys()),
-        agentStepId: options.agentStepId,
-        userInputId: options.userInputId,
-      },
-      'executeBatchStrReplaces: Failed to call benchify with intended changes',
-    )
+    // Handle Benchify failure gracefully without blocking user edits
+    handleBenchifyFailure(error, {
+      intendedChangeFiles: Array.from(batchContext.intendedChanges.keys()),
+      agentStepId: options.agentStepId,
+      userInputId: options.userInputId,
+    })
   }
 }
 
 /**
- * Calls benchify API with the list of edited files
+ * Filters files for Benchify processing based on size and count limits
  */
-async function callBenchify(
+function filterBenchifyFiles(
+  files: { path: string; contents: string }[],
+  agentStepId: string,
+): { path: string; contents: string }[] {
+  const filtered = files.filter((file) => {
+    // Check file size limit
+    if (file.contents.length > BENCHIFY_MAX_FILE_SIZE) {
+      logger.debug(
+        { path: file.path, size: file.contents.length, agentStepId },
+        'Skipping large file for Benchify',
+      )
+      return false
+    }
+
+    // Check if it's a supported file type
+    if (!benchifyCanFixLanguage(file.path)) {
+      return false
+    }
+
+    return true
+  })
+
+  // Limit the number of files sent to Benchify
+  if (filtered.length > BENCHIFY_MAX_FILES) {
+    logger.debug(
+      {
+        totalFiles: filtered.length,
+        maxFiles: BENCHIFY_MAX_FILES,
+        agentStepId,
+      },
+      'Limiting files sent to Benchify',
+    )
+    return filtered.slice(0, BENCHIFY_MAX_FILES)
+  }
+
+  return filtered
+}
+
+/**
+ * Calls benchify API with timeout and retry logic using common utilities
+ */
+async function callBenchifyWithResilience(
   editedFiles: { path: string; contents: string }[],
   context: {
     agentStepId: string
@@ -506,27 +591,122 @@ async function callBenchify(
     return null
   }
 
-  const response = await client.runFixer(editedFiles, {
-    fix_types: ['string_literals'],
-  })
+  return await withRetry(
+    async () => {
+      const response = await withTimeout(
+        client.runFixer(editedFiles, {
+          fix_types: ['string_literals'],
+        }),
+        BENCHIFY_TIMEOUT_MS,
+        `Benchify call timed out after ${BENCHIFY_TIMEOUT_MS}ms`,
+      )
 
-  logger.info(
-    {
-      responseReceived: !!response,
-      responseLength: response?.length || 0,
-      responseFiles: response?.map((r) => r.path) || [],
-      ...context,
+      // Validate response
+      if (response && Array.isArray(response)) {
+        return validateBenchifyResponse(
+          response,
+          editedFiles,
+          context.agentStepId,
+        )
+      }
+
+      return null
     },
-    'Benchify runFixer API response received',
+    {
+      maxRetries: 2,
+      retryIf: shouldRetryBenchifyError,
+      onRetry: (error, attempt) => {
+        logger.debug(
+          {
+            error: error instanceof Error ? error.message : String(error),
+            attempt,
+            agentStepId: context.agentStepId,
+          },
+          'Retrying Benchify call',
+        )
+      },
+      retryDelayMs: 100,
+    },
   )
-
-  return response
 }
 
 /**
- * Applies benchify results back to the file system and updates tool results
+ * Validates Benchify API response using pattern matching
  */
-async function applyBenchifyResults(
+function validateBenchifyResponse(
+  response: any[],
+  originalFiles: { path: string; contents: string }[],
+  agentStepId: string,
+): { path: string; contents: string }[] {
+  const originalPaths = new Set(originalFiles.map((f) => f.path))
+
+  return response.flatMap((result) =>
+    match(result)
+      .with({ path: P.string, contents: P.string }, (res) => {
+        if (!originalPaths.has(res.path)) {
+          logger.warn(
+            { path: res.path, agentStepId },
+            'Benchify returned result for unexpected path',
+          )
+          return []
+        }
+        if (res.contents.length > BENCHIFY_MAX_FILE_SIZE * 2) {
+          logger.warn(
+            {
+              path: res.path,
+              size: res.contents.length,
+              agentStepId,
+            },
+            'Benchify result exceeds size limit',
+          )
+          return []
+        }
+        return [{ path: res.path, contents: res.contents }]
+      })
+      .otherwise(() => {
+        logger.warn(
+          {
+            result: JSON.stringify(result).substring(0, 100),
+            agentStepId,
+          },
+          'Invalid Benchify result structure',
+        )
+        return []
+      }),
+  )
+}
+
+/**
+ * Determines if a Benchify error should trigger a retry
+ */
+function shouldRetryBenchifyError(error: Error): boolean {
+  const message = error.message.toLowerCase()
+
+  // Retry on network/timeout errors
+  if (
+    message.includes('timeout') ||
+    message.includes('network') ||
+    message.includes('econnreset')
+  ) {
+    return true
+  }
+
+  // Retry on 5xx server errors (but not 4xx client errors)
+  if (
+    message.includes('5') &&
+    (message.includes('error') || message.includes('server'))
+  ) {
+    return true
+  }
+
+  // Don't retry on authentication, rate limit, or client errors
+  return false
+}
+
+/**
+ * Applies benchify results back to the file system with individual error handling
+ */
+async function applyBenchifyResultsGracefully(
   benchifyFiles: { path: string; contents: string }[],
   context: {
     ws: WebSocket
@@ -535,87 +715,158 @@ async function applyBenchifyResults(
     toolResults: ToolResultPart[]
     toolCalls: CodebuffToolCall<'str_replace'>[]
     userInputId: string
+    agentStepId: string
   },
 ) {
-  for (const benchifyFile of benchifyFiles) {
-    try {
-      // Find the corresponding tool call for this file
-      const relatedToolCall = context.toolCalls.find(
-        (tc) => tc.input.path === benchifyFile.path,
+  const results = await Promise.allSettled(
+    benchifyFiles.map((benchifyFile) =>
+      applyBenchifyResultSafely(benchifyFile, context),
+    ),
+  )
+
+  // Log any failures but don't throw - individual file failures shouldn't block the batch
+  const failures = results.filter((result) => result.status === 'rejected')
+  if (failures.length > 0) {
+    logger.warn(
+      {
+        failureCount: failures.length,
+        totalFiles: benchifyFiles.length,
+        agentStepId: context.agentStepId,
+      },
+      'Some Benchify results failed to apply',
+    )
+  }
+}
+
+/**
+ * Safely applies a single Benchify result with comprehensive error handling
+ */
+async function applyBenchifyResultSafely(
+  benchifyFile: { path: string; contents: string },
+  context: {
+    ws: WebSocket
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    state: Record<string, any>
+    toolResults: ToolResultPart[]
+    toolCalls: CodebuffToolCall<'str_replace'>[]
+    userInputId: string
+    agentStepId: string
+  },
+): Promise<void> {
+  try {
+    // Find the corresponding tool call for this file
+    const relatedToolCall = context.toolCalls.find(
+      (tc) => tc.input.path === benchifyFile.path,
+    )
+
+    if (!relatedToolCall) {
+      logger.debug(
+        { fileName: benchifyFile.path, agentStepId: context.agentStepId },
+        'No matching tool call found for benchify result',
       )
-
-      if (!relatedToolCall) {
-        logger.warn(
-          { fileName: benchifyFile.path },
-          'No matching tool call found for benchify result',
-        )
-        continue
-      }
-
-      // Get the original file content from our stored contents
-      const originalContent =
-        context.state.originalContents?.[benchifyFile.path]
-
-      if (!originalContent) {
-        logger.error(
-          { path: benchifyFile.path },
-          'Could not find original file content for diff generation',
-        )
-        continue
-      }
-
-      // Generate a proper unified diff patch
-      const patch = createPatch(
-        benchifyFile.path,
-        originalContent,
-        benchifyFile.contents,
-        '',
-        '',
-      )
-
-      // Request the client to apply the benchify changes as a patch
-      const toolCallResult = await requestToolCall(
-        context.ws,
-        context.userInputId,
-        'str_replace',
-        {
-          type: 'patch',
-          path: benchifyFile.path,
-          content: patch,
-        },
-      )
-
-      // Create a tool result indicating benchify was applied
-      const benchifyToolResult: ToolResultPart = {
-        type: 'tool-result',
-        toolName: 'str_replace',
-        toolCallId: relatedToolCall.toolCallId,
-        output: toolCallResult.output,
-      }
-
-      // Update the existing tool result
-      const existingResultIndex = context.toolResults.findIndex(
-        (tr) => tr.toolCallId === relatedToolCall.toolCallId,
-      )
-
-      if (existingResultIndex >= 0) {
-        context.toolResults[existingResultIndex] = benchifyToolResult
-      } else {
-        context.toolResults.push(benchifyToolResult)
-      }
-
-      // Notify client about the benchify update
-      context.onResponseChunk({
-        type: 'tool_result',
-        toolCallId: relatedToolCall.toolCallId,
-        output: benchifyToolResult.output,
-      })
-    } catch (error) {
-      logger.error(
-        { error, fileName: benchifyFile.path },
-        'Failed to apply benchify result to file',
-      )
+      return
     }
+
+    // Get the original content, preferring the latest applied content if available
+    let baseContent = context.state.originalContents?.[benchifyFile.path]
+
+    // Try to get more recent content from tool results if available
+    const latestToolResult = context.toolResults
+      .filter(
+        (tr) =>
+          tr.toolName === 'str_replace' &&
+          tr.toolCallId === relatedToolCall.toolCallId,
+      )
+      .pop()
+
+    if (latestToolResult?.output?.[0]?.type === 'json') {
+      const toolValue = latestToolResult.output[0].value
+      if (
+        toolValue &&
+        typeof toolValue === 'object' &&
+        'content' in toolValue
+      ) {
+        baseContent = (toolValue as { content: string }).content
+      }
+    }
+
+    if (!baseContent) {
+      logger.debug(
+        { path: benchifyFile.path, agentStepId: context.agentStepId },
+        'Could not find base content for Benchify diff generation',
+      )
+      return
+    }
+
+    // Skip if content is unchanged
+    if (baseContent === benchifyFile.contents) {
+      logger.debug(
+        { path: benchifyFile.path, agentStepId: context.agentStepId },
+        'Benchify result identical to current content, skipping',
+      )
+      return
+    }
+
+    // Generate a proper unified diff patch
+    const patch = createPatch(
+      benchifyFile.path,
+      baseContent,
+      benchifyFile.contents,
+      '',
+      '',
+    )
+
+    // Apply with timeout to prevent hanging
+    const toolCallResult = await withTimeout(
+      requestToolCall(context.ws, context.userInputId, 'str_replace', {
+        type: 'patch',
+        path: benchifyFile.path,
+        content: patch,
+      }),
+      5000,
+      'Benchify patch application timed out',
+    )
+
+    // Create a tool result indicating benchify was applied
+    const benchifyToolResult: ToolResultPart = {
+      type: 'tool-result',
+      toolName: 'str_replace',
+      toolCallId: relatedToolCall.toolCallId,
+      output: toolCallResult.output,
+    }
+
+    // Update the existing tool result
+    const existingResultIndex = context.toolResults.findIndex(
+      (tr) => tr.toolCallId === relatedToolCall.toolCallId,
+    )
+
+    if (existingResultIndex >= 0) {
+      context.toolResults[existingResultIndex] = benchifyToolResult
+    } else {
+      context.toolResults.push(benchifyToolResult)
+    }
+
+    // Notify client about the benchify update
+    context.onResponseChunk({
+      type: 'tool_result',
+      toolCallId: relatedToolCall.toolCallId,
+      output: benchifyToolResult.output,
+    })
+
+    logger.debug(
+      { path: benchifyFile.path, agentStepId: context.agentStepId },
+      'Successfully applied Benchify result',
+    )
+  } catch (error) {
+    // Log but don't throw - individual failures shouldn't block the entire batch
+    logger.warn(
+      {
+        error: error instanceof Error ? error.message : String(error),
+        fileName: benchifyFile.path,
+        agentStepId: context.agentStepId,
+      },
+      'Failed to apply individual Benchify result',
+    )
   }
 }
 
@@ -693,6 +944,76 @@ async function extractIntendedContent(
   }
 }
 
-function benchifyCanFixLanguage(path: string): boolean {
+/**
+ * Circuit breaker functions for Benchify resilience
+ */
+function isBenchifyCircuitOpen(): boolean {
+  const now = Date.now()
+
+  // Check if circuit should be half-open (reset after timeout)
+  if (benchifyCircuitBreaker.isOpen && now > benchifyCircuitBreaker.openUntil) {
+    benchifyCircuitBreaker.isOpen = false
+    benchifyCircuitBreaker.failureCount = 0
+    logger.debug('Benchify circuit breaker reset to closed state')
+  }
+
+  return benchifyCircuitBreaker.isOpen
+}
+
+function handleBenchifyFailure(
+  error: unknown,
+  context: {
+    intendedChangeFiles: string[]
+    agentStepId: string
+    userInputId: string
+  },
+): void {
+  benchifyCircuitBreaker.failureCount++
+  benchifyCircuitBreaker.lastFailureTime = Date.now()
+
+  // Open circuit if failure threshold exceeded
+  if (benchifyCircuitBreaker.failureCount >= CIRCUIT_BREAKER_THRESHOLD) {
+    benchifyCircuitBreaker.isOpen = true
+    benchifyCircuitBreaker.openUntil = Date.now() + CIRCUIT_BREAKER_TIMEOUT
+
+    logger.warn(
+      {
+        failureCount: benchifyCircuitBreaker.failureCount,
+        circuitOpenUntil: new Date(
+          benchifyCircuitBreaker.openUntil,
+        ).toISOString(),
+        agentStepId: context.agentStepId,
+      },
+      'Benchify circuit breaker opened due to consecutive failures',
+    )
+  }
+
+  // Log error but continue gracefully
+  logger.warn(
+    {
+      error: error instanceof Error ? error.message : String(error),
+      failureCount: benchifyCircuitBreaker.failureCount,
+      intendedChangeFiles: context.intendedChangeFiles,
+      agentStepId: context.agentStepId,
+      userInputId: context.userInputId,
+    },
+    'Benchify call failed, continuing without fixes',
+  )
+}
+
+function resetBenchifyCircuitBreaker(): void {
+  if (benchifyCircuitBreaker.failureCount > 0) {
+    logger.debug(
+      { previousFailures: benchifyCircuitBreaker.failureCount },
+      'Benchify circuit breaker reset after successful call',
+    )
+  }
+
+  benchifyCircuitBreaker.failureCount = 0
+  benchifyCircuitBreaker.isOpen = false
+  benchifyCircuitBreaker.openUntil = 0
+}
+
+export function benchifyCanFixLanguage(path: string): boolean {
   return BENCHIFY_FILE_TYPES.some((extension) => path.endsWith(`.${extension}`))
 }

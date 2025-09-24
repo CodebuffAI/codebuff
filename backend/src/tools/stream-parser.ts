@@ -134,18 +134,6 @@ export async function processStreamWithTools(options: {
 
           batchState.deferredStrReplaces.push({ toolCall })
 
-          logger.debug(
-            {
-              toolCallId,
-              filePath: input.path,
-              replacementsCount: input.replacements?.length || 0,
-              currentDeferredCount: batchState.deferredStrReplaces.length,
-              agentStepId,
-              userInputId,
-            },
-            'stream-parser: Deferring str_replace tool for batch execution',
-          )
-
           // Still emit the tool call event
           onResponseChunk({
             type: 'tool_call',
@@ -179,12 +167,10 @@ export async function processStreamWithTools(options: {
                   toolCalls,
                   toolResults,
                   ws,
-                  agentTemplate,
                   fileContext,
                   agentStepId,
                   clientSessionId,
                   userInputId,
-                  fullResponse: fullResponseChunks.join(''),
                   onResponseChunk,
                   state,
                   userId,
@@ -342,12 +328,10 @@ export async function processStreamWithTools(options: {
         toolCalls,
         toolResults,
         ws,
-        agentTemplate,
         fileContext,
         agentStepId,
         clientSessionId,
         userInputId,
-        fullResponse: fullResponseChunks.join(''),
         onResponseChunk,
         state,
         userId,

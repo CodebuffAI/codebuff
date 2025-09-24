@@ -35,6 +35,7 @@ export async function processStrReplace(
   let currentContent = initialContent
   let messages: string[] = []
   const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
+  let anyReplacementSuccessful = false
 
   for (const { old: oldStr, new: newStr, allowMultiple } of replacements) {
     // Regular case: require oldStr for replacements
@@ -59,6 +60,7 @@ export async function processStrReplace(
 
     if (match.success) {
       updatedOldStr = match.oldStr
+      anyReplacementSuccessful = true
     } else {
       messages.push(match.error)
       updatedOldStr = null
@@ -72,15 +74,15 @@ export async function processStrReplace(
 
   currentContent = currentContent.replaceAll('\n', lineEnding)
 
-  if (initialContent === currentContent) {
+  // If no successful replacements occurred, return error
+  if (!anyReplacementSuccessful) {
     logger.debug(
       {
         path,
         initialContent,
       },
-      `processStrReplace: No change to ${path}`,
+      `processStrReplace: No successful replacements for ${path}`,
     )
-    messages.push('No change to the file.')
     return {
       tool: 'str_replace' as const,
       path,
