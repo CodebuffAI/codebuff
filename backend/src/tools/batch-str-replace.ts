@@ -510,16 +510,6 @@ async function callBenchify(
     fix_types: ['string_literals'],
   })
 
-  logger.info(
-    {
-      responseReceived: !!response,
-      responseLength: response?.length || 0,
-      responseFiles: response?.map((r) => r.path) || [],
-      ...context,
-    },
-    'Benchify runFixer API response received',
-  )
-
   return response
 }
 
