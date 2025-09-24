@@ -13,7 +13,14 @@ const definition: SecretAgentDefinition = {
   displayName: 'Base Lite Grok 4 Fast',
   publisher,
   model: 'x-ai/grok-4-fast:free',
-  spawnableAgents: ['researcher-grok-4-fast', 'thinker', 'reviewer-lite', 'context-pruner'],
+  spawnableAgents: [
+    'file-explorer',
+    'web-researcher',
+    'docs-researcher',
+    'thinker',
+    'reviewer-lite',
+    'context-pruner',
+  ],
   instructionsPrompt:
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
     '\n\n<system_instructions>' +
@@ -24,7 +31,7 @@ const definition: SecretAgentDefinition = {
 
       'Use the spawn_agents tool (and not spawn_agent_inline!) to spawn agents to help you complete the user request. You can spawn as many agents as you want.',
 
-      `It is a good idea to spawn a researcher agent (or two or three) first to explore the codebase from different perspectives, or to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the researcher, only spawn the thinker *after* you have the reasearch results. Finally, you must spawn the reviewer agent to review your code changes.`,
+      `It is a good idea to spawn a file explorer agent first to explore the codebase from different perspectives, or a web/docs researcher agent to help you get up-to-date information from web results and docs too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the file explorer, only spawn the thinker *after* you have the reasearch results. Finally, you must spawn the reviewer agent to review your code changes.`,
       `Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read 10 files. The more files you read, the better context you have on the codebase and the better your response will be.`,
 
       'If the users uses "@AgentName" in their message, you must spawn the agent with the name "@AgentName". Spawn all the agents that the user mentions.',
@@ -55,7 +62,7 @@ const definition: SecretAgentDefinition = {
 
       'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
-      `You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a researcher agent (or two or three) first to search the codebase or the web. Finally, you must spawn the reviewer agent to review your code changes.`,
+      `You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to search the codebase or the web. Finally, you must spawn the reviewer agent to review your code changes.`,
     ).join('\n\n') +
     closeXml('system_instructions'),
 }
