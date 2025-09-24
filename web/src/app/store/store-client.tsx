@@ -70,7 +70,7 @@ interface AgentStoreState {
 }
 
 const useAgentStoreState = create<AgentStoreState>((set) => ({
-  displayedCount: 0,
+  displayedCount: 24,
   isLoadingMore: false,
   hasMore: true,
   searchQuery: '',
