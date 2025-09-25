@@ -58,7 +58,7 @@ export function Section({
       className={cn('relative overflow-hidden', className)}
       initial={false}
       animate={{
-        height: fullViewport && !isMobile ? '95svh' : 'auto',
+        minHeight: fullViewport && !isMobile ? '95svh' : 'auto',
       }}
       transition={{
         duration: 1,
