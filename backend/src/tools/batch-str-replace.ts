@@ -48,7 +48,7 @@ let benchifyCircuitBreaker = {
 const CIRCUIT_BREAKER_THRESHOLD = 3 // Open circuit after 3 consecutive failures
 const CIRCUIT_BREAKER_TIMEOUT = 60000 // Keep circuit open for 1 minute
 
-function getBenchifyClient(): Benchify | null {
+export function getBenchifyClient(): Benchify | null {
   if (!benchifyClient) {
     let benchifyApiKey: string | undefined
     try {

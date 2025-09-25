@@ -1,6 +1,15 @@
-import * as envModule from '@codebuff/internal/env'
-import { describe, expect, it, spyOn } from 'bun:test'
+import { describe, expect, it, spyOn, beforeEach, afterEach, mock } from 'bun:test'
 import { applyPatch } from 'diff'
+
+// Mock the benchify module to simulate missing API key
+mock.module('benchify', () => ({
+  Benchify: class MockBenchify {
+    constructor() {}
+    runFixer() {
+      return Promise.resolve([])
+    }
+  }
+}))
 
 import { processStrReplace } from '../process-str-replace'
 import { mockFileContext } from './test-utils'
@@ -487,47 +496,46 @@ describe('Benchify resilience', () => {
   })
 
   it('should fall back gracefully when Benchify is disabled', async () => {
-    // Test with no API key - mock the entire env module
-    const mockEnv = {
-      BENCHIFY_API_KEY: undefined,
-      // Add other required env properties that might be accessed
-      PORT: 3001,
-      OPEN_ROUTER_API_KEY: 'mock-key',
-      RELACE_API_KEY: 'mock-key',
-      LINKUP_API_KEY: 'mock-key',
-    } as any
-    Object.defineProperty(envModule, 'env', {
-      get: () => mockEnv,
-      configurable: true,
-    })
+    // Mock the process.env to simulate missing BENCHIFY_API_KEY
+    const originalEnv = process.env.BENCHIFY_API_KEY
+    delete process.env.BENCHIFY_API_KEY
 
-    const result = await executeBatchStrReplaces({
-      deferredStrReplaces: [
-        {
-          toolCall: {
-            toolName: 'str_replace' as const,
-            toolCallId: 'test-call',
-            input: {
-              path: 'test.ts',
-              replacements: [{ old: 'old', new: 'new', allowMultiple: false }],
+    try {
+      const result = await executeBatchStrReplaces({
+        deferredStrReplaces: [
+          {
+            toolCall: {
+              toolName: 'str_replace' as const,
+              toolCallId: 'test-call',
+              input: {
+                path: 'test.ts',
+                replacements: [
+                  { old: 'old', new: 'new', allowMultiple: false },
+                ],
+              },
             },
           },
-        },
-      ],
-      toolCalls: [],
-      toolResults: [],
-      ws: {} as any,
-      fileContext: mockFileContext,
-      agentStepId: 'test-step',
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      onResponseChunk: () => {},
-      state: { messages: [] },
-      userId: 'test-user',
-    })
+        ],
+        toolCalls: [],
+        toolResults: [],
+        ws: {} as any,
+        fileContext: mockFileContext,
+        agentStepId: 'test-step',
+        clientSessionId: 'test-session',
+        userInputId: 'test-input',
+        onResponseChunk: () => {},
+        state: { messages: [] },
+        userId: 'test-user',
+      })
 
-    // Should complete without error even when Benchify is unavailable
-    expect(result).toBeUndefined() // Function returns void
+      // Should complete without error even when Benchify is unavailable
+      expect(result).toBeUndefined() // Function returns void
+    } finally {
+      // Restore the original environment variable
+      if (originalEnv !== undefined) {
+        process.env.BENCHIFY_API_KEY = originalEnv
+      }
+    }
   })
 
   describe('Batch str_replace integration tests', () => {
