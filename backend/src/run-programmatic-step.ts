@@ -74,18 +74,6 @@ export async function runProgrammaticStep(
     stepNumber: number
   },
 ): Promise<{ agentState: AgentState; endTurn: boolean; stepNumber: number }> {
-  logger.info(
-    {
-      agentType: template.id,
-      runId: agentState.runId,
-      hasHandleSteps: !!template.handleSteps,
-      handleStepsType: typeof template.handleSteps,
-      stepNumber,
-      stepsComplete,
-    },
-    'runProgrammaticStep: Starting programmatic step execution',
-  )
-
   if (!template.handleSteps) {
     throw new Error('No step handler found for agent template ' + template.id)
   }
@@ -122,13 +110,6 @@ export async function runProgrammaticStep(
     }
 
     if (typeof template.handleSteps === 'string') {
-      logger.info(
-        {
-          agentType: template.id,
-          runId: agentState.runId,
-        },
-        'runProgrammaticStep: Initializing QuickJS sandbox for string-based generator',
-      )
       // Initialize QuickJS sandbox for string-based generator
       sandbox = await sandboxManager.getOrCreateSandbox(
         agentState.runId,
@@ -142,13 +123,6 @@ export async function runProgrammaticStep(
         streamingLogger, // pass the streaming logger instance
       )
     } else {
-      logger.info(
-        {
-          agentType: template.id,
-          runId: agentState.runId,
-        },
-        'runProgrammaticStep: Initializing native JavaScript generator',
-      )
       // Initialize native generator
       generator = (template.handleSteps as any)(
         {
@@ -159,14 +133,6 @@ export async function runProgrammaticStep(
         streamingLogger,
       )
       runIdToGenerator[agentState.runId] = generator
-      logger.info(
-        {
-          agentType: template.id,
-          runId: agentState.runId,
-          generatorInitialized: !!generator,
-        },
-        'runProgrammaticStep: Native generator initialized successfully',
-      )
     }
   }
 
@@ -228,17 +194,6 @@ export async function runProgrammaticStep(
       creditsBefore = state.agentState.directCreditsUsed
       childrenBefore = state.agentState.childRunIds.length
 
-      logger.info(
-        {
-          agentType: template.id,
-          runId: agentState.runId,
-          usingSandbox: !!sandbox,
-          usingGenerator: !!generator,
-          stepsComplete,
-        },
-        'runProgrammaticStep: About to execute generator step',
-      )
-
       const result = sandbox
         ? await sandbox.executeStep({
             agentState: getPublicAgentState(state.agentState),
@@ -250,16 +205,6 @@ export async function runProgrammaticStep(
             toolResult,
             stepsComplete,
           })
-
-      logger.info(
-        {
-          agentType: template.id,
-          runId: agentState.runId,
-          resultDone: result.done,
-          resultValue: result.value,
-        },
-        'runProgrammaticStep: Generator step executed, got result',
-      )
 
       if (result.done) {
         endTurn = true

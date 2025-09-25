@@ -103,16 +103,9 @@ export class QuickJSSandbox {
 
             msgStr = msg ? context.getString(msg) : undefined
 
-            if (logger) {
-              if (levelStr === 'debug' && logger.debug) {
-                logger.debug(dataObj, msgStr)
-              } else if (levelStr === 'info' && logger.info) {
-                logger.info(dataObj, msgStr)
-              } else if (levelStr === 'warn' && logger.warn) {
-                logger.warn(dataObj, msgStr)
-              } else if (levelStr === 'error' && logger.error) {
-                logger.error(dataObj, msgStr)
-              }
+            // Call the appropriate logger method if available
+            if (logger?.[levelStr as keyof typeof logger]) {
+              logger[levelStr as keyof typeof logger](dataObj, msgStr)
             }
           } catch (err) {
             // Fallback for logging errors
