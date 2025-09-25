@@ -206,6 +206,7 @@ export class Client {
   private responseComplete: boolean = false
   private userInputId: string | undefined
   private nonCancelledUserInputIds: string[] = []
+  private currentOnChunk: ((chunk: string | PrintModeEvent) => void) | undefined
 
   public usageData: UsageData = {
     usage: 0,
@@ -946,6 +947,58 @@ export class Client {
       // Refresh display if we're currently viewing this agent
       refreshSubagentDisplay(agentId)
     })
+
+    // Handle handleSteps log streaming
+    this.webSocket.subscribe('handlesteps-log-chunk', (action) => {
+      const { agentId, level, data, message } = action
+      const formattedMessage = this.formatLogMessage(
+        level,
+        data,
+        message,
+        agentId,
+      )
+
+      if (this.currentOnChunk && this.userInputId) {
+        this.currentOnChunk(formattedMessage + '\n')
+      } else {
+        process.stdout.write(formattedMessage + '\n')
+      }
+    })
+  }
+
+  private formatLogMessage(
+    level: string,
+    data: any,
+    message?: string,
+    agentId?: string,
+  ): string {
+    const timestamp = new Date().toISOString().substring(11, 23) // HH:MM:SS.mmm
+    const levelColors = { debug: blue, info: green, warn: yellow, error: red }
+    const levelColor =
+      levelColors[level as keyof typeof levelColors] || ((s: string) => s)
+
+    const timeTag = `[${timestamp}]`
+    const levelTag = levelColor(`[${level.toUpperCase()}]`)
+    const agentTag = agentId ? `[Agent ${agentId}]` : ''
+    const dataStr = this.serializeLogData(data)
+
+    return [timeTag, levelTag, agentTag, message, dataStr]
+      .filter(Boolean)
+      .join(' ')
+  }
+
+  private serializeLogData(data: any): string {
+    if (data === undefined || data === null) return ''
+
+    if (typeof data === 'object') {
+      try {
+        return JSON.stringify(data, null, 2)
+      } catch {
+        return String(data)
+      }
+    }
+
+    return String(data)
   }
 
   private showUsageWarning() {
@@ -1259,12 +1312,14 @@ export class Client {
     })
 
     this.userInputId = userInputId
+    this.currentOnChunk = onChunk
 
     const stopResponse = () => {
       responseStopped = true
       unsubscribeChunks()
       unsubscribeComplete()
       this.cancelCurrentInput()
+      this.currentOnChunk = undefined
 
       const additionalMessages = prompt
         ? [
@@ -1486,6 +1541,10 @@ Go to https://www.codebuff.com/config for more information.`) +
           unsubscribeChunks()
           unsubscribeComplete()
         }
+
+        // Clear the onChunk callback when response is complete
+        this.currentOnChunk = undefined
+
         resolveResponse({ ...a, wasStoppedByUser: false })
       },
     )

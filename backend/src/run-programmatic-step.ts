@@ -86,8 +86,29 @@ export async function runProgrammaticStep(
   let generator = runIdToGenerator[agentState.runId]
   let sandbox = sandboxManager.getSandbox(agentState.runId)
 
-  // Check if we need to initialize a generator (either native or QuickJS-based)
+  // Check if we need to initialize a generator
   if (!generator && !sandbox) {
+    const createLogMethod =
+      (level: 'debug' | 'info' | 'warn' | 'error') =>
+      (data: any, msg?: string) => {
+        logger[level](data, msg) // Log to backend
+        sendAction(ws, {
+          type: 'handlesteps-log-chunk',
+          userInputId,
+          agentId: agentState.agentId,
+          level,
+          data,
+          message: msg,
+        })
+      }
+
+    const streamingLogger = {
+      debug: createLogMethod('debug'),
+      info: createLogMethod('info'),
+      warn: createLogMethod('warn'),
+      error: createLogMethod('error'),
+    }
+
     if (typeof template.handleSteps === 'string') {
       // Initialize QuickJS sandbox for string-based generator
       sandbox = await sandboxManager.getOrCreateSandbox(
@@ -97,7 +118,10 @@ export async function runProgrammaticStep(
           agentState,
           prompt,
           params,
+          logger: streamingLogger,
         },
+        undefined, // config
+        streamingLogger, // pass the streaming logger instance for internal use
       )
     } else {
       // Initialize native generator
@@ -105,6 +129,7 @@ export async function runProgrammaticStep(
         agentState,
         prompt,
         params,
+        logger: streamingLogger,
       })
       runIdToGenerator[agentState.runId] = generator
     }
@@ -147,9 +172,10 @@ export async function runProgrammaticStep(
         ...data,
       })
     },
-    agentState: cloneDeep(
-      agentState as AgentState & Required<Pick<AgentState, 'runId'>>,
-    ),
+    agentState: cloneDeep({
+      ...agentState,
+      runId: agentState.runId!, // We've already verified runId exists above
+    }),
     agentContext: cloneDeep(agentState.agentContext),
     messages: cloneDeep(agentState.messageHistory),
   }

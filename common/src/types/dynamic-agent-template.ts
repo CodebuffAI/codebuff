@@ -68,6 +68,26 @@ export type PromptField = z.infer<typeof PromptFieldSchema>
 
 const functionSchema = <T extends z.core.$ZodFunction>(schema: T) =>
   z.custom<Parameters<T['implement']>[0]>((fn: any) => schema.implement(fn))
+// Schema for the Logger interface
+const LoggerSchema = z.object({
+  debug: z.function({
+    input: [z.any(), z.string().optional()],
+    output: z.void(),
+  }),
+  info: z.function({
+    input: [z.any(), z.string().optional()],
+    output: z.void(),
+  }),
+  warn: z.function({
+    input: [z.any(), z.string().optional()],
+    output: z.void(),
+  }),
+  error: z.function({
+    input: [z.any(), z.string().optional()],
+    output: z.void(),
+  }),
+})
+
 // Schema for validating handleSteps function signature
 const HandleStepsSchema = functionSchema(
   z.function({
@@ -81,6 +101,7 @@ const HandleStepsSchema = functionSchema(
         prompt: z.string().optional(),
         params: z.any().optional(),
       }),
+      LoggerSchema.optional(),
     ],
     output: z.any(),
   }),

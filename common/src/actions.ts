@@ -130,6 +130,14 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     chunk: z.string(),
     prompt: z.string().optional(),
   }),
+  z.object({
+    type: z.literal('handlesteps-log-chunk'),
+    userInputId: z.string(),
+    agentId: z.string(),
+    level: z.enum(['debug', 'info', 'warn', 'error']),
+    data: z.any(),
+    message: z.string().optional(),
+  }),
   PromptResponseSchema,
   z.object({
     type: z.literal('read-files'),

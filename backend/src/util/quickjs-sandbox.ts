@@ -52,6 +52,12 @@ export class QuickJSSandbox {
     generatorCode: string,
     initialInput: any,
     config: SandboxConfig = {},
+    logger?: {
+      debug: (data: any, msg?: string) => void
+      info: (data: any, msg?: string) => void
+      warn: (data: any, msg?: string) => void
+      error: (data: any, msg?: string) => void
+    },
   ): Promise<QuickJSSandbox> {
     const {
       memoryLimit = 1024 * 1024 * 20, // 20MB
@@ -80,6 +86,38 @@ export class QuickJSSandbox {
     const context = runtime.newContext()
 
     try {
+      // Set up logger handler
+      const loggerHandler = context.newFunction(
+        '_loggerHandler',
+        (level, data, msg) => {
+          try {
+            const levelStr = context.getString(level)
+            let dataObj: any
+            let msgStr: string | undefined
+
+            try {
+              dataObj = data ? JSON.parse(context.getString(data)) : undefined
+            } catch {
+              dataObj = context.getString(data)
+            }
+
+            msgStr = msg ? context.getString(msg) : undefined
+
+            // Call the appropriate logger method if available
+            if (logger?.[levelStr as keyof typeof logger]) {
+              logger[levelStr as keyof typeof logger](dataObj, msgStr)
+            }
+          } catch (err) {
+            // Fallback for logging errors
+            if (logger?.error) {
+              logger.error({ error: err }, 'Logger handler error')
+            }
+          }
+        },
+      )
+
+      context.setProp(context.global, '_loggerHandler', loggerHandler)
+      loggerHandler.dispose()
       // Inject safe globals and the generator function
       const setupCode = `
         // Safe console implementation
@@ -89,11 +127,26 @@ export class QuickJSSandbox {
           warn: (...args) => undefined
         };
         
+        // Logger implementation
+        const createLogMethod = (level) => (data, msg) => 
+          globalThis._loggerHandler(level, 
+            typeof data === 'object' ? JSON.stringify(data) : String(data), 
+            msg ? String(msg) : undefined);
+        
+        const logger = {
+          debug: createLogMethod('debug'),
+          info: createLogMethod('info'),
+          warn: createLogMethod('warn'),
+          error: createLogMethod('error')
+        };
+        
         // Agent function
         const handleSteps = ${generatorCode};
         
-        // Create generator instance
-        let generator = handleSteps(${JSON.stringify(initialInput)});
+        // Create generator instance with logger injected into context
+        const context = ${JSON.stringify(initialInput)};
+        context.logger = logger;
+        let generator = handleSteps(context);
         
         // Generator management
         globalThis._generator = generator;
@@ -213,6 +266,12 @@ export class SandboxManager {
     generatorCode: string,
     initialInput: any,
     config?: SandboxConfig,
+    logger?: {
+      debug: (data: any, msg?: string) => void
+      info: (data: any, msg?: string) => void
+      warn: (data: any, msg?: string) => void
+      error: (data: any, msg?: string) => void
+    },
   ): Promise<QuickJSSandbox> {
     const existing = this.sandboxes.get(runId)
     if (existing && existing.isInitialized()) {
@@ -229,6 +288,7 @@ export class SandboxManager {
       generatorCode,
       initialInput,
       config,
+      logger,
     )
     this.sandboxes.set(runId, sandbox)
     return sandbox

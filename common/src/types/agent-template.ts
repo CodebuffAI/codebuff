@@ -1,9 +1,19 @@
+/**
+ * Backend Agent Template Types
+ *
+ * This file provides backend-compatible agent template types with strict validation.
+ * It imports base types from the user-facing template to eliminate duplication.
+ */
+
 import type { Model } from '../old-constants'
 import type { ToolResultOutput } from './messages/content-part'
 import type { AgentState, AgentTemplateType } from './session-state'
 import type {
+  AgentDefinition,
   ToolCall,
   AgentState as PublicAgentState,
+  Logger,
+  AgentStepContext,
 } from '../templates/initial-agents-dir/types/agent-definition'
 import type { ToolName } from '../tools/constants'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
@@ -11,6 +21,10 @@ import type { z } from 'zod/v4'
 
 export type AgentId = `${string}/${string}@${number}.${number}.${number}`
 
+/**
+ * Backend agent template with strict validation and Zod schemas
+ * Extends the user-facing AgentDefinition but with backend-specific requirements
+ */
 export type AgentTemplate<
   P = string | undefined,
   T = Record<string, any> | undefined,
@@ -54,6 +68,11 @@ export type StepGenerator = Generator<
 export type StepHandler<
   P = string | undefined,
   T = Record<string, any> | undefined,
-> = (params: { agentState: AgentState; prompt: P; params: T }) => StepGenerator
+> = (context: {
+  agentState: AgentState
+  prompt: P
+  params: T
+  logger: Logger
+}) => StepGenerator
 
-export { PublicAgentState }
+export { Logger, PublicAgentState }

@@ -19,6 +19,17 @@ import type { Message, ToolResultOutput, JsonObjectSchema } from './util-types'
 type ToolName = Tools.ToolName
 
 // ============================================================================
+// Logger Interface
+// ============================================================================
+
+export interface Logger {
+  debug: (data: any, msg?: string) => void
+  info: (data: any, msg?: string) => void
+  warn: (data: any, msg?: string) => void
+  error: (data: any, msg?: string) => void
+}
+
+// ============================================================================
 // Agent Definition and Utility Types
 // ============================================================================
 
@@ -144,7 +155,8 @@ export interface AgentDefinition {
    * Or use 'return' to end the turn.
    *
    * Example 1:
-   * function* handleSteps({ agentStep, prompt, params}) {
+   * function* handleSteps({ agentState, prompt, params, logger }) {
+   *   logger.info('Starting file read process')
    *   const { toolResult } = yield {
    *     toolName: 'read_files',
    *     input: { paths: ['file1.txt', 'file2.txt'] }
@@ -152,6 +164,7 @@ export interface AgentDefinition {
    *   yield 'STEP_ALL'
    *
    *   // Optionally do a post-processing step here...
+   *   logger.info('Files read successfully, setting output')
    *   yield {
    *     toolName: 'set_output',
    *     input: {
@@ -161,8 +174,9 @@ export interface AgentDefinition {
    * }
    *
    * Example 2:
-   * handleSteps: function* ({ agentState, prompt, params }) {
+   * handleSteps: function* ({ agentState, prompt, params, logger }) {
    *   while (true) {
+   *     logger.debug('Spawning thinker agent')
    *     yield {
    *       toolName: 'spawn_agents',
    *       input: {
@@ -213,6 +227,7 @@ export interface AgentStepContext {
   agentState: AgentState
   prompt?: string
   params?: Record<string, any>
+  logger: Logger
 }
 
 /**

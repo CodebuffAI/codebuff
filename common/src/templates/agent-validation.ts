@@ -284,6 +284,7 @@ export function validateSingleAgent(
       stepPrompt: validatedConfig.stepPrompt ?? '',
       outputSchema,
       inputSchema,
+
     }
 
     return {

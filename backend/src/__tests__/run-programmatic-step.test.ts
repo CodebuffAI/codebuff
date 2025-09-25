@@ -84,10 +84,9 @@ describe('runProgrammaticStep', () => {
     )
 
     // Mock sendAction
-    sendActionSpy = spyOn(
-      websocketAction,
-      'sendAction',
-    ).mockImplementation(() => {})
+    sendActionSpy = spyOn(websocketAction, 'sendAction').mockImplementation(
+      () => {},
+    )
 
     // Mock crypto.randomUUID
     spyOn(crypto, 'randomUUID').mockImplementation(
@@ -118,7 +117,8 @@ describe('runProgrammaticStep', () => {
     mockAgentState = {
       ...sessionState.mainAgentState,
       agentId: 'test-agent-id',
-      runId: 'test-run-id' as `${string}-${string}-${string}-${string}-${string}`,
+      runId:
+        'test-run-id' as `${string}-${string}-${string}-${string}-${string}`,
       messageHistory: [
         { role: 'user', content: 'Initial message' },
         { role: 'assistant', content: 'Initial response' },
