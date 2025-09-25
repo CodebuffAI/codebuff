@@ -39,9 +39,9 @@ async function main() {
   })
   console.log('------- First run ended -------')
 
-  if (!run1) {
+  if (run1.output.type === 'error') {
     // The previous run failed, handleEvent should have been called with an error
-    console.error('First run failed.')
+    console.error(`First run failed:\n${run1.output.message}`)
     process.exit(1)
   }
 
@@ -66,12 +66,11 @@ main()
 Here, we create a full agent and custom tools that can be reused between runs.
 
 ```typescript
-import { z } from 'zod'
-import {
-  CodebuffClient,
-  AgentDefinition,
-  getCustomToolDefinition,
-} from '@codebuff/sdk'
+import { z } from 'zod/v4'
+
+import { CodebuffClient, getCustomToolDefinition } from '@codebuff/sdk'
+
+import type { AgentDefinition } from '@codebuff/sdk'
 
 async function main() {
   const client = new CodebuffClient({
@@ -79,7 +78,6 @@ async function main() {
     // Get it here: https://www.codebuff.com/profile?tab=api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
     cwd: process.cwd(),
-    onError: (e) => console.error('Codebuff error:', e.message),
   })
 
   // This is a custom agent that can be used instead of the `base` agent or other agents on the Codebuff store (https://codebuff.com/store).
@@ -102,16 +100,8 @@ async function main() {
       method: z.enum(['GET', 'POST']).default('GET'),
       headers: z.record(z.string(), z.string()).optional(),
     }),
-    outputSchema: z.array(
-      z.object({
-        type: z.literal('json'),
-        value: z.object({
-          message: z.string(),
-        }),
-      }),
-    ),
     exampleInputs: [{ url: 'https://api.example.com/data', method: 'GET' }],
-    handler: async ({ url, method, headers }) => {
+    execute: async ({ url, method, headers }) => {
       const response = await fetch(url, { method, headers })
       const data = await response.text()
       return [
@@ -136,8 +126,6 @@ async function main() {
   })
 
   console.log('Final output:', output)
-
-  client.closeConnection()
 }
 
 main()

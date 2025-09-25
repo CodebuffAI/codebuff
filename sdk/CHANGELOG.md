@@ -2,6 +2,10 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.3.1]
+
+- `CodebuffClient.run` now does not return `null`. Instead, the `CodebuffClient.run(...).output.type` will be `'error'`.
+
 ## [0.3.0]
 
 - New more intuitive interface for `CodebuffClient` and `CodebuffClient.run`.
