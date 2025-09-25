@@ -24,29 +24,19 @@ async function main() {
     // You need to pass in your own API key here.
     // Get one here: https://www.codebuff.com/api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
-    cwd: process.cwd(),
   })
 
   // First run
-  console.log('------- First run started -------')
   const run1 = await client.run({
     agent: 'base',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
-      // This will fire for all events that happen during the run, like when each agent starts/stops and when they respond.
-      console.dir(event, { depth: null }) // Log all events
+      // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
+      console.log('Event', event)
     },
   })
-  console.log('------- First run ended -------')
-
-  if (run1.output.type === 'error') {
-    // The previous run failed, handleEvent should have been called with an error
-    console.error(`First run failed:\n${run1.output.message}`)
-    process.exit(1)
-  }
 
   // Continue the same session with a follow-up
-  console.log('------- Second run started -------')
   const run2 = await client.run({
     agent: 'base',
     prompt: 'Add unit tests for the calculator',
@@ -55,7 +45,6 @@ async function main() {
       console.dir(event, { depth: null })
     },
   })
-  console.log('------- Second run ended -------')
 }
 
 main()
@@ -77,6 +66,7 @@ async function main() {
     // Note: You need to pass in your own API key.
     // Get it here: https://www.codebuff.com/profile?tab=api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
+    // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
   })
 
@@ -121,11 +111,16 @@ async function main() {
     agentDefinitions: [myCustomAgent],
     customToolDefinitions: [myCustomTool],
     handleEvent: (event) => {
-      console.log(event)
+      // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
+      console.log('Event', event)
     },
   })
 
-  console.log('Final output:', output)
+  if (output.type === 'error') {
+    console.error(`The run failed:\n${output.message}`)
+  } else {
+    console.log('The run succeeded with output:', output)
+  }
 }
 
 main()
