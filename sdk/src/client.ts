@@ -56,7 +56,7 @@ export class CodebuffClient {
    */
   public async run(
     options: RunOptions & CodebuffClientOptions,
-  ): Promise<RunState | null> {
+  ): Promise<RunState> {
     return run({ ...this.options, ...options })
   }
 }

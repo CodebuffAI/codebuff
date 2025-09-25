@@ -92,7 +92,7 @@ export async function run({
 }: RunOptions &
   Required<CodebuffClientOptions> & {
     fingerprintId: string
-  }): Promise<RunState | null> {
+  }): Promise<RunState> {
   function onError(error: { message: string }) {
     handleEvent({ type: 'error', message: error.message })
   }
@@ -137,9 +137,19 @@ export async function run({
     onSubagentResponseChunk: async () => {},
 
     onPromptResponse: (action) =>
-      handlePromptResponse({ action, resolve, onError }),
+      handlePromptResponse({
+        action,
+        resolve,
+        onError,
+        initialSessionState: sessionState,
+      }),
     onPromptError: (action) =>
-      handlePromptResponse({ action, resolve, onError }),
+      handlePromptResponse({
+        action,
+        resolve,
+        onError,
+        initialSessionState: sessionState,
+      }),
   })
 
   // Init session state
@@ -306,14 +316,22 @@ async function handlePromptResponse({
   action,
   resolve,
   onError,
+  initialSessionState,
 }: {
   action: ServerAction<'prompt-response'> | ServerAction<'prompt-error'>
   resolve: (value: RunReturnType) => any
   onError: (error: { message: string }) => void
+  initialSessionState: SessionState
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
-    resolve(null)
+    resolve({
+      sessionState: initialSessionState,
+      output: {
+        type: 'error',
+        message: action.message,
+      },
+    })
   } else if (action.type === 'prompt-response') {
     const parsedAction = PromptResponseSchema.safeParse(action)
     if (!parsedAction.success) {
@@ -325,7 +343,13 @@ async function handlePromptResponse({
       onError({
         message: message,
       })
-      resolve(null)
+      resolve({
+        sessionState: initialSessionState,
+        output: {
+          type: 'error',
+          message: message,
+        },
+      })
       return
     }
 
@@ -343,6 +367,12 @@ async function handlePromptResponse({
     onError({
       message: 'Internal error: prompt response type not handled',
     })
-    resolve(null)
+    resolve({
+      sessionState: initialSessionState,
+      output: {
+        type: 'error',
+        message: 'Internal error: prompt response type not handled',
+      },
+    })
   }
 }
