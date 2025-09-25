@@ -67,7 +67,7 @@ export function Section({
       style={{
         ...style,
         paddingTop: hero ? '1rem' : '10rem',
-        paddingBottom: hero ? '0' : '10rem',
+        paddingBottom: isMobile && hero ? '5rem' : '10rem',
       }}
       {...props}
     >
