@@ -1,6 +1,6 @@
 /**
  * Backend Agent Template Types
- * 
+ *
  * This file provides backend-compatible agent template types with strict validation.
  * It imports base types from the user-facing template to eliminate duplication.
  */
@@ -68,9 +68,11 @@ export type StepGenerator = Generator<
 export type StepHandler<
   P = string | undefined,
   T = Record<string, any> | undefined,
-> = (
-  params: { agentState: AgentState; prompt: P; params: T },
-  logger: Logger,
-) => StepGenerator
+> = (context: {
+  agentState: AgentState
+  prompt: P
+  params: T
+  logger: Logger
+}) => StepGenerator
 
 export { Logger, PublicAgentState }

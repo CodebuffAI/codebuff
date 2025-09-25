@@ -125,7 +125,7 @@ export async function runProgrammaticStep(
       )
     } else {
       // Initialize native generator
-      generator = (template.handleSteps as any)({
+      generator = template.handleSteps({
         agentState,
         prompt,
         params,
@@ -172,9 +172,10 @@ export async function runProgrammaticStep(
         ...data,
       })
     },
-    agentState: cloneDeep(
-      agentState as AgentState & Required<Pick<AgentState, 'runId'>>,
-    ),
+    agentState: cloneDeep({
+      ...agentState,
+      runId: agentState.runId!, // We've already verified runId exists above
+    }),
     agentContext: cloneDeep(agentState.agentContext),
     messages: cloneDeep(agentState.messageHistory),
   }
