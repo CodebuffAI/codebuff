@@ -118,20 +118,19 @@ export async function runProgrammaticStep(
           agentState,
           prompt,
           params,
+          logger: streamingLogger,
         },
         undefined, // config
-        streamingLogger, // pass the streaming logger instance
+        streamingLogger, // pass the streaming logger instance for internal use
       )
     } else {
       // Initialize native generator
-      generator = (template.handleSteps as any)(
-        {
-          agentState,
-          prompt,
-          params,
-        },
-        streamingLogger,
-      )
+      generator = (template.handleSteps as any)({
+        agentState,
+        prompt,
+        params,
+        logger: streamingLogger,
+      })
       runIdToGenerator[agentState.runId] = generator
     }
   }

@@ -155,7 +155,7 @@ export interface AgentDefinition {
    * Or use 'return' to end the turn.
    *
    * Example 1:
-   * function* handleSteps({ agentStep, prompt, params}, logger) {
+   * function* handleSteps({ agentState, prompt, params, logger }) {
    *   logger.info('Starting file read process')
    *   const { toolResult } = yield {
    *     toolName: 'read_files',
@@ -174,7 +174,7 @@ export interface AgentDefinition {
    * }
    *
    * Example 2:
-   * handleSteps: function* ({ agentState, prompt, params }, logger) {
+   * handleSteps: function* ({ agentState, prompt, params, logger }) {
    *   while (true) {
    *     logger.debug('Spawning thinker agent')
    *     yield {
@@ -193,10 +193,7 @@ export interface AgentDefinition {
    * }
    * }
    */
-  handleSteps?: (
-    context: AgentStepContext,
-    logger: Logger,
-  ) => Generator<
+  handleSteps?: (context: AgentStepContext) => Generator<
     ToolCall | 'STEP' | 'STEP_ALL',
     void,
     {
@@ -230,6 +227,7 @@ export interface AgentStepContext {
   agentState: AgentState
   prompt?: string
   params?: Record<string, any>
+  logger: Logger
 }
 
 /**

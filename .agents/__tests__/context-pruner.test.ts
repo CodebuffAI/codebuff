@@ -72,7 +72,10 @@ describe('context-pruner handleSteps', () => {
       warn: () => {},
       error: () => {},
     }
-    const generator = contextPruner.handleSteps!({ agentState: mockAgentState }, mockLogger)
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+    })
     const results: any[] = []
     let result = generator.next()
     while (!result.done) {
@@ -336,7 +339,10 @@ describe('context-pruner edge cases', () => {
       warn: () => {},
       error: () => {},
     }
-    const generator = contextPruner.handleSteps!({ agentState: mockAgentState }, mockLogger)
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+    })
     const results: ReturnType<typeof generator.next>['value'][] = []
     let result = generator.next()
     while (!result.done) {
