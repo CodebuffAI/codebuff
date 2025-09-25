@@ -487,10 +487,19 @@ describe('Benchify resilience', () => {
   })
 
   it('should fall back gracefully when Benchify is disabled', async () => {
-    // Test with no API key - spy on the env object directly
-    spyOn(envModule, 'env', 'get').mockReturnValue({
-      // Empty object simulates no BENCHIFY_API_KEY
-    } as any)
+    // Test with no API key - mock the entire env module
+    const mockEnv = {
+      BENCHIFY_API_KEY: undefined,
+      // Add other required env properties that might be accessed
+      PORT: 3001,
+      OPEN_ROUTER_API_KEY: 'mock-key',
+      RELACE_API_KEY: 'mock-key',
+      LINKUP_API_KEY: 'mock-key',
+    } as any
+    Object.defineProperty(envModule, 'env', {
+      get: () => mockEnv,
+      configurable: true,
+    })
 
     const result = await executeBatchStrReplaces({
       deferredStrReplaces: [
