@@ -196,17 +196,15 @@ export interface AgentDefinition {
   handleSteps?: (
     context: AgentStepContext,
     logger: Logger,
-  ) =>
-    | Generator<
-        ToolCall | 'STEP' | 'STEP_ALL',
-        void,
-        {
-          agentState: AgentState
-          toolResult: ToolResultOutput[] | undefined
-          stepsComplete: boolean
-        }
-      >
-    | string
+  ) => Generator<
+    ToolCall | 'STEP' | 'STEP_ALL',
+    void,
+    {
+      agentState: AgentState
+      toolResult: ToolResultOutput[] | undefined
+      stepsComplete: boolean
+    }
+  >
 }
 
 // ============================================================================
