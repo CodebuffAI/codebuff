@@ -205,6 +205,7 @@ export class Client {
   private responseComplete: boolean = false
   private userInputId: string | undefined
   private nonCancelledUserInputIds: string[] = []
+  private currentOnChunk: ((chunk: string | PrintModeEvent) => void) | undefined
 
   public usageData: UsageData = {
     usage: 0,
@@ -959,8 +960,12 @@ export class Client {
       // Format the log message for display
       const formattedMessage = this.formatLogMessage(level, data, message)
 
-      // Display the log message immediately
-      if (formattedMessage) {
+      // Display the log message using onChunk if we're in an active user input session
+      if (formattedMessage && this.userInputId) {
+        // Use the onChunk callback to properly handle spinner state
+        this.handleLogChunk(formattedMessage + '\n')
+      } else if (formattedMessage) {
+        // Fallback to direct stdout for non-user-input scenarios
         process.stdout.write(formattedMessage + '\n')
       }
     })
@@ -991,6 +996,18 @@ export class Client {
     }
 
     return String(data)
+  }
+
+  /**
+   * Handle log chunks by using the current onChunk callback if available
+   */
+  private handleLogChunk(formattedMessage: string): void {
+    if (this.currentOnChunk) {
+      this.currentOnChunk(formattedMessage)
+    } else {
+      // Fallback to direct stdout if no onChunk callback is available
+      process.stdout.write(formattedMessage)
+    }
   }
 
   private showUsageWarning() {
@@ -1304,12 +1321,14 @@ export class Client {
     })
 
     this.userInputId = userInputId
+    this.currentOnChunk = onChunk
 
     const stopResponse = () => {
       responseStopped = true
       unsubscribeChunks()
       unsubscribeComplete()
       this.cancelCurrentInput()
+      this.currentOnChunk = undefined
 
       const additionalMessages = prompt
         ? [
@@ -1531,6 +1550,10 @@ Go to https://www.codebuff.com/config for more information.`) +
           unsubscribeChunks()
           unsubscribeComplete()
         }
+
+        // Clear the onChunk callback when response is complete
+        this.currentOnChunk = undefined
+
         resolveResponse({ ...a, wasStoppedByUser: false })
       },
     )
