@@ -956,22 +956,27 @@ export class Client {
     // Handle handleSteps log streaming
     this.webSocket.subscribe('handlesteps-log-chunk', (action) => {
       const { agentId, level, data, message } = action
+      const formattedMessage = this.formatLogMessage(
+        level,
+        data,
+        message,
+        agentId,
+      )
 
-      // Format the log message for display
-      const formattedMessage = this.formatLogMessage(level, data, message)
-
-      // Display the log message using onChunk if we're in an active user input session
-      if (formattedMessage && this.userInputId) {
-        // Use the onChunk callback to properly handle spinner state
-        this.handleLogChunk(formattedMessage + '\n')
-      } else if (formattedMessage) {
-        // Fallback to direct stdout for non-user-input scenarios
+      if (this.currentOnChunk && this.userInputId) {
+        this.currentOnChunk(formattedMessage + '\n')
+      } else {
         process.stdout.write(formattedMessage + '\n')
       }
     })
   }
 
-  private formatLogMessage(level: string, data: any, message?: string): string {
+  private formatLogMessage(
+    level: string,
+    data: any,
+    message?: string,
+    agentId?: string,
+  ): string {
     const timestamp = new Date().toISOString().substring(11, 23) // HH:MM:SS.mmm
     const levelColors = { debug: blue, info: green, warn: yellow, error: red }
     const levelColor =
@@ -979,9 +984,12 @@ export class Client {
 
     const timeTag = `[${timestamp}]`
     const levelTag = levelColor(`[${level.toUpperCase()}]`)
+    const agentTag = agentId ? `[Agent ${agentId}]` : ''
     const dataStr = this.serializeLogData(data)
 
-    return [timeTag, levelTag, message, dataStr].filter(Boolean).join(' ')
+    return [timeTag, levelTag, agentTag, message, dataStr]
+      .filter(Boolean)
+      .join(' ')
   }
 
   private serializeLogData(data: any): string {
@@ -996,18 +1004,6 @@ export class Client {
     }
 
     return String(data)
-  }
-
-  /**
-   * Handle log chunks by using the current onChunk callback if available
-   */
-  private handleLogChunk(formattedMessage: string): void {
-    if (this.currentOnChunk) {
-      this.currentOnChunk(formattedMessage)
-    } else {
-      // Fallback to direct stdout if no onChunk callback is available
-      process.stdout.write(formattedMessage)
-    }
   }
 
   private showUsageWarning() {
