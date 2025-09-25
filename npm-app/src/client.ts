@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import open from 'open'
 import {
   existsSync,
   mkdirSync,
@@ -598,15 +599,9 @@ export class Client {
       console.log(responseToUser.join('\n'))
 
       let shouldRequestLogin = true
-      CLI.getInstance().rl.once('line', () => {
+      CLI.getInstance().rl.once('line', async () => {
         if (shouldRequestLogin) {
-          const openCommand =
-            process.platform === 'win32'
-              ? 'start'
-              : process.platform === 'linux'
-                ? 'xdg-open'
-                : 'open'
-          spawn(openCommand, [loginUrl])
+          await open(loginUrl)
           console.log(
             "Opened a browser window to log you in! If it doesn't open automatically, you can click this link:",
           )
