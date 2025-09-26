@@ -1,12 +1,12 @@
 import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
   getInitialAgentState,
   type AgentState,
 } from '@codebuff/common/types/session-state'
 import { afterEach, beforeEach, describe, expect, test, spyOn } from 'bun:test'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 
 import {
   clearAgentGeneratorCache,
@@ -71,6 +71,7 @@ describe('QuickJS Sandbox Generator', () => {
       model: 'anthropic/claude-4-sonnet-20250522',
       outputMode: 'structured_output',
       includeMessageHistory: false,
+      mcpServers: {},
       toolNames: ['set_output'],
       spawnableAgents: [],
       inputSchema: {},

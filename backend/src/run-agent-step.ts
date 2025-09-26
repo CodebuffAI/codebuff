@@ -8,10 +8,12 @@ import {
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { cloneDeep } from 'lodash'
 
 import { addAgentStep, finishAgentRun, startAgentRun } from './agent-run'
 import { asyncAgentManager } from './async-agent-manager'
 import { checkLiveUserInput } from './live-user-inputs'
+import { getMCPToolData } from './mcp/util'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
@@ -193,13 +195,28 @@ export const runAgentStep = async (
     )
   }
 
-  const stepPrompt = await getAgentPrompt(
+  const stepPrompt = await getAgentPrompt({
     agentTemplate,
-    { type: 'stepPrompt' },
+    promptType: { type: 'stepPrompt' },
     fileContext,
     agentState,
-    localAgentTemplates,
-  )
+    agentTemplates: localAgentTemplates,
+    additionalToolDefinitions: () => {
+      const additionalToolDefinitions = cloneDeep(
+        Object.fromEntries(
+          Object.entries(fileContext.customToolDefinitions).filter(
+            ([toolName]) => agentTemplate.toolNames.includes(toolName),
+          ),
+        ),
+      )
+      return getMCPToolData({
+        ws,
+        toolNames: agentTemplate.toolNames,
+        mcpServers: agentTemplate.mcpServers,
+        writeTo: additionalToolDefinitions,
+      })
+    },
+  })
 
   const agentMessagesUntruncated = buildArray<Message>(
     ...expireMessages(messageHistory, 'agentStep'),
@@ -256,13 +273,28 @@ export const runAgentStep = async (
   const iterationNum = agentState.messageHistory.length
 
   const system =
-    (await getAgentPrompt(
+    (await getAgentPrompt({
       agentTemplate,
-      { type: 'systemPrompt' },
+      promptType: { type: 'systemPrompt' },
       fileContext,
       agentState,
-      localAgentTemplates,
-    )) ?? ''
+      agentTemplates: localAgentTemplates,
+      additionalToolDefinitions: () => {
+        const additionalToolDefinitions = cloneDeep(
+          Object.fromEntries(
+            Object.entries(fileContext.customToolDefinitions).filter(
+              ([toolName]) => agentTemplate.toolNames.includes(toolName),
+            ),
+          ),
+        )
+        return getMCPToolData({
+          ws,
+          toolNames: agentTemplate.toolNames,
+          mcpServers: agentTemplate.mcpServers,
+          writeTo: additionalToolDefinitions,
+        })
+      },
+    })) ?? ''
   const systemTokens = countTokensJson(system)
 
   const agentMessages = agentState.messageHistory
@@ -464,13 +496,28 @@ export const loopAgentSteps = async (
 
   // Get the instructions prompt if we have a prompt/params
   const instructionsPrompt = hasPrompt
-    ? await getAgentPrompt(
+    ? await getAgentPrompt({
         agentTemplate,
-        { type: 'instructionsPrompt' },
+        promptType: { type: 'instructionsPrompt' },
         fileContext,
         agentState,
-        localAgentTemplates,
-      )
+        agentTemplates: localAgentTemplates,
+        additionalToolDefinitions: () => {
+          const additionalToolDefinitions = cloneDeep(
+            Object.fromEntries(
+              Object.entries(fileContext.customToolDefinitions).filter(
+                ([toolName]) => agentTemplate.toolNames.includes(toolName),
+              ),
+            ),
+          )
+          return getMCPToolData({
+            ws,
+            toolNames: agentTemplate.toolNames,
+            mcpServers: agentTemplate.mcpServers,
+            writeTo: additionalToolDefinitions,
+          })
+        },
+      })
     : undefined
 
   // Build the initial message history with user prompt and instructions

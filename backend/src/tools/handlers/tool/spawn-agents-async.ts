@@ -7,7 +7,7 @@ import {
   createConversationHistoryMessage,
   createAgentState,
   logAgentSpawn,
-  executeAgent,
+  executeSubagent,
 } from './spawn-agent-utils'
 import { handleSpawnAgents } from './spawn-agents'
 import { asyncAgentManager } from '../../../async-agent-manager'
@@ -129,7 +129,7 @@ export const handleSpawnAgentsAsync = ((params: {
         // Start the agent asynchronously
         const agentPromise = (async () => {
           try {
-            const result = await executeAgent({
+            const result = await executeSubagent({
               ws,
               userInputId: `${userInputId}-async-${agentType}-${asyncAgentState.agentId}`,
               prompt: prompt || '',

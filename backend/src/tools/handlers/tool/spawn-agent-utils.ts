@@ -298,9 +298,9 @@ export function logAgentSpawn(
 }
 
 /**
- * Executes an agent using loopAgentSteps
+ * Executes a subagent using loopAgentSteps
  */
-export async function executeAgent({
+export async function executeSubagent({
   ws,
   userInputId,
   prompt,

@@ -1,6 +1,7 @@
 import { z } from 'zod/v4'
 
 import { ALLOWED_MODEL_PREFIXES, models } from '../old-constants'
+import { mcpConfigSchema } from './mcp'
 
 import type { JSONSchema } from 'zod/v4/core'
 
@@ -14,7 +15,7 @@ if (filteredModels.length === 0) {
 }
 
 // Simplified JSON Schema definition - supports object schemas with nested properties
-const JsonSchemaSchema: z.ZodType<
+export const JsonSchemaSchema: z.ZodType<
   JSONSchema.BaseSchema,
   JSONSchema.BaseSchema
 > = z.lazy(() =>
@@ -135,6 +136,7 @@ export const DynamicAgentDefinitionSchema = z.object({
     .optional(),
 
   // Tools and spawnable agents
+  mcpServers: z.record(z.string(), mcpConfigSchema).default(() => ({})),
   toolNames: z
     .string()
     .array()

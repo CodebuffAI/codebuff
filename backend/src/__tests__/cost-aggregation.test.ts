@@ -143,7 +143,7 @@ describe('Cost Aggregation System', () => {
       }
 
       // Mock executeAgent to return results with different credit costs
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeAgent')
+      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
           agentState: {
             ...getInitialAgentState(),
@@ -215,7 +215,7 @@ describe('Cost Aggregation System', () => {
       }
 
       // Mock executeAgent to return success and failure with partial costs
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeAgent')
+      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
           agentState: {
             ...getInitialAgentState(),
@@ -370,7 +370,7 @@ describe('Cost Aggregation System', () => {
         sendSubagentChunk: () => {},
       }
 
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeAgent')
+      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
           agentState: {
             ...getInitialAgentState(),

@@ -114,6 +114,7 @@ export async function processStreamWithTools(options: {
           input,
           toolCalls,
           toolResults,
+          toolResultsToAddAfterStream,
           previousToolCallFinished,
           ws,
           agentTemplate,
@@ -139,6 +140,7 @@ export async function processStreamWithTools(options: {
           input,
           toolCalls,
           toolResults,
+          toolResultsToAddAfterStream,
           previousToolCallFinished,
           ws,
           agentTemplate,
@@ -164,6 +166,7 @@ export async function processStreamWithTools(options: {
         customToolCallback(toolName),
       ]),
     ]),
+    customToolCallback,
     (toolName, error) => {
       const toolResult: ToolResultPart = {
         type: 'tool-result',

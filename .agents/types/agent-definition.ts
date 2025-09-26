@@ -15,7 +15,12 @@
  */
 
 import type * as Tools from './tools'
-import type { Message, ToolResultOutput, JsonObjectSchema } from './util-types'
+import type {
+  Message,
+  ToolResultOutput,
+  JsonObjectSchema,
+  MCPConfig,
+} from './util-types'
 type ToolName = Tools.ToolName
 
 // ============================================================================
@@ -70,7 +75,17 @@ export interface AgentDefinition {
   // Tools and Subagents
   // ============================================================================
 
-  /** Tools this agent can use. */
+  /** MCP servers by name. Names cannot contain `/`. */
+  mcpServers?: Record<string, MCPConfig>
+
+  /**
+   * Tools this agent can use.
+   *
+   * By default, all tools are available from any specified MCP server. In
+   * order to limit the tools from a specific MCP server, add the tool name(s)
+   * in the format `'mcpServerName/toolName1'`, `'mcpServerName/toolName2'`,
+   * etc.
+   */
   toolNames?: (ToolName | (string & {}))[]
 
   /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.

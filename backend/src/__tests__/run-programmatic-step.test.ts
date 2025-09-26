@@ -22,9 +22,9 @@ import {
   runProgrammaticStep,
 } from '../run-programmatic-step'
 import { mockFileContext, MockWebSocket } from './test-utils'
+import * as agentRun from '../agent-run'
 import * as toolExecutor from '../tools/tool-executor'
 import * as requestContext from '../websockets/request-context'
-import * as agentRun from '../agent-run'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
@@ -103,9 +103,9 @@ describe('runProgrammaticStep', () => {
       inputSchema: {},
       outputMode: 'structured_output',
       includeMessageHistory: true,
+      mcpServers: {},
       toolNames: ['read_files', 'write_file', 'end_turn'],
       spawnableAgents: [],
-
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
       stepPrompt: 'Test agent step prompt',

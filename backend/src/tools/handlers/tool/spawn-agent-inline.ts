@@ -3,7 +3,7 @@ import {
   validateAndGetAgentTemplate,
   validateAgentInput,
   logAgentSpawn,
-  executeAgent,
+  executeSubagent,
   createAgentState,
 } from './spawn-agent-utils'
 
@@ -90,7 +90,7 @@ export const handleSpawnAgentInline = ((params: {
       true, // inline = true
     )
 
-    const result = await executeAgent({
+    const result = await executeSubagent({
       ws,
       userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
       prompt: prompt || '',

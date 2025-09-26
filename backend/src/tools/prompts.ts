@@ -1,4 +1,4 @@
-import { endsAgentStepParam } from '@codebuff/common/tools/constants'
+import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { pluralize } from '@codebuff/common/util/string'
@@ -110,8 +110,8 @@ function buildShortToolDescription(
 }
 
 export const getToolsInstructions = (
-  toolNames: readonly string[],
-  customToolDefinitions: z.infer<typeof customToolDefinitionsSchema>,
+  tools: readonly string[],
+  additionalToolDefinitions: z.infer<typeof customToolDefinitionsSchema>,
 ) =>
   `
 # Tools
@@ -187,27 +187,25 @@ These are the tools that you (Buffy) can use. The user cannot see these descript
 
 ${[
   ...(
-    toolNames.filter((toolName) =>
+    tools.filter((toolName) =>
       toolNames.includes(toolName as ToolName),
     ) as ToolName[]
   ).map((name) => toolDescriptions[name]),
-  ...toolNames
-    .filter((toolName) => toolName in customToolDefinitions)
-    .map((toolName) => {
-      const toolDef = customToolDefinitions[toolName]
-      return buildToolDescription(
-        toolName,
-        { type: 'json', value: toolDef.inputJsonSchema },
-        toolDef.description,
-        toolDef.endsAgentStep,
-        toolDef.exampleInputs,
-      )
-    }),
+  ...Object.keys(additionalToolDefinitions).map((toolName) => {
+    const toolDef = additionalToolDefinitions[toolName]
+    return buildToolDescription(
+      toolName,
+      { type: 'json', value: toolDef.inputJsonSchema },
+      toolDef.description,
+      toolDef.endsAgentStep,
+      toolDef.exampleInputs,
+    )
+  }),
 ].join('\n\n')}`.trim()
 
 export const getShortToolInstructions = (
   toolNames: readonly string[],
-  customToolDefinitions: z.infer<typeof customToolDefinitionsSchema>,
+  additionalToolDefinitions: z.infer<typeof customToolDefinitionsSchema>,
 ) => {
   const toolDescriptions = [
     ...(
@@ -222,16 +220,14 @@ export const getShortToolInstructions = (
         tool.endsAgentStep,
       )
     }),
-    ...toolNames
-      .filter((name) => name in customToolDefinitions)
-      .map((name) => {
-        const { inputJsonSchema, endsAgentStep } = customToolDefinitions[name]
-        return buildShortToolDescription(
-          name,
-          { type: 'json', value: inputJsonSchema },
-          endsAgentStep,
-        )
-      }),
+    ...Object.keys(additionalToolDefinitions).map((name) => {
+      const { inputJsonSchema, endsAgentStep } = additionalToolDefinitions[name]
+      return buildShortToolDescription(
+        name,
+        { type: 'json', value: inputJsonSchema },
+        endsAgentStep,
+      )
+    }),
   ]
 
   return `## Tools

@@ -42,6 +42,7 @@ describe('Agent Validation', () => {
       spawnerPrompt: 'Testing',
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'structured_output' as const,
+      mcpServers: {},
       toolNames: ['set_output'],
       spawnableAgents: [],
       includeMessageHistory: true,

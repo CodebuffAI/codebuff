@@ -5,15 +5,14 @@
  * It imports base types from the user-facing template to eliminate duplication.
  */
 
+import type { MCPConfig } from './mcp'
 import type { Model } from '../old-constants'
 import type { ToolResultOutput } from './messages/content-part'
 import type { AgentState, AgentTemplateType } from './session-state'
 import type {
-  AgentDefinition,
   ToolCall,
   AgentState as PublicAgentState,
   Logger,
-  AgentStepContext,
 } from '../templates/initial-agents-dir/types/agent-definition'
 import type { ToolName } from '../tools/constants'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
@@ -34,6 +33,7 @@ export type AgentTemplate<
   model: Model
   reasoningOptions?: OpenRouterProviderOptions['reasoning']
 
+  mcpServers: Record<string, MCPConfig>
   toolNames: (ToolName | (string & {}))[]
   spawnableAgents: AgentTemplateType[]
 

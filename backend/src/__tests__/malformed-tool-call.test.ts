@@ -60,6 +60,7 @@ describe('malformed tool call error handling', () => {
       inputSchema: {},
       outputMode: 'all_messages' as const,
       includeMessageHistory: true,
+      mcpServers: {},
       toolNames: ['read_files', 'end_turn'],
       spawnableAgents: [],
       systemPrompt: 'Test system prompt',

@@ -83,7 +83,6 @@ export function createFileReadingMock(projectRoot: string) {
       userInputId: string,
       toolName: string,
       input: Record<string, any>,
-      timeout: number = 30_000,
     ): ReturnType<typeof originalRequestToolCall> => {
       // Execute the tool call using existing tool handlers
       const toolCall = {

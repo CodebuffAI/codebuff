@@ -1,5 +1,3 @@
-import { spawn } from 'child_process'
-import open from 'open'
 import {
   existsSync,
   mkdirSync,
@@ -20,6 +18,11 @@ import { READABLE_NAME } from '@codebuff/common/api-keys/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
 import {
+  callMCPTool,
+  getMCPClient,
+  listMCPTools,
+} from '@codebuff/common/mcp/client'
+import {
   ASKED_CONFIG,
   CREDITS_REFERRAL_BONUS,
   ONE_TIME_LABELS,
@@ -39,6 +42,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId, pluralize } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { APIRealtimeClient } from '@codebuff/common/websockets/websocket-client'
+import open from 'open'
 import {
   blue,
   blueBright,
@@ -801,7 +805,7 @@ export class Client {
 
     // Handle backend-initiated tool call requests
     this.webSocket.subscribe('tool-call-request', async (action) => {
-      const { requestId, toolName, input, userInputId } = action
+      const { requestId, toolName, input, userInputId, mcpConfig } = action
 
       // Check if the userInputId matches or is from a spawned agent
       const isValidUserInput = ASYNC_AGENTS_ENABLED
@@ -839,14 +843,29 @@ export class Client {
 
       try {
         // Execute the tool call using existing tool handlers
-        const toolCall = {
-          toolCallId: requestId,
-          toolName,
-          input,
-        }
 
         Spinner.get().stop()
-        const toolResult = await handleToolCall(toolCall as any)
+        let toolResult: ToolResultPart
+        if (mcpConfig) {
+          const mcpClientId = await getMCPClient(mcpConfig)
+          const mcpResult = await callMCPTool(mcpClientId, {
+            name: toolName,
+            arguments: input,
+          })
+          toolResult = {
+            type: 'tool-result',
+            toolCallId: requestId,
+            toolName,
+            output: mcpResult,
+          }
+        } else {
+          const toolCall = {
+            toolCallId: requestId,
+            toolName,
+            input,
+          }
+          toolResult = await handleToolCall(toolCall as any)
+        }
 
         // Send successful response back to backend
         if (this.userInputId) {
@@ -963,6 +982,28 @@ export class Client {
       } else {
         process.stdout.write(formattedMessage + '\n')
       }
+    })
+
+    this.webSocket.subscribe('request-mcp-tool-data', async (action) => {
+      const mcpClientId = await getMCPClient(action.mcpConfig)
+      const tools = (await listMCPTools(mcpClientId)).tools
+      const filteredTools: typeof tools = []
+      for (const tool of tools) {
+        if (!action.toolNames) {
+          filteredTools.push(tool)
+          continue
+        }
+        if (tool.name in action.toolNames) {
+          filteredTools.push(tool)
+          continue
+        }
+      }
+
+      sendActionAndHandleError(this.webSocket, {
+        type: 'mcp-tool-data',
+        requestId: action.requestId,
+        tools: filteredTools,
+      })
     })
   }
 

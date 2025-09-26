@@ -151,7 +151,6 @@ describe('mainPrompt', () => {
         userInputId: string,
         toolName: string,
         input: Record<string, any>,
-        timeout: number = 30_000,
       ) => {
         return {
           output: [
@@ -317,6 +316,7 @@ describe('mainPrompt', () => {
           spawnerPrompt: '',
           model: 'gpt-4o-mini',
           includeMessageHistory: true,
+          mcpServers: {},
           toolNames: ['write_file', 'run_terminal_command'],
           spawnableAgents: [],
           systemPrompt: '',
@@ -331,6 +331,7 @@ describe('mainPrompt', () => {
           spawnerPrompt: '',
           model: 'gpt-4o',
           includeMessageHistory: true,
+          mcpServers: {},
           toolNames: ['write_file', 'run_terminal_command'],
           spawnableAgents: [],
           systemPrompt: '',

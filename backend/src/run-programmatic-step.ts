@@ -261,6 +261,7 @@ export async function runProgrammaticStep(
         input: toolCall.input,
         toolCalls,
         toolResults,
+        toolResultsToAddAfterStream: [],
         previousToolCallFinished: Promise.resolve(),
         ws,
         agentTemplate: template,
