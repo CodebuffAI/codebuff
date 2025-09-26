@@ -55,10 +55,10 @@ export function Section({
 
   return (
     <motion.section
-      className={cn('relative overflow-hidden', className)}
+      className={cn('relative', className)}
       initial={false}
       animate={{
-        height: fullViewport && !isMobile ? '95svh' : 'auto',
+        minHeight: fullViewport ? '95dvh' : 'auto',
       }}
       transition={{
         duration: 1,
@@ -67,7 +67,7 @@ export function Section({
       style={{
         ...style,
         paddingTop: hero ? '1rem' : '10rem',
-        paddingBottom: hero ? '0' : '10rem',
+        paddingBottom: isMobile && hero ? '5rem' : '10rem',
       }}
       {...props}
     >

@@ -106,7 +106,7 @@ export default function Home() {
       <Section background={SECTION_THEMES.hero.background} hero fullViewport>
         <div
           className={cn(
-            'codebuff-container h-full flex flex-col transition-all duration-1000'
+            'codebuff-container min-h-full flex flex-col transition-all duration-1000'
           )}
         >
           <div className={cn('w-full mb-8 md:mb-12 flex-shrink-0')}>
