@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-import type { ToolName as CodebuffToolName } from '../../common/src/tools/constants'
+import type { ToolName } from '../../common/src/tools/constants'
 import type { ToolResultOutput } from '../../common/src/types/messages/content-part'
 import type { JSONSchema } from 'zod/v4/core'
 
@@ -30,7 +30,7 @@ export type CustomToolDefinition<
  * @returns a {@linkcode CustomToolDefinition} object
  */
 export function getCustomToolDefinition<
-  ToolName extends string,
+  TN extends string,
   Args extends any,
   Input extends any,
 >({
@@ -41,17 +41,17 @@ export function getCustomToolDefinition<
   exampleInputs = [],
   execute,
 }: {
-  toolName: ToolName extends CodebuffToolName
-    ? ToolName & {
-        error: `Use overrideTools instead of custom tool for name: ${ToolName}`
+  toolName: TN extends ToolName
+    ? TN & {
+        error: `Hi there. This is a message from the Codebuff team: You have used a custom tool where you needed to use overrideTools instead for name: ${TN}`
       }
-    : ToolName
+    : TN
   inputSchema: z.ZodType<Args, Input>
   description: string
   endsAgentStep?: boolean
   exampleInputs?: Input[]
   execute: (params: Args) => Promise<ToolResultOutput[]> | ToolResultOutput[]
-}): CustomToolDefinition<ToolName, Args, Input> {
+}): CustomToolDefinition<TN, Args, Input> {
   return {
     toolName,
     zodSchema: inputSchema,
