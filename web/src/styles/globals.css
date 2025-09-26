@@ -88,8 +88,14 @@
 }
 
 .hero-heading {
-  @apply text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight;
+  @apply text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-medium;
   font-family: 'Domine', serif;
+  letter-spacing: 0.005em;
+  word-spacing: 0.005em;
+  /* Enable proper text shaping */
+  font-kerning: normal;
+  font-feature-settings: "kern" 1, "liga" 1;
+  text-rendering: optimizeLegibility;
 }
 
 .hero-subtext {
@@ -176,17 +182,32 @@
 /* Ensure proper text wrapping in headings on mobile */
 @media (max-width: 767px) {
   :where(h1, h2, h3, h4, h5, h6) {
-    /* Use flexbox for robust wrapping */
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    line-height: 1; /* Minimal line spacing */
-    gap: 0; /* Remove gap between items */
-    margin-top: 0rem; /* Reduce top margin */
+    /* Revert to normal text flow for proper kerning */
+    display: block;
+    line-height: 1.2;
+    margin-top: 0rem;
+    /* Enable proper text shaping and kerning */
+    font-kerning: normal;
+    font-feature-settings: "kern" 1, "liga" 1;
+    text-rendering: optimizeLegibility;
   }
 
   /* Keep code snippets from breaking on mobile */
   :where(h1, h2, h3, h4, h5, h6) code {
     white-space: nowrap;
+  }
+
+  /* Specific spacing fixes for hero text */
+  .hero-heading {
+    line-height: 1.15;
+    margin-bottom: 2rem;
+    text-wrap: balance;
+  }
+
+  .hero-subtext {
+    line-height: 1.5;
+    margin-bottom: 2rem;
+    letter-spacing: 0.015em;
+    word-spacing: 0.01em;
   }
 }

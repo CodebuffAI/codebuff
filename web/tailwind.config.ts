@@ -13,6 +13,7 @@ const config = {
     fontFamily: {
       sans: ['var(--font-sans)'],
       mono: ['"DM Mono"', 'var(--font-mono)'],
+      'dm-mono': ['"DM Mono"', 'monospace'],
       paragraph: ['Manrope', 'var(--font-sans)', 'sans-serif'],
       serif: ['Domine', 'serif'],
     },
