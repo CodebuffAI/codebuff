@@ -212,6 +212,7 @@ export const mcpConfigStdioSchema = z.strictObject({
     .array()
     .default(() => []),
   env: z.record(z.string(), z.string()).default(() => ({})),
+  headers: z.record(z.string(), z.string()).default(() => ({})),
 })
 
 export const mcpConfigRemoteSchema = z.strictObject({

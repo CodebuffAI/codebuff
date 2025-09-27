@@ -14,6 +14,7 @@ export const mcpConfigRemoteSchema = z.strictObject({
   type: z.enum(['http', 'sse']).default('http'),
   url: z.string(),
   params: z.record(z.string(), z.string()).default(() => ({})),
+  headers: z.record(z.string(), z.string()).default(() => ({})),
 })
 
 export const mcpConfigSchema = z.union([
