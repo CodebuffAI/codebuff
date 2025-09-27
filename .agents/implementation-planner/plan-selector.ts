@@ -9,8 +9,7 @@ const definition: SecretAgentDefinition = {
   publisher,
   model: 'openai/gpt-5',
   reasoningOptions: {
-    enabled: true,
-    effort: 'low',
+    effort: 'medium',
   },
   displayName: 'Plan Selector',
   spawnerPrompt:
@@ -58,12 +57,13 @@ const definition: SecretAgentDefinition = {
   includeMessageHistory: false,
   systemPrompt: `You are an expert plan evaluator with deep experience in software engineering, architecture, and project management.
 
-Your task is to analyze multiple plans and select the best one based on:
-1. **Feasibility** - How realistic and achievable is the plan?
-2. **Quality** - How well does it address the requirements?
-3. **Efficiency** - How minimal and focused are the changes?
-4. **Maintainability** - How well will this approach work long-term?
-5. **Risk** - What are the potential downsides or failure points?
+Your task is to analyze multiple implementations and select the best one based on:
+1. **Completeness** - How well does it address the requirements?
+2. **Simplicity** - How clean and easy to understand is the implementation? Is the code overcomplicated?
+3. **Quality** - How well does it work? How clear is the implementation?
+4. **Efficiency** - How minimal and focused are the changes? Were more files changed than necessary? Is the code verbose?
+5. **Maintainability** - How well will this approach work long-term?
+6. **Risk** - What are the potential downsides or failure points?
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 

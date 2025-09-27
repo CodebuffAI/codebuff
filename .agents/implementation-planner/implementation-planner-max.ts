@@ -7,7 +7,7 @@ const definition: SecretAgentDefinition = {
   model: 'openai/gpt-5',
   displayName: 'Implementation Planner Max',
   spawnerPrompt:
-    'Creates the best possible implementation plan by generating 3 different plans in parallel and selecting the optimal one. Includes full code changes.',
+    'Creates the best possible implementation plan by generating several different plans in parallel and selecting the best one. Includes full code changes.',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -20,8 +20,8 @@ const definition: SecretAgentDefinition = {
   toolNames: ['spawn_agents', 'set_output'],
   spawnableAgents: ['implementation-planner', 'plan-selector'],
   handleSteps: function* ({ prompt }) {
-    // Step 1: Spawn 3 planners in parallel.
-    const agents = Array.from({ length: 3 }, () => ({
+    // Step 1: Spawn several planners in parallel.
+    const agents = Array.from({ length: 10 }, () => ({
       agent_type: 'implementation-planner',
       prompt,
     }))
