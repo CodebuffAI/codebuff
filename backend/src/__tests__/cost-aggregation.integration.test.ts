@@ -22,6 +22,7 @@ import { mainPrompt } from '../main-prompt'
 import * as agentRegistry from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
+import type { AgentTemplate } from '../templates/types'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -139,12 +140,13 @@ describe('Cost Aggregation Integration Tests', () => {
         spawnerPrompt: '',
         model: 'gpt-4o-mini',
         includeMessageHistory: true,
+        mcpServers: {},
         toolNames: ['spawn_agents'],
         spawnableAgents: ['editor'],
         systemPrompt: 'Base agent system prompt',
         instructionsPrompt: 'Base agent instructions',
         stepPrompt: 'Base agent step prompt',
-      },
+      } satisfies AgentTemplate,
       editor: {
         id: 'editor',
         displayName: 'Editor Agent',
@@ -153,12 +155,13 @@ describe('Cost Aggregation Integration Tests', () => {
         spawnerPrompt: '',
         model: 'gpt-4o-mini',
         includeMessageHistory: true,
+        mcpServers: {},
         toolNames: ['write_file'],
         spawnableAgents: [],
         systemPrompt: 'Editor agent system prompt',
         instructionsPrompt: 'Editor agent instructions',
         stepPrompt: 'Editor agent step prompt',
-      },
+      } satisfies AgentTemplate,
     }
 
     // Mock cost tracking to return 0 so only onCostCalculated contributes

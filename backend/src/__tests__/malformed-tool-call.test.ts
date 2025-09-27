@@ -311,7 +311,7 @@ describe('malformed tool call error handling', () => {
     expect(errorMessage).toBeDefined()
     expect(
       (errorMessage?.content.output?.[0] as any)?.value?.errorMessage,
-    ).toContain('Tool not found: unknown_tool')
+    ).toContain('Tool unknown_tool not found')
   })
 
   test('should not affect valid tool calls in message history', async () => {

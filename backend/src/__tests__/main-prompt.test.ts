@@ -32,6 +32,7 @@ import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 import * as websocketAction from '../websockets/websocket-action'
 
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -56,12 +57,13 @@ describe('mainPrompt', () => {
         spawnerPrompt: '',
         model: 'gpt-4o-mini',
         includeMessageHistory: true,
+        mcpServers: {},
         toolNames: ['write_file', 'run_terminal_command'],
         spawnableAgents: [],
         systemPrompt: '',
         instructionsPrompt: '',
         stepPrompt: '',
-      },
+      } satisfies AgentTemplate,
       [AgentTemplateTypes.base_max]: {
         id: AgentTemplateTypes.base_max,
         displayName: 'Base Max Agent',
@@ -70,12 +72,13 @@ describe('mainPrompt', () => {
         spawnerPrompt: '',
         model: 'gpt-4o',
         includeMessageHistory: true,
+        mcpServers: {},
         toolNames: ['write_file', 'run_terminal_command'],
         spawnableAgents: [],
         systemPrompt: '',
         instructionsPrompt: '',
         stepPrompt: '',
-      },
+      } satisfies AgentTemplate,
     }
   })
 
