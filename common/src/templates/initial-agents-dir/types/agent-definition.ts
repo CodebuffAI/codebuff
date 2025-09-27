@@ -325,21 +325,27 @@ export type ModelName =
   | 'openai/gpt-5-nano'
 
   // Anthropic
-  | 'anthropic/claude-4-sonnet-20250522'
+  | 'anthropic/claude-sonnet-4'
   | 'anthropic/claude-opus-4.1'
 
   // Gemini
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
   | 'google/gemini-2.5-flash-lite'
+  | 'google/gemini-2.5-flash-preview-09-2025'
+  | 'google/gemini-2.5-flash-lite-preview-09-2025'
 
   // X-AI
   | 'x-ai/grok-4-07-09'
+  | 'x-ai/grok-4-fast:free'
   | 'x-ai/grok-code-fast-1'
 
   // Qwen
+  | 'qwen/qwen3-max'
+  | 'qwen/qwen3-coder-plus'
   | 'qwen/qwen3-coder'
   | 'qwen/qwen3-coder:nitro'
+  | 'qwen/qwen3-coder-flash'
   | 'qwen/qwen3-235b-a22b-2507'
   | 'qwen/qwen3-235b-a22b-2507:nitro'
   | 'qwen/qwen3-235b-a22b-thinking-2507'
