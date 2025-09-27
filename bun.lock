@@ -5,7 +5,7 @@
       "name": "codebuff-project",
       "dependencies": {
         "@t3-oss/env-nextjs": "^0.7.3",
-        "benchify": "^0.1.0-alpha.42",
+        "benchify": "^0.1.0-alpha.44",
         "zod": "3.25.67",
       },
       "devDependencies": {
@@ -1630,7 +1630,7 @@
 
     "basic-ftp": ["basic-ftp@5.0.5", "", {}, "sha512-4Bcg1P8xhUuqcii/S0Z9wiHIrQVPMermM1any+MX5GeGD7faD3/msQUDGLol9wOcz4/jbg/WJnGqoJF6LiBdtg=="],
 
-    "benchify": ["benchify@0.1.0-alpha.42", "", { "dependencies": { "minimatch": "^9.0.3" }, "peerDependencies": { "react": ">=16.8.0" }, "optionalPeers": ["react"] }, "sha512-iP1uYBumESThBXWukD9prvembO1lcbBMXA9UxgtFeRaG0trtWeKFRfINvOWyvO94d2tTnnlVuA/JEQ/wBxNifw=="],
+    "benchify": ["benchify@0.1.0-alpha.44", "", { "dependencies": { "minimatch": "^9.0.3" }, "peerDependencies": { "react": ">=16.8.0" }, "optionalPeers": ["react"] }, "sha512-sGjAPgGKRCNB5h2fTIMHfKGLDBlGT+wUxVNOPJ5Ss5m0PDdtXdlE60CJAcnb2Z620gk5z9P8xppSjZuxKB731w=="],
 
     "bidi-js": ["bidi-js@1.0.3", "", { "dependencies": { "require-from-string": "^2.0.2" } }, "sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw=="],
 

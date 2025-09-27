@@ -596,6 +596,7 @@ async function callBenchifyWithResilience(
       const diff_response = await withTimeout(
         client.runFixer(editedFiles, {
           fixes: ['parsing'],
+          mode: 'files',
           response_format: 'DIFF',
         }),
         BENCHIFY_TIMEOUT_MS,
