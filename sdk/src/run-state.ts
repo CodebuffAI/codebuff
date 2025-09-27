@@ -1,6 +1,11 @@
 import * as os from 'os'
+import * as fs from 'fs'
 
 import { getFileTokenScores } from '@codebuff/code-map/parse'
+import {
+  getProjectFileTree,
+  getAllFilePaths,
+} from '../../common/src/project-file-tree'
 
 import { type CustomToolDefinition } from './custom-tool'
 import { getInitialSessionState } from '../../common/src/types/session-state'
@@ -100,6 +105,27 @@ async function computeProjectIndex(
 }
 
 /**
+ * Discovers project files using .gitignore patterns when projectFiles is undefined
+ */
+function discoverProjectFiles(cwd: string): Record<string, string> {
+  try {
+    const fileTree = getProjectFileTree(cwd)
+    const filePaths = getAllFilePaths(fileTree)
+
+    // Create projectFiles with empty content - the token scorer will read from disk
+    return Object.fromEntries(
+      filePaths.map((filePath) => [
+        filePath,
+        fs.readFileSync(filePath, 'utf8'),
+      ]),
+    )
+  } catch (error) {
+    console.warn('Failed to discover project files:', error)
+    return {}
+  }
+}
+
+/**
  * Auto-derives knowledge files from project files if knowledgeFiles is undefined
  */
 function deriveKnowledgeFiles(
@@ -128,9 +154,13 @@ export async function initialSessionState(
     maxAgentSteps?: number
   },
 ) {
-  const { projectFiles = {}, agentDefinitions = [] } = options
+  let { projectFiles, agentDefinitions = [] } = options
   let { knowledgeFiles } = options
 
+  // Auto-discover project files if not provided
+  if (projectFiles === undefined) {
+    projectFiles = discoverProjectFiles(cwd)
+  }
   if (knowledgeFiles === undefined) {
     knowledgeFiles = deriveKnowledgeFiles(projectFiles)
   }
