@@ -5,6 +5,7 @@
       "name": "codebuff-project",
       "dependencies": {
         "@t3-oss/env-nextjs": "^0.7.3",
+        "benchify": "^0.1.0-alpha.42",
         "zod": "3.25.67",
       },
       "devDependencies": {
@@ -238,7 +239,7 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
         "@vscode/tree-sitter-wasm": "0.1.4",
         "ai": "^5.0.0",
@@ -1629,7 +1630,7 @@
 
     "basic-ftp": ["basic-ftp@5.0.5", "", {}, "sha512-4Bcg1P8xhUuqcii/S0Z9wiHIrQVPMermM1any+MX5GeGD7faD3/msQUDGLol9wOcz4/jbg/WJnGqoJF6LiBdtg=="],
 
-    "benchify": ["benchify@0.1.0-alpha.41", "", { "dependencies": { "minimatch": "^9.0.3" }, "peerDependencies": { "react": ">=16.8.0" }, "optionalPeers": ["react"] }, "sha512-iZAH2JFcGld/lruJEZKO9dv7XAU8ozEznPtxNLQj+6s1CQMIohzRLnEbvCWLWkMoqSQlJOIp2gCY6N9gt956yQ=="],
+    "benchify": ["benchify@0.1.0-alpha.42", "", { "dependencies": { "minimatch": "^9.0.3" }, "peerDependencies": { "react": ">=16.8.0" }, "optionalPeers": ["react"] }, "sha512-iP1uYBumESThBXWukD9prvembO1lcbBMXA9UxgtFeRaG0trtWeKFRfINvOWyvO94d2tTnnlVuA/JEQ/wBxNifw=="],
 
     "bidi-js": ["bidi-js@1.0.3", "", { "dependencies": { "require-from-string": "^2.0.2" } }, "sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw=="],
 
