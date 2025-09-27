@@ -30,6 +30,7 @@ import type {
 } from '../../common/src/types/messages/content-part'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
+import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 
 export type CodebuffClientOptions = {
   // Provide an API key or set the CODEBUFF_API_KEY environment variable.
@@ -72,11 +73,11 @@ export async function run({
   apiKey,
   fingerprintId,
 
-  cwd,
+  cwd = process.cwd(),
   projectFiles,
   knowledgeFiles,
   agentDefinitions,
-  maxAgentSteps,
+  maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
 
   handleEvent,
   handleStreamChunk,
@@ -90,11 +91,14 @@ export async function run({
   previousRun,
   extraToolResults,
 }: RunOptions &
-  Required<CodebuffClientOptions> & {
+  CodebuffClientOptions & {
+    apiKey: string
     fingerprintId: string
   }): Promise<RunState> {
   function onError(error: { message: string }) {
-    handleEvent({ type: 'error', message: error.message })
+    if (handleEvent) {
+      handleEvent({ type: 'error', message: error.message })
+    }
   }
 
   let resolve: (value: RunReturnType) => any = () => {}
@@ -114,14 +118,16 @@ export async function run({
       onError({ message: error.message })
     },
     readFiles: ({ filePaths }) =>
-      readFiles({ filePaths, override: overrideTools.read_files, cwd }),
+      readFiles({ filePaths, override: overrideTools?.read_files, cwd }),
     handleToolCall: (action) =>
       handleToolCall({
         action,
-        overrides: overrideTools,
-        customToolDefinitions: Object.fromEntries(
-          customToolDefinitions.map((def) => [def.toolName, def]),
-        ),
+        overrides: overrideTools ?? {},
+        customToolDefinitions: customToolDefinitions
+          ? Object.fromEntries(
+              customToolDefinitions.map((def) => [def.toolName, def]),
+            )
+          : {},
         cwd,
       }),
     onCostResponse: async () => {},
@@ -129,9 +135,9 @@ export async function run({
     onResponseChunk: async (action) => {
       const { userInputId, chunk } = action
       if (typeof chunk === 'string') {
-        handleStreamChunk(chunk)
+        handleStreamChunk?.(chunk)
       } else {
-        handleEvent(chunk)
+        handleEvent?.(chunk)
       }
     },
     onSubagentResponseChunk: async () => {},
