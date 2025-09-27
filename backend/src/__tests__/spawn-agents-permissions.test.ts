@@ -40,6 +40,7 @@ describe('Spawn Agents Permissions', () => {
     spawnerPrompt: '',
     model: '',
     includeMessageHistory: true,
+    mcpServers: {},
     toolNames: [],
     spawnableAgents,
     systemPrompt: '',
