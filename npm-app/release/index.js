@@ -422,6 +422,7 @@ const program = new Command()
 program
   .name('codebuff')
   .description('AI coding agent')
+  .helpOoption(false)
   .option('-p, --print', 'print mode - suppress wrapper output')
   .allowUnknownOption()
   .parse()
