@@ -14,26 +14,6 @@
  *   export default definition
  */
 
-import type * as Tools from './tools'
-import type {
-  Message,
-  ToolResultOutput,
-  JsonObjectSchema,
-  MCPConfig,
-} from './util-types'
-type ToolName = Tools.ToolName
-
-// ============================================================================
-// Logger Interface
-// ============================================================================
-
-export interface Logger {
-  debug: (data: any, msg?: string) => void
-  info: (data: any, msg?: string) => void
-  warn: (data: any, msg?: string) => void
-  error: (data: any, msg?: string) => void
-}
-
 // ============================================================================
 // Agent Definition and Utility Types
 // ============================================================================
@@ -263,21 +243,17 @@ export type ToolCall<T extends ToolName = ToolName> = {
 /**
  * File operation tools
  */
-export type FileTools =
-  | 'read_files'
-  | 'write_file'
-  | 'str_replace'
-  | 'find_files'
+export type FileEditingTools = 'read_files' | 'write_file' | 'str_replace'
 
 /**
  * Code analysis tools
  */
-export type CodeAnalysisTools = 'code_search' | 'find_files'
+export type CodeAnalysisTools = 'code_search' | 'find_files' | 'read_files'
 
 /**
  * Terminal and system tools
  */
-export type TerminalTools = 'run_terminal_command' | 'run_file_change_hooks'
+export type TerminalTools = 'run_terminal_command' | 'code_search'
 
 /**
  * Web and browser tools
@@ -287,24 +263,12 @@ export type WebTools = 'web_search' | 'read_docs'
 /**
  * Agent management tools
  */
-export type AgentTools = 'spawn_agents' | 'set_messages' | 'add_message'
-
-/**
- * Planning and organization tools
- */
-export type PlanningTools = 'think_deeply'
+export type AgentTools = 'spawn_agents'
 
 /**
  * Output and control tools
  */
-export type OutputTools = 'set_output' | 'end_turn'
-
-/**
- * Common tool combinations for convenience
- */
-export type FileEditingTools = FileTools | 'end_turn'
-export type ResearchTools = WebTools | 'write_file' | 'end_turn'
-export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
+export type OutputTools = 'set_output'
 
 // ============================================================================
 // Available Models (see: https://openrouter.ai/models)
@@ -367,3 +331,13 @@ export type ModelName =
   | (string & {})
 
 export type { Tools }
+
+import type * as Tools from './tools'
+import type {
+  Message,
+  ToolResultOutput,
+  JsonObjectSchema,
+  MCPConfig,
+  Logger,
+} from './util-types'
+type ToolName = Tools.ToolName

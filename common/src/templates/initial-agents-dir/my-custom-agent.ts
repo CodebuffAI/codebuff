@@ -1,14 +1,14 @@
 /*
  *  EDIT ME to create your own agent!
  *
- *  Change any field below, and consult the AgentDefinition type for information on all fields and their purpose.
- *
  *  Run your agent with:
- *  > codebuff --agent git-committer
+ *  > codebuff
+ *  Inside codebuff:
+ *  > @my-custom-agent please review my recent changes
  *
- *  Or, run codebuff normally, and use the '@' menu to mention your agent, and codebuff will spawn it for you.
- *
- *  Finally, you can publish your agent with 'codebuff publish your-custom-agent' so users from around the world can run it.
+ *  Finally, you can publish your agent with:
+ *  > codebuff publish my-custom-agent
+ *  Then users from around the world can run it!
  */
 
 import type { AgentDefinition } from './types/agent-definition'
@@ -17,8 +17,8 @@ const definition: AgentDefinition = {
   id: 'my-custom-agent',
   displayName: 'My Custom Agent',
 
-  model: 'anthropic/claude-4-sonnet-20250522',
-  spawnableAgents: ['file-explorer'],
+  model: 'x-ai/grok-4-fast',
+  spawnableAgents: ['codebuff/file-explorer@0.0.6'],
 
   // Check out .agents/types/tools.ts for more information on the tools you can include.
   toolNames: ['run_terminal_command', 'read_files', 'spawn_agents'],
@@ -32,12 +32,9 @@ Execute the following steps:
 3. Read any relevant files
 4. Review the changes and suggest improvements`,
 
-  // Add more fields here to customize your agent further:
-  // - system prompt
-  // - input/output schema
-  // - handleSteps
-
-  // Check out the examples in .agents/examples for more ideas!
+  // See also:
+  // - types/agent-definition.ts file for more fields you can add
+  // - the examples directory for more ideas!
 }
 
 export default definition
