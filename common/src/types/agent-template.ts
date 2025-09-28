@@ -12,8 +12,8 @@ import type { AgentState, AgentTemplateType } from './session-state'
 import type {
   ToolCall,
   AgentState as PublicAgentState,
-  Logger,
 } from '../templates/initial-agents-dir/types/agent-definition'
+import type { Logger } from '../templates/initial-agents-dir/types/util-types'
 import type { ToolName } from '../tools/constants'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 import type { z } from 'zod/v4'
