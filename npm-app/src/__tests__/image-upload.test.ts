@@ -253,5 +253,33 @@ describe('Image Upload Functionality', () => {
       expect(result.success).toBe(false)
       expect(result.error).toContain('Unsupported image format')
     })
+
+    test('should normalize unicode escape sequences in provided paths', async () => {
+      const actualFilename = 'Screenshot 2025-09-29 at 4.09.19 PM.png'
+      const filePath = path.join(TEST_DIR, actualFilename)
+      writeFileSync(filePath, MINIMAL_PNG)
+
+      const variations = [
+        'Screenshot 2025-09-29 at 4.09.19\\u{202f}PM.png',
+        'Screenshot 2025-09-29 at 4.09.19\\u202fPM.png',
+      ]
+
+      for (const candidate of variations) {
+        const result = await processImageFile(candidate, TEST_DIR)
+        expect(result.success).toBe(true)
+        expect(result.imagePart?.filename).toBe(actualFilename)
+      }
+    })
+
+    test('should handle shell-escaped characters in paths', async () => {
+      const spacedFilename = 'My Screenshot (Final).png'
+      const filePath = path.join(TEST_DIR, spacedFilename)
+      writeFileSync(filePath, MINIMAL_PNG)
+
+      const result = await processImageFile('My\\ Screenshot\\ \(Final\).png', TEST_DIR)
+
+      expect(result.success).toBe(true)
+      expect(result.imagePart?.filename).toBe(spacedFilename)
+    })
   })
 })

@@ -39,6 +39,51 @@ const MAX_BASE64_SIZE = 150 * 1024 // 150KB max for base64 (backend limit ~760KB
 const COMPRESSION_QUALITIES = [80, 60, 40, 20] // JPEG quality levels to try
 const DIMENSION_LIMITS = [800, 600, 400, 300] // Max dimensions to try
 
+function normalizeUserProvidedPath(filePath: string): string {
+  let normalized = filePath
+
+  normalized = normalized.replace(/\\u\{([0-9a-fA-F]+)\}/g, (match, codePoint) => {
+    const value = Number.parseInt(codePoint, 16)
+    if (Number.isNaN(value)) {
+      return match
+    }
+    try {
+      return String.fromCodePoint(value)
+    } catch {
+      return match
+    }
+  })
+
+  normalized = normalized.replace(/\\u([0-9a-fA-F]{4})/g, (match, codePoint) => {
+    const value = Number.parseInt(codePoint, 16)
+    if (Number.isNaN(value)) {
+      return match
+    }
+    try {
+      return String.fromCodePoint(value)
+    } catch {
+      return match
+    }
+  })
+
+  normalized = normalized.replace(/\\x([0-9a-fA-F]{2})/g, (match, codePoint) => {
+    const value = Number.parseInt(codePoint, 16)
+    if (Number.isNaN(value)) {
+      return match
+    }
+    return String.fromCharCode(value)
+  })
+
+  normalized = normalized.replace(/\\([ \t"'(){}\[\]])/g, (match, char) => {
+    if (char === '\\') {
+      return '\\'
+    }
+    return char
+  })
+
+  return normalized
+}
+
 /**
  * Detects MIME type from file extension
  */
@@ -77,13 +122,14 @@ export function isImageFile(filePath: string): boolean {
  * Resolves a file path, handling ~, relative paths, etc.
  */
 export function resolveFilePath(filePath: string, cwd: string): string {
-  if (filePath.startsWith('~')) {
-    return path.join(homedir(), filePath.slice(1))
+  const normalized = normalizeUserProvidedPath(filePath)
+  if (normalized.startsWith('~')) {
+    return path.join(homedir(), normalized.slice(1))
   }
-  if (path.isAbsolute(filePath)) {
-    return filePath
+  if (path.isAbsolute(normalized)) {
+    return normalized
   }
-  return path.resolve(cwd, filePath)
+  return path.resolve(cwd, normalized)
 }
 
 /**
