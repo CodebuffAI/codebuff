@@ -31,6 +31,10 @@ export async function* processStreamWithTags(
       onTagEnd: (tagName: string, params: Record<string, any>) => void
     }
   >,
+  defaultProcessor: (toolName: string) => {
+    onTagStart: (tagName: string, attributes: Record<string, string>) => void
+    onTagEnd: (tagName: string, params: Record<string, any>) => void
+  },
   onError: (tagName: string, errorMessage: string) => void,
   onResponseChunk: (
     chunk: PrintModeText | PrintModeToolCall | PrintModeError,
@@ -97,7 +101,8 @@ export async function* processStreamWithTags(
     }
 
     const toolName = parsedParams[toolNameParam] as keyof typeof processors
-    if (!processors[toolName]) {
+    const processor = processors[toolName] ?? defaultProcessor(toolName)
+    if (!processor) {
       trackEvent(
         AnalyticsEvent.UNKNOWN_TOOL_CALL,
         loggerOptions?.userId ?? '',
@@ -109,8 +114,6 @@ export async function* processStreamWithTags(
           autocompleted,
         },
       )
-      onError(toolName, `Tool not found: ${toolName}`)
-      return
     }
 
     trackEvent(AnalyticsEvent.TOOL_USE, loggerOptions?.userId ?? '', {
@@ -123,8 +126,8 @@ export async function* processStreamWithTags(
     })
     delete parsedParams[toolNameParam]
 
-    processors[toolName].onTagStart(toolName, {})
-    processors[toolName].onTagEnd(toolName, parsedParams)
+    processor.onTagStart(toolName, {})
+    processor.onTagEnd(toolName, parsedParams)
   }
 
   function extractToolsFromBufferAndProcess() {

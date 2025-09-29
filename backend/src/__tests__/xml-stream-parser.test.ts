@@ -39,11 +39,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -92,11 +106,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -154,11 +182,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -215,11 +257,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -261,11 +317,31 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      // For unknown tools, still return a processor but track the error
+      events.push({
+        name: toolName,
+        error: `Tool not found: ${toolName}`,
+        type: 'error',
+      })
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -312,11 +388,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -370,11 +460,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -422,11 +526,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -464,11 +582,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -492,11 +624,25 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -532,11 +678,31 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
+    const responseChunks: any[] = []
+
+    function onResponseChunk(chunk: any) {
+      responseChunks.push(chunk)
+    }
+
+    function defaultProcessor(toolName: string) {
+      // Track when defaultProcessor is called (which means tool not found in processors)
+      events.push({
+        name: toolName,
+        error: `Tool not found: ${toolName}`,
+        type: 'error',
+      })
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
     for await (const chunk of processStreamWithTags(
       stream,
       processors,
+      defaultProcessor,
       onError,
-      () => {},
+      onResponseChunk,
     )) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -587,11 +753,25 @@ describe('processStreamWithTags', () => {
       }
 
       const result: string[] = []
+      const responseChunks: any[] = []
+
+      function onResponseChunk(chunk: any) {
+        responseChunks.push(chunk)
+      }
+
+      function defaultProcessor(toolName: string) {
+        return {
+          onTagStart: () => {},
+          onTagEnd: () => {},
+        }
+      }
+
       for await (const chunk of processStreamWithTags(
         stream,
         processors,
+        defaultProcessor,
         onError,
-        () => {},
+        onResponseChunk,
       )) {
         if (chunk.type === 'text') {
           result.push(chunk.text)

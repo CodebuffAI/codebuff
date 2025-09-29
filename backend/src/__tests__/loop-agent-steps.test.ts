@@ -130,6 +130,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       inputSchema: {},
       outputMode: 'structured_output',
       includeMessageHistory: true,
+      mcpServers: {},
       toolNames: ['read_files', 'write_file', 'end_turn'],
       spawnableAgents: [],
       systemPrompt: 'Test system prompt',

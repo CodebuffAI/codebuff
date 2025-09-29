@@ -24,38 +24,28 @@ async function main() {
     // You need to pass in your own API key here.
     // Get one here: https://www.codebuff.com/api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
-    cwd: process.cwd(),
   })
 
   // First run
-  console.log('------- First run started -------')
   const run1 = await client.run({
-    agent: 'base',
+    // The agent id. Any agent on the store (https://codebuff.com/store)
+    agent: 'codebuff/base@0.0.16',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
-      // This will fire for all events that happen during the run, like when each agent starts/stops and when they respond.
-      console.dir(event, { depth: null }) // Log all events
+      // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
+      console.log('Codebuff Event', JSON.stringifiy(event))
     },
   })
-  console.log('------- First run ended -------')
-
-  if (run1.output.type === 'error') {
-    // The previous run failed, handleEvent should have been called with an error
-    console.error(`First run failed:\n${run1.output.message}`)
-    process.exit(1)
-  }
 
   // Continue the same session with a follow-up
-  console.log('------- Second run started -------')
   const run2 = await client.run({
-    agent: 'base',
+    agent: 'codebuff/base@0.0.16',
     prompt: 'Add unit tests for the calculator',
     previousRun: run1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
-      console.dir(event, { depth: null })
+      console.log('Codebuff Event', JSON.stringifiy(event))
     },
   })
-  console.log('------- Second run ended -------')
 }
 
 main()
@@ -77,14 +67,16 @@ async function main() {
     // Note: You need to pass in your own API key.
     // Get it here: https://www.codebuff.com/profile?tab=api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
+    // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
   })
 
-  // This is a custom agent that can be used instead of the `base` agent or other agents on the Codebuff store (https://codebuff.com/store).
+  // Define your own custom agents!
   const myCustomAgent: AgentDefinition = {
     id: 'my-custom-agent',
-    model: 'openai/gpt-5',
+    model: 'x-ai/grok-4-fast',
     displayName: 'Sentiment analyzer',
+    toolNames: ['fetch_api_data'] // Defined below!
     instructionsPrompt: `
 1. Describe the different sentiments in the given prompt.
 2. Score the prompt along the following 5 dimensions:
@@ -92,6 +84,7 @@ async function main() {
     // ... other AgentDefinition properties
   }
 
+  // And define your own custom tools!
   const myCustomTool = getCustomToolDefinition({
     toolName: 'fetch_api_data',
     description: 'Fetch data from an API endpoint',
@@ -116,16 +109,25 @@ async function main() {
   })
 
   const { output } = await client.run({
+    // Run a custom agent by id. Must match an id in the agentDefinitions field below.
     agent: 'my-custom-agent',
     prompt: "Today I'm feeling very happy!",
+
+    // Provide custom agent and tool definitions:
     agentDefinitions: [myCustomAgent],
     customToolDefinitions: [myCustomTool],
+
     handleEvent: (event) => {
-      console.log(event)
+      // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
+      console.log('Codebuff Event', JSON.stringify(event))
     },
   })
 
-  console.log('Final output:', output)
+  if (output.type === 'error') {
+    console.error(`The run failed:\n${output.message}`)
+  } else {
+    console.log('The run succeeded with output:', output)
+  }
 }
 
 main()

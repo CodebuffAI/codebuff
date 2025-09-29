@@ -1,5 +1,3 @@
-import { spawn } from 'child_process'
-import open from 'open'
 import {
   existsSync,
   mkdirSync,
@@ -20,6 +18,11 @@ import { READABLE_NAME } from '@codebuff/common/api-keys/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
 import {
+  callMCPTool,
+  getMCPClient,
+  listMCPTools,
+} from '@codebuff/common/mcp/client'
+import {
   ASKED_CONFIG,
   CREDITS_REFERRAL_BONUS,
   ONE_TIME_LABELS,
@@ -39,6 +42,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId, pluralize } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { APIRealtimeClient } from '@codebuff/common/websockets/websocket-client'
+import open from 'open'
 import {
   blue,
   blueBright,
@@ -206,6 +210,7 @@ export class Client {
   private responseComplete: boolean = false
   private userInputId: string | undefined
   private nonCancelledUserInputIds: string[] = []
+  private currentOnChunk: ((chunk: string | PrintModeEvent) => void) | undefined
 
   public usageData: UsageData = {
     usage: 0,
@@ -800,7 +805,7 @@ export class Client {
 
     // Handle backend-initiated tool call requests
     this.webSocket.subscribe('tool-call-request', async (action) => {
-      const { requestId, toolName, input, userInputId } = action
+      const { requestId, toolName, input, userInputId, mcpConfig } = action
 
       // Check if the userInputId matches or is from a spawned agent
       const isValidUserInput = ASYNC_AGENTS_ENABLED
@@ -838,14 +843,29 @@ export class Client {
 
       try {
         // Execute the tool call using existing tool handlers
-        const toolCall = {
-          toolCallId: requestId,
-          toolName,
-          input,
-        }
 
         Spinner.get().stop()
-        const toolResult = await handleToolCall(toolCall as any)
+        let toolResult: ToolResultPart
+        if (mcpConfig) {
+          const mcpClientId = await getMCPClient(mcpConfig)
+          const mcpResult = await callMCPTool(mcpClientId, {
+            name: toolName,
+            arguments: input,
+          })
+          toolResult = {
+            type: 'tool-result',
+            toolCallId: requestId,
+            toolName,
+            output: mcpResult,
+          }
+        } else {
+          const toolCall = {
+            toolCallId: requestId,
+            toolName,
+            input,
+          }
+          toolResult = await handleToolCall(toolCall as any)
+        }
 
         // Send successful response back to backend
         if (this.userInputId) {
@@ -946,6 +966,80 @@ export class Client {
       // Refresh display if we're currently viewing this agent
       refreshSubagentDisplay(agentId)
     })
+
+    // Handle handleSteps log streaming
+    this.webSocket.subscribe('handlesteps-log-chunk', (action) => {
+      const { agentId, level, data, message } = action
+      const formattedMessage = this.formatLogMessage(
+        level,
+        data,
+        message,
+        agentId,
+      )
+
+      if (this.currentOnChunk && this.userInputId) {
+        this.currentOnChunk(formattedMessage + '\n')
+      } else {
+        process.stdout.write(formattedMessage + '\n')
+      }
+    })
+
+    this.webSocket.subscribe('request-mcp-tool-data', async (action) => {
+      const mcpClientId = await getMCPClient(action.mcpConfig)
+      const tools = (await listMCPTools(mcpClientId)).tools
+      const filteredTools: typeof tools = []
+      for (const tool of tools) {
+        if (!action.toolNames) {
+          filteredTools.push(tool)
+          continue
+        }
+        if (tool.name in action.toolNames) {
+          filteredTools.push(tool)
+          continue
+        }
+      }
+
+      sendActionAndHandleError(this.webSocket, {
+        type: 'mcp-tool-data',
+        requestId: action.requestId,
+        tools: filteredTools,
+      })
+    })
+  }
+
+  private formatLogMessage(
+    level: string,
+    data: any,
+    message?: string,
+    agentId?: string,
+  ): string {
+    const timestamp = new Date().toISOString().substring(11, 23) // HH:MM:SS.mmm
+    const levelColors = { debug: blue, info: green, warn: yellow, error: red }
+    const levelColor =
+      levelColors[level as keyof typeof levelColors] || ((s: string) => s)
+
+    const timeTag = `[${timestamp}]`
+    const levelTag = levelColor(`[${level.toUpperCase()}]`)
+    const agentTag = agentId ? `[Agent ${agentId}]` : ''
+    const dataStr = this.serializeLogData(data)
+
+    return [timeTag, levelTag, agentTag, message, dataStr]
+      .filter(Boolean)
+      .join(' ')
+  }
+
+  private serializeLogData(data: any): string {
+    if (data === undefined || data === null) return ''
+
+    if (typeof data === 'object') {
+      try {
+        return JSON.stringify(data, null, 2)
+      } catch {
+        return String(data)
+      }
+    }
+
+    return String(data)
   }
 
   private showUsageWarning() {
@@ -1259,12 +1353,14 @@ export class Client {
     })
 
     this.userInputId = userInputId
+    this.currentOnChunk = onChunk
 
     const stopResponse = () => {
       responseStopped = true
       unsubscribeChunks()
       unsubscribeComplete()
       this.cancelCurrentInput()
+      this.currentOnChunk = undefined
 
       const additionalMessages = prompt
         ? [
@@ -1486,6 +1582,10 @@ Go to https://www.codebuff.com/config for more information.`) +
           unsubscribeChunks()
           unsubscribeComplete()
         }
+
+        // Clear the onChunk callback when response is complete
+        this.currentOnChunk = undefined
+
         resolveResponse({ ...a, wasStoppedByUser: false })
       },
     )

@@ -33,6 +33,7 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
     systemPrompt: 'Test',
     instructionsPrompt: 'Test',
     stepPrompt: 'Test',
+    mcpServers: {},
     toolNames: ['end_turn'],
     spawnableAgents: [],
     outputMode: 'last_message',
@@ -47,6 +48,7 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
     systemPrompt: 'Test',
     instructionsPrompt: 'Test',
     stepPrompt: 'Test',
+    mcpServers: {},
     toolNames: ['find_files'],
     spawnableAgents: [],
     outputMode: 'last_message',
@@ -105,7 +107,6 @@ describe('Agent Registry', () => {
         warn: () => {},
       },
     }))
-
   })
   let mockFileContext: ProjectFileContext
 
@@ -154,7 +155,6 @@ describe('Agent Registry', () => {
         warn: () => {},
       },
     }))
-
   })
 
   beforeEach(async () => {
@@ -230,6 +230,7 @@ describe('Agent Registry', () => {
           systemPrompt: 'Test',
           instructionsPrompt: 'Test',
           stepPrompt: 'Test',
+          mcpServers: {},
           toolNames: ['end_turn'],
           spawnableAgents: [],
           outputMode: 'last_message',
@@ -321,6 +322,7 @@ describe('Agent Registry', () => {
           systemPrompt: 'Local system prompt',
           instructionsPrompt: 'Local instructions',
           stepPrompt: 'Local step prompt',
+          mcpServers: {},
           toolNames: ['end_turn'],
           spawnableAgents: [],
           outputMode: 'last_message',

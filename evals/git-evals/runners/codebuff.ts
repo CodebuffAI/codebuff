@@ -55,7 +55,7 @@ export class CodebuffRunner implements Runner {
     )
 
     let lastErrorMessage = ''
-    const run = await client.run({
+    this.runState = await client.run({
       agent: this.agent,
       previousRun: this.runState,
       prompt,
@@ -96,12 +96,6 @@ export class CodebuffRunner implements Runner {
       agentDefinitions: localAgentDefinitions,
     })
     flushStep()
-
-    if (!run) {
-      throw new Error(`Failed to run Codebuff:\n${lastErrorMessage}`)
-    }
-
-    this.runState = run
 
     return {
       steps,

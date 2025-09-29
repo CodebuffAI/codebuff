@@ -24,15 +24,27 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-export async function formatPrompt(
-  prompt: string,
-  fileContext: ProjectFileContext,
-  agentState: AgentState,
-  tools: readonly string[],
-  spawnableAgents: AgentTemplateType[],
-  agentTemplates: Record<string, AgentTemplate>,
-  intitialAgentPrompt?: string,
-): Promise<string> {
+export async function formatPrompt({
+  prompt,
+  fileContext,
+  agentState,
+  tools,
+  spawnableAgents,
+  agentTemplates,
+  intitialAgentPrompt,
+  additionalToolDefinitions,
+}: {
+  prompt: string
+  fileContext: ProjectFileContext
+  agentState: AgentState
+  tools: readonly string[]
+  spawnableAgents: AgentTemplateType[]
+  agentTemplates: Record<string, AgentTemplate>
+  intitialAgentPrompt?: string
+  additionalToolDefinitions: () => Promise<
+    ProjectFileContext['customToolDefinitions']
+  >
+}): Promise<string> {
   const { messageHistory } = agentState
   const lastUserMessage = messageHistory.findLast(
     ({ role, content }) =>
@@ -48,59 +60,51 @@ export async function formatPrompt(
     ? await getAgentTemplate(agentState.agentType, agentTemplates)
     : null
 
-  const toInject: Record<PlaceholderValue, string> = {
-    [PLACEHOLDER.AGENT_NAME]: agentTemplate
-      ? agentTemplate.displayName || 'Unknown Agent'
-      : 'Buffy',
-    [PLACEHOLDER.CONFIG_SCHEMA]: schemaToJsonStr(CodebuffConfigSchema),
-    [PLACEHOLDER.FILE_TREE_PROMPT_SMALL]: getProjectFileTreePrompt(
-      fileContext,
-      2_500,
-      'agent',
-    ),
-    [PLACEHOLDER.FILE_TREE_PROMPT]: getProjectFileTreePrompt(
-      fileContext,
-      10_000,
-      'agent',
-    ),
-    [PLACEHOLDER.GIT_CHANGES_PROMPT]: getGitChangesPrompt(fileContext),
-    [PLACEHOLDER.REMAINING_STEPS]: `${agentState.stepsRemaining!}`,
-    [PLACEHOLDER.PROJECT_ROOT]: fileContext.projectRoot,
-    [PLACEHOLDER.SYSTEM_INFO_PROMPT]: getSystemInfoPrompt(fileContext),
-    [PLACEHOLDER.TOOLS_PROMPT]: getToolsInstructions(
-      tools,
-      fileContext.customToolDefinitions,
-    ),
-    [PLACEHOLDER.AGENTS_PROMPT]: await buildSpawnableAgentsDescription(
-      spawnableAgents,
-      agentTemplates,
-    ),
-    [PLACEHOLDER.USER_CWD]: fileContext.cwd,
-    [PLACEHOLDER.USER_INPUT_PROMPT]: escapeString(lastUserInput ?? ''),
-    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: escapeString(intitialAgentPrompt ?? ''),
-    [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: Object.entries({
-      ...Object.fromEntries(
-        Object.entries(fileContext.knowledgeFiles)
-          .filter(([path]) =>
-            [
-              'knowledge.md',
-              'CLAUDE.md',
-              'codebuff.json',
-              'codebuff.jsonc',
-            ].includes(path),
-          )
-          .map(([path, content]) => [path, content.trim()]),
-      ),
-      ...fileContext.userKnowledgeFiles,
-    })
-      .map(([path, content]) => {
-        return `\`\`\`${path}\n${content.trim()}\n\`\`\``
+  const toInject: Record<PlaceholderValue, () => string | Promise<string>> = {
+    [PLACEHOLDER.AGENT_NAME]: () =>
+      agentTemplate ? agentTemplate.displayName || 'Unknown Agent' : 'Buffy',
+    [PLACEHOLDER.CONFIG_SCHEMA]: () => schemaToJsonStr(CodebuffConfigSchema),
+    [PLACEHOLDER.FILE_TREE_PROMPT_SMALL]: () =>
+      getProjectFileTreePrompt(fileContext, 2_500, 'agent'),
+    [PLACEHOLDER.FILE_TREE_PROMPT]: () =>
+      getProjectFileTreePrompt(fileContext, 10_000, 'agent'),
+    [PLACEHOLDER.GIT_CHANGES_PROMPT]: () => getGitChangesPrompt(fileContext),
+    [PLACEHOLDER.REMAINING_STEPS]: () => `${agentState.stepsRemaining!}`,
+    [PLACEHOLDER.PROJECT_ROOT]: () => fileContext.projectRoot,
+    [PLACEHOLDER.SYSTEM_INFO_PROMPT]: () => getSystemInfoPrompt(fileContext),
+    [PLACEHOLDER.TOOLS_PROMPT]: async () =>
+      getToolsInstructions(tools, await additionalToolDefinitions()),
+    [PLACEHOLDER.AGENTS_PROMPT]: () =>
+      buildSpawnableAgentsDescription(spawnableAgents, agentTemplates),
+    [PLACEHOLDER.USER_CWD]: () => fileContext.cwd,
+    [PLACEHOLDER.USER_INPUT_PROMPT]: () => escapeString(lastUserInput ?? ''),
+    [PLACEHOLDER.INITIAL_AGENT_PROMPT]: () =>
+      escapeString(intitialAgentPrompt ?? ''),
+    [PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS]: () =>
+      Object.entries({
+        ...Object.fromEntries(
+          Object.entries(fileContext.knowledgeFiles)
+            .filter(([path]) =>
+              [
+                'knowledge.md',
+                'CLAUDE.md',
+                'codebuff.json',
+                'codebuff.jsonc',
+              ].includes(path),
+            )
+            .map(([path, content]) => [path, content.trim()]),
+        ),
+        ...fileContext.userKnowledgeFiles,
       })
-      .join('\n\n'),
+        .map(([path, content]) => {
+          return `\`\`\`${path}\n${content.trim()}\n\`\`\``
+        })
+        .join('\n\n'),
   }
 
   for (const varName of placeholderValues) {
-    prompt = prompt.replaceAll(varName, toInject[varName] ?? '')
+    const value = await (toInject[varName] ?? (() => ''))()
+    prompt = prompt.replaceAll(varName, value)
   }
   return prompt
 }
@@ -129,13 +133,23 @@ const additionalPlaceholders = {
   instructionsPrompt: [],
   stepPrompt: [],
 } satisfies Record<StringField, string[]>
-export async function getAgentPrompt<T extends StringField>(
-  agentTemplate: AgentTemplate,
-  promptType: { type: T },
-  fileContext: ProjectFileContext,
-  agentState: AgentState,
-  agentTemplates: Record<string, AgentTemplate>,
-): Promise<string | undefined> {
+export async function getAgentPrompt<T extends StringField>({
+  agentTemplate,
+  promptType,
+  fileContext,
+  agentState,
+  agentTemplates,
+  additionalToolDefinitions,
+}: {
+  agentTemplate: AgentTemplate
+  promptType: { type: T }
+  fileContext: ProjectFileContext
+  agentState: AgentState
+  agentTemplates: Record<string, AgentTemplate>
+  additionalToolDefinitions: () => Promise<
+    ProjectFileContext['customToolDefinitions']
+  >
+}): Promise<string | undefined> {
   let promptValue = agentTemplate[promptType.type]
   for (const placeholder of additionalPlaceholders[promptType.type]) {
     if (!promptValue.includes(placeholder)) {
@@ -147,15 +161,15 @@ export async function getAgentPrompt<T extends StringField>(
     return undefined
   }
 
-  const prompt = await formatPrompt(
-    promptValue,
+  const prompt = await formatPrompt({
+    prompt: promptValue,
     fileContext,
     agentState,
-    agentTemplate.toolNames,
-    agentTemplate.spawnableAgents,
+    tools: agentTemplate.toolNames,
+    spawnableAgents: agentTemplate.spawnableAgents,
     agentTemplates,
-    '',
-  )
+    additionalToolDefinitions,
+  })
 
   let addendum = ''
 
@@ -165,7 +179,7 @@ export async function getAgentPrompt<T extends StringField>(
       '\n\n' +
       getShortToolInstructions(
         agentTemplate.toolNames,
-        fileContext.customToolDefinitions,
+        await additionalToolDefinitions(),
       ) +
       '\n\n' +
       (await buildSpawnableAgentsDescription(

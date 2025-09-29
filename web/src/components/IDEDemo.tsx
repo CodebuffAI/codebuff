@@ -380,9 +380,9 @@ export function IDEDemo({ className }: IDEDemoProps) {
               <div className="flex flex-col h-full">
                 <div className="bg-zinc-900 p-2 flex items-center justify-between border-b border-zinc-800">
                   <div className="flex items-center">
-                    <Files size={16} className="text-green-500 mr-2" />
-                    <span className="text-sm text-white font-medium">
-                      Your favorite IDE
+                    <Files size={16} className="text-green-500 mr-2" />{' '}
+                    <span className="text-xs text-zinc-500">
+                      YOUR FAVORITE IDE
                     </span>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -407,7 +407,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
 
                 <div
                   className={cn(
-                    'flex-1 p-3 font-mono text-xs relative bg-black/60 transition-all duration-500',
+                    'flex-1 p-3 text-xs font-dm-mono relative bg-black/60 transition-all duration-500',
                     expandTerminal && 'h-[30%]'
                   )}
                 >
@@ -449,9 +449,8 @@ export function IDEDemo({ className }: IDEDemoProps) {
                         <ChevronRight size={14} className="text-zinc-400" />
                       )}
                     </button>
-                  </div>
-
-                  <div className="p-3 text-xs">
+                  </div>{' '}
+                  <div className="p-3 text-xs font-dm-mono">
                     {terminalLines.length > 0 ? (
                       <>
                         {terminalLines.map((line, index) => (

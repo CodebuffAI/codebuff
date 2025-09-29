@@ -1,6 +1,7 @@
 import { z } from 'zod/v4'
 
 import { ALLOWED_MODEL_PREFIXES, models } from '../old-constants'
+import { mcpConfigSchema } from './mcp'
 
 import type { JSONSchema } from 'zod/v4/core'
 
@@ -14,7 +15,7 @@ if (filteredModels.length === 0) {
 }
 
 // Simplified JSON Schema definition - supports object schemas with nested properties
-const JsonSchemaSchema: z.ZodType<
+export const JsonSchemaSchema: z.ZodType<
   JSONSchema.BaseSchema,
   JSONSchema.BaseSchema
 > = z.lazy(() =>
@@ -68,6 +69,26 @@ export type PromptField = z.infer<typeof PromptFieldSchema>
 
 const functionSchema = <T extends z.core.$ZodFunction>(schema: T) =>
   z.custom<Parameters<T['implement']>[0]>((fn: any) => schema.implement(fn))
+// Schema for the Logger interface
+const LoggerSchema = z.object({
+  debug: z.function({
+    input: [z.any(), z.string().optional()],
+    output: z.void(),
+  }),
+  info: z.function({
+    input: [z.any(), z.string().optional()],
+    output: z.void(),
+  }),
+  warn: z.function({
+    input: [z.any(), z.string().optional()],
+    output: z.void(),
+  }),
+  error: z.function({
+    input: [z.any(), z.string().optional()],
+    output: z.void(),
+  }),
+})
+
 // Schema for validating handleSteps function signature
 const HandleStepsSchema = functionSchema(
   z.function({
@@ -81,6 +102,7 @@ const HandleStepsSchema = functionSchema(
         prompt: z.string().optional(),
         params: z.any().optional(),
       }),
+      LoggerSchema.optional(),
     ],
     output: z.any(),
   }),
@@ -114,6 +136,7 @@ export const DynamicAgentDefinitionSchema = z.object({
     .optional(),
 
   // Tools and spawnable agents
+  mcpServers: z.record(z.string(), mcpConfigSchema).default(() => ({})),
   toolNames: z
     .string()
     .array()

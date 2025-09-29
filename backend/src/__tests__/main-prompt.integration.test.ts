@@ -485,6 +485,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
             spawnerPrompt: '',
             model: 'gpt-4o-mini',
             includeMessageHistory: true,
+            mcpServers: {},
             toolNames: ['write_file', 'run_terminal_command'],
             spawnableAgents: [],
             systemPrompt: '',

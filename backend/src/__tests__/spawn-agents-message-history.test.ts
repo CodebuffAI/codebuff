@@ -77,6 +77,7 @@ describe('Spawn Agents Message History', () => {
     spawnerPrompt: '',
     model: '',
     includeMessageHistory,
+    mcpServers: {},
     toolNames: [],
     spawnableAgents: ['child-agent'],
     systemPrompt: '',

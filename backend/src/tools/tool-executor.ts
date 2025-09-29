@@ -1,5 +1,7 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { type ToolCallPart } from 'ai'
+import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
@@ -8,6 +10,7 @@ import { logger } from '../util/logger'
 import { requestToolCall } from '../websockets/websocket-action'
 import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
+import { getMCPToolData } from '../mcp/util'
 
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 import type { AgentTemplate } from '../templates/types'
@@ -28,7 +31,6 @@ import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
-import type { ToolCallPart } from 'ai'
 import type { WebSocket } from 'ws'
 
 export type CustomToolCall = {
@@ -114,6 +116,7 @@ export interface ExecuteToolCallParams<T extends string = ToolName> {
   input: Record<string, unknown>
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolResultPart[]
+  toolResultsToAddAfterStream: ToolResultPart[]
   previousToolCallFinished: Promise<void>
   ws: WebSocket
   agentTemplate: AgentTemplate
@@ -134,6 +137,7 @@ export function executeToolCall<T extends ToolName>({
   input,
   toolCalls,
   toolResults,
+  toolResultsToAddAfterStream,
   previousToolCallFinished,
   ws,
   agentTemplate,
@@ -157,7 +161,7 @@ export function executeToolCall<T extends ToolName>({
     autoInsertEndStepParam,
   )
   if ('error' in toolCall) {
-    toolResults.push({
+    const toolResult: ToolResultPart = {
       type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
@@ -169,7 +173,9 @@ export function executeToolCall<T extends ToolName>({
           },
         },
       ],
-    })
+    }
+    toolResults.push(cloneDeep(toolResult))
+    toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     logger.debug(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
@@ -188,7 +194,7 @@ export function executeToolCall<T extends ToolName>({
 
   // Filter out restricted tools in ask mode unless exporting summary
   if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
-    toolResults.push({
+    const toolResult: ToolResultPart = {
       type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
@@ -200,7 +206,9 @@ export function executeToolCall<T extends ToolName>({
           },
         },
       ],
-    })
+    }
+    toolResults.push(cloneDeep(toolResult))
+    toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     return previousToolCallFinished
   }
 
@@ -286,7 +294,7 @@ export function parseRawCustomToolCall(
 ): CustomToolCall | ToolCallError {
   const toolName = rawToolCall.toolName
 
-  if (!(toolName in customToolDefs)) {
+  if (!(toolName in customToolDefs) && !toolName.includes('/')) {
     return {
       toolName,
       toolCallId: rawToolCall.toolCallId,
@@ -306,9 +314,7 @@ export function parseRawCustomToolCall(
       customToolDefs[toolName].endsAgentStep
   }
 
-  const jsonSchema = JSON.parse(
-    JSON.stringify(customToolDefs[toolName].inputJsonSchema),
-  )
+  const jsonSchema = cloneDeep(customToolDefs[toolName].inputJsonSchema)
   if (customToolDefs[toolName].endsAgentStep) {
     if (!jsonSchema.properties) {
       jsonSchema.properties = {}
@@ -352,11 +358,12 @@ export function parseRawCustomToolCall(
   }
 }
 
-export function executeCustomToolCall({
+export async function executeCustomToolCall({
   toolName,
   input,
   toolCalls,
   toolResults,
+  toolResultsToAddAfterStream,
   previousToolCallFinished,
   ws,
   agentTemplate,
@@ -370,7 +377,12 @@ export function executeCustomToolCall({
   excludeToolFromMessageHistory = false,
 }: ExecuteToolCallParams<string>): Promise<void> {
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall(
-    fileContext.customToolDefinitions,
+    await getMCPToolData({
+      ws,
+      toolNames: agentTemplate.toolNames,
+      mcpServers: agentTemplate.mcpServers,
+      writeTo: cloneDeep(fileContext.customToolDefinitions),
+    }),
     {
       toolName,
       toolCallId: generateCompactId(),
@@ -379,7 +391,7 @@ export function executeCustomToolCall({
     autoInsertEndStepParam,
   )
   if ('error' in toolCall) {
-    toolResults.push({
+    const toolResult: ToolResultPart = {
       type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
@@ -391,7 +403,9 @@ export function executeCustomToolCall({
           },
         },
       ],
-    })
+    }
+    toolResults.push(cloneDeep(toolResult))
+    toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     logger.debug(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
@@ -409,8 +423,14 @@ export function executeCustomToolCall({
   toolCalls.push(toolCall)
 
   // Filter out restricted tools in ask mode unless exporting summary
-  if (!(agentTemplate.toolNames as string[]).includes(toolCall.toolName)) {
-    toolResults.push({
+  if (
+    !(agentTemplate.toolNames as string[]).includes(toolCall.toolName) &&
+    !(
+      toolCall.toolName.includes('/') &&
+      toolCall.toolName.split('/')[0] in agentTemplate.mcpServers
+    )
+  ) {
+    const toolResult: ToolResultPart = {
       type: 'tool-result',
       toolName,
       toolCallId: toolCall.toolCallId,
@@ -422,7 +442,9 @@ export function executeCustomToolCall({
           },
         },
       ],
-    })
+    }
+    toolResults.push(cloneDeep(toolResult))
+    toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     return previousToolCallFinished
   }
 
@@ -432,11 +454,17 @@ export function executeCustomToolCall({
         return null
       }
 
+      const toolName = toolCall.toolName.includes('/')
+        ? toolCall.toolName.split('/').slice(1).join('/')
+        : toolCall.toolName
       const clientToolResult = await requestToolCall(
         ws,
         userInputId,
-        toolCall.toolName,
+        toolName,
         toolCall.input,
+        toolCall.toolName.includes('/')
+          ? agentTemplate.mcpServers[toolCall.toolName.split('/')[0]]
+          : undefined,
       )
       return clientToolResult.output satisfies ToolResultOutput[]
     })

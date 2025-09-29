@@ -60,6 +60,7 @@ describe('malformed tool call error handling', () => {
       inputSchema: {},
       outputMode: 'all_messages' as const,
       includeMessageHistory: true,
+      mcpServers: {},
       toolNames: ['read_files', 'end_turn'],
       spawnableAgents: [],
       systemPrompt: 'Test system prompt',
@@ -310,7 +311,7 @@ describe('malformed tool call error handling', () => {
     expect(errorMessage).toBeDefined()
     expect(
       (errorMessage?.content.output?.[0] as any)?.value?.errorMessage,
-    ).toContain('Tool not found: unknown_tool')
+    ).toContain('Tool unknown_tool not found')
   })
 
   test('should not affect valid tool calls in message history', async () => {

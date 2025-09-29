@@ -7,27 +7,9 @@ order: 4
 
 # Agent Reference
 
-Complete reference for all agent configuration fields and tools.
+Complete reference for all agent definition fields:
 
-## Key Terms
-
-**Agent Template:** JSON file defining agent behavior
-
-**Spawnable Agents:** Sub-agents this agent can create
-
-**Tool Names:** Capabilities (read files, run commands, etc.)
-
-**Output Mode:** Response format (last message, report, all messages)
-
-**Prompt Schema:** Input validation rules
-
-## Agent Configuration
-
-When creating agent templates, you define all aspects of the agent from scratch.
-
-### Agent Schema
-
-<AgentTemplateSchemaDisplay />
+<AgentDefinitionDisplay />
 
 ### Core Configuration
 
@@ -177,10 +159,12 @@ Other agents this agent can spawn. Use the fully qualified agent ID from the age
 > **⚠️ Important:** When referencing built-in agents, you **must** specify both publisher and version (e.g., `codebuff/reviewer@0.0.1`). Omit publisher/version only for local agents defined in your `.agents/` directory.
 
 **Referencing Agents:**
+
 - Published/built-in agents: `"codebuff/file-picker@0.0.1"` (publisher and version required!)
 - Local agents: `"my-custom-agent"` (just the agent ID)
 
 **Available Built-in Agents:**
+
 - `codebuff/base` - Main coding assistant
 - `codebuff/reviewer` - Code review agent
 - `codebuff/thinker` - Deep thinking agent
@@ -231,25 +215,24 @@ Prompt inserted at each agent step. Powerful for changing behavior but usually n
 **🚀 This is what makes Codebuff agents truly powerful!** Unlike traditional prompt-based agents, `handleSteps` lets you write actual code to control agent behavior.
 
 Programmatically control the agent's execution using a TypeScript generator function. This enables:
+
 - **Dynamic decision making** based on tool results
 - **Complex orchestration** between multiple tools and agents
 - **Conditional branching** based on file contents or agent responses
 - **Iterative refinement** until desired results are achieved
 - **State management** across multiple steps
 
-
 **What You Can Yield:**
 
 <MarkdownTable>
-| Yield Value | What It Does |
-|------------|-------------|
-| Tool call object | Execute a specific tool and get its result |
-| 'STEP' | Run agent's LLM for one generation step |
-| 'STEP_ALL' | Let agent run until completion |
-| return | End the agent's turn immediately |
+  | Yield Value | What It Does | |------------|-------------| | Tool call object
+  | Execute a specific tool and get its result | | 'STEP' | Run agent's LLM for
+  one generation step | | 'STEP_ALL' | Let agent run until completion | | return
+  | End the agent's turn immediately |
 </MarkdownTable>
 
 **Tool Call Pattern:**
+
 ```typescript
 const { toolResult, toolError } = yield {
   toolName: 'read_files',
@@ -259,6 +242,7 @@ const { toolResult, toolError } = yield {
 ```
 
 **Example:**
+
 ```typescript
 handleSteps: function* ({ agentState, prompt, params }) {
   // First, read some files
@@ -304,6 +288,7 @@ JSON Schema definitions for validating prompt and params when spawning the agent
 ```
 
 **Real-World Example:**
+
 ```typescript
   // 1. Dynamically find relevant files
   const { toolResult: searchResults } = yield {

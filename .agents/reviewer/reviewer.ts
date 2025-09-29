@@ -1,7 +1,7 @@
-import { publisher } from './constants'
-import { reviewer } from './factory/reviewer'
+import { publisher } from '../constants'
+import { reviewer } from './reviewer-factory'
 
-import type { SecretAgentDefinition } from './types/secret-agent-definition'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'reviewer',

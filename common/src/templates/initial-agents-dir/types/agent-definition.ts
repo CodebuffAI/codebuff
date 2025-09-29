@@ -14,10 +14,6 @@
  *   export default definition
  */
 
-import type * as Tools from './tools'
-import type { Message, ToolResultOutput, JsonObjectSchema } from './util-types'
-type ToolName = Tools.ToolName
-
 // ============================================================================
 // Agent Definition and Utility Types
 // ============================================================================
@@ -59,7 +55,17 @@ export interface AgentDefinition {
   // Tools and Subagents
   // ============================================================================
 
-  /** Tools this agent can use. */
+  /** MCP servers by name. Names cannot contain `/`. */
+  mcpServers?: Record<string, MCPConfig>
+
+  /**
+   * Tools this agent can use.
+   *
+   * By default, all tools are available from any specified MCP server. In
+   * order to limit the tools from a specific MCP server, add the tool name(s)
+   * in the format `'mcpServerName/toolName1'`, `'mcpServerName/toolName2'`,
+   * etc.
+   */
   toolNames?: (ToolName | (string & {}))[]
 
   /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
@@ -144,7 +150,8 @@ export interface AgentDefinition {
    * Or use 'return' to end the turn.
    *
    * Example 1:
-   * function* handleSteps({ agentStep, prompt, params}) {
+   * function* handleSteps({ agentState, prompt, params, logger }) {
+   *   logger.info('Starting file read process')
    *   const { toolResult } = yield {
    *     toolName: 'read_files',
    *     input: { paths: ['file1.txt', 'file2.txt'] }
@@ -152,6 +159,7 @@ export interface AgentDefinition {
    *   yield 'STEP_ALL'
    *
    *   // Optionally do a post-processing step here...
+   *   logger.info('Files read successfully, setting output')
    *   yield {
    *     toolName: 'set_output',
    *     input: {
@@ -161,8 +169,9 @@ export interface AgentDefinition {
    * }
    *
    * Example 2:
-   * handleSteps: function* ({ agentState, prompt, params }) {
+   * handleSteps: function* ({ agentState, prompt, params, logger }) {
    *   while (true) {
+   *     logger.debug('Spawning thinker agent')
    *     yield {
    *       toolName: 'spawn_agents',
    *       input: {
@@ -213,6 +222,7 @@ export interface AgentStepContext {
   agentState: AgentState
   prompt?: string
   params?: Record<string, any>
+  logger: Logger
 }
 
 /**
@@ -233,21 +243,17 @@ export type ToolCall<T extends ToolName = ToolName> = {
 /**
  * File operation tools
  */
-export type FileTools =
-  | 'read_files'
-  | 'write_file'
-  | 'str_replace'
-  | 'find_files'
+export type FileEditingTools = 'read_files' | 'write_file' | 'str_replace'
 
 /**
  * Code analysis tools
  */
-export type CodeAnalysisTools = 'code_search' | 'find_files'
+export type CodeAnalysisTools = 'code_search' | 'find_files' | 'read_files'
 
 /**
  * Terminal and system tools
  */
-export type TerminalTools = 'run_terminal_command' | 'run_file_change_hooks'
+export type TerminalTools = 'run_terminal_command' | 'code_search'
 
 /**
  * Web and browser tools
@@ -257,24 +263,12 @@ export type WebTools = 'web_search' | 'read_docs'
 /**
  * Agent management tools
  */
-export type AgentTools = 'spawn_agents' | 'set_messages' | 'add_message'
-
-/**
- * Planning and organization tools
- */
-export type PlanningTools = 'think_deeply'
+export type AgentTools = 'spawn_agents'
 
 /**
  * Output and control tools
  */
-export type OutputTools = 'set_output' | 'end_turn'
-
-/**
- * Common tool combinations for convenience
- */
-export type FileEditingTools = FileTools | 'end_turn'
-export type ResearchTools = WebTools | 'write_file' | 'end_turn'
-export type CodeAnalysisToolSet = FileTools | CodeAnalysisTools | 'end_turn'
+export type OutputTools = 'set_output'
 
 // ============================================================================
 // Available Models (see: https://openrouter.ai/models)
@@ -295,21 +289,27 @@ export type ModelName =
   | 'openai/gpt-5-nano'
 
   // Anthropic
-  | 'anthropic/claude-4-sonnet-20250522'
+  | 'anthropic/claude-sonnet-4'
   | 'anthropic/claude-opus-4.1'
 
   // Gemini
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
   | 'google/gemini-2.5-flash-lite'
+  | 'google/gemini-2.5-flash-preview-09-2025'
+  | 'google/gemini-2.5-flash-lite-preview-09-2025'
 
   // X-AI
   | 'x-ai/grok-4-07-09'
+  | 'x-ai/grok-4-fast:free'
   | 'x-ai/grok-code-fast-1'
 
   // Qwen
+  | 'qwen/qwen3-max'
+  | 'qwen/qwen3-coder-plus'
   | 'qwen/qwen3-coder'
   | 'qwen/qwen3-coder:nitro'
+  | 'qwen/qwen3-coder-flash'
   | 'qwen/qwen3-235b-a22b-2507'
   | 'qwen/qwen3-235b-a22b-2507:nitro'
   | 'qwen/qwen3-235b-a22b-thinking-2507'
@@ -331,3 +331,13 @@ export type ModelName =
   | (string & {})
 
 export type { Tools }
+
+import type * as Tools from './tools'
+import type {
+  Message,
+  ToolResultOutput,
+  JsonObjectSchema,
+  MCPConfig,
+  Logger,
+} from './util-types'
+type ToolName = Tools.ToolName

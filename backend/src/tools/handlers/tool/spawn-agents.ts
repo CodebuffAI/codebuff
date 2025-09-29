@@ -5,7 +5,7 @@ import {
   createConversationHistoryMessage,
   createAgentState,
   logAgentSpawn,
-  executeAgent,
+  executeSubagent,
 } from './spawn-agent-utils'
 import { logger } from '../../../util/logger'
 
@@ -118,7 +118,7 @@ export const handleSpawnAgents = ((params: {
           params,
         )
 
-        const result = await executeAgent({
+        const result = await executeSubagent({
           ws,
           userInputId: `${userInputId}-${agentType}${subAgentState.agentId}`,
           prompt: prompt || '',

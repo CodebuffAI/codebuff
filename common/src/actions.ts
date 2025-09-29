@@ -2,6 +2,7 @@ import { z } from 'zod/v4'
 
 import { costModes } from './old-constants'
 import { GrantTypeValues } from './types/grant'
+import { mcpConfigSchema } from './types/mcp'
 import {
   toolResultOutputSchema,
   toolResultPartSchema,
@@ -62,6 +63,19 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     type: z.literal('cancel-user-input'),
     authToken: z.string(),
     promptId: z.string(),
+  }),
+  z.object({
+    type: z.literal('mcp-tool-data'),
+    requestId: z.string(),
+    tools: z
+      .object({
+        name: z.string(),
+        description: z.string().optional(),
+        inputSchema: z.looseObject({
+          type: z.literal('object'),
+        }),
+      })
+      .array(),
   }),
 ])
 
@@ -130,6 +144,14 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     chunk: z.string(),
     prompt: z.string().optional(),
   }),
+  z.object({
+    type: z.literal('handlesteps-log-chunk'),
+    userInputId: z.string(),
+    agentId: z.string(),
+    level: z.enum(['debug', 'info', 'warn', 'error']),
+    data: z.any(),
+    message: z.string().optional(),
+  }),
   PromptResponseSchema,
   z.object({
     type: z.literal('read-files'),
@@ -143,6 +165,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     toolName: z.string(),
     input: z.record(z.string(), z.any()),
     timeout: z.number().optional(),
+    mcpConfig: mcpConfigSchema.optional(),
   }),
   InitResponseSchema,
   UsageReponseSchema,
@@ -164,6 +187,12 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
   z.object({
     // The server is imminently going to shutdown, and the client should reconnect
     type: z.literal('request-reconnect'),
+  }),
+  z.object({
+    type: z.literal('request-mcp-tool-data'),
+    requestId: z.string(),
+    mcpConfig: mcpConfigSchema,
+    toolNames: z.string().array().optional(),
   }),
 ])
 

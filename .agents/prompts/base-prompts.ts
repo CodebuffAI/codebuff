@@ -236,6 +236,7 @@ export const baseAgentUserInputPrompt = (
   const isGPT5 =
     model === models.openrouter_gpt5 || model === models.openrouter_gpt5_chat
   const isLite = mode === 'lite'
+  const isMax = mode === 'max'
 
   return (
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
@@ -251,6 +252,9 @@ export const baseAgentUserInputPrompt = (
       isGPT5 &&
         'Important: You must spawn a file-explorer agent first to explore the codebase from different perspectives for non-trivial requests. This is an inexpensive way to get a lot of context on the codebase.',
       `Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read ${isLite ? '8' : '20'} files. The more files you read, the better context you have on the codebase and the better your response will be.`,
+
+      isMax &&
+        `You must spawn the implementation-planner-max agent for medium to hard coding tasks. It will help you write the best possible code changes.`,
 
       'If the users uses "@agent-id" or "@AgentName" in their message, you must spawn that agent. If you don\'t know what input parameters that agent expects, use the lookup_agent_info tool to get the agent metadata. Spawn all the agents that the user mentions.',
 

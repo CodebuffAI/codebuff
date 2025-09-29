@@ -1,4 +1,5 @@
 import * as path from 'path'
+import * as fs from 'fs'
 
 // Import some types for wasm & .scm files
 import './types'
@@ -25,7 +26,7 @@ import typescriptQuery from './tree-sitter-queries/tree-sitter-typescript-tags.s
 export interface LanguageConfig {
   extensions: string[]
   wasmFile: string
-  queryText: string
+  queryPathOrContent: string
 
   /* Loaded lazily ↓ */
   parser?: Parser
@@ -61,52 +62,52 @@ export const languageTable: LanguageConfig[] = [
   {
     extensions: ['.ts'],
     wasmFile: WASM_FILES['tree-sitter-typescript.wasm'],
-    queryText: typescriptQuery,
+    queryPathOrContent: typescriptQuery,
   },
   {
     extensions: ['.tsx'],
     wasmFile: WASM_FILES['tree-sitter-tsx.wasm'],
-    queryText: typescriptQuery,
+    queryPathOrContent: typescriptQuery,
   },
   {
     extensions: ['.js', '.jsx'],
     wasmFile: WASM_FILES['tree-sitter-javascript.wasm'],
-    queryText: javascriptQuery,
+    queryPathOrContent: javascriptQuery,
   },
   {
     extensions: ['.py'],
     wasmFile: WASM_FILES['tree-sitter-python.wasm'],
-    queryText: pythonQuery,
+    queryPathOrContent: pythonQuery,
   },
   {
     extensions: ['.java'],
     wasmFile: WASM_FILES['tree-sitter-java.wasm'],
-    queryText: javaQuery,
+    queryPathOrContent: javaQuery,
   },
   {
     extensions: ['.cs'],
     wasmFile: WASM_FILES['tree-sitter-c-sharp.wasm'],
-    queryText: csharpQuery,
+    queryPathOrContent: csharpQuery,
   },
   {
     extensions: ['.cpp', '.hpp'],
     wasmFile: WASM_FILES['tree-sitter-cpp.wasm'],
-    queryText: cppQuery,
+    queryPathOrContent: cppQuery,
   },
   {
     extensions: ['.rs'],
     wasmFile: WASM_FILES['tree-sitter-rust.wasm'],
-    queryText: rustQuery,
+    queryPathOrContent: rustQuery,
   },
   {
     extensions: ['.rb'],
     wasmFile: WASM_FILES['tree-sitter-ruby.wasm'],
-    queryText: rubyQuery,
+    queryPathOrContent: rubyQuery,
   },
   {
     extensions: ['.go'],
     wasmFile: WASM_FILES['tree-sitter-go.wasm'],
-    queryText: goQuery,
+    queryPathOrContent: goQuery,
   },
 ]
 
@@ -269,9 +270,14 @@ export async function createLanguageConfig(
       const parser = new Parser()
       parser.setLanguage(lang)
 
+      // When loaded with bun, the queryText is a path to the file, not the content of the file.
+      const queryContent = path.isAbsolute(cfg.queryPathOrContent)
+        ? fs.readFileSync(cfg.queryPathOrContent, 'utf8')
+        : cfg.queryPathOrContent
+
       cfg.language = lang
       cfg.parser = parser
-      cfg.query = new Query(lang, cfg.queryText)
+      cfg.query = new Query(lang, queryContent)
     } catch (err) {
       // Let the runtime-specific implementation handle error logging
       throw err

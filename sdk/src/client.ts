@@ -6,7 +6,10 @@ import type { RunOptions, CodebuffClientOptions } from './run'
 import type { RunState } from './run-state'
 
 export class CodebuffClient {
-  public options: Required<CodebuffClientOptions> & { fingerprintId: string }
+  public options: CodebuffClientOptions & {
+    apiKey: string
+    fingerprintId: string
+  }
 
   constructor(options: CodebuffClientOptions) {
     const foundApiKey = options.apiKey ?? process.env[API_KEY_ENV_VAR]
@@ -18,11 +21,6 @@ export class CodebuffClient {
 
     this.options = {
       apiKey: foundApiKey,
-      cwd: process.cwd(),
-      projectFiles: {},
-      knowledgeFiles: {},
-      agentDefinitions: [],
-      maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
       handleEvent: (event) => {
         if (event.type === 'error') {
           throw new Error(
@@ -30,9 +28,6 @@ export class CodebuffClient {
           )
         }
       },
-      handleStreamChunk: () => {},
-      overrideTools: {},
-      customToolDefinitions: [],
       fingerprintId: `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`,
       ...options,
     }
