@@ -646,9 +646,11 @@ function validateBenchifyResponse(
   return patches.flatMap((patch) =>
     match(patch)
       .with({ oldFileName: P.string }, (res) => {
-        if (!originalPaths.has(res.oldFileName)) {
+        // drop prefix a/ adding by diff patch
+        const actualFileName = res.oldFileName.replace('a/', '')
+        if (!originalPaths.has(actualFileName)) {
           logger.warn(
-            { path: res.oldFileName, agentStepId },
+            { path: actualFileName, agentStepId },
             'Benchify returned result for unexpected path',
           )
           return []
