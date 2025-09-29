@@ -714,7 +714,10 @@ async function applyBenchifyResultsGracefully(
 ) {
   const results = await Promise.allSettled(
     editedFiles.map((editedFile) => {
-      const diff = benchifyDiffs.find((v) => v.oldFileName == editedFile.path)
+      // again, we have to replace the a/ that the ParsedDiff introduced
+      const diff = benchifyDiffs.find(
+        (v) => v.oldFileName?.replace('a/', '') == editedFile.path,
+      )
       if (diff) {
         applyBenchifyResultSafely(editedFile, diff, context)
       } else {
