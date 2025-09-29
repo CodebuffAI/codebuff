@@ -4,6 +4,7 @@ import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
@@ -247,7 +248,11 @@ Explain your reasoning in detail.`,
     return {
       ...evalRun,
       judging_results: {
-        analysis: 'Judging failed due to error',
+        analysis: `Judging failed due to error:\n${JSON.stringify(
+          judgingError instanceof Error
+            ? errorToObject(judgingError)
+            : judgingError,
+        )}`,
         strengths: [],
         weaknesses: ['Judging process encountered an error'],
         metrics: {
