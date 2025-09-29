@@ -4,7 +4,7 @@ import { logger } from '../util/logger'
 import { Benchify } from 'benchify'
 import { env } from '@codebuff/internal/env'
 import { requestToolCall } from '../websockets/websocket-action'
-import { createPatch } from 'diff'
+import { ParsedDiff, parsePatch } from 'diff'
 import { withRetry, withTimeout } from '@codebuff/common/util/promise'
 import { match, P } from 'ts-pattern'
 import type {
@@ -454,8 +454,7 @@ async function applyBenchifyIfNeeded(
   },
 ) {
   // Early exit conditions - fail gracefully without blocking user edits
-  const client = getBenchifyClient()
-  if (!client || batchContext.intendedChanges.size === 0) {
+  if (batchContext.intendedChanges.size === 0) {
     return
   }
 
@@ -499,15 +498,15 @@ async function applyBenchifyIfNeeded(
       logger.info(
         {
           benchifyResultCount: benchifyResult.length,
-          resultFiles: benchifyResult.map((r) => r.path),
+          diffResults: benchifyResult.length,
           agentStepId: options.agentStepId,
           userInputId: options.userInputId,
         },
-        `executeBatchStrReplaces: Benchify returned ${benchifyResult.length} results, applying them`,
+        `executeBatchStrReplaces: Benchify returned ${benchifyResult.length} diff results, applying them`,
       )
 
       // Apply results with individual error handling to prevent one failure from blocking others
-      await applyBenchifyResultsGracefully(benchifyResult, {
+      await applyBenchifyResultsGracefully(filteredChanges, benchifyResult, {
         ws: batchContext.ws,
         onResponseChunk: batchContext.onResponseChunk,
         state: {
@@ -585,32 +584,34 @@ async function callBenchifyWithResilience(
     userInputId: string
     userId: string | undefined
   },
-): Promise<{ path: string; contents: string }[] | null> {
+): Promise<ParsedDiff[]> {
   const client = getBenchifyClient()
   if (!client) {
-    return null
+    return []
   }
 
   return await withRetry(
     async () => {
-      const response = await withTimeout(
+      const diff_response = await withTimeout(
         client.runFixer(editedFiles, {
-          fix_types: ['string_literals'],
+          fixes: ['parsing'],
+          mode: 'files',
+          response_format: 'DIFF',
         }),
         BENCHIFY_TIMEOUT_MS,
         `Benchify call timed out after ${BENCHIFY_TIMEOUT_MS}ms`,
       )
 
       // Validate response
-      if (response && Array.isArray(response)) {
+      if (diff_response) {
         return validateBenchifyResponse(
-          response,
+          diff_response,
           editedFiles,
           context.agentStepId,
         )
       }
 
-      return null
+      return []
     },
     {
       maxRetries: 2,
@@ -634,42 +635,34 @@ async function callBenchifyWithResilience(
  * Validates Benchify API response using pattern matching
  */
 function validateBenchifyResponse(
-  response: any[],
+  response: string,
   originalFiles: { path: string; contents: string }[],
   agentStepId: string,
-): { path: string; contents: string }[] {
+): ParsedDiff[] {
   const originalPaths = new Set(originalFiles.map((f) => f.path))
 
-  return response.flatMap((result) =>
-    match(result)
-      .with({ path: P.string, contents: P.string }, (res) => {
-        if (!originalPaths.has(res.path)) {
+  const patches = parsePatch(response)
+  return patches.flatMap((patch) =>
+    match(patch)
+      .with({ oldFileName: P.string }, (res) => {
+        // drop prefix a/ adding by diff patch
+        const actualFileName = res.oldFileName.replace('a/', '')
+        if (!originalPaths.has(actualFileName)) {
           logger.warn(
-            { path: res.path, agentStepId },
+            { path: actualFileName, agentStepId },
             'Benchify returned result for unexpected path',
           )
           return []
         }
-        if (res.contents.length > BENCHIFY_MAX_FILE_SIZE * 2) {
-          logger.warn(
-            {
-              path: res.path,
-              size: res.contents.length,
-              agentStepId,
-            },
-            'Benchify result exceeds size limit',
-          )
-          return []
-        }
-        return [{ path: res.path, contents: res.contents }]
+        return [patch]
       })
       .otherwise(() => {
         logger.warn(
           {
-            result: JSON.stringify(result).substring(0, 100),
+            result: JSON.stringify(patch).substring(0, 100),
             agentStepId,
           },
-          'Invalid Benchify result structure',
+          'Invalid Benchify patch',
         )
         return []
       }),
@@ -707,7 +700,8 @@ function shouldRetryBenchifyError(error: Error): boolean {
  * Applies benchify results back to the file system with individual error handling
  */
 async function applyBenchifyResultsGracefully(
-  benchifyFiles: { path: string; contents: string }[],
+  editedFiles: { path: string; contents: string }[],
+  benchifyDiffs: ParsedDiff[],
   context: {
     ws: WebSocket
     onResponseChunk: (chunk: string | PrintModeEvent) => void
@@ -719,9 +713,20 @@ async function applyBenchifyResultsGracefully(
   },
 ) {
   const results = await Promise.allSettled(
-    benchifyFiles.map((benchifyFile) =>
-      applyBenchifyResultSafely(benchifyFile, context),
-    ),
+    editedFiles.map((editedFile) => {
+      // again, we have to replace the a/ that the ParsedDiff introduced
+      const diff = benchifyDiffs.find(
+        (v) => v.oldFileName?.replace('a/', '') == editedFile.path,
+      )
+      if (diff) {
+        applyBenchifyResultSafely(editedFile, diff, context)
+      } else {
+        logger.warn(
+          { file: editedFile.path },
+          'No Benchify diff found for file.',
+        )
+      }
+    }),
   )
 
   // Log any failures but don't throw - individual file failures shouldn't block the batch
@@ -730,7 +735,7 @@ async function applyBenchifyResultsGracefully(
     logger.warn(
       {
         failureCount: failures.length,
-        totalFiles: benchifyFiles.length,
+        totalFiles: editedFiles.length,
         agentStepId: context.agentStepId,
       },
       'Some Benchify results failed to apply',
@@ -743,6 +748,7 @@ async function applyBenchifyResultsGracefully(
  */
 async function applyBenchifyResultSafely(
   benchifyFile: { path: string; contents: string },
+  benchifyDiff: ParsedDiff,
   context: {
     ws: WebSocket
     onResponseChunk: (chunk: string | PrintModeEvent) => void
@@ -798,30 +804,12 @@ async function applyBenchifyResultSafely(
       return
     }
 
-    // Skip if content is unchanged
-    if (baseContent === benchifyFile.contents) {
-      logger.debug(
-        { path: benchifyFile.path, agentStepId: context.agentStepId },
-        'Benchify result identical to current content, skipping',
-      )
-      return
-    }
-
-    // Generate a proper unified diff patch
-    const patch = createPatch(
-      benchifyFile.path,
-      baseContent,
-      benchifyFile.contents,
-      '',
-      '',
-    )
-
     // Apply with timeout to prevent hanging
     const toolCallResult = await withTimeout(
       requestToolCall(context.ws, context.userInputId, 'str_replace', {
         type: 'patch',
         path: benchifyFile.path,
-        content: patch,
+        content: benchifyDiff,
       }),
       5000,
       'Benchify patch application timed out',
