@@ -314,6 +314,12 @@ const nonCacheableModels = [
   models.openrouter_grok_4,
 ] satisfies string[] as string[]
 export function supportsCacheControl(model: Model): boolean {
+  if (model.startsWith('openai/')) {
+    return true
+  }
+  if (model.startsWith('anthropic/')) {
+    return true
+  }
   if (!isExplicitlyDefinedModel(model)) {
     // Default to no cache control for unknown models
     return false
