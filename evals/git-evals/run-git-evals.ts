@@ -248,7 +248,11 @@ Explain your reasoning in detail.`,
     return {
       ...evalRun,
       judging_results: {
-        analysis: `Judging failed due to error:\n${judgingError instanceof Error ? errorToObject(judgingError) : JSON.stringify(judgingError)}`,
+        analysis: `Judging failed due to error:\n${JSON.stringify(
+          judgingError instanceof Error
+            ? errorToObject(judgingError)
+            : judgingError,
+        )}`,
         strengths: [],
         weaknesses: ['Judging process encountered an error'],
         metrics: {
