@@ -584,10 +584,10 @@ async function callBenchifyWithResilience(
     userInputId: string
     userId: string | undefined
   },
-): Promise<ParsedDiff[]> {
+): Promise<string | null> {
   const client = getBenchifyClient()
   if (!client) {
-    return []
+    return null
   }
 
   return await withRetry(
@@ -601,17 +601,11 @@ async function callBenchifyWithResilience(
         BENCHIFY_TIMEOUT_MS,
         `Benchify call timed out after ${BENCHIFY_TIMEOUT_MS}ms`,
       )
-
-      // Validate response
       if (diff_response) {
-        return validateBenchifyResponse(
-          diff_response,
-          editedFiles,
-          context.agentStepId,
-        )
+        return diff_response
       }
 
-      return []
+      return null
     },
     {
       maxRetries: 2,
@@ -628,44 +622,6 @@ async function callBenchifyWithResilience(
       },
       retryDelayMs: 100,
     },
-  )
-}
-
-/**
- * Validates Benchify API response using pattern matching
- */
-function validateBenchifyResponse(
-  response: string,
-  originalFiles: { path: string; contents: string }[],
-  agentStepId: string,
-): ParsedDiff[] {
-  const originalPaths = new Set(originalFiles.map((f) => f.path))
-
-  const patches = parsePatch(response)
-  return patches.flatMap((patch) =>
-    match(patch)
-      .with({ oldFileName: P.string }, (res) => {
-        // drop prefix a/ adding by diff patch
-        const actualFileName = res.oldFileName.replace('a/', '')
-        if (!originalPaths.has(actualFileName)) {
-          logger.warn(
-            { path: actualFileName, agentStepId },
-            'Benchify returned result for unexpected path',
-          )
-          return []
-        }
-        return [patch]
-      })
-      .otherwise(() => {
-        logger.warn(
-          {
-            result: JSON.stringify(patch).substring(0, 100),
-            agentStepId,
-          },
-          'Invalid Benchify patch',
-        )
-        return []
-      }),
   )
 }
 
@@ -701,7 +657,7 @@ function shouldRetryBenchifyError(error: Error): boolean {
  */
 async function applyBenchifyResultsGracefully(
   editedFiles: { path: string; contents: string }[],
-  benchifyDiffs: ParsedDiff[],
+  benchifyDiff: string,
   context: {
     ws: WebSocket
     onResponseChunk: (chunk: string | PrintModeEvent) => void
@@ -714,12 +670,8 @@ async function applyBenchifyResultsGracefully(
 ) {
   const results = await Promise.allSettled(
     editedFiles.map((editedFile) => {
-      // again, we have to replace the a/ that the ParsedDiff introduced
-      const diff = benchifyDiffs.find(
-        (v) => v.oldFileName?.replace('a/', '') == editedFile.path,
-      )
-      if (diff) {
-        applyBenchifyResultSafely(editedFile, diff, context)
+      if (benchifyDiff) {
+        applyBenchifyResultSafely(editedFile, benchifyDiff, context)
       } else {
         logger.warn(
           { file: editedFile.path },
@@ -748,7 +700,7 @@ async function applyBenchifyResultsGracefully(
  */
 async function applyBenchifyResultSafely(
   benchifyFile: { path: string; contents: string },
-  benchifyDiff: ParsedDiff,
+  benchifyDiff: string,
   context: {
     ws: WebSocket
     onResponseChunk: (chunk: string | PrintModeEvent) => void
