@@ -12,6 +12,11 @@ const providerOrder = {
     'Anthropic',
     'Amazon Bedrock',
   ],
+  [models.openrouter_claude_sonnet_4_5]: [
+    'Google',
+    'Anthropic',
+    'Amazon Bedrock',
+  ],
   [models.openrouter_claude_opus_4]: ['Google', 'Anthropic'],
 } as const
 
