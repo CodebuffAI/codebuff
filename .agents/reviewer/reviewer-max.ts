@@ -3,12 +3,8 @@ import { reviewer } from './reviewer-factory'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
-  ...reviewer('openai/gpt-5'),
+  ...reviewer('anthropic/claude-4.5-sonnet'),
   id: 'reviewer-max',
-  reasoningOptions: {
-    enabled: true,
-    effort: 'medium',
-  },
 }
 
 export default definition
