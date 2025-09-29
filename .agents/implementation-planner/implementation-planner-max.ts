@@ -4,7 +4,7 @@ import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'implementation-planner-max',
   publisher,
-  model: 'openai/gpt-5',
+  model: 'anthropic/claude-4.5-sonnet',
   displayName: 'Implementation Planner Max',
   spawnerPrompt:
     'Creates the best possible implementation plan by generating several different plans in parallel and selecting the best one. Includes full code changes.',
@@ -21,7 +21,7 @@ const definition: SecretAgentDefinition = {
   spawnableAgents: ['implementation-planner', 'plan-selector'],
   handleSteps: function* ({ prompt }) {
     // Step 1: Spawn several planners in parallel.
-    const agents = Array.from({ length: 10 }, () => ({
+    const agents = Array.from({ length: 5 }, () => ({
       agent_type: 'implementation-planner',
       prompt,
     }))

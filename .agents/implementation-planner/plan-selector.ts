@@ -7,10 +7,7 @@ import {
 const definition: SecretAgentDefinition = {
   id: 'plan-selector',
   publisher,
-  model: 'openai/gpt-5',
-  reasoningOptions: {
-    effort: 'medium',
-  },
+  model: 'anthropic/claude-4.5-sonnet',
   displayName: 'Plan Selector',
   spawnerPrompt:
     'Expert at evaluating and selecting the best plan from multiple options based on quality, feasibility, and simplicity.',

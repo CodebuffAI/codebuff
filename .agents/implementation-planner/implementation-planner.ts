@@ -8,10 +8,7 @@ const definition: SecretAgentDefinition = {
   id: 'implementation-planner',
   displayName: 'Implementation Planner',
   publisher,
-  model: 'openai/gpt-5',
-  reasoningOptions: {
-    effort: 'medium',
-  },
+  model: 'anthropic/claude-4.5-sonnet',
   spawnerPrompt:
     'Creates comprehensive implementation plans with full code changes by exploring the codebase, doing research on the web, and thinking deeply. You can also use it get a deep answer to any question. Use this agent for tasks that require thinking.',
   inputSchema: {
@@ -28,7 +25,6 @@ const definition: SecretAgentDefinition = {
     'file-explorer',
     'web-researcher',
     'docs-researcher',
-    'thinker-gpt-5-high',
   ],
 
   systemPrompt: `You are an expert programmer, architect, researcher, and general problem solver.
@@ -44,13 +40,6 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 - Think about the best way to accomplish the task.
 - Finally, describe the full change to the codebase that will accomplish the task (or other steps, e.g. terminal commands to run). Use markdown code blocks to describe the changes for each file.
 - Then use the end_turn tool immediately after describing all the changes.
-
-Important: You must use at least one tool call in every response unless you are done.
-For example, if you write something like:
-"I'll verify and finish the requested type updates by inspecting the current files and making any remaining edits."
-Then you must also include a tool call, e.g.:
-"I'll verify and finish the requested type updates by inspecting the current files and making any remaining edits. [insert read_files tool call]"
-If you don't do this, then your response will be cut off and the turn will be ended automatically.
 `,
 }
 
