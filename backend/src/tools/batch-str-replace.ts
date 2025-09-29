@@ -454,8 +454,7 @@ async function applyBenchifyIfNeeded(
   },
 ) {
   // Early exit conditions - fail gracefully without blocking user edits
-  const client = getBenchifyClient()
-  if (!client || batchContext.intendedChanges.size === 0) {
+  if (batchContext.intendedChanges.size === 0) {
     return
   }
 
