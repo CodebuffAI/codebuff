@@ -33,6 +33,7 @@ export enum AnalyticsEvent {
   TOOL_USE = 'backend.tool_use',
   UNKNOWN_TOOL_CALL = 'backend.unknown_tool_call',
   USER_INPUT = 'backend.user_input',
+  OPENROUTER_MALFORMED_JSON_RESPONSE_CHUNK = 'backend.openrouter_malformed_json_response_chunk',
 
   // Web
   SIGNUP = 'web.signup',

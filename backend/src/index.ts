@@ -13,6 +13,7 @@ import {
 import { validateAgentNameHandler } from './api/agents'
 import { isRepoCoveredHandler } from './api/org'
 import usageHandler from './api/usage'
+import { completionsStreamHandler } from './api/v1/chat/completions'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
 import {
@@ -58,6 +59,9 @@ app.post(
   checkAdmin,
   relabelForUserHandler,
 )
+
+// Openai compatible completions API
+app.post('/api/v1/chat/completions', completionsStreamHandler)
 
 app.use(
   (
