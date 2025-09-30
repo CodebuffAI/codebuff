@@ -12,8 +12,7 @@ export default function DocsLayout({
   children,
 }: {
   children: React.ReactNode
-}) {
-  const pathname = usePathname()
+}) {  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
@@ -42,7 +41,7 @@ export default function DocsLayout({
 
   return (
     <div className="pt-8">
-      <div className="container flex md:space-x-8 overflow-x-hidden">
+      <div className="container flex md:space-x-8">
         <div className="hidden lg:block w-64 shrink-0">
           <div className="w-64 sticky top-4 h-[calc(100vh-2rem)] z-40">
             {/* Dynamic gradient fade indicators */}
