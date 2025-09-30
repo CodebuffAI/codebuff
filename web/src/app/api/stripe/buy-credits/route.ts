@@ -1,4 +1,4 @@
-import { getUserCostPerCredit, processAndGrantCredit } from '@codebuff/billing'
+import { processAndGrantCredit } from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const centsPerCredit = await getUserCostPerCredit(userId)
+    const centsPerCredit = 1
     const amountInCents = convertCreditsToUsdCents(credits, centsPerCredit)
 
     if (amountInCents <= 0) {
