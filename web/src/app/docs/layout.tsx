@@ -26,12 +26,14 @@ export default function DocsLayout({
       // The header with logo is approximately 72px tall (p-4 = 16px top/bottom + content height)
       // Fix the sidebar when the user scrolls past the header
       const shouldBeFixed = window.scrollY > 72
-      setIsFixed((prev) => (prev !== shouldBeFixed ? shouldBeFixed : prev))
+      if (shouldBeFixed !== isFixed) {
+        setIsFixed(shouldBeFixed)
+      }
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [isFixed])
 
   // Handle sidebar scroll for dynamic fade effects
   useEffect(() => {
@@ -43,16 +45,14 @@ export default function DocsLayout({
       const isAtTop = scrollTop === 0
       const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1
 
-      setShowTopFade((prev) => (prev !== !isAtTop ? !isAtTop : prev))
-      setShowBottomFade((prev) => (prev !== !isAtBottom ? !isAtBottom : prev))
+      setShowTopFade(!isAtTop)
+      setShowBottomFade(!isAtBottom)
     }
 
-    // Use requestAnimationFrame to check initial state after layout
-    requestAnimationFrame(() => {
-      handleScroll()
-    })
+    // Check initial state
+    handleScroll()
 
-    sidebarElement.addEventListener('scroll', handleScroll, { passive: true })
+    sidebarElement.addEventListener('scroll', handleScroll)
     return () => sidebarElement.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -62,8 +62,8 @@ export default function DocsLayout({
         <div className="hidden lg:block w-64 shrink-0">
           <div
             className={`w-64 z-40 transition-all duration-200 ease-in-out ${
-              isFixed ? 'fixed top-4 h-[calc(100vh-2rem)]' : 'relative'
-            }`}
+              isFixed ? 'fixed top-4' : 'sticky top-4'
+            } h-[calc(100vh-2rem)]`}
           >
             {/* Dynamic gradient fade indicators */}
             {showTopFade && (
