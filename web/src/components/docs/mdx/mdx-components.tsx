@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react'
 import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
 import { AgentTemplateSchemaDisplay, SchemaDisplay } from './schema-display'
+import { AgentDefinitionDisplay } from './agent-definition-display'
 
 import type {
   HTMLAttributes,
@@ -288,6 +289,7 @@ const components = {
   MarkdownTable,
   SchemaDisplay,
   AgentTemplateSchemaDisplay,
+  AgentDefinitionDisplay,
 }
 
 export function Mdx({ code }: MdxProps) {

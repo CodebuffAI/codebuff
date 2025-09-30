@@ -119,6 +119,7 @@ export const promptAiSdkStream = async function* (
     if (chunk.type !== 'text-delta') {
       const flushed = stopSequenceHandler.flush()
       if (flushed) {
+        content += flushed
         yield {
           type: 'text',
           text: flushed,
@@ -181,6 +182,7 @@ export const promptAiSdkStream = async function* (
 
       const stopSequenceResult = stopSequenceHandler.process(chunk.text)
       if (stopSequenceResult.text) {
+        content += stopSequenceResult.text
         yield {
           type: 'text',
           text: stopSequenceResult.text,
@@ -190,6 +192,7 @@ export const promptAiSdkStream = async function* (
   }
   const flushed = stopSequenceHandler.flush()
   if (flushed) {
+    content += flushed
     yield {
       type: 'text',
       text: flushed,

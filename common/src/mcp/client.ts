@@ -62,9 +62,17 @@ export async function getMCPClient(config: MCPConfig): Promise<string> {
       url.searchParams.set(key, value)
     }
     if (config.type === 'http') {
-      transport = new StreamableHTTPClientTransport(url)
+      transport = new StreamableHTTPClientTransport(url, {
+        requestInit: {
+          headers: config.headers,
+        },
+      })
     } else if (config.type === 'sse') {
-      transport = new SSEClientTransport(url)
+      transport = new SSEClientTransport(url, {
+        requestInit: {
+          headers: config.headers,
+        },
+      })
     } else {
       config.type satisfies never
       throw new Error(`Internal error: invalid MCP config type ${config.type}`)

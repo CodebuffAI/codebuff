@@ -101,7 +101,10 @@ export async function* processStreamWithTags(
     }
 
     const toolName = parsedParams[toolNameParam] as keyof typeof processors
-    const processor = processors[toolName] ?? defaultProcessor(toolName)
+    const processor =
+      typeof toolName === 'string'
+        ? processors[toolName] ?? defaultProcessor(toolName)
+        : undefined
     if (!processor) {
       trackEvent(
         AnalyticsEvent.UNKNOWN_TOOL_CALL,
@@ -114,6 +117,11 @@ export async function* processStreamWithTags(
           autocompleted,
         },
       )
+      onError(
+        'parse_error',
+        `Unknown tool ${JSON.stringify(toolName)} for tool call: ${contents}`,
+      )
+      return
     }
 
     trackEvent(AnalyticsEvent.TOOL_USE, loggerOptions?.userId ?? '', {

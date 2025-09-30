@@ -194,6 +194,7 @@ export const geminiModels = {
 export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
 
 export const openrouterModels = {
+  openrouter_claude_sonnet_4_5: 'anthropic/claude-sonnet-4.5',
   openrouter_claude_sonnet_4: 'anthropic/claude-4-sonnet-20250522',
   openrouter_claude_opus_4: 'anthropic/claude-opus-4.1',
   openrouter_claude_3_5_haiku: 'anthropic/claude-3.5-haiku-20241022',
@@ -259,6 +260,7 @@ export const shortModelNames = {
   'gemini-2.5-pro': models.openrouter_gemini2_5_pro_preview,
   'flash-2.5': models.openrouter_gemini2_5_flash,
   'opus-4': models.openrouter_claude_opus_4,
+  'sonnet-4.5': models.openrouter_claude_sonnet_4_5,
   'sonnet-4': models.openrouter_claude_sonnet_4,
   'sonnet-3.7': models.openrouter_claude_sonnet_4,
   'sonnet-3.6': models.openrouter_claude_3_5_sonnet,
@@ -312,6 +314,12 @@ const nonCacheableModels = [
   models.openrouter_grok_4,
 ] satisfies string[] as string[]
 export function supportsCacheControl(model: Model): boolean {
+  if (model.startsWith('openai/')) {
+    return true
+  }
+  if (model.startsWith('anthropic/')) {
+    return true
+  }
   if (!isExplicitlyDefinedModel(model)) {
     // Default to no cache control for unknown models
     return false
