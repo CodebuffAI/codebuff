@@ -1,8 +1,4 @@
-import {
-  consumeCredits,
-  consumeOrganizationCredits,
-  getUserCostPerCredit,
-} from '@codebuff/billing'
+import { consumeCredits, consumeOrganizationCredits } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
@@ -344,9 +340,35 @@ type InsertMessageParams = {
   latencyMs: number
 }
 
+export async function insertMessageRecordWithRetries(
+  params: InsertMessageParams,
+  maxRetries = 3,
+): Promise<typeof schema.message.$inferSelect> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await insertMessageRecord(params)
+    } catch (error) {
+      if (attempt === maxRetries) {
+        logger.error(
+          { messageId: params.messageId, error, attempt },
+          `Failed to save message after ${maxRetries} attempts`,
+        )
+        throw error
+      } else {
+        logger.warn(
+          { messageId: params.messageId, error: error },
+          `Retrying save message to DB (attempt ${attempt}/${maxRetries})`,
+        )
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
+      }
+    }
+  }
+  throw new Error('Failed to save message after all attempts.')
+}
+
 async function insertMessageRecord(
   params: InsertMessageParams,
-): Promise<typeof schema.message.$inferSelect | null> {
+): Promise<typeof schema.message.$inferSelect> {
   const {
     messageId,
     userId,
@@ -371,48 +393,36 @@ async function insertMessageRecord(
   const orgId = requestContext?.approvedOrgIdForRepo
   const repoUrl = requestContext?.processedRepoUrl
 
-  try {
-    const insertResult = await db
-      .insert(schema.message)
-      .values({
-        ...stripNullCharsFromObject({
-          id: messageId,
-          user_id: userId,
-          client_id: clientSessionId,
-          client_request_id: userInputId,
-          model: model,
-          request: request,
-          response: response,
-        }),
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        cache_creation_input_tokens: cacheCreationInputTokens,
-        cache_read_input_tokens: cacheReadInputTokens,
-        cost: cost.toString(),
-        credits: creditsUsed,
-        finished_at: finishedAt,
-        latency_ms: latencyMs,
-        org_id: orgId || null,
-        repo_url: repoUrl || null,
-      })
-      .returning()
+  const insertResult = await db
+    .insert(schema.message)
+    .values({
+      ...stripNullCharsFromObject({
+        id: messageId,
+        user_id: userId,
+        client_id: clientSessionId,
+        client_request_id: userInputId,
+        model: model,
+        request: request,
+        response: response,
+      }),
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cache_creation_input_tokens: cacheCreationInputTokens,
+      cache_read_input_tokens: cacheReadInputTokens,
+      cost: cost.toString(),
+      credits: creditsUsed,
+      finished_at: finishedAt,
+      latency_ms: latencyMs,
+      org_id: orgId || null,
+      repo_url: repoUrl || null,
+    })
+    .returning()
 
-    if (insertResult.length > 0) {
-      return insertResult[0]
-    } else {
-      logger.error(
-        { messageId: messageId },
-        'Failed to insert message into DB (no rows returned).',
-      )
-      return null
-    }
-  } catch (dbError) {
-    logger.error(
-      { messageId: messageId, error: dbError },
-      'Error saving message to DB.',
-    )
-    return null
+  if (insertResult.length === 0) {
+    throw new Error('Failed to insert message into DB (no rows returned).')
   }
+
+  return insertResult[0]
 }
 
 async function sendCostResponseToClient(
@@ -461,6 +471,36 @@ type CreditConsumptionResult = {
   fromPurchased: number
 }
 
+async function updateUserCycleUsageWithRetries(
+  userId: string,
+  creditsUsed: number,
+  maxRetries = 3,
+): Promise<CreditConsumptionResult> {
+  const requestContext = getRequestContext()
+  const orgId = requestContext?.approvedOrgIdForRepo
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await updateUserCycleUsage(userId, creditsUsed)
+    } catch (error) {
+      if (attempt === maxRetries) {
+        logger.error(
+          { userId, orgId, creditsUsed, error, attempt },
+          `Failed to update user cycle usage after ${maxRetries} attempts`,
+        )
+        throw error
+      } else {
+        logger.warn(
+          { userId, orgId, creditsUsed, error: error },
+          `Retrying update user cycle usage (attempt ${attempt}/${maxRetries})`,
+        )
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
+      }
+    }
+  }
+  throw new Error('Failed to update user cycle usage after all attempts.')
+}
+
 async function updateUserCycleUsage(
   userId: string,
   creditsUsed: number,
@@ -479,50 +519,42 @@ async function updateUserCycleUsage(
   const requestContext = getRequestContext()
   const orgId = requestContext?.approvedOrgIdForRepo
 
-  try {
-    if (orgId) {
-      // TODO: use `consumeCreditsWithFallback` to handle organization delegation
-      // Consume from organization credits
-      const result = await consumeOrganizationCredits(orgId, creditsUsed)
+  if (orgId) {
+    // TODO: use `consumeCreditsWithFallback` to handle organization delegation
+    // Consume from organization credits
+    const result = await consumeOrganizationCredits(orgId, creditsUsed)
 
-      if (VERBOSE) {
-        logger.debug(
-          { userId, orgId, creditsUsed, ...result },
-          `Consumed organization credits (${creditsUsed})`,
-        )
-      }
-
-      trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
-        creditsUsed,
-        fromPurchased: result.fromPurchased,
-        organizationId: orgId,
-      })
-
-      return result
-    } else {
-      // Consume from personal credits
-      const result = await consumeCredits(userId, creditsUsed)
-
-      if (VERBOSE) {
-        logger.debug(
-          { userId, creditsUsed, ...result },
-          `Consumed personal credits (${creditsUsed})`,
-        )
-      }
-
-      trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
-        creditsUsed,
-        fromPurchased: result.fromPurchased,
-      })
-
-      return result
+    if (VERBOSE) {
+      logger.debug(
+        { userId, orgId, creditsUsed, ...result },
+        `Consumed organization credits (${creditsUsed})`,
+      )
     }
-  } catch (error) {
-    logger.error(
-      { userId, orgId, creditsUsed, error },
-      'Error consuming credits.',
-    )
-    throw error
+
+    trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
+      creditsUsed,
+      fromPurchased: result.fromPurchased,
+      organizationId: orgId,
+    })
+
+    return result
+  } else {
+    // Consume from personal credits
+    const result = await consumeCredits(userId, creditsUsed)
+
+    if (VERBOSE) {
+      logger.debug(
+        { userId, creditsUsed, ...result },
+        `Consumed personal credits (${creditsUsed})`,
+      )
+    }
+
+    trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
+      creditsUsed,
+      fromPurchased: result.fromPurchased,
+    })
+
+    return result
   }
 }
 
@@ -564,10 +596,7 @@ export const saveMessage = async (value: {
         )
 
       // Default to 1 cent per credit
-      let centsPerCredit = 1
-      if (value.userId) {
-        centsPerCredit = await getUserCostPerCredit(value.userId)
-      }
+      const centsPerCredit = 1
 
       const costInCents =
         value.chargeUser ?? true // default to true
@@ -617,13 +646,13 @@ export const saveMessage = async (value: {
         value.agentId,
       )
 
-      const savedMessageResult = await insertMessageRecord({
+      await insertMessageRecordWithRetries({
         ...value,
         cost,
         creditsUsed,
       })
 
-      if (!savedMessageResult || !value.userId) {
+      if (!value.userId) {
         logger.debug(
           { messageId: value.messageId, userId: value.userId },
           'Skipping further processing (no user ID or failed to save message).',
@@ -631,7 +660,7 @@ export const saveMessage = async (value: {
         return 0
       }
 
-      const consumptionResult = await updateUserCycleUsage(
+      const consumptionResult = await updateUserCycleUsageWithRetries(
         value.userId,
         creditsUsed,
       )

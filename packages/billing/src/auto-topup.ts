@@ -10,7 +10,6 @@ import { stripeServer } from '@codebuff/common/util/stripe'
 import { eq } from 'drizzle-orm'
 
 import { calculateUsageAndBalance } from './balance-calculator'
-import { getUserCostPerCredit } from './conversion'
 import { processAndGrantCredit } from './grant-credits'
 import {
   calculateOrganizationUsageAndBalance,
@@ -141,7 +140,7 @@ async function processAutoTopupPayment(
   const idempotencyKey = `auto-topup-${userId}-${timestamp}`
   const operationId = idempotencyKey // Use same ID for both Stripe and our DB
 
-  const centsPerCredit = await getUserCostPerCredit(userId)
+  const centsPerCredit = 1
   const amountInCents = convertCreditsToUsdCents(amountToTopUp, centsPerCredit)
 
   if (amountInCents <= 0) {

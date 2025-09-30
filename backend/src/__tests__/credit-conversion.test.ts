@@ -1,4 +1,3 @@
-import { getUserCostPerCredit } from '@codebuff/billing'
 import {
   convertCreditsToUsdCents,
   convertStripeGrantAmountToCredits,
@@ -6,18 +5,6 @@ import {
 import { describe, it, expect } from 'bun:test'
 
 describe('Credit Conversion System', () => {
-  describe('getUserCostPerCredit', () => {
-    it('should return 1 cent per credit for all users currently', async () => {
-      const cost = await getUserCostPerCredit('test-user')
-      expect(cost).toBe(1)
-    })
-
-    it('should return 1 cent per credit for test user', async () => {
-      const cost = await getUserCostPerCredit('test-user-undefined-case')
-      expect(cost).toBe(1)
-    })
-  })
-
   describe('convertCreditsToUsdCents', () => {
     it('should convert credits to cents correctly', () => {
       expect(convertCreditsToUsdCents(100, 1)).toBe(100) // 100 credits at 1¢ each
