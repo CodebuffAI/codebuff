@@ -101,10 +101,10 @@ interface AgentStoreClientProps {
 const EDITORS_CHOICE_AGENTS = [
   'base',
   'base-lite',
-  'planner',
-  'deep-thinker',
+  'base-max',
   'deep-code-reviewer',
-  'rampup-teacher-agent',
+  'find-food',
+  'landing-page-generator',
 ]
 
 // Utility functions
