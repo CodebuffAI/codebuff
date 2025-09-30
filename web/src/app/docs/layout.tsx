@@ -25,14 +25,11 @@ export default function DocsLayout({
     const handleScroll = () => {
       // The header with logo is approximately 72px tall (p-4 = 16px top/bottom + content height)
       // Fix the sidebar when the user scrolls past the header
-      if (window.scrollY > 72) {
-        setIsFixed(true)
-      } else {
-        setIsFixed(false)
-      }
+      const shouldBeFixed = window.scrollY > 72
+      setIsFixed((prev) => (prev !== shouldBeFixed ? shouldBeFixed : prev))
     }
 
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -46,14 +43,16 @@ export default function DocsLayout({
       const isAtTop = scrollTop === 0
       const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1
 
-      setShowTopFade(!isAtTop)
-      setShowBottomFade(!isAtBottom)
+      setShowTopFade((prev) => (prev !== !isAtTop ? !isAtTop : prev))
+      setShowBottomFade((prev) => (prev !== !isAtBottom ? !isAtBottom : prev))
     }
 
-    // Check initial state
-    handleScroll()
+    // Use requestAnimationFrame to check initial state after layout
+    requestAnimationFrame(() => {
+      handleScroll()
+    })
 
-    sidebarElement.addEventListener('scroll', handleScroll)
+    sidebarElement.addEventListener('scroll', handleScroll, { passive: true })
     return () => sidebarElement.removeEventListener('scroll', handleScroll)
   }, [])
 
