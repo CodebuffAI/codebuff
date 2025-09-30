@@ -7,7 +7,7 @@ const definition: SecretAgentDefinition = {
   id: 'researcher-codebase-explorer-sonnet',
   publisher,
   displayName: 'Codebase Explorer Sonnet',
-  model: 'anthropic/claude-4.5-sonnet',
+  model: 'anthropic/claude-sonnet-4.5',
 }
 
 export default definition

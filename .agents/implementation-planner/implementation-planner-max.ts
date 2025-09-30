@@ -4,7 +4,7 @@ import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'implementation-planner-max',
   publisher,
-  model: 'anthropic/claude-4.5-sonnet',
+  model: 'anthropic/claude-sonnet-4.5',
   displayName: 'Implementation Planner Max',
   spawnerPrompt:
     'Creates the best possible implementation plan by generating several different plans in parallel and selecting the best one. Includes full code changes.',
