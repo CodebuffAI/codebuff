@@ -592,6 +592,16 @@ async function callBenchifyWithResilience(
 
   return await withRetry(
     async () => {
+      logger.info(
+        {
+          fileCount: editedFiles.length,
+          filePaths: editedFiles.map((f) => f.path),
+          agentStepId: context.agentStepId,
+          userInputId: context.userInputId,
+        },
+        'Calling Benchify API',
+      )
+
       const diff_response = await withTimeout(
         client.runFixer(editedFiles, {
           fixes: ['parsing'],
