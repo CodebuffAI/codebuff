@@ -2,7 +2,11 @@ import * as fs from 'fs'
 
 import { cyan, green } from 'picocolors'
 
-import { getAllTsFiles, getAgentsDirectory } from './agent-utils'
+import {
+  getAllTsFiles,
+  getAgentsDirectory,
+  getUserAgentsDirectory,
+} from './agent-utils'
 
 import type { CodebuffConfig } from '@codebuff/common/json-config/constants'
 
@@ -16,16 +20,24 @@ export async function loadLocalAgents({
 }): Promise<typeof loadedAgents> {
   loadedAgents = {}
 
-  const agentsDir = agentsPath ?? getAgentsDirectory()
+  // Collect agents from both directories
+  const agentsDirs = agentsPath
+    ? [agentsPath]
+    : [getAgentsDirectory(), getUserAgentsDirectory()]
 
-  if (!fs.existsSync(agentsDir)) {
+  const allTsFiles: string[] = []
+  for (const dir of agentsDirs) {
+    if (fs.existsSync(dir)) {
+      allTsFiles.push(...getAllTsFiles(dir))
+    }
+  }
+
+  if (allTsFiles.length === 0) {
     return loadedAgents
   }
 
   try {
-    const tsFiles = getAllTsFiles(agentsDir)
-
-    for (const fullPath of tsFiles) {
+    for (const fullPath of allTsFiles) {
       let agentDefinition: any
       let agentModule: any
       try {
@@ -111,14 +123,15 @@ export function displayLoadedAgents(codebuffConfig: CodebuffConfig) {
     const loadedAgentNames = Object.values(getLoadedAgentNames())
     // Calculate terminal width and format agents in columns
     const terminalWidth = process.stdout.columns || 80
-    const columnWidth = Math.max(...loadedAgentNames.map(name => name.length)) + 2 // Column width based on longest name + padding
+    const columnWidth =
+      Math.max(...loadedAgentNames.map((name) => name.length)) + 2 // Column width based on longest name + padding
     const columnsPerRow = Math.max(1, Math.floor(terminalWidth / columnWidth))
-    
+
     const formattedLines: string[] = []
     for (let i = 0; i < loadedAgentNames.length; i += columnsPerRow) {
       const rowAgents = loadedAgentNames.slice(i, i + columnsPerRow)
       const formattedRow = rowAgents
-        .map(name => cyan(name.padEnd(columnWidth)))
+        .map((name) => cyan(name.padEnd(columnWidth)))
         .join('')
       formattedLines.push(formattedRow)
     }

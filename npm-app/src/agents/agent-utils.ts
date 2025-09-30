@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import * as os from 'os'
 
 import { getProjectRoot } from '../project-files'
 
@@ -41,4 +42,11 @@ export function getAllTsFiles(dir: string): string[] {
  */
 export function getAgentsDirectory(): string {
   return path.join(getProjectRoot(), ...agentTemplatesSubdir)
+}
+
+/**
+ * Get the user's home agents directory path
+ */
+export function getUserAgentsDirectory(): string {
+  return path.join(os.homedir(), ...agentTemplatesSubdir)
 }
