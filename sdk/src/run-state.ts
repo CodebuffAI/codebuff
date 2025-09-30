@@ -145,7 +145,7 @@ function deriveKnowledgeFiles(
 }
 
 export async function initialSessionState(
-  cwd: string,
+  cwd: string | undefined,
   options: {
     projectFiles?: Record<string, string>
     knowledgeFiles?: Record<string, string>
@@ -157,12 +157,12 @@ export async function initialSessionState(
   let { projectFiles, agentDefinitions = [] } = options
   let { knowledgeFiles } = options
 
-  // Auto-discover project files if not provided
-  if (projectFiles === undefined) {
+  // Auto-discover project files if not provided and cwd is available
+  if (projectFiles === undefined && cwd) {
     projectFiles = discoverProjectFiles(cwd)
   }
   if (knowledgeFiles === undefined) {
-    knowledgeFiles = deriveKnowledgeFiles(projectFiles)
+    knowledgeFiles = projectFiles ? deriveKnowledgeFiles(projectFiles) : {}
   }
 
   const processedAgentTemplates = processAgentDefinitions(agentDefinitions)
@@ -170,15 +170,21 @@ export async function initialSessionState(
     options.customToolDefinitions ?? [],
   )
 
-  // Generate file tree and token scores from projectFiles
-  const { fileTree, fileTokenScores, tokenCallers } = await computeProjectIndex(
-    cwd,
-    projectFiles,
-  )
+  // Generate file tree and token scores from projectFiles if available
+  let fileTree: FileTreeNode[] = []
+  let fileTokenScores: Record<string, any> = {}
+  let tokenCallers: Record<string, any> = {}
+
+  if (cwd && projectFiles) {
+    const result = await computeProjectIndex(cwd, projectFiles)
+    fileTree = result.fileTree
+    fileTokenScores = result.fileTokenScores
+    tokenCallers = result.tokenCallers
+  }
 
   const initialState = getInitialSessionState({
-    projectRoot: cwd,
-    cwd,
+    projectRoot: cwd ?? process.cwd(),
+    cwd: cwd ?? process.cwd(),
     fileTree,
     fileTokenScores,
     tokenCallers,
@@ -276,7 +282,7 @@ export function withMessageHistory({
  * even when continuing from a previous run.
  */
 export async function applyOverridesToSessionState(
-  cwd: string,
+  cwd: string | undefined,
   baseSessionState: SessionState,
   overrides: {
     projectFiles?: Record<string, string>
@@ -298,11 +304,18 @@ export async function applyOverridesToSessionState(
 
   // Apply projectFiles override (recomputes file tree and token scores)
   if (overrides.projectFiles !== undefined) {
-    const { fileTree, fileTokenScores, tokenCallers } =
-      await computeProjectIndex(cwd, overrides.projectFiles)
-    sessionState.fileContext.fileTree = fileTree
-    sessionState.fileContext.fileTokenScores = fileTokenScores
-    sessionState.fileContext.tokenCallers = tokenCallers
+    if (cwd) {
+      const { fileTree, fileTokenScores, tokenCallers } =
+        await computeProjectIndex(cwd, overrides.projectFiles)
+      sessionState.fileContext.fileTree = fileTree
+      sessionState.fileContext.fileTokenScores = fileTokenScores
+      sessionState.fileContext.tokenCallers = tokenCallers
+    } else {
+      // If projectFiles are provided but no cwd, reset file context fields
+      sessionState.fileContext.fileTree = []
+      sessionState.fileContext.fileTokenScores = {}
+      sessionState.fileContext.tokenCallers = {}
+    }
 
     // Auto-derive knowledgeFiles if not explicitly provided
     if (overrides.knowledgeFiles === undefined) {

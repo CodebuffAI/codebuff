@@ -73,7 +73,7 @@ export async function run({
   apiKey,
   fingerprintId,
 
-  cwd = process.cwd(),
+  cwd,
   projectFiles,
   knowledgeFiles,
   agentDefinitions,
@@ -118,7 +118,11 @@ export async function run({
       onError({ message: error.message })
     },
     readFiles: ({ filePaths }) =>
-      readFiles({ filePaths, override: overrideTools?.read_files, cwd }),
+      readFiles({
+        filePaths,
+        override: overrideTools?.read_files,
+        cwd,
+      }),
     handleToolCall: (action) =>
       handleToolCall({
         action,
@@ -207,23 +211,30 @@ export async function run({
   return result
 }
 
+function requireCwd(cwd: string | undefined, toolName: string): string {
+  if (!cwd) {
+    throw new Error(
+      `cwd is required for the ${toolName} tool. Please provide cwd in CodebuffClientOptions or override the ${toolName} tool.`,
+    )
+  }
+  return cwd
+}
+
 async function readFiles({
   filePaths,
   override,
   cwd,
-}: { filePaths: string[] } & (
-  | {
-      override: NonNullable<
-        Required<CodebuffClientOptions>['overrideTools']['read_files']
-      >
-      cwd?: string
-    }
-  | { override: undefined; cwd: string }
-)) {
+}: {
+  filePaths: string[]
+  override?: NonNullable<
+    Required<CodebuffClientOptions>['overrideTools']['read_files']
+  >
+  cwd?: string
+}) {
   if (override) {
     return await override({ filePaths })
   }
-  return getFiles(filePaths, cwd)
+  return getFiles(filePaths, requireCwd(cwd, 'read_files'))
 }
 
 async function handleToolCall({
@@ -235,7 +246,7 @@ async function handleToolCall({
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
   customToolDefinitions: Record<string, CustomToolDefinition>
-  cwd: string
+  cwd?: string
 }): ReturnType<WebSocketHandler['handleToolCall']> {
   const toolName = action.toolName
   const input = action.input
@@ -267,15 +278,16 @@ async function handleToolCall({
     } else if (toolName === 'end_turn') {
       result = []
     } else if (toolName === 'write_file' || toolName === 'str_replace') {
-      result = changeFile(input, cwd)
+      result = changeFile(input, requireCwd(cwd, toolName))
     } else if (toolName === 'run_terminal_command') {
+      const resolvedCwd = requireCwd(cwd, 'run_terminal_command')
       result = await runTerminalCommand({
         ...input,
-        cwd: path.resolve(cwd, input.cwd ?? '.'),
+        cwd: path.resolve(resolvedCwd, input.cwd ?? '.'),
       } as Parameters<typeof runTerminalCommand>[0])
     } else if (toolName === 'code_search') {
       result = await codeSearch({
-        projectPath: cwd,
+        projectPath: requireCwd(cwd, 'code_search'),
         ...input,
       } as Parameters<typeof codeSearch>[0])
     } else if (toolName === 'run_file_change_hooks') {
