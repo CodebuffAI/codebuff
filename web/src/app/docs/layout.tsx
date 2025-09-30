@@ -41,9 +41,15 @@ export default function DocsLayout({
 
   return (
     <div className="pt-8">
-      <div className="container flex md:space-x-8">
+      <div ref={containerRef} className="container flex md:space-x-8">
         <div className="hidden lg:block w-64 shrink-0">
-          <div className="w-64 sticky top-4 h-[calc(100vh-2rem)] z-40">
+          <div
+            className="w-64 sticky z-40"
+            style={{
+              top: `${stickyTop}px`,
+              height: `calc(100vh - ${stickyTop}px - 1rem)`,
+            }}
+          >
             {/* Dynamic gradient fade indicators */}
             {showTopFade && (
               <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-background to-transparent pointer-events-none z-10 rounded-t-lg transition-opacity duration-200" />
@@ -61,7 +67,7 @@ export default function DocsLayout({
             </div>
           </div>
         </div>
-        <main className="flex-1 mx-auto pb-36 md:px-8 min-w-0">{children}</main>
+        <main className="flex-1 mx-auto pb-36 md:px-8 min-w-0 pt-8">{children}</main>
       </div>
       <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-background/80 backdrop-blur-sm container p-4 rounded-t-lg border-t">
         <Sheet
