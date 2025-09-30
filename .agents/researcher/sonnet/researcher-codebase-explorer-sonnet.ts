@@ -4,14 +4,10 @@ import researcherCodebaseExplorer from '../researcher-codebase-explorer'
 
 const definition: SecretAgentDefinition = {
   ...researcherCodebaseExplorer,
-  id: 'researcher-codebase-explorer-gpt-5',
+  id: 'researcher-codebase-explorer-sonnet',
   publisher,
-  displayName: 'Codebase Explorer GPT-5',
-  model: 'openai/gpt-5',
-  reasoningOptions: {
-    enabled: true,
-    effort: 'medium',
-  },
+  displayName: 'Codebase Explorer Sonnet',
+  model: 'anthropic/claude-sonnet-4.5',
 }
 
 export default definition

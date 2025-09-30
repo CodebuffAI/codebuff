@@ -4,20 +4,15 @@ import researcher from '../researcher-grok-4-fast'
 
 const definition: SecretAgentDefinition = {
   ...researcher,
-  id: 'researcher-gpt-5',
+  id: 'researcher-sonnet',
   publisher,
-  displayName: 'Researcher GPT-5',
-  model: 'openai/gpt-5',
-  reasoningOptions: {
-    enabled: true,
-    effort: 'medium',
-  },
+  displayName: 'Researcher Sonnet',
+  model: 'anthropic/claude-sonnet-4.5',
 
   spawnableAgents: [
     'file-explorer',
-    'researcher-codebase-explorer-gpt-5',
-    'researcher-web-gpt-5',
-    'researcher-docs-gpt-5',
+    'researcher-web-sonnet',
+    'researcher-docs-sonnet',
   ],
 }
 

@@ -562,7 +562,18 @@ export const loopAgentSteps = async (
     while (true) {
       totalSteps++
       if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
-        break
+        logger.debug(
+          {
+            userId,
+            userInputId,
+            clientSessionId,
+            totalSteps,
+            runId,
+            agentState,
+          },
+          'User input no longer live (likely cancelled)',
+        )
+        throw new Error('User input no longer live (likely cancelled)')
       }
 
       const startTime = new Date()

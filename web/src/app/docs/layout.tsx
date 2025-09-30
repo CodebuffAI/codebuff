@@ -36,22 +36,6 @@ export default function DocsLayout({
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // New: Smoothly scroll to hash target on back/forward navigation
-  useEffect(() => {
-    const handleHashChange = () => {
-      const id = window.location.hash.slice(1)
-      if (id) {
-        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
-      }
-    }
-
-    // If landing with a hash, ensure smooth scroll to target
-    handleHashChange()
-
-    window.addEventListener('hashchange', handleHashChange)
-    return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [])
-
   // Handle sidebar scroll for dynamic fade effects
   useEffect(() => {
     const sidebarElement = sidebarRef.current

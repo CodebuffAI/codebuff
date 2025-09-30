@@ -4,13 +4,10 @@ import researcherWeb from '../researcher-web'
 
 const definition: SecretAgentDefinition = {
   ...researcherWeb,
-  id: 'researcher-web-gpt-5',
+  id: 'researcher-web-sonnet',
   publisher,
-  displayName: 'Web Researcher GPT-5',
-  model: 'openai/gpt-5',
-  reasoningOptions: {
-    effort: 'medium',
-  },
+  displayName: 'Web Researcher Sonnet',
+  model: 'anthropic/claude-sonnet-4.5',
 }
 
 export default definition

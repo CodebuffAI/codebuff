@@ -254,7 +254,7 @@ export const baseAgentUserInputPrompt = (
       `Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read ${isLite ? '8' : '20'} files. The more files you read, the better context you have on the codebase and the better your response will be.`,
 
       isMax &&
-        `You must spawn the implementation-planner-max agent for medium to hard coding tasks. It will help you write the best possible code changes.`,
+        `Important: You must spawn the implementation-planner-max agent for all medium-to-hard coding tasks. It will help you come up with the best possible code changes.`,
 
       'If the users uses "@agent-id" or "@AgentName" in their message, you must spawn that agent. If you don\'t know what input parameters that agent expects, use the lookup_agent_info tool to get the agent metadata. Spawn all the agents that the user mentions.',
 
@@ -308,6 +308,9 @@ export const baseAgentUserInputPrompt = (
 
       (isLite || isFlash || isGeminiPro) &&
         `You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. ${isLite ? '' : 'Finally, you must spawn the reviewer agent to review your code changes.'}`,
+
+      isMax &&
+        `Important: You must spawn the implementation-planner-max agent for all medium-to-hard coding tasks. It will help you come up with the best possible code changes.`,
 
       !isGPT5 &&
         'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',

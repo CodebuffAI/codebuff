@@ -6,7 +6,7 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'web-researcher',
   publisher,
-  ...webResearcher('google/gemini-2.5-flash'),
+  ...webResearcher('x-ai/grok-4-fast'),
 }
 
 export default definition
