@@ -17,23 +17,7 @@ export default function DocsLayout({
   const [open, setOpen] = useState(false)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
-  const [isFixed, setIsFixed] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
-
-  // Track scroll position to determine if sidebar should be fixed
-  useEffect(() => {
-    const handleScroll = () => {
-      // The header with logo is approximately 72px tall (p-4 = 16px top/bottom + content height)
-      // Fix the sidebar when the user scrolls past the header
-      const shouldBeFixed = window.scrollY > 72
-      if (shouldBeFixed !== isFixed) {
-        setIsFixed(shouldBeFixed)
-      }
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [isFixed])
 
   // Handle sidebar scroll for dynamic fade effects
   useEffect(() => {
@@ -60,11 +44,7 @@ export default function DocsLayout({
     <div className="pt-8">
       <div className="container flex md:space-x-8 overflow-x-hidden">
         <div className="hidden lg:block w-64 shrink-0">
-          <div
-            className={`w-64 z-40 transition-all duration-200 ease-in-out ${
-              isFixed ? 'fixed top-4' : 'sticky top-4'
-            } h-[calc(100vh-2rem)]`}
-          >
+          <div className="w-64 sticky top-4 h-[calc(100vh-2rem)] z-40">
             {/* Dynamic gradient fade indicators */}
             {showTopFade && (
               <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-background to-transparent pointer-events-none z-10 rounded-t-lg transition-opacity duration-200" />
