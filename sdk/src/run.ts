@@ -7,6 +7,7 @@ import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
 import { PromptResponseSchema } from '../../common/src/actions'
+import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { toolNames } from '../../common/src/tools/constants'
 import { clientToolCallSchema } from '../../common/src/tools/list'
 
@@ -30,7 +31,6 @@ import type {
 } from '../../common/src/types/messages/content-part'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
-import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 
 export type CodebuffClientOptions = {
   // Provide an API key or set the CODEBUFF_API_KEY environment variable.
@@ -42,8 +42,8 @@ export type CodebuffClientOptions = {
   agentDefinitions?: AgentDefinition[]
   maxAgentSteps?: number
 
-  handleEvent?: (event: PrintModeEvent) => void
-  handleStreamChunk?: (chunk: string) => void
+  handleEvent?: (event: PrintModeEvent) => void | Promise<void>
+  handleStreamChunk?: (chunk: string) => void | Promise<void>
 
   overrideTools?: Partial<
     {
@@ -95,9 +95,9 @@ export async function run({
     apiKey: string
     fingerprintId: string
   }): Promise<RunState> {
-  function onError(error: { message: string }) {
+  async function onError(error: { message: string }) {
     if (handleEvent) {
-      handleEvent({ type: 'error', message: error.message })
+      await handleEvent({ type: 'error', message: error.message })
     }
   }
 
@@ -139,9 +139,9 @@ export async function run({
     onResponseChunk: async (action) => {
       const { userInputId, chunk } = action
       if (typeof chunk === 'string') {
-        handleStreamChunk?.(chunk)
+        await handleStreamChunk?.(chunk)
       } else {
-        handleEvent?.(chunk)
+        await handleEvent?.(chunk)
       }
     },
     onSubagentResponseChunk: async () => {},
