@@ -1,5 +1,7 @@
 import path from 'path'
 
+import { cloneDeep } from 'lodash'
+
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
@@ -61,7 +63,7 @@ export type CodebuffClientOptions = {
 }
 
 export type RunOptions = {
-  agent: string
+  agent: string | AgentDefinition
   prompt: string
   params?: Record<string, any>
   previousRun?: RunState
@@ -163,6 +165,13 @@ export async function run({
   })
 
   // Init session state
+  let agentId
+  if (typeof agent !== 'string') {
+    agentDefinitions = [...(cloneDeep(agentDefinitions) ?? []), agent]
+    agentId = agent.id
+  } else {
+    agentId = agent
+  }
   let sessionState: SessionState
   if (previousRun?.sessionState) {
     // applyOverridesToSessionState handles deep cloning and applying any provided overrides
@@ -201,7 +210,7 @@ export async function run({
     costMode: 'normal',
     sessionState,
     toolResults: extraToolResults ?? [],
-    agentId: agent,
+    agentId,
   })
 
   const result = await promise
