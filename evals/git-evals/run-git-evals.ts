@@ -141,7 +141,7 @@ You must decide whether to:
   - In this case, just put an empty string for next_prompt
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
-Explain your reasoning in detail.`,
+Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
             },
           ],
           schema: AgentDecisionSchema,
