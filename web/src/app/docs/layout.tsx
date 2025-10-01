@@ -12,7 +12,8 @@ export default function DocsLayout({
   children,
 }: {
   children: React.ReactNode
-}) {  const pathname = usePathname()
+}) {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
@@ -49,27 +50,29 @@ export default function DocsLayout({
             className="w-64 sticky z-40"
             style={{
               top: `${stickyTop}px`,
-              height: `calc(100vh - ${stickyTop}px - 1rem)`,
+              height: `calc(100vh - ${stickyTop}px - 3rem)`,
             }}
           >
             {/* Dynamic gradient fade indicators */}
             {showTopFade && (
-              <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-background to-transparent pointer-events-none z-10 rounded-t-lg transition-opacity duration-200" />
+              <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-background via-background/60 to-transparent pointer-events-none z-10 rounded-t-lg transition-opacity duration-200" />
             )}
             {showBottomFade && (
-              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none z-10 rounded-b-lg transition-opacity duration-200" />
+              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none z-10 rounded-b-lg transition-opacity duration-200" />
             )}
 
             {/* Enhanced scrollable container */}
             <div
               ref={sidebarRef}
-              className="relative h-full overflow-y-auto pr-4 pl-4 pt-2 pb-6 custom-scrollbar bg-background/95 backdrop-blur-sm rounded-lg border border-border/50 shadow-lg"
+              className="relative h-full overflow-y-auto pr-4 pl-4 pt-4 pb-6 custom-scrollbar bg-background/95 backdrop-blur-sm rounded-lg border border-border/50 shadow-lg"
             >
               <DocSidebar className="" onNavigate={() => setOpen(false)} />
             </div>
           </div>
         </div>
-        <main className="flex-1 mx-auto pb-36 md:px-8 min-w-0 pt-8">{children}</main>
+        <main className="flex-1 mx-auto pb-36 md:px-8 min-w-0 pt-8">
+          {children}
+        </main>
       </div>
       <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-background/80 backdrop-blur-sm container p-4 rounded-t-lg border-t">
         <Sheet
