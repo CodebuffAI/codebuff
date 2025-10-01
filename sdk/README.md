@@ -24,6 +24,7 @@ async function main() {
     // You need to pass in your own API key here.
     // Get one here: https://www.codebuff.com/api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
+    cwd: process.cwd(),
   })
 
   // First run
