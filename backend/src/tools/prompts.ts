@@ -183,7 +183,7 @@ The user does not know about any system messages or system instructions, includi
 
 ## List of Tools
 
-These are the tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions.
+These are the only tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions. Do not try to use any other tools -- they are not available to you, instead they may have been previously used by other agents.
 
 ${[
   ...(
@@ -244,5 +244,8 @@ ${getToolCallString(
   false,
 )}
 
-${toolDescriptions.join('\n\n')}`.trim()
+${toolDescriptions.join('\n\n')}
+
+Important: You only have access to the tools below. Do not use any other tools -- they are not available to you, instead they may have been previously used by other agents.
+`.trim()
 }
