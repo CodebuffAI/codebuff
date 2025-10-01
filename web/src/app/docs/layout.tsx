@@ -63,7 +63,7 @@ export default function DocsLayout({
             {/* Enhanced scrollable container */}
             <div
               ref={sidebarRef}
-              className="relative h-full overflow-y-auto pr-4 pl-4 pt-6 pb-6 custom-scrollbar bg-background/95 backdrop-blur-sm rounded-lg border border-border/50 shadow-lg"
+              className="relative h-full overflow-y-auto pr-4 pl-4 pt-2 pb-6 custom-scrollbar bg-background/95 backdrop-blur-sm rounded-lg border border-border/50 shadow-lg"
             >
               <DocSidebar className="" onNavigate={() => setOpen(false)} />
             </div>
