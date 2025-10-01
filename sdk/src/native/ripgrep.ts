@@ -60,7 +60,10 @@ export function getBundledRgPath(importMetaUrl?: string): string {
   // If not found via importMetaUrl, try CJS approach or other methods
   if (!vendorPath) {
     // Try from __dirname if available (CJS context)
-    const dirname = new Function('return __dirname')()
+    const dirname = new Function(
+      `try { return __dirname; } catch (e) { return undefined; }`,
+    )()
+
     if (typeof dirname !== 'undefined') {
       const cjsPath = join(
         dirname,
