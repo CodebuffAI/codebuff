@@ -17,24 +17,9 @@ export default function DocsLayout({
   const [open, setOpen] = useState(false)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
-  const [isFixed, setIsFixed] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
-
-  // Track scroll position to determine if sidebar should be fixed
-  useEffect(() => {
-    const handleScroll = () => {
-      // The header with logo is approximately 72px tall (p-4 = 16px top/bottom + content height)
-      // Fix the sidebar when the user scrolls past the header
-      if (window.scrollY > 72) {
-        setIsFixed(true)
-      } else {
-        setIsFixed(false)
-      }
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const stickyTop = 64 // navbar height
 
   // Handle sidebar scroll for dynamic fade effects
   useEffect(() => {
@@ -59,31 +44,35 @@ export default function DocsLayout({
 
   return (
     <div className="pt-8">
-      <div className="container flex md:space-x-8 overflow-x-hidden">
+      <div ref={containerRef} className="container flex md:space-x-8">
         <div className="hidden lg:block w-64 shrink-0">
           <div
-            className={`w-64 z-40 transition-all duration-200 ease-in-out ${
-              isFixed ? 'fixed top-4 h-[calc(100vh-2rem)]' : 'relative'
-            }`}
+            className="w-64 sticky z-40"
+            style={{
+              top: `${stickyTop}px`,
+              height: `calc(100vh - ${stickyTop}px - 3rem)`,
+            }}
           >
             {/* Dynamic gradient fade indicators */}
             {showTopFade && (
-              <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-background to-transparent pointer-events-none z-10 rounded-t-lg transition-opacity duration-200" />
+              <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-background via-background/60 to-transparent pointer-events-none z-10 rounded-t-lg transition-opacity duration-200" />
             )}
             {showBottomFade && (
-              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none z-10 rounded-b-lg transition-opacity duration-200" />
+              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none z-10 rounded-b-lg transition-opacity duration-200" />
             )}
 
             {/* Enhanced scrollable container */}
             <div
               ref={sidebarRef}
-              className="relative h-full overflow-y-auto pr-4 pl-4 pt-6 pb-6 custom-scrollbar bg-background/95 backdrop-blur-sm rounded-lg border border-border/50 shadow-lg"
+              className="relative h-full overflow-y-auto pr-4 pl-4 pt-4 pb-6 custom-scrollbar bg-background/95 backdrop-blur-sm rounded-lg border border-border/50 shadow-lg"
             >
               <DocSidebar className="" onNavigate={() => setOpen(false)} />
             </div>
           </div>
         </div>
-        <main className="flex-1 mx-auto pb-36 md:px-8 min-w-0">{children}</main>
+        <main className="flex-1 mx-auto pb-36 md:px-8 min-w-0 pt-8">
+          {children}
+        </main>
       </div>
       <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-background/80 backdrop-blur-sm container p-4 rounded-t-lg border-t">
         <Sheet
