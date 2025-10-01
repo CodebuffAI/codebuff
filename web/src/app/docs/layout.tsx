@@ -17,6 +17,8 @@ export default function DocsLayout({
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const stickyTop = 64 // navbar height
 
   // Handle sidebar scroll for dynamic fade effects
   useEffect(() => {
