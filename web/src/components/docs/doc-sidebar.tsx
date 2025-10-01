@@ -122,24 +122,9 @@ export function DocSidebar({
               {section.subsections.map((subsection) => (
                 <Link
                   key={subsection.href}
-                  href={
-                    section.external
-                      ? subsection.href
-                      : `${section.href}#${subsection.title.toLowerCase().replace(/\s+/g, '-')}`
-                  }
+                  href={subsection.href}
                   target={section.external ? '_blank' : undefined}
-                  onClick={(e) => {
-                    onNavigate?.()
-                    if (pathname.startsWith(section.href)) {
-                      e.preventDefault()
-                      const id = subsection.title
-                        .toLowerCase()
-                        .replace(/\s+/g, '-')
-                      document
-                        .getElementById(id)
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                      history.replaceState(null, '', `#${id}`)
-                    }
+                  onClick={() => {
                     const sheet = document.querySelector('[data-state="open"]')
                     if (sheet) sheet.setAttribute('data-state', 'closed')
                     onNavigate?.()

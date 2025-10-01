@@ -108,7 +108,6 @@ export const promptAiSdkStream = async function* (
   const response = streamText({
     ...options,
     model: aiSDKModel,
-    maxRetries: options.maxRetries,
     messages: convertCbToModelMessages(options),
   })
 
@@ -273,6 +272,7 @@ export const promptAiSdk = async function (
     agentId?: string
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
+    maxRetries?: number
   } & Omit<Parameters<typeof generateText>[0], 'model' | 'messages'>,
 ): Promise<string> {
   if (
@@ -347,6 +347,7 @@ export const promptAiSdkStructured = async function <T>(options: {
   agentId?: string
   onCostCalculated?: (credits: number) => Promise<void>
   includeCacheControl?: boolean
+  maxRetries?: number
 }): Promise<T> {
   if (
     !checkLiveUserInput(

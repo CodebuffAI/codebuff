@@ -7,9 +7,6 @@ export * from './balance-calculator'
 // Credit grant operations
 export * from './grant-credits'
 
-// Credit conversion utilities
-export * from './conversion'
-
 // Organization billing
 export * from './org-billing'
 

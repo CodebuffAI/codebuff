@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback, memo, useEffect, useRef } from 'react'
+import { useMemo, useCallback, memo, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import {
@@ -101,10 +101,10 @@ interface AgentStoreClientProps {
 const EDITORS_CHOICE_AGENTS = [
   'base',
   'base-lite',
-  'planner',
-  'deep-thinker',
+  'base-max',
   'deep-code-reviewer',
-  'rampup-teacher-agent',
+  'find-food',
+  'landing-page-generator',
 ]
 
 // Utility functions
@@ -148,6 +148,9 @@ export default function AgentStoreClient({
     setSortBy,
   } = useAgentStoreState()
 
+  // Local state for immediate input feedback
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
+
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const prevFilters = useRef({ searchQuery: '', sortBy: 'cost' })
@@ -160,11 +163,21 @@ export default function AgentStoreClient({
       const urlSortBy = (searchParams.sort as string) || 'cost'
 
       setSearchQuery(urlSearchQuery)
+      setLocalSearchQuery(urlSearchQuery)
       setSortBy(urlSortBy)
       prevFilters.current = { searchQuery: urlSearchQuery, sortBy: urlSortBy }
       isInitialized.current = true
     }
   }, [searchParams.search, searchParams.sort, setSearchQuery, setSortBy])
+
+  // Debounce search query updates
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setSearchQuery(localSearchQuery)
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [localSearchQuery, setSearchQuery])
 
   // Use ref to track loading state for IntersectionObserver
   const loadingStateRef = useRef({ isLoadingMore, hasMore })
@@ -540,8 +553,8 @@ export default function AgentStoreClient({
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Search agents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={localSearchQuery}
+                onChange={(e) => setLocalSearchQuery(e.target.value)}
                 className="pl-10 w-full"
               />
             </div>

@@ -711,8 +711,9 @@ describe('processStreamWithTags', () => {
 
     expect(events).toEqual([
       {
-        name: undefined,
-        error: 'Tool not found: undefined',
+        name: 'parse_error',
+        error:
+          'Unknown tool undefined for tool call: {\n  "param1": "value1"\n}',
         type: 'error',
       },
     ])

@@ -45,7 +45,6 @@ export const runTerminalCommandParams = {
       process_type: z
         .enum(['SYNC', 'BACKGROUND'])
         .default('SYNC')
-        .optional()
         .describe(
           `Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC`,
         ),

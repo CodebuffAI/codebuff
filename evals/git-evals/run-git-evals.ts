@@ -141,7 +141,7 @@ You must decide whether to:
   - In this case, just put an empty string for next_prompt
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
-Explain your reasoning in detail.`,
+Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
             },
           ],
           schema: AgentDecisionSchema,
@@ -273,14 +273,9 @@ function getCodebuffFileStates(
   evalCommitSha: string,
   projectPath: string,
 ): string {
-  // Stage all changes (including new files) before generating diff
-  execFileSync('git', ['add', '.'], {
-    cwd: projectPath,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-
-  // Get diff of staged files to include new files
-  return execFileSync('git', ['diff', '--staged'], {
+  // Get all changes since the commit before the target commit
+  // This captures both uncommitted changes and any commits made during the eval
+  return execFileSync('git', ['diff', `${evalCommitSha}^`], {
     cwd: projectPath,
     stdio: ['ignore', 'pipe', 'pipe'],
   }).toString()

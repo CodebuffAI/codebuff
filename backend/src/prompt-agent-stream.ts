@@ -48,6 +48,7 @@ export const getAgentStreamFromTemplate = (params: {
       onCostCalculated,
       includeCacheControl,
       agentId,
+      maxRetries: 3,
     }
 
     // Add Gemini-specific options if needed

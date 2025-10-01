@@ -1,15 +1,19 @@
-import * as path from 'path'
 import * as fs from 'fs'
-import { Parser } from 'web-tree-sitter'
+import * as path from 'path'
 import { fileURLToPath } from 'url'
+
+import { Parser } from 'web-tree-sitter'
+
+import { getDirnameDynamically } from './utils'
 
 /**
  * Helper function to get the current directory path that works in both ESM and CJS
+ * Uses runtime-only approach to prevent bundlers from inlining absolute paths
  */
 function hereDir() {
-  // In CJS, __dirname is available
-  if (typeof __dirname !== 'undefined') {
-    return __dirname
+  const dirname = getDirnameDynamically()
+  if (typeof dirname !== 'undefined') {
+    return dirname
   }
 
   // For ESM builds, use import.meta.url
@@ -45,9 +49,19 @@ export async function initTreeSitterForNode(): Promise<void> {
         if (fs.existsSync(fallback)) {
           return fallback
         }
-        // Return our preferred path and let web-tree-sitter handle the error
-        return sharedWasm
+
+        // Find the installed package root
+        const pkgDir = path.dirname(require.resolve('web-tree-sitter'))
+        // The wasm ships at: node_modules/web-tree-sitter/tree-sitter.wasm
+        const wasm = path.join(pkgDir, 'tree-sitter.wasm')
+        if (fs.existsSync(wasm)) {
+          return wasm
+        }
+        throw new Error(
+          `Internal error: web-tree-sitter/tree-sitter.wasm not found at ${wasm}. Ensure the file is included in your deployment bundle.`,
+        )
       }
+
       // For other files, use default behavior
       return path.join(scriptDir, name)
     },

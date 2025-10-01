@@ -1,10 +1,12 @@
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
 
 // Import some types for wasm & .scm files
 import './types'
 
 import { Language, Parser, Query } from 'web-tree-sitter'
+
+import { initTreeSitterForNode } from './init-node'
 import { DEBUG_PARSING } from './parse'
 
 /* ------------------------------------------------------------------ */
@@ -19,6 +21,7 @@ import pythonQuery from './tree-sitter-queries/tree-sitter-python-tags.scm'
 import rubyQuery from './tree-sitter-queries/tree-sitter-ruby-tags.scm'
 import rustQuery from './tree-sitter-queries/tree-sitter-rust-tags.scm'
 import typescriptQuery from './tree-sitter-queries/tree-sitter-typescript-tags.scm'
+import { getDirnameDynamically } from './utils'
 
 /* ------------------------------------------------------------------ */
 /* 2. Types and interfaces                                           */
@@ -150,8 +153,9 @@ function resolveWasmPath(wasmFileName: string): string {
 
   // Get the directory of this module
   const moduleDir = (() => {
-    if (typeof __dirname !== 'undefined') {
-      return __dirname
+    const dirname = getDirnameDynamically()
+    if (typeof dirname !== 'undefined') {
+      return dirname
     }
     // For ESM builds, we can't reliably get the module directory in all environments
     // So we fall back to process.cwd() which works for our use case
@@ -199,7 +203,6 @@ function tryResolveFromPackage(wasmFileName: string): string | null {
 /* 7. One-time library init                                          */
 /* ------------------------------------------------------------------ */
 // Initialize tree-sitter with Node.js-specific configuration
-import { initTreeSitterForNode } from './init-node'
 
 /* ------------------------------------------------------------------ */
 /* 8. Unified runtime loader                                         */
