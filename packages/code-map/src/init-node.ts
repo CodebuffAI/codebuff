@@ -34,20 +34,15 @@ export async function initTreeSitterForNode(): Promise<void> {
   const dir = hereDir()
 
   // Try shared WASM directory first (new approach to avoid duplication)
-  const sharedWasms = [
-    path.join(dir, '..', 'wasm', 'tree-sitter.wasm'),
-    path.join(dir, 'wasm', 'tree-sitter.wasm'),
-  ]
+  const sharedWasm = path.join(dir, '..', 'wasm', 'tree-sitter.wasm')
 
   // Use locateFile to override where the runtime looks for tree-sitter.wasm
   await Parser.init({
     locateFile: (name: string, scriptDir: string) => {
       if (name === 'tree-sitter.wasm') {
-        for (const sharedWasm of sharedWasms) {
-          // First try shared WASM directory (new approach)
-          if (fs.existsSync(sharedWasm)) {
-            return sharedWasm
-          }
+        // First try shared WASM directory (new approach)
+        if (fs.existsSync(sharedWasm)) {
+          return sharedWasm
         }
         // Fallback to script directory
         const fallback = path.join(scriptDir, name)
