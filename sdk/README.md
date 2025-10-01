@@ -33,7 +33,7 @@ async function main() {
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Codebuff Event', JSON.stringifiy(event))
+      console.log('Codebuff Event', JSON.stringify(event))
     },
   })
 
@@ -43,7 +43,7 @@ async function main() {
     prompt: 'Add unit tests for the calculator',
     previousRun: run1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
-      console.log('Codebuff Event', JSON.stringifiy(event))
+      console.log('Codebuff Event', JSON.stringify(event))
     },
   })
 }
