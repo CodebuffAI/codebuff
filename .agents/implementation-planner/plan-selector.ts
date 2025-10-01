@@ -51,26 +51,33 @@ const definition: SecretAgentDefinition = {
     },
     required: ['reasoning', 'selectedPlanId'],
   },
-  includeMessageHistory: false,
+  includeMessageHistory: true,
   systemPrompt: `You are an expert plan evaluator with deep experience in software engineering, architecture, and project management.
 
-Your task is to analyze multiple implementations and select the best one based on:
-1. **Completeness** - How well does it address the requirements?
-2. **Simplicity** - How clean and easy to understand is the implementation? Is the code overcomplicated?
-3. **Quality** - How well does it work? How clear is the implementation?
-4. **Efficiency** - How minimal and focused are the changes? Were more files changed than necessary? Is the code verbose?
-5. **Maintainability** - How well will this approach work long-term?
-6. **Risk** - What are the potential downsides or failure points?
+We're interested in the simplest solution that will accomplish the task correctly! You got this!
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
-  instructionsPrompt: `Analyze all the provided plans and select the best one.
+  instructionsPrompt: `Analyze all the provided implementations and select the best one based on:
 
-For each plan, evaluate:
+1. **Simplicity** - How clean and easy to understand is the implementation? Is the code overcomplicated or over-engineered?
+2. **Correctness** - Does the implementation correctly address the requirements?
+3. **Quality** - How well does it work? How clear is the implementation?
+4. **Efficiency** - How minimal and focused are the changes? Were more files changed than necessary? Is the code verbose?
+5. **Maintainability** - How well will this approach work long-term?
+6. **Does what the user expects** - Make sure the implementation addresses all the requirements in the user's request, and does not do other stuff that the user did not ask for.
+
+More on **Simplicity**:
+- We don't want an over-engineered solution.
+- We're not interested in endless safety and correctness checks.
+- Modifying fewer files is better.
+- Reusing existing code is better than writing new code.
+- It's good to match existing patterns and conventions in the codebase, including naming conventions, code style, and architecture.
+
+For each implementation, evaluate:
 - Strengths and weaknesses
 - Implementation complexity
 - Alignment with the original task
-- Potential risks or issues
 
 Use the set_output tool to return your selection.`,
 }
