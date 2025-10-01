@@ -77,6 +77,16 @@ export function getBundledRgPath(importMetaUrl?: string): string {
       if (existsSync(cjsPath)) {
         vendorPath = cjsPath
       }
+      const cjsPath2 = join(
+        dirname,
+        'vendor',
+        'ripgrep',
+        platformDir,
+        binaryName,
+      )
+      if (existsSync(cjsPath2)) {
+        vendorPath = cjsPath2
+      }
     }
   }
 
