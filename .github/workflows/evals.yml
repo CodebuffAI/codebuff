@@ -62,6 +62,10 @@ jobs:
           echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
+      - name: Open interactive debug shell
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard
+
       - name: Run evals
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
         run: cd evals && bun run-eval-set --concurrency 10 --email --title "Git Eval (${{ github.sha }} ${{ github.event.head_commit.message }}})"
