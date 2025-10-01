@@ -1,18 +1,19 @@
-import * as path from 'path'
 import * as fs from 'fs'
-import { Parser } from 'web-tree-sitter'
+import * as path from 'path'
 import { fileURLToPath } from 'url'
+
+import { Parser } from 'web-tree-sitter'
+
+import { getDirnameDynamically } from './utils'
 
 /**
  * Helper function to get the current directory path that works in both ESM and CJS
- * Uses dynamic evaluation to prevent bundlers from inlining absolute paths
+ * Uses runtime-only approach to prevent bundlers from inlining absolute paths
  */
 function hereDir() {
-  // In CJS, __dirname is available - use indirect eval to prevent inlining
-  if (typeof __dirname !== 'undefined') {
-    // Use a trick to get __dirname dynamically without bundler inlining it
-    // This works because bundlers won't inline values from Function constructor
-    return new Function('return __dirname')()
+  const dirname = getDirnameDynamically()
+  if (typeof dirname !== 'undefined') {
+    return dirname
   }
 
   // For ESM builds, use import.meta.url

@@ -1,5 +1,5 @@
-import { join, dirname } from 'path'
 import { existsSync } from 'fs'
+import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
 /**
@@ -16,7 +16,7 @@ export function getBundledRgPath(importMetaUrl?: string): string {
   // Determine platform-specific directory name
   const platform = process.platform
   const arch = process.arch
-  
+
   let platformDir: string
   if (platform === 'win32' && arch === 'x64') {
     platformDir = 'x64-win32'
@@ -33,47 +33,74 @@ export function getBundledRgPath(importMetaUrl?: string): string {
   }
 
   const binaryName = platform === 'win32' ? 'rg.exe' : 'rg'
-  
+
   // Try to find the bundled binary relative to this module
   let vendorPath: string | undefined
-  
+
   if (importMetaUrl) {
     // ESM context - use import.meta.url to find relative path
     const currentFile = fileURLToPath(importMetaUrl)
     const currentDir = dirname(currentFile)
-    
+
     // Try relative to current file (development - from src/native/ripgrep.ts to vendor/)
-    const devPath = join(currentDir, '..', '..', 'vendor', 'ripgrep', platformDir, binaryName)
+    const devPath = join(
+      currentDir,
+      '..',
+      '..',
+      'vendor',
+      'ripgrep',
+      platformDir,
+      binaryName,
+    )
     if (existsSync(devPath)) {
       vendorPath = devPath
     }
   }
-  
+
   // If not found via importMetaUrl, try CJS approach or other methods
   if (!vendorPath) {
     // Try from __dirname if available (CJS context)
-    if (typeof __dirname !== 'undefined') {
-      const cjsPath = join(__dirname, '..', '..', 'vendor', 'ripgrep', platformDir, binaryName)
+    const dirname = new Function('return __dirname')()
+    if (typeof dirname !== 'undefined') {
+      const cjsPath = join(
+        dirname,
+        '..',
+        '..',
+        'vendor',
+        'ripgrep',
+        platformDir,
+        binaryName,
+      )
       if (existsSync(cjsPath)) {
         vendorPath = cjsPath
       }
     }
   }
-  
+
   if (vendorPath && existsSync(vendorPath)) {
     return vendorPath
   }
-  
+
   // Fallback: try to find in dist/vendor (for published package)
-  const distVendorPath = join(process.cwd(), 'node_modules', '@codebuff', 'sdk', 'dist', 'vendor', 'ripgrep', platformDir, binaryName)
+  const distVendorPath = join(
+    process.cwd(),
+    'node_modules',
+    '@codebuff',
+    'sdk',
+    'dist',
+    'vendor',
+    'ripgrep',
+    platformDir,
+    binaryName,
+  )
   if (existsSync(distVendorPath)) {
     return distVendorPath
   }
-  
+
   // No fallback available - bundled binaries are required
   throw new Error(
     `Ripgrep binary not found for ${platform}-${arch}. ` +
-    `Expected at: ${vendorPath} or ${distVendorPath}. ` +
-    `Please run 'npm run fetch-ripgrep' or set CODEBUFF_RG_PATH environment variable.`
+      `Expected at: ${vendorPath} or ${distVendorPath}. ` +
+      `Please run 'npm run fetch-ripgrep' or set CODEBUFF_RG_PATH environment variable.`,
   )
 }
