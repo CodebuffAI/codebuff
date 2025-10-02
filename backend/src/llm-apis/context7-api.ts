@@ -1,4 +1,5 @@
 import { withTimeout } from '@codebuff/common/util/promise'
+import { env } from '@codebuff/internal/env'
 
 import { logger } from '../util/logger'
 
@@ -55,7 +56,14 @@ export async function searchLibraries(
     url.searchParams.set('query', query)
 
     const fetchStartTime = Date.now()
-    const response = await withTimeout(fetch(url), FETCH_TIMEOUT_MS)
+    const response = await withTimeout(
+      fetch(url, {
+        headers: {
+          Authorization: `Bearer ${env.CONTEXT7_API_KEY}`,
+        },
+      }),
+      FETCH_TIMEOUT_MS,
+    )
     const fetchDuration = Date.now() - fetchStartTime
 
     if (!response.ok) {
@@ -181,6 +189,7 @@ export async function fetchContext7LibraryDocumentation(
     const response = await withTimeout(
       fetch(url, {
         headers: {
+          Authorization: `Bearer ${env.CONTEXT7_API_KEY}`,
           'X-Context7-Source': 'codebuff',
         },
       }),
