@@ -354,7 +354,7 @@ export async function insertMessageRecordWithRetries(
           `Failed to save message after ${maxRetries} attempts`,
         )
         // TODO: Consider removing this exception for test mode.
-        if (process.env.NODE_ENV === 'test') {
+        if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test') {
           logger.error(
             { messageId: params.messageId, error, attempt },
             `(test mode) Couldn't fetch user cycle usage. Returning 0 consumed and 0 from purchased credits`,
@@ -498,7 +498,7 @@ async function updateUserCycleUsageWithRetries(
         )
 
         // TODO: Consider removing this exception for test mode.
-        if (process.env.NODE_ENV === 'test') {
+        if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test') {
           logger.error(
             { userId, orgId, creditsUsed, error, attempt },
             `(test mode) Couldn't fetch user cycle usage. Returning 0 consumed and 0 from purchased credits`,
