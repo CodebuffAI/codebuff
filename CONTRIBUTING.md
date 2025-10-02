@@ -66,7 +66,17 @@ Before you begin, you'll need to install a few tools:
    bun install
    ```
 
-7. **Start development services** (requires 3 terminals):
+7. **Setup a Github OAuth app**
+
+   1. Follow these instructions to set up a [Github OAuth app](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
+   2. Find your app's Github client ID and secret access key and set them in Infisical:
+
+   ```bash
+   infisical secrets set CODEBUFF_GITHUB_ID=<your-github-app-id-here>
+   infisical secrets set CODEBUFF_GITHUB_SECRET=<your-github-app-secret-here>
+   ```
+
+8. **Start development services** (requires 3 terminals):
 
    ```bash
    # Terminal 1 - Backend server (start first)
@@ -86,13 +96,11 @@ Before you begin, you'll need to install a few tools:
 
    **Note**: CLI requires both backend and web server running for authentication.
 
-8. **Giving yourself credits**:
+9. **Giving yourself credits**:
 
-   There are two ways to give yourself credits:
+   1. Log into Codebuff at [http://localhost:3000/login](http://localhost:3000/login)
 
-   1. If you have the Stripe environment variables set, you can add billing information (just put in a fake credit card) at http://localhost:3000/usage
-
-   2. However, if you don't have Stripe set up, you will need to manually add credits to your account in the database.
+   2. Then give yourself lots of credits. Be generous, you're the boss now!
 
    ```bash
    bun run start-studio
@@ -100,18 +108,11 @@ Before you begin, you'll need to install a few tools:
 
    Then, navigate to https://local.drizzle.studio/
 
-   Create a new row in the `credit_ledger` table. The values should be:
-
-   - `operation_id`: [anything you want should be unique]
-   - `user_id`: [your user ID from the `user` table]
-   - `principal`: [some very large number, one hundred million should last basically indefinitely]
-   - `balance`: [the same as `principal`]
-   - `type`: admin
-   - `priority`: 80
+   Edit your row in the `credit_ledger` table to set the `principal` to whatever you like and the `balance` to equal it.
 
    Now, you should be able to run the CLI commands locally from within the `codebuff` directory.
 
-9. **Running in other directories**:
+10. **Running in other directories**:
 
    In order to run the CLI from other directories, you need to first publish the agents to the database.
 
