@@ -1,0 +1,36 @@
+{
+  "name": "@codebuff/cli",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "codebuff-tui": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/index.tsx",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "bun run src/index.tsx",
+    "build": "bun build src/index.tsx --outdir dist --target node --format esm",
+    "start": "bun run dist/index.js",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
+  },
+  "dependencies": {
+    "@opentui/react": "^0.1.25",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22",
+    "@types/bun": "^1.2.11",
+    "@types/react": "^18.3.12"
+  }
+}
