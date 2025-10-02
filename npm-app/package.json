@@ -34,6 +34,7 @@
     "bun": ">=1.2.11"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^1.0.19",
     "@codebuff/code-map": "workspace:*",
     "@codebuff/common": "workspace:*",
     "@types/diff": "8.0.0",
