@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "dev": "bun run src/index.tsx",
+    "dev": "bun run --watch src/index.tsx",
     "build": "bun build src/index.tsx --outdir dist --target node --format esm",
     "start": "bun run dist/index.js",
     "typecheck": "tsc --noEmit -p ."
@@ -26,11 +26,13 @@
   },
   "dependencies": {
     "@opentui/react": "^0.1.25",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.0"
   },
   "devDependencies": {
-    "@types/node": "22",
     "@types/bun": "^1.2.11",
+    "@types/node": "22",
     "@types/react": "^18.3.12"
   }
 }

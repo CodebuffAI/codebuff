@@ -6,6 +6,7 @@ import {
 } from '@opentui/core'
 import { render, useKeyboard, useRenderer } from '@opentui/react'
 import { MultilineInput } from './multiline-input'
+import { renderMarkdown, hasMarkdown } from './markdown-renderer'
 import {
   Fragment,
   useCallback,
@@ -389,7 +390,9 @@ This approach will improve _performance_ while maintaining **code clarity**.`
                     marginBottom: isAi ? 1 : 0,
                   }}
                 >
-                  {message.content}
+                  {isAi && hasMarkdown(message.content)
+                    ? renderMarkdown(message.content)
+                    : message.content}
                 </text>
               </box>
             </box>
