@@ -1,5 +1,6 @@
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
 import { useKeyboard } from '@opentui/react'
+import type { ScrollBoxRenderable } from '@opentui/core'
 
 interface MultilineInputProps {
   value: string
@@ -29,6 +30,7 @@ export function MultilineInput({
   theme,
   width,
 }: MultilineInputProps) {
+  const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
   const [cursorPosition, setCursorPosition] = useState(value.length)
 
   // Sync cursor when value changes externally
@@ -37,6 +39,21 @@ export function MultilineInput({
       setCursorPosition(value.length)
     }
   }, [value.length, cursorPosition])
+
+  // Auto-scroll to bottom when content changes
+  useEffect(() => {
+    const scrollBox = scrollBoxRef.current
+    if (scrollBox && focused) {
+      // Scroll to bottom after layout updates
+      setTimeout(() => {
+        const maxScroll = Math.max(
+          0,
+          scrollBox.scrollHeight - scrollBox.viewport.height,
+        )
+        scrollBox.verticalScrollBar.scrollPosition = maxScroll
+      }, 0)
+    }
+  }, [value, cursorPosition, focused])
 
   // Handle all keyboard input
   useKeyboard(
@@ -150,30 +167,49 @@ export function MultilineInput({
         displayValue.slice(cursorPosition)
       : displayValue
 
-  // Calculate height based on wrapped lines
-  const maxCharsPerLine = Math.max(1, width - 4)
-  const lines = displayValue.split('\n')
-  let totalLineCount = 0
-  for (const line of lines) {
-    if (line.length === 0) {
-      totalLineCount += 1
-    } else {
-      // Account for cursor character which adds 1 to display length
-      const displayLength =
-        focused && !isPlaceholder ? line.length + 1 : line.length
-      totalLineCount += Math.ceil(displayLength / maxCharsPerLine)
+  // Memoize height calculation to avoid expensive computation on every render
+  const height = useMemo(() => {
+    const maxCharsPerLine = Math.max(1, width - 4)
+    const lines = displayValue.split('\n')
+    let totalLineCount = 0
+    for (const line of lines) {
+      if (line.length === 0) {
+        totalLineCount += 1
+      } else {
+        // Account for cursor character which adds 1 to display length
+        const displayLength =
+          focused && !isPlaceholder ? line.length + 1 : line.length
+        totalLineCount += Math.ceil(displayLength / maxCharsPerLine)
+      }
     }
-  }
-  const height = Math.max(1, Math.min(totalLineCount, maxHeight))
+    return Math.max(1, Math.min(totalLineCount, maxHeight))
+  }, [displayValue, width, focused, isPlaceholder, maxHeight])
 
   return (
-    <box
+    <scrollbox
+      ref={scrollBoxRef}
+      scrollX={false}
+      stickyScroll={true}
+      stickyStart="bottom"
+      scrollbarOptions={{ visible: false }}
       style={{
-        width: '100%',
-        height: height,
-        backgroundColor: focused ? theme.inputFocusedBg : theme.inputBg,
-        paddingLeft: 1,
-        paddingRight: 1,
+        flexGrow: 0,
+        flexShrink: 0,
+        rootOptions: {
+          width: '100%',
+          height: height,
+          backgroundColor: focused ? theme.inputFocusedBg : theme.inputBg,
+          flexGrow: 0,
+          flexShrink: 0,
+        },
+        wrapperOptions: {
+          paddingLeft: 1,
+          paddingRight: 1,
+          border: false,
+        },
+        contentOptions: {
+          justifyContent: 'flex-end',
+        },
       }}
     >
       <text
@@ -188,6 +224,6 @@ export function MultilineInput({
       >
         {displayText}
       </text>
-    </box>
+    </scrollbox>
   )
 }
