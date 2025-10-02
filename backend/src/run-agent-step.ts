@@ -690,7 +690,11 @@ export const loopAgentSteps = async (
     logger.error(
       {
         error: getErrorObject(error),
+        agentType,
         agentId: currentAgentState.agentId,
+        runId,
+        totalSteps,
+        directCreditsUsed: currentAgentState.directCreditsUsed,
         creditsUsed: currentAgentState.creditsUsed,
       },
       'Agent execution failed',
