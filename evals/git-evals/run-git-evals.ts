@@ -274,7 +274,8 @@ function getCodebuffFileStates(
   projectPath: string,
 ): string {
   // Get all changes since the commit before the target commit
-  // This captures both uncommitted changes and any commits made during the eval
+  execFileSync('git', ['add', '.'], { cwd: projectPath, stdio: 'ignore' })
+
   return execFileSync('git', ['diff', `${evalCommitSha}^`], {
     cwd: projectPath,
     stdio: ['ignore', 'pipe', 'pipe'],
