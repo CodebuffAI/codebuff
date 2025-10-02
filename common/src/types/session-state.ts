@@ -25,6 +25,9 @@ export const subgoalSchema = z.object({
 export type Subgoal = z.infer<typeof subgoalSchema>
 
 export const AgentStateSchema: z.ZodType<{
+  /**
+   * @deprecated agentId is replaced by runId
+   */
   agentId: string
   agentType: AgentTemplateType | null
   agentContext: Record<string, Subgoal>

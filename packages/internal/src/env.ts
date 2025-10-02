@@ -13,6 +13,7 @@ const envSchema = {
     OPEN_ROUTER_API_KEY: z.string().min(1),
     RELACE_API_KEY: z.string().min(1),
     LINKUP_API_KEY: z.string().min(1),
+    CONTEXT7_API_KEY: z.string().optional(),
     GOOGLE_CLOUD_PROJECT_ID: z.string().min(1),
     PORT: z.coerce.number().min(1000),
 
@@ -54,6 +55,7 @@ const envSchema = {
     OPEN_ROUTER_API_KEY: process.env.OPEN_ROUTER_API_KEY,
     RELACE_API_KEY: process.env.RELACE_API_KEY,
     LINKUP_API_KEY: process.env.LINKUP_API_KEY,
+    CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
     GOOGLE_CLOUD_PROJECT_ID: process.env.GOOGLE_CLOUD_PROJECT_ID,
     PORT: process.env.PORT,
 
