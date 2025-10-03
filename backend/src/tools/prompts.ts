@@ -244,8 +244,8 @@ ${getToolCallString(
   false,
 )}
 
-${toolDescriptions.join('\n\n')}
-
 Important: You only have access to the tools below. Do not use any other tools -- they are not available to you, instead they may have been previously used by other agents.
+
+${toolDescriptions.join('\n\n')}
 `.trim()
 }

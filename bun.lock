@@ -114,6 +114,7 @@
         "@oclif/core": "^4.4.0",
         "@oclif/parser": "^3.8.17",
         "async": "^3.2.6",
+        "diff": "^8.0.2",
         "lodash": "^4.17.21",
         "p-limit": "^6.2.0",
         "zod": "3.25.67",
@@ -238,7 +239,7 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.3.8",
+      "version": "0.3.13",
       "dependencies": {
         "@vscode/tree-sitter-wasm": "0.1.4",
         "ai": "^5.0.0",
@@ -3997,6 +3998,8 @@
     "@codebuff/common/ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
 
     "@codebuff/common/posthog-node": ["posthog-node@5.8.1", "", { "dependencies": { "@posthog/core": "1.0.2" } }, "sha512-YJYlYnlpItVjHqM9IhvZx8TzK8gnx2nU+0uhiog4RN47NnV0Z0K1AdC4ul+O8VuvS/jHqKCQvL8iAONRA37+0A=="],
+
+    "@codebuff/evals/diff": ["diff@8.0.2", "", {}, "sha512-sSuxWU5j5SR9QQji/o2qMvqRNYRDOcBTgsJ/DeCf4iSN4gW+gNMXM7wFIP+fdXZxoNiAnHUTGjCr+TSWXdRDKg=="],
 
     "@codebuff/npm-app/@types/diff": ["@types/diff@8.0.0", "", { "dependencies": { "diff": "*" } }, "sha512-o7jqJM04gfaYrdCecCVMbZhNdG6T1MHg/oQoRFdERLV+4d+V7FijhiEAbFu0Usww84Yijk9yH58U4Jk4HbtzZw=="],
 
