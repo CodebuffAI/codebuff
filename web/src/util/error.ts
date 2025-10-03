@@ -1,4 +1,8 @@
-export function errorToObject(error: any): object {
+export function errorToObject(error: any): {
+  name: string
+  message: string
+  stack?: string
+} {
   if (error instanceof Error) {
     return {
       name: error.name,
@@ -7,11 +11,8 @@ export function errorToObject(error: any): object {
     }
   }
 
-  if (typeof error === 'string') {
-    return {
-      message: error,
-    }
+  return {
+    name: 'Error',
+    message: `${error}`,
   }
-
-  return error
 }

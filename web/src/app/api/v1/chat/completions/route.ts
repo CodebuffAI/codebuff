@@ -1,9 +1,10 @@
+import { getUserUsageData } from '@codebuff/billing/usage-service'
 import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
 
 import { getUserInfoFromApiKey } from '@/db/user'
-import { handleOpenrouterStream } from '@/llm-api/openrouter'
+import { handleOpenRouterStream } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { errorToObject } from '@/util/error'
 import { logger } from '@/util/logger'
@@ -30,10 +31,25 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const userId = userInfo.id
+    const {
+      balance: { totalRemaining },
+      nextQuotaReset,
+    } = await getUserUsageData(userId)
+    if (totalRemaining <= 0) {
+      return NextResponse.json(
+        {
+          message: `Insufficient credits. Please add credits at ${process.env.NEXT_PUBLIC_APP_URL}/usage or wait for your next cycle to begin (${nextQuotaReset}).`,
+        },
+        { status: 402 }
+      )
+    }
+
     if (body.stream) {
       try {
-        const stream = await handleOpenrouterStream({
+        const stream = await handleOpenRouterStream({
           body,
+          userId,
         })
 
         return new NextResponse(stream, {
