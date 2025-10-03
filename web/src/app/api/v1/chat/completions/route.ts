@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
 
+import { getAgentRunFromId } from '@/db/agent-run'
 import { getUserInfoFromApiKey } from '@/db/user'
 import { handleOpenRouterStream } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
@@ -45,37 +46,51 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (body.stream) {
-      try {
-        const stream = await handleOpenRouterStream({
-          body,
-          userId,
-        })
-
-        return new NextResponse(stream, {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            Connection: 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
-          },
-        })
-      } catch (error) {
-        logger.error(
-          errorToObject(error),
-          'Error setting up OpenRouter stream:'
-        )
-        return NextResponse.json(
-          { error: 'Failed to initialize stream' },
-          { status: 500 }
-        )
-      }
+    if (!body.stream) {
+      return NextResponse.json(
+        { message: 'Not implemented. Use stream=true.' },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json(
-      { message: 'Not implemented. Use stream=true.' },
-      { status: 500 }
-    )
+    const runIdFromBody = body.codebuff_metadata?.agentRunId
+    if (!runIdFromBody) {
+      return NextResponse.json(
+        { message: 'No agent run ID found in request body' },
+        { status: 400 }
+      )
+    }
+    const runId = runIdFromBody
+      ? getAgentRunFromId({ agentRunId: runIdFromBody, userId, fields: ['id'] })
+      : null
+    if (!runId) {
+      return NextResponse.json(
+        { message: `Agent Run ID Not Found: ${runIdFromBody}` },
+        { status: 404 }
+      )
+    }
+
+    try {
+      const stream = await handleOpenRouterStream({
+        body,
+        userId,
+      })
+
+      return new NextResponse(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+          'Access-Control-Allow-Origin': '*',
+        },
+      })
+    } catch (error) {
+      logger.error(errorToObject(error), 'Error setting up OpenRouter stream:')
+      return NextResponse.json(
+        { error: 'Failed to initialize stream' },
+        { status: 500 }
+      )
+    }
   } catch (error) {
     logger.error(
       errorToObject(error),
