@@ -19,10 +19,11 @@ export const withTestRepo = async <T>(
     repoUrl: string
     commitSha: string
     initCommand?: string
+    checkoutPrevious?: boolean
   },
   fn: (cwd: string) => Promise<T>,
 ): Promise<T> => {
-  const { repoUrl, commitSha, initCommand } = repoConfig
+  const { repoUrl, commitSha, initCommand, checkoutPrevious } = repoConfig
 
   // Create a temporary directory for the test repo
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-eval-'))
@@ -33,9 +34,18 @@ export const withTestRepo = async <T>(
     console.log(`Cloning repository ${repoUrl} to ${repoDir}...`)
     execSync(`git clone ${repoUrl} ${repoDir}`, { stdio: 'ignore' })
 
-    // Checkout the specific commit
-    console.log(`Checking out commit ${commitSha}...`)
-    execSync(`git checkout ${commitSha}`, { cwd: repoDir, stdio: 'ignore' })
+    // Checkout the specific commit or the previous commit
+    if (checkoutPrevious) {
+      const previousCommitSha = getPreviousCommitSha(commitSha, repoDir)
+      console.log(`Checking out previous commit ${previousCommitSha}...`)
+      execSync(`git checkout ${previousCommitSha}`, {
+        cwd: repoDir,
+        stdio: 'ignore',
+      })
+    } else {
+      console.log(`Checking out commit ${commitSha}...`)
+      execSync(`git checkout ${commitSha}`, { cwd: repoDir, stdio: 'ignore' })
+    }
 
     // Run initialization command if provided
     if (initCommand) {
@@ -56,6 +66,17 @@ export const withTestRepo = async <T>(
   }
 }
 
+/**
+ * Gets the previous commit SHA (parent) of a given commit
+ */
+const getPreviousCommitSha = (commitSha: string, repoDir: string): string => {
+  const previousSha = execSync(`git rev-parse ${commitSha}^`, {
+    cwd: repoDir,
+    encoding: 'utf-8',
+  }).trim()
+  return previousSha
+}
+
 export const evalPlannerAgent = async (params: {
   spec: string
   repoUrl: string
@@ -74,9 +95,8 @@ export const evalPlannerAgent = async (params: {
   const client = new CodebuffClient({
     apiKey: process.env[API_KEY_ENV_VAR] || getLocalAuthToken(),
   })
-
   const result = await withTestRepo(
-    { repoUrl, commitSha, initCommand },
+    { repoUrl, commitSha, initCommand, checkoutPrevious: true },
     async (cwd) => {
       // Run the agent with the test repository as cwd
       console.log(
@@ -88,7 +108,10 @@ export const evalPlannerAgent = async (params: {
         cwd,
         agentDefinitions: [implementationPlannerAgent],
         handleEvent: (event) => {
-          console.log('Codebuff Event', JSON.stringify(event, null, 2))
+          console.log(
+            implementationPlannerAgent.id,
+            JSON.stringify(event, null, 2),
+          )
         },
       })
     },
@@ -161,6 +184,9 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
     agent: 'eval-judge',
     prompt: judgePrompt,
     agentDefinitions: [judgeAgent],
+    handleEvent: (event) => {
+      console.log('eval-judge', JSON.stringify(event, null, 2))
+    },
   })
   if (judgeResult.output.type !== 'structuredOutput') {
     throw new Error('Error running judge agent')
@@ -174,7 +200,7 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
 const judgeAgent: AgentDefinition = {
   id: 'eval-judge',
   displayName: 'Eval Judge',
-  model: 'x-ai/grok-4-fast:free',
+  model: 'x-ai/grok-4-fast',
   toolNames: ['set_output'],
   inputSchema: {
     prompt: { type: 'string', description: 'The prompt to judge' },
