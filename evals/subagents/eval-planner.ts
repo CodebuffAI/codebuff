@@ -8,7 +8,7 @@ import { CodebuffClient } from '../../sdk/src/client'
 import { AgentDefinition } from '../../sdk/src'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import implementationPlannerAgent from '../../.agents/implementation-planner/implementation-planner'
+import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 
 /**
  * Helper function to manage test repository lifecycle
@@ -78,6 +78,7 @@ const getPreviousCommitSha = (commitSha: string, repoDir: string): string => {
 }
 
 export const evalPlannerAgent = async (params: {
+  agentId: string
   spec: string
   repoUrl: string
   commitSha: string
@@ -88,30 +89,33 @@ export const evalPlannerAgent = async (params: {
     postContent: string
   }>
 }) => {
-  const { spec, repoUrl, commitSha, initCommand, fileStates } = params
+  const { agentId, spec, repoUrl, commitSha, initCommand, fileStates } = params
   const getLocalAuthToken = () => {
     return getUserCredentials()?.authToken
   }
   const client = new CodebuffClient({
     apiKey: process.env[API_KEY_ENV_VAR] || getLocalAuthToken(),
   })
+
+  const agentsPath = path.join(__dirname, '../../.agents')
+  const localAgentDefinitions = Object.values(
+    await loadLocalAgents({
+      agentsPath,
+    }),
+  )
+
   const result = await withTestRepo(
     { repoUrl, commitSha, initCommand, checkoutPrevious: true },
     async (cwd) => {
       // Run the agent with the test repository as cwd
-      console.log(
-        `Running agent ${implementationPlannerAgent.id} with prompt: ${spec}...`,
-      )
+      console.log(`Running agent ${agentId} with prompt: ${spec}...`)
       return await client.run({
-        agent: implementationPlannerAgent.id,
+        agent: agentId,
         prompt: `Please plan a full implementation of the following spec: ${spec}`,
         cwd,
-        agentDefinitions: [implementationPlannerAgent],
+        agentDefinitions: localAgentDefinitions,
         handleEvent: (event) => {
-          console.log(
-            implementationPlannerAgent.id,
-            JSON.stringify(event, null, 2),
-          )
+          console.log(agentId, JSON.stringify(event, null, 2))
         },
       })
     },
@@ -200,7 +204,7 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
 const judgeAgent: AgentDefinition = {
   id: 'eval-judge',
   displayName: 'Eval Judge',
-  model: 'x-ai/grok-4-fast',
+  model: 'openai/gpt-5',
   toolNames: ['set_output'],
   inputSchema: {
     prompt: { type: 'string', description: 'The prompt to judge' },
@@ -276,6 +280,7 @@ async function main() {
 
     try {
       const result = await evalPlannerAgent({
+        agentId: 'implementation-planner',
         spec,
         repoUrl,
         commitSha: sha,
