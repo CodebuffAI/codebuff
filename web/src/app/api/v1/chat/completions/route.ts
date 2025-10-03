@@ -53,20 +53,21 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const runIdFromBody = body.codebuff_metadata?.agentRunId
-    if (!runIdFromBody) {
+    const runIdFromBody: string = body.codebuff_metadata?.agentRunId
+    if (!runIdFromBody || typeof runIdFromBody !== 'string') {
       return NextResponse.json(
-        { message: 'No agent run ID found in request body' },
+        { message: 'No agentRunId found in request body' },
         { status: 400 }
       )
     }
+
     const runId = runIdFromBody
       ? getAgentRunFromId({ agentRunId: runIdFromBody, userId, fields: ['id'] })
       : null
     if (!runId) {
       return NextResponse.json(
-        { message: `Agent Run ID Not Found: ${runIdFromBody}` },
-        { status: 404 }
+        { message: `agentRunId Not Found: ${runIdFromBody}` },
+        { status: 400 }
       )
     }
 
