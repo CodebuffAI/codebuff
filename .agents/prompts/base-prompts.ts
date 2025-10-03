@@ -229,10 +229,8 @@ export const baseAgentUserInputPrompt = (
   model: Model,
   mode: 'lite' | 'normal' | 'max' | 'experimental',
 ) => {
-  const isFlash =
-    model === models.gemini2_5_flash ||
-    model === models.gemini2_5_flash_thinking
-  const isGeminiPro = model === models.gemini2_5_pro_preview
+  const isFlash = model === models.openrouter_gemini2_5_flash
+  const isGeminiPro = model === models.openrouter_gemini2_5_pro_preview
   const isGPT5 =
     model === models.openrouter_gpt5 || model === models.openrouter_gpt5_chat
   const isLite = mode === 'lite'

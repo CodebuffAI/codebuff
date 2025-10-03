@@ -42,9 +42,6 @@ const TOKENS_COST_PER_M = {
     [models.o4mini]: 1.1,
     [models.deepseekChat]: 0.14,
     [models.deepseekReasoner]: 0.55,
-    [models.gemini2flash]: 0.1,
-    [models.gemini2_5_flash]: 0.15,
-    [models.gemini2_5_flash_thinking]: 0.15,
     [models.ft_filepicker_003]: 0.1,
     [models.ft_filepicker_005]: 0.1,
     [models.openrouter_claude_sonnet_4]: 3,
@@ -72,9 +69,6 @@ const TOKENS_COST_PER_M = {
     [models.o4mini]: 1.1,
     [models.deepseekChat]: 0.28,
     [models.deepseekReasoner]: 2.19,
-    [models.gemini2flash]: 0.4,
-    [models.gemini2_5_flash]: 0.6,
-    [models.gemini2_5_flash_thinking]: 3.5,
     [models.ft_filepicker_003]: 0.4,
     [models.ft_filepicker_005]: 0.4,
     [models.openrouter_claude_sonnet_4]: 15,
@@ -107,9 +101,6 @@ const TOKENS_COST_PER_M = {
     [models.o3]: 0.5,
     [models.o3mini]: 0.55,
     [models.o4mini]: 0.275,
-    [models.gemini2flash]: 0.025,
-    [models.gemini2_5_flash]: 0.0375,
-    [models.gemini2_5_flash_thinking]: 0.2625,
     [models.ft_filepicker_003]: 0.025,
     [models.ft_filepicker_005]: 0.025,
   },
@@ -203,13 +194,6 @@ const calcCost = (
 ) => {
   if (model === 'relace-fast-apply') {
     return RELACE_FAST_APPLY_COST
-  }
-  if (model === models.gemini2_5_pro_preview) {
-    return (
-      getGemini25ProPreviewCost(input_tokens, output_tokens) +
-      cache_creation_input_tokens * getPerTokenCost(model, 'cache_creation') +
-      cache_read_input_tokens * getPerTokenCost(model, 'cache_read')
-    )
   }
   if (model === models.openrouter_grok_4) {
     return (

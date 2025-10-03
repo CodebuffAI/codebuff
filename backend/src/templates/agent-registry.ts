@@ -108,6 +108,7 @@ async function fetchAgentFromDatabase(parsedAgentId: {
         agentId,
         version: agentConfig.version,
         fullAgentId: agentTemplate.id,
+        parsedAgentId,
       },
       'fetchAgentFromDatabase: Successfully loaded and validated agent from database',
     )

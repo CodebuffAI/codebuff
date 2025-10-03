@@ -2,7 +2,6 @@ import { google } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
   finetunedVertexModels,
-  geminiModels,
   openaiModels,
 } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
@@ -19,11 +18,7 @@ import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
-import type {
-  GeminiModel,
-  Model,
-  OpenAIModel,
-} from '@codebuff/common/old-constants'
+import type { Model, OpenAIModel } from '@codebuff/common/old-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   OpenRouterProviderOptions,
@@ -51,9 +46,6 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
     )
   ) {
     return vertexFinetuned(model)
-  }
-  if (Object.values(geminiModels).includes(model as GeminiModel)) {
-    return google.languageModel(model)
   }
   if (model === openaiModels.o3pro || model === openaiModels.o3) {
     return openai.responses(model)

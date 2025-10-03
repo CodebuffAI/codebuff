@@ -72,7 +72,8 @@ async function runTraces() {
                 output = await promptFlashWithFallbacks(
                   messagesWithSystem(messages as Message[], system as System),
                   {
-                    model: model as typeof models.gemini2_5_pro_preview,
+                    model:
+                      model as typeof models.openrouter_gemini2_5_pro_preview,
                     clientSessionId: 'relabel-trace-run',
                     fingerprintId: 'relabel-trace-run',
                     userInputId: 'relabel-trace-run',

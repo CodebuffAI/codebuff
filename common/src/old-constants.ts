@@ -185,14 +185,6 @@ export const openaiModels = {
 } as const
 export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
-export const geminiModels = {
-  gemini2_5_flash: 'gemini-2.5-flash-preview-05-20',
-  gemini2_5_flash_thinking: 'gemini-2.5-flash-preview-05-20:thinking',
-  gemini2flash: 'gemini-2.0-flash-001',
-  gemini2_5_pro_preview: 'gemini-2.5-pro-preview-06-05',
-} as const
-export type GeminiModel = (typeof geminiModels)[keyof typeof geminiModels]
-
 export const openrouterModels = {
   openrouter_claude_sonnet_4_5: 'anthropic/claude-sonnet-4.5',
   openrouter_claude_sonnet_4: 'anthropic/claude-4-sonnet-20250522',
@@ -250,7 +242,6 @@ export type FinetunedVertexModel =
 export const models = {
   // ...claudeModels,
   ...openaiModels,
-  ...geminiModels,
   ...deepseekModels,
   ...openrouterModels,
   ...finetunedVertexModels,
@@ -273,12 +264,6 @@ export const shortModelNames = {
 }
 
 export const providerModelNames = {
-  ...Object.fromEntries(
-    Object.entries(geminiModels).map(([name, model]) => [
-      model,
-      'gemini' as const,
-    ]),
-  ),
   // ...Object.fromEntries(
   //   Object.entries(openrouterModels).map(([name, model]) => [
   //     model,
@@ -355,9 +340,7 @@ export const providerDomains = {
 export function getLogoForModel(modelName: string): string | undefined {
   let domain: string | undefined
 
-  if (Object.values(geminiModels).includes(modelName as GeminiModel))
-    domain = providerDomains.google
-  else if (Object.values(openaiModels).includes(modelName as OpenAIModel))
+  if (Object.values(openaiModels).includes(modelName as OpenAIModel))
     domain = providerDomains.openai
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
     domain = providerDomains.deepseek
