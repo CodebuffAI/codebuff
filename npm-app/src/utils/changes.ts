@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
-import { errorToObject } from '@codebuff/common/util/object'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { applyPatch } from 'diff'
 
 import type { FileChanges } from '@codebuff/common/actions'
@@ -54,7 +54,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
     } catch (error) {
       console.error(
         `Failed to apply patch to ${filePath}:`,
-        errorToObject(error),
+        getErrorObject(error),
         content,
       )
       invalid.push(filePath)

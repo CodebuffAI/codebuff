@@ -1,8 +1,10 @@
 import { isEqual, mapValues, union } from 'lodash'
 
 export const removeUndefinedProps = <T extends object>(
-  obj: T
-): { [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined> } => {
+  obj: T,
+): {
+  [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined>
+} => {
   const newObj: any = {}
 
   for (const key of Object.keys(obj)) {
@@ -116,18 +118,4 @@ export function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new Error(`Assertion failed: ${message}`)
   }
-}
-
-export function errorToObject(value: any) {
-  if (value instanceof Error) {
-    // Copy *all* own props, including non-enumerables
-    return Object.getOwnPropertyNames(value).reduce<Record<string, unknown>>(
-      (acc, key) => {
-        acc[key] = (value as any)[key]
-        return acc
-      },
-      {},
-    )
-  }
-  return value
 }

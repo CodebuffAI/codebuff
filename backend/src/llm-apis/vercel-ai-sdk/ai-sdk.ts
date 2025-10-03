@@ -5,8 +5,8 @@ import {
   openaiModels,
 } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
-import { errorToObject } from '@codebuff/common/util/object'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -121,7 +121,7 @@ export const promptAiSdkStream = async function* (
       logger.error(
         {
           chunk: { ...chunk, error: undefined },
-          error: errorToObject(chunk.error),
+          error: getErrorObject(chunk.error),
           model: options.model,
         },
         'Error from AI SDK',

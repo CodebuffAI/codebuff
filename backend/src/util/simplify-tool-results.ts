@@ -1,4 +1,4 @@
-import { errorToObject } from '@codebuff/common/util/object'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { logger } from './logger'
@@ -44,7 +44,7 @@ export function simplifyTerminalCommandResults(
     ]
   } catch (error) {
     logger.error(
-      { error: errorToObject(error), messageContent },
+      { error: getErrorObject(error), messageContent },
       'Error simplifying terminal command results',
     )
     return [

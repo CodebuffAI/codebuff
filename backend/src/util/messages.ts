@@ -1,7 +1,7 @@
 import { AssertionError } from 'assert'
 
 import { buildArray } from '@codebuff/common/util/array'
-import { errorToObject } from '@codebuff/common/util/object'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { closeXml } from '@codebuff/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
@@ -283,7 +283,7 @@ export function getEditedFiles(messages: Message[]): string[] {
           return fileInfo.file
         } catch (error) {
           logger.error(
-            { error: errorToObject(error), m },
+            { error: getErrorObject(error), m },
             'Error parsing file info',
           )
           return null
@@ -314,7 +314,7 @@ export function getPreviouslyReadFiles(messages: Message[]): {
         )
       } catch (error) {
         logger.error(
-          { error: errorToObject(error), message },
+          { error: getErrorObject(error), message },
           'Error parsing read_files output from message',
         )
       }
@@ -337,7 +337,7 @@ export function getPreviouslyReadFiles(messages: Message[]): {
         )
       } catch (error) {
         logger.error(
-          { error: errorToObject(error), message },
+          { error: getErrorObject(error), message },
           'Error parsing find_files output from message',
         )
       }
