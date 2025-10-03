@@ -555,6 +555,7 @@ export const loopAgentSteps = async (
     messageHistory: initialMessages,
   }
   let shouldEndTurn = false
+  let hasRetriedOutputSchema = false
   let currentPrompt = prompt
   let currentParams = params
   let totalSteps = 0
@@ -614,6 +615,41 @@ export const loopAgentSteps = async (
         if (hasMessages) {
           shouldEndTurn = false
         }
+      }
+
+      // Check if output is required but missing
+      if (
+        agentTemplate.outputSchema &&
+        currentAgentState.output === undefined &&
+        shouldEndTurn &&
+        !hasRetriedOutputSchema
+      ) {
+        hasRetriedOutputSchema = true
+        logger.warn(
+          {
+            agentType,
+            agentId: currentAgentState.agentId,
+            runId,
+          },
+          'Agent finished without setting required output, restarting loop',
+        )
+
+        // Add system message instructing to use set_output
+        const outputSchemaMessage = asSystemMessage(
+          `You must use the "set_output" tool to provide a result that matches the output schema before ending your turn. The output schema is required for this agent.`,
+        )
+
+        currentAgentState.messageHistory = [
+          ...currentAgentState.messageHistory,
+          {
+            role: 'user',
+            content: outputSchemaMessage,
+            keepDuringTruncation: true,
+          },
+        ]
+
+        // Reset shouldEndTurn to continue the loop
+        shouldEndTurn = false
       }
 
       // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
