@@ -138,18 +138,15 @@ export async function* processStreamWithTags(
     processor.onTagEnd(toolName, parsedParams)
   }
 
-  function* extractToolsFromBufferAndProcess(
-    forceFlush = true,
-  ): Generator<StreamChunk> {
+  function extractToolsFromBufferAndProcess(forceFlush = false) {
     const matches = extractToolCalls()
     matches.forEach(processToolCallContents)
     if (forceFlush) {
-      const chunk: StreamChunk = {
+      onResponseChunk({
         type: 'text',
         text: buffer,
-      }
-      yield chunk
-      onResponseChunk(chunk)
+      })
+      buffer = ''
     }
   }
 
@@ -171,7 +168,7 @@ export async function* processStreamWithTags(
         }
         autocompleted = true
       }
-      yield* extractToolsFromBufferAndProcess(true)
+      extractToolsFromBufferAndProcess(true)
     }
 
     if (chunk) {
