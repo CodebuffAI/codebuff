@@ -138,12 +138,24 @@ export async function* processStreamWithTags(
     processor.onTagEnd(toolName, parsedParams)
   }
 
-  function extractToolsFromBufferAndProcess() {
+  function* extractToolsFromBufferAndProcess(
+    forceFlush = true,
+  ): Generator<StreamChunk> {
     const matches = extractToolCalls()
     matches.forEach(processToolCallContents)
+    if (forceFlush) {
+      const chunk: StreamChunk = {
+        type: 'text',
+        text: buffer,
+      }
+      yield chunk
+      onResponseChunk(chunk)
+    }
   }
 
-  function* processChunk(chunk: StreamChunk | undefined) {
+  function* processChunk(
+    chunk: StreamChunk | undefined,
+  ): Generator<StreamChunk> {
     if (chunk !== undefined && chunk.type === 'text') {
       buffer += chunk.text
     }
@@ -159,7 +171,7 @@ export async function* processStreamWithTags(
         }
         autocompleted = true
       }
-      extractToolsFromBufferAndProcess()
+      yield* extractToolsFromBufferAndProcess(true)
     }
 
     if (chunk) {
