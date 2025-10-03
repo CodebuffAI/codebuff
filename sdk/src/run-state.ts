@@ -20,6 +20,7 @@ import type {
   CustomToolDefinitions,
   FileTreeNode,
 } from '../../common/src/util/file'
+import path from 'path'
 
 export type RunState = {
   sessionState: SessionState
@@ -108,21 +109,25 @@ async function computeProjectIndex(
  * Discovers project files using .gitignore patterns when projectFiles is undefined
  */
 function discoverProjectFiles(cwd: string): Record<string, string> {
-  try {
-    const fileTree = getProjectFileTree(cwd)
-    const filePaths = getAllFilePaths(fileTree)
+  const fileTree = getProjectFileTree(cwd)
+  const filePaths = getAllFilePaths(fileTree)
+  let error
 
-    // Create projectFiles with empty content - the token scorer will read from disk
-    return Object.fromEntries(
-      filePaths.map((filePath) => [
-        filePath,
-        fs.readFileSync(filePath, 'utf8'),
-      ]),
-    )
-  } catch (error) {
-    console.warn('Failed to discover project files:', error)
-    return {}
+  // Create projectFiles with empty content - the token scorer will read from disk
+  const projectFiles = Object.fromEntries(
+    filePaths.map((filePath) => {
+      try {
+        return [filePath, fs.readFileSync(path.join(cwd, filePath), 'utf8')]
+      } catch (err) {
+        error = err
+        return [filePath, '[ERROR_READING_FILE]']
+      }
+    }),
+  )
+  if (error) {
+    console.warn('Failed to discover some project files:', error)
   }
+  return projectFiles
 }
 
 /**
