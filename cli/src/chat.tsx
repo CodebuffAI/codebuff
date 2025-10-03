@@ -104,6 +104,27 @@ const timestampFormatter = (() => {
 
 const detectSystemTheme = (): ThemeName => {
   return 'dark'
+} // Screen size thresholds (adjustable) - single source of truth
+const SCREEN_THRESHOLDS = {
+  WIDTH_CUTOFF: 70, // Below this is narrow, at/above is wide
+  HEIGHT_CUTOFF: 30, // Below this is short, at/above is tall
+} as const
+
+type ScreenMode = 'full-screen' | 'wide-screen' | 'tall-screen' | 'small-screen'
+
+function detectScreenMode(width: number, height: number): ScreenMode {
+  const isWide = width >= SCREEN_THRESHOLDS.WIDTH_CUTOFF
+  const isTall = height >= SCREEN_THRESHOLDS.HEIGHT_CUTOFF
+
+  if (isWide && isTall) {
+    return 'full-screen'
+  } else if (isTall) {
+    return 'tall-screen'
+  } else if (isWide) {
+    return 'wide-screen'
+  } else {
+    return 'small-screen'
+  }
 }
 
 function formatTimestamp(date = new Date()): string {
@@ -125,12 +146,62 @@ export const App = () => {
   const [inputWidth, setInputWidth] = useState<number>(0)
   const autoScrollEnabledRef = useRef<boolean>(true)
   const programmaticScrollRef = useRef<boolean>(false)
+  const isAtTopRef = useRef<boolean>(false)
+  const previousScrollPositionRef = useRef<number>(0)
 
   const [themeName] = useState<ThemeName>(() => detectSystemTheme())
   const theme = chatThemes[themeName]
 
   const [inputValue, setInputValue] = useState<string>('')
   const [inputFocused, setInputFocused] = useState<boolean>(true)
+  const [screenMode, setScreenMode] = useState<ScreenMode>('full-screen')
+
+  // Mock todo items with clickable toggle
+  const [completedTodos, setCompletedTodos] = useState<Set<number>>(new Set())
+
+  const baseTodoItems = [
+    { id: 1, text: 'Fix authentication bug in login flow' },
+    { id: 2, text: 'Add unit tests for user service' },
+    { id: 3, text: 'Refactor database connection pool' },
+    { id: 4, text: 'Update documentation for API endpoints' },
+    { id: 5, text: 'Review pull request #247' },
+    { id: 6, text: 'Implement logging middleware for API requests' },
+    { id: 7, text: 'Optimize image loading strategy for the web client' },
+    { id: 8, text: 'Set up continuous integration pipeline with GitHub Actions' },
+    { id: 9, text: 'Create unit tests for chat renderer hooks' },
+    { id: 10, text: 'Fix scrollbar flickering issue during resize event' },
+    { id: 11, text: 'Add keyboard shortcuts for toggling themes' },
+    { id: 12, text: 'Refactor error boundary handling in Chat component' },
+    { id: 13, text: 'Improve markdown rendering performance' },
+    { id: 14, text: 'Implement input validation for multiline messages' },
+    { id: 15, text: 'Add analytics tracking for user interactions' },
+    { id: 16, text: 'Test scrolling behavior on small screens' },
+    { id: 17, text: 'Implement mock API for offline mode' },
+    { id: 18, text: 'Design new color theme for light mode contrast review' },
+    { id: 19, text: 'Audit accessibility compliance for CLI interface' },
+    { id: 20, text: 'Add detailed release notes automation to CI/CD' },
+  ]
+
+  const todoItems = baseTodoItems.map((item) => ({
+    ...item,
+    completed: completedTodos.has(item.id),
+  }))
+
+  const handleTodoToggle = useCallback((todoId: number, e?: any) => {
+    if (e && e.stopPropagation) {
+      e.stopPropagation()
+    }
+
+    setCompletedTodos((prev) => {
+      const next = new Set(prev)
+      if (next.has(todoId)) {
+        next.delete(todoId)
+      } else {
+        next.add(todoId)
+      }
+      return next
+    })
+  }, [])
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -152,26 +223,68 @@ export const App = () => {
 
   useEffect(() => {
     renderer?.setBackgroundColor(theme.background)
+    if (renderer) {
+      setScreenMode(detectScreenMode(renderer.width, renderer.height))
+    }
   }, [renderer, theme.background])
+
+  useEffect(() => {
+    if (!renderer) return
+
+    const handleResize = () => {
+      setScreenMode(detectScreenMode(renderer.width, renderer.height))
+    }
+
+    renderer.on('resize', handleResize)
+    return () => {
+      renderer.off('resize', handleResize)
+    }
+  }, [renderer])
 
   useEffect(() => {
     const scrollbox = scrollRef.current
     if (!scrollbox) return
 
     const handleScrollChange = () => {
+      const rawPosition = scrollbox.verticalScrollBar.scrollPosition
+      const previous = previousScrollPositionRef.current
+
+      // If we were at 0 and are still at or below 0, ignore this event entirely
+      if (previous <= 0 && rawPosition <= 0 && isAtTopRef.current) {
+        return
+      }
+
+      const current = Math.max(0, rawPosition) // Clamp to prevent negative values
+
       const maxScroll = Math.max(
         0,
         scrollbox.scrollHeight - scrollbox.viewport.height,
       )
-      const current = scrollbox.verticalScrollBar.scrollPosition
       const isNearBottom = Math.abs(maxScroll - current) <= 1
+      const isAtTop = current === 0
 
       if (programmaticScrollRef.current) {
         programmaticScrollRef.current = false
         autoScrollEnabledRef.current = true
+        isAtTopRef.current = false
+        previousScrollPositionRef.current = current
         return
       }
 
+      // If we just reached the top, flag it and stop auto-scroll
+      if (isAtTop) {
+        isAtTopRef.current = true
+        autoScrollEnabledRef.current = false
+        previousScrollPositionRef.current = current
+        return
+      }
+
+      // If we moved away from the top, reset the flag
+      if (isAtTopRef.current && current > 0) {
+        isAtTopRef.current = false
+      }
+
+      previousScrollPositionRef.current = current
       autoScrollEnabledRef.current = isNearBottom
     }
 
@@ -317,7 +430,7 @@ This approach will improve _performance_ while maintaining **code clarity**.`
   const messageItems = useMemo(() => {
     const availableWidth = renderer?.width ?? 80
 
-    return messages.map((message) => {
+    return messages.map((message, index) => {
       const isAi = message.variant === 'ai'
       const lineColor = isAi ? theme.aiLine : theme.userLine
       const textColor = isAi ? theme.messageAiText : theme.messageUserText
@@ -325,7 +438,7 @@ This approach will improve _performance_ while maintaining **code clarity**.`
 
       return (
         <box
-          key={message.id}
+          key={`${message.id}-${index}`}
           style={{ width: '100%', flexDirection: 'column', gap: 0 }}
         >
           <box
@@ -422,6 +535,22 @@ This approach will improve _performance_ while maintaining **code clarity**.`
   const maxInputHeight = 5
   const inputHeight = Math.max(1, Math.min(computedLineCount, maxInputHeight))
 
+  const screenModeLabels: Record<ScreenMode, string> = {
+    'full-screen': '🖥️  Full Screen Mode',
+    'wide-screen': '↔️  Wide Screen Mode',
+    'tall-screen': '↕️  Tall Screen Mode',
+    'small-screen': '📱 Small Screen Mode',
+  }
+
+  const todoListPosition: 'top' | 'right' | 'hidden' =
+    screenMode === 'tall-screen' || screenMode === 'small-screen'
+      ? 'top'
+      : 'right'
+
+  // Todo list always on the right side
+  const todoMaxWidth = Math.floor(renderer.width / 3)
+  const todoWidth = todoMaxWidth
+
   return (
     <box
       style={{
@@ -432,50 +561,223 @@ This approach will improve _performance_ while maintaining **code clarity**.`
         flexGrow: 1,
       }}
     >
+      {/* Screen mode banner / Todo list for tall screens */}
+      {todoListPosition === 'top' ? (
+        <box
+          style={{
+            width: '100%',
+            backgroundColor: theme.panelBg,
+            paddingLeft: 1,
+            paddingRight: 1,
+            paddingTop: 1,
+            flexShrink: 0,
+          }}
+        >
+          <box
+            style={{
+              flexDirection: 'column',
+              gap: 0,
+              backgroundColor: theme.messageBg,
+              paddingLeft: 1,
+              paddingRight: 1,
+              paddingTop: 1,
+              maxHeight: Math.floor(renderer.height / 3),
+            }}
+          >
+            <text
+              content="📝 TODO"
+              wrap={false}
+              style={{
+                fg: theme.statusAccent,
+                marginBottom: screenMode === 'small-screen' ? 0 : 1,
+              }}
+              attributes={TextAttributes.BOLD}
+            />
+            <scrollbox
+              scrollX={false}
+              scrollbarOptions={{ visible: false }}
+              style={{
+                flexGrow: 1,
+                rootOptions: {
+                  flexGrow: 1,
+                  padding: 0,
+                  paddingBottom: 0,
+                  gap: 0,
+                  flexDirection: 'column',
+                },
+                wrapperOptions: {
+                  flexGrow: 1,
+                  border: false,
+                  padding: 0,
+                  paddingBottom: 0,
+                },
+                contentOptions: {
+                  flexDirection: 'column',
+                  gap: 0,
+                  padding: 0,
+                  paddingBottom: 0,
+                },
+              }}
+            >
+              {todoItems.map((item, index) => (
+                <box
+                  key={`todo-banner-${item.id}-${index}`}
+                  onMouseDown={(e: any) => handleTodoToggle(item.id, e)}
+                  style={{
+                    flexDirection: 'row',
+                    flexShrink: 0,
+                  }}
+                >
+                  <text
+                    content={`${item.completed ? '✓' : '○'} ${item.text}`}
+                    wrap
+                    style={{
+                      fg: item.completed
+                        ? theme.statusSecondary
+                        : theme.messageAiText,
+                      ...(item.completed && {
+                        attributes: TextAttributes.DIM,
+                      }),
+                    }}
+                  />
+                </box>
+              ))}
+            </scrollbox>
+          </box>
+        </box>
+      ) : (
+        <box></box>
+      )}
+
       <box
         style={{
-          flexDirection: 'column',
+          flexDirection: 'row',
           flexGrow: 1,
           paddingLeft: 1,
           paddingRight: 1,
           paddingTop: 0,
           paddingBottom: 1,
           backgroundColor: theme.panelBg,
+          gap: 1,
         }}
       >
-        <scrollbox
-          ref={scrollRef}
-          stickyScroll
-          stickyStart="bottom"
-          scrollX={false}
-          scrollbarOptions={{ visible: false }}
+        {/* Main chat area */}
+        <box
           style={{
+            flexDirection: 'column',
             flexGrow: 1,
-            rootOptions: {
-              flexGrow: 1,
-              padding: 0,
-              gap: 1,
-              flexDirection: 'column',
-              shouldFill: true,
-              backgroundColor: theme.panelBg,
-            },
-            wrapperOptions: {
-              flexGrow: 1,
-              border: false,
-              shouldFill: true,
-              backgroundColor: theme.panelBg,
-            },
-            contentOptions: {
-              flexDirection: 'column',
-              gap: 0,
-              shouldFill: true,
-              justifyContent: 'flex-end',
-              backgroundColor: theme.panelBg,
-            },
+            backgroundColor: theme.panelBg,
           }}
         >
-          {messageItems}
-        </scrollbox>
+          <scrollbox
+            ref={scrollRef}
+            stickyScroll
+            stickyStart="bottom"
+            scrollX={false}
+            scrollbarOptions={{ visible: false }}
+            style={{
+              flexGrow: 1,
+              rootOptions: {
+                flexGrow: 1,
+                padding: 0,
+                gap: 1,
+                flexDirection: 'column',
+                shouldFill: true,
+                backgroundColor: theme.panelBg,
+              },
+              wrapperOptions: {
+                flexGrow: 1,
+                border: false,
+                shouldFill: true,
+                backgroundColor: theme.panelBg,
+              },
+              contentOptions: {
+                flexDirection: 'column',
+                gap: 0,
+                shouldFill: true,
+                justifyContent: 'flex-end',
+                backgroundColor: theme.panelBg,
+              },
+            }}
+          >
+            {messageItems}
+          </scrollbox>
+        </box>
+
+        {todoListPosition === 'right' && (
+          <box
+            style={{
+              flexDirection: 'column',
+              width: todoWidth,
+              flexShrink: 0,
+              backgroundColor: theme.panelBg,
+            }}
+          >
+            <box
+              style={{
+                flexDirection: 'column',
+                gap: 0,
+                backgroundColor: theme.messageBg,
+                paddingLeft: 1,
+                paddingRight: 1,
+                paddingTop: 1,
+                maxHeight: Math.floor(renderer.height / 3),
+              }}
+            >
+              <text
+                content="📝 TODO"
+                wrap={false}
+                style={{ fg: theme.statusAccent, marginBottom: 1 }}
+                attributes={TextAttributes.BOLD}
+              />
+              <scrollbox
+                scrollX={false}
+                scrollbarOptions={{ visible: false }}
+                style={{
+                  flexGrow: 1,
+                  rootOptions: {
+                    flexGrow: 1,
+                    padding: 0,
+                    gap: 0,
+                    flexDirection: 'column',
+                  },
+                  wrapperOptions: {
+                    flexGrow: 1,
+                    border: false,
+                  },
+                  contentOptions: {
+                    flexDirection: 'column',
+                    gap: 0,
+                  },
+                }}
+              >
+                {todoItems.map((item, index) => (
+                  <box
+                    key={`todo-side-${item.id}-${index}`}
+                    onMouseDown={(e: any) => handleTodoToggle(item.id, e)}
+                    style={{
+                      flexDirection: 'row',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <text
+                      content={`${item.completed ? '✓' : '○'} ${item.text}`}
+                      wrap
+                      style={{
+                        fg: item.completed
+                          ? theme.statusSecondary
+                          : theme.messageAiText,
+                        ...(item.completed && {
+                          attributes: TextAttributes.DIM,
+                        }),
+                      }}
+                    />
+                  </box>
+                ))}
+              </scrollbox>
+            </box>
+          </box>
+        )}
       </box>
 
       {/* Fixed input region outside scrollbox */}
