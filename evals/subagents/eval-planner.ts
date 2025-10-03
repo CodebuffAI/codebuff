@@ -1,6 +1,4 @@
-import { execSync } from 'child_process'
 import * as fs from 'fs'
-import * as os from 'os'
 import * as path from 'path'
 import { createTwoFilesPatch } from 'diff'
 
@@ -9,76 +7,12 @@ import { AgentDefinition } from '../../sdk/src'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
-
-/**
- * Helper function to manage test repository lifecycle
- * Sets up a test repo, runs a function with the repo cwd, then cleans up
- */
-export const withTestRepo = async <T>(
-  repoConfig: {
-    repoUrl: string
-    commitSha: string
-    initCommand?: string
-    checkoutPrevious?: boolean
-  },
-  fn: (cwd: string) => Promise<T>,
-): Promise<T> => {
-  const { repoUrl, commitSha, initCommand, checkoutPrevious } = repoConfig
-
-  // Create a temporary directory for the test repo
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-eval-'))
-  const repoDir = path.join(tempDir, 'repo')
-
-  try {
-    // Clone the repository
-    console.log(`Cloning repository ${repoUrl} to ${repoDir}...`)
-    execSync(`git clone ${repoUrl} ${repoDir}`, { stdio: 'ignore' })
-
-    // Checkout the specific commit or the previous commit
-    if (checkoutPrevious) {
-      const previousCommitSha = getPreviousCommitSha(commitSha, repoDir)
-      console.log(`Checking out previous commit ${previousCommitSha}...`)
-      execSync(`git checkout ${previousCommitSha}`, {
-        cwd: repoDir,
-        stdio: 'ignore',
-      })
-    } else {
-      console.log(`Checking out commit ${commitSha}...`)
-      execSync(`git checkout ${commitSha}`, { cwd: repoDir, stdio: 'ignore' })
-    }
-
-    // Run initialization command if provided
-    if (initCommand) {
-      console.log(`Running init command: ${initCommand}...`)
-      execSync(initCommand, { cwd: repoDir, stdio: 'ignore' })
-    }
-
-    // Run the provided function with the repo directory
-    return await fn(repoDir)
-  } finally {
-    // Clean up the temporary directory
-    console.log(`Cleaning up temporary directory ${tempDir}...`)
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true })
-    } catch (error) {
-      console.warn(`Failed to clean up temporary directory: ${error}`)
-    }
-  }
-}
-
-/**
- * Gets the previous commit SHA (parent) of a given commit
- */
-const getPreviousCommitSha = (commitSha: string, repoDir: string): string => {
-  const previousSha = execSync(`git rev-parse ${commitSha}^`, {
-    cwd: repoDir,
-    encoding: 'utf-8',
-  }).trim()
-  return previousSha
-}
+import { withTestRepo } from './test-repo-utils'
 
 export const evalPlannerAgent = async (params: {
+  client: CodebuffClient
   agentId: string
+  agentDefinitions: Array<AgentDefinition>
   spec: string
   repoUrl: string
   commitSha: string
@@ -89,21 +23,16 @@ export const evalPlannerAgent = async (params: {
     postContent: string
   }>
 }) => {
-  const { agentId, spec, repoUrl, commitSha, initCommand, fileStates } = params
-  const getLocalAuthToken = () => {
-    return getUserCredentials()?.authToken
-  }
-  const client = new CodebuffClient({
-    apiKey: process.env[API_KEY_ENV_VAR] || getLocalAuthToken(),
-  })
-
-  const agentsPath = path.join(__dirname, '../../.agents')
-  const localAgentDefinitions = Object.values(
-    await loadLocalAgents({
-      agentsPath,
-    }),
-  )
-
+  const {
+    client,
+    agentId,
+    agentDefinitions,
+    spec,
+    repoUrl,
+    commitSha,
+    initCommand,
+    fileStates,
+  } = params
   const result = await withTestRepo(
     { repoUrl, commitSha, initCommand, checkoutPrevious: true },
     async (cwd) => {
@@ -113,7 +42,7 @@ export const evalPlannerAgent = async (params: {
         agent: agentId,
         prompt: `Please plan a full implementation of the following spec: ${spec}`,
         cwd,
-        agentDefinitions: localAgentDefinitions,
+        agentDefinitions,
         handleEvent: (event) => {
           console.log(agentId, JSON.stringify(event, null, 2))
         },
@@ -178,11 +107,13 @@ ${outputString}
 ## Your Task
 
 Evaluate how well the implementation plan matches the real commit changes. Consider:
-- Coverage of key changes from the commit
+- Coverage of changes from the commit
 - Appropriateness and correctness of proposed code changes
 - Whether following the plan would achieve the same (or better) behavior
-- Any missing critical changes
-- Any unnecessary proposed changes`
+- Any unnecessary proposed changes
+- Simplicity and clarity of the plan
+- Efficiency of the plan: reuse existing code, touch as few files as possible
+`
 
   const judgeResult = await client.run({
     agent: 'eval-judge',
@@ -196,7 +127,12 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
     throw new Error('Error running judge agent')
   }
   const { output: judgeOutput } = judgeResult
-  const judgingResults = judgeOutput.value ?? {}
+  const judgingResults = (judgeOutput.value ?? {}) as {
+    reasoning: string
+    pros: string
+    cons: string
+    overallScore: number
+  }
 
   return { judgingResults, agentOutput: outputString }
 }
@@ -242,7 +178,11 @@ Grade how well the implementation plan matches the actual implementation. The pl
 - **Correctness**: Are the proposed code changes appropriate and accurate?
 - **Behavioral equivalence**: Would following the plan achieve the same outcome?
 - **Completeness**: Are any critical changes missing?
-- **Efficiency**: Does it avoid unnecessary changes?`,
+- **Efficiency**: Does it avoid unnecessary changes?
+- **Simplicity**: Is the plan simple and easy to understand?
+
+You should be harsh if the plan makes superflous changes, fails to reuse existing code, or is otherwise not as simple as it could be.
+`,
 }
 
 type EvalData = {
@@ -271,6 +211,25 @@ async function main() {
 
   const { repoUrl, initCommand, evalCommits } = evalData
 
+  const client = new CodebuffClient({
+    apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
+  })
+
+  const agentsPath = path.join(__dirname, '../../.agents')
+  const localAgentDefinitions = Object.values(
+    await loadLocalAgents({
+      agentsPath,
+    }),
+  )
+
+  // Track statistics
+  const stats = {
+    total: evalCommits.length,
+    completed: 0,
+    failed: 0,
+    scores: [] as number[],
+  }
+
   // Loop through each eval task
   for (const evalCommit of evalCommits) {
     const { sha, spec, fileStates } = evalCommit
@@ -280,7 +239,9 @@ async function main() {
 
     try {
       const result = await evalPlannerAgent({
+        client,
         agentId: 'implementation-planner',
+        agentDefinitions: localAgentDefinitions,
         spec,
         repoUrl,
         commitSha: sha,
@@ -298,42 +259,68 @@ async function main() {
       console.log('📊 EVALUATION RESULTS')
       console.log('─'.repeat(80))
 
-      if (reasoning) {
-        console.log('\n🧠 REASONING:')
-        console.log(reasoning)
-      }
+      console.log('\n🧠 REASONING:')
+      console.log(reasoning)
 
-      if (pros) {
-        console.log('\n✅ PROS:')
-        console.log(pros)
-      }
+      console.log('\n❌ CONS:')
+      console.log(cons)
 
-      if (cons) {
-        console.log('\n❌ CONS:')
-        console.log(cons)
-      }
-
-      if (typeof overallScore === 'number') {
-        console.log('\n📈 OVERALL SCORE:')
-        const scoreBar = '█'.repeat(Math.floor(overallScore / 10))
-        const emptyBar = '░'.repeat(10 - Math.floor(overallScore / 10))
-        console.log(`${scoreBar}${emptyBar} ${overallScore}/100`)
-      }
+      console.log('\n📈 OVERALL SCORE:')
+      const scoreBar = '█'.repeat(Math.floor(overallScore / 10))
+      const emptyBar = '░'.repeat(10 - Math.floor(overallScore / 10))
+      console.log(`${scoreBar}${emptyBar} ${overallScore}/100`)
 
       console.log('\n' + '='.repeat(80) + '\n')
+
+      stats.completed++
+      stats.scores.push(overallScore)
     } catch (error) {
       console.log(`\n${'='.repeat(80)}`)
       console.error(`✗ Failed eval for commit ${sha}`)
       console.log(`${'='.repeat(80)}\n`)
       console.error('Error details:', error)
       console.log('\n' + '='.repeat(80) + '\n')
-    }
 
-    console.log('breaking for now')
-    break
+      stats.failed++
+    }
   }
 
-  console.log('\n=== All evals completed ===')
+  // Display summary statistics
+  console.log('\n' + '='.repeat(80))
+  console.log('📊 SUMMARY STATISTICS')
+  console.log('='.repeat(80) + '\n')
+
+  console.log(`Total Evals: ${stats.total}`)
+  console.log(
+    `Completed: ${stats.completed} (${((stats.completed / stats.total) * 100).toFixed(1)}%)`,
+  )
+  console.log(
+    `Failed: ${stats.failed} (${((stats.failed / stats.total) * 100).toFixed(1)}%)\n`,
+  )
+
+  if (stats.scores.length > 0) {
+    const avgScore =
+      stats.scores.reduce((a, b) => a + b, 0) / stats.scores.length
+    const minScore = Math.min(...stats.scores)
+    const maxScore = Math.max(...stats.scores)
+    const medianScore = stats.scores.sort((a, b) => a - b)[
+      Math.floor(stats.scores.length / 2)
+    ]
+
+    console.log('Score Statistics:')
+    console.log(`  Average: ${avgScore.toFixed(1)}/100`)
+    console.log(`  Median:  ${medianScore}/100`)
+    console.log(`  Min:     ${minScore}/100`)
+    console.log(`  Max:     ${maxScore}/100\n`)
+
+    const scoreBar = '█'.repeat(Math.floor(avgScore / 10))
+    const emptyBar = '░'.repeat(10 - Math.floor(avgScore / 10))
+    console.log(
+      `Average Score: ${scoreBar}${emptyBar} ${avgScore.toFixed(1)}/100\n`,
+    )
+  }
+
+  console.log('='.repeat(80))
 }
 
 // Run main if this file is executed directly
