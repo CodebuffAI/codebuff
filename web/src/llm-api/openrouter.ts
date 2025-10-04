@@ -2,29 +2,56 @@ import {
   insertMessage as insertMessageIntoBigquery,
   setupBigQuery,
 } from '@codebuff/bigquery'
+import { consumeCreditsAndAddAgentStep as consumeCreditsAndAddMessage } from '@codebuff/billing'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 
 import { OpenRouterStreamChatCompletionChunkSchema } from './type/openrouter'
 
 import type { OpenRouterStreamChatCompletionChunk } from './type/openrouter'
 
-import { errorToObject } from '@/util/error'
 import { logger } from '@/util/logger'
 
-type StreamState = { responseText: string }
+type StreamState = { responseText: string; reasoningText: string }
+
+const PROFIT_MARGIN = 0.055
 
 export async function handleOpenRouterStream({
   body,
   userId,
+  agentId,
 }: {
   body: any
   userId: string
+  agentId: string
 }) {
   // Ensure usage tracking is enabled
   if (body.usage === undefined) {
     body.usage = {}
   }
   body.usage.include = true
+
+  const startTime = new Date()
+  let clientId: string | null
+  if (
+    body.codebuff_metadata?.client_id &&
+    typeof body.codebuff_metadata?.client_id === 'string'
+  ) {
+    clientId = body.codebuff_metadata.client_id
+  } else {
+    logger.warn({ body }, 'Received request without client_id')
+    clientId = null
+  }
+  let clientRequestId: string | null
+  if (
+    body.codebuff_metadata?.client_request_id &&
+    typeof body.codebuff_metadata?.client_request_id === 'string'
+  ) {
+    clientRequestId = body.codebuff_metadata.client_request_id
+  } else {
+    logger.warn({ body }, 'Received request without client_request_id')
+    clientRequestId = null
+  }
 
   const response = await fetch(
     'https://openrouter.ai/api/v1/chat/completions',
@@ -50,7 +77,7 @@ export async function handleOpenRouterStream({
   }
 
   let heartbeatInterval: NodeJS.Timeout
-  let state: StreamState = { responseText: '' }
+  let state: StreamState = { responseText: '', reasoningText: '' }
 
   // Create a ReadableStream that Next.js can handle
   const stream = new ReadableStream({
@@ -87,7 +114,16 @@ export async function handleOpenRouterStream({
             const line = buffer.slice(0, lineEnd + 1)
             buffer = buffer.slice(lineEnd + 1)
 
-            state = await handleLine({ userId, request: body, line, state })
+            state = await handleLine({
+              userId,
+              agentId,
+              clientId,
+              clientRequestId,
+              startTime,
+              request: body,
+              line,
+              state,
+            })
 
             // Forward the line to the client
             controller.enqueue(new TextEncoder().encode(line))
@@ -115,11 +151,19 @@ export async function handleOpenRouterStream({
 
 async function handleLine({
   userId,
+  agentId,
+  clientId,
+  clientRequestId,
+  startTime,
   request,
   line,
   state,
 }: {
   userId: string
+  agentId: string
+  clientId: string | null
+  clientRequestId: string | null
+  startTime: Date
   request: unknown
   line: string
   state: StreamState
@@ -139,7 +183,7 @@ async function handleLine({
     obj = JSON.parse(raw)
   } catch (error) {
     logger.warn(
-      `Received non-JSON OpenRouter response: ${JSON.stringify(errorToObject(error), null, 2)}`
+      `Received non-JSON OpenRouter response: ${JSON.stringify(getErrorObject(error), null, 2)}`
     )
     return state
   }
@@ -148,21 +192,38 @@ async function handleLine({
   const parsed = OpenRouterStreamChatCompletionChunkSchema.safeParse(obj)
   if (!parsed.success) {
     logger.warn(
-      `Unable to parse OpenRotuer response: ${JSON.stringify(errorToObject(parsed.error), null, 2)}`
+      `Unable to parse OpenRotuer response: ${JSON.stringify(getErrorObject(parsed.error), null, 2)}`
     )
     return state
   }
 
-  return await handleResponse({ userId, request, data: parsed.data, state })
+  return await handleResponse({
+    userId,
+    agentId,
+    clientId,
+    clientRequestId,
+    startTime,
+    request,
+    data: parsed.data,
+    state,
+  })
 }
 
 async function handleResponse({
   userId,
+  agentId,
+  clientId,
+  clientRequestId,
+  startTime,
   request,
   data,
   state,
 }: {
   userId: string
+  agentId: string
+  clientId: string | null
+  clientRequestId: string | null
+  startTime: Date
   request: unknown
   data: OpenRouterStreamChatCompletionChunk
   state: StreamState
@@ -176,13 +237,14 @@ async function handleResponse({
   const usage = data.usage
 
   // do not await this
-  setupBigQuery().then(() =>
-    insertMessageIntoBigquery({
+  setupBigQuery().then(async () => {
+    const success = await insertMessageIntoBigquery({
       id: data.id,
       user_id: userId,
       finished_at: new Date(),
-      created_at: new Date(data.created * 1000),
+      created_at: startTime,
       request,
+      reasoning_text: state.reasoningText,
       response: state.responseText,
       output_tokens: usage.completion_tokens,
       reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens,
@@ -191,11 +253,33 @@ async function handleResponse({
       input_tokens: usage.prompt_tokens,
       cache_read_input_tokens: usage.prompt_tokens_details?.cached_tokens,
     })
-  )
+    if (!success) {
+      logger.error({ request }, 'Failed to insert message into BigQuery')
+    }
+  })
   const openRouterCost = usage.cost ?? 0
   const upstreamCost = usage.cost_details?.upstream_inference_cost ?? 0
   const cost = openRouterCost + upstreamCost
-  // asdf todo: charge user
+
+  await consumeCreditsAndAddMessage({
+    messageId: data.id,
+    userId,
+    agentId,
+    clientId,
+    clientRequestId,
+    startTime,
+    model: data.model,
+    reasoningText: state.reasoningText,
+    response: state.responseText,
+    cost,
+    credits: Math.round(cost * 100 * (1 + PROFIT_MARGIN)),
+    inputTokens: usage.prompt_tokens,
+    cacheCreationInputTokens: null,
+    cacheReadInputTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
+    reasoningTokens: usage.completion_tokens_details?.reasoning_tokens ?? null,
+    outputTokens: usage.completion_tokens,
+  })
+
   return state
 }
 
@@ -216,5 +300,6 @@ async function handleStreamChunk({
   }
   const choice = data.choices[0]
   state.responseText += choice.delta?.content ?? ''
+  state.reasoningText += choice.delta?.reasoning ?? ''
   return state
 }

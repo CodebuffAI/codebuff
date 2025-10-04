@@ -1,11 +1,14 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { withSerializableTransaction } from '@codebuff/common/db/transaction'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
+import { failure, success } from '@codebuff/common/util/error'
 import { logger } from '@codebuff/common/util/logger'
 import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
 
 import type { GrantType } from '@codebuff/common/db/schema'
+import type { ErrorOr } from '@codebuff/common/util/error'
 
 export interface CreditBalance {
   totalRemaining: number
@@ -319,6 +322,116 @@ export async function consumeCredits(
     },
     { userId, creditsToConsume },
   )
+}
+
+export async function consumeCreditsAndAddAgentStep(options: {
+  messageId: string
+  userId: string
+  agentId: string
+  clientId: string | null
+  clientRequestId: string | null
+
+  startTime: Date
+
+  model: string
+  reasoningText: string
+  response: string
+
+  cost: number
+  credits: number
+
+  inputTokens: number
+  cacheCreationInputTokens: number | null
+  cacheReadInputTokens: number
+  reasoningTokens: number | null
+  outputTokens: number
+}): Promise<ErrorOr<CreditConsumptionResult & { agentStepId: string }>> {
+  const {
+    messageId,
+    userId,
+    agentId,
+    clientId,
+    clientRequestId,
+
+    startTime,
+
+    model,
+    reasoningText,
+    response,
+
+    cost,
+    credits,
+
+    inputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
+    reasoningTokens,
+    outputTokens,
+  } = options
+
+  const finishedAt = new Date()
+  const latencyMs = finishedAt.getTime() - startTime.getTime()
+
+  try {
+    return success(
+      await withSerializableTransaction(
+        async (tx) => {
+          const now = new Date()
+          const activeGrants = await getOrderedActiveGrants(userId, now, tx)
+
+          if (activeGrants.length === 0) {
+            logger.error(
+              { userId, credits },
+              'No active grants found to consume credits from',
+            )
+            throw new Error('No active grants found')
+          }
+
+          const result = await consumeFromOrderedGrants(
+            userId,
+            credits,
+            activeGrants,
+            tx,
+          )
+
+          if (userId === TEST_USER_ID) {
+            return { ...result, agentStepId: 'test-step-id' }
+          }
+          const stepId = crypto.randomUUID()
+
+          try {
+            await tx.insert(schema.message).values({
+              id: messageId,
+              agent_id: agentId,
+              finished_at: new Date(),
+              client_id: clientId,
+              client_request_id: clientRequestId,
+              model,
+              reasoning_text: reasoningText,
+              response,
+              input_tokens: inputTokens,
+              cache_creation_input_tokens: cacheCreationInputTokens,
+              cache_read_input_tokens: cacheReadInputTokens,
+              reasoning_tokens: reasoningTokens,
+              output_tokens: outputTokens,
+              cost: cost.toString(),
+              credits,
+              latency_ms: latencyMs,
+              user_id: userId,
+            })
+          } catch (error) {
+            logger.error({ ...options, error }, 'Failed to add message')
+            throw error
+          }
+
+          return { ...result, agentStepId: stepId }
+        },
+        { userId, credits },
+      ),
+    )
+  } catch (error) {
+    return failure(error)
+  }
 }
 
 /**

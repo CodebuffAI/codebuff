@@ -1,5 +1,5 @@
+import { getErrorObject } from '@codebuff/common/util/error'
 import { logger } from '@codebuff/common/util/logger'
-import { errorToObject } from '@codebuff/common/util/object'
 import { BigQuery } from '@google-cloud/bigquery'
 
 import { MESSAGE_SCHEMA, RELABELS_SCHEMA, TRACES_SCHEMA } from './schema'
@@ -113,7 +113,7 @@ export async function insertMessage(
     return true
   } catch (error) {
     logger.error(
-      { error: errorToObject(error), messageId: row.id },
+      { error: getErrorObject(error), messageId: row.id },
       'Failed to insert message into BigQuery',
     )
 

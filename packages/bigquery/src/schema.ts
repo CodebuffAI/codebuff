@@ -132,6 +132,7 @@ export type MessageRow = {
   finished_at: Date
   created_at: Date
   request: unknown
+  reasoning_text: string
   response: string
   output_tokens?: number | null
   reasoning_tokens?: number | null
@@ -150,6 +151,7 @@ export const MESSAGE_SCHEMA: TableSchema = {
     { name: 'request', type: 'JSON', mode: 'REQUIRED' },
     { name: 'response', type: 'STRING', mode: 'REQUIRED' },
     { name: 'output_tokens', type: 'INTEGER', mode: 'NULLABLE' },
+    { name: 'reasoning_text', type: 'STRING', mode: 'NULLABLE' },
     { name: 'reasoning_tokens', type: 'INTEGER', mode: 'NULLABLE' },
     { name: 'cost', type: 'FLOAT', mode: 'NULLABLE' },
     { name: 'upstream_inference_cost', type: 'FLOAT', mode: 'NULLABLE' },

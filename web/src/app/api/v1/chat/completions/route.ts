@@ -1,4 +1,5 @@
 import { getUserUsageData } from '@codebuff/billing/usage-service'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
@@ -7,16 +8,11 @@ import { getAgentRunFromId } from '@/db/agent-run'
 import { getUserInfoFromApiKey } from '@/db/user'
 import { handleOpenRouterStream } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
-import { errorToObject } from '@/util/error'
 import { logger } from '@/util/logger'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-
-    console.log('asdf', {
-      req: { headers: Object.fromEntries(req.headers), body },
-    })
 
     const apiKey = extractApiKeyFromHeader(req)
 
@@ -53,7 +49,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const runIdFromBody: string = body.codebuff_metadata?.agentRunId
+    const runIdFromBody: string | undefined =
+      body.codebuff_metadata?.agent_run_id
     if (!runIdFromBody || typeof runIdFromBody !== 'string') {
       return NextResponse.json(
         { message: 'No agentRunId found in request body' },
@@ -61,12 +58,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const runId = runIdFromBody
-      ? getAgentRunFromId({ agentRunId: runIdFromBody, userId, fields: ['id'] })
-      : null
-    if (!runId) {
+    const agentRun = await getAgentRunFromId({
+      agentRunId: runIdFromBody,
+      userId,
+      fields: ['agent_id', 'status'],
+    })
+    if (!agentRun) {
       return NextResponse.json(
         { message: `agentRunId Not Found: ${runIdFromBody}` },
+        { status: 400 }
+      )
+    }
+
+    const { agent_id: agentId, status: agentRunStatus } = agentRun
+
+    if (agentRunStatus !== 'running') {
+      return NextResponse.json(
+        { message: `agentRunId Not Running: ${runIdFromBody}` },
         { status: 400 }
       )
     }
@@ -75,6 +83,7 @@ export async function POST(req: NextRequest) {
       const stream = await handleOpenRouterStream({
         body,
         userId,
+        agentId,
       })
 
       return new NextResponse(stream, {
@@ -86,7 +95,7 @@ export async function POST(req: NextRequest) {
         },
       })
     } catch (error) {
-      logger.error(errorToObject(error), 'Error setting up OpenRouter stream:')
+      logger.error(getErrorObject(error), 'Error setting up OpenRouter stream:')
       return NextResponse.json(
         { error: 'Failed to initialize stream' },
         { status: 500 }
@@ -94,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     logger.error(
-      errorToObject(error),
+      getErrorObject(error),
       'Error processing chat completions request:'
     )
     return NextResponse.json(
