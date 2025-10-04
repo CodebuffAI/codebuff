@@ -12,7 +12,7 @@ const definition: SecretAgentDefinition = {
   id: 'base-lite-grok-4-fast',
   displayName: 'Base Lite Grok 4 Fast',
   publisher,
-  model: 'x-ai/grok-4-fast:free',
+  model: 'x-ai/grok-4-fast',
   spawnableAgents: ['researcher-grok-4-fast', 'thinker', 'reviewer-lite', 'context-pruner'],
   instructionsPrompt:
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +

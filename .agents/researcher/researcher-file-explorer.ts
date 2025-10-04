@@ -19,7 +19,7 @@ const fileExplorer: SecretAgentDefinition = {
   displayName: 'Dora the File Explorer',
   spawnerPrompt:
     'Comprehensively explores the codebase and reports back on the results',
-  model: 'x-ai/grok-4-fast:free',
+  model: 'x-ai/grok-4-fast',
   publisher,
   outputMode: 'structured_output',
   includeMessageHistory: false,

@@ -4,7 +4,7 @@ import { publisher } from '../constants'
 const definition: SecretAgentDefinition = {
   id: 'researcher-codebase-explorer',
   publisher,
-  model: 'x-ai/grok-4-fast:free',
+  model: 'x-ai/grok-4-fast',
   displayName: 'Codebase Explorer',
   spawnerPrompt: `Expert at exploring the codebase to find relevant information using terminal commands.`,
   inputSchema: {

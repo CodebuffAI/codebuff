@@ -301,7 +301,7 @@ export type ModelName =
 
   // X-AI
   | 'x-ai/grok-4-07-09'
-  | 'x-ai/grok-4-fast:free'
+  | 'x-ai/grok-4-fast'
   | 'x-ai/grok-code-fast-1'
 
   // Qwen

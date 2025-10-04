@@ -114,7 +114,7 @@ const definition: AgentDefinition = {
     '1. **Use as few fields as possible**: Leave out fields that are not needed to reduce complexity',
     '2. **Minimal Tools**: Only include tools the agent actually needs',
     '3. **Clear and Concise Prompts**: Write clear, specific prompts that have no unnecessary words. Usually a few sentences or bullet points is enough.',
-    '5. **Appropriate Model**: Choose the right model for the task complexity. Default is anthropic/claude-sonnet-4 for medium-high complexity tasks, x-ai/grok-4-fast:free for low complexity tasks, openai/gpt-5 for reasoning tasks, especially for very complex tasks that need more time to come up with the best solution.',
+    '5. **Appropriate Model**: Choose the right model for the task complexity. Default is anthropic/claude-sonnet-4 for medium-high complexity tasks, x-ai/grok-4-fast for low complexity tasks, openai/gpt-5 for reasoning tasks, especially for very complex tasks that need more time to come up with the best solution.',
     '6. **Editing files**: If the agent should be able to edit files, include the str_replace tool and the write_file tool.',
     '7. **Input and output schema**: For almost all agents, just make the input schema a string prompt, and use last_message for the output mode. Agents that modify files mainly interact by their changes to files, not through the output schema. Some subagents may want to use the output schema, which the parent agent can use specifically.',
     '',

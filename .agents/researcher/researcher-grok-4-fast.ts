@@ -7,7 +7,7 @@ import { publisher } from '../constants'
 const definition: SecretAgentDefinition = {
   id: 'researcher-grok-4-fast',
   publisher,
-  model: 'x-ai/grok-4-fast:free',
+  model: 'x-ai/grok-4-fast',
   displayName: 'Grok 4 Fast Researcher',
   toolNames: ['spawn_agents'],
   spawnableAgents: [
