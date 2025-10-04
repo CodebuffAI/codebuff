@@ -48,6 +48,7 @@ Step 3: Synthesis
 - Create a unified implementation plan that:
   - Combines insights from all subtask plans
   - Resolves any conflicts or overlaps
+  - Simplfies the plans while still accomplishing the task correctly -- most likely each subtask plan will do too much and add too much complexity
   - Presents a coherent, step-by-step implementation
   - Includes all necessary code changes in markdown code blocks
   - Follows the guidelines below
