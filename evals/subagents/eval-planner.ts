@@ -222,6 +222,18 @@ async function main() {
     }),
   )
 
+  const allResults = [] as Array<{
+    sha: string
+    spec: string
+    agentOutput: string
+    judgingResults: {
+      reasoning: string
+      pros: string
+      cons: string
+      overallScore: number
+    }
+  }>
+
   // Track statistics
   const stats = {
     total: evalCommits.length,
@@ -249,7 +261,19 @@ async function main() {
         fileStates,
       })
 
-      const { judgingResults } = result
+      const { judgingResults, agentOutput } = result
+      allResults.push({
+        sha,
+        spec,
+        agentOutput,
+        judgingResults,
+      })
+
+      fs.writeFileSync(
+        path.join(__dirname, 'eval-planner-results.json'),
+        JSON.stringify(allResults, null, 2),
+      )
+
       const { reasoning, pros, cons, overallScore } = judgingResults
 
       console.log(`\n${'='.repeat(80)}`)
@@ -261,6 +285,9 @@ async function main() {
 
       console.log('\n🧠 REASONING:')
       console.log(reasoning)
+
+      console.log('\n✅ PROS:')
+      console.log(pros)
 
       console.log('\n❌ CONS:')
       console.log(cons)
