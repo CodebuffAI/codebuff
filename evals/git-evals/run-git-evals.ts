@@ -233,7 +233,7 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
     const judgingResults = await judgeEvalRun(evalRun)
     console.log('Judging results:', judgingResults)
 
-    return {
+    const result = {
       ...evalRun,
       judging_results: judgingResults,
       computed_metrics: {
@@ -241,6 +241,18 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
         cost_usd: totalCostUsd,
       },
     }
+
+    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
+      const { eval_commit, gitDiff, ...rest } = result
+      const { fileStates, ...rest2 } = eval_commit
+
+      writeJsonToFile(
+        { ...rest, ...rest2 },
+        path.join(__dirname, `trace-${evalCommit.sha}.json`),
+      )
+    }
+
+    return result
   } catch (judgingError) {
     console.error('Error in judging:', judgingError)
     // Return without judging results if judging fails
@@ -267,6 +279,10 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
       },
     }
   }
+}
+
+function writeJsonToFile(json: any, path: string) {
+  fs.writeFileSync(path, JSON.stringify(json, null, 2))
 }
 
 function getCodebuffFileStates(
