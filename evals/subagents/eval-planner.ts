@@ -124,7 +124,20 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
     },
   })
   if (judgeResult.output.type !== 'structuredOutput') {
-    throw new Error('Error running judge agent')
+    console.log(
+      'Error running judge agent -- not structured output',
+      JSON.stringify(judgeResult.output, null, 2),
+    )
+    // throw new Error('Error running judge agent')
+    return {
+      judgingResults: {
+        reasoning: 'Error running judge agent -- not structured output',
+        pros: '',
+        cons: '',
+        overallScore: 0,
+      },
+      agentOutput: outputString,
+    }
   }
   const { output: judgeOutput } = judgeResult
   const judgingResults = (judgeOutput.value ?? {}) as {
