@@ -77,7 +77,7 @@ export const handleSpawnAgentsAsync = ((params: {
     localAgentTemplates,
     agentState,
   } = validateSpawnState(state, 'spawn_agents_async')
-  const { sendSubagentChunk, system } = state
+  const { sendSubagentChunk, system: parentSystemPrompt } = state
 
   if (!sendSubagentChunk) {
     throw new Error(
@@ -108,6 +108,7 @@ export const handleSpawnAgentsAsync = ((params: {
 
         const asyncAgentState = createAgentState(
           agentType,
+          agentTemplate,
           agentState,
           subAgentMessages,
           {},
@@ -138,7 +139,7 @@ export const handleSpawnAgentsAsync = ((params: {
               localAgentTemplates,
               userId,
               clientSessionId,
-              parentSystemPrompt: system,
+              parentSystemPrompt,
               onResponseChunk: (chunk: string | PrintModeEvent) => {
                 if (typeof chunk !== 'string') {
                   return
