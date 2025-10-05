@@ -15,7 +15,6 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-import { expireMessages } from '../../../util/messages'
 export interface SpawnAgentParams {
   agent_type: string
   prompt?: string
@@ -243,7 +242,7 @@ export function createAgentState(
   const agentId = generateCompactId()
 
   const messageHistory = agentTemplate.includeMessageHistory
-    ? expireMessages(parentMessageHistory, 'userPrompt')
+    ? parentMessageHistory
     : []
 
   return {
