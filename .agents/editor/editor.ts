@@ -1,9 +1,6 @@
 import { Message } from 'types/util-types'
 import { publisher } from '../constants'
-import {
-  PLACEHOLDER,
-  type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
+import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const editor: SecretAgentDefinition = {
   id: 'editor',
@@ -28,7 +25,6 @@ const editor: SecretAgentDefinition = {
     },
   },
   outputMode: 'structured_output',
-  includeMessageHistory: true,
   toolNames: [
     'read_files',
     'write_file',
@@ -42,7 +38,10 @@ const editor: SecretAgentDefinition = {
   ],
   spawnableAgents: ['file-explorer', 'web-researcher', 'docs-researcher'],
 
-  systemPrompt: `You are an expert code editor with deep understanding of software engineering principles.
+  includeMessageHistory: true,
+  inheritParentSystemPrompt: true,
+
+  instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles.
 
 # Core Mandates
 
@@ -66,52 +65,8 @@ const editor: SecretAgentDefinition = {
     - Remove unused variables, functions, and files as a result of your changes.
     - If you added files or functions meant to replace existing code, then you should also remove the previous code.
 - **Edit multiple files at once:** When you edit files, you must make as many tool calls as possible in a single message. This is faster and much more efficient than making all the tool calls in separate messages. It saves users thousands of dollars in credits if you do this!
-<example>
-Assistant: I will now implement feature X.
-
-<codebuff_tool_call>
-{
-  "toolName": "str_replace",
-  "input": {
-    "filePath": "src/components/Button.tsx",
-    "oldContent": "...",
-    "newContent": "...",
-  }
-}
-</codebuff_tool_call>
-
-<codebuff_tool_call>
-{
-  "toolName": "str_replace",
-  "input": {
-    "filePath": "src/components/Button.tsx",
-    "oldContent": "...",
-    "newContent": "...",
-  }
-}
-</codebuff_tool_call>
-
-// ... 8 more str_replace tool calls ...
-
-Let's see what the code looks like now.
-
-User: <tool_result>
-<tool>str_replace</tool>
-<result>...</result>
-</tool_result>
-
-<tool_result>
-<tool>str_replace</tool>
-<result>...</result>
-</tool_result>
-
-// ... 8 more tool_result blocks ...
-</example>
 - **Summarize with set_output:** You must use the set_output tool before finishing and include a clear explanation of the changes made or an answer to the user prompt. Do not write a separate summary outside of the set_output tool.
-
-${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
-
-  instructionsPrompt: `Implement the requested changes, using your judgment as needed, but referring to the original <user-message> as the most important source of information.
+Implement the requested changes, using your judgment as needed, but referring to the original <user-message> as the most important source of information.
 
 # Instructions
 

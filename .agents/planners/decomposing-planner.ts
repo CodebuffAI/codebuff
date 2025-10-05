@@ -1,8 +1,5 @@
 import { publisher } from '../constants'
-import {
-  PLACEHOLDER,
-  type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
+import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'decomposing-planner',
@@ -19,27 +16,25 @@ const definition: SecretAgentDefinition = {
     },
   },
   outputMode: 'last_message',
-  includeMessageHistory: true,
   toolNames: ['spawn_agents', 'read_files'],
-  spawnableAgents: ['file-explorer', 'implementation-planner'],
+  spawnableAgents: ['researcher-file-explorer', 'implementation-planner'],
 
-  systemPrompt: `You are an expert programmer, architect, and problem solver who excels at breaking down complex tasks.
+  includeMessageHistory: true,
+  inheritParentSystemPrompt: true,
 
-${PLACEHOLDER.FILE_TREE_PROMPT}
-${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
-
-  instructionsPrompt: `Instructions:
+  instructionsPrompt: `You are an expert programmer, architect, and problem solver who excels at breaking down complex tasks.
+Instructions:
 
 Step 1: Task Decomposition
-- Spawn a file-explorer agent to explore the codebase and read all the relevant files
+- Spawn a researcher-file-explorer agent to explore the codebase and read all the relevant files
 - Carefully analyze the user's request
-- Break it down into 3-5 focused subtasks that:
+- Break it down into 2-10 focused subtasks that:
   - Cover different aspects of the implementation (e.g., data layer, business logic, UI, testing)
   - Are specific and actionable
   - Together address the complete requirements
 
 Step 2: Parallel Planning
-- Spawn 3-5 implementation-planner agents in parallel (one spawn_agents call with multiple agents)
+- Spawn 2-10 implementation-planner agents in parallel (one spawn_agents call with multiple agents)
 - Give each agent a focused subtask from your decomposition
 - Each subtask prompt should be specific about what that agent should focus on
 

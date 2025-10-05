@@ -15,11 +15,11 @@ export const reviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
     },
   },
   outputMode: 'last_message',
-  includeMessageHistory: true,
   toolNames: ['end_turn', 'run_file_change_hooks'],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert programmer who can articulate very clear feedback on code changes.`,
+  inheritParentSystemPrompt: true,
+  includeMessageHistory: true,
 
   instructionsPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant.
 
