@@ -48,6 +48,7 @@ export async function runProgrammaticStep(
     template,
     prompt,
     params,
+    system,
     userId,
     userInputId,
     clientSessionId,
@@ -62,6 +63,7 @@ export async function runProgrammaticStep(
     template: AgentTemplate
     prompt: string | undefined
     params: Record<string, any> | undefined
+    system: string | undefined
     userId: string | undefined
     userInputId: string
     clientSessionId: string
@@ -160,6 +162,7 @@ export async function runProgrammaticStep(
     repoId,
     agentTemplate: template,
     localAgentTemplates,
+    system,
     sendSubagentChunk: (data: {
       userInputId: string
       agentId: string

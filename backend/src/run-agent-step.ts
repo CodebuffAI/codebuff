@@ -615,6 +615,7 @@ export const loopAgentSteps = async (
           localAgentTemplates,
           prompt: currentPrompt,
           params: currentParams,
+          system,
           stepsComplete: shouldEndTurn,
           stepNumber: totalSteps,
         })
