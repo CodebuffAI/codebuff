@@ -8,7 +8,7 @@ const definition: SecretAgentDefinition = {
   id: 'decomposing-planner',
   publisher,
   model: 'anthropic/claude-sonnet-4.5',
-  displayName: 'Decomposing Planner',
+  displayName: 'Peter Plan',
   spawnerPrompt:
     'Creates the best possible implementation plan by decomposing the task into smaller plans in parallel and synthesizing them into a final plan. Includes full code changes.',
   inputSchema: {
