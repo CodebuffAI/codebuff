@@ -16,29 +16,27 @@ const definition: SecretAgentDefinition = {
     },
   },
   outputMode: 'last_message',
-  toolNames: ['spawn_agents', 'read_files'],
-  spawnableAgents: ['researcher-file-explorer', 'implementation-planner'],
+  toolNames: ['spawn_agents'],
+  spawnableAgents: ['implementation-planner'],
 
   includeMessageHistory: true,
   inheritParentSystemPrompt: true,
 
   instructionsPrompt: `You are an expert programmer, architect, and problem solver who excels at breaking down complex tasks.
+
 Instructions:
 
-Step 1: Task Decomposition
-- Spawn a researcher-file-explorer agent to explore the codebase and read all the relevant files
+Step 1: Task Decomposition & Parallel Planning
 - Carefully analyze the user's request
 - Break it down into 2-10 focused subtasks that:
   - Cover different aspects of the implementation (e.g., data layer, business logic, UI, testing)
   - Are specific and actionable
   - Together address the complete requirements
-
-Step 2: Parallel Planning
 - Spawn 2-10 implementation-planner agents in parallel (one spawn_agents call with multiple agents)
 - Give each agent a focused subtask from your decomposition
 - Each subtask prompt should be specific about what that agent should focus on
 
-Step 3: Synthesis
+Step 2: Synthesis
 - Review all the plans from the spawned agents
 - Create a unified implementation plan that:
   - Combines insights from all subtask plans

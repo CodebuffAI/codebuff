@@ -70,13 +70,13 @@ Implement the requested changes, using your judgment as needed, but referring to
 
 # Instructions
 
-- It's helpful to spawn a file explorer to discover all the relevant files for implementing the plan. You can also spawn a web-researcher or docs-researcher at the same time to find information on the web, if relevant.
-- You must read all relevant files to understand the current state. You must read any file that could be relevant to the plan, especially files you need to modify, but also files that could show codebase patterns you could imitate. Try to read a lot of files in a single tool call. E.g. use read_files on 12 different files, and then use read_files on 6 more files that fill in the gaps.
+- Read any relevant files that have not already been read. Or, spawn a file-explorer to find any other relevant parts of the codebase.
 - Implement changes using str_replace or write_file.
+- Verify your changes by running tests, typechecking, etc. Keep going until you are sure the changes are correct.
 - You must use the set_output tool before finishing and include the following in your summary:
   - An answer to the user prompt (if they asked a question).
   - An explanation of the changes made.
-  - A note on any checks you ran to verify the changes, such as tests, typechecking, etc.
+  - A note on any checks you ran to verify the changes, such as tests, typechecking, etc., and the results of those checks.
   - Do not include a section on the benefits of the changes, as we're most interested in the changes themselves and what still needs to be done.
 - Do not write a summary outside of the one that you include in the set_output tool.
 - As soon as you use set_output, you must end your turn using the end_turn tool.
