@@ -163,6 +163,7 @@ describe('Subagent Streaming', () => {
         sendSubagentChunk: mockSendSubagentChunk,
         messages: [],
         agentState,
+        system: 'Test system prompt',
       },
     })
 
@@ -239,6 +240,7 @@ describe('Subagent Streaming', () => {
         sendSubagentChunk: mockSendSubagentChunk,
         messages: [],
         agentState,
+        system: 'Test system prompt',
       },
     })
     await result

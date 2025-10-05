@@ -37,6 +37,7 @@ export const handleSpawnAgentInline = ((params: {
     localAgentTemplates?: Record<string, AgentTemplate>
     messages?: Message[]
     agentState?: AgentState
+    system?: string
   }
 }): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {

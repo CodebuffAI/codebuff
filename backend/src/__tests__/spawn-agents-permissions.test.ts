@@ -260,6 +260,7 @@ describe('Spawn Agents Permissions', () => {
           sendSubagentChunk: mockSendSubagentChunk,
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -292,6 +293,7 @@ describe('Spawn Agents Permissions', () => {
           sendSubagentChunk: mockSendSubagentChunk,
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -326,6 +328,7 @@ describe('Spawn Agents Permissions', () => {
           sendSubagentChunk: mockSendSubagentChunk,
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -362,6 +365,7 @@ describe('Spawn Agents Permissions', () => {
           sendSubagentChunk: mockSendSubagentChunk,
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -397,6 +401,7 @@ describe('Spawn Agents Permissions', () => {
           sendSubagentChunk: mockSendSubagentChunk,
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -429,6 +434,7 @@ describe('Spawn Agents Permissions', () => {
           sendSubagentChunk: mockSendSubagentChunk,
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -478,6 +484,7 @@ describe('Spawn Agents Permissions', () => {
           sendSubagentChunk: mockSendSubagentChunk,
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -527,6 +534,7 @@ describe('Spawn Agents Permissions', () => {
           localAgentTemplates: { thinker: childAgent },
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -557,6 +565,7 @@ describe('Spawn Agents Permissions', () => {
           localAgentTemplates: { reviewer: childAgent },
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -588,6 +597,7 @@ describe('Spawn Agents Permissions', () => {
           localAgentTemplates: {}, // Empty - agent not found
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -618,6 +628,7 @@ describe('Spawn Agents Permissions', () => {
           localAgentTemplates: { 'codebuff/thinker@1.0.0': childAgent },
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -651,6 +662,7 @@ describe('Spawn Agents Permissions', () => {
           },
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
@@ -681,6 +693,7 @@ describe('Spawn Agents Permissions', () => {
           localAgentTemplates: { 'codebuff/thinker@2.0.0': childAgent },
           messages: [],
           agentState: sessionState.mainAgentState,
+          system: 'Test system prompt',
         },
       })
 
