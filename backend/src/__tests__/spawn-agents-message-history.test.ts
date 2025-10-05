@@ -77,6 +77,7 @@ describe('Spawn Agents Message History', () => {
     spawnerPrompt: '',
     model: '',
     includeMessageHistory,
+    inheritParentSystemPrompt: false,
     mcpServers: {},
     toolNames: [],
     spawnableAgents: ['child-agent'],
@@ -96,7 +97,7 @@ describe('Spawn Agents Message History', () => {
     },
   })
 
-  it('should exclude system messages from conversation history when includeMessageHistory is true', async () => {
+  it('should include all messages from conversation history when includeMessageHistory is true', async () => {
     const parentAgent = createMockAgent('parent', true)
     const childAgent = createMockAgent('child-agent', true)
     const ws = new MockWebSocket() as unknown as WebSocket
@@ -131,6 +132,7 @@ describe('Spawn Agents Message History', () => {
         sendSubagentChunk: mockSendSubagentChunk,
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
+        system: 'Test system prompt',
       },
     })
 
@@ -139,42 +141,35 @@ describe('Spawn Agents Message History', () => {
     // Verify that the spawned agent was called
     expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1)
 
-    // Verify that the subagent's message history contains the conversation history message
-    expect(capturedSubAgentState.messageHistory).toHaveLength(1)
-    const conversationHistoryMessage = capturedSubAgentState.messageHistory[0]
-    expect(conversationHistoryMessage.role).toBe('user')
-    expect(conversationHistoryMessage.content).toContain(
-      'conversation history between the user and an assistant',
+    // Verify that the subagent's message history contains the filtered messages
+    // expireMessages filters based on timeToLive property, not role
+    // Since the system message doesn't have timeToLive, it will be included
+    expect(capturedSubAgentState.messageHistory).toHaveLength(4) // System + user + assistant messages
+
+    // Verify system message is included (because it has no timeToLive property)
+    const systemMessages = capturedSubAgentState.messageHistory.filter(
+      (msg: any) => msg.role === 'system',
     )
-
-    // Parse the JSON content to verify system message is excluded
-    const contentMatch =
-      conversationHistoryMessage.content.match(/\[([\s\S]*)\]/)
-    expect(contentMatch).toBeTruthy()
-    const parsedMessages = JSON.parse(contentMatch![0])
-
-    // Verify system message is excluded
-    expect(parsedMessages).toHaveLength(3) // Only user and assistant messages
-    expect(
-      parsedMessages.find((msg: any) => msg.role === 'system'),
-    ).toBeUndefined()
-    expect(
-      parsedMessages.find(
-        (msg: any) =>
-          msg.content ===
-          'This is the parent system prompt that should be excluded',
-      ),
-    ).toBeUndefined()
+    expect(systemMessages).toHaveLength(1)
+    expect(systemMessages[0].content).toBe(
+      'This is the parent system prompt that should be excluded',
+    )
 
     // Verify user and assistant messages are included
     expect(
-      parsedMessages.find((msg: any) => msg.content === 'Hello'),
+      capturedSubAgentState.messageHistory.find(
+        (msg: any) => msg.content === 'Hello',
+      ),
     ).toBeTruthy()
     expect(
-      parsedMessages.find((msg: any) => msg.content === 'Hi there!'),
+      capturedSubAgentState.messageHistory.find(
+        (msg: any) => msg.content === 'Hi there!',
+      ),
     ).toBeTruthy()
     expect(
-      parsedMessages.find((msg: any) => msg.content === 'How are you?'),
+      capturedSubAgentState.messageHistory.find(
+        (msg: any) => msg.content === 'How are you?',
+      ),
     ).toBeTruthy()
   })
 
@@ -208,6 +203,7 @@ describe('Spawn Agents Message History', () => {
         sendSubagentChunk: mockSendSubagentChunk,
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
+        system: 'Test system prompt',
       },
     })
 
@@ -243,15 +239,14 @@ describe('Spawn Agents Message History', () => {
         sendSubagentChunk: mockSendSubagentChunk,
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
+        system: 'Test system prompt',
       },
     })
 
     await result
 
-    // Verify that the subagent still gets a conversation history message, even if empty
-    expect(capturedSubAgentState.messageHistory).toHaveLength(1)
-    const conversationHistoryMessage = capturedSubAgentState.messageHistory[0]
-    expect(conversationHistoryMessage.content).toContain('[]') // Empty array in JSON
+    // Verify that the subagent's message history is empty when there are no messages to pass
+    expect(capturedSubAgentState.messageHistory).toHaveLength(0)
   })
 
   it('should handle message history with only system messages', async () => {
@@ -283,14 +278,18 @@ describe('Spawn Agents Message History', () => {
         sendSubagentChunk: mockSendSubagentChunk,
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
+        system: 'Test system prompt',
       },
     })
 
     await result
 
-    // Verify that all system messages are filtered out
-    expect(capturedSubAgentState.messageHistory).toHaveLength(1)
-    const conversationHistoryMessage = capturedSubAgentState.messageHistory[0]
-    expect(conversationHistoryMessage.content).toContain('[]') // Empty array in JSON since all system messages filtered out
+    // Verify that system messages without timeToLive are included
+    // expireMessages only filters messages with timeToLive='userPrompt'
+    expect(capturedSubAgentState.messageHistory).toHaveLength(2)
+    const systemMessages = capturedSubAgentState.messageHistory.filter(
+      (msg: any) => msg.role === 'system',
+    )
+    expect(systemMessages).toHaveLength(2)
   })
 })

@@ -95,7 +95,7 @@ export interface AgentDefinition {
   /** Whether to include conversation history from the parent agent in context.
    *
    * Defaults to false.
-   * Use this if the agent needs to know all the previous messages in the conversation.
+   * Use this when the agent needs to know all the previous messages in the conversation.
    */
   includeMessageHistory?: boolean
 
@@ -120,6 +120,14 @@ export interface AgentDefinition {
    *
    * This field is key if the agent is intended to be spawned by other agents. */
   spawnerPrompt?: string
+
+  /** Whether to inherit the parent agent's system prompt instead of using this agent's own systemPrompt.
+   *
+   * Defaults to false.
+   * Use this when you want to enable prompt caching by preserving the same system prompt prefix.
+   * Cannot be used together with the systemPrompt field.
+   */
+  inheritParentSystemPrompt?: boolean
 
   /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string
@@ -289,7 +297,7 @@ export type ModelName =
   | 'openai/gpt-5-nano'
 
   // Anthropic
-  | 'anthropic/claude-sonnet-4'
+  | 'anthropic/claude-sonnet-4.5'
   | 'anthropic/claude-opus-4.1'
 
   // Gemini
@@ -326,8 +334,8 @@ export type ModelName =
   // Other open source models
   | 'moonshotai/kimi-k2'
   | 'moonshotai/kimi-k2:nitro'
-  | 'z-ai/glm-4.5'
-  | 'z-ai/glm-4.5:nitro'
+  | 'z-ai/glm-4.6'
+  | 'z-ai/glm-4.6:nitro'
   | (string & {})
 
 export type { Tools }

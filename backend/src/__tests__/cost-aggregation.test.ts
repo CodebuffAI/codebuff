@@ -69,6 +69,7 @@ describe('Cost Aggregation System', () => {
       instructionsPrompt: 'Test instructions',
       stepPrompt: 'Test step prompt',
       includeMessageHistory: true,
+      inheritParentSystemPrompt: false,
       outputMode: 'last_message',
       inputSchema: {},
     }
@@ -140,6 +141,7 @@ describe('Cost Aggregation System', () => {
         messages: [],
         agentState: parentAgentState,
         sendSubagentChunk: () => {},
+        system: 'Test system prompt',
       }
 
       // Mock executeAgent to return results with different credit costs
@@ -212,6 +214,7 @@ describe('Cost Aggregation System', () => {
         messages: [],
         agentState: parentAgentState,
         sendSubagentChunk: () => {},
+        system: 'Test system prompt',
       }
 
       // Mock executeAgent to return success and failure with partial costs
@@ -368,6 +371,7 @@ describe('Cost Aggregation System', () => {
         messages: [],
         agentState: mainAgentState,
         sendSubagentChunk: () => {},
+        system: 'Test system prompt',
       }
 
       const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')

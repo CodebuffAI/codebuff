@@ -1,6 +1,4 @@
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-import { closeXml } from '@codebuff/common/util/xml'
-
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/old-constants'
 
@@ -15,11 +13,11 @@ export const reviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
     },
   },
   outputMode: 'last_message',
-  includeMessageHistory: true,
-  toolNames: ['end_turn', 'run_file_change_hooks'],
+  toolNames: ['run_file_change_hooks'],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert programmer who can articulate very clear feedback on code changes.`,
+  inheritParentSystemPrompt: true,
+  includeMessageHistory: true,
 
   instructionsPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant.
 
@@ -42,7 +40,5 @@ Next, you should critique the code changes made recently in the above conversati
 - Make sure no sections were deleted that weren't supposed to be deleted.
 - Make sure the new code matches the style of the existing code.
 
-Be concise and to the point. After providing all your feedback, use the end_turn tool to end your response.`,
-
-  stepPrompt: `IMPORTANT: Don't forget to end your response with the end_turn tool: <end_turn>${closeXml('end_turn')}`,
+Be concise and to the point.`,
 })

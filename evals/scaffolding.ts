@@ -198,6 +198,7 @@ export async function runAgentStepScaffolding(
     agentState,
     prompt,
     params: undefined,
+    system: 'Test system prompt',
   })
 
   return {

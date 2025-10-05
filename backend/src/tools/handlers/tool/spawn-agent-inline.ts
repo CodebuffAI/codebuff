@@ -37,6 +37,7 @@ export const handleSpawnAgentInline = ((params: {
     localAgentTemplates?: Record<string, AgentTemplate>
     messages?: Message[]
     agentState?: AgentState
+    system?: string
   }
 }): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
@@ -60,7 +61,8 @@ export const handleSpawnAgentInline = ((params: {
     userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
-    agentState,
+    agentState: parentAgentState,
+    system,
   } = validateSpawnState(state, 'spawn_agent_inline')
 
   const triggerSpawnAgentInline = async () => {
@@ -75,9 +77,10 @@ export const handleSpawnAgentInline = ((params: {
     // Create child agent state that shares message history with parent
     const childAgentState: AgentState = createAgentState(
       agentType,
-      agentState,
+      agentTemplate,
+      parentAgentState,
       getLatestState().messages,
-      agentState.agentContext,
+      parentAgentState.agentContext,
     )
 
     logAgentSpawn(
@@ -96,13 +99,14 @@ export const handleSpawnAgentInline = ((params: {
       prompt: prompt || '',
       params: agentParams,
       agentTemplate,
-      parentAgentState: agentState,
+      parentAgentState,
       agentState: childAgentState,
       fingerprintId,
       fileContext,
       localAgentTemplates,
       userId,
       clientSessionId,
+      parentSystemPrompt: system,
       onResponseChunk: (chunk) => {
         // Disabled.
         // Inherits parent's onResponseChunk
@@ -118,8 +122,8 @@ export const handleSpawnAgentInline = ((params: {
     state.messages = finalMessages
 
     // Update parent agent state to reflect shared message history
-    if (agentState && result.agentState) {
-      agentState.messageHistory = finalMessages
+    if (parentAgentState && result.agentState) {
+      parentAgentState.messageHistory = finalMessages
     }
 
     return undefined

@@ -43,6 +43,8 @@ params: None`
         `- ${agentType}: ${agentTemplate.spawnerPrompt}`,
         agentTemplate.includeMessageHistory &&
           'This agent can see the current message history.',
+        agentTemplate.inheritParentSystemPrompt &&
+          "This agent inherits the parent's system prompt for prompt caching.",
         inputSchemaStr,
       ).join('\n')
     })

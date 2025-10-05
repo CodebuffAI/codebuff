@@ -71,6 +71,7 @@ describe('QuickJS Sandbox Generator', () => {
       model: 'anthropic/claude-4-sonnet-20250522',
       outputMode: 'structured_output',
       includeMessageHistory: false,
+      inheritParentSystemPrompt: false,
       mcpServers: {},
       toolNames: ['set_output'],
       spawnableAgents: [],

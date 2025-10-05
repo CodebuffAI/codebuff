@@ -2,7 +2,6 @@ import {
   validateSpawnState,
   validateAndGetAgentTemplate,
   validateAgentInput,
-  createConversationHistoryMessage,
   createAgentState,
   logAgentSpawn,
   executeSubagent,
@@ -49,6 +48,7 @@ export const handleSpawnAgents = ((params: {
     sendSubagentChunk?: SendSubagentChunk
     messages?: Message[]
     agentState?: AgentState
+    system?: string
   }
 }): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
@@ -64,7 +64,7 @@ export const handleSpawnAgents = ((params: {
   } = params
   const { agents } = toolCall.input
   const validatedState = validateSpawnState(state, 'spawn_agents')
-  const { sendSubagentChunk } = state
+  const { sendSubagentChunk, system: parentSystemPrompt } = state
 
   if (!sendSubagentChunk) {
     throw new Error(
@@ -78,15 +78,10 @@ export const handleSpawnAgents = ((params: {
     userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
-    messages,
-    agentState,
+    agentState: parentAgentState,
   } = validatedState
 
   const triggerSpawnAgents = async () => {
-    const conversationHistoryMessage = createConversationHistoryMessage(
-      getLatestState().messages,
-    )
-
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
         const { agentTemplate, agentType } = await validateAndGetAgentTemplate(
@@ -97,15 +92,11 @@ export const handleSpawnAgents = ((params: {
 
         validateAgentInput(agentTemplate, agentType, prompt, params)
 
-        const subAgentMessages: Message[] = []
-        if (agentTemplate.includeMessageHistory) {
-          subAgentMessages.push(conversationHistoryMessage)
-        }
-
         const subAgentState = createAgentState(
           agentType,
-          agentState,
-          subAgentMessages,
+          agentTemplate,
+          parentAgentState,
+          getLatestState().messages,
           {},
         )
 
@@ -124,7 +115,7 @@ export const handleSpawnAgents = ((params: {
           prompt: prompt || '',
           params,
           agentTemplate,
-          parentAgentState: agentState,
+          parentAgentState,
           agentState: subAgentState,
           fingerprintId,
           fileContext,
@@ -132,6 +123,7 @@ export const handleSpawnAgents = ((params: {
           userId,
           clientSessionId,
           isOnlyChild: agents.length === 1,
+          parentSystemPrompt,
           onResponseChunk: (chunk: string | PrintModeEvent) => {
             if (agents.length === 1) {
               writeToClient(chunk)

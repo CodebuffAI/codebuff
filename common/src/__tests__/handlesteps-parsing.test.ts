@@ -51,6 +51,7 @@ describe('handleSteps Parsing Tests', () => {
       toolNames: ['set_output'],
       spawnableAgents: [],
       includeMessageHistory: true,
+      inheritParentSystemPrompt: false,
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',
       stepPrompt: 'Test agent step prompt',

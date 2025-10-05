@@ -4,7 +4,6 @@ import {
   validateSpawnState,
   validateAndGetAgentTemplate,
   validateAgentInput,
-  createConversationHistoryMessage,
   createAgentState,
   logAgentSpawn,
   executeSubagent,
@@ -46,6 +45,7 @@ export const handleSpawnAgentsAsync = ((params: {
     sendSubagentChunk?: SendSubagentChunk
     messages?: Message[]
     agentState?: AgentState
+    system?: string
   }
 }): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   if (!ASYNC_AGENTS_ENABLED) {
@@ -77,7 +77,7 @@ export const handleSpawnAgentsAsync = ((params: {
     localAgentTemplates,
     agentState,
   } = validateSpawnState(state, 'spawn_agents_async')
-  const { sendSubagentChunk } = state
+  const { sendSubagentChunk, system: parentSystemPrompt } = state
 
   if (!sendSubagentChunk) {
     throw new Error(
@@ -89,10 +89,6 @@ export const handleSpawnAgentsAsync = ((params: {
     CodebuffToolOutput<ToolName>[0]['value']
   > = async () => {
     const results: CodebuffToolOutput<ToolName>[0]['value'] = []
-
-    const conversationHistoryMessage = createConversationHistoryMessage(
-      getLatestState().messages,
-    )
 
     // Validate and spawn agents asynchronously
     for (const { agent_type: agentTypeStr, prompt, params } of agents) {
@@ -107,11 +103,12 @@ export const handleSpawnAgentsAsync = ((params: {
 
         const subAgentMessages: Message[] = []
         if (agentTemplate.includeMessageHistory) {
-          subAgentMessages.push(conversationHistoryMessage)
+          subAgentMessages.push(...getLatestState().messages)
         }
 
         const asyncAgentState = createAgentState(
           agentType,
+          agentTemplate,
           agentState,
           subAgentMessages,
           {},
@@ -142,6 +139,7 @@ export const handleSpawnAgentsAsync = ((params: {
               localAgentTemplates,
               userId,
               clientSessionId,
+              parentSystemPrompt,
               onResponseChunk: (chunk: string | PrintModeEvent) => {
                 if (typeof chunk !== 'string') {
                   return

@@ -19,6 +19,7 @@ import {
   spyOn,
 } from 'bun:test'
 
+import { withAppContext } from '../context/app-context'
 import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { mockFileContext, MockWebSocket } from './test-utils'
@@ -34,6 +35,23 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   let mockTemplate: AgentTemplate
   let mockAgentState: AgentState
   let llmCallCount: number
+
+  const runLoopAgentStepsWithContext = async (
+    ws: WebSocket,
+    options: Parameters<typeof loopAgentSteps>[1],
+  ) => {
+    return await withAppContext(
+      {
+        userId: options.userId,
+        clientSessionId: options.clientSessionId,
+      },
+      {
+        currentUserId: options.userId,
+        processedRepoId: 'test-repo',
+      },
+      async () => loopAgentSteps(ws, options),
+    )
+  }
 
   beforeAll(() => {
     // Mock logger
@@ -64,9 +82,15 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       getAgentPrompt: async () => 'Mock prompt',
     }))
 
-    // Mock live user inputs - will be overridden in individual tests
+    // Mock live user inputs - default to true to allow tests to run
     mockModule('@codebuff/backend/live-user-inputs', () => ({
-      checkLiveUserInput: () => false, // Default to false, override in tests
+      checkLiveUserInput: () => true,
+      resetLiveUserInputsState: () => {},
+      startUserInput: () => {},
+      endUserInput: () => {},
+      cancelUserInput: () => {},
+      setSessionConnected: () => {},
+      getLiveUserInputIds: () => undefined,
     }))
 
     // Mock file reading updates
@@ -87,6 +111,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   beforeEach(() => {
+    clearAgentGeneratorCache()
+
     llmCallCount = 0
 
     // Setup spies for database operations
@@ -131,6 +157,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       inputSchema: {},
       outputMode: 'structured_output',
       includeMessageHistory: true,
+      inheritParentSystemPrompt: false,
       mcpServers: {},
       toolNames: ['read_files', 'write_file', 'end_turn'],
       spawnableAgents: [],
@@ -155,8 +182,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   afterEach(() => {
-    mock.restore()
     clearAgentGeneratorCache()
+
+    mock.restore()
   })
 
   afterAll(() => {
@@ -187,13 +215,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    // Mock checkLiveUserInput to allow the loop to continue
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => true, // Always return true to allow loop to continue
-    )
-
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -240,7 +262,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -289,13 +311,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    // Mock checkLiveUserInput to allow multiple iterations
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => true, // Always return true to allow loop to continue
-    )
-
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -343,16 +359,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    let checkCallCount = 0
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => {
-        checkCallCount++
-        return checkCallCount <= 5
-      },
-    )
-
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -393,7 +400,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -426,16 +433,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': llmOnlyTemplate,
     }
 
-    let checkCallCount = 0
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => {
-        checkCallCount++
-        return checkCallCount <= 2 // Allow 2 iterations
-      },
-    )
-
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -470,16 +468,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    let checkCallCount = 0
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => {
-        checkCallCount++
-        return checkCallCount <= 2
-      },
-    )
-
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -531,16 +520,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    let checkCallCount = 0
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => {
-        checkCallCount++
-        return checkCallCount <= 10 // Allow many iterations
-      },
-    )
-
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -588,16 +568,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       return getMessagesCallCount === 2 ? ['async message'] : []
     })
 
-    let checkCallCount = 0
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => {
-        checkCallCount++
-        return checkCallCount <= 5
-      },
-    )
-
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -648,13 +619,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    // Mock checkLiveUserInput to allow the loop to run
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => true,
-    )
-
-    await loopAgentSteps(new MockWebSocket() as unknown as WebSocket, {
+    await runLoopAgentStepsWithContext(new MockWebSocket() as unknown as WebSocket, {
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -736,20 +701,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       return 'mock-message-id'
     })
 
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    let checkCount = 0
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => {
-        checkCount++
-        return checkCount < 10 // Limit to prevent infinite loop
-      },
-    )
-
-    // Capture the agent state during execution
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -820,15 +775,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       return 'mock-message-id'
     })
 
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => true,
-    )
-
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -875,12 +825,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       return 'mock-message-id'
     })
 
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => true,
-    )
-
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',
@@ -946,15 +891,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       return 'mock-message-id'
     })
 
-    const mockCheckLiveUserInput = require('@codebuff/backend/live-user-inputs')
-    spyOn(mockCheckLiveUserInput, 'checkLiveUserInput').mockImplementation(
-      () => true,
-    )
-
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
-    const result = await loopAgentSteps(
+    const result = await runLoopAgentStepsWithContext(
       new MockWebSocket() as unknown as WebSocket,
       {
         userInputId: 'test-user-input',

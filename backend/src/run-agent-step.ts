@@ -89,6 +89,7 @@ export interface AgentOptions {
 
   prompt: string | undefined
   params: Record<string, any> | undefined
+  system: string
 }
 
 export const runAgentStep = async (
@@ -111,6 +112,7 @@ export const runAgentStep = async (
     localAgentTemplates,
     prompt,
     params,
+    system,
   } = options
   let agentState = options.agentState
 
@@ -271,30 +273,6 @@ export const runAgentStep = async (
   })
 
   const iterationNum = agentState.messageHistory.length
-
-  const system =
-    (await getAgentPrompt({
-      agentTemplate,
-      promptType: { type: 'systemPrompt' },
-      fileContext,
-      agentState,
-      agentTemplates: localAgentTemplates,
-      additionalToolDefinitions: () => {
-        const additionalToolDefinitions = cloneDeep(
-          Object.fromEntries(
-            Object.entries(fileContext.customToolDefinitions).filter(
-              ([toolName]) => agentTemplate.toolNames.includes(toolName),
-            ),
-          ),
-        )
-        return getMCPToolData({
-          ws,
-          toolNames: agentTemplate.toolNames,
-          mcpServers: agentTemplate.mcpServers,
-          writeTo: additionalToolDefinitions,
-        })
-      },
-    })) ?? ''
   const systemTokens = countTokensJson(system)
 
   const agentMessages = agentState.messageHistory
@@ -339,6 +317,7 @@ export const runAgentStep = async (
     agentState,
     repoId,
     messages: agentMessages,
+    system,
     agentTemplate,
     localAgentTemplates,
     fileContext,
@@ -455,6 +434,7 @@ export const loopAgentSteps = async (
     clientSessionId,
     onResponseChunk,
     clearUserPromptMessagesAfterResponse = true,
+    parentSystemPrompt,
   }: {
     userInputId: string
     agentType: AgentTemplateType
@@ -466,6 +446,7 @@ export const loopAgentSteps = async (
     fileContext: ProjectFileContext
     localAgentTemplates: Record<string, AgentTemplate>
     clearUserPromptMessagesAfterResponse?: boolean
+    parentSystemPrompt?: string
 
     userId: string | undefined
     clientSessionId: string
@@ -521,6 +502,33 @@ export const loopAgentSteps = async (
     : undefined
 
   // Build the initial message history with user prompt and instructions
+  // Generate system prompt once, using parent's if inheritParentSystemPrompt is true
+  const system =
+    agentTemplate.inheritParentSystemPrompt && parentSystemPrompt
+      ? parentSystemPrompt
+      : (await getAgentPrompt({
+          agentTemplate,
+          promptType: { type: 'systemPrompt' },
+          fileContext,
+          agentState,
+          agentTemplates: localAgentTemplates,
+          additionalToolDefinitions: () => {
+            const additionalToolDefinitions = cloneDeep(
+              Object.fromEntries(
+                Object.entries(fileContext.customToolDefinitions).filter(
+                  ([toolName]) => agentTemplate.toolNames.includes(toolName),
+                ),
+              ),
+            )
+            return getMCPToolData({
+              ws,
+              toolNames: agentTemplate.toolNames,
+              mcpServers: agentTemplate.mcpServers,
+              writeTo: additionalToolDefinitions,
+            })
+          },
+        })) ?? ''
+
   const initialMessages = buildArray<Message>(
     ...agentState.messageHistory,
 
@@ -598,6 +606,7 @@ export const loopAgentSteps = async (
           localAgentTemplates,
           prompt: currentPrompt,
           params: currentParams,
+          system,
           stepsComplete: shouldEndTurn,
           stepNumber: totalSteps,
         })
@@ -675,6 +684,7 @@ export const loopAgentSteps = async (
         agentState: currentAgentState,
         prompt: currentPrompt,
         params: currentParams,
+        system,
       })
 
       if (newAgentState.runId) {

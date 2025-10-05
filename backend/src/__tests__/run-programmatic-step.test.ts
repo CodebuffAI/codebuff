@@ -103,6 +103,7 @@ describe('runProgrammaticStep', () => {
       inputSchema: {},
       outputMode: 'structured_output',
       includeMessageHistory: true,
+      inheritParentSystemPrompt: false,
       mcpServers: {},
       toolNames: ['read_files', 'write_file', 'end_turn'],
       spawnableAgents: [],

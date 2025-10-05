@@ -150,6 +150,7 @@ export const DynamicAgentDefinitionSchema = z.object({
   // Input and output
   inputSchema: InputSchemaObjectSchema,
   includeMessageHistory: z.boolean().default(false),
+  inheritParentSystemPrompt: z.boolean().default(false),
   outputMode: z
     .enum(['last_message', 'all_messages', 'structured_output'])
     .default('last_message'),
@@ -240,6 +241,24 @@ export const DynamicAgentTemplateSchema = DynamicAgentDefinitionSchema.extend({
       message:
         "Non-empty spawnableAgents array requires the 'spawn_agents' tool. Add 'spawn_agents' to toolNames or remove spawnableAgents.",
       path: ['toolNames'],
+    },
+  )
+  .refine(
+    (data) => {
+      // If inheritParentSystemPrompt is true, systemPrompt must be empty or undefined
+      if (
+        data.inheritParentSystemPrompt &&
+        data.systemPrompt &&
+        data.systemPrompt.trim() !== ''
+      ) {
+        return false
+      }
+      return true
+    },
+    {
+      message:
+        'Cannot specify both systemPrompt and inheritParentSystemPrompt. When inheritParentSystemPrompt is true, systemPrompt must be empty.',
+      path: ['systemPrompt'],
     },
   )
 export type DynamicAgentTemplate = z.infer<typeof DynamicAgentTemplateSchema>
