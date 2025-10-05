@@ -15,7 +15,6 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-
 export interface SpawnAgentParams {
   agent_type: string
   prompt?: string
@@ -30,6 +29,7 @@ export interface BaseSpawnState {
   localAgentTemplates?: Record<string, AgentTemplate>
   messages?: Message[]
   agentState?: AgentState
+  system?: string
 }
 
 export interface SpawnContext {
@@ -54,6 +54,7 @@ export function validateSpawnState(
     messages,
     agentState,
     userId,
+    system,
   } = state
 
   if (!ws) {
@@ -84,6 +85,9 @@ export function validateSpawnState(
       `Internal error for ${toolName}: Missing localAgentTemplates in state`,
     )
   }
+  if (!system) {
+    throw new Error(`Internal error for ${toolName}: Missing system in state`)
+  }
 
   return {
     ws,
@@ -93,6 +97,7 @@ export function validateSpawnState(
     localAgentTemplates,
     messages,
     agentState,
+    system,
   }
 }
 
@@ -225,25 +230,6 @@ export function validateAgentInput(
 }
 
 /**
- * Creates conversation history message for spawned agents
- */
-export function createConversationHistoryMessage(messages: Message[]): Message {
-  // Filter out system messages from conversation history to avoid including parent's system prompt
-  const messagesWithoutSystem = messages.filter(
-    (message) => message.role !== 'system',
-  )
-  return {
-    role: 'user',
-    content: `For context, the following is the conversation history between the user and an assistant:\n\n${JSON.stringify(
-      messagesWithoutSystem,
-      null,
-      2,
-    )}`,
-    keepDuringTruncation: true,
-  }
-}
-
-/**
  * Creates a new agent state for spawned agents
  */
 export function createAgentState(
@@ -316,6 +302,7 @@ export async function executeSubagent({
   onResponseChunk,
   isOnlyChild = false,
   clearUserPromptMessagesAfterResponse = true,
+  parentSystemPrompt,
 }: {
   ws: WebSocket
   userInputId: string
@@ -332,6 +319,7 @@ export async function executeSubagent({
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   isOnlyChild?: boolean
   clearUserPromptMessagesAfterResponse?: boolean
+  parentSystemPrompt?: string
 }) {
   onResponseChunk({
     type: 'subagent_start',
@@ -356,6 +344,7 @@ export async function executeSubagent({
     clientSessionId,
     onResponseChunk,
     clearUserPromptMessagesAfterResponse,
+    parentSystemPrompt,
   })
 
   onResponseChunk({

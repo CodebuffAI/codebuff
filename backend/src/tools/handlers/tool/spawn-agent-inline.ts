@@ -61,6 +61,7 @@ export const handleSpawnAgentInline = ((params: {
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
     agentState,
+    system,
   } = validateSpawnState(state, 'spawn_agent_inline')
 
   const triggerSpawnAgentInline = async () => {
@@ -103,6 +104,7 @@ export const handleSpawnAgentInline = ((params: {
       localAgentTemplates,
       userId,
       clientSessionId,
+      parentSystemPrompt: system,
       onResponseChunk: (chunk) => {
         // Disabled.
         // Inherits parent's onResponseChunk

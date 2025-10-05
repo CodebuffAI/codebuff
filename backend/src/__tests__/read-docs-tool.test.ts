@@ -323,6 +323,7 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
       {
+        system: 'Test system prompt',
         userId: TEST_USER_ID,
         userInputId: 'test-input',
         clientSessionId: 'test-session',
@@ -394,6 +395,7 @@ describe('read_docs tool with researcher agent', () => {
     )
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
+      system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       clientSessionId: 'test-session',
@@ -443,6 +445,7 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
       {
+        system: 'Test system prompt',
         userId: TEST_USER_ID,
         userInputId: 'test-input',
         clientSessionId: 'test-session',
@@ -509,6 +512,7 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
       {
+        system: 'Test system prompt',
         userId: TEST_USER_ID,
         userInputId: 'test-input',
         clientSessionId: 'test-session',
@@ -574,6 +578,7 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
       {
+        system: 'Test system prompt',
         userId: TEST_USER_ID,
         userInputId: 'test-input',
         clientSessionId: 'test-session',
@@ -640,6 +645,7 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
       {
+        system: 'Test system prompt',
         userId: TEST_USER_ID,
         userInputId: 'test-input',
         clientSessionId: 'test-session',

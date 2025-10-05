@@ -2,7 +2,6 @@ import {
   validateSpawnState,
   validateAndGetAgentTemplate,
   validateAgentInput,
-  createConversationHistoryMessage,
   createAgentState,
   logAgentSpawn,
   executeSubagent,
@@ -49,6 +48,7 @@ export const handleSpawnAgents = ((params: {
     sendSubagentChunk?: SendSubagentChunk
     messages?: Message[]
     agentState?: AgentState
+    system?: string
   }
 }): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
@@ -64,7 +64,7 @@ export const handleSpawnAgents = ((params: {
   } = params
   const { agents } = toolCall.input
   const validatedState = validateSpawnState(state, 'spawn_agents')
-  const { sendSubagentChunk } = state
+  const { sendSubagentChunk, system: parentSystemPrompt } = state
 
   if (!sendSubagentChunk) {
     throw new Error(
@@ -83,10 +83,6 @@ export const handleSpawnAgents = ((params: {
   } = validatedState
 
   const triggerSpawnAgents = async () => {
-    const conversationHistoryMessage = createConversationHistoryMessage(
-      getLatestState().messages,
-    )
-
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
         const { agentTemplate, agentType } = await validateAndGetAgentTemplate(
@@ -99,7 +95,7 @@ export const handleSpawnAgents = ((params: {
 
         const subAgentMessages: Message[] = []
         if (agentTemplate.includeMessageHistory) {
-          subAgentMessages.push(conversationHistoryMessage)
+          subAgentMessages.push(...getLatestState().messages)
         }
 
         const subAgentState = createAgentState(
@@ -132,6 +128,7 @@ export const handleSpawnAgents = ((params: {
           userId,
           clientSessionId,
           isOnlyChild: agents.length === 1,
+          parentSystemPrompt,
           onResponseChunk: (chunk: string | PrintModeEvent) => {
             if (agents.length === 1) {
               writeToClient(chunk)

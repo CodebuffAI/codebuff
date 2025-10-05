@@ -42,7 +42,7 @@ params: None`
       return buildArray(
         `- ${agentType}: ${agentTemplate.spawnerPrompt}`,
         agentTemplate.includeMessageHistory &&
-          'This agent can see the current message history.',
+          "This agent can see the current message history and inherits the parent's system prompt for prompt caching.",
         inputSchemaStr,
       ).join('\n')
     })

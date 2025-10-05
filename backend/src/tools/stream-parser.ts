@@ -48,6 +48,7 @@ export async function processStreamWithTools(options: {
   localAgentTemplates: Record<string, AgentTemplate>
   fileContext: ProjectFileContext
   messages: Message[]
+  system: string
   agentState: AgentState
   agentContext: Record<string, Subgoal>
   onResponseChunk: (chunk: string | PrintModeEvent) => void
@@ -66,6 +67,7 @@ export async function processStreamWithTools(options: {
     localAgentTemplates,
     fileContext,
     agentContext,
+    system,
     agentState,
     onResponseChunk,
   } = options
@@ -102,6 +104,7 @@ export async function processStreamWithTools(options: {
     agentState,
     agentContext,
     messages,
+    system,
   }
 
   function toolCallback<T extends ToolName>(toolName: T) {

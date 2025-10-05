@@ -92,10 +92,12 @@ export interface AgentDefinition {
     params?: JsonObjectSchema
   }
 
-  /** Whether to include conversation history from the parent agent in context.
+  /** Whether to include conversation history from the parent agent in context, including the parent's system prompt.
    *
    * Defaults to false.
-   * Use this if the agent needs to know all the previous messages in the conversation.
+   * Use this when:
+   * - the agent needs to know all the previous messages in the conversation
+   * - you want to enable prompt caching for the subagent by preserving the same message history prefix.
    */
   includeMessageHistory?: boolean
 

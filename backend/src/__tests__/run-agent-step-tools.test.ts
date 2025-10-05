@@ -202,6 +202,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
+        system: 'Test system prompt',
       },
     )
 
@@ -244,6 +245,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Analyze the codebase',
         params: undefined,
+        system: 'Test system prompt',
       },
     )
 
@@ -292,6 +294,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Update the output',
         params: undefined,
+        system: 'Test system prompt',
       },
     )
 
@@ -331,6 +334,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Update with empty object',
         params: undefined,
+        system: 'Test system prompt',
       },
     )
 
@@ -426,6 +430,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Test the handleSteps functionality',
         params: undefined,
+        system: 'Test system prompt',
       },
     )
 
@@ -584,6 +589,7 @@ describe('runAgentStep - set_output tool', () => {
         agentState,
         prompt: 'Spawn an inline agent to clean up messages',
         params: undefined,
+        system: 'Parent system prompt',
       },
     )
 
