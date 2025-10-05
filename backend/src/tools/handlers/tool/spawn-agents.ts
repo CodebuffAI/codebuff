@@ -78,8 +78,7 @@ export const handleSpawnAgents = ((params: {
     userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
-    messages,
-    agentState,
+    agentState: parentAgentState,
   } = validatedState
 
   const triggerSpawnAgents = async () => {
@@ -93,15 +92,11 @@ export const handleSpawnAgents = ((params: {
 
         validateAgentInput(agentTemplate, agentType, prompt, params)
 
-        const subAgentMessages: Message[] = []
-        if (agentTemplate.includeMessageHistory) {
-          subAgentMessages.push(...getLatestState().messages)
-        }
-
         const subAgentState = createAgentState(
           agentType,
-          agentState,
-          subAgentMessages,
+          agentTemplate,
+          parentAgentState,
+          getLatestState().messages,
           {},
         )
 
@@ -120,7 +115,7 @@ export const handleSpawnAgents = ((params: {
           prompt: prompt || '',
           params,
           agentTemplate,
-          parentAgentState: agentState,
+          parentAgentState,
           agentState: subAgentState,
           fingerprintId,
           fileContext,
