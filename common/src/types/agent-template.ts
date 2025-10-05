@@ -49,6 +49,7 @@ export type AgentTemplate<
     params?: z.ZodSchema<T>
   }
   includeMessageHistory: boolean
+  inheritParentSystemPrompt: boolean
   outputMode: 'last_message' | 'all_messages' | 'structured_output'
   outputSchema?: z.ZodSchema<any>
 

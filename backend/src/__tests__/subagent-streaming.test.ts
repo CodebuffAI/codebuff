@@ -45,6 +45,7 @@ describe('Subagent Streaming', () => {
       spawnerPrompt: '',
       model: '',
       includeMessageHistory: true,
+      inheritParentSystemPrompt: false,
       toolNames: [],
       spawnableAgents: [],
       systemPrompt: '',

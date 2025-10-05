@@ -69,6 +69,7 @@ describe('Cost Aggregation System', () => {
       instructionsPrompt: 'Test instructions',
       stepPrompt: 'Test step prompt',
       includeMessageHistory: true,
+      inheritParentSystemPrompt: false,
       outputMode: 'last_message',
       inputSchema: {},
     }

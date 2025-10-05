@@ -502,9 +502,9 @@ export const loopAgentSteps = async (
     : undefined
 
   // Build the initial message history with user prompt and instructions
-  // Generate system prompt once, using parent's if includeMessageHistory is true
+  // Generate system prompt once, using parent's if inheritParentSystemPrompt is true
   const system =
-    agentTemplate.includeMessageHistory && parentSystemPrompt
+    agentTemplate.inheritParentSystemPrompt && parentSystemPrompt
       ? parentSystemPrompt
       : (await getAgentPrompt({
           agentTemplate,
@@ -528,15 +528,6 @@ export const loopAgentSteps = async (
             })
           },
         })) ?? ''
-
-  logger.debug(
-    {
-      system,
-      includeMessageHistory: agentTemplate.includeMessageHistory,
-      parentSystemPrompt,
-    },
-    'System prompt!!!!!!',
-  )
 
   const initialMessages = buildArray<Message>(
     ...agentState.messageHistory,

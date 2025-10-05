@@ -92,12 +92,10 @@ export interface AgentDefinition {
     params?: JsonObjectSchema
   }
 
-  /** Whether to include conversation history from the parent agent in context, including the parent's system prompt.
+  /** Whether to include conversation history from the parent agent in context.
    *
    * Defaults to false.
-   * Use this when:
-   * - the agent needs to know all the previous messages in the conversation
-   * - you want to enable prompt caching for the subagent by preserving the same message history prefix.
+   * Use this when the agent needs to know all the previous messages in the conversation.
    */
   includeMessageHistory?: boolean
 
@@ -122,6 +120,14 @@ export interface AgentDefinition {
    *
    * This field is key if the agent is intended to be spawned by other agents. */
   spawnerPrompt?: string
+
+  /** Whether to inherit the parent agent's system prompt instead of using this agent's own systemPrompt.
+   *
+   * Defaults to false.
+   * Use this when you want to enable prompt caching by preserving the same system prompt prefix.
+   * Cannot be used together with the systemPrompt field.
+   */
+  inheritParentSystemPrompt?: boolean
 
   /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string
