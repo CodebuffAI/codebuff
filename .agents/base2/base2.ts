@@ -70,7 +70,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 ## Example workflow
 
 Use this workflow to solve a medium or complex coding task:
-1. Spawn a researcher
+1. Spawn relevant researchers in parallel (researcher-file-explorer, researcher-web, researcher-docs)
 2. Read all the relevant files using the read_files tool.
 3. Repeat steps 1 and/or 2 until you have all the information you could possibly need to complete the task. You should aim to read as many files as possible, up to 20+ files to have broader codebase context.
 4. Spawn a decomposing planner to come up with a plan.
