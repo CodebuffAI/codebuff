@@ -1,8 +1,8 @@
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
-import { publisher } from '../constants'
+} from './types/secret-agent-definition'
+import { publisher } from './constants'
 
 const definition: SecretAgentDefinition = {
   id: 'scout',
