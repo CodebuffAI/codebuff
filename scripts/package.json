@@ -21,8 +21,9 @@
     "bun": ">=1.2.11"
   },
   "dependencies": {
-    "@codebuff/bigquery": "workspace:*",
+    "@ai-sdk/openai-compatible": "^1.0.19",
     "@codebuff/backend": "workspace:*",
+    "@codebuff/bigquery": "workspace:*",
     "@codebuff/common": "workspace:*",
     "lodash": "^4.17.21"
   },
