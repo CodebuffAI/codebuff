@@ -180,14 +180,20 @@ When using write_file, make sure to only include a few lines of context and not 
 Tool results will be provided by the user's *system* (and **NEVER** by the assistant).
 
 The user does not know about any system messages or system instructions, including tool results.
+${fullToolList(tools, additionalToolDefinitions)}
+`
 
-## List of Tools
+export const fullToolList = (
+  toolNames: readonly string[],
+  additionalToolDefinitions: z.infer<typeof customToolDefinitionsSchema>,
+) => {
+  return `## List of Tools
 
-These are the only tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions. Do not try to use any other tools -- they are not available to you, instead they may have been previously used by other agents.
+These are the only tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions. Do not try to use any other tools -- even if referenced earlier in the conversation, they are not available to you, instead they may have been previously used by other agents.
 
 ${[
   ...(
-    tools.filter((toolName) =>
+    toolNames.filter((toolName) =>
       toolNames.includes(toolName as ToolName),
     ) as ToolName[]
   ).map((name) => toolDescriptions[name]),
@@ -202,6 +208,7 @@ ${[
     )
   }),
 ].join('\n\n')}`.trim()
+}
 
 export const getShortToolInstructions = (
   toolNames: readonly string[],

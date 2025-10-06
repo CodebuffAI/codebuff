@@ -12,6 +12,7 @@ import {
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
 import {
+  fullToolList,
   getShortToolInstructions,
   getToolsInstructions,
 } from '../tools/prompts'
@@ -175,12 +176,15 @@ export async function getAgentPrompt<T extends StringField>({
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
+    const toolsInstructions = agentTemplate.inheritParentSystemPrompt
+      ? fullToolList(agentTemplate.toolNames, await additionalToolDefinitions())
+      : getShortToolInstructions(
+          agentTemplate.toolNames,
+          await additionalToolDefinitions(),
+        )
     addendum +=
       '\n\n' +
-      getShortToolInstructions(
-        agentTemplate.toolNames,
-        await additionalToolDefinitions(),
-      ) +
+      toolsInstructions +
       '\n\n' +
       (await buildSpawnableAgentsDescription(
         agentTemplate.spawnableAgents,
