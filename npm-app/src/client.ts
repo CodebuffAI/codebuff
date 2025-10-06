@@ -1452,31 +1452,15 @@ export class Client {
     unsubscribeComplete = this.webSocket.subscribe(
       'prompt-response',
       async (action) => {
-        const parsedAction = PromptResponseSchema.safeParse(action)
-        if (!parsedAction.success) {
-          const message = [
-            'Received invalid prompt response from server:',
-            JSON.stringify(parsedAction.error.issues),
-            'If this issues persists, please contact support@codebuff.com',
-          ].join('\n')
-          console.error(message)
-          logger.error(
-            {
-              errorMessage: message,
-              action,
-              eventId: AnalyticsEvent.MALFORMED_PROMPT_RESPONSE,
-            },
-            'Malformed prompt response',
-          )
-          return
-        }
+        // Stop enforcing prompt response schema (e.g. PromptResponseSchema.parse(action))!
+        // It's a black box we will pass back to the server.
+
         if (action.promptId !== userInputId) return
-        const a = parsedAction.data
         this.responseComplete = true
 
         Spinner.get().stop()
 
-        this.sessionState = a.sessionState
+        this.sessionState = action.sessionState
         const toolResults: ToolResultPart[] = []
 
         stepsCount++
@@ -1543,8 +1527,8 @@ Go to https://www.codebuff.com/config for more information.`) +
         }
 
         // Print structured output as JSON if available
-        if (a.output?.type === 'structuredOutput') {
-          console.log('\n' + JSON.stringify(a.output.value, null, 2))
+        if (action.output?.type === 'structuredOutput') {
+          console.log('\n' + JSON.stringify(action.output.value, null, 2))
         }
 
         if (DiffManager.getChanges().length > 0) {
@@ -1586,7 +1570,7 @@ Go to https://www.codebuff.com/config for more information.`) +
         // Clear the onChunk callback when response is complete
         this.currentOnChunk = undefined
 
-        resolveResponse({ ...a, wasStoppedByUser: false })
+        resolveResponse({ ...action, wasStoppedByUser: false })
       },
     )
 

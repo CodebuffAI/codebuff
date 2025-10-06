@@ -32,7 +32,10 @@ import type {
   ToolResultPart,
 } from '../../common/src/types/messages/content-part'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
-import type { SessionState } from '../../common/src/types/session-state'
+import {
+  AgentOutputSchema,
+  type SessionState,
+} from '../../common/src/types/session-state'
 
 export type CodebuffClientOptions = {
   // Provide an API key or set the CODEBUFF_API_KEY environment variable.
@@ -360,27 +363,23 @@ async function handlePromptResponse({
       },
     })
   } else if (action.type === 'prompt-response') {
-    const parsedAction = PromptResponseSchema.safeParse(action)
-    if (!parsedAction.success) {
+    // Stop enforcing session state schema! It's a black box we will pass back to the server.
+    // Only check the output schema.
+    const parsedOutput = AgentOutputSchema.safeParse(action.output)
+    if (!parsedOutput.success) {
       const message = [
         'Received invalid prompt response from server:',
-        JSON.stringify(parsedAction.error.issues),
+        JSON.stringify(parsedOutput.error.issues),
         'If this issues persists, please contact support@codebuff.com',
       ].join('\n')
-      onError({
-        message: message,
-      })
+      onError({ message })
       resolve({
         sessionState: initialSessionState,
-        output: {
-          type: 'error',
-          message: message,
-        },
+        output: { type: 'error', message },
       })
       return
     }
-
-    const { sessionState, output } = parsedAction.data
+    const { sessionState, output } = action
     const state: RunState = {
       sessionState,
       output: output ?? {
