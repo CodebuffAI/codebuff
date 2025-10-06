@@ -78,6 +78,7 @@ export async function handleOpenRouterStream({
 
   let heartbeatInterval: NodeJS.Timeout
   let state: StreamState = { responseText: '', reasoningText: '' }
+  let clientDisconnected = false
 
   // Create a ReadableStream that Next.js can handle
   const stream = new ReadableStream({
@@ -92,11 +93,17 @@ export async function handleOpenRouterStream({
 
       // Start heartbeat
       heartbeatInterval = setInterval(() => {
-        controller.enqueue(
-          new TextEncoder().encode(
-            `: heartbeat ${new Date().toISOString()}\n\n`
-          )
-        )
+        if (!clientDisconnected) {
+          try {
+            controller.enqueue(
+              new TextEncoder().encode(
+                `: heartbeat ${new Date().toISOString()}\n\n`
+              )
+            )
+          } catch {
+            // client disconnected, ignore error
+          }
+        }
       }, 30000)
 
       try {
@@ -125,24 +132,43 @@ export async function handleOpenRouterStream({
               state,
             })
 
-            // Forward the line to the client
-            controller.enqueue(new TextEncoder().encode(line))
+            if (!clientDisconnected) {
+              try {
+                controller.enqueue(new TextEncoder().encode(line))
+              } catch (error) {
+                logger.warn(
+                  'Client disconnected during stream, continuing for billing'
+                )
+                clientDisconnected = true
+              }
+            }
 
             lineEnd = buffer.indexOf('\n')
           }
         }
 
-        controller.close()
+        if (!clientDisconnected) {
+          controller.close()
+        }
       } catch (error) {
-        controller.error(error)
+        if (!clientDisconnected) {
+          controller.error(error)
+        } else {
+          logger.warn(
+            getErrorObject(error),
+            'Error after client disconnect in OpenRouter stream'
+          )
+        }
       } finally {
         clearInterval(heartbeatInterval)
-        reader.cancel()
       }
     },
     cancel() {
       clearInterval(heartbeatInterval)
-      reader.cancel()
+      clientDisconnected = true
+      logger.warn(
+        'Client cancelled stream, continuing OpenRouter consumption for billing'
+      )
     },
   })
 
