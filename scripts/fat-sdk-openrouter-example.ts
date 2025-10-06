@@ -1,7 +1,6 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { websiteUrl } from '@codebuff/npm-app/config'
 import { streamText } from 'ai'
-
-import { websiteUrl } from './config'
 
 const codebuffBackendProvider = createOpenAICompatible({
   name: 'codebuff',
