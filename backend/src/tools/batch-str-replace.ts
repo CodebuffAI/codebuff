@@ -453,7 +453,16 @@ async function applyBenchifyIfNeeded(
     toolCalls: CodebuffToolCall<'str_replace'>[]
   },
 ) {
-  logger.debug({ options, batchContext }, 'Applying Benchify results')
+  logger.debug(
+    {
+      state: batchContext.state,
+      originalContents: batchContext.originalContents,
+      editedFiles: batchContext.editedFiles,
+      intendedChanges: batchContext.intendedChanges,
+    },
+    'called applyBenchifyIfNeeded',
+  )
+
   // Early exit conditions - fail gracefully without blocking user edits
   if (batchContext.intendedChanges.size === 0) {
     return
@@ -489,10 +498,25 @@ async function applyBenchifyIfNeeded(
       return
     }
 
+    logger.debug(
+      {
+        filteredChanges,
+        options,
+      },
+      'about to call callBenchifyWithResilience',
+    )
+
     // Call Benchify with timeout and retry logic
     const benchifyResult = await callBenchifyWithResilience(
       filteredChanges,
       options,
+    )
+
+    logger.debug(
+      {
+        benchifyResult,
+      },
+      'callBenchifyWithResilience response',
     )
 
     if (benchifyResult && benchifyResult.length > 0) {
