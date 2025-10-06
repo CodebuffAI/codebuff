@@ -109,7 +109,17 @@ export async function executeBatchStrReplaces({
   state: Record<string, any>
   userId: string | undefined
 }) {
+  logger.debug(
+    {
+      deferredStrReplacesCount: deferredStrReplaces.length,
+      agentStepId,
+      userInputId,
+    },
+    'executeBatchStrReplaces: Starting batch processing',
+  )
+
   if (deferredStrReplaces.length === 0) {
+    logger.debug('executeBatchStrReplaces: No deferred replacements to process')
     return
   }
 
@@ -122,6 +132,15 @@ export async function executeBatchStrReplaces({
     }
     operationsByPath.get(path)!.push(operation)
   }
+
+  logger.debug(
+    {
+      uniquePaths: operationsByPath.size,
+      pathsList: Array.from(operationsByPath.keys()),
+      agentStepId,
+    },
+    'executeBatchStrReplaces: Grouped operations by path',
+  )
 
   // Initialize batch context
   const batchContext: BatchContext = {
@@ -156,9 +175,25 @@ export async function executeBatchStrReplaces({
   }
 
   // Wait for all path-based operations to complete
+  logger.debug(
+    { pathCount: pathPromises.size, agentStepId },
+    'executeBatchStrReplaces: Waiting for all path operations to complete',
+  )
   await Promise.all(pathPromises.values())
+  logger.debug(
+    { agentStepId },
+    'executeBatchStrReplaces: All path operations completed',
+  )
 
   // Apply benchify if we have intended changes
+  logger.debug(
+    {
+      intendedChangesCount: batchContext.intendedChanges.size,
+      editedFilesCount: batchContext.editedFiles.size,
+      agentStepId,
+    },
+    'executeBatchStrReplaces: About to apply Benchify if needed',
+  )
   await applyBenchifyIfNeeded(batchContext, {
     agentStepId,
     clientSessionId,
@@ -167,6 +202,10 @@ export async function executeBatchStrReplaces({
     toolResults,
     toolCalls: deferredStrReplaces.map((d) => d.toolCall),
   })
+  logger.debug(
+    { agentStepId },
+    'executeBatchStrReplaces: Completed batch processing',
+  )
 }
 
 /**
@@ -453,18 +492,18 @@ async function applyBenchifyIfNeeded(
     toolCalls: CodebuffToolCall<'str_replace'>[]
   },
 ) {
+  // Early exit conditions - fail gracefully without blocking user edits
   logger.debug(
     {
-      state: batchContext.state,
-      originalContents: batchContext.originalContents,
-      editedFiles: batchContext.editedFiles,
-      intendedChanges: batchContext.intendedChanges,
+      intendedChanges: Array.from(batchContext.intendedChanges.entries()).map(
+        ([path, contents]) => ({ path, contents }),
+      ),
+      size: batchContext.intendedChanges.size,
     },
-    'called applyBenchifyIfNeeded',
+    'changes to apply?',
   )
-
-  // Early exit conditions - fail gracefully without blocking user edits
   if (batchContext.intendedChanges.size === 0) {
+    logger.debug('no changes, returning early...')
     return
   }
 
