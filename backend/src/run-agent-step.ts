@@ -432,7 +432,7 @@ export const loopAgentSteps = async (
     userId,
     clientSessionId,
     onResponseChunk,
-    clearUserPromptMessagesAfterResponse = true,
+    clearUserPromptMessagesAfterResponse = false,
     parentSystemPrompt,
   }: {
     userInputId: string
