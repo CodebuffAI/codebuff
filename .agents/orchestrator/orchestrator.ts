@@ -78,7 +78,7 @@ Use this workflow to solve a medium or complex coding task:
 6. Spawn a reviewer to review the code. If changes are needed, go back to step 5, but no more than once.
 7. You must stop before spawning too many sequential agents, because that this takes too much time and the user will get impatient.
 
-Feel free to modify this workflow as needed. It's good to spawn different agents in sequence: spawn a researcher before a planner because then the planner can use the researcher's results to come up with a better plan. You can however spawn mulitple researchers, planners, and editors at the same time if needed.
+Feel free to modify this workflow as needed. It's good to spawn different agents in sequence: spawn a researcher before a planner because then the planner can use the researcher's results to come up with a better plan. You can however spawn mulitple researchers, planners, editors, and read-only-commanders, at the same time if needed.
 
 ## Guidelines
 
