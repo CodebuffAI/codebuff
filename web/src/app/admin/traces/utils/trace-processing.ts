@@ -147,10 +147,10 @@ export function buildTimelineFromMessages(
   // Group messages by client_request_id
   const messagesByRequestId = messages.reduce(
     (acc, msg) => {
-      if (!acc[msg.client_request_id]) {
-        acc[msg.client_request_id] = []
+      if (!acc[msg.client_request_id ?? 'NULL']) {
+        acc[msg.client_request_id ?? 'NULL'] = []
       }
-      acc[msg.client_request_id].push(msg)
+      acc[msg.client_request_id ?? 'NULL'].push(msg)
       return acc
     },
     {} as Record<string, TraceMessage[]>

@@ -80,7 +80,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // Transform messages into client messages
     const clientMessages: ClientMessage[] = messages.map((msg) => ({
       id: msg.id,
-      client_request_id: msg.client_request_id,
+      client_request_id: msg.client_request_id ?? 'NULL',
       timestamp: msg.finished_at,
       user_prompt: extractUserPromptFromRequest(msg.request),
       assistant_response: extractAssistantResponseFromResponse(msg.response),
