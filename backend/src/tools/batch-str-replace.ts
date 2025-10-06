@@ -453,6 +453,7 @@ async function applyBenchifyIfNeeded(
     toolCalls: CodebuffToolCall<'str_replace'>[]
   },
 ) {
+  logger.debug({ options, batchContext }, 'Applying Benchify results')
   // Early exit conditions - fail gracefully without blocking user edits
   if (batchContext.intendedChanges.size === 0) {
     return
