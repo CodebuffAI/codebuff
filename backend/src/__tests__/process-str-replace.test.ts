@@ -1,4 +1,12 @@
-import { describe, expect, it, spyOn, beforeEach, afterEach, mock } from 'bun:test'
+import {
+  describe,
+  expect,
+  it,
+  spyOn,
+  beforeEach,
+  afterEach,
+  mock,
+} from 'bun:test'
 import { applyPatch } from 'diff'
 
 // Mock the benchify module to simulate missing API key
@@ -8,7 +16,7 @@ mock.module('benchify', () => ({
     runFixer() {
       return Promise.resolve([])
     }
-  }
+  },
 }))
 
 import { processStrReplace } from '../process-str-replace'
@@ -519,7 +527,6 @@ describe('Benchify resilience', () => {
         toolCalls: [],
         toolResults: [],
         ws: {} as any,
-        fileContext: mockFileContext,
         agentStepId: 'test-step',
         clientSessionId: 'test-session',
         userInputId: 'test-input',
@@ -547,7 +554,6 @@ describe('Benchify resilience', () => {
           toolCalls: [],
           toolResults: [],
           ws: {} as any,
-          fileContext: mockFileContext,
           agentStepId: 'test-step',
           clientSessionId: 'test-session',
           userInputId: 'test-input',
@@ -585,7 +591,6 @@ describe('Benchify resilience', () => {
       toolCalls: [],
       toolResults: [],
       ws: {} as any,
-      fileContext: mockFileContext,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       userInputId: 'test-input',

@@ -3,7 +3,7 @@ import { getFileProcessingValues } from './handlers/tool/write-file'
 import { logger } from '../util/logger'
 import { Benchify } from 'benchify'
 import { env } from '@codebuff/internal/env'
-import { requestToolCall } from '../websockets/websocket-action'
+import { requestToolCall, requestFiles } from '../websockets/websocket-action'
 import { ParsedDiff, parsePatch } from 'diff'
 import { withRetry, withTimeout } from '@codebuff/common/util/promise'
 import { match, P } from 'ts-pattern'
@@ -14,9 +14,7 @@ import type {
 import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
-import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
-import { file } from 'bun'
 
 export type DeferredStrReplace = {
   toolCall: CodebuffToolCall<'str_replace'>
@@ -80,8 +78,8 @@ type BatchContext = {
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   state: Record<string, any>
   originalContents: Record<string, string>
-  editedFiles: Map<string, string>
-  intendedChanges: Map<string, string>
+  editedFiles: Record<string, string>
+  intendedChanges: Record<string, string>
 }
 
 export async function executeBatchStrReplaces({
@@ -89,7 +87,6 @@ export async function executeBatchStrReplaces({
   toolCalls,
   toolResults,
   ws,
-  fileContext,
   agentStepId,
   clientSessionId,
   userInputId,
@@ -101,7 +98,6 @@ export async function executeBatchStrReplaces({
   toolCalls: (CodebuffToolCall | any)[]
   toolResults: ToolResultPart[]
   ws: WebSocket
-  fileContext: ProjectFileContext
   agentStepId: string
   clientSessionId: string
   userInputId: string
@@ -109,151 +105,134 @@ export async function executeBatchStrReplaces({
   state: Record<string, any>
   userId: string | undefined
 }) {
-  logger.debug(
-    {
-      deferredStrReplacesCount: deferredStrReplaces.length,
-      agentStepId,
-      userInputId,
-    },
-    'executeBatchStrReplaces: Starting batch processing',
-  )
-
   if (deferredStrReplaces.length === 0) {
-    logger.debug('executeBatchStrReplaces: No deferred replacements to process')
     return
   }
 
   // Group operations by file path for per-path processing
-  const operationsByPath = new Map<string, DeferredStrReplace[]>()
+  const operationsByPath: Record<string, DeferredStrReplace[]> = {}
   for (const operation of deferredStrReplaces) {
     const path = operation.toolCall.input.path
-    if (!operationsByPath.has(path)) {
-      operationsByPath.set(path, [])
+    if (!operationsByPath[path]) {
+      operationsByPath[path] = []
     }
-    operationsByPath.get(path)!.push(operation)
-  }
-
-  logger.debug(
-    {
-      uniquePaths: operationsByPath.size,
-      pathsList: Array.from(operationsByPath.keys()),
-      agentStepId,
-    },
-    'executeBatchStrReplaces: Grouped operations by path',
-  )
-
-  // Initialize batch context
-  const batchContext: BatchContext = {
-    ws,
-    userInputId,
-    onResponseChunk,
-    state,
-    originalContents: {},
-    editedFiles: new Map(),
-    intendedChanges: new Map(),
+    operationsByPath[path].push(operation)
   }
 
   // Pre-load original content for all paths that support benchify
-  await preloadOriginalContent(operationsByPath, fileContext, batchContext)
+  const originalContents = await preloadOriginalContent(operationsByPath, ws)
 
   // Extract intended changes for benchify (before execution)
-  await extractAllIntendedChanges(operationsByPath, batchContext)
+  const intendedChanges = await extractAllIntendedChanges(
+    operationsByPath,
+    originalContents,
+  )
+
+  // Track edited files during processing
+  const editedFiles: Record<string, string> = {}
+
+  // Create the requestClientToolCall function once for all operations
+  const requestClientToolCall = createRequestClientToolCall(ws, userInputId)
 
   // Execute operations grouped by path for better parallelization
-  const pathPromises = new Map<string, Promise<void>>()
+  const pathPromises: Record<string, Promise<void>> = {}
 
-  for (const [path, operations] of operationsByPath) {
-    pathPromises.set(
-      path,
-      processPathOperations(path, operations, {
-        toolCalls,
-        toolResults,
-        agentStepId,
-        batchContext,
-      }),
-    )
+  for (const [path, operations] of Object.entries(operationsByPath)) {
+    pathPromises[path] = processPathOperations(operations, {
+      toolCalls,
+      toolResults,
+      agentStepId,
+      userInputId,
+      onResponseChunk,
+      state,
+      editedFiles,
+      requestClientToolCall,
+    })
   }
 
   // Wait for all path-based operations to complete
-  logger.debug(
-    { pathCount: pathPromises.size, agentStepId },
-    'executeBatchStrReplaces: Waiting for all path operations to complete',
-  )
-  await Promise.all(pathPromises.values())
-  logger.debug(
-    { agentStepId },
-    'executeBatchStrReplaces: All path operations completed',
-  )
+  await Promise.all(Object.values(pathPromises))
 
   // Apply benchify if we have intended changes
-  logger.debug(
+  await applyBenchifyIfNeeded(
     {
-      intendedChangesCount: batchContext.intendedChanges.size,
-      editedFilesCount: batchContext.editedFiles.size,
-      agentStepId,
+      ws,
+      userInputId,
+      onResponseChunk,
+      state,
+      originalContents,
+      editedFiles,
+      intendedChanges,
     },
-    'executeBatchStrReplaces: About to apply Benchify if needed',
+    {
+      agentStepId,
+      clientSessionId,
+      userInputId,
+      userId,
+      toolResults,
+      toolCalls: deferredStrReplaces.map((d) => d.toolCall),
+    },
   )
-  await applyBenchifyIfNeeded(batchContext, {
-    agentStepId,
-    clientSessionId,
-    userInputId,
-    userId,
-    toolResults,
-    toolCalls: deferredStrReplaces.map((d) => d.toolCall),
-  })
-  logger.debug(
-    { agentStepId },
-    'executeBatchStrReplaces: Completed batch processing',
-  )
+  logger.debug({ agentStepId }, 'Completed batch processing')
 }
 
 /**
  * Pre-loads original file content for all paths that support benchify
+ * Returns a record of path to content for files that were successfully loaded
  */
 async function preloadOriginalContent(
-  operationsByPath: Map<string, DeferredStrReplace[]>,
-  fileContext: ProjectFileContext,
-  batchContext: BatchContext,
-) {
-  const pathsToLoad = Array.from(operationsByPath.keys()).filter(
+  operationsByPath: Record<string, DeferredStrReplace[]>,
+  ws: WebSocket,
+): Promise<Record<string, string>> {
+  const pathsToLoad = Object.keys(operationsByPath).filter(
     benchifyCanFixLanguage,
   )
 
-  await Promise.all(
-    pathsToLoad.map(async (path) => {
-      try {
-        const content = await extractOriginalContent(path, fileContext)
-        if (content) {
-          batchContext.originalContents[path] = content
-        }
-      } catch (error) {
-        logger.warn(
-          {
-            error: error instanceof Error ? error.message : String(error),
-            path,
-          },
-          'Failed to read original content for benchify',
-        )
+  if (pathsToLoad.length === 0) {
+    return {}
+  }
+
+  try {
+    // Request all files from the client in one batch
+    const fileContents = await requestFiles(ws, pathsToLoad)
+
+    // Filter out null values and return only successfully loaded files
+    const loadedContents: Record<string, string> = {}
+    for (const [path, content] of Object.entries(fileContents)) {
+      if (content !== null) {
+        loadedContents[path] = content
       }
-    }),
-  )
+    }
+    return loadedContents
+  } catch (error) {
+    logger.warn(
+      {
+        error: error instanceof Error ? error.message : String(error),
+        pathsToLoad,
+      },
+      'Failed to read original content for benchify',
+    )
+    return {}
+  }
 }
 
 /**
  * Extracts intended changes for all operations (for benchify)
+ * Returns an object mapping path to intended content after all operations are applied
  */
 async function extractAllIntendedChanges(
-  operationsByPath: Map<string, DeferredStrReplace[]>,
-  batchContext: BatchContext,
-) {
-  for (const [path, operations] of operationsByPath) {
-    if (!benchifyCanFixLanguage(path) || !batchContext.originalContents[path]) {
+  operationsByPath: Record<string, DeferredStrReplace[]>,
+  originalContents: Record<string, string>,
+): Promise<Record<string, string>> {
+  const intendedChanges: Record<string, string> = {}
+
+  for (const [path, operations] of Object.entries(operationsByPath)) {
+    if (!benchifyCanFixLanguage(path) || !originalContents[path]) {
       continue
     }
 
     try {
-      let currentContent = batchContext.originalContents[path]
+      let currentContent = originalContents[path]
 
       // Apply all operations sequentially to get final intended content
       for (const { toolCall } of operations) {
@@ -262,7 +241,7 @@ async function extractAllIntendedChanges(
           currentContent
       }
 
-      batchContext.intendedChanges.set(path, currentContent)
+      intendedChanges[path] = currentContent
     } catch (error) {
       logger.warn(
         { error: error instanceof Error ? error.message : String(error), path },
@@ -270,19 +249,26 @@ async function extractAllIntendedChanges(
       )
     }
   }
+
+  return intendedChanges
 }
 
 /**
  * Processes all operations for a single file path sequentially
  */
 async function processPathOperations(
-  path: string,
   operations: DeferredStrReplace[],
   context: {
     toolCalls: (CodebuffToolCall | any)[]
     toolResults: ToolResultPart[]
     agentStepId: string
-    batchContext: BatchContext
+    userInputId: string
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    state: Record<string, any>
+    editedFiles: Record<string, string>
+    requestClientToolCall: (
+      clientToolCall: any,
+    ) => Promise<CodebuffToolOutput<'str_replace'>>
   },
 ) {
   let previousPromise = Promise.resolve()
@@ -309,16 +295,30 @@ async function executeSingleStrReplace(
     toolCalls: (CodebuffToolCall | any)[]
     toolResults: ToolResultPart[]
     agentStepId: string
-    batchContext: BatchContext
+    userInputId: string
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    state: Record<string, any>
+    editedFiles: Record<string, string>
+    requestClientToolCall: (
+      clientToolCall: any,
+    ) => Promise<CodebuffToolOutput<'str_replace'>>
   },
 ) {
-  const { batchContext, toolCalls, toolResults, agentStepId } = context
+  const {
+    userInputId,
+    onResponseChunk,
+    state,
+    editedFiles,
+    toolCalls,
+    toolResults,
+    agentStepId,
+    requestClientToolCall,
+  } = context
 
   try {
     // Create isolated state for each operation
     const isolatedState = {
-      ...batchContext.state,
-      ws: batchContext.ws,
+      ...state,
       promisesByPath: {},
       allPromises: [],
       fileChangeErrors: [],
@@ -329,8 +329,8 @@ async function executeSingleStrReplace(
     const { result } = handleStrReplace({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
-      requestClientToolCall: createRequestClientToolCall(batchContext),
-      writeToClient: batchContext.onResponseChunk,
+      requestClientToolCall,
+      writeToClient: onResponseChunk,
       getLatestState: () => getFileProcessingValues(isolatedState),
       state: isolatedState,
     })
@@ -341,20 +341,20 @@ async function executeSingleStrReplace(
       const toolResultPart = createToolResultPart(toolCall, toolResult)
 
       toolResults.push(toolResultPart)
-      batchContext.onResponseChunk({
+      onResponseChunk({
         type: 'tool_result',
         toolCallId: toolCall.toolCallId,
         output: toolResult,
       })
 
       // Add to message history
-      batchContext.state.messages.push({
+      state.messages.push({
         role: 'tool' as const,
         content: toolResultPart,
       })
 
       // Track edited files for benchify
-      trackEditedFile(toolCall, toolResult, batchContext)
+      trackEditedFile(toolCall, toolResult, editedFiles)
     }
 
     toolCalls.push(toolCall)
@@ -362,7 +362,8 @@ async function executeSingleStrReplace(
     handleStrReplaceError(error, toolCall, operationIndex, totalOperations, {
       toolResults,
       agentStepId,
-      batchContext,
+      userInputId,
+      onResponseChunk,
     })
   }
 }
@@ -370,13 +371,13 @@ async function executeSingleStrReplace(
 /**
  * Creates a typed requestClientToolCall function for batch mode
  */
-function createRequestClientToolCall(batchContext: BatchContext) {
+function createRequestClientToolCall(ws: WebSocket, userInputId: string) {
   return async (
     clientToolCall: any,
   ): Promise<CodebuffToolOutput<'str_replace'>> => {
     const result = await requestToolCall(
-      batchContext.ws,
-      batchContext.userInputId,
+      ws,
+      userInputId,
       clientToolCall.toolName,
       clientToolCall.input,
     )
@@ -405,7 +406,7 @@ function createToolResultPart(
 function trackEditedFile(
   toolCall: CodebuffToolCall<'str_replace'>,
   toolResult: CodebuffToolOutput<'str_replace'>,
-  batchContext: BatchContext,
+  editedFiles: Record<string, string>,
 ) {
   if (
     Array.isArray(toolResult) &&
@@ -414,10 +415,7 @@ function trackEditedFile(
   ) {
     const result = toolResult[0]
     if (result.type === 'json' && result.value && 'content' in result.value) {
-      batchContext.editedFiles.set(
-        toolCall.input.path,
-        result.value.content as string,
-      )
+      editedFiles[toolCall.input.path] = result.value.content as string
     }
   }
 }
@@ -433,10 +431,11 @@ function handleStrReplaceError(
   context: {
     toolResults: ToolResultPart[]
     agentStepId: string
-    batchContext: BatchContext
+    userInputId: string
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
   },
 ) {
-  const { toolResults, agentStepId, batchContext } = context
+  const { toolResults, agentStepId, userInputId, onResponseChunk } = context
 
   logger.error(
     {
@@ -451,7 +450,7 @@ function handleStrReplaceError(
       toolCallId: toolCall.toolCallId,
       path: toolCall.input.path,
       agentStepId,
-      userInputId: batchContext.userInputId,
+      userInputId,
     },
     `Error executing batched str_replace ${operationIndex}/${totalOperations}`,
   )
@@ -471,7 +470,7 @@ function handleStrReplaceError(
   }
 
   toolResults.push(errorResult)
-  batchContext.onResponseChunk({
+  onResponseChunk({
     type: 'tool_result',
     toolCallId: toolCall.toolCallId,
     output: errorResult.output,
@@ -493,57 +492,28 @@ async function applyBenchifyIfNeeded(
   },
 ) {
   // Early exit conditions - fail gracefully without blocking user edits
-  logger.debug(
-    {
-      intendedChanges: Array.from(batchContext.intendedChanges.entries()).map(
-        ([path, contents]) => ({ path, contents }),
-      ),
-      size: batchContext.intendedChanges.size,
-    },
-    'changes to apply?',
-  )
-  if (batchContext.intendedChanges.size === 0) {
-    logger.debug('no changes, returning early...')
+  if (Object.keys(batchContext.intendedChanges).length === 0) {
     return
   }
 
   // Check circuit breaker
   if (isBenchifyCircuitOpen()) {
-    logger.debug(
-      {
-        circuitState: benchifyCircuitBreaker,
-        agentStepId: options.agentStepId,
-        userInputId: options.userInputId,
-      },
-      'Benchify circuit breaker is open, skipping call',
-    )
     return
   }
 
   try {
     // Filter and validate intended changes for Benchify
     const filteredChanges = filterBenchifyFiles(
-      Array.from(batchContext.intendedChanges.entries()).map(
-        ([path, contents]) => ({ path, contents }),
-      ),
+      Object.entries(batchContext.intendedChanges).map(([path, contents]) => ({
+        path,
+        contents,
+      })),
       options.agentStepId,
     )
 
     if (filteredChanges.length === 0) {
-      logger.debug(
-        { agentStepId: options.agentStepId },
-        'No valid files for Benchify after filtering',
-      )
       return
     }
-
-    logger.debug(
-      {
-        filteredChanges,
-        options,
-      },
-      'about to call callBenchifyWithResilience',
-    )
 
     // Call Benchify with timeout and retry logic
     const benchifyResult = await callBenchifyWithResilience(
@@ -551,24 +521,7 @@ async function applyBenchifyIfNeeded(
       options,
     )
 
-    logger.debug(
-      {
-        benchifyResult,
-      },
-      'callBenchifyWithResilience response',
-    )
-
     if (benchifyResult && benchifyResult.length > 0) {
-      logger.info(
-        {
-          benchifyResultCount: benchifyResult.length,
-          diffResults: benchifyResult.length,
-          agentStepId: options.agentStepId,
-          userInputId: options.userInputId,
-        },
-        `executeBatchStrReplaces: Benchify returned ${benchifyResult.length} diff results, applying them`,
-      )
-
       // Apply results with individual error handling to prevent one failure from blocking others
       await applyBenchifyResultsGracefully(filteredChanges, benchifyResult, {
         ws: batchContext.ws,
@@ -589,7 +542,7 @@ async function applyBenchifyIfNeeded(
   } catch (error) {
     // Handle Benchify failure gracefully without blocking user edits
     handleBenchifyFailure(error, {
-      intendedChangeFiles: Array.from(batchContext.intendedChanges.keys()),
+      intendedChangeFiles: Object.keys(batchContext.intendedChanges),
       agentStepId: options.agentStepId,
       userInputId: options.userInputId,
     })
@@ -881,29 +834,6 @@ async function applyBenchifyResultSafely(
       },
       'Failed to apply individual Benchify result',
     )
-  }
-}
-
-/**
- * Extracts the original file content before any modifications
- */
-async function extractOriginalContent(
-  filePath: string,
-  fileContext: ProjectFileContext,
-): Promise<string | null> {
-  try {
-    const absolutePath = `${fileContext.projectRoot}/${filePath}`
-    const currentFile = await file(absolutePath)
-    return await currentFile.text()
-  } catch (error) {
-    logger.warn(
-      {
-        error: error instanceof Error ? error.message : String(error),
-        path: filePath,
-      },
-      'Failed to read original file content',
-    )
-    return null
   }
 }
 
