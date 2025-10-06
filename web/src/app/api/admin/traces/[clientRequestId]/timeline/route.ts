@@ -70,7 +70,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const allMessages = await db
       .select()
       .from(schema.message)
-      .where(eq(schema.message.client_id, clientId))
+      .where(eq(schema.message.client_id, clientId ?? 'NULL'))
       .orderBy(schema.message.finished_at)
 
     // Build timeline events from messages using utility function

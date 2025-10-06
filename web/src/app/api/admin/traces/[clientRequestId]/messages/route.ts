@@ -16,7 +16,7 @@ interface RouteParams {
 
 export interface TraceMessage {
   id: string
-  client_request_id: string
+  client_request_id: string | null
   user_id: string | null
   model: string
   request: any

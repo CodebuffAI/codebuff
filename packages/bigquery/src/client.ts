@@ -1,9 +1,16 @@
+import { getErrorObject } from '@codebuff/common/util/error'
 import { logger } from '@codebuff/common/util/logger'
 import { BigQuery } from '@google-cloud/bigquery'
 
-import { RELABELS_SCHEMA, TRACES_SCHEMA } from './schema'
+import { MESSAGE_SCHEMA, RELABELS_SCHEMA, TRACES_SCHEMA } from './schema'
 
-import type { BaseTrace, GetRelevantFilesTrace, Relabel, Trace } from './schema'
+import type {
+  BaseTrace,
+  GetRelevantFilesTrace,
+  MessageRow,
+  Relabel,
+  Trace,
+} from './schema'
 
 const DATASET =
   process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
@@ -12,6 +19,7 @@ const DATASET =
 
 const TRACES_TABLE = 'traces'
 const RELABELS_TABLE = 'relabels'
+const MESSAGE_TABLE = 'message'
 
 // Create a single BigQuery client instance to be used by all functions
 let client: BigQuery | null = null
@@ -26,6 +34,9 @@ function getClient(): BigQuery {
 }
 
 export async function setupBigQuery(dataset: string = DATASET) {
+  if (client) {
+    return
+  }
   try {
     client = new BigQuery()
 
@@ -55,6 +66,17 @@ export async function setupBigQuery(dataset: string = DATASET) {
         fields: ['user_id', 'agent_step_id'],
       },
     })
+    await ds.table(MESSAGE_TABLE).get({
+      autoCreate: true,
+      schema: MESSAGE_SCHEMA,
+      timePartitioning: {
+        type: 'MONTH',
+        field: 'finished_at',
+      },
+      clustering: {
+        fields: ['user_id'],
+      },
+    })
   } catch (error) {
     logger.error(
       {
@@ -68,6 +90,34 @@ export async function setupBigQuery(dataset: string = DATASET) {
       'Failed to initialize BigQuery',
     )
     throw error // Re-throw to be caught by caller
+  }
+}
+
+export async function insertMessage(
+  row: MessageRow,
+  dataset: string = DATASET,
+) {
+  try {
+    await getClient()
+      .dataset(dataset)
+      .table(MESSAGE_TABLE)
+      .insert({ ...row, request: JSON.stringify(row.request) })
+
+    logger.debug(
+      {
+        ...row,
+        request: undefined,
+      },
+      'Inserted message into BigQuery',
+    )
+    return true
+  } catch (error) {
+    logger.error(
+      { error: getErrorObject(error), messageId: row.id },
+      'Failed to insert message into BigQuery',
+    )
+
+    return false
   }
 }
 

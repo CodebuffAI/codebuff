@@ -191,22 +191,23 @@ export const message = pgTable(
   {
     id: text('id').primaryKey(),
     finished_at: timestamp('finished_at', { mode: 'date' }).notNull(),
-    client_id: text('client_id').notNull(),
-    client_request_id: text('client_request_id').notNull(),
+    client_id: text('client_id'),
+    client_request_id: text('client_request_id'),
     model: text('model').notNull(),
-    request: jsonb('request').notNull(),
+    agent_id: text('agent_id'),
+    request: jsonb('request'),
     lastMessage: jsonb('last_message').generatedAlwaysAs(
       (): SQL => sql`${message.request} -> -1`,
     ),
+    reasoning_text: text('reasoning_text'),
     response: jsonb('response').notNull(),
     input_tokens: integer('input_tokens').notNull().default(0),
     // Always going to be 0 if using OpenRouter
-    cache_creation_input_tokens: integer('cache_creation_input_tokens')
-      .notNull()
-      .default(0),
+    cache_creation_input_tokens: integer('cache_creation_input_tokens'),
     cache_read_input_tokens: integer('cache_read_input_tokens')
       .notNull()
       .default(0),
+    reasoning_tokens: integer('reasoning_tokens'),
     output_tokens: integer('output_tokens').notNull(),
     cost: numeric('cost', { precision: 100, scale: 20 }).notNull(),
     credits: integer('credits').notNull(),
@@ -605,7 +606,12 @@ export const agentRun = pgTable(
       .on(table.created_at, table.publisher_id, table.agent_name)
       .where(sql`${table.status} = 'completed'`),
     index('idx_agent_run_completed_version')
-      .on(table.publisher_id, table.agent_name, table.agent_version, table.created_at)
+      .on(
+        table.publisher_id,
+        table.agent_name,
+        table.agent_version,
+        table.created_at,
+      )
       .where(sql`${table.status} = 'completed'`),
     index('idx_agent_run_completed_user')
       .on(table.user_id)

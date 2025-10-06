@@ -125,3 +125,37 @@ export const RELABELS_SCHEMA: TableSchema = {
     { name: 'payload', type: 'JSON', mode: 'REQUIRED' },
   ],
 }
+
+export type MessageRow = {
+  id: string
+  user_id: string
+  finished_at: Date
+  created_at: Date
+  request: unknown
+  reasoning_text: string
+  response: string
+  output_tokens?: number | null
+  reasoning_tokens?: number | null
+  cost?: number | null
+  upstream_inference_cost?: number | null
+  input_tokens?: number | null
+  cache_read_input_tokens?: number | null
+}
+
+export const MESSAGE_SCHEMA: TableSchema = {
+  fields: [
+    { name: 'id', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'user_id', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'finished_at', type: 'TIMESTAMP', mode: 'REQUIRED' },
+    { name: 'created_at', type: 'TIMESTAMP', mode: 'REQUIRED' },
+    { name: 'request', type: 'JSON', mode: 'REQUIRED' },
+    { name: 'response', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'output_tokens', type: 'INTEGER', mode: 'NULLABLE' },
+    { name: 'reasoning_text', type: 'STRING', mode: 'NULLABLE' },
+    { name: 'reasoning_tokens', type: 'INTEGER', mode: 'NULLABLE' },
+    { name: 'cost', type: 'FLOAT', mode: 'NULLABLE' },
+    { name: 'upstream_inference_cost', type: 'FLOAT', mode: 'NULLABLE' },
+    { name: 'input_tokens', type: 'INTEGER', mode: 'NULLABLE' },
+    { name: 'cache_read_input_tokens', type: 'INTEGER', mode: 'NULLABLE' },
+  ],
+}
