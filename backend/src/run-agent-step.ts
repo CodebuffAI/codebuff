@@ -11,7 +11,6 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { addAgentStep, finishAgentRun, startAgentRun } from './agent-run'
-import { asyncAgentManager } from './async-agent-manager'
 import { checkLiveUserInput } from './live-user-inputs'
 import { getMCPToolData } from './mcp/util'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -166,27 +165,6 @@ export const runAgentStep = async (
           ),
         },
       ],
-    }
-  }
-
-  if (ASYNC_AGENTS_ENABLED) {
-    // Register this agent in the async manager so it can receive messages
-    const isRegistered = asyncAgentManager.getAgent(agentState.agentId)
-    if (!isRegistered && userId) {
-      asyncAgentManager.registerAgent({
-        agentState,
-        sessionId: clientSessionId,
-        userId,
-        fingerprintId,
-        userInputId,
-        ws,
-        fileContext,
-        startTime: new Date(),
-        status: 'running',
-      })
-    } else {
-      // Update status to running for existing agents
-      asyncAgentManager.updateAgentState(agentState, 'running')
     }
   }
 
@@ -384,11 +362,6 @@ export const runAgentStep = async (
     messageHistory: finalMessageHistoryWithToolResults,
     stepsRemaining: agentState.stepsRemaining - 1,
     agentContext: newAgentContext,
-  }
-
-  // Mark agent as completed if it should end turn
-  if (ASYNC_AGENTS_ENABLED && shouldEndTurn) {
-    asyncAgentManager.updateAgentState(agentState, 'completed')
   }
 
   logger.debug(
@@ -614,14 +587,6 @@ export const loopAgentSteps = async (
 
         if (endTurn) {
           shouldEndTurn = true
-        }
-      }
-
-      if (ASYNC_AGENTS_ENABLED) {
-        const hasMessages =
-          asyncAgentManager.getMessages(agentState.agentId).length > 0
-        if (hasMessages) {
-          shouldEndTurn = false
         }
       }
 

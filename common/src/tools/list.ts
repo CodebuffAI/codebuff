@@ -17,7 +17,6 @@ import { setMessagesParams } from './params/tool/set-messages'
 import { setOutputParams } from './params/tool/set-output'
 import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { spawnAgentsParams } from './params/tool/spawn-agents'
-import { spawnAgentsAsyncParams } from './params/tool/spawn-agents-async'
 import { strReplaceParams } from './params/tool/str-replace'
 import { thinkDeeplyParams } from './params/tool/think-deeply'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
@@ -52,7 +51,6 @@ export const $toolParams = {
   set_messages: setMessagesParams,
   set_output: setOutputParams,
   spawn_agents: spawnAgentsParams,
-  spawn_agents_async: spawnAgentsAsyncParams,
   spawn_agent_inline: spawnAgentInlineParams,
   str_replace: strReplaceParams,
   think_deeply: thinkDeeplyParams,

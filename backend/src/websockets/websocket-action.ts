@@ -12,7 +12,6 @@ import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
 
-import { asyncAgentManager } from '../async-agent-manager'
 import {
   cancelUserInput,
   checkLiveUserInput,
@@ -319,9 +318,6 @@ const onCancelUserInput = async ({
     return
   }
   cancelUserInput(userId, promptId)
-  if (ASYNC_AGENTS_ENABLED) {
-    asyncAgentManager.cleanupUserInputAgents(promptId)
-  }
 }
 
 /**

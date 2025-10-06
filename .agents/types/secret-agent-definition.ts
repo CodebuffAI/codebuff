@@ -7,7 +7,6 @@ export type AllToolNames =
   | 'add_subgoal'
   | 'browser_logs'
   | 'create_plan'
-  | 'spawn_agents_async'
   | 'spawn_agent_inline'
   | 'update_subgoal'
 

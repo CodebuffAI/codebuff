@@ -310,18 +310,6 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       }
     },
   },
-  spawn_agents_async: {
-    onToolStart: (toolName) => {
-      return '\n\n' + gray(`[${bold('Spawn Agents')}]`) + '\n'
-    },
-    onParamEnd: renderSpawnAgentsParam,
-    onToolEnd: () => {
-      return () => {
-        Spinner.get().start('Agents running...')
-        return '\n'
-      }
-    },
-  },
   spawn_agent_inline: {
     // Don't render anything
   },

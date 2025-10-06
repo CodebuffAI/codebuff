@@ -3,7 +3,6 @@ import { CLIENT_MESSAGE_SCHEMA } from '@codebuff/common/websockets/websocket-sch
 import { isError } from 'lodash'
 import { WebSocketServer } from 'ws'
 
-import { asyncAgentManager } from '../async-agent-manager'
 import { setSessionConnected } from '../live-user-inputs'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
@@ -142,11 +141,6 @@ export function listen(server: HttpServer, path: string) {
 
       // Mark session as disconnected to stop all agents
       setSessionConnected(clientSessionId, false)
-
-      if (ASYNC_AGENTS_ENABLED) {
-        // Cleanup async agents for this session
-        asyncAgentManager.cleanupSession(clientSessionId)
-      }
 
       SWITCHBOARD.disconnect(ws)
     })
