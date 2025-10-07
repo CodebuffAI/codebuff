@@ -81,6 +81,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@auth/drizzle-adapter": "^1.5.0",
+        "@codebuff/types": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.18.2",
         "@types/pg": "^8.11.10",
         "@types/readable-stream": "^4.0.18",
@@ -228,6 +229,14 @@
         "drizzle-orm": "*",
         "loops": "^5.0.1",
       },
+      "devDependencies": {
+        "@types/bun": "^1.2.11",
+        "@types/node": "22",
+      },
+    },
+    "packages/types": {
+      "name": "@codebuff/types",
+      "version": "0.0.0",
       "devDependencies": {
         "@types/bun": "^1.2.11",
         "@types/node": "22",
@@ -542,6 +551,8 @@
     "@codebuff/scripts": ["@codebuff/scripts@workspace:scripts"],
 
     "@codebuff/sdk": ["@codebuff/sdk@workspace:sdk"],
+
+    "@codebuff/types": ["@codebuff/types@workspace:packages/types"],
 
     "@codebuff/web": ["@codebuff/web@workspace:web"],
 

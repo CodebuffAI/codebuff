@@ -7,25 +7,15 @@ import type {
   AddAgentStepFn,
   FinishAgentRunFn,
   StartAgentRunFn,
-  Logger,
-} from '@codebuff/agent-runtime'
+} from '@codebuff/types/database'
 
 /**
  * Starts a new agent run and creates an entry in the agent_run table
  */
-export async function startAgentRun({
-  runId,
-  userId,
-  agentId,
-  ancestorRunIds,
-  logger,
-}: {
-  runId?: string
-  userId?: string
-  agentId: string
-  ancestorRunIds: string[]
-  logger: Logger
-}): Promise<string> {
+export async function startAgentRun(
+  params: Parameters<StartAgentRunFn>[0],
+): ReturnType<StartAgentRunFn> {
+  const { runId, userId, agentId, ancestorRunIds, logger } = params
   if (userId === TEST_USER_ID) {
     return 'test-run-id'
   }
@@ -51,30 +41,23 @@ export async function startAgentRun({
     throw error
   }
 }
-startAgentRun satisfies StartAgentRunFn
 
 /**
  * Completes an agent run by updating its status and metrics
  */
-export async function finishAgentRun({
-  userId,
-  runId,
-  status,
-  totalSteps,
-  directCredits,
-  totalCredits,
-  errorMessage,
-  logger,
-}: {
-  userId: string | undefined
-  runId: string
-  status: 'completed' | 'failed' | 'cancelled'
-  totalSteps: number
-  directCredits: number
-  totalCredits: number
-  errorMessage?: string
-  logger: Logger
-}): Promise<void> {
+export async function finishAgentRun(
+  params: Parameters<FinishAgentRunFn>[0],
+): ReturnType<FinishAgentRunFn> {
+  const {
+    userId,
+    runId,
+    status,
+    totalSteps,
+    directCredits,
+    totalCredits,
+    errorMessage,
+    logger,
+  } = params
   if (userId === TEST_USER_ID) {
     return
   }
@@ -96,34 +79,26 @@ export async function finishAgentRun({
     throw error
   }
 }
-finishAgentRun satisfies FinishAgentRunFn
 
 /**
  * Adds a completed step to the agent_step table
  */
-export async function addAgentStep({
-  userId,
-  agentRunId,
-  stepNumber,
-  credits,
-  childRunIds,
-  messageId,
-  status = 'completed',
-  errorMessage,
-  startTime,
-  logger,
-}: {
-  userId: string | undefined
-  agentRunId: string
-  stepNumber: number
-  credits?: number
-  childRunIds?: string[]
-  messageId: string | null
-  status?: 'running' | 'completed' | 'skipped'
-  errorMessage?: string
-  startTime: Date
-  logger: Logger
-}): Promise<string> {
+export async function addAgentStep(
+  params: Parameters<AddAgentStepFn>[0],
+): ReturnType<AddAgentStepFn> {
+  const {
+    userId,
+    agentRunId,
+    stepNumber,
+    credits,
+    childRunIds,
+    messageId,
+    status = 'completed',
+    errorMessage,
+    startTime,
+    logger,
+  } = params
+
   if (userId === TEST_USER_ID) {
     return 'test-step-id'
   }
@@ -149,4 +124,3 @@ export async function addAgentStep({
     throw error
   }
 }
-addAgentStep satisfies AddAgentStepFn
