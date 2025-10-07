@@ -301,7 +301,12 @@ async function syncMessageToStripe(messageData: {
       { ...logContext, error: errorMessage },
       'Failed to sync usage to Stripe after retries.',
     )
-    await logSyncFailure(messageId, errorMessage, 'stripe')
+    await logSyncFailure({
+      id: messageId,
+      errorMessage,
+      provider: 'stripe',
+      logger,
+    })
   }
 }
 

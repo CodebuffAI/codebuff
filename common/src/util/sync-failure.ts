@@ -1,14 +1,21 @@
 import { sql } from 'drizzle-orm'
 
 import db from '../db'
-import { logger } from './logger'
 import * as schema from '../db/schema'
 
-export async function logSyncFailure(
-  id: string,
-  errorMessage: string,
+import type { Logger } from '@codebuff/types/logger'
+
+export async function logSyncFailure({
+  id,
+  errorMessage,
   provider = 'stripe',
-): Promise<void> {
+  logger,
+}: {
+  id: string
+  errorMessage: string
+  provider: string
+  logger: Logger
+}): Promise<void> {
   try {
     await db
       .insert(schema.syncFailure)

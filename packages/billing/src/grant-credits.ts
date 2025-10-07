@@ -259,7 +259,12 @@ export async function processAndGrantCredit(
       },
     )
   } catch (error: any) {
-    await logSyncFailure(operationId, error.message, 'internal')
+    await logSyncFailure({
+      id: operationId,
+      errorMessage: error.message,
+      provider: 'internal',
+      logger,
+    })
     logger.error(
       { operationId, error },
       'processAndGrantCredit failed after retries, logged to sync_failure',
