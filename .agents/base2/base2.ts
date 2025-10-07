@@ -91,7 +91,7 @@ Feel free to modify this workflow as needed. It's good to spawn different agents
 - Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, running scripts that could alter production environments, installing packages globally, etc). Don't do any of these unless the user explicitly asks you to.
 `,
 
-  stepPrompt: `Don't forget to spawn agents that could help, especially: the researcher-file-explorer to get codebase context, the decomposing-planner to craft a great plan, and the reviewer-max to review code changes made by the editor.`,
+  stepPrompt: `<system-reminder>Don't forget to spawn agents that could help, especially: the researcher-file-explorer to get codebase context, the decomposing-planner to craft a great plan, and the reviewer-max to review code changes made by the editor.</system-reminder>`,
 
   handleSteps: function* ({ prompt, params }) {
     let steps = 0

@@ -72,7 +72,7 @@ class RunEvalSetCommand extends Command {
     }),
     agent: Flags.string({
       description: 'Codebuff agent id to use',
-      default: 'base',
+      default: 'base2',
     }),
     help: Flags.help({ char: 'h' }),
   }
