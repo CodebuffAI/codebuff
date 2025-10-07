@@ -48,17 +48,18 @@ export class QuickJSSandbox {
   /**
    * Create a new QuickJS sandbox with the specified configuration
    */
-  static async create(
-    generatorCode: string,
-    initialInput: any,
-    config: SandboxConfig = {},
+  static async create(params: {
+    generatorCode: string
+    initialInput: any
+    config?: SandboxConfig
     logger?: {
       debug: (data: any, msg?: string) => void
       info: (data: any, msg?: string) => void
       warn: (data: any, msg?: string) => void
       error: (data: any, msg?: string) => void
-    },
-  ): Promise<QuickJSSandbox> {
+    }
+  }): Promise<QuickJSSandbox> {
+    const { generatorCode, initialInput, config = {}, logger } = params
     const {
       memoryLimit = 1024 * 1024 * 20, // 20MB
       maxStackSize = 1024 * 512, // 512KB
@@ -285,12 +286,12 @@ export class SandboxManager {
     }
 
     // Create new sandbox
-    const sandbox = await QuickJSSandbox.create(
+    const sandbox = await QuickJSSandbox.create({
       generatorCode,
       initialInput,
       config,
       logger,
-    )
+    })
     this.sandboxes.set(runId, sandbox)
     return sandbox
   }

@@ -95,10 +95,11 @@ export function castAssistantMessage(message: Message): Message | null {
 // Number of terminal command outputs to keep in full form before simplifying
 const numTerminalCommandsToKeep = 5
 
-function simplifyTerminalHelper(
-  toolResult: CodebuffToolOutput<'run_terminal_command'>,
-  numKept: number,
-): { result: CodebuffToolOutput<'run_terminal_command'>; numKept: number } {
+function simplifyTerminalHelper(params: {
+  toolResult: CodebuffToolOutput<'run_terminal_command'>
+  numKept: number
+}): { result: CodebuffToolOutput<'run_terminal_command'>; numKept: number } {
+  const { toolResult, numKept } = params
   const simplified = simplifyTerminalCommandResults(toolResult)
 
   // Keep the full output for the N most recent commands
@@ -165,10 +166,10 @@ export function trimMessagesToFitTokenLimit(
         m,
       ) as CodebuffToolMessage<'run_terminal_command'>
 
-      const result = simplifyTerminalHelper(
-        terminalResultMessage.content.output,
+      const result = simplifyTerminalHelper({
+        toolResult: terminalResultMessage.content.output,
         numKept,
-      )
+      })
       terminalResultMessage.content.output = result.result
       numKept = result.numKept
 
