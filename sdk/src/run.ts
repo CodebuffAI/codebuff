@@ -124,6 +124,7 @@ export async function run({
     resolve = res
   })
 
+  // TODO: bad pattern, switch to using SSE and move off of websockets
   let insideToolCall = false
   let buffer = ''
   const BUFFER_SIZE = 100
@@ -164,7 +165,7 @@ export async function run({
 
     onResponseChunk: async (action) => {
       checkAborted(signal)
-      const { userInputId, chunk } = action
+      const { chunk } = action
       if (typeof chunk === 'string') {
         buffer += chunk
 
@@ -193,7 +194,7 @@ export async function run({
         if (insideToolCall && buffer.length > BUFFER_SIZE * 10) {
           buffer = buffer.slice(-BUFFER_SIZE * 10)
         }
-      } else {
+      } else if (chunk.type !== 'tool_call') {
         await handleEvent?.(chunk)
       }
     },
