@@ -1,13 +1,14 @@
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import { validateSpawnableAgents } from '../util/agent-template-validation'
-import { logger } from '../util/logger'
 import {
   DynamicAgentDefinitionSchema,
   DynamicAgentTemplateSchema,
 } from '../types/dynamic-agent-template'
+import { validateSpawnableAgents } from '../util/agent-template-validation'
+
 import type { AgentTemplate } from '../types/agent-template'
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
+import type { Logger } from '@codebuff/types/logger'
 
 export interface DynamicAgentValidationError {
   filePath: string
@@ -17,9 +18,12 @@ export interface DynamicAgentValidationError {
 /**
  * Collect all agent IDs from template files without full validation
  */
-export function collectAgentIds(
-  agentTemplates: Record<string, DynamicAgentTemplate> = {},
-): { agentIds: string[]; spawnableAgentIds: string[] } {
+export function collectAgentIds(params: {
+  agentTemplates?: Record<string, DynamicAgentTemplate>
+  logger: Logger
+}): { agentIds: string[]; spawnableAgentIds: string[] } {
+  const { agentTemplates = {}, logger } = params
+
   const agentIds: string[] = []
   const spawnableAgentIds: string[] = []
   const jsonFiles = Object.keys(agentTemplates)
@@ -50,18 +54,19 @@ export function collectAgentIds(
   return { agentIds, spawnableAgentIds }
 }
 
-export async function validateAgentsWithSpawnableAgents(
-  agentTemplates: Record<string, any> = {},
-): Promise<{
+export async function validateAgentsWithSpawnableAgents(params: {
+  agentTemplates?: Record<string, any>
+  logger: Logger
+}): Promise<{
   templates: Record<string, AgentTemplate>
   dynamicTemplates: Record<string, DynamicAgentTemplate>
   validationErrors: DynamicAgentValidationError[]
 }> {
-  const { agentIds, spawnableAgentIds } = collectAgentIds(agentTemplates)
-  const { validationErrors } = await validateSpawnableAgents(
-    spawnableAgentIds,
-    agentIds,
-  )
+  const { agentIds, spawnableAgentIds } = collectAgentIds(params)
+  const { validationErrors } = await validateSpawnableAgents({
+    spawnableAgents: spawnableAgentIds,
+    dynamicAgentIds: agentIds,
+  })
   if (validationErrors.length > 0) {
     return {
       templates: {},
@@ -69,17 +74,22 @@ export async function validateAgentsWithSpawnableAgents(
       validationErrors,
     }
   }
-  return validateAgents(agentTemplates)
+  return validateAgents(params)
 }
 
 /**
  * Validate and load dynamic agent templates from user-provided agentTemplates
  */
-export function validateAgents(agentTemplates: Record<string, any> = {}): {
+export function validateAgents(params: {
+  agentTemplates?: Record<string, any>
+  logger: Logger
+}): {
   templates: Record<string, AgentTemplate>
   dynamicTemplates: Record<string, DynamicAgentTemplate>
   validationErrors: DynamicAgentValidationError[]
 } {
+  const { agentTemplates = {}, logger } = params
+
   const templates: Record<string, AgentTemplate> = {}
   const dynamicTemplates: Record<string, DynamicAgentTemplate> = {}
   const validationErrors: DynamicAgentValidationError[] = []
@@ -104,7 +114,8 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
         continue
       }
 
-      const validationResult = validateSingleAgent(content, {
+      const validationResult = validateSingleAgent({
+        template: content,
         filePath: agentKey,
       })
 
@@ -170,18 +181,16 @@ export function validateAgents(agentTemplates: Record<string, any> = {}): {
  * @param options.skipSubagentValidation - Skip subagent validation when loading from database
  * @returns Validation result with either the converted AgentTemplate or an error
  */
-export function validateSingleAgent(
-  template: any,
-  options?: {
-    filePath?: string
-  },
-): {
+export function validateSingleAgent(params: {
+  template: any
+  filePath?: string
+}): {
   success: boolean
   agentTemplate?: AgentTemplate
   dynamicAgentTemplate?: DynamicAgentTemplate
   error?: string
 } {
-  const { filePath } = options || {}
+  const { template, filePath = 'unknown' } = params
 
   try {
     // First validate against the Zod schema
@@ -284,7 +293,6 @@ export function validateSingleAgent(
       stepPrompt: validatedConfig.stepPrompt ?? '',
       outputSchema,
       inputSchema,
-
     }
 
     return {

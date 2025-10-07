@@ -24,6 +24,7 @@ import {
 import type { AgentTemplate } from '../templates/types'
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 
 // Create mock static templates that will be used by the agent registry
 const mockStaticTemplates: Record<string, AgentTemplate> = {
@@ -169,7 +170,13 @@ describe('Agent Registry', () => {
       '@codebuff/common/templates/agent-validation'
     )
     spyOn(validationModule, 'validateAgents').mockImplementation(
-      (agentTemplates: Record<string, DynamicAgentTemplate> = {}) => {
+      ({
+        agentTemplates = {},
+        logger,
+      }: {
+        agentTemplates?: Record<string, DynamicAgentTemplate>
+        logger: Logger
+      }) => {
         // Start with static templates (simulating the real behavior)
         const templates: Record<string, AgentTemplate> = {
           ...mockStaticTemplates,
@@ -194,7 +201,7 @@ describe('Agent Registry', () => {
     )
 
     spyOn(validationModule, 'validateSingleAgent').mockImplementation(
-      (template: DynamicAgentTemplate, options?: any) => {
+      ({ template }: { template: DynamicAgentTemplate; filePath?: string }) => {
         // Check for malformed agents (missing required fields)
         if (
           template.id === 'malformed-agent' ||

@@ -1,7 +1,8 @@
-import { DynamicAgentValidationError } from '../templates/agent-validation'
+import { parseAgentId } from './agent-id-parsing'
 import { fetchAgent } from '../templates/fetch-agent'
 import { AgentTemplateTypes } from '../types/session-state'
-import { parseAgentId } from './agent-id-parsing'
+
+import type { DynamicAgentValidationError } from '../templates/agent-validation'
 
 export interface SubagentValidationResult {
   valid: boolean
@@ -12,15 +13,17 @@ export interface SubagentValidationResult {
  * Centralized validation for spawnable agents.
  * Validates that all spawnable agents reference valid agent types.
  */
-export async function validateSpawnableAgents(
-  spawnableAgents: string[],
-  dynamicAgentIds: string[],
-): Promise<
+export async function validateSpawnableAgents(params: {
+  spawnableAgents: string[]
+  dynamicAgentIds: string[]
+}): Promise<
   SubagentValidationResult & {
     availableAgents: string[]
     validationErrors: DynamicAgentValidationError[]
   }
 > {
+  const { spawnableAgents, dynamicAgentIds } = params
+
   // Build complete list of available agent types (normalized)
   const availableAgentTypes = [
     ...Object.values(AgentTemplateTypes),

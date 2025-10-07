@@ -1,18 +1,19 @@
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
-
-import { ProjectFileContext } from '@codebuff/common/util/file'
-import { logger } from '../util/logger'
 import {
-  DynamicAgentValidationError,
   validateAgents,
   validateSingleAgent,
 } from '@codebuff/common/templates/agent-validation'
-import { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
-import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
 import { parsePublishedAgentId } from '@codebuff/common/util/agent-id-parsing'
+import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
+import { and, desc, eq } from 'drizzle-orm'
+
+import { logger } from '../util/logger'
+
+import type { DynamicAgentValidationError } from '@codebuff/common/templates/agent-validation'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export type AgentRegistry = Record<string, AgentTemplate>
 
@@ -76,12 +77,10 @@ async function fetchAgentFromDatabase(parsedAgentId: {
     const rawAgentData = agentConfig.data as DynamicAgentTemplate
 
     // Validate the raw agent data with the original agentId (not full identifier)
-    const validationResult = validateSingleAgent(
-      { ...rawAgentData, id: agentId, version: agentConfig.version },
-      {
-        filePath: `${publisherId}/${agentId}@${agentConfig.version}`,
-      },
-    )
+    const validationResult = validateSingleAgent({
+      template: { ...rawAgentData, id: agentId, version: agentConfig.version },
+      filePath: `${publisherId}/${agentId}@${agentConfig.version}`,
+    })
 
     if (!validationResult.success) {
       logger.error(
@@ -176,9 +175,10 @@ export function assembleLocalAgentTemplates(fileContext: ProjectFileContext): {
   validationErrors: DynamicAgentValidationError[]
 } {
   // Load dynamic agents using the service
-  const { templates: dynamicTemplates, validationErrors } = validateAgents(
-    fileContext.agentTemplates || {},
-  )
+  const { templates: dynamicTemplates, validationErrors } = validateAgents({
+    agentTemplates: fileContext.agentTemplates,
+    logger,
+  })
 
   // Use dynamic templates only
 

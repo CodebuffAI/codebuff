@@ -12,8 +12,6 @@ import { eq, and, or, desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import { logger } from '@/util/logger'
-
 import {
   resolveAndValidateSubagents,
   SubagentResolutionError,
@@ -21,9 +19,10 @@ import {
 } from './subagent-resolution'
 import { authOptions } from '../../auth/[...nextauth]/auth-options'
 
-import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { Version } from '@codebuff/internal'
 import type { NextRequest } from 'next/server'
+
+import { logger } from '@/util/logger'
 
 async function getPublishedAgentIds(publisherId: string) {
   const agents = await db
@@ -71,7 +70,10 @@ export async function POST(request: NextRequest) {
     )
 
     const { validationErrors, dynamicTemplates } =
-      await validateAgentsWithSpawnableAgents(agentMap)
+      await validateAgentsWithSpawnableAgents({
+        agentTemplates: agentMap,
+        logger,
+      })
     const agents = Object.values(dynamicTemplates)
 
     if (validationErrors.length > 0) {

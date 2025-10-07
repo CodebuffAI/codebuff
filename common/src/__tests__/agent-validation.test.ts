@@ -1,36 +1,23 @@
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  test,
-} from 'bun:test'
+import { beforeEach, describe, expect, it, test } from 'bun:test'
 
 import { validateAgents } from '../templates/agent-validation'
-import { clearMockedModules, mockModule } from '../testing/mock-modules'
 import { DynamicAgentDefinitionSchema } from '../types/dynamic-agent-template'
 import { getStubProjectFileContext } from '../util/file'
 
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 import type { AgentState } from '../types/session-state'
 import type { ProjectFileContext } from '../util/file'
+import type { Logger } from '@codebuff/types/logger'
 
 describe('Agent Validation', () => {
   let mockFileContext: ProjectFileContext
   let mockAgentTemplate: DynamicAgentTemplate
-
-  beforeAll(() => {
-    // Mock logger to avoid console output during tests
-    mockModule('../util/logger', () => ({
-      logger: {
-        debug: () => {},
-        warn: () => {},
-        error: () => {},
-      },
-    }))
-  })
+  const logger: Logger = {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  }
 
   beforeEach(() => {
     mockFileContext = getStubProjectFileContext()
@@ -51,10 +38,6 @@ describe('Agent Validation', () => {
       instructionsPrompt: 'Test user prompt',
       stepPrompt: 'Test agent step prompt',
     }
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   describe('Dynamic Agent Loading', () => {
@@ -80,7 +63,10 @@ describe('Agent Validation', () => {
         },
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('brainstormer')
@@ -110,7 +96,10 @@ describe('Agent Validation', () => {
         },
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain(
@@ -140,7 +129,10 @@ describe('Agent Validation', () => {
         },
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       // Should have dynamic templates
       expect(result.templates).toHaveProperty('custom-agent') // Dynamic
@@ -180,7 +172,10 @@ describe('Agent Validation', () => {
         },
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('schema-agent')
@@ -213,7 +208,10 @@ describe('Agent Validation', () => {
         },
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       expect(result.validationErrors).toHaveLength(1)
       expect(result.validationErrors[0].message).toContain(
@@ -245,7 +243,10 @@ describe('Agent Validation', () => {
         },
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('no-override-agent')
@@ -288,7 +289,10 @@ describe('Agent Validation', () => {
         },
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates).toHaveProperty('codebuffai-git-committer')
@@ -324,7 +328,10 @@ describe('Agent Validation', () => {
           },
         }
 
-        const result = validateAgents(fileContext.agentTemplates || {})
+        const result = validateAgents({
+          agentTemplates: fileContext.agentTemplates || {},
+          logger,
+        })
 
         expect(result.validationErrors).toHaveLength(0)
         expect(result.templates).toHaveProperty('no-prompt-schema-agent')
@@ -356,7 +363,10 @@ describe('Agent Validation', () => {
           },
         }
 
-        const result = validateAgents(fileContext.agentTemplates || {})
+        const result = validateAgents({
+          agentTemplates: fileContext.agentTemplates || {},
+          logger,
+        })
 
         expect(result.validationErrors).toHaveLength(0)
         expect(result.templates).toHaveProperty('no-params-schema-agent')
@@ -412,7 +422,10 @@ describe('Agent Validation', () => {
           },
         }
 
-        const result = validateAgents(fileContext.agentTemplates || {})
+        const result = validateAgents({
+          agentTemplates: fileContext.agentTemplates || {},
+          logger,
+        })
 
         expect(result.validationErrors).toHaveLength(0)
         expect(result.templates).toHaveProperty('both-schemas-agent')
@@ -484,7 +497,10 @@ describe('Agent Validation', () => {
           },
         }
 
-        const result = validateAgents(fileContext.agentTemplates || {})
+        const result = validateAgents({
+          agentTemplates: fileContext.agentTemplates || {},
+          logger,
+        })
 
         expect(result.validationErrors).toHaveLength(0)
         expect(result.templates).toHaveProperty('complex-schema-agent')
@@ -543,7 +559,10 @@ describe('Agent Validation', () => {
           },
         }
 
-        const result = validateAgents(fileContext.agentTemplates || {})
+        const result = validateAgents({
+          agentTemplates: fileContext.agentTemplates || {},
+          logger,
+        })
 
         expect(result.validationErrors).toHaveLength(1)
         expect(result.validationErrors[0].message).toContain(
@@ -592,7 +611,10 @@ describe('Agent Validation', () => {
           },
         }
 
-        const result = validateAgents(fileContext.agentTemplates || {})
+        const result = validateAgents({
+          agentTemplates: fileContext.agentTemplates || {},
+          logger,
+        })
 
         expect(result.validationErrors).toHaveLength(0)
         expect(result.templates).toHaveProperty('codebuffai-git-committer')
@@ -637,7 +659,10 @@ describe('Agent Validation', () => {
           },
         }
 
-        const result = validateAgents(fileContext.agentTemplates || {})
+        const result = validateAgents({
+          agentTemplates: fileContext.agentTemplates || {},
+          logger,
+        })
 
         expect(result.validationErrors).toHaveLength(0)
         expect(result.templates).toHaveProperty('empty-schema-agent')
@@ -715,7 +740,10 @@ describe('Agent Validation', () => {
         agentTemplates,
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.templates['test-agent']).toBeDefined()
@@ -793,7 +821,10 @@ describe('Agent Validation', () => {
         agentTemplates,
       }
 
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       expect(result.validationErrors.length).toBeGreaterThan(0)
       expect(result.validationErrors[0].message).toContain('generator function')
@@ -833,7 +864,10 @@ describe('Agent Validation', () => {
       }
 
       // Load agents through the service
-      const result = validateAgents(fileContext.agentTemplates || {})
+      const result = validateAgents({
+        agentTemplates: fileContext.agentTemplates || {},
+        logger,
+      })
 
       // Verify no validation errors
       expect(result.validationErrors).toHaveLength(0)

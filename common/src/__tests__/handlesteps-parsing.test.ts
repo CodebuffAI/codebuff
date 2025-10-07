@@ -6,10 +6,17 @@ import { DynamicAgentDefinitionSchema } from '../types/dynamic-agent-template'
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 import type { AgentState } from '../types/session-state'
 import type { ProjectFileContext } from '../util/file'
+import type { Logger } from '@codebuff/types/logger'
 
 describe('handleSteps Parsing Tests', () => {
   let mockFileContext: ProjectFileContext
   let mockAgentTemplate: DynamicAgentTemplate
+  const logger: Logger = {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  }
 
   beforeEach(() => {
     // Setup common mock data
@@ -126,7 +133,10 @@ describe('handleSteps Parsing Tests', () => {
       agentTemplates,
     }
 
-    const result = validateAgents(fileContext.agentTemplates || {})
+    const result = validateAgents({
+      agentTemplates: fileContext.agentTemplates || {},
+      logger,
+    })
 
     expect(result.validationErrors).toHaveLength(0)
     expect(result.templates['test-agent']).toBeDefined()
@@ -176,7 +186,10 @@ describe('handleSteps Parsing Tests', () => {
       agentTemplates,
     }
 
-    const result = validateAgents(fileContext.agentTemplates || {})
+    const result = validateAgents({
+      agentTemplates: fileContext.agentTemplates || {},
+      logger,
+    })
 
     expect(result.validationErrors.length).toBeGreaterThan(0)
     expect(result.validationErrors[0].message).toContain('generator function')
@@ -217,7 +230,10 @@ describe('handleSteps Parsing Tests', () => {
     }
 
     // Load agents through the service
-    const result = validateAgents(fileContext.agentTemplates || {})
+    const result = validateAgents({
+      agentTemplates: fileContext.agentTemplates || {},
+      logger,
+    })
 
     // Verify no validation errors
     expect(result.validationErrors).toHaveLength(0)
