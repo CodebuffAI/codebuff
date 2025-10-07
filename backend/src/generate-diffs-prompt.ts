@@ -130,15 +130,24 @@ export const tryToDoStringReplacementWithExtraIndentation = (params: {
   return null
 }
 
-export async function retryDiffBlocksPrompt(
-  filePath: string,
-  oldContent: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[],
-) {
+export async function retryDiffBlocksPrompt(params: {
+  filePath: string
+  oldContent: string
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[]
+}) {
+  const {
+    filePath,
+    oldContent,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    diffBlocksThatDidntMatch,
+  } = params
   const newPrompt =
     `The assistant failed to find a match for the following changes. Please help the assistant understand what the changes should be.
 

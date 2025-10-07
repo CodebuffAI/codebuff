@@ -311,15 +311,15 @@ Please output just the SEARCH/REPLACE blocks like this:
     )
 
     const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
-      await retryDiffBlocksPrompt(
+      await retryDiffBlocksPrompt({
         filePath,
-        updatedContent,
+        oldContent: updatedContent,
         clientSessionId,
         fingerprintId,
         userInputId,
         userId,
         diffBlocksThatDidntMatch,
-      )
+      })
 
     if (newDiffBlocksThatDidntMatch.length > 0) {
       logger.error(
