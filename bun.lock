@@ -42,6 +42,7 @@
       "dependencies": {
         "@ai-sdk/google-vertex": "3.0.6",
         "@ai-sdk/openai": "2.0.11",
+        "@codebuff/agent-runtime": "workspace:*",
         "@codebuff/billing": "workspace:*",
         "@codebuff/common": "workspace:*",
         "@codebuff/internal": "workspace:*",
@@ -166,6 +167,14 @@
       },
       "devDependencies": {
         "@types/markdown-it": "^14.1.2",
+      },
+    },
+    "packages/agent-runtime": {
+      "name": "@codebuff/agent-runtime",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "^1.2.11",
+        "@types/node": "22",
       },
     },
     "packages/bigquery": {
@@ -507,6 +516,8 @@
     "@chevrotain/types": ["@chevrotain/types@11.0.3", "", {}, "sha512-gsiM3G8b58kZC2HaWR50gu6Y1440cHiJ+i3JUvcp/35JchYejb2+5MVeJK0iKThYpAa/P2PYFV4hoi44HD+aHQ=="],
 
     "@chevrotain/utils": ["@chevrotain/utils@11.0.3", "", {}, "sha512-YslZMgtJUyuMbZ+aKvfF3x1f5liK4mWNxghFRv7jqRR9C3R3fAOGTTKvxXDa2Y1s9zSbcpuO0cAxDYsc9SrXoQ=="],
+
+    "@codebuff/agent-runtime": ["@codebuff/agent-runtime@workspace:packages/agent-runtime"],
 
     "@codebuff/agents": ["@codebuff/agents@workspace:.agents"],
 

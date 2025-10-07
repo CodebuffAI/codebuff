@@ -9,6 +9,7 @@
       "@codebuff/web/*": ["./web/src/*"],
       "@codebuff/evals/*": ["./evals/*"],
       "@codebuff/sdk/*": ["./sdk/*"],
+      "@codebuff/agent-runtime/*": ["./packages/agent-runtime/src/*"],
       "@codebuff/billing/*": ["./packages/billing/src/*"],
       "@codebuff/bigquery/*": ["./packages/bigquery/src/*"],
       "@codebuff/internal/*": ["./packages/internal/src/*"],
