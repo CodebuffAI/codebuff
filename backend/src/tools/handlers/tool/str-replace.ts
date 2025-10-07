@@ -63,7 +63,11 @@ export const handleStrReplace = ((params: {
       )
     : requestOptionalFile(ws, path)
 
-  const newPromise = processStrReplace(path, replacements, latestContentPromise)
+  const newPromise = processStrReplace({
+    path,
+    replacements,
+    initialContentPromise: latestContentPromise,
+  })
     .catch((error: any) => {
       logger.error(error, 'Error processing str_replace block')
       return {

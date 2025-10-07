@@ -29,11 +29,11 @@ export const parseAndGetDiffBlocksSingleFile = (
     if (oldFileContent.includes(change.searchContent)) {
       diffBlocks.push(change)
     } else {
-      const newChange = tryToDoStringReplacementWithExtraIndentation(
+      const newChange = tryToDoStringReplacementWithExtraIndentation({
         oldFileContent,
-        change.searchContent,
-        change.replaceContent,
-      )
+        searchContent: change.searchContent,
+        replaceContent: change.replaceContent,
+      })
       if (newChange) {
         logger.debug('Matched with indentation modification')
         diffBlocks.push(newChange)
@@ -91,11 +91,12 @@ export const parseAndGetDiffBlocksSingleFile = (
   }
 }
 
-export const tryToDoStringReplacementWithExtraIndentation = (
-  oldFileContent: string,
-  searchContent: string,
-  replaceContent: string,
-) => {
+export const tryToDoStringReplacementWithExtraIndentation = (params: {
+  oldFileContent: string
+  searchContent: string
+  replaceContent: string
+}) => {
+  const { oldFileContent, searchContent, replaceContent } = params
   for (let i = 1; i <= 12; i++) {
     const searchContentWithIndentation = searchContent
       .split('\n')

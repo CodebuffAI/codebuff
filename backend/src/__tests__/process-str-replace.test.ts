@@ -32,11 +32,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const y = 2;'
     const newStr = 'const y = 3;'
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: false }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -52,11 +52,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const y = 2;\r\n'
     const newStr = 'const y = 3;\r\n'
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: false }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -71,11 +71,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const y = 2;'
     const newStr = 'const y = 3;'
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: false }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -89,11 +89,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const  y  =  2;'
     const newStr = 'const y = 3;'
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: false }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -103,11 +103,11 @@ describe('processStrReplace', () => {
   })
 
   it('should return error if file content is null and oldStr is not empty', async () => {
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: 'old', new: 'new', allowMultiple: false }],
-      Promise.resolve(null),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: 'old', new: 'new', allowMultiple: false }],
+      initialContentPromise: Promise.resolve(null),
+    })
 
     expect(result).not.toBeNull()
     expect('error' in result).toBe(true)
@@ -117,11 +117,11 @@ describe('processStrReplace', () => {
   })
 
   it('should return error if oldStr is empty and file exists', async () => {
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: '', new: 'new', allowMultiple: false }],
-      Promise.resolve('content'),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: '', new: 'new', allowMultiple: false }],
+      initialContentPromise: Promise.resolve('content'),
+    })
 
     expect(result).not.toBeNull()
     expect('error' in result).toBe(true)
@@ -135,11 +135,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const z = 3;' // This string doesn't exist in the content
     const newStr = 'const z = 4;'
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: false }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('error' in result).toBe(true)
@@ -155,11 +155,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const x'
     const newStr = 'let x'
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: true }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -173,11 +173,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const y = 2;'
     const newStr = 'const y = 3;'
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: false }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -194,11 +194,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const y = "<div>";'
     const newStr = 'const y = "<span>";'
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: false }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -217,11 +217,11 @@ describe('processStrReplace', () => {
       { old: 'const z = 3;', new: 'const z = 30;', allowMultiple: false }, // This also exists
     ]
 
-    const result = await processStrReplace(
-      'test.ts',
+    const result = await processStrReplace({
+      path: 'test.ts',
       replacements,
-      Promise.resolve(initialContent),
-    )
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -241,11 +241,11 @@ describe('processStrReplace', () => {
     const oldStr = 'const y = 2;'
     const newStr = 'const y = 2;' // Same as old string
 
-    const result = await processStrReplace(
-      'test.ts',
-      [{ old: oldStr, new: newStr, allowMultiple: false }],
-      Promise.resolve(initialContent),
-    )
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
@@ -262,11 +262,11 @@ describe('processStrReplace', () => {
       const oldStr = 'const x'
       const newStr = 'let x'
 
-      const result = await processStrReplace(
-        'test.ts',
-        [{ old: oldStr, new: newStr, allowMultiple: false }],
-        Promise.resolve(initialContent),
-      )
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+        initialContentPromise: Promise.resolve(initialContent),
+      })
 
       expect(result).not.toBeNull()
       expect('error' in result).toBe(true)
@@ -281,11 +281,11 @@ describe('processStrReplace', () => {
       const oldStr = 'foo'
       const newStr = 'FOO'
 
-      const result = await processStrReplace(
-        'test.ts',
-        [{ old: oldStr, new: newStr, allowMultiple: true }],
-        Promise.resolve(initialContent),
-      )
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
+        initialContentPromise: Promise.resolve(initialContent),
+      })
 
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
@@ -299,11 +299,11 @@ describe('processStrReplace', () => {
       const oldStr = 'const y = 2;'
       const newStr = 'const y = 3;'
 
-      const result = await processStrReplace(
-        'test.ts',
-        [{ old: oldStr, new: newStr, allowMultiple: true }],
-        Promise.resolve(initialContent),
-      )
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
+        initialContentPromise: Promise.resolve(initialContent),
+      })
 
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
@@ -320,11 +320,11 @@ describe('processStrReplace', () => {
         { old: 'qux qux', new: 'QUX', allowMultiple: false }, // Single occurrence, should work
       ]
 
-      const result = await processStrReplace(
-        'test.ts',
+      const result = await processStrReplace({
+        path: 'test.ts',
         replacements,
-        Promise.resolve(initialContent),
-      )
+        initialContentPromise: Promise.resolve(initialContent),
+      })
 
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
@@ -351,11 +351,11 @@ function test3() {
       const oldStr = "console.log('debug');"
       const newStr = '// removed debug log'
 
-      const result = await processStrReplace(
-        'test.ts',
-        [{ old: oldStr, new: newStr, allowMultiple: true }],
-        Promise.resolve(initialContent),
-      )
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
+        initialContentPromise: Promise.resolve(initialContent),
+      })
 
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
@@ -374,11 +374,11 @@ function test3() {
       const oldStr = 'remove this, '
       const newStr = ''
 
-      const result = await processStrReplace(
-        'test.ts',
-        [{ old: oldStr, new: newStr, allowMultiple: true }],
-        Promise.resolve(initialContent),
-      )
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
+        initialContentPromise: Promise.resolve(initialContent),
+      })
 
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
@@ -397,11 +397,11 @@ function test3() {
       const oldStr = 'doSomething();'
       const newStr = 'doSomethingElse();'
 
-      const result = await processStrReplace(
-        'test.ts',
-        [{ old: oldStr, new: newStr, allowMultiple: true }],
-        Promise.resolve(initialContent),
-      )
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
+        initialContentPromise: Promise.resolve(initialContent),
+      })
 
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
@@ -416,11 +416,11 @@ function test3() {
       const oldStr = 'const z = 3;' // This string doesn't exist
       const newStr = 'const z = 4;'
 
-      const result = await processStrReplace(
-        'test.ts',
-        [{ old: oldStr, new: newStr, allowMultiple: true }],
-        Promise.resolve(initialContent),
-      )
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
+        initialContentPromise: Promise.resolve(initialContent),
+      })
 
       expect(result).not.toBeNull()
       expect('error' in result).toBe(true)
@@ -447,11 +447,11 @@ function test3() {
       },
     ]
 
-    const result = await processStrReplace(
-      'test.ts',
+    const result = await processStrReplace({
+      path: 'test.ts',
       replacements,
-      Promise.resolve(initialContent),
-    )
+      initialContentPromise: Promise.resolve(initialContent),
+    })
 
     expect('content' in result).toBe(true)
     expect(applyPatch(initialContent, (result as any).patch)).toBe(
