@@ -99,7 +99,11 @@ async function runTraces() {
 
               // Store the relabel
               try {
-                await insertRelabel(relabel, DATASET)
+                await insertRelabel({
+                  relabel,
+                  dataset: DATASET,
+                  logger: console,
+                })
               } catch (error) {
                 console.error(
                   `Error inserting relabel for trace ${trace.id}:`,

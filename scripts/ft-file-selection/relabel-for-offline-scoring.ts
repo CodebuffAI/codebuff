@@ -94,7 +94,7 @@ async function runTraces() {
   const relabelMode = process.argv.includes('--relabel')
   const scoreMode = process.argv.includes('--score')
 
-  await setupBigQuery(DATASET)
+  await setupBigQuery({ dataset: DATASET, logger: console })
 
   if (relabelMode) {
     console.log('Running in relabel mode...')
@@ -207,7 +207,7 @@ async function relabelTraceForModel(
     },
   }
 
-  await insertRelabel(newRelabel, dataset)
+  await insertRelabel({ relabel: newRelabel, dataset, logger: console })
 }
 
 // --- Scoring Mode Logic ---

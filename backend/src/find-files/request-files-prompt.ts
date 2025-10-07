@@ -373,7 +373,7 @@ async function getRelevantFiles(
     },
   }
 
-  insertTrace(trace).catch((error: Error) => {
+  insertTrace({ trace, logger }).catch((error: Error) => {
     logger.error({ error }, 'Failed to insert trace')
   })
 
@@ -443,7 +443,7 @@ async function getRelevantFilesForTraining(
     },
   }
 
-  insertTrace(trace).catch((error: Error) => {
+  insertTrace({ trace, logger }).catch((error: Error) => {
     logger.error({ error }, 'Failed to insert trace')
   })
 

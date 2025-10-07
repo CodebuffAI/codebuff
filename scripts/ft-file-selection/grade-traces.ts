@@ -1,17 +1,18 @@
 import { getTracesAndRelabelsForUser, setupBigQuery } from '@codebuff/bigquery'
-import { logger } from '@codebuff/common/util/logger'
 
 import { gradeRun } from '../../backend/src/admin/grade-runs'
+
+import type { Logger } from '@codebuff/types/logger'
 
 // Parse command line arguments to check for --prod flag
 const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 const MAX_PARALLEL = 1 // Maximum number of traces to process in parallel
 
-async function gradeTraces() {
+async function gradeTraces({ logger }: { logger: Logger }) {
   try {
     // Initialize BigQuery
-    await setupBigQuery(DATASET)
+    await setupBigQuery({ dataset: DATASET, logger: console })
 
     console.log(`\nGrading traces from dataset: ${DATASET}`)
 
@@ -53,6 +54,7 @@ async function gradeTraces() {
             }
           } catch (error) {
             logger.error(
+              {},
               `Error grading trace ${traceAndRelabels.trace.id}:`,
               error,
             )
@@ -87,4 +89,4 @@ async function gradeTraces() {
 }
 
 // Run the script
-gradeTraces()
+gradeTraces({ logger: console })

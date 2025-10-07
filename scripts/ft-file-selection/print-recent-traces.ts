@@ -7,7 +7,7 @@ const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 async function printRecentTraces() {
   try {
     // Setup BigQuery client
-    setupBigQuery()
+    setupBigQuery({ logger: console })
       .catch((err) => {
         console.error(
           {

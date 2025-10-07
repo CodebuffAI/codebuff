@@ -1,5 +1,4 @@
 import { getErrorObject } from '@codebuff/common/util/error'
-import { logger } from '@codebuff/common/util/logger'
 import { BigQuery } from '@google-cloud/bigquery'
 
 import { MESSAGE_SCHEMA, RELABELS_SCHEMA, TRACES_SCHEMA } from './schema'
@@ -11,6 +10,7 @@ import type {
   Relabel,
   Trace,
 } from './schema'
+import type { Logger } from '@codebuff/types/logger'
 
 const DATASET =
   process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
@@ -33,7 +33,13 @@ function getClient(): BigQuery {
   return client
 }
 
-export async function setupBigQuery(dataset: string = DATASET) {
+export async function setupBigQuery({
+  dataset = DATASET,
+  logger,
+}: {
+  dataset?: string
+  logger: Logger
+}) {
   if (client) {
     return
   }
@@ -93,10 +99,15 @@ export async function setupBigQuery(dataset: string = DATASET) {
   }
 }
 
-export async function insertMessage(
-  row: MessageRow,
-  dataset: string = DATASET,
-) {
+export async function insertMessage({
+  row,
+  dataset = DATASET,
+  logger,
+}: {
+  row: MessageRow
+  dataset?: string
+  logger: Logger
+}) {
   try {
     await getClient()
       .dataset(dataset)
@@ -121,7 +132,15 @@ export async function insertMessage(
   }
 }
 
-export async function insertTrace(trace: Trace, dataset: string = DATASET) {
+export async function insertTrace({
+  trace,
+  dataset = DATASET,
+  logger,
+}: {
+  trace: Trace
+  dataset?: string
+  logger: Logger
+}) {
   try {
     // Create a copy of the trace and stringify payload if needed
     const traceToInsert = {
@@ -148,10 +167,15 @@ export async function insertTrace(trace: Trace, dataset: string = DATASET) {
   }
 }
 
-export async function insertRelabel(
-  relabel: Relabel,
-  dataset: string = DATASET,
-) {
+export async function insertRelabel({
+  relabel,
+  dataset = DATASET,
+  logger,
+}: {
+  relabel: Relabel
+  dataset?: string
+  logger: Logger
+}) {
   try {
     // Stringify payload if needed
     const relabelToInsert = {

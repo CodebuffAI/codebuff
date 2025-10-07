@@ -70,7 +70,7 @@ export function getSearchSystemPrompt(
     },
   }
 
-  insertTrace(trace).catch((error: Error) => {
+  insertTrace({ trace, logger }).catch((error: Error) => {
     logger.error({ error }, 'Failed to insert file trees trace')
   })
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)

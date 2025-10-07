@@ -416,7 +416,7 @@ async function main() {
       process.exit(1)
     }
 
-    await setupBigQuery(DATASET)
+    await setupBigQuery({ dataset: DATASET, logger: console })
     console.log(`Using dataset: ${DATASET}`)
 
     // Get traces for the specified model from BigQuery

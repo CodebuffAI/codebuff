@@ -196,7 +196,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             }
 
             // Store the relabel
-            await insertRelabel(relabel)
+            await insertRelabel({ relabel, logger })
             logger.info(`Successfully stored relabel for trace ${trace.id}`)
 
             return {
@@ -352,7 +352,7 @@ async function relabelWithRelace(
     },
   }
 
-  await insertRelabel(relabel)
+  await insertRelabel({ relabel, logger })
 
   return relaced
 }
@@ -364,7 +364,7 @@ export async function relabelWithClaudeWithFullFileContext(
   dataset?: string,
 ) {
   if (dataset) {
-    await setupBigQuery(dataset)
+    await setupBigQuery({ dataset, logger })
   }
   logger.info(`Relabeling ${trace.id} with Claude with full file context`)
   const filesWithPath = Object.entries(fileBlobs.payload.files).map(
@@ -418,7 +418,7 @@ export async function relabelWithClaudeWithFullFileContext(
     },
   } as Relabel
 
-  await insertRelabel(relabel, dataset)
+  await insertRelabel({ relabel, dataset, logger })
 
   return relabel
 }

@@ -217,5 +217,8 @@ async function uploadExpandedFileContextForTraining(
   }
 
   // Upload the files to bigquery
-  await insertTrace(trace)
+  await insertTrace({
+    trace,
+    logger,
+  })
 }

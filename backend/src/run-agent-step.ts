@@ -322,7 +322,7 @@ export const runAgentStep = async (
     },
   }
 
-  insertTrace(agentResponseTrace)
+  insertTrace({ trace: agentResponseTrace, logger })
 
   const newAgentContext = state.agentContext as AgentState['agentContext']
   // Use the updated agent state from tool execution

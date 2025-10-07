@@ -263,21 +263,24 @@ async function handleResponse({
   const usage = data.usage
 
   // do not await this
-  setupBigQuery().then(async () => {
+  setupBigQuery({ logger }).then(async () => {
     const success = await insertMessageIntoBigquery({
-      id: data.id,
-      user_id: userId,
-      finished_at: new Date(),
-      created_at: startTime,
-      request,
-      reasoning_text: state.reasoningText,
-      response: state.responseText,
-      output_tokens: usage.completion_tokens,
-      reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens,
-      cost: usage.cost,
-      upstream_inference_cost: usage.cost_details?.upstream_inference_cost,
-      input_tokens: usage.prompt_tokens,
-      cache_read_input_tokens: usage.prompt_tokens_details?.cached_tokens,
+      row: {
+        id: data.id,
+        user_id: userId,
+        finished_at: new Date(),
+        created_at: startTime,
+        request,
+        reasoning_text: state.reasoningText,
+        response: state.responseText,
+        output_tokens: usage.completion_tokens,
+        reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens,
+        cost: usage.cost,
+        upstream_inference_cost: usage.cost_details?.upstream_inference_cost,
+        input_tokens: usage.prompt_tokens,
+        cache_read_input_tokens: usage.prompt_tokens_details?.cached_tokens,
+      },
+      logger,
     })
     if (!success) {
       logger.error({ request }, 'Failed to insert message into BigQuery')

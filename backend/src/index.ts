@@ -72,7 +72,7 @@ app.use(
 )
 
 // Initialize BigQuery before starting the server
-setupBigQuery().catch((err) => {
+setupBigQuery({ logger }).catch((err) => {
   logger.error(
     {
       error: err,

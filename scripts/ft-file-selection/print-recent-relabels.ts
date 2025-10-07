@@ -6,7 +6,7 @@ const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 
 async function printRecentRelabels() {
   try {
-    await setupBigQuery(DATASET)
+    await setupBigQuery({ dataset: DATASET, logger: console })
     // Use the BigQuery client to get recent relabels
     const relabels = await getRecentRelabels(10, DATASET)
 
