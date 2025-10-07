@@ -1,11 +1,14 @@
-import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
+import { publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/old-constants'
-export const thinker = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
-  model,
-  displayName: AGENT_PERSONAS.thinker.displayName,
-  spawnerPrompt: AGENT_PERSONAS.thinker.purpose,
+
+const definition: SecretAgentDefinition = {
+  id: 'thinker',
+  publisher,
+  model: 'openai/gpt-5',
+  displayName: 'Theo the Theorizer',
+  spawnerPrompt:
+    'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -13,11 +16,9 @@ export const thinker = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
     },
   },
   outputMode: 'last_message',
+  inheritParentSystemPrompt: true,
   includeMessageHistory: true,
-  toolNames: ['end_turn'],
   spawnableAgents: [],
-
-  systemPrompt: `You are an expert programmer and deep thinker.`,
 
   instructionsPrompt: `
 Think deeply, step by step, about the user request and how best to approach it.
@@ -29,7 +30,9 @@ Come up with a list of insights that would help someone arrive at the best solut
 Try not to be too prescriptive or confident in one solution. Instead, give clear arguments and reasoning.
 
 You must be extremely concise and to the point.
-`.trim(),
 
-  stepPrompt: `Don't forget to end your response with the end_turn tool.`,
-})
+**Important**: Do not use any tools! You are only thinking!
+`.trim(),
+}
+
+export default definition
