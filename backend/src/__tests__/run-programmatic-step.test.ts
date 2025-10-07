@@ -1,12 +1,7 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
-  afterAll,
   afterEach,
   beforeAll,
   beforeEach,
@@ -34,6 +29,7 @@ import type {
   ToolResultPart,
 } from '@codebuff/common/types/messages/content-part'
 import type { AgentState } from '@codebuff/common/types/session-state'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 describe('runProgrammaticStep', () => {
@@ -44,24 +40,22 @@ describe('runProgrammaticStep', () => {
   let getRequestContextSpy: any
   let addAgentStepSpy: any
   let sendActionSpy: any
+  let logger: Logger
 
   beforeAll(() => {
     // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
+    logger = {
+      debug: () => {},
+      error: () => {},
+      info: () => {},
+      warn: () => {},
+    }
   })
 
   beforeEach(() => {
     // Mock analytics
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics()
+    analytics.initAnalytics({ logger })
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
 
     // Mock executeToolCall
@@ -153,10 +147,6 @@ describe('runProgrammaticStep', () => {
     mock.restore()
     // Clear the generator cache between tests
     clearAgentGeneratorCache()
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   describe('generator lifecycle', () => {

@@ -1,16 +1,10 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
-  afterAll,
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -30,6 +24,7 @@ import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 function mockAgentStream(content: string | string[]) {
@@ -47,19 +42,12 @@ function mockAgentStream(content: string | string[]) {
 describe('read_docs tool with researcher agent', () => {
   // Track all mocked functions to verify they're being used
   const mockedFunctions: Array<{ name: string; spy: any }> = []
-
-  beforeAll(() => {
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
-  })
+  const logger: Logger = {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  }
 
   beforeEach(() => {
     // Clear tracked mocks
@@ -74,7 +62,7 @@ describe('read_docs tool with researcher agent', () => {
       name: 'analytics.initAnalytics',
       spy: analyticsInitSpy,
     })
-    analytics.initAnalytics()
+    analytics.initAnalytics({ logger })
 
     const trackEventSpy = spyOn(analytics, 'trackEvent').mockImplementation(
       () => {},
@@ -195,10 +183,6 @@ describe('read_docs tool with researcher agent', () => {
 
   afterEach(() => {
     mock.restore()
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   // MockWebSocket and mockFileContext imported from test-utils

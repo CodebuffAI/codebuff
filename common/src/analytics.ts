@@ -4,10 +4,11 @@ import { PostHog } from 'posthog-node'
 import { logger } from './util/logger'
 
 import type { AnalyticsEvent } from './constants/analytics-events'
+import type { Logger } from '@codebuff/types/logger'
 
 let client: PostHog | undefined
 
-export function initAnalytics() {
+export function initAnalytics({ logger }: { logger: Logger }) {
   if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
     logger.warn(
       'Analytics environment variables not set - analytics will be disabled',

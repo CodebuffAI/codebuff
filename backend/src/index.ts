@@ -86,7 +86,7 @@ setupBigQuery().catch((err) => {
   )
 })
 
-initAnalytics()
+initAnalytics({ logger })
 
 const server = http.createServer(app)
 

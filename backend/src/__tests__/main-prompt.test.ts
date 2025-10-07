@@ -1,19 +1,13 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
 } from '@codebuff/common/types/session-state'
 import {
-  afterAll,
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -34,6 +28,7 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 const mockAgentStream = (streamOutput: string) => {
@@ -45,6 +40,12 @@ const mockAgentStream = (streamOutput: string) => {
 
 describe('mainPrompt', () => {
   let mockLocalAgentTemplates: Record<string, any>
+  const logger: Logger = {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  }
 
   beforeEach(() => {
     // Setup common mock agent templates
@@ -84,23 +85,10 @@ describe('mainPrompt', () => {
     }
   })
 
-  beforeAll(() => {
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
-  })
-
   beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics() // Initialize the mock
+    analytics.initAnalytics({ logger }) // Initialize the mock
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
@@ -189,10 +177,6 @@ describe('mainPrompt', () => {
   afterEach(() => {
     // Clear all mocks after each test
     mock.restore()
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   class MockWebSocket {

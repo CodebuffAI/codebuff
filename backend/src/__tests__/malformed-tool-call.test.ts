@@ -1,17 +1,11 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import * as stringUtils from '@codebuff/common/util/string'
 import {
-  afterAll,
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -30,24 +24,18 @@ import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 describe('malformed tool call error handling', () => {
   let testAgent: AgentTemplate
   let mockWs: MockWebSocket
-
-  beforeAll(() => {
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
-  })
+  const logger: Logger = {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  }
 
   beforeEach(() => {
     mockWs = new MockWebSocket()
@@ -71,7 +59,7 @@ describe('malformed tool call error handling', () => {
 
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics()
+    analytics.initAnalytics({ logger })
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
@@ -100,10 +88,6 @@ describe('malformed tool call error handling', () => {
 
   afterEach(() => {
     mock.restore()
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   function createMockStream(chunks: string[]) {
