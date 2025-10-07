@@ -50,66 +50,6 @@ export const mainPrompt = async (
   } = action
   const { fileContext, mainAgentState } = sessionState
 
-  if (prompt) {
-    // Check if this is a direct terminal command
-    const startTime = Date.now()
-    const terminalCommand = await checkTerminalCommand(prompt, {
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
-    })
-    const duration = Date.now() - startTime
-
-    if (terminalCommand) {
-      logger.debug(
-        {
-          duration,
-          prompt,
-        },
-        `Detected terminal command in ${duration}ms, executing directly: ${prompt}`,
-      )
-
-      const { output } = await requestToolCall(
-        ws,
-        promptId,
-        'run_terminal_command',
-        {
-          command: terminalCommand,
-          mode: 'user',
-          process_type: 'SYNC',
-          timeout_seconds: -1,
-        },
-      )
-
-      mainAgentState.messageHistory.push({
-        role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'run_terminal_command',
-          toolCallId: generateCompactId(),
-          output: output,
-        },
-      })
-
-      const newSessionState = {
-        ...sessionState,
-        messageHistory: expireMessages(
-          mainAgentState.messageHistory,
-          'userPrompt',
-        ),
-      }
-
-      return {
-        sessionState: newSessionState,
-        output: {
-          type: 'lastMessage',
-          value: output,
-        },
-      }
-    }
-  }
-
   const availableAgents = Object.keys(localAgentTemplates)
 
   // Determine agent type - prioritize CLI agent selection, then config base agent, then cost mode
@@ -189,6 +129,66 @@ export const mainPrompt = async (
   }
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
+
+  if (prompt && mainAgentTemplate.toolNames.includes('run_terminal_command')) {
+    // Check if this is a direct terminal command
+    const startTime = Date.now()
+    const terminalCommand = await checkTerminalCommand(prompt, {
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+    })
+    const duration = Date.now() - startTime
+
+    if (terminalCommand) {
+      logger.debug(
+        {
+          duration,
+          prompt,
+        },
+        `Detected terminal command in ${duration}ms, executing directly: ${prompt}`,
+      )
+
+      const { output } = await requestToolCall(
+        ws,
+        promptId,
+        'run_terminal_command',
+        {
+          command: terminalCommand,
+          mode: 'user',
+          process_type: 'SYNC',
+          timeout_seconds: -1,
+        },
+      )
+
+      mainAgentState.messageHistory.push({
+        role: 'tool',
+        content: {
+          type: 'tool-result',
+          toolName: 'run_terminal_command',
+          toolCallId: generateCompactId(),
+          output: output,
+        },
+      })
+
+      const newSessionState = {
+        ...sessionState,
+        messageHistory: expireMessages(
+          mainAgentState.messageHistory,
+          'userPrompt',
+        ),
+      }
+
+      return {
+        sessionState: newSessionState,
+        output: {
+          type: 'lastMessage',
+          value: output,
+        },
+      }
+    }
+  }
 
   const { agentState, output } = await loopAgentSteps(ws, {
     userInputId: promptId,
