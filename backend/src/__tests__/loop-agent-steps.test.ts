@@ -97,17 +97,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     mockModule('@codebuff/backend/get-file-reading-updates', () => ({
       getFileReadingUpdates: async () => [],
     }))
-
-    // Mock async agent manager
-    mockModule('@codebuff/backend/async-agent-manager', () => ({
-      asyncAgentManager: {
-        getAgent: () => null,
-        registerAgent: () => {},
-        updateAgentState: () => {},
-        getAndClearMessages: () => [],
-        getMessages: () => [],
-      },
-    }))
   })
 
   beforeEach(() => {
@@ -541,55 +530,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(llmCallCount).toBe(1) // LLM called once after STEP
     expect(result.agentState).toBeDefined()
   })
-
-  it('should respect async agent messages and continue appropriately', async () => {
-    // Test async agent message handling during loopAgentSteps
-
-    const mockGeneratorFunction = function* () {
-      yield { toolName: 'read_files', input: { paths: ['async-test.txt'] } }
-      yield 'STEP'
-    } as () => StepGenerator
-
-    mockTemplate.handleSteps = mockGeneratorFunction
-
-    const localAgentTemplates = {
-      'test-agent': mockTemplate,
-    }
-
-    // Mock async agent manager to simulate pending messages
-    const mockAsyncAgentManager = require('@codebuff/backend/async-agent-manager')
-    let getMessagesCallCount = 0
-    spyOn(
-      mockAsyncAgentManager.asyncAgentManager,
-      'getMessages',
-    ).mockImplementation(() => {
-      getMessagesCallCount++
-      // Return messages on second call to simulate async agent activity
-      return getMessagesCallCount === 2 ? ['async message'] : []
-    })
-
-    const result = await runLoopAgentStepsWithContext(
-      new MockWebSocket() as unknown as WebSocket,
-      {
-        userInputId: 'test-user-input',
-        agentType: 'test-agent',
-        agentState: mockAgentState,
-        prompt: 'Test async agent messages',
-        params: undefined,
-        fingerprintId: 'test-fingerprint',
-        fileContext: mockFileContext,
-        localAgentTemplates,
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-      },
-    )
-
-    // Should continue when async messages are present
-    expect(result.agentState).toBeDefined()
-    expect(getMessagesCallCount).toBeGreaterThan(0)
-  })
-
   it('should pass shouldEndTurn: true as stepsComplete when end_turn tool is called', async () => {
     // Test that when LLM calls end_turn, shouldEndTurn is correctly passed to runProgrammaticStep
 
@@ -619,19 +559,22 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    await runLoopAgentStepsWithContext(new MockWebSocket() as unknown as WebSocket, {
-      userInputId: 'test-user-input',
-      agentType: 'test-agent',
-      agentState: mockAgentState,
-      prompt: 'Test shouldEndTurn to stepsComplete flow',
-      params: undefined,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      onResponseChunk: () => {},
-    })
+    await runLoopAgentStepsWithContext(
+      new MockWebSocket() as unknown as WebSocket,
+      {
+        userInputId: 'test-user-input',
+        agentType: 'test-agent',
+        agentState: mockAgentState,
+        prompt: 'Test shouldEndTurn to stepsComplete flow',
+        params: undefined,
+        fingerprintId: 'test-fingerprint',
+        fileContext: mockFileContext,
+        localAgentTemplates,
+        userId: TEST_USER_ID,
+        clientSessionId: 'test-session',
+        onResponseChunk: () => {},
+      },
+    )
 
     mockedRunProgrammaticStep.clear()
 

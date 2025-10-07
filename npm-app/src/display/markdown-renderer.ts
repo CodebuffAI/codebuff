@@ -101,7 +101,7 @@ export class MarkdownStreamRenderer {
         this.width = process.stdout.columns || this.width
       }
       // Use .once with bound handler tracker to avoid duplication
-      process.stdout.addListener('resize', this.resizeHandler)
+      process.stdout.on('resize', this.resizeHandler)
     }
   }
 
