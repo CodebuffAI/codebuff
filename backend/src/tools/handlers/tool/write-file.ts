@@ -139,19 +139,19 @@ export const handleWriteFile = (({
 
   logger.debug({ path, content }, `write_file ${path}`)
 
-  const newPromise = processFileBlock(
+  const newPromise = processFileBlock({
     path,
     instructions,
-    latestContentPromise,
-    fileContentWithoutStartNewline,
-    agentMessagesUntruncated,
-    fullResponse ?? '',
-    prompt,
+    initialContentPromise: latestContentPromise,
+    newContent: fileContentWithoutStartNewline,
+    messages: agentMessagesUntruncated,
+    fullResponse: fullResponse ?? '',
+    lastUserPrompt: prompt,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-  )
+  })
     .catch((error) => {
       logger.error(error, 'Error processing write_file block')
       return {

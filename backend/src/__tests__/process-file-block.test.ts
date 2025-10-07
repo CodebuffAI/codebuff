@@ -75,19 +75,19 @@ describe('processFileBlockModule', () => {
         '```typescript\nfunction test() {\n  return true;\n}\n```'
       const expectedContent = 'function test() {\n  return true;\n}'
 
-      const result = await processFileBlock(
-        'test.ts',
-        undefined,
-        Promise.resolve(null),
+      const result = await processFileBlock({
+        path: 'test.ts',
+        instructions: undefined,
+        initialContentPromise: Promise.resolve(null),
         newContent,
-        [],
-        '',
-        undefined,
-        'clientSessionId',
-        'fingerprintId',
-        'userInputId',
-        TEST_USER_ID,
-      )
+        messages: [],
+        fullResponse: '',
+        lastUserPrompt: undefined,
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+      })
 
       expect(result).not.toBeNull()
       if ('error' in result) {
@@ -111,19 +111,19 @@ describe('processFileBlockModule', () => {
         '  return "See you later!";\r\n' +
         '}\r\n'
 
-      const result = await processFileBlock(
-        'test.ts',
-        undefined,
-        Promise.resolve(oldContent),
+      const result = await processFileBlock({
+        path: 'test.ts',
+        instructions: undefined,
+        initialContentPromise: Promise.resolve(oldContent),
         newContent,
-        [],
-        '',
-        undefined,
-        'clientSessionId',
-        'fingerprintId',
-        'userInputId',
-        TEST_USER_ID,
-      )
+        messages: [],
+        fullResponse: '',
+        lastUserPrompt: undefined,
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+      })
 
       expect(result).not.toBeNull()
       if ('error' in result) {
@@ -143,19 +143,19 @@ describe('processFileBlockModule', () => {
       const oldContent = 'function test() {\n  return true;\n}\n'
       const newContent = 'function test() {\n  return true;\n}\n'
 
-      const result = await processFileBlock(
-        'test.ts',
-        undefined,
-        Promise.resolve(oldContent),
+      const result = await processFileBlock({
+        path: 'test.ts',
+        instructions: undefined,
+        initialContentPromise: Promise.resolve(oldContent),
         newContent,
-        [],
-        '',
-        undefined,
-        'clientSessionId',
-        'fingerprintId',
-        'userInputId',
-        TEST_USER_ID,
-      )
+        messages: [],
+        fullResponse: '',
+        lastUserPrompt: undefined,
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+      })
 
       expect(result).not.toBeNull()
       expect('error' in result).toBe(true)
@@ -168,19 +168,19 @@ describe('processFileBlockModule', () => {
       const oldContent = 'const x = 1;\r\nconst y = 2;\r\n'
       const newContent = 'const x = 1;\r\nconst z = 3;\r\n'
 
-      const result = await processFileBlock(
-        'test.ts',
-        undefined,
-        Promise.resolve(oldContent),
+      const result = await processFileBlock({
+        path: 'test.ts',
+        instructions: undefined,
+        initialContentPromise: Promise.resolve(oldContent),
         newContent,
-        [],
-        '',
-        undefined,
-        'clientSessionId',
-        'fingerprintId',
-        'userInputId',
-        TEST_USER_ID,
-      )
+        messages: [],
+        fullResponse: '',
+        lastUserPrompt: undefined,
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+      })
 
       expect(result).not.toBeNull()
       if ('error' in result) {
@@ -214,19 +214,19 @@ describe('processFileBlockModule', () => {
       const newContent =
         '// ... existing code ...\nconst x = 1;\n// ... existing code ...'
 
-      const result = await processFileBlock(
-        'test.ts',
-        undefined,
-        Promise.resolve(null),
+      const result = await processFileBlock({
+        path: 'test.ts',
+        instructions: undefined,
+        initialContentPromise: Promise.resolve(null),
         newContent,
-        [],
-        '',
-        undefined,
-        'clientSessionId',
-        'fingerprintId',
-        'userInputId',
-        TEST_USER_ID,
-      )
+        messages: [],
+        fullResponse: '',
+        lastUserPrompt: undefined,
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+      })
 
       expect(result).not.toBeNull()
       expect('error' in result).toBe(true)
