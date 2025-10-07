@@ -162,7 +162,7 @@ export async function getAgentPrompt<T extends StringField>({
     return undefined
   }
 
-  const prompt = await formatPrompt({
+  let prompt = await formatPrompt({
     prompt: promptValue,
     fileContext,
     agentState,
@@ -173,6 +173,11 @@ export async function getAgentPrompt<T extends StringField>({
   })
 
   let addendum = ''
+
+  if (promptType.type === 'stepPrompt' && agentState.agentType) {
+    // Put step prompt within a system-reminder tag so agent doesn't think the user just spoke again.
+    prompt = `<system-reminder>${prompt}</system-reminder>`
+  }
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
