@@ -1348,6 +1348,8 @@ export class Client {
       this.cancelCurrentInput()
       this.currentOnChunk = undefined
 
+      xmlStreamParser.destroy()
+
       const additionalMessages = prompt
         ? [
             { role: 'user' as const, content: prompt },
