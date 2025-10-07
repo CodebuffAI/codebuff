@@ -14,7 +14,8 @@ import type {
   ListItem,
   Blockquote,
 } from 'mdast'
-import { type ReactNode } from 'react'
+import React, { Fragment, type ReactNode } from 'react'
+import { logger } from './logger'
 
 export interface MarkdownPalette {
   inlineCodeFg: string
@@ -170,10 +171,8 @@ function markdownToInline(
       const listNode = node as List
       listNode.children.forEach((item, index) => {
         const bullet = listNode.ordered ? `${index + 1}. ` : '• '
-        result.push(
-          <span fg={palette.listBulletFg}>{bullet}</span>,
-        )
-        
+        result.push(<span fg={palette.listBulletFg}>{bullet}</span>)
+
         // Extract inline content from list item paragraphs
         const listItem = item as ListItem
         listItem.children.forEach((child) => {
@@ -191,7 +190,7 @@ function markdownToInline(
       const codeNode = node as Code
       const codeBg = palette.codeBackground
       const headerLabel = codeNode.lang ? `[${codeNode.lang}]` : '[code]'
-      
+
       result.push('\n')
       result.push(
         <span fg={palette.codeHeaderFg} bg={codeBg}>
@@ -209,9 +208,7 @@ function markdownToInline(
 
     case 'blockquote':
       const blockquoteNode = node as Blockquote
-      result.push(
-        <span fg={palette.blockquoteBorderFg}>│ </span>,
-      )
+      result.push(<span fg={palette.blockquoteBorderFg}>│ </span>)
       result.push(
         <em fg={palette.blockquoteTextFg}>
           {blockquoteNode.children.map((child) => {
@@ -228,9 +225,7 @@ function markdownToInline(
       break
 
     case 'thematicBreak':
-      result.push(
-        <span fg={palette.dividerFg}>{'─'.repeat(40)}</span>,
-      )
+      result.push(<span fg={palette.dividerFg}>{'─'.repeat(40)}</span>)
       result.push('\n')
       break
   }
@@ -247,15 +242,61 @@ export function renderMarkdown(
     const ast = processor.parse(markdown)
     const palette = resolvePalette(options.palette)
     const inlineElements = markdownToInline(ast, palette)
-    
+
     // Return a fragment containing all inline elements
     return <>{inlineElements}</>
   } catch (error) {
-    console.error('Failed to parse markdown:', error)
+    logger.error('Failed to parse markdown', error)
     return markdown
   }
 }
 
 export function hasMarkdown(content: string): boolean {
   return /[*_`#>\-\+]|\[.*\]\(.*\)|```/.test(content)
+}
+
+export function hasIncompleteCodeFence(content: string): boolean {
+  let fenceCount = 0
+  const fenceRegex = /```/g
+  while (fenceRegex.exec(content)) {
+    fenceCount += 1
+  }
+  return fenceCount % 2 === 1
+}
+
+export function renderStreamingMarkdown(
+  content: string,
+  options: MarkdownRenderOptions = {},
+): ReactNode {
+  if (!hasMarkdown(content)) {
+    return content
+  }
+
+  if (!hasIncompleteCodeFence(content)) {
+    return renderMarkdown(content, options)
+  }
+
+  const lastFenceIndex = content.lastIndexOf('```')
+  if (lastFenceIndex === -1) {
+    return renderMarkdown(content, options)
+  }
+
+  const completeSection = content.slice(0, lastFenceIndex)
+  const pendingSection = content.slice(lastFenceIndex)
+
+  const nodes: ReactNode[] = []
+
+  if (completeSection.length > 0) {
+    nodes.push(renderMarkdown(completeSection, options))
+  }
+
+  if (pendingSection.length > 0) {
+    nodes.push(pendingSection)
+  }
+
+  if (nodes.length === 1) {
+    return nodes[0]
+  }
+
+  return React.createElement(React.Fragment, null, ...nodes)
 }
