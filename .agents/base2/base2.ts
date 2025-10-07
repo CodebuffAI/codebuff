@@ -74,11 +74,10 @@ Use this workflow to solve a medium or complex coding task:
 1. Spawn relevant researchers in parallel (researcher-file-explorer, researcher-web, researcher-docs)
 2. Read all the relevant files using the read_files tool.
 3. Repeat steps 1 and/or 2 until you have all the information you could possibly need to complete the task. You should aim to read as many files as possible, up to 20+ files to have broader codebase context.
-4. Spawn a decomposing thinker to come up with insights.
-5. Spawn a decomposing planner to come up with a plan.
-6. Spawn an editor to implement the plan. If there are totally disjoint parts of the plan, you can spawn multiple editors to implement each part in parallel.
-7. Spawn a reviewer to review the code. If changes are needed, go back to step 5, but no more than once.
-8. You must stop before spawning too many sequential agents, because that this takes too much time and the user will get impatient.
+4. Spawn a decomposing planner to come up with a plan.
+5. Spawn an editor to implement the plan. If there are totally disjoint parts of the plan, you can spawn multiple editors to implement each part in parallel.
+6. Spawn a reviewer to review the changes made by the editor. If more changes are needed, go back to step 5, but no more than once.
+7. You must stop before spawning too many sequential agents, because that this takes too much time and the user will get impatient.
 
 Feel free to modify this workflow as needed. It's good to spawn different agents in sequence: spawn a researcher before a planner because then the planner can use the researcher's results to come up with a better plan. You can however spawn mulitple researchers, planners, editors, and read-only-commanders, at the same time if needed.
 
@@ -91,6 +90,8 @@ Feel free to modify this workflow as needed. It's good to spawn different agents
 - When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, running scripts that could alter production environments, installing packages globally, etc). Don't do any of these unless the user explicitly asks you to.
 `,
+
+  stepPrompt: `Don't forget to spawn agents that could help, especially: the researcher-file-explorer to get codebase context, the decomposing-planner to craft a great plan, and the reviewer-max to review code changes made by the editor.`,
 
   handleSteps: function* ({ prompt, params }) {
     let steps = 0
