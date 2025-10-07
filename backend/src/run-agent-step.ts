@@ -439,6 +439,7 @@ export const loopAgentSteps = async (
     userId,
     agentId: agentTemplate.id,
     ancestorRunIds: agentState.ancestorRunIds,
+    logger,
   })
 
   // Initialize message history with user prompt and instructions on first iteration
@@ -660,6 +661,7 @@ export const loopAgentSteps = async (
           messageId,
           status: 'completed',
           startTime,
+          logger,
         })
       } else {
         logger.error('No runId found for agent state after finishing agent run')
@@ -689,6 +691,7 @@ export const loopAgentSteps = async (
       totalSteps,
       directCredits: currentAgentState.directCreditsUsed,
       totalCredits: currentAgentState.creditsUsed,
+      logger,
     })
 
     return {
@@ -721,6 +724,7 @@ export const loopAgentSteps = async (
       directCredits: currentAgentState.directCreditsUsed,
       totalCredits: currentAgentState.creditsUsed,
       errorMessage,
+      logger,
     })
 
     const errorObject = getErrorObject(error)

@@ -3,7 +3,12 @@ import * as schema from '@codebuff/common/db/schema'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { eq } from 'drizzle-orm'
 
-import { logger } from './util/logger'
+import type {
+  AddAgentStepFn,
+  FinishAgentRunFn,
+  StartAgentRunFn,
+  Logger,
+} from '@codebuff/agent-runtime'
 
 /**
  * Starts a new agent run and creates an entry in the agent_run table
@@ -13,11 +18,13 @@ export async function startAgentRun({
   userId,
   agentId,
   ancestorRunIds,
+  logger,
 }: {
   runId?: string
   userId?: string
   agentId: string
   ancestorRunIds: string[]
+  logger: Logger
 }): Promise<string> {
   if (userId === TEST_USER_ID) {
     return 'test-run-id'
@@ -44,6 +51,7 @@ export async function startAgentRun({
     throw error
   }
 }
+startAgentRun satisfies StartAgentRunFn
 
 /**
  * Completes an agent run by updating its status and metrics
@@ -56,6 +64,7 @@ export async function finishAgentRun({
   directCredits,
   totalCredits,
   errorMessage,
+  logger,
 }: {
   userId: string | undefined
   runId: string
@@ -64,6 +73,7 @@ export async function finishAgentRun({
   directCredits: number
   totalCredits: number
   errorMessage?: string
+  logger: Logger
 }): Promise<void> {
   if (userId === TEST_USER_ID) {
     return
@@ -86,6 +96,7 @@ export async function finishAgentRun({
     throw error
   }
 }
+finishAgentRun satisfies FinishAgentRunFn
 
 /**
  * Adds a completed step to the agent_step table
@@ -100,6 +111,7 @@ export async function addAgentStep({
   status = 'completed',
   errorMessage,
   startTime,
+  logger,
 }: {
   userId: string | undefined
   agentRunId: string
@@ -110,6 +122,7 @@ export async function addAgentStep({
   status?: 'running' | 'completed' | 'skipped'
   errorMessage?: string
   startTime: Date
+  logger: Logger
 }): Promise<string> {
   if (userId === TEST_USER_ID) {
     return 'test-step-id'
@@ -136,3 +149,4 @@ export async function addAgentStep({
     throw error
   }
 }
+addAgentStep satisfies AddAgentStepFn

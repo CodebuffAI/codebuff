@@ -17,9 +17,12 @@ import {
 } from 'bun:test'
 
 import { startAgentRun, finishAgentRun, addAgentStep } from '../agent-run'
-import { logger } from '../util/logger'
+
+import type { Logger } from '@codebuff/agent-runtime'
 
 describe('Agent Run Database Functions', () => {
+  let logger: Logger
+
   beforeEach(() => {
     // Setup spies for database operations
     spyOn(db, 'insert').mockReturnValue({
@@ -30,8 +33,12 @@ describe('Agent Run Database Functions', () => {
         where: mock(() => Promise.resolve()),
       })),
     } as any)
-    // Mock logger
-    spyOn(logger, 'error').mockImplementation(() => {})
+    logger = {
+      debug: mock(() => {}),
+      info: mock(() => {}),
+      warn: mock(() => {}),
+      error: mock(() => {}),
+    }
   })
 
   afterEach(() => {
@@ -61,6 +68,7 @@ describe('Agent Run Database Functions', () => {
         userId: 'user-123',
         agentId: 'test-agent',
         ancestorRunIds: ['parent-run-1', 'parent-run-2'],
+        logger,
       })
 
       expect(result).toBe('generated-uuid')
@@ -84,6 +92,7 @@ describe('Agent Run Database Functions', () => {
         userId: 'user-123',
         agentId: 'test-agent',
         ancestorRunIds: [],
+        logger,
       })
 
       expect(result).toBe('custom-run-id')
@@ -105,6 +114,7 @@ describe('Agent Run Database Functions', () => {
       await startAgentRun({
         agentId: 'test-agent',
         ancestorRunIds: [],
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith({
@@ -125,6 +135,7 @@ describe('Agent Run Database Functions', () => {
       await startAgentRun({
         agentId: 'test-agent',
         ancestorRunIds: [],
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -142,6 +153,7 @@ describe('Agent Run Database Functions', () => {
       await startAgentRun({
         agentId: 'test-agent',
         ancestorRunIds: ['root-run', 'parent-run'],
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -161,6 +173,7 @@ describe('Agent Run Database Functions', () => {
         startAgentRun({
           agentId: 'test-agent',
           ancestorRunIds: [],
+          logger,
         }),
       ).rejects.toThrow('Database connection failed')
 
@@ -190,6 +203,7 @@ describe('Agent Run Database Functions', () => {
         totalSteps: 5,
         directCredits: 150.5,
         totalCredits: 300.75,
+        logger,
       })
 
       expect(db.update).toHaveBeenCalledWith(schema.agentRun)
@@ -217,6 +231,7 @@ describe('Agent Run Database Functions', () => {
         directCredits: 75.25,
         totalCredits: 125.5,
         errorMessage: 'Agent execution failed',
+        logger,
       })
 
       expect(mockSet).toHaveBeenCalledWith({
@@ -242,6 +257,7 @@ describe('Agent Run Database Functions', () => {
         totalSteps: 2,
         directCredits: 50,
         totalCredits: 100,
+        logger,
       })
 
       expect(mockSet).toHaveBeenCalledWith(
@@ -266,6 +282,7 @@ describe('Agent Run Database Functions', () => {
           totalSteps: 5,
           directCredits: 150,
           totalCredits: 300,
+          logger,
         }),
       ).rejects.toThrow('Update failed')
 
@@ -297,6 +314,7 @@ describe('Agent Run Database Functions', () => {
         messageId: 'msg-456',
         status: 'completed',
         startTime,
+        logger,
       })
 
       expect(result).toBe('step-uuid')
@@ -328,6 +346,7 @@ describe('Agent Run Database Functions', () => {
         stepNumber: 2,
         startTime,
         messageId: null,
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith({
@@ -359,6 +378,7 @@ describe('Agent Run Database Functions', () => {
         errorMessage: 'Step failed validation',
         startTime,
         messageId: null,
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -383,6 +403,7 @@ describe('Agent Run Database Functions', () => {
         status: 'running',
         startTime,
         messageId: null,
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -406,6 +427,7 @@ describe('Agent Run Database Functions', () => {
         credits: 0, // Zero credits
         startTime,
         messageId: null,
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -430,6 +452,7 @@ describe('Agent Run Database Functions', () => {
           stepNumber: 6,
           startTime,
           messageId: null,
+          logger,
         }),
       ).rejects.toThrow('Insert failed')
 
@@ -457,6 +480,7 @@ describe('Agent Run Database Functions', () => {
         credits: 123.456789, // High precision number
         startTime: new Date(),
         messageId: null,
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -479,6 +503,7 @@ describe('Agent Run Database Functions', () => {
         stepNumber: 1,
         startTime: specificStartTime,
         messageId: null,
+        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
