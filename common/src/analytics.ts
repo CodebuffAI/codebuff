@@ -1,8 +1,6 @@
 import { env } from '@codebuff/internal'
 import { PostHog } from 'posthog-node'
 
-import { logger } from './util/logger'
-
 import type { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/types/logger'
 
@@ -68,25 +66,5 @@ export function trackEvent({
     })
   } catch (error) {
     logger.error({ error }, 'Failed to track event')
-  }
-}
-
-export function logError(
-  error: Error,
-  userId?: string,
-  properties?: Record<string, any>,
-) {
-  if (!client) {
-    logger.warn(
-      { error: error.message, userId },
-      'Analytics client not initialized, skipping error logging',
-    )
-    return
-  }
-
-  try {
-    client.captureException(error, userId ?? 'unknown', properties)
-  } catch (error) {
-    logger.error({ error }, 'Failed to log error')
   }
 }

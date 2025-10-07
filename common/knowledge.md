@@ -10,12 +10,6 @@ This package contains code shared between the `web` (Next.js frontend/backend) a
 - **Constants (`src/constants`)**: Shared constant values
 - **API Keys (`src/api-keys`)**: Encryption/decryption utilities for sensitive data
 
-## API Key Encryption (`src/api-keys/crypto.ts`)
-
-- Provides functions for encrypting/decrypting API keys (`encryptAndStoreApiKey`, `retrieveAndDecryptApiKey`, `clearApiKey`)
-- **Security**: Functions require the 32-byte `API_KEY_ENCRYPTION_SECRET` from environment variables
-- The secret must **never** be stored in the `common` package - calling environments retrieve it from their respective `env` files
-
 ## Database Migrations
 
 - Schema defined in `common/src/db/schema.ts`
