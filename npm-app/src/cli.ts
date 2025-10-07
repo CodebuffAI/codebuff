@@ -5,10 +5,7 @@ import path, { basename, dirname, isAbsolute, parse } from 'path'
 import * as readline from 'readline'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import {
-  API_KEY_ENV_VAR,
-  ASYNC_AGENTS_ENABLED,
-} from '@codebuff/common/old-constants'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import {
   getAllAgents,
   getAgentDisplayName,
@@ -718,9 +715,7 @@ export class CLI {
     const client = Client.getInstance()
     Spinner.get().stop()
     this.isReceivingResponse = false
-    if (!ASYNC_AGENTS_ENABLED) {
-      client.cancelCurrentInput()
-    }
+    client.cancelCurrentInput()
 
     if (this.shouldReconnectWhenIdle) {
       client.reconnect()

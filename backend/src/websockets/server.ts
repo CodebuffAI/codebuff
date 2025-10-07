@@ -1,4 +1,3 @@
-import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/old-constants'
 import { CLIENT_MESSAGE_SCHEMA } from '@codebuff/common/websockets/websocket-schema'
 import { isError } from 'lodash'
 import { WebSocketServer } from 'ws'

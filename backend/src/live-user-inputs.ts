@@ -1,5 +1,3 @@
-import { ASYNC_AGENTS_ENABLED } from '@codebuff/common/old-constants'
-
 import { logger } from './util/logger'
 
 let liveUserInputCheckEnabled = true
@@ -31,14 +29,6 @@ export function cancelUserInput(userId: string, userInputId: string): void {
       { userId, userInputId, liveUserInputId: live[userId] ?? 'undefined' },
       'Tried to cancel user input with incorrect userId or userInputId',
     )
-  }
-}
-
-export function endUserInput(userId: string, userInputId: string): void {
-  if (ASYNC_AGENTS_ENABLED) {
-    // Don't remove user input id, since it can still be triggered by async agents.
-  } else {
-    cancelUserInput(userId, userInputId)
   }
 }
 

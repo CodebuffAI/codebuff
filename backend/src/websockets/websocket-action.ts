@@ -3,10 +3,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import {
-  ASYNC_AGENTS_ENABLED,
-  toOptionalFile,
-} from '@codebuff/common/old-constants'
+import { toOptionalFile } from '@codebuff/common/old-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -15,7 +12,6 @@ import { eq } from 'drizzle-orm'
 import {
   cancelUserInput,
   checkLiveUserInput,
-  endUserInput,
   startUserInput,
 } from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
@@ -177,7 +173,7 @@ const onPrompt = async (
           message: response,
         })
       } finally {
-        endUserInput(userId, promptId)
+        cancelUserInput(userId, promptId)
         const usageResponse = await genUsageResponse(
           fingerprintId,
           userId,
