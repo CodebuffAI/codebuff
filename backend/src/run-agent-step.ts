@@ -1,9 +1,7 @@
 import { insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import {
-  supportsCacheControl,
-} from '@codebuff/common/old-constants'
+import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
@@ -124,13 +122,18 @@ export const runAgentStep = async (
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
   // This is used to link logs within a single agent loop
   const agentStepId = crypto.randomUUID()
-  trackEvent(AnalyticsEvent.AGENT_STEP, userId ?? '', {
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoName: repoId,
+  trackEvent({
+    event: AnalyticsEvent.AGENT_STEP,
+    userId: userId ?? '',
+    properties: {
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+      repoName: repoId,
+    },
+    logger,
   })
 
   let messageHistory = agentState.messageHistory

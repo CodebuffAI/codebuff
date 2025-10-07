@@ -150,10 +150,15 @@ export async function sendOrganizationAlert(
     )
 
     // Track analytics event
-    trackEvent(AnalyticsEvent.CREDIT_GRANT, alert.organizationId, {
-      alertType: alert.alertType,
-      currentBalance: alert.currentBalance,
-      threshold: alert.threshold,
+    trackEvent({
+      event: AnalyticsEvent.CREDIT_GRANT,
+      userId: alert.organizationId,
+      properties: {
+        alertType: alert.alertType,
+        currentBalance: alert.currentBalance,
+        threshold: alert.threshold,
+      },
+      logger,
     })
 
     // TODO: Implement actual alerting mechanisms:
@@ -299,12 +304,17 @@ export async function trackOrganizationUsageMetrics(
     )
 
     // Track analytics event
-    trackEvent(AnalyticsEvent.CREDIT_GRANT, metrics.organizationId, {
-      type: 'usage_metrics',
-      timeframe: metrics.timeframe,
-      totalCreditsConsumed: metrics.totalCreditsConsumed,
-      uniqueUsers: metrics.uniqueUsers,
-      repositoryCount: metrics.repositoryCount,
+    trackEvent({
+      event: AnalyticsEvent.CREDIT_GRANT,
+      userId: metrics.organizationId,
+      properties: {
+        type: 'usage_metrics',
+        timeframe: metrics.timeframe,
+        totalCreditsConsumed: metrics.totalCreditsConsumed,
+        uniqueUsers: metrics.uniqueUsers,
+        repositoryCount: metrics.repositoryCount,
+      },
+      logger,
     })
 
     // TODO: Store metrics in time-series database for dashboards

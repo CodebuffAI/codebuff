@@ -231,7 +231,11 @@ export const authOptions: NextAuthOptions = {
         userData.name
       )
 
-      trackEvent(AnalyticsEvent.SIGNUP, userData.id)
+      trackEvent({
+        event: AnalyticsEvent.SIGNUP,
+        userId: userData.id,
+        logger,
+      })
 
       logger.info({ user }, 'createUser event processing finished.')
     },

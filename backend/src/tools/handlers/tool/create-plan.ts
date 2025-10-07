@@ -66,13 +66,18 @@ export const handleCreatePlan = ((params: {
   if (!fileProcessingState.promisesByPath[path]) {
     fileProcessingState.promisesByPath[path] = []
     if (path.endsWith('knowledge.md')) {
-      trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, userId ?? '', {
-        agentStepId,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
-        repoName: repoId,
+      trackEvent({
+        event: AnalyticsEvent.KNOWLEDGE_FILE_UPDATED,
+        userId: userId ?? '',
+        properties: {
+          agentStepId,
+          clientSessionId,
+          fingerprintId,
+          userInputId,
+          userId,
+          repoName: repoId,
+        },
+        logger,
       })
     }
   }

@@ -2,15 +2,19 @@ import { initAnalytics } from '@codebuff/common/analytics'
 // Errors if this file is included in client bundles
 import 'server-only'
 
+import type { Logger } from '@codebuff/types/logger'
+
 import { logger } from '@/util/logger'
 
 let initialized = false
 
-export function initializeServer() {
+export function initializeServer({ logger }: { logger: Logger }) {
   if (initialized) return
 
   try {
-    initAnalytics()
+    initAnalytics({
+      logger,
+    })
     // Initialize other services as needed
     initialized = true
   } catch (error) {
@@ -23,4 +27,4 @@ export function initializeServer() {
   }
 }
 
-initializeServer()
+initializeServer({ logger })

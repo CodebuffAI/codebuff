@@ -521,10 +521,15 @@ async function updateUserCycleUsage(
       )
     }
 
-    trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
-      creditsUsed,
-      fromPurchased: result.fromPurchased,
-      organizationId: orgId,
+    trackEvent({
+      event: AnalyticsEvent.CREDIT_CONSUMED,
+      userId,
+      properties: {
+        creditsUsed,
+        fromPurchased: result.fromPurchased,
+        organizationId: orgId,
+      },
+      logger,
     })
 
     return result
@@ -539,9 +544,14 @@ async function updateUserCycleUsage(
       )
     }
 
-    trackEvent(AnalyticsEvent.CREDIT_CONSUMED, userId, {
-      creditsUsed,
-      fromPurchased: result.fromPurchased,
+    trackEvent({
+      event: AnalyticsEvent.CREDIT_CONSUMED,
+      userId,
+      properties: {
+        creditsUsed,
+        fromPurchased: result.fromPurchased,
+      },
+      logger,
     })
 
     return result

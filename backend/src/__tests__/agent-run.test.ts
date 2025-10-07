@@ -18,7 +18,7 @@ import {
 
 import { startAgentRun, finishAgentRun, addAgentStep } from '../agent-run'
 
-import type { Logger } from '@codebuff/agent-runtime'
+import type { Logger } from '@codebuff/types/logger'
 
 describe('Agent Run Database Functions', () => {
   let logger: Logger

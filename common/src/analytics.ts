@@ -36,11 +36,17 @@ export async function flushAnalytics() {
   } catch (error) {}
 }
 
-export function trackEvent(
-  event: AnalyticsEvent,
-  userId: string,
-  properties?: Record<string, any>,
-) {
+export function trackEvent({
+  event,
+  userId,
+  properties,
+  logger,
+}: {
+  event: AnalyticsEvent
+  userId: string
+  properties?: Record<string, any>
+  logger: Logger
+}) {
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     logger.info({ payload: { event, properties } }, 'Analytics event tracked')
     return
