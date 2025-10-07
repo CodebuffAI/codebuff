@@ -72,7 +72,7 @@ class RunEvalSetCommand extends Command {
     }),
     agent: Flags.string({
       description: 'Codebuff agent id to use',
-      default: 'base-lite',
+      default: 'base2',
     }),
     help: Flags.help({ char: 'h' }),
   }
@@ -134,21 +134,21 @@ async function runEvalSet(options: {
       evalDataPath: path.join(__dirname, 'eval-codebuff2.json'),
       outputDir,
     },
-    {
-      name: 'manifold',
-      evalDataPath: path.join(__dirname, 'eval-manifold2.json'),
-      outputDir,
-    },
-    {
-      name: 'plane',
-      evalDataPath: path.join(__dirname, 'eval-plane.json'),
-      outputDir,
-    },
-    {
-      name: 'saleor',
-      evalDataPath: path.join(__dirname, 'eval-saleor.json'),
-      outputDir,
-    },
+    // {
+    //   name: 'manifold',
+    //   evalDataPath: path.join(__dirname, 'eval-manifold2.json'),
+    //   outputDir,
+    // },
+    // {
+    //   name: 'plane',
+    //   evalDataPath: path.join(__dirname, 'eval-plane.json'),
+    //   outputDir,
+    // },
+    // {
+    //   name: 'saleor',
+    //   evalDataPath: path.join(__dirname, 'eval-saleor.json'),
+    //   outputDir,
+    // },
   ]
 
   console.log(`Running ${evalConfigs.length} evaluations:`)
