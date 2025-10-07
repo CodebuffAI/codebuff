@@ -259,8 +259,8 @@ export async function consumeOrganizationCredits(
   organizationId: string,
   creditsToConsume: number,
 ): Promise<CreditConsumptionResult> {
-  return await withSerializableTransaction(
-    async (tx) => {
+  return await withSerializableTransaction({
+    callback: async (tx) => {
       const now = new Date()
       const activeGrants = await getOrderedActiveOrganizationGrants(
         organizationId,
@@ -285,8 +285,9 @@ export async function consumeOrganizationCredits(
 
       return result
     },
-    { organizationId, creditsToConsume },
-  )
+    context: { organizationId, creditsToConsume },
+    logger,
+  })
 }
 
 /**

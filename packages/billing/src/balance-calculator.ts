@@ -298,8 +298,8 @@ export async function consumeCredits(
   userId: string,
   creditsToConsume: number,
 ): Promise<CreditConsumptionResult> {
-  return await withSerializableTransaction(
-    async (tx) => {
+  return await withSerializableTransaction({
+    callback: async (tx) => {
       const now = new Date()
       const activeGrants = await getOrderedActiveGrants(userId, now, tx)
 
@@ -320,8 +320,9 @@ export async function consumeCredits(
 
       return result
     },
-    { userId, creditsToConsume },
-  )
+    context: { userId, creditsToConsume },
+    logger,
+  })
 }
 
 export async function consumeCreditsAndAddAgentStep(options: {
@@ -374,8 +375,8 @@ export async function consumeCreditsAndAddAgentStep(options: {
 
   try {
     return success(
-      await withSerializableTransaction(
-        async (tx) => {
+      await withSerializableTransaction({
+        callback: async (tx) => {
           const now = new Date()
           const activeGrants = await getOrderedActiveGrants(userId, now, tx)
 
@@ -426,8 +427,9 @@ export async function consumeCreditsAndAddAgentStep(options: {
 
           return { ...result, agentStepId: stepId }
         },
-        { userId, credits },
-      ),
+        context: { userId, credits },
+        logger,
+      }),
     )
   } catch (error) {
     return failure(error)

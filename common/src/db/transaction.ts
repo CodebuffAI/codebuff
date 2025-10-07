@@ -1,6 +1,7 @@
 import db from './index'
-import { logger } from '../util/logger'
 import { withRetry } from '../util/promise'
+
+import type { Logger } from '@codebuff/types/logger'
 
 type TransactionCallback<T> = Parameters<typeof db.transaction<T>>[0]
 
@@ -12,10 +13,15 @@ type TransactionCallback<T> = Parameters<typeof db.transaction<T>>[0]
  * @param context Additional context for logging (e.g., userId, operationId)
  * @returns The result of the transaction
  */
-export async function withSerializableTransaction<T>(
-  callback: TransactionCallback<T>,
-  context: Record<string, any> = {},
-): Promise<T> {
+export async function withSerializableTransaction<T>({
+  callback,
+  context = {},
+  logger,
+}: {
+  callback: TransactionCallback<T>
+  context: Record<string, any>
+  logger: Logger
+}): Promise<T> {
   return withRetry(
     async () => {
       return await db.transaction(callback, { isolationLevel: 'serializable' })
