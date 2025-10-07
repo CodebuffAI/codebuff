@@ -86,7 +86,7 @@ export async function runProgrammaticStep(
 
   // Run with either a generator or a sandbox.
   let generator = runIdToGenerator[agentState.runId]
-  let sandbox = sandboxManager.getSandbox(agentState.runId)
+  let sandbox = sandboxManager.getSandbox({ runId: agentState.runId })
 
   // Check if we need to initialize a generator
   if (!generator && !sandbox) {
@@ -113,18 +113,18 @@ export async function runProgrammaticStep(
 
     if (typeof template.handleSteps === 'string') {
       // Initialize QuickJS sandbox for string-based generator
-      sandbox = await sandboxManager.getOrCreateSandbox(
-        agentState.runId,
-        template.handleSteps,
-        {
+      sandbox = await sandboxManager.getOrCreateSandbox({
+        runId: agentState.runId,
+        generatorCode: template.handleSteps,
+        initialInput: {
           agentState,
           prompt,
           params,
           logger: streamingLogger,
         },
-        undefined, // config
-        streamingLogger, // pass the streaming logger instance for internal use
-      )
+        config: undefined, // config
+        logger: streamingLogger, // pass the streaming logger instance for internal use
+      })
     } else {
       // Initialize native generator
       generator = template.handleSteps({
@@ -362,7 +362,7 @@ export async function runProgrammaticStep(
     if (endTurn) {
       if (sandbox) {
         // Clean up QuickJS sandbox if execution is complete
-        sandboxManager.removeSandbox(agentState.runId)
+        sandboxManager.removeSandbox({ runId: agentState.runId })
       }
       delete runIdToGenerator[agentState.runId]
       runIdToStepAll.delete(agentState.runId)

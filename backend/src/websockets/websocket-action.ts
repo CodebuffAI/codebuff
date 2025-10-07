@@ -47,9 +47,10 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
  * @param authToken - The authentication token to validate
  * @returns The user ID if found, undefined otherwise
  */
-export const getUserIdFromAuthToken = async (
-  authToken?: string,
-): Promise<string | undefined> => {
+export const getUserIdFromAuthToken = async (params: {
+  authToken?: string
+}): Promise<string | undefined> => {
+  const { authToken } = params
   if (!authToken) return undefined
 
   const userId = await db

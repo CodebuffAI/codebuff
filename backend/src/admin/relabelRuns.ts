@@ -169,10 +169,10 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             const system = payload.system
 
             output = await promptAiSdk({
-              messages: messagesWithSystem(
-                messages as Message[],
-                system as System,
-              ),
+              messages: messagesWithSystem({
+                messages: messages as Message[],
+                system: system as System,
+              }),
               model: model,
               clientSessionId: 'relabel-trace-api',
               fingerprintId: 'relabel-trace-api',
@@ -395,7 +395,7 @@ export async function relabelWithClaudeWithFullFileContext(
   }
 
   const output = await promptAiSdk({
-    messages: messagesWithSystem(trace.payload.messages as Message[], system),
+    messages: messagesWithSystem({ messages: trace.payload.messages as Message[], system }),
     model: model as any, // Model type is string here for flexibility
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',

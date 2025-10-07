@@ -261,18 +261,19 @@ export class SandboxManager {
   /**
    * Create or get a sandbox for the given agent ID
    */
-  async getOrCreateSandbox(
-    runId: string,
-    generatorCode: string,
-    initialInput: any,
-    config?: SandboxConfig,
+  async getOrCreateSandbox(params: {
+    runId: string
+    generatorCode: string
+    initialInput: any
+    config?: SandboxConfig
     logger?: {
       debug: (data: any, msg?: string) => void
       info: (data: any, msg?: string) => void
       warn: (data: any, msg?: string) => void
       error: (data: any, msg?: string) => void
-    },
-  ): Promise<QuickJSSandbox> {
+    }
+  }): Promise<QuickJSSandbox> {
+    const { runId, generatorCode, initialInput, config, logger } = params
     const existing = this.sandboxes.get(runId)
     if (existing && existing.isInitialized()) {
       return existing
@@ -297,14 +298,16 @@ export class SandboxManager {
   /**
    * Get an existing sandbox
    */
-  getSandbox(runId: string): QuickJSSandbox | undefined {
+  getSandbox(params: { runId: string }): QuickJSSandbox | undefined {
+    const { runId } = params
     return this.sandboxes.get(runId)
   }
 
   /**
    * Remove and dispose a sandbox
    */
-  removeSandbox(runId: string): void {
+  removeSandbox(params: { runId: string }): void {
+    const { runId } = params
     const sandbox = this.sandboxes.get(runId)
     if (sandbox) {
       sandbox.dispose()

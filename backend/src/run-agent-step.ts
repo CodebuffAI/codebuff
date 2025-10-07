@@ -277,7 +277,9 @@ export const runAgentStep = async (
   let fullResponse = ''
   const toolResults: ToolResultPart[] = []
 
-  const stream = getStream(messagesWithSystem(agentMessages, system))
+  const stream = getStream(
+    messagesWithSystem({ messages: agentMessages, system }),
+  )
 
   const {
     toolCalls,

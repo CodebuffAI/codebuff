@@ -327,7 +327,7 @@ async function getRelevantFiles(
     bufferTokens,
   )
   const start = performance.now()
-  let codebuffMessages = messagesWithSystem(messagesWithPrompt, system)
+  let codebuffMessages = messagesWithSystem({ messages: messagesWithPrompt, system })
 
   // Converts assistant messages to user messages for finetuned model
   codebuffMessages = codebuffMessages
@@ -410,7 +410,7 @@ async function getRelevantFilesForTraining(
   )
   const start = performance.now()
   let response = await promptAiSdk({
-    messages: messagesWithSystem(messagesWithPrompt, system),
+    messages: messagesWithSystem({ messages: messagesWithPrompt, system }),
     clientSessionId,
     fingerprintId,
     userInputId,

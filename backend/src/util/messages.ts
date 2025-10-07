@@ -19,10 +19,11 @@ import type {
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
 
-export function messagesWithSystem(
-  messages: Message[],
-  system: System,
-): Message[] {
+export function messagesWithSystem(params: {
+  messages: Message[]
+  system: System
+}): Message[] {
+  const { messages, system } = params
   return [
     {
       role: 'system',
