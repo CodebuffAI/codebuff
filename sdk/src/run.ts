@@ -114,6 +114,10 @@ export async function run({
   })
 
   // TODO: bad pattern, switch to using SSE and move off of websockets
+  let insideToolCall = false
+  let buffer = ''
+  const BUFFER_SIZE = 100
+
   const websocketHandler = new WebSocketHandler({
     apiKey,
     onWebsocketError: (error) => {
@@ -146,8 +150,34 @@ export async function run({
     onResponseChunk: async (action) => {
       const { userInputId, chunk } = action
       if (typeof chunk === 'string') {
-        await handleStreamChunk?.(chunk)
-      } else {
+        buffer += chunk
+
+        if (!insideToolCall && buffer.includes('<codebuff_tool_call>')) {
+          const openTagIndex = buffer.indexOf('<codebuff_tool_call>')
+          const beforeTag = buffer.substring(0, openTagIndex)
+          if (beforeTag) {
+            await handleStreamChunk?.(beforeTag)
+          }
+          insideToolCall = true
+          buffer = buffer.substring(openTagIndex)
+        } else if (insideToolCall && buffer.includes('</codebuff_tool_call>')) {
+          const closeTagIndex = buffer.indexOf('</codebuff_tool_call>')
+          insideToolCall = false
+          buffer = buffer.substring(
+            closeTagIndex + '</codebuff_tool_call>'.length,
+          )
+        } else if (!insideToolCall) {
+          if (buffer.length > 50) {
+            const safeToOutput = buffer.substring(0, buffer.length - 50)
+            await handleStreamChunk?.(safeToOutput)
+            buffer = buffer.substring(buffer.length - 50)
+          }
+        }
+
+        if (insideToolCall && buffer.length > BUFFER_SIZE * 10) {
+          buffer = buffer.slice(-BUFFER_SIZE * 10)
+        }
+      } else if (chunk.type !== 'tool_call') {
         await handleEvent?.(chunk)
       }
     },
