@@ -183,15 +183,6 @@ describe('read_docs tool with researcher agent', () => {
       spy: startUserInputSpy,
     })
 
-    const endUserInputSpy = spyOn(
-      liveUserInputs,
-      'endUserInput',
-    ).mockImplementation(() => {})
-    mockedFunctions.push({
-      name: 'liveUserInputs.endUserInput',
-      spy: endUserInputSpy,
-    })
-
     const cancelUserInputSpy = spyOn(
       liveUserInputs,
       'cancelUserInput',

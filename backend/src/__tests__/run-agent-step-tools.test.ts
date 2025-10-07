@@ -89,7 +89,6 @@ describe('runAgentStep - set_output tool', () => {
     // Mock live user inputs to always return true (simulating active session)
     spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
     spyOn(liveUserInputs, 'startUserInput').mockImplementation(() => {})
-    spyOn(liveUserInputs, 'endUserInput').mockImplementation(() => {})
     spyOn(liveUserInputs, 'setSessionConnected').mockImplementation(() => {})
 
     spyOn(websocketAction, 'requestFiles').mockImplementation(
