@@ -28,12 +28,13 @@ const definition: SecretAgentDefinition = {
   },
   outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ['spawn_agents', 'read_files'],
+  toolNames: ['spawn_agents', 'read_files', 'code_search'],
   spawnableAgents: [
     'read-only-commander',
     'researcher-file-explorer',
     'researcher-web',
     'researcher-docs',
+    'decomposing-thinker',
     'decomposing-planner',
     'editor',
     'reviewer-max',
@@ -73,10 +74,11 @@ Use this workflow to solve a medium or complex coding task:
 1. Spawn relevant researchers in parallel (researcher-file-explorer, researcher-web, researcher-docs)
 2. Read all the relevant files using the read_files tool.
 3. Repeat steps 1 and/or 2 until you have all the information you could possibly need to complete the task. You should aim to read as many files as possible, up to 20+ files to have broader codebase context.
-4. Spawn a decomposing planner to come up with a plan.
-5. Spawn an editor to implement the plan. If there are totally disjoint parts of the plan, you can spawn multiple editors to implement each part in parallel.
-6. Spawn a reviewer to review the code. If changes are needed, go back to step 5, but no more than once.
-7. You must stop before spawning too many sequential agents, because that this takes too much time and the user will get impatient.
+4. Spawn a decomposing thinker to come up with insights.
+5. Spawn a decomposing planner to come up with a plan.
+6. Spawn an editor to implement the plan. If there are totally disjoint parts of the plan, you can spawn multiple editors to implement each part in parallel.
+7. Spawn a reviewer to review the code. If changes are needed, go back to step 5, but no more than once.
+8. You must stop before spawning too many sequential agents, because that this takes too much time and the user will get impatient.
 
 Feel free to modify this workflow as needed. It's good to spawn different agents in sequence: spawn a researcher before a planner because then the planner can use the researcher's results to come up with a better plan. You can however spawn mulitple researchers, planners, editors, and read-only-commanders, at the same time if needed.
 
