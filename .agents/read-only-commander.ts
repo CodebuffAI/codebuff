@@ -7,7 +7,7 @@ const readOnlyCommander: SecretAgentDefinition = {
   model: 'anthropic/claude-sonnet-4.5',
   displayName: 'ReadOnly Commander',
   spawnerPrompt:
-    'Can run read-only terminal commands and codebase string search to answer questions with good analysis. Feel free to spawn mulitple in parallel.',
+    'Can run read-only terminal commands to answer questions with good analysis. Feel free to spawn mulitple in parallel.',
   inputSchema: {
     prompt: {
       type: 'string',

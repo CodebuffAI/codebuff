@@ -318,24 +318,22 @@ async function handleToolCall({
       )
     }
   } catch (error) {
-    return {
-      output: [
-        {
-          type: 'json',
-          value: {
-            errorMessage:
-              error &&
-              typeof error === 'object' &&
-              'message' in error &&
-              typeof error.message === 'string'
-                ? error.message
-                : typeof error === 'string'
-                  ? error
-                  : 'Unknown error',
-          },
+    result = [
+      {
+        type: 'json',
+        value: {
+          errorMessage:
+            error &&
+            typeof error === 'object' &&
+            'message' in error &&
+            typeof error.message === 'string'
+              ? error.message
+              : typeof error === 'string'
+                ? error
+                : 'Unknown error',
         },
-      ],
-    }
+      },
+    ]
   }
   return {
     output: result,

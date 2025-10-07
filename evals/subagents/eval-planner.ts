@@ -33,6 +33,7 @@ export const evalPlannerAgent = async (params: {
     initCommand,
     fileStates,
   } = params
+  const plannerStartTime = Date.now()
   const result = await withTestRepo(
     { repoUrl, commitSha, initCommand, checkoutPrevious: true },
     async (cwd) => {
@@ -49,6 +50,7 @@ export const evalPlannerAgent = async (params: {
       })
     },
   )
+  const plannerLatencyMs = Date.now() - plannerStartTime
 
   const { output } = result
 
@@ -137,6 +139,7 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
         overallScore: 0,
       },
       agentOutput: outputString,
+      plannerLatencyMs,
     }
   }
   const { output: judgeOutput } = judgeResult
@@ -147,7 +150,7 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
     overallScore: number
   }
 
-  return { judgingResults, agentOutput: outputString }
+  return { judgingResults, agentOutput: outputString, plannerLatencyMs }
 }
 
 const judgeAgent: AgentDefinition = {
@@ -245,6 +248,7 @@ async function main() {
       cons: string
       overallScore: number
     }
+    plannerLatencyMs: number
   }>
 
   // Track statistics
@@ -253,6 +257,7 @@ async function main() {
     completed: 0,
     failed: 0,
     scores: [] as number[],
+    plannerLatencies: [] as number[],
   }
 
   // Loop through each eval task
@@ -274,12 +279,13 @@ async function main() {
         fileStates,
       })
 
-      const { judgingResults, agentOutput } = result
+      const { judgingResults, agentOutput, plannerLatencyMs } = result
       allResults.push({
         sha,
         spec,
         agentOutput,
         judgingResults,
+        plannerLatencyMs,
       })
 
       fs.writeFileSync(
@@ -310,10 +316,14 @@ async function main() {
       const emptyBar = '░'.repeat(10 - Math.floor(overallScore / 10))
       console.log(`${scoreBar}${emptyBar} ${overallScore}/100`)
 
+      console.log('\n⏱️  LATENCY:')
+      console.log(`  ${(plannerLatencyMs / 1000).toFixed(2)}s`)
+
       console.log('\n' + '='.repeat(80) + '\n')
 
       stats.completed++
       stats.scores.push(overallScore)
+      stats.plannerLatencies.push(plannerLatencyMs)
     } catch (error) {
       console.log(`\n${'='.repeat(80)}`)
       console.error(`✗ Failed eval for commit ${sha}`)
@@ -358,6 +368,22 @@ async function main() {
     console.log(
       `Average Score: ${scoreBar}${emptyBar} ${avgScore.toFixed(1)}/100\n`,
     )
+  }
+
+  if (stats.plannerLatencies.length > 0) {
+    const avgPlannerLatency =
+      stats.plannerLatencies.reduce((a, b) => a + b, 0) / stats.plannerLatencies.length
+    const minPlannerLatency = Math.min(...stats.plannerLatencies)
+    const maxPlannerLatency = Math.max(...stats.plannerLatencies)
+    const medianPlannerLatency = stats.plannerLatencies.sort((a, b) => a - b)[
+      Math.floor(stats.plannerLatencies.length / 2)
+    ]
+
+    console.log('Latency Statistics:')
+    console.log(`  Average: ${(avgPlannerLatency / 1000).toFixed(2)}s`)
+    console.log(`  Median:  ${(medianPlannerLatency / 1000).toFixed(2)}s`)
+    console.log(`  Min:     ${(minPlannerLatency / 1000).toFixed(2)}s`)
+    console.log(`  Max:     ${(maxPlannerLatency / 1000).toFixed(2)}s\n`)
   }
 
   console.log('='.repeat(80))
