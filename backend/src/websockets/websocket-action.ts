@@ -139,7 +139,7 @@ const onPrompt = async (
   await withLoggerContext(
     { fingerprintId, clientRequestId: promptId, costMode },
     async () => {
-      const userId = await getUserIdFromAuthToken(authToken)
+      const userId = await getUserIdFromAuthToken({ authToken })
       if (!userId) {
         throw new Error('User not found')
       }
@@ -285,7 +285,7 @@ const onInit = async (
   ws: WebSocket,
 ) => {
   await withLoggerContext({ fingerprintId }, async () => {
-    const userId = await getUserIdFromAuthToken(authToken)
+    const userId = await getUserIdFromAuthToken({ authToken })
 
     if (!userId) {
       sendAction(ws, {
@@ -314,7 +314,7 @@ const onCancelUserInput = async ({
   authToken,
   promptId,
 }: ClientAction<'cancel-user-input'>) => {
-  const userId = await getUserIdFromAuthToken(authToken)
+  const userId = await getUserIdFromAuthToken({ authToken })
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')
     return

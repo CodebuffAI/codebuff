@@ -169,7 +169,7 @@ async function relabelTraceForModel(
   const messages = payload.messages as Message[]
   const system = payload.system as System
 
-  let transformedMessages = messagesWithSystem(messages, system)
+  let transformedMessages = messagesWithSystem({ messages, system })
   if (modelToTest === finetunedVertexModels.ft_filepicker_010) {
     transformedMessages = transformedMessages
       .map((msg, i) => {
