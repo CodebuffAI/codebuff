@@ -5,6 +5,15 @@ import { describe, expect, it } from 'bun:test'
 import { globalStopSequence } from '../tools/constants'
 import { processStreamWithTags } from '../xml-stream-parser'
 
+import type { Logger } from '@codebuff/types/logger'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
+
 describe('processStreamWithTags', () => {
   async function* createMockStream(chunks: string[]) {
     for (const chunk of chunks) {
@@ -52,13 +61,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -119,13 +129,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -195,13 +206,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -270,13 +282,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -336,13 +349,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -401,13 +415,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -473,13 +488,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -539,13 +555,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -595,13 +612,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -637,13 +655,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -697,13 +716,14 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTags(
+    for await (const chunk of processStreamWithTags({
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-    )) {
+      logger,
+    })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
       }
@@ -767,13 +787,14 @@ describe('processStreamWithTags', () => {
         }
       }
 
-      for await (const chunk of processStreamWithTags(
+      for await (const chunk of processStreamWithTags({
         stream,
         processors,
         defaultProcessor,
         onError,
         onResponseChunk,
-      )) {
+        logger,
+      })) {
         if (chunk.type === 'text') {
           result.push(chunk.text)
         }

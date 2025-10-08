@@ -230,17 +230,17 @@ export async function processStreamWithTools(options: {
     }
   }
 
-  const streamWithTags = processStreamWithTags(
+  const streamWithTags = processStreamWithTags({
     stream,
-    Object.fromEntries([
+    processors: Object.fromEntries([
       ...toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
       ...Object.keys(fileContext.customToolDefinitions).map((toolName) => [
         toolName,
         customToolCallback(toolName),
       ]),
     ]),
-    customToolCallback,
-    (toolName, error) => {
+    defaultProcessor: customToolCallback,
+    onError: (toolName, error) => {
       const toolResult: ToolResultPart = {
         type: 'tool-result',
         toolName,
@@ -251,12 +251,13 @@ export async function processStreamWithTools(options: {
       toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     },
     onResponseChunk,
-    {
+    logger,
+    loggerOptions: {
       userId,
       model: agentTemplate.model,
       agentName: agentTemplate.id,
     },
-  )
+  })
 
   let reasoning = false
   for await (const chunk of streamWithTags) {
