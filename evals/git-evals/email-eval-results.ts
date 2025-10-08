@@ -174,6 +174,10 @@ export async function sendEvalResultsEmail(
 ): Promise<boolean> {
   console.log(`📧 Sending eval results email to ${recipientEmail}...`)
   const emailContent = formatEvalSummaryForEmail(evalResults, analyses, title)
-  const result = await sendBasicEmail(recipientEmail, emailContent)
+  const result = await sendBasicEmail({
+    email: recipientEmail,
+    data: emailContent,
+    logger: console,
+  })
   return result.success
 }
