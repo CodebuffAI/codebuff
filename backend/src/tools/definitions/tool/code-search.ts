@@ -19,11 +19,18 @@ Use cases:
 
 The pattern supports regular expressions and will search recursively through all files in the project by default. Some tips:
 - Be as constraining in the pattern as possible to limit the number of files returned, e.g. if searching for the definition of a function, use "(function foo|const foo)" or "def foo" instead of merely "foo".
+- Use Rust-style regex, not grep-style, PCRE, RE2 or JavaScript regex - you must always escape special characters like { and }
+- Be as constraining as possible to limit results, e.g. use "(function foo|const foo)" or "def foo" instead of merely "foo"
+- Add context to your search with surrounding terms (e.g., "function handleAuth" rather than just "handleAuth")
 - Use word boundaries (\\b) to match whole words only
+- Use the cwd parameter to narrow your search to specific directories
+- For case-sensitive searches like constants (e.g., ERROR vs error), omit the "-i" flag
 - Searches file content and filenames
 - Automatically ignores binary files, hidden files, and files in .gitignore
 
-Advanced ripgrep flags (use the flags parameter):
+
+ADVANCED RIPGREP FLAGS (use the flags parameter):
+
 - Case sensitivity: "-i" for case-insensitive search
 - File type filtering: "-t ts" (TypeScript), "-t js" (JavaScript), "-t py" (Python), etc.
 - Exclude file types: "--type-not test" to exclude test files
@@ -36,6 +43,14 @@ Advanced ripgrep flags (use the flags parameter):
 - Fixed strings: "-F" to treat pattern as literal string (not regex)
 
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
+
+RESULT LIMITING:
+
+- The maxResults parameter limits the number of results shown per file (default: 15)
+- There is also a global limit of 250 total results across all files
+- These limits allow you to see results across multiple files without being overwhelmed by matches in a single file
+- If a file has more matches than maxResults, you'll see a truncation notice indicating how many results were found
+- If the global limit is reached, remaining files will be skipped
 
 Examples:
 ${getToolCallString(toolName, { pattern: 'foo' })}

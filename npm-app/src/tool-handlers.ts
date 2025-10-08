@@ -181,14 +181,14 @@ export const handleRunTerminalCommand: ToolHandler<
     cwd,
   )
 }
-
 export const handleCodeSearch: ToolHandler<'code_search'> = async (
   parameters,
   _id,
 ) => {
   const projectPath = getProjectRoot()
   const rgPath = await getRgPath()
-  const maxResults = parameters.maxResults ?? 30
+  const maxResults = parameters.maxResults ?? 15
+  const globalMaxResults = 250
 
   return new Promise((resolve) => {
     let stdout = ''
@@ -239,7 +239,73 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
 
     childProcess.on('close', (code) => {
       const lines = stdout.split('\n').filter((line) => line.trim())
-      const limitedLines = lines.slice(0, maxResults)
+
+      // Group results by file
+      const fileGroups = new Map<string, string[]>()
+      let currentFile: string | null = null
+
+      for (const line of lines) {
+        // Ripgrep output format: filename:line_number:content or filename:content
+        const colonIndex = line.indexOf(':')
+        if (colonIndex === -1) {
+          // This shouldn't happen with standard ripgrep output
+          if (currentFile) {
+            fileGroups.get(currentFile)!.push(line)
+          }
+          continue
+        }
+
+        const filename = line.substring(0, colonIndex)
+
+        // Check if this is a new file
+        if (filename && !filename.includes('\t') && !filename.startsWith(' ')) {
+          currentFile = filename
+          if (!fileGroups.has(currentFile)) {
+            fileGroups.set(currentFile, [])
+          }
+          fileGroups.get(currentFile)!.push(line)
+        } else if (currentFile) {
+          // Continuation of previous result
+          fileGroups.get(currentFile)!.push(line)
+        }
+      }
+
+      // Limit results per file and globally
+      const limitedLines: string[] = []
+      let totalOriginalCount = 0
+      let totalLimitedCount = 0
+      const truncatedFiles: string[] = []
+      let globalLimitReached = false
+      let skippedFileCount = 0
+
+      for (const [filename, fileLines] of fileGroups) {
+        totalOriginalCount += fileLines.length
+
+        // Check if we've hit the global limit
+        if (totalLimitedCount >= globalMaxResults) {
+          globalLimitReached = true
+          skippedFileCount++
+          continue
+        }
+
+        // Calculate how many results we can take from this file
+        const remainingGlobalSpace = globalMaxResults - totalLimitedCount
+        const resultsToTake = Math.min(
+          maxResults,
+          fileLines.length,
+          remainingGlobalSpace,
+        )
+        const limited = fileLines.slice(0, resultsToTake)
+        totalLimitedCount += limited.length
+        limitedLines.push(...limited)
+
+        if (fileLines.length > resultsToTake) {
+          truncatedFiles.push(
+            `${filename}: ${fileLines.length} results (showing ${resultsToTake})`,
+          )
+        }
+      }
+
       const previewResults = limitedLines.slice(0, 3)
       if (previewResults.length > 0) {
         console.log(previewResults.join('\n'))
@@ -247,21 +313,37 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
           console.log('...')
         }
       }
+
+      const filesIncluded = fileGroups.size - skippedFileCount
       console.log(
         green(
-          `Found ${limitedLines.length} results${lines.length > maxResults ? ` (limited from ${lines.length})` : ''}`,
+          `Found ${totalLimitedCount} results across ${filesIncluded} file(s)${totalOriginalCount > totalLimitedCount ? ` (limited from ${totalOriginalCount})` : ''}`,
         ),
       )
 
-      // Limit results to maxResults
-      const limitedStdout = limitedLines.join('\n')
+      // Limit results to maxResults per file and globalMaxResults total
+      let limitedStdout = limitedLines.join('\n')
 
       // Add truncation message if results were limited
-      const finalStdout =
-        lines.length > maxResults
-          ? limitedStdout +
-            `\n\n[Results limited to ${maxResults} of ${lines.length} total matches]`
-          : limitedStdout
+      const truncationMessages: string[] = []
+
+      if (truncatedFiles.length > 0) {
+        truncationMessages.push(
+          `Results limited to ${maxResults} per file. Truncated files:\n${truncatedFiles.join('\n')}`,
+        )
+      }
+
+      if (globalLimitReached) {
+        truncationMessages.push(
+          `Global limit of ${globalMaxResults} results reached. ${skippedFileCount} file(s) skipped.`,
+        )
+      }
+
+      if (truncationMessages.length > 0) {
+        limitedStdout += `\n\n[${truncationMessages.join('\n\n')}]`
+      }
+
+      const finalStdout = limitedStdout
 
       const truncatedStdout = truncateStringWithMessage({
         str: finalStdout,
