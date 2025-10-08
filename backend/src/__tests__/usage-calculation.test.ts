@@ -7,8 +7,16 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 
 import type { GrantType } from '@codebuff/common/db/schema'
+import type { Logger } from '@codebuff/types/logger'
 
 describe('Usage Calculation System', () => {
+  const logger: Logger = {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  }
+
   beforeAll(() => {
     // Mock the database module before importing the function
     mockModule('@codebuff/common/db', () => ({
@@ -21,17 +29,6 @@ describe('Usage Calculation System', () => {
           }),
         }),
       },
-    }))
-
-    // Mock logger
-    mockModule('@codebuff/common/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
     }))
   })
 
@@ -76,11 +73,12 @@ describe('Usage Calculation System', () => {
       },
     }))
 
-    const { usageThisCycle } = await calculateUsageAndBalance(
-      'test-user',
-      new Date('2024-01-01'),
-      new Date('2024-01-15'), // Pass current time when grants are active
-    )
+    const { usageThisCycle } = await calculateUsageAndBalance({
+      userId: 'test-user',
+      quotaResetDate: new Date('2024-01-01'),
+      now: new Date('2024-01-15'), // Pass current time when grants are active
+      logger,
+    })
 
     expect(usageThisCycle).toBe(400) // 200 + 200 = 400 total usage
   })
@@ -112,11 +110,12 @@ describe('Usage Calculation System', () => {
       },
     }))
 
-    const { balance, usageThisCycle } = await calculateUsageAndBalance(
-      'test-user',
-      new Date('2024-01-01'),
-      new Date('2024-01-16'), // Current time after expiry
-    )
+    const { balance, usageThisCycle } = await calculateUsageAndBalance({
+      userId: 'test-user',
+      quotaResetDate: new Date('2024-01-01'),
+      now: new Date('2024-01-16'), // Current time after expiry
+      logger,
+    })
 
     expect(balance.totalRemaining).toBe(0) // Expired grant doesn't count
     expect(balance.totalDebt).toBe(0)
@@ -158,11 +157,12 @@ describe('Usage Calculation System', () => {
       },
     }))
 
-    const { balance } = await calculateUsageAndBalance(
-      'test-user',
-      new Date('2024-01-01'),
-      new Date('2024-01-15'), // Pass current time when grants are active
-    )
+    const { balance } = await calculateUsageAndBalance({
+      userId: 'test-user',
+      quotaResetDate: new Date('2024-01-01'),
+      now: new Date('2024-01-15'), // Pass current time when grants are active
+      logger,
+    })
 
     expect(balance.totalRemaining).toBe(0)
     expect(balance.totalDebt).toBe(100)
@@ -213,11 +213,12 @@ describe('Usage Calculation System', () => {
       },
     }))
 
-    const { balance, usageThisCycle } = await calculateUsageAndBalance(
-      'test-user',
-      new Date('2024-01-01'),
-      new Date('2024-01-15'), // Pass current time when grants are active
-    )
+    const { balance, usageThisCycle } = await calculateUsageAndBalance({
+      userId: 'test-user',
+      quotaResetDate: new Date('2024-01-01'),
+      now: new Date('2024-01-15'), // Pass current time when grants are active
+      logger,
+    })
 
     // Settlement: 100 positive balance - 50 debt = 50 remaining
     expect(balance.totalRemaining).toBe(50)

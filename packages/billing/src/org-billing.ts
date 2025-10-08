@@ -276,12 +276,13 @@ export async function consumeOrganizationCredits(
         throw new Error('No active organization grants found')
       }
 
-      const result = await consumeFromOrderedGrants(
-        organizationId,
+      const result = await consumeFromOrderedGrants({
+        userId: organizationId,
         creditsToConsume,
-        activeGrants,
+        grants: activeGrants,
         tx,
-      )
+        logger,
+      })
 
       return result
     },

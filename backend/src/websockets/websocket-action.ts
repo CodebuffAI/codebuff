@@ -104,7 +104,11 @@ export async function genUsageResponse(params: {
     try {
       // Get the usage data
       const { balance: balanceDetails, usageThisCycle } =
-        await calculateUsageAndBalance(userId, new Date())
+        await calculateUsageAndBalance({
+          userId,
+          quotaResetDate: new Date(),
+          logger,
+        })
 
       return {
         type: 'usage-response' as const,
@@ -428,10 +432,7 @@ export async function requestFiles(params: {
  * @param filePath - The path of the file to request
  * @returns Promise resolving to the file contents or null if not found
  */
-export async function requestFile(params: {
-  ws: WebSocket
-  filePath: string
-}) {
+export async function requestFile(params: { ws: WebSocket; filePath: string }) {
   const { ws, filePath } = params
   const files = await requestFiles({ ws, filePaths: [filePath] })
   return files[filePath] ?? null

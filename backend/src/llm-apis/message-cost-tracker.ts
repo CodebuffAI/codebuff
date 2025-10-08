@@ -540,7 +540,11 @@ async function updateUserCycleUsage(
     return result
   } else {
     // Consume from personal credits
-    const result = await consumeCredits(userId, creditsUsed)
+    const result = await consumeCredits({
+      userId,
+      creditsToConsume: creditsUsed,
+      logger,
+    })
 
     if (VERBOSE) {
       logger.debug(

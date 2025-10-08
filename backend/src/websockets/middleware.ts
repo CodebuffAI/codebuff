@@ -345,10 +345,11 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     // Continue execution to check remaining balance
   }
 
-  const { usageThisCycle, balance } = await calculateUsageAndBalance(
+  const { usageThisCycle, balance } = await calculateUsageAndBalance({
     userId,
-    user?.next_quota_reset ?? new Date(0),
-  )
+    quotaResetDate: user?.next_quota_reset ?? new Date(0),
+    logger,
+  })
 
   // Check if we have enough remaining credits
   if (balance.totalRemaining <= 0) {

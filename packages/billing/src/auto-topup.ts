@@ -233,10 +233,10 @@ export async function checkAndTriggerAutoTopup(params: {
     }
 
     // Calculate balance
-    const { balance } = await calculateUsageAndBalance(
-      userId,
-      user.next_quota_reset ?? new Date(0),
-    )
+    const { balance } = await calculateUsageAndBalance({
+      ...params,
+      quotaResetDate: user.next_quota_reset ?? new Date(0),
+    })
 
     if (
       balance.totalRemaining >= user.auto_topup_threshold &&

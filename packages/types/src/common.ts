@@ -15,3 +15,11 @@ type ParamsOfUnion<T> = UnionToIntersection<ParamsOfFunction<T>>
 export type ParamsOf<T> = Prettify<
   T extends any[] ? ParamsOfArray<T> : ParamsOfUnion<T>
 >
+
+export type WithDefaults<T, K extends keyof T> = Prettify<
+  Omit<T, K> & Partial<Pick<T, K>>
+>
+
+export type ParamsExcluding<T, K extends keyof ParamsOf<T>> = Prettify<
+  Omit<ParamsOf<T>, K>
+>

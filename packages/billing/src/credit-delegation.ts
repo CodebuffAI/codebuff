@@ -270,7 +270,11 @@ export async function consumeCreditsWithFallback(
     }
 
     // Fall back to personal credits
-    await consumeCredits(userId, creditsToCharge)
+    await consumeCredits({
+      userId,
+      creditsToConsume: creditsToCharge,
+      logger,
+    })
     logger.debug(
       { userId, creditsToCharge, context },
       `Charged personal credits for ${context}`,
