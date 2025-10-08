@@ -43,16 +43,16 @@ describe.skip('rewriteWithOpenAI', () => {
     const editSnippet = await Bun.file(`${testDataDir}/edit-snippet.go`).text()
     const expectedResult = await Bun.file(`${testDataDir}/expected.go`).text()
 
-    const result = await rewriteWithOpenAI(
-      originalContent,
+    const result = await rewriteWithOpenAI({
+      oldContent: originalContent,
       editSnippet,
-      'taskruntoolcall.go',
-      'clientSessionId',
-      'fingerprintId',
-      'userInputId',
-      TEST_USER_ID,
-      undefined,
-    )
+      filePath: 'taskruntoolcall.go',
+      clientSessionId: 'clientSessionId',
+      fingerprintId: 'fingerprintId',
+      userInputId: 'userInputId',
+      userId: TEST_USER_ID,
+      userMessage: undefined,
+    })
 
     const patch = createPatch('test.ts', expectedResult, result)
     const patchLines = patch.split('\n').slice(4)

@@ -131,43 +131,43 @@ export async function processFileBlock(params: {
 
     updatedContent = largeFileContent
   } else {
-    updatedContent = await fastRewrite(
-      normalizedInitialContent,
-      normalizedEditSnippet,
-      path,
+    updatedContent = await fastRewrite({
+      initialContent: normalizedInitialContent,
+      editSnippet: normalizedEditSnippet,
+      filePath: path,
       instructions,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
-      lastUserPrompt,
-    )
-    const shouldAddPlaceholders = await shouldAddFilePlaceholders(
-      path,
-      normalizedInitialContent,
-      updatedContent,
-      messages,
+      userMessage: lastUserPrompt,
+    })
+    const shouldAddPlaceholders = await shouldAddFilePlaceholders({
+      filePath: path,
+      oldContent: normalizedInitialContent,
+      rewrittenNewContent: updatedContent,
+      messageHistory: messages,
       fullResponse,
       userId,
       clientSessionId,
       fingerprintId,
       userInputId,
-    )
+    })
 
     if (shouldAddPlaceholders) {
       const placeholderComment = `... existing code ...`
       const updatedEditSnippet = `${placeholderComment}\n${updatedContent}\n${placeholderComment}`
-      updatedContent = await fastRewrite(
-        normalizedInitialContent,
-        updatedEditSnippet,
-        path,
+      updatedContent = await fastRewrite({
+        initialContent: normalizedInitialContent,
+        editSnippet: updatedEditSnippet,
+        filePath: path,
         instructions,
         clientSessionId,
         fingerprintId,
         userInputId,
         userId,
-        lastUserPrompt,
-      )
+        userMessage: lastUserPrompt,
+      })
     }
   }
 
