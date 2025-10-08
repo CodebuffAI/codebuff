@@ -306,6 +306,7 @@ export const runAgentStep = async (
     agentContext,
     onResponseChunk,
     fullResponse,
+    logger,
   })
   toolResults.push(...newToolResults)
 

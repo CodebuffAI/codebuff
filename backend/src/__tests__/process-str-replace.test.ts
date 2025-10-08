@@ -1,13 +1,13 @@
-import {
-  describe,
-  expect,
-  it,
-  spyOn,
-  beforeEach,
-  afterEach,
-  mock,
-} from 'bun:test'
+import { describe, expect, it, mock } from 'bun:test'
 import { applyPatch } from 'diff'
+
+import { processStrReplace } from '../process-str-replace'
+import {
+  executeBatchStrReplaces,
+  benchifyCanFixLanguage,
+} from '../tools/batch-str-replace'
+
+import type { Logger } from '@codebuff/types/logger'
 
 // Mock the benchify module to simulate missing API key
 mock.module('benchify', () => ({
@@ -18,15 +18,6 @@ mock.module('benchify', () => ({
     }
   },
 }))
-
-import { processStrReplace } from '../process-str-replace'
-import { mockFileContext } from './test-utils'
-import {
-  executeBatchStrReplaces,
-  benchifyCanFixLanguage,
-} from '../tools/batch-str-replace'
-
-import type { Logger } from '@codebuff/types/logger'
 
 const logger: Logger = {
   debug: () => {},
@@ -283,12 +274,12 @@ describe('processStrReplace', () => {
       const oldStr = 'const x'
       const newStr = 'let x'
 
-    const result = await processStrReplace({
-      path: 'test.ts',
-      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
-      initialContentPromise: Promise.resolve(initialContent),
-      logger,
-    })
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
 
       expect(result).not.toBeNull()
       expect('error' in result).toBe(true)
@@ -563,6 +554,7 @@ describe('Benchify resilience', () => {
         onResponseChunk: () => {},
         state: { messages: [] },
         userId: 'test-user',
+        logger,
       })
 
       // Should complete without error even when Benchify is unavailable
@@ -590,6 +582,7 @@ describe('Benchify resilience', () => {
           onResponseChunk: () => {},
           state: { messages: [] },
           userId: 'test-user',
+          logger,
         }),
       ).resolves.toBeUndefined() // Should complete without throwing
     })
@@ -627,6 +620,7 @@ describe('Benchify resilience', () => {
       onResponseChunk: () => {},
       state: { messages: [] },
       userId: 'test-user',
+      logger,
     })
 
     // Should complete without throwing an error
