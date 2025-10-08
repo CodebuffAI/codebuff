@@ -48,6 +48,33 @@ Then just tell Codebuff what you want and it handles the rest:
 
 Codebuff will find the right files, makes changes across your codebase, and runs tests to make sure nothing breaks.
 
+### CLI Options
+
+Control how Codebuff runs with these flags:
+
+**Quality & Performance**:
+- `--lite` - Use budget models and fetch fewer files (faster, lower cost)
+- `--max` - Use higher quality models and fetch more files (thorough, slower)
+
+**Modes**:
+- `--ask` - Ask mode, won't change code (safe for exploration)
+- `--print, -p` - Print-only mode, run once and exit (for scripts/CI)
+
+**Agent Control**:
+- `--agent <id>` - Run specific agent (e.g., `--agent file-picker`)
+- `--spawn <id>` - Spawn agent directly (e.g., `--spawn reviewer`)
+- `--params <json>` - Pass JSON parameters to agent
+
+**Debugging**:
+- `--trace` - Log all subagent activity to `.agents/traces/*.log`
+- `--cwd <dir>` - Run in specific directory instead of current
+
+**Project Setup**:
+- `--init` - Initialize Codebuff for your project
+- `--create <template>` - Create new project from template
+
+Run `codebuff --help` for full details and examples.
+
 ## Create custom agents
 
 To get started building your own agents, run:
