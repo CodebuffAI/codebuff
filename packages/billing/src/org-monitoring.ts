@@ -3,7 +3,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
-import { logger } from '@codebuff/common/util/logger'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { eq } from 'drizzle-orm'
 
 import { calculateOrganizationUsageAndBalance } from './org-billing'
@@ -23,16 +23,6 @@ export interface OrganizationCreditAlert {
   usageAmount?: number
   error?: string
   metadata?: Record<string, any>
-}
-
-export interface OrganizationUsageMetrics {
-  organizationId: string
-  totalCreditsConsumed: number
-  uniqueUsers: number
-  repositoryCount: number
-  averageCreditsPerUser: number
-  topRepository: string
-  timeframe: 'daily' | 'weekly' | 'monthly'
 }
 
 export interface OrganizationAlert {
@@ -137,31 +127,44 @@ export async function getOrganizationAlerts(params: {
  * Sends alerts for organization credit issues
  */
 export async function sendOrganizationAlert(
-  alert: OrganizationCreditAlert,
+  params: OrganizationCreditAlert & {
+    logger: Logger
+  },
 ): Promise<void> {
+  const {
+    organizationId,
+    alertType,
+    currentBalance,
+    threshold,
+    usageAmount,
+    error,
+    metadata,
+    logger,
+  } = params
+
   try {
     // Log the alert
     logger.warn(
       {
-        organizationId: alert.organizationId,
-        alertType: alert.alertType,
-        currentBalance: alert.currentBalance,
-        threshold: alert.threshold,
-        usageAmount: alert.usageAmount,
-        error: alert.error,
-        metadata: alert.metadata,
+        organizationId,
+        alertType,
+        currentBalance,
+        threshold,
+        usageAmount,
+        error: error,
+        metadata: metadata,
       },
-      `Organization alert: ${alert.alertType}`,
+      `Organization alert: ${alertType}`,
     )
 
     // Track analytics event
     trackEvent({
       event: AnalyticsEvent.CREDIT_GRANT,
-      userId: alert.organizationId,
+      userId: organizationId,
       properties: {
-        alertType: alert.alertType,
-        currentBalance: alert.currentBalance,
-        threshold: alert.threshold,
+        alertType,
+        currentBalance,
+        threshold,
       },
       logger,
     })
@@ -172,18 +175,18 @@ export async function sendOrganizationAlert(
     // - Dashboard notifications
     // - SMS alerts for critical issues
 
-    switch (alert.alertType) {
+    switch (alertType) {
       case 'low_balance':
-        await handleLowBalanceAlert(alert)
+        await handleLowBalanceAlert(params)
         break
       case 'high_usage':
-        await handleHighUsageAlert(alert)
+        await handleHighUsageAlert(params)
         break
       case 'failed_consumption':
-        await handleFailedConsumptionAlert(alert)
+        await handleFailedConsumptionAlert(params)
         break
       case 'billing_setup_required':
-        await handleBillingSetupAlert(alert)
+        await handleBillingSetupAlert(params)
         break
     }
   } catch (error) {
@@ -192,45 +195,61 @@ export async function sendOrganizationAlert(
 }
 
 async function handleLowBalanceAlert(
-  alert: OrganizationCreditAlert,
+  params: OrganizationCreditAlert & {
+    logger: Logger
+  },
 ): Promise<void> {
+  const { organizationId, currentBalance, logger } = params
+
   // TODO: Send email to organization owners about low balance
   // TODO: Suggest auto-topup or manual credit purchase
   logger.info(
-    { organizationId: alert.organizationId, balance: alert.currentBalance },
+    { organizationId, balance: currentBalance },
     'Low balance alert sent to organization owners',
   )
 }
 
 async function handleHighUsageAlert(
-  alert: OrganizationCreditAlert,
+  params: OrganizationCreditAlert & {
+    logger: Logger
+  },
 ): Promise<void> {
+  const { organizationId, usageAmount, logger } = params
+
   // TODO: Send usage spike notification
   // TODO: Provide usage breakdown and recommendations
   logger.info(
-    { organizationId: alert.organizationId, usage: alert.usageAmount },
+    { organizationId, usage: usageAmount },
     'High usage alert sent to organization admins',
   )
 }
 
 async function handleFailedConsumptionAlert(
-  alert: OrganizationCreditAlert,
+  params: OrganizationCreditAlert & {
+    logger: Logger
+  },
 ): Promise<void> {
+  const { organizationId, error, logger } = params
+
   // TODO: Send immediate notification about failed credit consumption
   // TODO: Provide troubleshooting steps
   logger.error(
-    { organizationId: alert.organizationId, error: alert.error },
+    { organizationId, error },
     'Failed consumption alert sent to organization owners',
   )
 }
 
 async function handleBillingSetupAlert(
-  alert: OrganizationCreditAlert,
+  params: OrganizationCreditAlert & {
+    logger: Logger
+  },
 ): Promise<void> {
+  const { organizationId, logger } = params
+
   // TODO: Send setup reminder to organization owners
   // TODO: Provide setup instructions and links
   logger.info(
-    { organizationId: alert.organizationId },
+    { organizationId },
     'Billing setup reminder sent to organization owners',
   )
 }
@@ -238,12 +257,21 @@ async function handleBillingSetupAlert(
 /**
  * Monitors organization credit consumption and sends alerts when needed
  */
-export async function monitorOrganizationCredits(
-  organizationId: string,
-  currentBalance: number,
-  recentUsage: number,
-  organizationName?: string,
-): Promise<void> {
+export async function monitorOrganizationCredits(params: {
+  organizationId: string
+  currentBalance: number
+  recentUsage: number
+  organizationName?: string
+  logger: Logger
+}): Promise<void> {
+  const {
+    organizationId,
+    currentBalance,
+    recentUsage,
+    organizationName,
+    logger,
+  } = params
+
   const LOW_BALANCE_THRESHOLD = 100 // Credits
   const HIGH_USAGE_THRESHOLD = 1000 // Credits per day
 
@@ -251,8 +279,7 @@ export async function monitorOrganizationCredits(
     // Check for low balance
     if (currentBalance < LOW_BALANCE_THRESHOLD) {
       await sendOrganizationAlert({
-        organizationId,
-        organizationName,
+        ...params,
         alertType: 'low_balance',
         currentBalance,
         threshold: LOW_BALANCE_THRESHOLD,
@@ -262,8 +289,7 @@ export async function monitorOrganizationCredits(
     // Check for high usage
     if (recentUsage > HIGH_USAGE_THRESHOLD) {
       await sendOrganizationAlert({
-        organizationId,
-        organizationName,
+        ...params,
         alertType: 'high_usage',
         usageAmount: recentUsage,
         threshold: HIGH_USAGE_THRESHOLD,
@@ -273,8 +299,7 @@ export async function monitorOrganizationCredits(
     // Check for negative balance (debt)
     if (currentBalance < 0) {
       await sendOrganizationAlert({
-        organizationId,
-        organizationName,
+        ...params,
         alertType: 'failed_consumption',
         currentBalance,
         error: 'Organization has negative credit balance',
@@ -291,19 +316,37 @@ export async function monitorOrganizationCredits(
 /**
  * Tracks organization usage metrics for analytics
  */
-export async function trackOrganizationUsageMetrics(
-  metrics: OrganizationUsageMetrics,
-): Promise<void> {
+export async function trackOrganizationUsageMetrics(params: {
+  organizationId: string
+  totalCreditsConsumed: number
+  uniqueUsers: number
+  repositoryCount: number
+  averageCreditsPerUser: number
+  topRepository: string
+  timeframe: 'daily' | 'weekly' | 'monthly'
+  logger: Logger
+}): Promise<void> {
+  const {
+    organizationId,
+    totalCreditsConsumed,
+    uniqueUsers,
+    repositoryCount,
+    averageCreditsPerUser,
+    topRepository,
+    timeframe,
+    logger,
+  } = params
+
   try {
     logger.info(
       {
-        organizationId: metrics.organizationId,
-        totalCreditsConsumed: metrics.totalCreditsConsumed,
-        uniqueUsers: metrics.uniqueUsers,
-        repositoryCount: metrics.repositoryCount,
-        averageCreditsPerUser: metrics.averageCreditsPerUser,
-        topRepository: metrics.topRepository,
-        timeframe: metrics.timeframe,
+        organizationId,
+        totalCreditsConsumed,
+        uniqueUsers,
+        repositoryCount,
+        averageCreditsPerUser,
+        topRepository,
+        timeframe,
       },
       'Organization usage metrics tracked',
     )
@@ -311,13 +354,13 @@ export async function trackOrganizationUsageMetrics(
     // Track analytics event
     trackEvent({
       event: AnalyticsEvent.CREDIT_GRANT,
-      userId: metrics.organizationId,
+      userId: organizationId,
       properties: {
         type: 'usage_metrics',
-        timeframe: metrics.timeframe,
-        totalCreditsConsumed: metrics.totalCreditsConsumed,
-        uniqueUsers: metrics.uniqueUsers,
-        repositoryCount: metrics.repositoryCount,
+        timeframe,
+        totalCreditsConsumed,
+        uniqueUsers,
+        repositoryCount,
       },
       logger,
     })
@@ -326,23 +369,28 @@ export async function trackOrganizationUsageMetrics(
     // TODO: Generate usage reports
     // TODO: Identify usage patterns and optimization opportunities
   } catch (error) {
-    logger.error(
-      { metrics, error },
-      'Failed to track organization usage metrics',
-    )
+    const obj: any = {
+      ...params,
+      error: getErrorObject(error),
+    }
+    delete obj.logger
+    logger.error(obj, 'Failed to track organization usage metrics')
   }
 }
 
 /**
  * Validates organization billing health
  */
-export async function validateOrganizationBillingHealth(
-  organizationId: string,
-): Promise<{
+export async function validateOrganizationBillingHealth(params: {
+  organizationId: string
+  logger: Logger
+}): Promise<{
   healthy: boolean
   issues: string[]
   recommendations: string[]
 }> {
+  const { organizationId, logger } = params
+
   const issues: string[] = []
   const recommendations: string[] = []
 
@@ -368,7 +416,7 @@ export async function validateOrganizationBillingHealth(
     return { healthy, issues, recommendations }
   } catch (error) {
     logger.error(
-      { organizationId, error },
+      { organizationId, error: getErrorObject(error) },
       'Error validating organization billing health',
     )
     return {
