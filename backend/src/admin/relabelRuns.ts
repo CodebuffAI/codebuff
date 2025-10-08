@@ -140,7 +140,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
 
     const allResults = []
 
-    const relaceResults = relabelUsingFullFilesForUser(userId, limit)
+    const relaceResults = relabelUsingFullFilesForUser({ userId, limit })
 
     // Process each model
     for (const model of modelsToRelabel) {
@@ -169,10 +169,10 @@ export async function relabelForUserHandler(req: Request, res: Response) {
             const system = payload.system
 
             output = await promptAiSdk({
-              messages: messagesWithSystem(
-                messages as Message[],
-                system as System,
-              ),
+              messages: messagesWithSystem({
+                messages: messages as Message[],
+                system: system as System,
+              }),
               model: model,
               clientSessionId: 'relabel-trace-api',
               fingerprintId: 'relabel-trace-api',
@@ -250,7 +250,11 @@ export async function relabelForUserHandler(req: Request, res: Response) {
   }
 }
 
-async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
+async function relabelUsingFullFilesForUser(params: {
+  userId: string
+  limit: number
+}) {
+  const { userId, limit } = params
   // TODO: We need to figure out changing _everything_ to use `getTracesAndAllDataForUser`
   const tracesBundles = await getTracesAndAllDataForUser(userId)
 
@@ -274,7 +278,7 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
     }
 
     if (!traceBundle.relabels.some((r) => r.model === 'relace-ranker')) {
-      relabelPromises.push(relabelWithRelace(trace, fileBlobs))
+      relabelPromises.push(relabelWithRelace({ trace, fileBlobs }))
       didRelabel = true
     }
     for (const model of [
@@ -287,7 +291,7 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
         )
       ) {
         relabelPromises.push(
-          relabelWithClaudeWithFullFileContext(trace, fileBlobs, model),
+          relabelWithClaudeWithFullFileContext({ trace, fileBlobs, model }),
         )
         didRelabel = true
       }
@@ -308,10 +312,11 @@ async function relabelUsingFullFilesForUser(userId: string, limit: 10) {
   return relabeled
 }
 
-async function relabelWithRelace(
-  trace: GetRelevantFilesTrace,
-  fileBlobs: GetExpandedFileContextForTrainingBlobTrace,
-) {
+async function relabelWithRelace(params: {
+  trace: GetRelevantFilesTrace
+  fileBlobs: GetExpandedFileContextForTrainingBlobTrace
+}) {
+  const { trace, fileBlobs } = params
   logger.info(`Relabeling ${trace.id} with Relace`)
   const messages = trace.payload.messages || []
   const queryBody =
@@ -357,12 +362,13 @@ async function relabelWithRelace(
   return relaced
 }
 
-export async function relabelWithClaudeWithFullFileContext(
-  trace: GetRelevantFilesTrace,
-  fileBlobs: GetExpandedFileContextForTrainingBlobTrace,
-  model: string,
-  dataset?: string,
-) {
+export async function relabelWithClaudeWithFullFileContext(params: {
+  trace: GetRelevantFilesTrace
+  fileBlobs: GetExpandedFileContextForTrainingBlobTrace
+  model: string
+  dataset?: string
+}) {
+  const { trace, fileBlobs, model, dataset } = params
   if (dataset) {
     await setupBigQuery({ dataset, logger })
   }
@@ -395,7 +401,7 @@ export async function relabelWithClaudeWithFullFileContext(
   }
 
   const output = await promptAiSdk({
-    messages: messagesWithSystem(trace.payload.messages as Message[], system),
+    messages: messagesWithSystem({ messages: trace.payload.messages as Message[], system }),
     model: model as any, // Model type is string here for flexibility
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',

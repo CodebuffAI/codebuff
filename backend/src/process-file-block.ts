@@ -14,19 +14,19 @@ import { countTokens } from './util/token-counter'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
-export async function processFileBlock(
-  path: string,
-  instructions: string | undefined,
-  initialContentPromise: Promise<string | null>,
-  newContent: string,
-  messages: Message[],
-  fullResponse: string,
-  lastUserPrompt: string | undefined,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-): Promise<
+export async function processFileBlock(params: {
+  path: string
+  instructions: string | undefined
+  initialContentPromise: Promise<string | null>
+  newContent: string
+  messages: Message[]
+  fullResponse: string
+  lastUserPrompt: string | undefined
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+}): Promise<
   | {
       tool: 'write_file'
       path: string
@@ -40,6 +40,19 @@ export async function processFileBlock(
       error: string // Error message if the file could not be updated
     }
 > {
+  const {
+    path,
+    instructions,
+    initialContentPromise,
+    newContent,
+    messages,
+    fullResponse,
+    lastUserPrompt,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+  } = params
   const initialContent = await initialContentPromise
 
   if (initialContent === null) {
@@ -97,15 +110,15 @@ export async function processFileBlock(
     'Write diff created by fast-apply model. May contain errors. Make sure to double check!',
   )
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
-    const largeFileContent = await handleLargeFile(
-      normalizedInitialContent,
-      normalizedEditSnippet,
+    const largeFileContent = await handleLargeFile({
+      oldContent: normalizedInitialContent,
+      editSnippet: normalizedEditSnippet,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
-      path,
-    )
+      filePath: path,
+    })
 
     if (!largeFileContent) {
       return {
@@ -118,43 +131,43 @@ export async function processFileBlock(
 
     updatedContent = largeFileContent
   } else {
-    updatedContent = await fastRewrite(
-      normalizedInitialContent,
-      normalizedEditSnippet,
-      path,
+    updatedContent = await fastRewrite({
+      initialContent: normalizedInitialContent,
+      editSnippet: normalizedEditSnippet,
+      filePath: path,
       instructions,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
-      lastUserPrompt,
-    )
-    const shouldAddPlaceholders = await shouldAddFilePlaceholders(
-      path,
-      normalizedInitialContent,
-      updatedContent,
-      messages,
+      userMessage: lastUserPrompt,
+    })
+    const shouldAddPlaceholders = await shouldAddFilePlaceholders({
+      filePath: path,
+      oldContent: normalizedInitialContent,
+      rewrittenNewContent: updatedContent,
+      messageHistory: messages,
       fullResponse,
       userId,
       clientSessionId,
       fingerprintId,
       userInputId,
-    )
+    })
 
     if (shouldAddPlaceholders) {
       const placeholderComment = `... existing code ...`
       const updatedEditSnippet = `${placeholderComment}\n${updatedContent}\n${placeholderComment}`
-      updatedContent = await fastRewrite(
-        normalizedInitialContent,
-        updatedEditSnippet,
-        path,
+      updatedContent = await fastRewrite({
+        initialContent: normalizedInitialContent,
+        editSnippet: updatedEditSnippet,
+        filePath: path,
         instructions,
         clientSessionId,
         fingerprintId,
         userInputId,
         userId,
-        lastUserPrompt,
-      )
+        userMessage: lastUserPrompt,
+      })
     }
   }
 
@@ -211,15 +224,24 @@ export async function processFileBlock(
 
 const LARGE_FILE_TOKEN_LIMIT = 64_000
 
-export async function handleLargeFile(
-  oldContent: string,
-  editSnippet: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  filePath: string,
-): Promise<string | null> {
+export async function handleLargeFile(params: {
+  oldContent: string
+  editSnippet: string
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  filePath: string
+}): Promise<string | null> {
+  const {
+    oldContent,
+    editSnippet,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    filePath,
+  } = params
   const startTime = Date.now()
 
   // If the whole file is rewritten, we can just return the new content.
@@ -289,15 +311,15 @@ Please output just the SEARCH/REPLACE blocks like this:
     )
 
     const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
-      await retryDiffBlocksPrompt(
+      await retryDiffBlocksPrompt({
         filePath,
-        updatedContent,
+        oldContent: updatedContent,
         clientSessionId,
         fingerprintId,
         userInputId,
         userId,
         diffBlocksThatDidntMatch,
-      )
+      })
 
     if (newDiffBlocksThatDidntMatch.length > 0) {
       logger.error(

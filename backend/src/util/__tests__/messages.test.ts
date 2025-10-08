@@ -30,7 +30,7 @@ describe('messagesWithSystem', () => {
     ] as Message[]
     const system = 'Be helpful'
 
-    const result = messagesWithSystem(messages, system)
+    const result = messagesWithSystem({ messages, system })
 
     expect(result).toEqual([
       { role: 'system', content: 'Be helpful' },

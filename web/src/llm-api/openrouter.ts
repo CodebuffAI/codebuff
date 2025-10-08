@@ -307,6 +307,7 @@ async function handleResponse({
     cacheReadInputTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
     reasoningTokens: usage.completion_tokens_details?.reasoning_tokens ?? null,
     outputTokens: usage.completion_tokens,
+    logger,
   })
 
   return state

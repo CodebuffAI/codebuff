@@ -149,14 +149,15 @@ async function handleCheckoutSessionCompleted(
         'Checkout session completed and paid for user credit purchase.'
       )
 
-      await processAndGrantCredit(
+      await processAndGrantCredit({
         userId,
-        credits,
-        'purchase',
-        `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
-        null,
-        operationId
-      )
+        amount: credits,
+        type: 'purchase',
+        description: `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
+        expiresAt: null,
+        operationId,
+        logger,
+      })
     } else {
       logger.warn(
         { sessionId, userId, credits, operationId, paymentStatus },
@@ -188,13 +189,14 @@ async function handleCheckoutSessionCompleted(
         'Checkout session completed and paid for organization credit purchase.'
       )
 
-      await grantOrganizationCredits(
+      await grantOrganizationCredits({
         organizationId,
         userId, // Pass the user who initiated the purchase
-        credits,
+        amount: credits,
         operationId,
-        `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`
-      )
+        description: `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
+        logger,
+      })
     } else {
       logger.warn(
         {
@@ -374,10 +376,11 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
               'Processing refund, attempting to revoke credits'
             )
 
-            const revoked = await revokeGrantByOperationId(
+            const revoked = await revokeGrantByOperationId({
               operationId,
-              `Refund for charge ${charge.id}`
-            )
+              reason: `Refund for charge ${charge.id}`,
+              logger,
+            })
 
             if (!revoked) {
               logger.error(

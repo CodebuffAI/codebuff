@@ -3,15 +3,15 @@ import { createPatch } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
-function normalizeLineEndings(str: string): string {
-  return str.replace(/\r\n/g, '\n')
+function normalizeLineEndings(params: { str: string }): string {
+  return params.str.replace(/\r\n/g, '\n')
 }
 
-export async function processStrReplace(
-  path: string,
-  replacements: { old: string; new: string; allowMultiple: boolean }[],
-  initialContentPromise: Promise<string | null>,
-): Promise<
+export async function processStrReplace(params: {
+  path: string
+  replacements: { old: string; new: string; allowMultiple: boolean }[]
+  initialContentPromise: Promise<string | null>
+}): Promise<
   | {
       tool: 'str_replace'
       path: string
@@ -21,6 +21,7 @@ export async function processStrReplace(
     }
   | { tool: 'str_replace'; path: string; error: string }
 > {
+  const { path, replacements, initialContentPromise } = params
   const initialContent = await initialContentPromise
   if (initialContent === null) {
     return {
@@ -46,16 +47,16 @@ export async function processStrReplace(
       continue
     }
 
-    const normalizedCurrentContent = normalizeLineEndings(currentContent)
-    const normalizedOldStr = normalizeLineEndings(oldStr)
-    const normalizedNewStr = normalizeLineEndings(newStr)
+    const normalizedCurrentContent = normalizeLineEndings({ str: currentContent })
+    const normalizedOldStr = normalizeLineEndings({ str: oldStr })
+    const normalizedNewStr = normalizeLineEndings({ str: newStr })
 
-    const match = tryMatchOldStr(
-      normalizedCurrentContent,
-      normalizedOldStr,
-      normalizedNewStr,
+    const match = tryMatchOldStr({
+      initialContent: normalizedCurrentContent,
+      oldStr: normalizedOldStr,
+      newStr: normalizedNewStr,
       allowMultiple,
-    )
+    })
     let updatedOldStr: string | null
 
     if (match.success) {
@@ -117,12 +118,13 @@ export async function processStrReplace(
   }
 }
 
-const tryMatchOldStr = (
-  initialContent: string,
-  oldStr: string,
-  newStr: string,
-  allowMultiple: boolean,
-): { success: true; oldStr: string } | { success: false; error: string } => {
+const tryMatchOldStr = (params: {
+  initialContent: string
+  oldStr: string
+  newStr: string
+  allowMultiple: boolean
+}): { success: true; oldStr: string } | { success: false; error: string } => {
+  const { initialContent, oldStr, newStr, allowMultiple } = params
   // count the number of occurrences of oldStr in initialContent
   const count = initialContent.split(oldStr).length - 1
   if (count === 1) {
@@ -139,11 +141,11 @@ const tryMatchOldStr = (
     return { success: true, oldStr }
   }
 
-  const newChange = tryToDoStringReplacementWithExtraIndentation(
-    initialContent,
-    oldStr,
-    newStr,
-  )
+  const newChange = tryToDoStringReplacementWithExtraIndentation({
+    oldFileContent: initialContent,
+    searchContent: oldStr,
+    replaceContent: newStr,
+  })
   if (newChange) {
     logger.debug('Matched with indentation modification')
     return { success: true, oldStr: newChange.searchContent }

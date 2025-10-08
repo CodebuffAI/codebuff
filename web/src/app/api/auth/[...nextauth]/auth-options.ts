@@ -13,6 +13,7 @@ import { loops, env } from '@codebuff/internal'
 import { eq } from 'drizzle-orm'
 import GitHubProvider from 'next-auth/providers/github'
 
+import type { Logger } from '@codebuff/types/logger'
 import type { NextAuthOptions } from 'next-auth'
 import type { Adapter } from 'next-auth/adapters'
 
@@ -77,22 +78,25 @@ async function createAndLinkStripeCustomer(
   }
 }
 
-async function createInitialCreditGrant(
-  userId: string,
+async function createInitialCreditGrant(params: {
+  userId: string
   expiresAt: Date | null
-): Promise<void> {
+  logger: Logger
+}): Promise<void> {
+  const { userId, expiresAt, logger } = params
+
   try {
     const operationId = `free-${userId}-${generateCompactId()}`
     const nextQuotaReset = getNextQuotaReset(expiresAt)
 
-    await processAndGrantCredit(
-      userId,
-      DEFAULT_FREE_CREDITS_GRANT,
-      'free',
-      'Initial free credits',
-      nextQuotaReset,
-      operationId
-    )
+    await processAndGrantCredit({
+      ...params,
+      amount: DEFAULT_FREE_CREDITS_GRANT,
+      type: 'free',
+      description: 'Initial free credits',
+      expiresAt: nextQuotaReset,
+      operationId,
+    })
 
     logger.info(
       {
@@ -231,7 +235,11 @@ export const authOptions: NextAuthOptions = {
       )
 
       if (customerId) {
-        await createInitialCreditGrant(userData.id, userData.next_quota_reset)
+        await createInitialCreditGrant({
+          userId: userData.id,
+          expiresAt: userData.next_quota_reset,
+          logger,
+        })
       }
 
       // Call the imported function

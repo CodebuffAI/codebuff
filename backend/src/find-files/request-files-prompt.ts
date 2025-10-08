@@ -327,7 +327,7 @@ async function getRelevantFiles(
     bufferTokens,
   )
   const start = performance.now()
-  let codebuffMessages = messagesWithSystem(messagesWithPrompt, system)
+  let codebuffMessages = messagesWithSystem({ messages: messagesWithPrompt, system })
 
   // Converts assistant messages to user messages for finetuned model
   codebuffMessages = codebuffMessages
@@ -410,7 +410,7 @@ async function getRelevantFilesForTraining(
   )
   const start = performance.now()
   let response = await promptAiSdk({
-    messages: messagesWithSystem(messagesWithPrompt, system),
+    messages: messagesWithSystem({ messages: messagesWithPrompt, system }),
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -457,7 +457,11 @@ function topLevelDirectories(fileContext: ProjectFileContext) {
     .map((node) => node.name)
 }
 
-function getExampleFileList(fileContext: ProjectFileContext, count: number) {
+function getExampleFileList(params: {
+  fileContext: ProjectFileContext
+  count: number
+}) {
+  const { fileContext, count } = params
   const { fileTree } = fileContext
 
   const filePaths = getAllFilePaths(fileTree)
@@ -485,7 +489,7 @@ function generateNonObviousRequestFilesPrompt(
   fileContext: ProjectFileContext,
   count: number,
 ): string {
-  const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
+  const exampleFiles = getExampleFileList({ fileContext, count: NUMBER_OF_EXAMPLE_FILES })
   return `
 Your task is to find the second-order relevant files for the following user request (in quotes).
 
@@ -540,7 +544,7 @@ function generateKeyRequestFilesPrompt(
   fileContext: ProjectFileContext,
   count: number,
 ): string {
-  const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
+  const exampleFiles = getExampleFileList({ fileContext, count: NUMBER_OF_EXAMPLE_FILES })
 
   return `
 Your task is to find the most relevant files for the following user request (in quotes).

@@ -30,8 +30,10 @@ export const codeSearchParams = {
         .int()
         .positive()
         .optional()
-        .default(30)
-        .describe(`Maximum number of results to return. Defaults to 30.`),
+        .default(15)
+        .describe(
+          `Maximum number of results to return per file. Defaults to 15. There is also a global limit of 250 results across all files.`,
+        ),
     })
     .describe(
       `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`,

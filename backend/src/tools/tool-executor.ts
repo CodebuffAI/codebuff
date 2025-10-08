@@ -44,14 +44,15 @@ export type ToolCallError = {
   error: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
 
-export function parseRawToolCall<T extends ToolName = ToolName>(
+export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   rawToolCall: {
     toolName: T
     toolCallId: string
     input: Record<string, unknown>
-  },
-  autoInsertEndStepParam: boolean = false,
-): CodebuffToolCall<T> | ToolCallError {
+  }
+  autoInsertEndStepParam?: boolean
+}): CodebuffToolCall<T> | ToolCallError {
+  const { rawToolCall, autoInsertEndStepParam = false } = params
   const toolName = rawToolCall.toolName
 
   if (!(toolName in codebuffToolDefs)) {
@@ -152,14 +153,14 @@ export function executeToolCall<T extends ToolName>({
   autoInsertEndStepParam = false,
   excludeToolFromMessageHistory = false,
 }: ExecuteToolCallParams<T>): Promise<void> {
-  const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>(
-    {
+  const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
+    rawToolCall: {
       toolName,
       toolCallId: generateCompactId(),
       input,
     },
     autoInsertEndStepParam,
-  )
+  })
   if ('error' in toolCall) {
     const toolResult: ToolResultPart = {
       type: 'tool-result',
@@ -283,15 +284,16 @@ export function executeToolCall<T extends ToolName>({
   })
 }
 
-export function parseRawCustomToolCall(
-  customToolDefs: z.infer<typeof customToolDefinitionsSchema>,
+export function parseRawCustomToolCall(params: {
+  customToolDefs: z.infer<typeof customToolDefinitionsSchema>
   rawToolCall: {
     toolName: string
     toolCallId: string
     input: Record<string, unknown>
-  },
-  autoInsertEndStepParam: boolean = false,
-): CustomToolCall | ToolCallError {
+  }
+  autoInsertEndStepParam?: boolean
+}): CustomToolCall | ToolCallError {
+  const { customToolDefs, rawToolCall, autoInsertEndStepParam = false } = params
   const toolName = rawToolCall.toolName
 
   if (!(toolName in customToolDefs) && !toolName.includes('/')) {
@@ -376,20 +378,20 @@ export async function executeCustomToolCall({
   autoInsertEndStepParam = false,
   excludeToolFromMessageHistory = false,
 }: ExecuteToolCallParams<string>): Promise<void> {
-  const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall(
-    await getMCPToolData({
+  const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
+    customToolDefs: await getMCPToolData({
       ws,
       toolNames: agentTemplate.toolNames,
       mcpServers: agentTemplate.mcpServers,
       writeTo: cloneDeep(fileContext.customToolDefinitions),
     }),
-    {
+    rawToolCall: {
       toolName,
       toolCallId: generateCompactId(),
       input,
     },
     autoInsertEndStepParam,
-  )
+  })
   if ('error' in toolCall) {
     const toolResult: ToolResultPart = {
       type: 'tool-result',

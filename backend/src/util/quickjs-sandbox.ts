@@ -48,17 +48,18 @@ export class QuickJSSandbox {
   /**
    * Create a new QuickJS sandbox with the specified configuration
    */
-  static async create(
-    generatorCode: string,
-    initialInput: any,
-    config: SandboxConfig = {},
+  static async create(params: {
+    generatorCode: string
+    initialInput: any
+    config?: SandboxConfig
     logger?: {
       debug: (data: any, msg?: string) => void
       info: (data: any, msg?: string) => void
       warn: (data: any, msg?: string) => void
       error: (data: any, msg?: string) => void
-    },
-  ): Promise<QuickJSSandbox> {
+    }
+  }): Promise<QuickJSSandbox> {
+    const { generatorCode, initialInput, config = {}, logger } = params
     const {
       memoryLimit = 1024 * 1024 * 20, // 20MB
       maxStackSize = 1024 * 512, // 512KB
@@ -261,18 +262,19 @@ export class SandboxManager {
   /**
    * Create or get a sandbox for the given agent ID
    */
-  async getOrCreateSandbox(
-    runId: string,
-    generatorCode: string,
-    initialInput: any,
-    config?: SandboxConfig,
+  async getOrCreateSandbox(params: {
+    runId: string
+    generatorCode: string
+    initialInput: any
+    config?: SandboxConfig
     logger?: {
       debug: (data: any, msg?: string) => void
       info: (data: any, msg?: string) => void
       warn: (data: any, msg?: string) => void
       error: (data: any, msg?: string) => void
-    },
-  ): Promise<QuickJSSandbox> {
+    }
+  }): Promise<QuickJSSandbox> {
+    const { runId, generatorCode, initialInput, config, logger } = params
     const existing = this.sandboxes.get(runId)
     if (existing && existing.isInitialized()) {
       return existing
@@ -284,12 +286,12 @@ export class SandboxManager {
     }
 
     // Create new sandbox
-    const sandbox = await QuickJSSandbox.create(
+    const sandbox = await QuickJSSandbox.create({
       generatorCode,
       initialInput,
       config,
       logger,
-    )
+    })
     this.sandboxes.set(runId, sandbox)
     return sandbox
   }
@@ -297,14 +299,16 @@ export class SandboxManager {
   /**
    * Get an existing sandbox
    */
-  getSandbox(runId: string): QuickJSSandbox | undefined {
+  getSandbox(params: { runId: string }): QuickJSSandbox | undefined {
+    const { runId } = params
     return this.sandboxes.get(runId)
   }
 
   /**
    * Remove and dispose a sandbox
    */
-  removeSandbox(runId: string): void {
+  removeSandbox(params: { runId: string }): void {
+    const { runId } = params
     const sandbox = this.sandboxes.get(runId)
     if (sandbox) {
       sandbox.dispose()

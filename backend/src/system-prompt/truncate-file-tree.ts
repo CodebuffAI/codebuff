@@ -65,11 +65,11 @@ export const truncateFileTreeBasedOnTokenBudget = (
         truncationLevel: 'unimportant-files',
       }
     }
-    const { printedTree, tokenCount } = pruneFileTokenScores(
-      filteredTree,
+    const { printedTree, tokenCount } = pruneFileTokenScores({
+      fileTree: filteredTree,
       fileTokenScores,
       tokenBudget,
-    )
+    })
 
     if (tokenCount <= tokenBudget) {
       if (DEBUG) {
@@ -216,11 +216,12 @@ export const truncateFileTreeBasedOnTokenBudget = (
   }
 }
 
-function pruneFileTokenScores(
-  fileTree: FileTreeNode[],
-  fileTokenScores: Record<string, Record<string, number>>,
-  tokenBudget: number,
-) {
+function pruneFileTokenScores(params: {
+  fileTree: FileTreeNode[]
+  fileTokenScores: Record<string, Record<string, number>>
+  tokenBudget: number
+}) {
+  const { fileTree, fileTokenScores, tokenBudget } = params
   const startTime = performance.now()
 
   // Create sorted array of tokens by score

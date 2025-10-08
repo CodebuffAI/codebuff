@@ -9,6 +9,7 @@ import type { UpdateMemberRoleRequest } from '@codebuff/common/types/organizatio
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string; userId: string }
@@ -225,6 +226,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         orgId,
         userId,
         context: 'removed member',
+        logger,
       })
     }
 

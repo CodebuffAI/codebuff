@@ -177,6 +177,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         orgId: inv.org_id,
         userId: session.user!.id,
         context: 'invite accepted',
+        logger,
       })
     }
 

@@ -10,12 +10,13 @@ import type { ToolName } from '@codebuff/common/tools/constants'
 import type { customToolDefinitionsSchema } from '@codebuff/common/util/file'
 import type { JSONSchema } from 'zod/v4/core'
 
-function paramsSection(
+function paramsSection(params: {
   schema:
     | { type: 'zod'; value: z.ZodObject }
-    | { type: 'json'; value: JSONSchema.BaseSchema },
-  endsAgentStep: boolean,
-) {
+    | { type: 'json'; value: JSONSchema.BaseSchema }
+  endsAgentStep: boolean
+}) {
+  const { schema, endsAgentStep } = params
   const schemaWithEndsAgentStepParam =
     schema.type === 'zod'
       ? z.toJSONSchema(
@@ -61,15 +62,22 @@ function paramsSection(
 }
 
 // Helper function to build the full tool description markdown
-export function buildToolDescription(
-  toolName: string,
+export function buildToolDescription(params: {
+  toolName: string
   schema:
     | { type: 'zod'; value: z.ZodObject }
-    | { type: 'json'; value: JSONSchema.BaseSchema },
-  description: string = '',
-  endsAgentStep: boolean,
-  exampleInputs: any[] = [],
-): string {
+    | { type: 'json'; value: JSONSchema.BaseSchema }
+  description?: string
+  endsAgentStep: boolean
+  exampleInputs?: any[]
+}): string {
+  const {
+    toolName,
+    schema,
+    description = '',
+    endsAgentStep,
+    exampleInputs = [],
+  } = params
   const descriptionWithExamples = buildArray(
     description,
     exampleInputs.length > 0
@@ -82,7 +90,7 @@ export function buildToolDescription(
   return buildArray([
     `### ${toolName}`,
     schema.value.description || '',
-    paramsSection(schema, endsAgentStep),
+    paramsSection({ schema, endsAgentStep }),
     descriptionWithExamples,
   ]).join('\n\n')
 }
@@ -90,23 +98,24 @@ export function buildToolDescription(
 export const toolDescriptions = Object.fromEntries(
   Object.entries(codebuffToolDefs).map(([name, config]) => [
     name,
-    buildToolDescription(
-      name,
-      { type: 'zod', value: config.parameters },
-      config.description,
-      config.endsAgentStep,
-    ),
+    buildToolDescription({
+      toolName: name,
+      schema: { type: 'zod', value: config.parameters },
+      description: config.description,
+      endsAgentStep: config.endsAgentStep,
+    }),
   ]),
 ) as Record<keyof typeof codebuffToolDefs, string>
 
-function buildShortToolDescription(
-  toolName: string,
+function buildShortToolDescription(params: {
+  toolName: string
   schema:
     | { type: 'zod'; value: z.ZodObject }
-    | { type: 'json'; value: JSONSchema.BaseSchema },
-  endsAgentStep: boolean,
-): string {
-  return `${toolName}:\n${paramsSection(schema, endsAgentStep)}`
+    | { type: 'json'; value: JSONSchema.BaseSchema }
+  endsAgentStep: boolean
+}): string {
+  const { toolName, schema, endsAgentStep } = params
+  return `${toolName}:\n${paramsSection({ schema, endsAgentStep })}`
 }
 
 export const getToolsInstructions = (
@@ -199,13 +208,13 @@ ${[
   ).map((name) => toolDescriptions[name]),
   ...Object.keys(additionalToolDefinitions).map((toolName) => {
     const toolDef = additionalToolDefinitions[toolName]
-    return buildToolDescription(
+    return buildToolDescription({
       toolName,
-      { type: 'json', value: toolDef.inputJsonSchema },
-      toolDef.description,
-      toolDef.endsAgentStep,
-      toolDef.exampleInputs,
-    )
+      schema: { type: 'json', value: toolDef.inputJsonSchema },
+      description: toolDef.description,
+      endsAgentStep: toolDef.endsAgentStep,
+      exampleInputs: toolDef.exampleInputs,
+    })
   }),
 ].join('\n\n')}`.trim()
 }
@@ -221,19 +230,19 @@ export const getShortToolInstructions = (
       ) as (keyof typeof codebuffToolDefs)[]
     ).map((name) => {
       const tool = codebuffToolDefs[name]
-      return buildShortToolDescription(
-        name,
-        { type: 'zod', value: tool.parameters },
-        tool.endsAgentStep,
-      )
+      return buildShortToolDescription({
+        toolName: name,
+        schema: { type: 'zod', value: tool.parameters },
+        endsAgentStep: tool.endsAgentStep,
+      })
     }),
     ...Object.keys(additionalToolDefinitions).map((name) => {
       const { inputJsonSchema, endsAgentStep } = additionalToolDefinitions[name]
-      return buildShortToolDescription(
-        name,
-        { type: 'json', value: inputJsonSchema },
+      return buildShortToolDescription({
+        toolName: name,
+        schema: { type: 'json', value: inputJsonSchema },
         endsAgentStep,
-      )
+      })
     }),
   ]
 

@@ -4,11 +4,16 @@ import { withSerializableTransaction } from '@codebuff/common/db/transaction'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { failure, success } from '@codebuff/common/util/error'
-import { logger } from '@codebuff/common/util/logger'
 import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
 
 import type { GrantType } from '@codebuff/common/db/schema'
 import type { ErrorOr } from '@codebuff/common/util/error'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+  WithDefaults,
+} from '@codebuff/types/common'
+import type { Logger } from '@codebuff/types/logger'
 
 export interface CreditBalance {
   totalRemaining: number
@@ -38,11 +43,12 @@ type DbConn = Pick<
  * Gets active grants for a user, ordered by expiration (soonest first), then priority, and creation date.
  * Added optional `conn` param so callers inside a transaction can supply their TX object.
  */
-export async function getOrderedActiveGrants(
-  userId: string,
-  now: Date,
-  conn: DbConn = db, // use DbConn instead of typeof db
-) {
+export async function getOrderedActiveGrants(params: {
+  userId: string
+  now: Date
+  conn?: DbConn // use DbConn instead of typeof db
+}) {
+  const { userId, now, conn = db } = params
   return conn
     .select()
     .from(schema.creditLedger)
@@ -66,13 +72,15 @@ export async function getOrderedActiveGrants(
 /**
  * Updates a single grant's balance and logs the change.
  */
-export async function updateGrantBalance(
-  userId: string,
-  grant: typeof schema.creditLedger.$inferSelect,
-  consumed: number,
-  newBalance: number,
-  tx: DbConn,
-) {
+export async function updateGrantBalance(params: {
+  userId: string
+  grant: typeof schema.creditLedger.$inferSelect
+  consumed: number
+  newBalance: number
+  tx: DbConn
+  logger: Logger
+}) {
+  const { userId, grant, consumed, newBalance, tx, logger } = params
   await tx
     .update(schema.creditLedger)
     .set({ balance: newBalance })
@@ -95,11 +103,18 @@ export async function updateGrantBalance(
  * Consumes credits from a list of ordered grants.
  */
 export async function consumeFromOrderedGrants(
-  userId: string,
-  creditsToConsume: number,
-  grants: (typeof schema.creditLedger.$inferSelect)[],
-  tx: DbConn,
+  params: {
+    userId: string
+    creditsToConsume: number
+    grants: (typeof schema.creditLedger.$inferSelect)[]
+    logger: Logger
+  } & ParamsExcluding<
+    typeof updateGrantBalance,
+    'grant' | 'consumed' | 'newBalance'
+  >,
 ): Promise<CreditConsumptionResult> {
+  const { userId, creditsToConsume, grants, logger } = params
+
   let remainingToConsume = creditsToConsume
   let consumed = 0
   let fromPurchased = 0
@@ -113,7 +128,12 @@ export async function consumeFromOrderedGrants(
       remainingToConsume -= repayAmount
       consumed += repayAmount
 
-      await updateGrantBalance(userId, grant, -repayAmount, newBalance, tx)
+      await updateGrantBalance({
+        ...params,
+        grant,
+        consumed: -repayAmount,
+        newBalance,
+      })
 
       logger.debug(
         { userId, grantId: grant.operation_id, repayAmount, newBalance },
@@ -137,13 +157,12 @@ export async function consumeFromOrderedGrants(
       fromPurchased += consumeFromThisGrant
     }
 
-    await updateGrantBalance(
-      userId,
+    await updateGrantBalance({
+      ...params,
       grant,
-      consumeFromThisGrant,
+      consumed: consumeFromThisGrant,
       newBalance,
-      tx,
-    )
+    })
   }
 
   // If we still have remaining to consume and no grants left, create debt in the last grant
@@ -152,13 +171,12 @@ export async function consumeFromOrderedGrants(
 
     if (lastGrant.balance <= 0) {
       const newBalance = lastGrant.balance - remainingToConsume
-      await updateGrantBalance(
-        userId,
-        lastGrant,
-        remainingToConsume,
+      await updateGrantBalance({
+        ...params,
+        grant: lastGrant,
+        consumed: remainingToConsume,
         newBalance,
-        tx,
-      )
+      })
       consumed += remainingToConsume
 
       logger.warn(
@@ -182,14 +200,29 @@ export async function consumeFromOrderedGrants(
  * This is more efficient than calculating them separately.
  */
 export async function calculateUsageAndBalance(
-  userId: string,
-  quotaResetDate: Date,
-  now: Date = new Date(),
-  conn: DbConn = db, // Add optional conn parameter to pass transaction
-  isPersonalContext: boolean = false, // Add flag to exclude organization credits for personal usage
+  params: WithDefaults<
+    {
+      userId: string
+      quotaResetDate: Date
+      now: Date
+      conn: DbConn
+      isPersonalContext: boolean
+      logger: Logger
+    } & ParamsOf<typeof getOrderedActiveGrants>,
+    'now' | 'conn' | 'isPersonalContext'
+  >,
 ): Promise<CreditUsageAndBalance> {
+  const withDefaults = {
+    now: new Date(),
+    conn: db, // Add optional conn parameter to pass transaction
+    isPersonalContext: false, // Add flag to exclude organization credits for personal usage
+    ...params,
+  }
+  const { userId, quotaResetDate, now, isPersonalContext, logger } =
+    withDefaults
+
   // Get all relevant grants in one query, using the provided connection
-  const grants = await getOrderedActiveGrants(userId, now, conn)
+  const grants = await getOrderedActiveGrants(withDefaults)
 
   // Initialize breakdown and principals with all grant types set to 0
   const initialBreakdown: Record<GrantType, number> = {} as Record<
@@ -294,14 +327,21 @@ export async function calculateUsageAndBalance(
  * @param creditsToConsume Number of credits being consumed
  * @returns Promise resolving to number of credits consumed
  */
-export async function consumeCredits(
-  userId: string,
-  creditsToConsume: number,
-): Promise<CreditConsumptionResult> {
+export async function consumeCredits(params: {
+  userId: string
+  creditsToConsume: number
+  logger: Logger
+}): Promise<CreditConsumptionResult> {
+  const { userId, creditsToConsume, logger } = params
+
   return await withSerializableTransaction({
     callback: async (tx) => {
       const now = new Date()
-      const activeGrants = await getOrderedActiveGrants(userId, now, tx)
+      const activeGrants = await getOrderedActiveGrants({
+        ...params,
+        now,
+        conn: tx,
+      })
 
       if (activeGrants.length === 0) {
         logger.error(
@@ -311,12 +351,12 @@ export async function consumeCredits(
         throw new Error('No active grants found')
       }
 
-      const result = await consumeFromOrderedGrants(
-        userId,
+      const result = await consumeFromOrderedGrants({
+        ...params,
         creditsToConsume,
-        activeGrants,
+        grants: activeGrants,
         tx,
-      )
+      })
 
       return result
     },
@@ -325,7 +365,7 @@ export async function consumeCredits(
   })
 }
 
-export async function consumeCreditsAndAddAgentStep(options: {
+export async function consumeCreditsAndAddAgentStep(params: {
   messageId: string
   userId: string
   agentId: string
@@ -346,6 +386,8 @@ export async function consumeCreditsAndAddAgentStep(options: {
   cacheReadInputTokens: number
   reasoningTokens: number | null
   outputTokens: number
+
+  logger: Logger
 }): Promise<ErrorOr<CreditConsumptionResult & { agentStepId: string }>> {
   const {
     messageId,
@@ -368,7 +410,9 @@ export async function consumeCreditsAndAddAgentStep(options: {
     cacheReadInputTokens,
     reasoningTokens,
     outputTokens,
-  } = options
+
+    logger,
+  } = params
 
   const finishedAt = new Date()
   const latencyMs = finishedAt.getTime() - startTime.getTime()
@@ -378,7 +422,11 @@ export async function consumeCreditsAndAddAgentStep(options: {
       await withSerializableTransaction({
         callback: async (tx) => {
           const now = new Date()
-          const activeGrants = await getOrderedActiveGrants(userId, now, tx)
+          const activeGrants = await getOrderedActiveGrants({
+            ...params,
+            now,
+            conn: tx,
+          })
 
           if (activeGrants.length === 0) {
             logger.error(
@@ -388,12 +436,12 @@ export async function consumeCreditsAndAddAgentStep(options: {
             throw new Error('No active grants found')
           }
 
-          const result = await consumeFromOrderedGrants(
-            userId,
-            credits,
-            activeGrants,
+          const result = await consumeFromOrderedGrants({
+            ...params,
+            creditsToConsume: credits,
+            grants: activeGrants,
             tx,
-          )
+          })
 
           if (userId === TEST_USER_ID) {
             return { ...result, agentStepId: 'test-step-id' }
@@ -421,7 +469,7 @@ export async function consumeCreditsAndAddAgentStep(options: {
               user_id: userId,
             })
           } catch (error) {
-            logger.error({ ...options, error }, 'Failed to add message')
+            logger.error({ ...params, error }, 'Failed to add message')
             throw error
           }
 
@@ -440,10 +488,12 @@ export async function consumeCreditsAndAddAgentStep(options: {
  * Calculate the total credits used during the current billing cycle for a user
  * by summing the difference between initial and remaining amounts for all relevant grants.
  */
-export async function calculateUsageThisCycle(
-  userId: string,
-  quotaResetDate: Date,
-): Promise<number> {
+export async function calculateUsageThisCycle(params: {
+  userId: string
+  quotaResetDate: Date
+}): Promise<number> {
+  const { userId, quotaResetDate } = params
+
   const usageResult = await db
     .select({
       totalUsed: sql<number>`COALESCE(SUM(${schema.creditLedger.principal} - ${schema.creditLedger.balance}), 0)`,

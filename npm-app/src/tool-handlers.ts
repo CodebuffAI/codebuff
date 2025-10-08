@@ -4,7 +4,12 @@ import * as path from 'path'
 import { FileChangeSchema } from '@codebuff/common/actions'
 import { BrowserActionSchema } from '@codebuff/common/browser-actions'
 import { SHOULD_ASK_CONFIG } from '@codebuff/common/old-constants'
+import {
+  flattenTree,
+  getProjectFileTree,
+} from '@codebuff/common/project-file-tree'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
+import micromatch from 'micromatch'
 import { cyan, green, red, yellow } from 'picocolors'
 
 import { handleBrowserInstruction } from './browser-runner'
@@ -182,13 +187,81 @@ export const handleRunTerminalCommand: ToolHandler<
   )
 }
 
+export const handleListDirectory: ToolHandler<'list_directory'> = async (
+  parameters,
+  _id,
+) => {
+  const projectPath = getProjectRoot()
+  const directoryPath = parameters.path
+
+  try {
+    const resolvedPath = path.resolve(projectPath, directoryPath)
+
+    if (!resolvedPath.startsWith(projectPath)) {
+      return [
+        {
+          type: 'json',
+          value: {
+            errorMessage: `Invalid path: Path '${directoryPath}' is outside the project directory.`,
+          },
+        },
+      ]
+    }
+
+    const dirEntries = await import('fs').then((fs) =>
+      fs.promises.readdir(resolvedPath, { withFileTypes: true }),
+    )
+
+    const files: string[] = []
+    const directories: string[] = []
+
+    for (const entry of dirEntries) {
+      if (entry.isDirectory()) {
+        directories.push(entry.name)
+      } else if (entry.isFile()) {
+        files.push(entry.name)
+      }
+    }
+
+    console.log(
+      green(
+        `Listing directory ${directoryPath === '.' ? path.basename(projectPath) : directoryPath}: found ${files.length} files and ${directories.length} directories`,
+      ),
+    )
+    console.log()
+
+    return [
+      {
+        type: 'json',
+        value: {
+          files,
+          directories,
+          path: directoryPath,
+        },
+      },
+    ]
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error(red(`Failed to list directory: ${errorMessage}`))
+    return [
+      {
+        type: 'json',
+        value: {
+          errorMessage: `Failed to list directory: ${errorMessage}`,
+        },
+      },
+    ]
+  }
+}
+
 export const handleCodeSearch: ToolHandler<'code_search'> = async (
   parameters,
   _id,
 ) => {
   const projectPath = getProjectRoot()
   const rgPath = await getRgPath()
-  const maxResults = parameters.maxResults ?? 30
+  const maxResults = parameters.maxResults ?? 15
+  const globalMaxResults = 250
 
   return new Promise((resolve) => {
     let stdout = ''
@@ -239,7 +312,73 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
 
     childProcess.on('close', (code) => {
       const lines = stdout.split('\n').filter((line) => line.trim())
-      const limitedLines = lines.slice(0, maxResults)
+
+      // Group results by file
+      const fileGroups = new Map<string, string[]>()
+      let currentFile: string | null = null
+
+      for (const line of lines) {
+        // Ripgrep output format: filename:line_number:content or filename:content
+        const colonIndex = line.indexOf(':')
+        if (colonIndex === -1) {
+          // This shouldn't happen with standard ripgrep output
+          if (currentFile) {
+            fileGroups.get(currentFile)!.push(line)
+          }
+          continue
+        }
+
+        const filename = line.substring(0, colonIndex)
+
+        // Check if this is a new file
+        if (filename && !filename.includes('\t') && !filename.startsWith(' ')) {
+          currentFile = filename
+          if (!fileGroups.has(currentFile)) {
+            fileGroups.set(currentFile, [])
+          }
+          fileGroups.get(currentFile)!.push(line)
+        } else if (currentFile) {
+          // Continuation of previous result
+          fileGroups.get(currentFile)!.push(line)
+        }
+      }
+
+      // Limit results per file and globally
+      const limitedLines: string[] = []
+      let totalOriginalCount = 0
+      let totalLimitedCount = 0
+      const truncatedFiles: string[] = []
+      let globalLimitReached = false
+      let skippedFileCount = 0
+
+      for (const [filename, fileLines] of fileGroups) {
+        totalOriginalCount += fileLines.length
+
+        // Check if we've hit the global limit
+        if (totalLimitedCount >= globalMaxResults) {
+          globalLimitReached = true
+          skippedFileCount++
+          continue
+        }
+
+        // Calculate how many results we can take from this file
+        const remainingGlobalSpace = globalMaxResults - totalLimitedCount
+        const resultsToTake = Math.min(
+          maxResults,
+          fileLines.length,
+          remainingGlobalSpace,
+        )
+        const limited = fileLines.slice(0, resultsToTake)
+        totalLimitedCount += limited.length
+        limitedLines.push(...limited)
+
+        if (fileLines.length > resultsToTake) {
+          truncatedFiles.push(
+            `${filename}: ${fileLines.length} results (showing ${resultsToTake})`,
+          )
+        }
+      }
+
       const previewResults = limitedLines.slice(0, 3)
       if (previewResults.length > 0) {
         console.log(previewResults.join('\n'))
@@ -247,21 +386,37 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
           console.log('...')
         }
       }
+
+      const filesIncluded = fileGroups.size - skippedFileCount
       console.log(
         green(
-          `Found ${limitedLines.length} results${lines.length > maxResults ? ` (limited from ${lines.length})` : ''}`,
+          `Found ${totalLimitedCount} results across ${filesIncluded} file(s)${totalOriginalCount > totalLimitedCount ? ` (limited from ${totalOriginalCount})` : ''}`,
         ),
       )
 
-      // Limit results to maxResults
-      const limitedStdout = limitedLines.join('\n')
+      // Limit results to maxResults per file and globalMaxResults total
+      let limitedStdout = limitedLines.join('\n')
 
       // Add truncation message if results were limited
-      const finalStdout =
-        lines.length > maxResults
-          ? limitedStdout +
-            `\n\n[Results limited to ${maxResults} of ${lines.length} total matches]`
-          : limitedStdout
+      const truncationMessages: string[] = []
+
+      if (truncatedFiles.length > 0) {
+        truncationMessages.push(
+          `Results limited to ${maxResults} per file. Truncated files:\n${truncatedFiles.join('\n')}`,
+        )
+      }
+
+      if (globalLimitReached) {
+        truncationMessages.push(
+          `Global limit of ${globalMaxResults} results reached. ${skippedFileCount} file(s) skipped.`,
+        )
+      }
+
+      if (truncationMessages.length > 0) {
+        limitedStdout += `\n\n[${truncationMessages.join('\n\n')}]`
+      }
+
+      const finalStdout = limitedStdout
 
       const truncatedStdout = truncateStringWithMessage({
         str: finalStdout,
@@ -324,6 +479,63 @@ const handleFileChangeHooks: ToolHandler<
   }
 
   return toolResults
+}
+
+const handleGlob: ToolHandler<'glob'> = async (parameters, _id) => {
+  const projectPath = getProjectRoot()
+  const { pattern, cwd } = parameters
+
+  try {
+    // Get all files in the project
+    const fileTree = getProjectFileTree(projectPath)
+    const flattenedNodes = flattenTree(fileTree)
+    let allFilePaths = flattenedNodes
+      .filter((node) => node.type === 'file')
+      .map((node) => node.filePath)
+
+    // Filter by cwd if provided
+    if (cwd) {
+      const cwdPrefix = cwd.endsWith('/') ? cwd : `${cwd}/`
+      allFilePaths = allFilePaths.filter(
+        (filePath) =>
+          filePath === cwd ||
+          filePath.startsWith(cwdPrefix) ||
+          filePath === cwd.replace(/\/$/, ''),
+      )
+    }
+
+    // Use micromatch to filter files by the glob pattern
+    const matchingFiles = micromatch(allFilePaths, pattern)
+
+    const basename = path.basename(projectPath)
+    console.log()
+    console.log(
+      green(
+        `Searching for pattern "${pattern}"${cwd ? ` in ${basename}/${cwd}` : ` in ${basename}`}: found ${matchingFiles.length} file(s)`,
+      ),
+    )
+    console.log()
+
+    return [
+      {
+        type: 'json',
+        value: {
+          files: matchingFiles,
+          count: matchingFiles.length,
+          message: `Found ${matchingFiles.length} file(s) matching pattern "${pattern}"${cwd ? ` in directory "${cwd}"` : ''}`,
+        },
+      },
+    ]
+  } catch (error) {
+    return [
+      {
+        type: 'json',
+        value: {
+          errorMessage: `Failed to search for files: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      },
+    ]
+  }
 }
 
 const handleBrowserLogs: ToolHandler<'browser_logs'> = async (params, _id) => {
@@ -417,6 +629,8 @@ export const toolHandlers: {
   create_plan: handleUpdateFile,
   run_terminal_command: handleRunTerminalCommand,
   code_search: handleCodeSearch,
+  glob: handleGlob,
+  list_directory: handleListDirectory,
   run_file_change_hooks: handleFileChangeHooks,
   browser_logs: handleBrowserLogs,
 }

@@ -1,6 +1,5 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { logger } from '@codebuff/common/util/logger'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 
 import { checkAndTriggerAutoTopup } from './auto-topup'
@@ -12,6 +11,7 @@ import {
 } from './org-billing'
 
 import type { CreditBalance } from './balance-calculator'
+import type { Logger } from '@codebuff/types/logger'
 
 export interface UserUsageData {
   usageThisCycle: number
@@ -43,17 +43,21 @@ export interface OrganizationUsageData {
  * Gets comprehensive user usage data including balance, usage, and auto-topup handling.
  * This consolidates logic from web/src/app/api/user/usage/route.ts
  */
-export async function getUserUsageData(userId: string): Promise<UserUsageData> {
+export async function getUserUsageData(params: {
+  userId: string
+  logger: Logger
+}): Promise<UserUsageData> {
+  const { userId, logger } = params
   try {
     const now = new Date()
 
     // Check if we need to reset quota and grant new credits
-    const effectiveQuotaResetDate = await triggerMonthlyResetAndGrant(userId)
+    const effectiveQuotaResetDate = await triggerMonthlyResetAndGrant(params)
 
     // Check if we need to trigger auto top-up
     let autoTopupTriggered = false
     try {
-      const topupAmount = await checkAndTriggerAutoTopup(userId)
+      const topupAmount = await checkAndTriggerAutoTopup(params)
       autoTopupTriggered = topupAmount !== undefined
     } catch (error) {
       logger.error(
@@ -65,13 +69,12 @@ export async function getUserUsageData(userId: string): Promise<UserUsageData> {
 
     // Use the canonical balance calculation function with the effective reset date
     // Pass isPersonalContext: true to exclude organization credits from personal usage
-    const { usageThisCycle, balance } = await calculateUsageAndBalance(
-      userId,
-      effectiveQuotaResetDate,
+    const { usageThisCycle, balance } = await calculateUsageAndBalance({
+      ...params,
+      quotaResetDate: effectiveQuotaResetDate,
       now,
-      undefined, // Use default db connection
-      true, // isPersonalContext: true to exclude organization credits
-    )
+      isPersonalContext: true, // isPersonalContext: true to exclude organization credits
+    })
 
     return {
       usageThisCycle,
@@ -89,10 +92,13 @@ export async function getUserUsageData(userId: string): Promise<UserUsageData> {
  * Gets comprehensive organization usage data including balance, usage, top users, and recent activity.
  * This consolidates logic from backend/src/api/usage.ts and web/src/app/api/orgs/[orgId]/usage/route.ts
  */
-export async function getOrganizationUsageData(
-  organizationId: string,
-  userId: string,
-): Promise<OrganizationUsageData> {
+export async function getOrganizationUsageData(params: {
+  organizationId: string
+  userId: string
+  logger: Logger
+}): Promise<OrganizationUsageData> {
+  const { organizationId, userId, logger } = params
+
   try {
     // Check if user is a member of this organization
     const membership = await db
@@ -111,8 +117,7 @@ export async function getOrganizationUsageData(
     }
 
     // Sync organization billing cycle with Stripe and get current cycle start
-    const startOfCurrentCycle =
-      await syncOrganizationBillingCycle(organizationId)
+    const startOfCurrentCycle = await syncOrganizationBillingCycle(params)
 
     // Get the organization to fetch the current period end date
     const organization = await db.query.org.findFirst({
@@ -136,11 +141,11 @@ export async function getOrganizationUsageData(
     try {
       const now = new Date()
       const { balance, usageThisCycle: usage } =
-        await calculateOrganizationUsageAndBalance(
-          organizationId,
-          startOfCurrentCycle,
+        await calculateOrganizationUsageAndBalance({
+          ...params,
+          quotaResetDate: startOfCurrentCycle,
           now,
-        )
+        })
       currentBalance = balance.netBalance
       usageThisCycle = usage
     } catch (error) {
@@ -218,18 +223,21 @@ export async function getOrganizationUsageData(
  * Gets simplified organization usage response for backend API compatibility.
  * This maintains the existing response format for the backend API.
  */
-export async function getOrganizationUsageResponse(
-  organizationId: string,
-  userId: string,
-): Promise<{
+export async function getOrganizationUsageResponse(params: {
+  organizationId: string
+  userId: string
+  logger: Logger
+}): Promise<{
   type: 'usage-response'
   usage: number
   remainingBalance: number
   balanceBreakdown: Record<string, never>
   next_quota_reset: null
 }> {
+  const { organizationId, userId, logger } = params
+
   try {
-    const data = await getOrganizationUsageData(organizationId, userId)
+    const data = await getOrganizationUsageData(params)
 
     return {
       type: 'usage-response' as const,

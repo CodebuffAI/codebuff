@@ -1,7 +1,7 @@
 import { grantOrganizationCredits } from '@codebuff/billing'
-import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal'
@@ -188,13 +188,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
           if (paymentIntent.status === 'succeeded') {
             // Grant credits immediately
-            await grantOrganizationCredits(
-              orgId,
-              session.user.id, // Pass the user who initiated the purchase
-              credits,
+            await grantOrganizationCredits({
+              organizationId: orgId,
+              userId: session.user.id, // Pass the user who initiated the purchase
+              amount: credits,
               operationId,
-              `Direct purchase of ${credits.toLocaleString()} credits`
-            )
+              description: `Direct purchase of ${credits.toLocaleString()} credits`,
+              logger,
+            })
 
             logger.info(
               {

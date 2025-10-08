@@ -59,11 +59,15 @@ export const handleStrReplace = ((params: {
     ? previousEdit.then((maybeResult) =>
         maybeResult && 'content' in maybeResult
           ? maybeResult.content
-          : requestOptionalFile(ws, path),
+          : requestOptionalFile({ ws, filePath: path }),
       )
-    : requestOptionalFile(ws, path)
+    : requestOptionalFile({ ws, filePath: path })
 
-  const newPromise = processStrReplace(path, replacements, latestContentPromise)
+  const newPromise = processStrReplace({
+    path,
+    replacements,
+    initialContentPromise: latestContentPromise,
+  })
     .catch((error: any) => {
       logger.error(error, 'Error processing str_replace block')
       return {

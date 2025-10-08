@@ -181,13 +181,21 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     const { owner, repo } = ownerRepo
 
     // Perform lookup (cache removed)
-    const orgLookup = await findOrganizationForRepository(userId, repoUrl)
+    const orgLookup = await findOrganizationForRepository({
+      userId,
+      repositoryUrl: repoUrl,
+      logger,
+    })
 
     // If an organization covers this repository, check its balance
     if (orgLookup.found && orgLookup.organizationId) {
       // Check and trigger organization auto top-up if needed
       try {
-        await checkAndTriggerOrgAutoTopup(orgLookup.organizationId, userId)
+        await checkAndTriggerOrgAutoTopup({
+          organizationId: orgLookup.organizationId,
+          userId,
+          logger,
+        })
       } catch (error) {
         logger.error(
           {
@@ -217,11 +225,12 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       // Using a far past date ensures all grants are considered for current balance.
       const orgQuotaResetDate = new Date(0)
       const { balance: orgBalance } =
-        await calculateOrganizationUsageAndBalance(
-          orgLookup.organizationId,
-          orgQuotaResetDate,
+        await calculateOrganizationUsageAndBalance({
+          organizationId: orgLookup.organizationId,
+          quotaResetDate: orgQuotaResetDate,
           now,
-        )
+          logger,
+        })
 
       if (orgBalance.totalRemaining <= 0) {
         const orgName = orgLookup.organizationName || 'Your organization'
@@ -313,12 +322,12 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   })
 
   // Check and trigger monthly reset if needed
-  await triggerMonthlyResetAndGrant(userId)
+  await triggerMonthlyResetAndGrant({ userId, logger })
 
   // Check if we need to trigger auto top-up and get the amount added (if any)
   let autoTopupAdded: number | undefined = undefined
   try {
-    autoTopupAdded = await checkAndTriggerAutoTopup(userId)
+    autoTopupAdded = await checkAndTriggerAutoTopup({ userId, logger })
   } catch (error) {
     logger.error(
       {
@@ -341,10 +350,11 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     // Continue execution to check remaining balance
   }
 
-  const { usageThisCycle, balance } = await calculateUsageAndBalance(
+  const { usageThisCycle, balance } = await calculateUsageAndBalance({
     userId,
-    user?.next_quota_reset ?? new Date(0),
-  )
+    quotaResetDate: user?.next_quota_reset ?? new Date(0),
+    logger,
+  })
 
   // Check if we have enough remaining credits
   if (balance.totalRemaining <= 0) {

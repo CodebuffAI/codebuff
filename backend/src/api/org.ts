@@ -35,14 +35,18 @@ async function isRepoCoveredHandler(
         .status(401)
         .json({ error: 'Missing x-codebuff-api-key header' })
     }
-    const userId = await getUserIdFromAuthToken(authToken)
+    const userId = await getUserIdFromAuthToken({ authToken })
 
     if (!userId) {
       return res.status(401).json({ error: INVALID_AUTH_TOKEN_MESSAGE })
     }
 
     // Check if repository is covered by an organization
-    const orgLookup = await findOrganizationForRepository(userId, remoteUrl)
+    const orgLookup = await findOrganizationForRepository({
+      userId,
+      repositoryUrl: remoteUrl,
+      logger,
+    })
 
     return res.status(200).json({
       isCovered: orgLookup.found,

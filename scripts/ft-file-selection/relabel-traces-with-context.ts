@@ -90,12 +90,12 @@ async function runTraces() {
             console.log(`Processing trace ${trace.id}`)
 
             try {
-              await relabelWithClaudeWithFullFileContext(
+              await relabelWithClaudeWithFullFileContext({
                 trace,
                 fileBlobs,
-                MODEL_TO_TEST,
-                DATASET,
-              )
+                model: MODEL_TO_TEST,
+                dataset: DATASET,
+              })
               console.log(`Successfully stored relabel for trace ${trace.id}`)
             } catch (error) {
               console.error(`Error processing trace ${trace.id}:`, error)

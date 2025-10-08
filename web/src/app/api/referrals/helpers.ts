@@ -1,7 +1,7 @@
 import { grantCreditOperation } from '@codebuff/billing'
-import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -154,15 +154,16 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
       // Process Referrer
       grantPromises.push(
-        grantCreditOperation(
-          referrer.id,
-          CREDITS_REFERRAL_BONUS,
-          'referral',
-          'Referral bonus (referrer)',
-          user.next_quota_reset,
-          `${operationId}-referrer`,
-          tx
-        )
+        grantCreditOperation({
+          userId: referrer.id,
+          amount: CREDITS_REFERRAL_BONUS,
+          type: 'referral',
+          description: 'Referral bonus (referrer)',
+          expiresAt: user.next_quota_reset,
+          operationId: `${operationId}-referrer`,
+          tx,
+          logger,
+        })
           .then(() => true)
           .catch((error: Error) => {
             logger.error(
@@ -180,15 +181,16 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
       // Process Referred User
       grantPromises.push(
-        grantCreditOperation(
-          referred.id,
-          CREDITS_REFERRAL_BONUS,
-          'referral',
-          'Referral bonus (referred)',
-          user.next_quota_reset,
-          `${operationId}-referred`,
-          tx
-        )
+        grantCreditOperation({
+          userId: referred.id,
+          amount: CREDITS_REFERRAL_BONUS,
+          type: 'referral',
+          description: 'Referral bonus (referred)',
+          expiresAt: user.next_quota_reset,
+          operationId: `${operationId}-referred`,
+          tx,
+          logger,
+        })
           .then(() => true)
           .catch((error: Error) => {
             logger.error(

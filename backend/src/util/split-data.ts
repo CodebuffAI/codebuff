@@ -21,7 +21,11 @@ function getJsonSize(data: any): number {
   return size
 }
 
-function splitString(data: string, maxSize: number): Chunk<string>[] {
+function splitString(params: {
+  data: string
+  maxSize: number
+}): Chunk<string>[] {
+  const { data, maxSize } = params
   if (data === '') {
     return [{ data: '', length: 2 }]
   }
@@ -62,7 +66,11 @@ function splitString(data: string, maxSize: number): Chunk<string>[] {
   return chunks
 }
 
-function splitObject(obj: PlainObject, maxSize: number): Chunk<PlainObject>[] {
+function splitObject(params: {
+  obj: PlainObject
+  maxSize: number
+}): Chunk<PlainObject>[] {
+  const { obj, maxSize } = params
   const chunks: Chunk<PlainObject>[] = []
 
   let currentChunk: Chunk<PlainObject> = {
@@ -79,10 +87,10 @@ function splitObject(obj: PlainObject, maxSize: number): Chunk<PlainObject>[] {
     if (standaloneEntry.length > maxSize) {
       const overhead = getJsonSize({ [key]: '' }) - 2
 
-      const items = splitDataWithLengths(
-        value,
-        maxSize - (getJsonSize({ [key]: '' }) - 2),
-      )
+      const items = splitDataWithLengths({
+        data: value,
+        maxChunkSize: maxSize - (getJsonSize({ [key]: '' }) - 2),
+      })
 
       for (const [index, item] of items.entries()) {
         const itemWithKey: Chunk<any> = {
@@ -147,7 +155,8 @@ function splitObject(obj: PlainObject, maxSize: number): Chunk<PlainObject>[] {
   return chunks
 }
 
-function splitArray(arr: any[], maxSize: number): Chunk<any[]>[] {
+function splitArray(params: { arr: any[]; maxSize: number }): Chunk<any[]>[] {
+  const { arr, maxSize } = params
   const chunks: Chunk<any[]>[] = []
   let currentChunk: Chunk<any[]> = { data: [], length: 2 }
 
@@ -163,7 +172,7 @@ function splitArray(arr: any[], maxSize: number): Chunk<any[]>[] {
         chunks.push(currentChunk)
       }
 
-      const items = splitDataWithLengths(element, maxSize - 2)
+      const items = splitDataWithLengths({ data: element, maxChunkSize: maxSize - 2 })
 
       for (const [index, item] of items.entries()) {
         if (index < items.length - 1) {
@@ -211,11 +220,15 @@ function splitArray(arr: any[], maxSize: number): Chunk<any[]>[] {
   return chunks
 }
 
-function splitDataWithLengths(data: any, maxChunkSize: number): Chunk<any>[] {
+function splitDataWithLengths(params: {
+  data: any
+  maxChunkSize: number
+}): Chunk<any>[] {
+  const { data, maxChunkSize } = params
   // Handle primitives
   if (typeof data !== 'object' || data === null) {
     if (typeof data === 'string') {
-      const result = splitString(data, maxChunkSize)
+      const result = splitString({ data, maxSize: maxChunkSize })
       return result
     }
     return [{ data, length: getJsonSize(data) }]
@@ -228,15 +241,19 @@ function splitDataWithLengths(data: any, maxChunkSize: number): Chunk<any>[] {
 
   // Arrays
   if (Array.isArray(data)) {
-    const result = splitArray(data, maxChunkSize)
+    const result = splitArray({ arr: data, maxSize: maxChunkSize })
     return result
   }
 
   // Plain objects
-  const result = splitObject(data, maxChunkSize)
+  const result = splitObject({ obj: data, maxSize: maxChunkSize })
   return result
 }
 
-export function splitData(data: any, maxChunkSize: number = 99_000): any[] {
-  return splitDataWithLengths(data, maxChunkSize).map((cwjl) => cwjl.data)
+export function splitData(params: {
+  data: any
+  maxChunkSize?: number
+}): any[] {
+  const { data, maxChunkSize = 99_000 } = params
+  return splitDataWithLengths({ data, maxChunkSize }).map((cwjl) => cwjl.data)
 }

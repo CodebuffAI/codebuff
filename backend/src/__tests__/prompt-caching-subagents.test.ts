@@ -136,9 +136,9 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Mock file operations
     spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (ws, paths) => {
+      async (params: { ws: any; filePaths: string[] }) => {
         const results: Record<string, string | null> = {}
-        paths.forEach((path) => {
+        params.filePaths.forEach((path) => {
           results[path] = null
         })
         return results

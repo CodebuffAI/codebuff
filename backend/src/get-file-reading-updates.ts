@@ -13,7 +13,7 @@ export async function getFileReadingUpdates(
   }[]
 > {
   const allFilePaths = uniq(requestedFiles)
-  const loadedFiles = await requestFiles(ws, allFilePaths)
+  const loadedFiles = await requestFiles({ ws, filePaths: allFilePaths })
 
   const addedFiles = allFilePaths
     .filter(

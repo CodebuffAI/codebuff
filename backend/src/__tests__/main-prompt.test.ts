@@ -96,12 +96,11 @@ describe('mainPrompt', () => {
 
     // Mock processFileBlock
     spyOn(processFileBlockModule, 'processFileBlock').mockImplementation(
-      async (path, instructions, contentPromise, newContent) => {
+      async (params) => {
         return {
           tool: 'write_file' as const,
-          path,
-          instructions,
-          content: newContent,
+          path: params.path,
+          content: params.newContent,
           patch: undefined,
           messages: [],
         }
@@ -116,9 +115,9 @@ describe('mainPrompt', () => {
 
     // Mock websocket actions
     spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (ws: any, paths: string[]) => {
+      async (params: { ws: any; filePaths: string[] }) => {
         const results: Record<string, string | null> = {}
-        paths.forEach((p) => {
+        params.filePaths.forEach((p) => {
           if (p === 'test.txt') {
             results[p] = 'mock content for test.txt'
           } else {
@@ -130,8 +129,8 @@ describe('mainPrompt', () => {
     )
 
     spyOn(websocketAction, 'requestFile').mockImplementation(
-      async (ws: any, path: string) => {
-        if (path === 'test.txt') {
+      async (params: { ws: any; filePath: string }) => {
+        if (params.filePath === 'test.txt') {
           return 'mock content for test.txt'
         }
         return null

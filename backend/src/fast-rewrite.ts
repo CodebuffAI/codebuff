@@ -14,17 +14,28 @@ import type {
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
 
-export async function fastRewrite(
-  initialContent: string,
-  editSnippet: string,
-  filePath: string,
-  instructions: string | undefined,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  userMessage: string | undefined,
-) {
+export async function fastRewrite(params: {
+  initialContent: string
+  editSnippet: string
+  filePath: string
+  instructions: string | undefined
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  userMessage: string | undefined
+}) {
+  const {
+    initialContent,
+    editSnippet,
+    filePath,
+    instructions,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    userMessage,
+  } = params
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
   let response = await promptRelaceAI(
@@ -49,8 +60,8 @@ export async function fastRewrite(
     hasLazyEdit(response)
   ) {
     const relaceResponse = response
-    response = await rewriteWithOpenAI(
-      initialContent,
+    response = await rewriteWithOpenAI({
+      oldContent: initialContent,
       editSnippet,
       filePath,
       clientSessionId,
@@ -58,7 +69,7 @@ export async function fastRewrite(
       userInputId,
       userId,
       userMessage,
-    )
+    })
     logger.debug(
       { filePath, relaceResponse, openaiResponse: response, messageId },
       `Relace output contained lazy edits, trying GPT-4o-mini ${filePath}`,
@@ -81,16 +92,26 @@ export async function fastRewrite(
 }
 
 // Gemini flash can only output 8k tokens, openai models can do at least 16k tokens.
-export async function rewriteWithOpenAI(
-  oldContent: string,
-  editSnippet: string,
-  filePath: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  userMessage: string | undefined,
-): Promise<string> {
+export async function rewriteWithOpenAI(params: {
+  oldContent: string
+  editSnippet: string
+  filePath: string
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  userMessage: string | undefined
+}): Promise<string> {
+  const {
+    oldContent,
+    editSnippet,
+    filePath,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    userMessage,
+  } = params
   const prompt = `You are an expert programmer tasked with implementing changes to a file. Please rewrite the file to implement the changes shown in the edit snippet, while preserving the original formatting and behavior of unchanged parts.
 
 Old file content:
@@ -132,17 +153,28 @@ Please output just the complete updated file content with the edit applied and n
  * sketches an update to a single function, but forgets to add ... existing code ...
  * above and below the function.
  */
-export const shouldAddFilePlaceholders = async (
-  filePath: string,
-  oldContent: string,
-  rewrittenNewContent: string,
-  messageHistory: Message[],
-  fullResponse: string,
-  userId: string | undefined,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-) => {
+export const shouldAddFilePlaceholders = async (params: {
+  filePath: string
+  oldContent: string
+  rewrittenNewContent: string
+  messageHistory: Message[]
+  fullResponse: string
+  userId: string | undefined
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+}) => {
+  const {
+    filePath,
+    oldContent,
+    rewrittenNewContent,
+    messageHistory,
+    fullResponse,
+    userId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+  } = params
   const fileWasPreviouslyEdited = messageHistory
     .filter(
       (

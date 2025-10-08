@@ -68,12 +68,16 @@ export const handleFindFiles = ((params: {
   }
 
   const fileRequestMessagesTokens = countTokensJson(messages)
-  const system = getSearchSystemPrompt(fileContext, fileRequestMessagesTokens, {
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
+  const system = getSearchSystemPrompt({
+    fileContext,
+    messagesTokens: fileRequestMessagesTokens,
+    options: {
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    },
   })
 
   const triggerFindFiles: () => Promise<
@@ -184,7 +188,7 @@ async function uploadExpandedFileContextForTraining(
     repoId,
   )
 
-  const loadedFiles = await requestFiles(ws, files)
+  const loadedFiles = await requestFiles({ ws, filePaths: files })
 
   // Upload a map of:
   // {file_path: {content, token_count}}

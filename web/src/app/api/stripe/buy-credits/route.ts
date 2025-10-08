@@ -127,14 +127,15 @@ export async function POST(req: NextRequest) {
 
           if (paymentIntent.status === 'succeeded') {
             // Grant credits immediately
-            await processAndGrantCredit(
+            await processAndGrantCredit({
               userId,
-              credits,
-              'purchase',
-              `Direct purchase of ${credits.toLocaleString()} credits`,
-              null,
-              operationId
-            )
+              amount: credits,
+              type: 'purchase',
+              description: `Direct purchase of ${credits.toLocaleString()} credits`,
+              expiresAt: null,
+              operationId,
+              logger,
+            })
 
             logger.info(
               {

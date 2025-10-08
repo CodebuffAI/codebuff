@@ -7,6 +7,7 @@ import {
 import {
   afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -15,6 +16,8 @@ import {
   spyOn,
 } from 'bun:test'
 
+import type { Logger } from '@codebuff/types/logger'
+
 describe('Auto Top-up System', () => {
   describe('checkAndTriggerAutoTopup', () => {
     // Create fresh mocks for each test
@@ -22,19 +25,14 @@ describe('Auto Top-up System', () => {
     let balanceMock: ReturnType<typeof mock>
     let validateAutoTopupMock: ReturnType<typeof mock>
     let grantCreditsMock: ReturnType<typeof mock>
+    const logger: Logger = {
+      debug: () => {},
+      error: () => {},
+      info: () => {},
+      warn: () => {},
+    }
 
-    beforeEach(() => {
-      // Mock logger for auto-topup functionality
-      mockModule('@codebuff/common/util/logger', () => ({
-        logger: {
-          debug: () => {},
-          error: () => {},
-          info: () => {},
-          warn: () => {},
-        },
-        withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-      }))
-
+    beforeAll(() => {
       // Set up default mocks
       dbMock = mock(() =>
         Promise.resolve({
@@ -46,6 +44,38 @@ describe('Auto Top-up System', () => {
         }),
       )
 
+      // Mock the database
+      mockModule('@codebuff/common/db', () => ({
+        default: {
+          query: {
+            user: {
+              findFirst: dbMock,
+            },
+          },
+          update: mock(() => ({
+            set: () => ({
+              where: () => Promise.resolve(),
+            }),
+          })),
+        },
+      }))
+
+      // Mock Stripe payment intent creation
+      mockModule('@codebuff/common/util/stripe', () => ({
+        stripeServer: {
+          paymentIntents: {
+            create: mock(() =>
+              Promise.resolve({
+                status: 'succeeded',
+                id: 'pi_123',
+              }),
+            ),
+          },
+        },
+      }))
+    })
+
+    beforeEach(() => {
       balanceMock = mock(() =>
         Promise.resolve({
           usageThisCycle: 0,
@@ -74,22 +104,6 @@ describe('Auto Top-up System', () => {
 
       grantCreditsMock = mock(() => Promise.resolve())
 
-      // Mock the database
-      mockModule('@codebuff/common/db', () => ({
-        default: {
-          query: {
-            user: {
-              findFirst: dbMock,
-            },
-          },
-          update: mock(() => ({
-            set: () => ({
-              where: () => Promise.resolve(),
-            }),
-          })),
-        },
-      }))
-
       spyOn(billing, 'calculateUsageAndBalance').mockImplementation(balanceMock)
       spyOn(billing, 'validateAutoTopupStatus').mockImplementation(
         validateAutoTopupMock,
@@ -97,20 +111,10 @@ describe('Auto Top-up System', () => {
       spyOn(billing, 'processAndGrantCredit').mockImplementation(
         grantCreditsMock,
       )
+    })
 
-      // Mock Stripe payment intent creation
-      mockModule('@codebuff/common/util/stripe', () => ({
-        stripeServer: {
-          paymentIntents: {
-            create: mock(() =>
-              Promise.resolve({
-                status: 'succeeded',
-                id: 'pi_123',
-              }),
-            ),
-          },
-        },
-      }))
+    afterEach(() => {
+      mock.restore()
     })
 
     afterAll(() => {
@@ -119,7 +123,10 @@ describe('Auto Top-up System', () => {
 
     it('should trigger top-up when balance below threshold', async () => {
       // Replace direct call with capture of returned amount
-      const amount = await checkAndTriggerAutoTopup('test-user')
+      const amount = await checkAndTriggerAutoTopup({
+        userId: 'test-user',
+        logger,
+      })
 
       // Should check user settings
       expect(dbMock).toHaveBeenCalled()
@@ -158,7 +165,10 @@ describe('Auto Top-up System', () => {
       )
 
       // Capture return value (should be undefined)
-      const amount = await checkAndTriggerAutoTopup('test-user')
+      const amount = await checkAndTriggerAutoTopup({
+        userId: 'test-user',
+        logger,
+      })
 
       // Should still check settings and balance
       expect(dbMock).toHaveBeenCalled()
@@ -195,7 +205,10 @@ describe('Auto Top-up System', () => {
       )
 
       // Capture the returned amount and assert debt coverage
-      const amount = await checkAndTriggerAutoTopup('test-user')
+      const amount = await checkAndTriggerAutoTopup({
+        userId: 'test-user',
+        logger,
+      })
 
       expect(amount).toBe(600)
     })
@@ -214,9 +227,12 @@ describe('Auto Top-up System', () => {
         validateAutoTopupMock,
       )
 
-      await expect(checkAndTriggerAutoTopup('test-user')).rejects.toThrow(
-        'No valid payment method found',
-      )
+      await expect(
+        checkAndTriggerAutoTopup({
+          userId: 'test-user',
+          logger,
+        }),
+      ).rejects.toThrow('No valid payment method found')
 
       // Should have called validation
       expect(validateAutoTopupMock).toHaveBeenCalled()

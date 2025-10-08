@@ -47,9 +47,10 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
  * @param authToken - The authentication token to validate
  * @returns The user ID if found, undefined otherwise
  */
-export const getUserIdFromAuthToken = async (
-  authToken?: string,
-): Promise<string | undefined> => {
+export const getUserIdFromAuthToken = async (params: {
+  authToken?: string
+}): Promise<string | undefined> => {
+  const { authToken } = params
   if (!authToken) return undefined
 
   const userId = await db
@@ -74,11 +75,12 @@ export const getUserIdFromAuthToken = async (
  * @param clientSessionId - Optional session ID
  * @returns A UsageResponse object containing usage metrics and referral information
  */
-export async function genUsageResponse(
-  fingerprintId: string,
-  userId: string,
-  clientSessionId: string | undefined,
-): Promise<UsageResponse> {
+export async function genUsageResponse(params: {
+  fingerprintId: string
+  userId: string
+  clientSessionId?: string
+}): Promise<UsageResponse> {
+  const { fingerprintId, userId, clientSessionId } = params
   const logContext = { fingerprintId, userId, sessionId: clientSessionId }
   const defaultResp = {
     type: 'usage-response' as const,
@@ -102,7 +104,11 @@ export async function genUsageResponse(
     try {
       // Get the usage data
       const { balance: balanceDetails, usageThisCycle } =
-        await calculateUsageAndBalance(userId, new Date())
+        await calculateUsageAndBalance({
+          userId,
+          quotaResetDate: new Date(),
+          logger,
+        })
 
       return {
         type: 'usage-response' as const,
@@ -138,7 +144,7 @@ const onPrompt = async (
   await withLoggerContext(
     { fingerprintId, clientRequestId: promptId, costMode },
     async () => {
-      const userId = await getUserIdFromAuthToken(authToken)
+      const userId = await getUserIdFromAuthToken({ authToken })
       if (!userId) {
         throw new Error('User not found')
       }
@@ -156,7 +162,7 @@ const onPrompt = async (
         })
       }
 
-      startUserInput(userId, promptId)
+      startUserInput({ userId, userInputId: promptId })
 
       try {
         const result = await callMainPrompt(ws, action, {
@@ -178,12 +184,11 @@ const onPrompt = async (
           message: response,
         })
       } finally {
-        cancelUserInput(userId, promptId)
-        const usageResponse = await genUsageResponse(
+        cancelUserInput({ userId, userInputId: promptId })
+        const usageResponse = await genUsageResponse({
           fingerprintId,
           userId,
-          undefined,
-        )
+        })
         sendAction(ws, usageResponse)
       }
     },
@@ -284,7 +289,7 @@ const onInit = async (
   ws: WebSocket,
 ) => {
   await withLoggerContext({ fingerprintId }, async () => {
-    const userId = await getUserIdFromAuthToken(authToken)
+    const userId = await getUserIdFromAuthToken({ authToken })
 
     if (!userId) {
       sendAction(ws, {
@@ -297,11 +302,11 @@ const onInit = async (
     }
 
     // Send combined init and usage response
-    const usageResponse = await genUsageResponse(
+    const usageResponse = await genUsageResponse({
       fingerprintId,
       userId,
       clientSessionId,
-    )
+    })
     sendAction(ws, {
       ...usageResponse,
       type: 'init-response',
@@ -313,12 +318,12 @@ const onCancelUserInput = async ({
   authToken,
   promptId,
 }: ClientAction<'cancel-user-input'>) => {
-  const userId = await getUserIdFromAuthToken(authToken)
+  const userId = await getUserIdFromAuthToken({ authToken })
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')
     return
   }
-  cancelUserInput(userId, promptId)
+  cancelUserInput({ userId, userInputId: promptId })
 }
 
 /**
@@ -397,7 +402,11 @@ subscribeToAction('cancel-user-input', protec.run(onCancelUserInput))
  * @param filePaths - Array of file paths to request
  * @returns Promise resolving to an object mapping file paths to their contents
  */
-export async function requestFiles(ws: WebSocket, filePaths: string[]) {
+export async function requestFiles(params: {
+  ws: WebSocket
+  filePaths: string[]
+}) {
+  const { ws, filePaths } = params
   return new Promise<Record<string, string | null>>((resolve) => {
     const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
@@ -423,13 +432,18 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
  * @param filePath - The path of the file to request
  * @returns Promise resolving to the file contents or null if not found
  */
-export async function requestFile(ws: WebSocket, filePath: string) {
-  const files = await requestFiles(ws, [filePath])
+export async function requestFile(params: { ws: WebSocket; filePath: string }) {
+  const { ws, filePath } = params
+  const files = await requestFiles({ ws, filePaths: [filePath] })
   return files[filePath] ?? null
 }
 
-export async function requestOptionalFile(ws: WebSocket, filePath: string) {
-  const file = await requestFile(ws, filePath)
+export async function requestOptionalFile(params: {
+  ws: WebSocket
+  filePath: string
+}) {
+  const { ws, filePath } = params
+  const file = await requestFile({ ws, filePath })
   return toOptionalFile(file)
 }
 

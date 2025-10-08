@@ -80,7 +80,8 @@ async function processMessage(
   }
 }
 
-export function listen(server: HttpServer, path: string) {
+export function listen(params: { server: HttpServer; path: string }) {
+  const { server, path } = params
   const wss = new WebSocketServer({ server, path })
   let deadConnectionCleaner: NodeJS.Timeout | undefined
   wss.on('listening', () => {

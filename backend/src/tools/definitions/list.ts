@@ -7,6 +7,8 @@ import { codeSearchTool } from './tool/code-search'
 import { createPlanTool } from './tool/create-plan'
 import { endTurnTool } from './tool/end-turn'
 import { findFilesTool } from './tool/find-files'
+import { globTool } from './tool/glob'
+import { listDirectoryTool } from './tool/list-directory'
 import { lookupAgentInfoTool } from './tool/lookup-agent-info'
 import { readDocsTool } from './tool/read-docs'
 import { readFilesTool } from './tool/read-files'
@@ -14,8 +16,8 @@ import { runFileChangeHooksTool } from './tool/run-file-change-hooks'
 import { runTerminalCommandTool } from './tool/run-terminal-command'
 import { setMessagesTool } from './tool/set-messages'
 import { setOutputTool } from './tool/set-output'
-import { spawnAgentsTool } from './tool/spawn-agents'
 import { spawnAgentInlineTool } from './tool/spawn-agent-inline'
+import { spawnAgentsTool } from './tool/spawn-agents'
 import { strReplaceTool } from './tool/str-replace'
 import { thinkDeeplyTool } from './tool/think-deeply'
 import { updateSubgoalTool } from './tool/update-subgoal'
@@ -34,6 +36,8 @@ const toolDescriptions = {
   create_plan: createPlanTool,
   end_turn: endTurnTool,
   find_files: findFilesTool,
+  glob: globTool,
+  list_directory: listDirectoryTool,
   lookup_agent_info: lookupAgentInfoTool,
   read_docs: readDocsTool,
   read_files: readFilesTool,

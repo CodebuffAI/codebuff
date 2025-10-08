@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string }
@@ -165,6 +166,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         orgId,
         context: 'bulk added members',
         addedCount,
+        logger,
       })
     }
 

@@ -6,6 +6,8 @@ export type ToolName =
   | 'code_search'
   | 'end_turn'
   | 'find_files'
+  | 'glob'
+  | 'list_directory'
   | 'lookup_agent_info'
   | 'read_docs'
   | 'read_files'
@@ -27,6 +29,8 @@ export interface ToolParamsMap {
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   find_files: FindFilesParams
+  glob: GlobParams
+  list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
@@ -59,7 +63,7 @@ export interface CodeSearchParams {
   flags?: string
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
-  /** Maximum number of results to return. Defaults to 30. */
+  /** Maximum number of results to return per file. Defaults to 15. There is also a global limit of 250 results across all files. */
   maxResults?: number
 }
 
@@ -74,6 +78,24 @@ export interface EndTurnParams {}
 export interface FindFilesParams {
   /** A brief natural language description of the files or the name of a function or class you are looking for. It's also helpful to mention a directory or two to look within. */
   prompt: string
+}
+
+/**
+ * Search for files matching a glob pattern. Returns matching file paths sorted by modification time.
+ */
+export interface GlobParams {
+  /** Glob pattern to match files against (e.g., *.js, src/glob/*.ts, glob/test/glob/*.go). */
+  pattern: string
+  /** Optional working directory to search within, relative to project root. If not provided, searches from project root. */
+  cwd?: string
+}
+
+/**
+ * List files and directories in the specified path. Returns information about each entry including name, type, size, and modification time.
+ */
+export interface ListDirectoryParams {
+  /** Directory path to list, relative to the project root. */
+  path: string
 }
 
 /**

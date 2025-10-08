@@ -133,11 +133,14 @@ export const mainPrompt = async (
   if (prompt && mainAgentTemplate.toolNames.includes('run_terminal_command')) {
     // Check if this is a direct terminal command
     const startTime = Date.now()
-    const terminalCommand = await checkTerminalCommand(prompt, {
-      clientSessionId,
-      fingerprintId,
-      userInputId: promptId,
-      userId,
+    const terminalCommand = await checkTerminalCommand({
+      prompt,
+      options: {
+        clientSessionId,
+        fingerprintId,
+        userInputId: promptId,
+        userId,
+      },
     })
     const duration = Date.now() - startTime
 
