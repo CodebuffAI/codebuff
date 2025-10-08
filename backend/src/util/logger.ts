@@ -76,7 +76,7 @@ function splitAndLog(
   const availableDataLimit = MAX_LENGTH - BUFFER - formattedMsg.length
 
   // split data recursively into chunks small enough to log
-  const processedData: any[] = splitData(data, availableDataLimit)
+  const processedData: any[] = splitData({ data, maxChunkSize: availableDataLimit })
 
   if (processedData.length === 1) {
     pinoLogger[level](processedData[0], msg, ...args)
