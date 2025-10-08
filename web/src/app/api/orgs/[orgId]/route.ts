@@ -77,22 +77,24 @@ export async function GET(
     try {
       const now = new Date()
       const quotaResetDate = new Date(now.getFullYear(), now.getMonth(), 1) // First of current month
-      const { balance } = await calculateOrganizationUsageAndBalance(
-        orgId,
+      const { balance } = await calculateOrganizationUsageAndBalance({
+        organizationId: orgId,
         quotaResetDate,
-        now
-      )
+        now,
+        logger,
+      })
       creditBalance = balance.netBalance
     } catch (error) {
       // If no credits exist yet, that's fine
       console.log('No organization credits found:', error)
     }
 
-    const usageAndBalance = await calculateOrganizationUsageAndBalance(
-      orgId,
-      new Date(),
-      new Date()
-    )
+    const usageAndBalance = await calculateOrganizationUsageAndBalance({
+      organizationId: orgId,
+      quotaResetDate: new Date(),
+      now: new Date(),
+      logger,
+    })
 
     const response: OrganizationDetailsResponse = {
       id: organization.id,

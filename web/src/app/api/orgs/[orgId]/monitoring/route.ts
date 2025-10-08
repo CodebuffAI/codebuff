@@ -9,6 +9,7 @@ import { getServerSession } from 'next-auth'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string }
@@ -57,11 +58,12 @@ export async function GET(
 
     try {
       const { balance, usageThisCycle: usage } =
-        await calculateOrganizationUsageAndBalance(
-          orgId,
-          currentMonthStart,
-          now
-        )
+        await calculateOrganizationUsageAndBalance({
+          organizationId: orgId,
+          quotaResetDate: currentMonthStart,
+          now,
+          logger,
+        })
       currentBalance = balance.netBalance
       usageThisCycle = usage
     } catch (error) {

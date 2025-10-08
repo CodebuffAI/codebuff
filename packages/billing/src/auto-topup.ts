@@ -486,14 +486,13 @@ async function processOrgAutoTopupPayment(params: {
     throw new AutoTopupPaymentError('Payment failed or requires action')
   }
 
-  await grantOrganizationCredits(
-    organizationId,
-    userId,
-    amountToTopUp,
+  await grantOrganizationCredits({
+    ...params,
+    amount: amountToTopUp,
     operationId,
-    `Organization auto top-up of ${amountToTopUp.toLocaleString()} credits`,
-    null,
-  )
+    description: `Organization auto top-up of ${amountToTopUp.toLocaleString()} credits`,
+    expiresAt: null,
+  })
 
   logger.info(
     {
@@ -521,10 +520,10 @@ export async function checkAndTriggerOrgAutoTopup(params: {
       return
     }
 
-    const { balance } = await calculateOrganizationUsageAndBalance(
-      organizationId,
-      getNextQuotaReset(null),
-    )
+    const { balance } = await calculateOrganizationUsageAndBalance({
+      ...params,
+      quotaResetDate: getNextQuotaReset(null),
+    })
 
     if (balance.netBalance > (org.auto_topup_threshold || 0)) {
       logger.info(

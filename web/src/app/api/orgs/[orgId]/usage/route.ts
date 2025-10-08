@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string }
@@ -23,7 +24,11 @@ export async function GET(
     const { orgId } = params
 
     // Use the new consolidated usage service
-    const response = await getOrganizationUsageData(orgId, session.user.id)
+    const response = await getOrganizationUsageData({
+      organizationId: orgId,
+      userId: session.user.id,
+      logger,
+    })
 
     return NextResponse.json(response)
   } catch (error) {

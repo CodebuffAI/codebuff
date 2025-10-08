@@ -12,6 +12,8 @@ import {
   validateAndNormalizeRepositoryUrl,
 } from '../org-billing'
 
+import type { Logger } from '@codebuff/types/logger'
+
 // Mock the database
 const mockGrants = [
   {
@@ -39,6 +41,13 @@ const mockGrants = [
     created_at: new Date('2024-02-01'),
   },
 ]
+
+const logger: Logger = {
+  debug: () => {},
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+}
 
 describe('Organization Billing', () => {
   beforeAll(() => {
@@ -91,11 +100,12 @@ describe('Organization Billing', () => {
       const quotaResetDate = new Date('2024-01-01')
       const now = new Date('2024-06-01')
 
-      const result = await calculateOrganizationUsageAndBalance(
+      const result = await calculateOrganizationUsageAndBalance({
         organizationId,
         quotaResetDate,
         now,
-      )
+        logger,
+      })
 
       // Total positive balance: 800
       // Total debt: 100
@@ -126,11 +136,12 @@ describe('Organization Billing', () => {
       const quotaResetDate = new Date('2024-01-01')
       const now = new Date('2024-06-01')
 
-      const result = await calculateOrganizationUsageAndBalance(
+      const result = await calculateOrganizationUsageAndBalance({
         organizationId,
         quotaResetDate,
         now,
-      )
+        logger,
+      })
 
       expect(result.balance.totalRemaining).toBe(0)
       expect(result.balance.totalDebt).toBe(0)
@@ -211,10 +222,11 @@ describe('Organization Billing', () => {
       const organizationId = 'org-123'
       const creditsToConsume = 100
 
-      const result = await consumeOrganizationCredits(
+      const result = await consumeOrganizationCredits({
         organizationId,
         creditsToConsume,
-      )
+        logger,
+      })
 
       expect(result.consumed).toBe(100)
       expect(result.fromPurchased).toBe(0) // Organization credits are not "purchased" type
@@ -231,13 +243,14 @@ describe('Organization Billing', () => {
 
       // Should not throw
       await expect(
-        grantOrganizationCredits(
+        grantOrganizationCredits({
           organizationId,
           userId,
           amount,
           operationId,
           description,
-        ),
+          logger,
+        }),
       ).resolves.toBeUndefined()
     })
 
@@ -264,13 +277,14 @@ describe('Organization Billing', () => {
 
       // Should not throw, should handle gracefully
       await expect(
-        grantOrganizationCredits(
+        grantOrganizationCredits({
           organizationId,
           userId,
           amount,
           operationId,
           description,
-        ),
+          logger,
+        }),
       ).resolves.toBeUndefined()
     })
   })

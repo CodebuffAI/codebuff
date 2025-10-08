@@ -189,13 +189,14 @@ async function handleCheckoutSessionCompleted(
         'Checkout session completed and paid for organization credit purchase.'
       )
 
-      await grantOrganizationCredits(
+      await grantOrganizationCredits({
         organizationId,
         userId, // Pass the user who initiated the purchase
-        credits,
+        amount: credits,
         operationId,
-        `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`
-      )
+        description: `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
+        logger,
+      })
     } else {
       logger.warn(
         {

@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { slug: string }
@@ -74,11 +75,12 @@ export async function GET(
     try {
       const now = new Date()
       const quotaResetDate = new Date(now.getFullYear(), now.getMonth(), 1) // First of current month
-      const { balance } = await calculateOrganizationUsageAndBalance(
-        organization.id,
+      const { balance } = await calculateOrganizationUsageAndBalance({
+        organizationId: organization.id,
         quotaResetDate,
-        now
-      )
+        now,
+        logger,
+      })
       creditBalance = balance.netBalance
     } catch (error) {
       // If no credits exist yet, that's fine - default to 0

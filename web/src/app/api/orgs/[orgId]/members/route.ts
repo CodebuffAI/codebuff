@@ -9,6 +9,7 @@ import type { InviteMemberRequest } from '@codebuff/common/types/organization'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string }
@@ -167,6 +168,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         orgId,
         userId,
         context: 'added member',
+        logger,
       })
     }
 

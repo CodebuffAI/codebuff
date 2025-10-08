@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string }
@@ -45,7 +46,10 @@ export async function GET(
     }
 
     // Sync organization billing cycle with Stripe and get current cycle start
-    const quotaResetDate = await syncOrganizationBillingCycle(orgId)
+    const quotaResetDate = await syncOrganizationBillingCycle({
+      organizationId: orgId,
+      logger,
+    })
 
     // Get all usage data for this cycle
     const usageData = await db

@@ -3,7 +3,6 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { withSerializableTransaction } from '@codebuff/common/db/transaction'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
-import { logger } from '@codebuff/common/util/logger'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal/env'
 import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
@@ -16,26 +15,22 @@ import type {
   CreditConsumptionResult,
 } from './balance-calculator'
 import type { GrantType } from '@codebuff/common/db/schema'
+import type { WithDefaults } from '@codebuff/types/common'
+import type { Logger } from '@codebuff/types/logger'
 
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<typeof db, 'select' | 'update'>
-
-interface UpdateSubscriptionQuantityParams {
-  stripeSubscriptionId: string
-  actualQuantity: number
-  orgId: string
-  userId?: string
-  context: string
-  addedCount?: number
-}
 
 /**
  * Syncs organization billing cycle with Stripe subscription and returns the current cycle start date.
  * All organizations are expected to have Stripe subscriptions.
  */
-export async function syncOrganizationBillingCycle(
-  organizationId: string,
-): Promise<Date> {
+export async function syncOrganizationBillingCycle(params: {
+  organizationId: string
+  logger: Logger
+}): Promise<Date> {
+  const { organizationId, logger } = params
+
   const organization = await db.query.org.findFirst({
     where: eq(schema.org.id, organizationId),
     columns: {
@@ -133,10 +128,18 @@ export async function syncOrganizationBillingCycle(
  * Gets active grants for an organization, ordered by expiration, priority, and creation date.
  */
 export async function getOrderedActiveOrganizationGrants(
-  organizationId: string,
-  now: Date,
-  conn: DbConn = db,
+  params: WithDefaults<
+    {
+      organizationId: string
+      now: Date
+      conn: DbConn
+    },
+    'conn'
+  >,
 ) {
+  const withDefaults = { conn: db, ...params }
+  const { organizationId, now, conn } = withDefaults
+
   return conn
     .select()
     .from(schema.creditLedger)
@@ -160,17 +163,26 @@ export async function getOrderedActiveOrganizationGrants(
  * Calculates both the current balance and usage in this cycle for an organization.
  */
 export async function calculateOrganizationUsageAndBalance(
-  organizationId: string,
-  quotaResetDate: Date,
-  now: Date = new Date(),
-  conn: DbConn = db,
+  params: WithDefaults<
+    {
+      organizationId: string
+      quotaResetDate: Date
+      now: Date
+      conn: DbConn
+      logger: Logger
+    },
+    'conn' | 'now'
+  >,
 ): Promise<CreditUsageAndBalance> {
+  const withDefaults = {
+    now: new Date(),
+    conn: db,
+    ...params,
+  }
+  const { organizationId, quotaResetDate, now, conn, logger } = withDefaults
+
   // Get all relevant grants for the organization
-  const grants = await getOrderedActiveOrganizationGrants(
-    organizationId,
-    now,
-    conn,
-  )
+  const grants = await getOrderedActiveOrganizationGrants(withDefaults)
 
   // Initialize breakdown and principals with all grant types set to 0
   const initialBreakdown: Record<GrantType, number> = {} as Record<
@@ -255,18 +267,21 @@ export async function calculateOrganizationUsageAndBalance(
 /**
  * Consumes credits from organization grants in priority order.
  */
-export async function consumeOrganizationCredits(
-  organizationId: string,
-  creditsToConsume: number,
-): Promise<CreditConsumptionResult> {
+export async function consumeOrganizationCredits(params: {
+  organizationId: string
+  creditsToConsume: number
+  logger: Logger
+}): Promise<CreditConsumptionResult> {
+  const { organizationId, creditsToConsume, logger } = params
+
   return await withSerializableTransaction({
     callback: async (tx) => {
       const now = new Date()
-      const activeGrants = await getOrderedActiveOrganizationGrants(
-        organizationId,
+      const activeGrants = await getOrderedActiveOrganizationGrants({
+        ...params,
         now,
-        tx,
-      )
+        conn: tx,
+      })
 
       if (activeGrants.length === 0) {
         logger.error(
@@ -295,13 +310,34 @@ export async function consumeOrganizationCredits(
  * Grants credits to an organization.
  */
 export async function grantOrganizationCredits(
-  organizationId: string,
-  userId: string,
-  amount: number,
-  operationId: string,
-  description: string = 'Organization credit purchase',
-  expiresAt: Date | null = null,
+  params: WithDefaults<
+    {
+      organizationId: string
+      userId: string
+      amount: number
+      operationId: string
+      description: string
+      expiresAt: Date | null
+      logger: Logger
+    },
+    'description' | 'expiresAt'
+  >,
 ): Promise<void> {
+  const withDefaults = {
+    description: 'Organization credit purchase',
+    expiresAt: null,
+    ...params,
+  }
+  const {
+    organizationId,
+    userId,
+    amount,
+    operationId,
+    description,
+    expiresAt,
+    logger,
+  } = withDefaults
+
   const now = new Date()
 
   try {
@@ -460,14 +496,25 @@ export function validateAndNormalizeRepositoryUrl(url: string): {
  * Updates Stripe subscription quantity based on actual member count
  * Only updates if the quantity differs from what's in Stripe
  */
-export async function updateStripeSubscriptionQuantity({
-  stripeSubscriptionId,
-  actualQuantity,
-  orgId,
-  userId,
-  context,
-  addedCount,
-}: UpdateSubscriptionQuantityParams): Promise<void> {
+export async function updateStripeSubscriptionQuantity(params: {
+  stripeSubscriptionId: string
+  actualQuantity: number
+  orgId: string
+  userId?: string
+  context: string
+  addedCount?: number
+  logger: Logger
+}): Promise<void> {
+  const {
+    stripeSubscriptionId,
+    actualQuantity,
+    orgId,
+    userId,
+    context,
+    addedCount,
+    logger,
+  } = params
+
   try {
     const subscription =
       await stripeServer.subscriptions.retrieve(stripeSubscriptionId)

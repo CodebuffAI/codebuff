@@ -517,7 +517,11 @@ async function updateUserCycleUsage(
   if (orgId) {
     // TODO: use `consumeCreditsWithFallback` to handle organization delegation
     // Consume from organization credits
-    const result = await consumeOrganizationCredits(orgId, creditsUsed)
+    const result = await consumeOrganizationCredits({
+      organizationId: orgId,
+      creditsToConsume: creditsUsed,
+      logger,
+    })
 
     if (VERBOSE) {
       logger.debug(

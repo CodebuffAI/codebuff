@@ -8,6 +8,8 @@ import { eq } from 'drizzle-orm'
 
 import { calculateOrganizationUsageAndBalance } from './org-billing'
 
+import type { Logger } from '@codebuff/types/logger'
+
 export interface OrganizationCreditAlert {
   organizationId: string
   organizationName?: string
@@ -50,9 +52,12 @@ export interface OrganizationAlert {
 /**
  * Gets organization alerts for UI display
  */
-export async function getOrganizationAlerts(
-  organizationId: string,
-): Promise<OrganizationAlert[]> {
+export async function getOrganizationAlerts(params: {
+  organizationId: string
+  logger: Logger
+}): Promise<OrganizationAlert[]> {
+  const { organizationId, logger } = params
+
   const alerts: OrganizationAlert[] = []
 
   try {
@@ -69,11 +74,11 @@ export async function getOrganizationAlerts(
     const now = new Date()
     const quotaResetDate = getNextQuotaReset(now)
     const { balance, usageThisCycle } =
-      await calculateOrganizationUsageAndBalance(
-        organizationId,
+      await calculateOrganizationUsageAndBalance({
+        ...params,
         quotaResetDate,
         now,
-      )
+      })
 
     // Low balance alert
     if (organization.billing_alerts && balance.netBalance < 500) {

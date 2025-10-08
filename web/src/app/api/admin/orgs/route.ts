@@ -1,14 +1,15 @@
+import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { eq, sql, desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
 
 import { checkAdminAuth } from '@/lib/admin-auth'
+import { logger } from '@/util/logger'
 
 export const dynamic = 'force-dynamic'
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
-import { eq, sql, desc } from 'drizzle-orm'
-import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -69,11 +70,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
         try {
           const { balance, usageThisCycle: usage } =
-            await calculateOrganizationUsageAndBalance(
-              org.id,
-              currentMonthStart,
-              now
-            )
+            await calculateOrganizationUsageAndBalance({
+              organizationId: org.id,
+              quotaResetDate: currentMonthStart,
+              now,
+              logger,
+            })
           creditBalance = balance.netBalance
           usageThisCycle = usage
 

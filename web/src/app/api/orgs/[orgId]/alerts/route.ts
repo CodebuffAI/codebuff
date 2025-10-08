@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 interface RouteParams {
   params: { orgId: string }
@@ -45,7 +46,10 @@ export async function GET(
     }
 
     // Get alerts using centralized billing logic
-    const alerts = await getOrganizationAlerts(orgId)
+    const alerts = await getOrganizationAlerts({
+      organizationId: orgId,
+      logger,
+    })
 
     // Convert Date objects to ISO strings for JSON serialization
     const serializedAlerts = alerts.map((alert) => ({

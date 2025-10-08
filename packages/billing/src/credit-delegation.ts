@@ -172,10 +172,10 @@ export async function consumeCreditsWithDelegation(params: {
 
     // Consume credits from organization
     try {
-      await consumeOrganizationCredits(
-        orgLookup.organizationId,
-        creditsToConsume,
-      )
+      await consumeOrganizationCredits({
+        ...params,
+        organizationId: orgLookup.organizationId,
+      })
 
       logger.info(
         {

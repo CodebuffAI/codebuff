@@ -225,11 +225,12 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
       // Using a far past date ensures all grants are considered for current balance.
       const orgQuotaResetDate = new Date(0)
       const { balance: orgBalance } =
-        await calculateOrganizationUsageAndBalance(
-          orgLookup.organizationId,
-          orgQuotaResetDate,
+        await calculateOrganizationUsageAndBalance({
+          organizationId: orgLookup.organizationId,
+          quotaResetDate: orgQuotaResetDate,
           now,
-        )
+          logger,
+        })
 
       if (orgBalance.totalRemaining <= 0) {
         const orgName = orgLookup.organizationName || 'Your organization'
