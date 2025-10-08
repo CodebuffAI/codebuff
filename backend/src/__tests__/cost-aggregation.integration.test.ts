@@ -237,9 +237,9 @@ describe('Cost Aggregation Integration Tests', () => {
 
     // Mock file reading
     spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (ws, paths) => {
+      async (params: { ws: any; filePaths: string[] }) => {
         const results: Record<string, string | null> = {}
-        paths.forEach((path) => {
+        params.filePaths.forEach((path) => {
           results[path] = path === 'hello.txt' ? 'Hello, World!' : null
         })
         return results

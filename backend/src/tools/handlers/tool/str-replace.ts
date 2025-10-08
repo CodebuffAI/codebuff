@@ -59,9 +59,9 @@ export const handleStrReplace = ((params: {
     ? previousEdit.then((maybeResult) =>
         maybeResult && 'content' in maybeResult
           ? maybeResult.content
-          : requestOptionalFile(ws, path),
+          : requestOptionalFile({ ws, filePath: path }),
       )
-    : requestOptionalFile(ws, path)
+    : requestOptionalFile({ ws, filePath: path })
 
   const newPromise = processStrReplace({
     path,

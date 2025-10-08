@@ -129,9 +129,9 @@ export const handleWriteFile = (({
     ? previousEdit.then((maybeResult) =>
         maybeResult && 'content' in maybeResult
           ? maybeResult.content
-          : requestOptionalFile(ws, path),
+          : requestOptionalFile({ ws, filePath: path }),
       )
-    : requestOptionalFile(ws, path)
+    : requestOptionalFile({ ws, filePath: path })
 
   const fileContentWithoutStartNewline = content.startsWith('\n')
     ? content.slice(1)

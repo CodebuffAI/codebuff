@@ -194,7 +194,7 @@ async function preloadOriginalContent(
 
   try {
     // Request all files from the client in one batch
-    const fileContents = await requestFiles(ws, pathsToLoad)
+    const fileContents = await requestFiles({ ws, filePaths: pathsToLoad })
 
     // Filter out null values and return only successfully loaded files
     const loadedContents: Record<string, string> = {}

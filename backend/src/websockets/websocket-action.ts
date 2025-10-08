@@ -398,7 +398,11 @@ subscribeToAction('cancel-user-input', protec.run(onCancelUserInput))
  * @param filePaths - Array of file paths to request
  * @returns Promise resolving to an object mapping file paths to their contents
  */
-export async function requestFiles(ws: WebSocket, filePaths: string[]) {
+export async function requestFiles(params: {
+  ws: WebSocket
+  filePaths: string[]
+}) {
+  const { ws, filePaths } = params
   return new Promise<Record<string, string | null>>((resolve) => {
     const requestId = generateCompactId()
     const unsubscribe = subscribeToAction('read-files-response', (action) => {
@@ -424,13 +428,21 @@ export async function requestFiles(ws: WebSocket, filePaths: string[]) {
  * @param filePath - The path of the file to request
  * @returns Promise resolving to the file contents or null if not found
  */
-export async function requestFile(ws: WebSocket, filePath: string) {
-  const files = await requestFiles(ws, [filePath])
+export async function requestFile(params: {
+  ws: WebSocket
+  filePath: string
+}) {
+  const { ws, filePath } = params
+  const files = await requestFiles({ ws, filePaths: [filePath] })
   return files[filePath] ?? null
 }
 
-export async function requestOptionalFile(ws: WebSocket, filePath: string) {
-  const file = await requestFile(ws, filePath)
+export async function requestOptionalFile(params: {
+  ws: WebSocket
+  filePath: string
+}) {
+  const { ws, filePath } = params
+  const file = await requestFile({ ws, filePath })
   return toOptionalFile(file)
 }
 

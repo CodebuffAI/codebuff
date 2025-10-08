@@ -81,9 +81,9 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(liveUserInputs, 'setSessionConnected').mockImplementation(() => {})
 
     spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (ws: any, paths: string[]) => {
+      async (params: { ws: any; filePaths: string[] }) => {
         const results: Record<string, string | null> = {}
-        paths.forEach((p) => {
+        params.filePaths.forEach((p) => {
           if (p === 'src/auth.ts') {
             results[p] = 'export function authenticate() { return true; }'
           } else if (p === 'src/user.ts') {
@@ -97,10 +97,10 @@ describe('runAgentStep - set_output tool', () => {
     )
 
     spyOn(websocketAction, 'requestFile').mockImplementation(
-      async (ws: any, path: string) => {
-        if (path === 'src/auth.ts') {
+      async (params: { ws: any; filePath: string }) => {
+        if (params.filePath === 'src/auth.ts') {
           return 'export function authenticate() { return true; }'
-        } else if (path === 'src/user.ts') {
+        } else if (params.filePath === 'src/user.ts') {
           return 'export interface User { id: string; name: string; }'
         }
         return null
@@ -365,9 +365,9 @@ describe('runAgentStep - set_output tool', () => {
 
     // Mock requestFiles to return test file content
     spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (ws: any, paths: string[]) => {
+      async (params: { ws: any; filePaths: string[] }) => {
         const results: Record<string, string | null> = {}
-        paths.forEach((p) => {
+        params.filePaths.forEach((p) => {
           if (p === 'src/test.ts') {
             results[p] = 'export function testFunction() { return "test"; }'
           } else {

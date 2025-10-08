@@ -71,9 +71,9 @@ let toolCalls: ClientToolCall[] = []
 let toolResults: ToolResultPart[] = []
 export function createFileReadingMock(projectRoot: string) {
   mockModule('@codebuff/backend/websockets/websocket-action', () => ({
-    requestFiles: ((ws: WebSocket, filePaths: string[]) => {
+    requestFiles: ((params: { ws: WebSocket; filePaths: string[] }) => {
       const files: Record<string, string | null> = {}
-      for (const filePath of filePaths) {
+      for (const filePath of params.filePaths) {
         files[filePath] = readMockFile(projectRoot, filePath)
       }
       return Promise.resolve(files)

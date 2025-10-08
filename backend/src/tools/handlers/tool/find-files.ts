@@ -184,7 +184,7 @@ async function uploadExpandedFileContextForTraining(
     repoId,
   )
 
-  const loadedFiles = await requestFiles(ws, files)
+  const loadedFiles = await requestFiles({ ws, filePaths: files })
 
   // Upload a map of:
   // {file_path: {content, token_count}}
