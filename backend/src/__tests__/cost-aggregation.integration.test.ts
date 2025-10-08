@@ -116,17 +116,6 @@ describe('Cost Aggregation Integration Tests', () => {
       },
       withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
     }))
-
-    // Mock logger for common (used by billing package)
-    mockModule('@codebuff/common/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
   })
 
   beforeEach(async () => {

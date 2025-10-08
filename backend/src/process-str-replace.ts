@@ -1,7 +1,7 @@
-import { logger } from '@codebuff/common/util/logger'
 import { createPatch } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
+import { logger } from './util/logger'
 
 function normalizeLineEndings(params: { str: string }): string {
   return params.str.replace(/\r\n/g, '\n')
@@ -47,7 +47,9 @@ export async function processStrReplace(params: {
       continue
     }
 
-    const normalizedCurrentContent = normalizeLineEndings({ str: currentContent })
+    const normalizedCurrentContent = normalizeLineEndings({
+      str: currentContent,
+    })
     const normalizedOldStr = normalizeLineEndings({ str: oldStr })
     const normalizedNewStr = normalizeLineEndings({ str: newStr })
 

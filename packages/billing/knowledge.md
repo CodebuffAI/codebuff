@@ -25,7 +25,6 @@ Currently depends on code from the `common` package for:
 
 - Database access (`common/db`)
 - Stripe integration (`common/util/stripe`)
-- Logging (`common/util/logger`)
 - Database schema (`common/db/schema`)
 - Types (`common/types/usage`)
 - Date utilities (`common/util/date`)
