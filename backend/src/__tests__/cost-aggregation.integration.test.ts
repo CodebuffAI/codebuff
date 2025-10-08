@@ -1,15 +1,9 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
   beforeEach,
   afterEach,
-  beforeAll,
-  afterAll,
   describe,
   expect,
   it,
@@ -24,6 +18,7 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 const mockFileContext: ProjectFileContext = {
@@ -104,19 +99,12 @@ class MockWebSocket {
 describe('Cost Aggregation Integration Tests', () => {
   let mockLocalAgentTemplates: Record<string, any>
   let mockWebSocket: MockWebSocket
-
-  beforeAll(() => {
-    // Mock logger for backend
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
-  })
+  const logger: Logger = {
+    debug: () => {},
+    error: () => {},
+    info: () => {},
+    warn: () => {},
+  }
 
   beforeEach(async () => {
     mockWebSocket = new MockWebSocket()
@@ -251,10 +239,6 @@ describe('Cost Aggregation Integration Tests', () => {
     mock.restore()
   })
 
-  afterAll(() => {
-    clearMockedModules()
-  })
-
   it('should correctly aggregate costs across the entire main prompt flow', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     // Set the main agent to use the 'base' type which is defined in our mock templates
@@ -271,16 +255,15 @@ describe('Cost Aggregation Integration Tests', () => {
       toolResults: [],
     }
 
-    const result = await mainPrompt(
-      mockWebSocket as unknown as WebSocket,
+    const result = await mainPrompt({
+      ws: mockWebSocket as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        localAgentTemplates: mockLocalAgentTemplates,
-      },
-    )
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
+      logger,
+    })
 
     // Verify the total cost includes both main agent and subagent costs
     const finalCreditsUsed = result.sessionState.mainAgentState.creditsUsed
@@ -307,15 +290,14 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Call through websocket action handler to test full integration
-    await websocketAction.callMainPrompt(
-      mockWebSocket as unknown as WebSocket,
+    await websocketAction.callMainPrompt({
+      ws: mockWebSocket as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        promptId: 'test-prompt',
-        clientSessionId: 'test-session',
-      },
-    )
+      userId: TEST_USER_ID,
+      promptId: 'test-prompt',
+      clientSessionId: 'test-session',
+      logger,
+    })
 
     // Verify final cost is included in prompt response
     const promptResponse = mockWebSocket.sentActions.find(
@@ -378,16 +360,15 @@ describe('Cost Aggregation Integration Tests', () => {
       toolResults: [],
     }
 
-    const result = await mainPrompt(
-      mockWebSocket as unknown as WebSocket,
+    const result = await mainPrompt({
+      ws: mockWebSocket as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        localAgentTemplates: mockLocalAgentTemplates,
-      },
-    )
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
+      logger,
+    })
 
     // Should aggregate costs from all levels: main + sub1 + sub2
     const finalCreditsUsed = result.sessionState.mainAgentState.creditsUsed
@@ -437,11 +418,14 @@ describe('Cost Aggregation Integration Tests', () => {
 
     let result
     try {
-      result = await mainPrompt(mockWebSocket as unknown as WebSocket, action, {
+      result = await mainPrompt({
+        ws: mockWebSocket as unknown as WebSocket,
+        action,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
         onResponseChunk: () => {},
         localAgentTemplates: mockLocalAgentTemplates,
+        logger,
       })
     } catch (error) {
       // Expected to fail, but costs may still be tracked
@@ -483,11 +467,14 @@ describe('Cost Aggregation Integration Tests', () => {
       toolResults: [],
     }
 
-    await mainPrompt(mockWebSocket as unknown as WebSocket, action, {
+    await mainPrompt({
+      ws: mockWebSocket as unknown as WebSocket,
+      action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
+      logger,
     })
 
     // Verify no duplicate message IDs (no double-counting)
@@ -520,15 +507,14 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Call through websocket action to test server-side reset
-    await websocketAction.callMainPrompt(
-      mockWebSocket as unknown as WebSocket,
+    await websocketAction.callMainPrompt({
+      ws: mockWebSocket as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        promptId: 'test-prompt',
-        clientSessionId: 'test-session',
-      },
-    )
+      userId: TEST_USER_ID,
+      promptId: 'test-prompt',
+      clientSessionId: 'test-session',
+      logger,
+    })
 
     // Server should have reset the malicious value and calculated correct cost
     const promptResponse = mockWebSocket.sentActions.find(

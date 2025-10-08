@@ -5,7 +5,6 @@ import { uniq } from 'lodash'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
 import { getAgentTemplate } from './templates/agent-registry'
-import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
 import { requestToolCall } from './websockets/websocket-action'
 
@@ -18,25 +17,32 @@ import type {
   AgentTemplateType,
   AgentOutput,
 } from '@codebuff/common/types/session-state'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
-export interface MainPromptOptions {
+export const mainPrompt = async (params: {
+  ws: WebSocket
+  action: ClientAction<'prompt'>
+
   userId: string | undefined
   clientSessionId: string
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   localAgentTemplates: Record<string, AgentTemplate>
-}
 
-export const mainPrompt = async (
-  ws: WebSocket,
-  action: ClientAction<'prompt'>,
-  options: MainPromptOptions,
-): Promise<{
+  logger: Logger
+}): Promise<{
   sessionState: SessionState
   output: AgentOutput
 }> => {
-  const { userId, clientSessionId, onResponseChunk, localAgentTemplates } =
-    options
+  const {
+    ws,
+    action,
+    userId,
+    clientSessionId,
+    onResponseChunk,
+    localAgentTemplates,
+    logger,
+  } = params
 
   const {
     prompt,
@@ -135,12 +141,11 @@ export const mainPrompt = async (
     const startTime = Date.now()
     const terminalCommand = await checkTerminalCommand({
       prompt,
-      options: {
-        clientSessionId,
-        fingerprintId,
-        userInputId: promptId,
-        userId,
-      },
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+      logger,
     })
     const duration = Date.now() - startTime
 

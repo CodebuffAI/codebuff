@@ -28,6 +28,7 @@ import type {
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 /**
@@ -165,10 +166,13 @@ const onPrompt = async (
       startUserInput({ userId, userInputId: promptId })
 
       try {
-        const result = await callMainPrompt(ws, action, {
+        const result = await callMainPrompt({
+          ws,
+          action,
           userId,
           promptId,
           clientSessionId,
+          logger,
         })
         if (result.output.type === 'error') {
           throw new Error(result.output.message)
@@ -195,16 +199,15 @@ const onPrompt = async (
   )
 }
 
-export const callMainPrompt = async (
-  ws: WebSocket,
-  action: ClientAction<'prompt'>,
-  options: {
-    userId: string
-    promptId: string
-    clientSessionId: string
-  },
-) => {
-  const { userId, promptId, clientSessionId } = options
+export const callMainPrompt = async (params: {
+  ws: WebSocket
+  action: ClientAction<'prompt'>
+  userId: string
+  promptId: string
+  clientSessionId: string
+  logger: Logger
+}) => {
+  const { ws, action, userId, promptId, clientSessionId } = params
   const { fileContext } = action.sessionState
 
   // Enforce server-side state authority: reset creditsUsed to 0
@@ -235,9 +238,8 @@ export const callMainPrompt = async (
     },
   })
 
-  const result = await mainPrompt(ws, action, {
-    userId,
-    clientSessionId,
+  const result = await mainPrompt({
+    ...params,
     localAgentTemplates,
     onResponseChunk: (chunk) => {
       if (checkLiveUserInput(userId, promptId, clientSessionId)) {

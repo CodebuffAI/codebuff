@@ -384,21 +384,20 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       toolResults: [],
     }
 
-    const { output, sessionState: finalSessionState } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
+    const { output, sessionState: finalSessionState } = await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session-delete-function-integration',
-        localAgentTemplates: mockLocalAgentTemplates,
-        onResponseChunk: (chunk: string | PrintModeEvent) => {
-          if (typeof chunk !== 'string') {
-            return
-          }
-          process.stdout.write(chunk)
-        },
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session-delete-function-integration',
+      localAgentTemplates: mockLocalAgentTemplates,
+      onResponseChunk: (chunk: string | PrintModeEvent) => {
+        if (typeof chunk !== 'string') {
+          return
+        }
+        process.stdout.write(chunk)
       },
-    )
+      logger,
+    })
     const requestToolCallSpy = websocketAction.requestToolCall as any
 
     // Find the write_file tool call
@@ -474,7 +473,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         toolResults: [],
       }
 
-      await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+      await mainPrompt({
+        ws: new MockWebSocket() as unknown as WebSocket,
+        action,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session-delete-function-integration',
         localAgentTemplates: {
@@ -501,6 +502,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
           }
           process.stdout.write(chunk)
         },
+        logger,
       })
 
       const requestToolCallSpy = websocketAction.requestToolCall as any
