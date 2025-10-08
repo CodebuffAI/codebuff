@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
-import { useKeyboard } from '@opentui/react'
+import { useKeyboard, usePaste } from '@opentui/react'
 import type { ScrollBoxRenderable } from '@opentui/core'
 import { logger } from './logger'
 
@@ -89,6 +89,21 @@ export function MultilineInput({
       setCursorPosition(value.length)
     }
   }, [value.length, cursorPosition])
+
+  usePaste(
+    useCallback(
+      (event) => {
+        if (!focused) return
+        
+        const text = event.text
+        const newValue =
+          value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
+        onChange(newValue)
+        setCursorPosition(cursorPosition + text.length)
+      },
+      [focused, value, cursorPosition, onChange],
+    ),
+  )
 
   // Auto-scroll to bottom when content changes
   useEffect(() => {

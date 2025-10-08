@@ -606,18 +606,6 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     setInputRenderable(instance)
     if (instance) {
       setInputWidth(Math.max(0, instance.width))
-
-      instance.onPaste = (text: string) => {
-        const currentValue = instance.value
-        const cursorPos = instance.cursorPosition
-        const beforeCursor = currentValue.slice(0, cursorPos)
-        const afterCursor = currentValue.slice(cursorPos)
-        const newValue = beforeCursor + text + afterCursor
-
-        instance.value = newValue
-        instance.cursorPosition = cursorPos + text.length
-        setInputValue(newValue)
-      }
     }
   }, [])
 
