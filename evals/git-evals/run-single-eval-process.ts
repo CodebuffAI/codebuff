@@ -74,6 +74,7 @@ async function main() {
       fingerprintId,
       codingAgent as any,
       agent,
+      false,
     )
 
     // Check again after long-running operation

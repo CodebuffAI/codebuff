@@ -42,6 +42,7 @@ export async function runSingleEval(
   fingerprintId: string,
   codingAgent: 'codebuff' | 'claude',
   agent?: string,
+  promptWithSpec: boolean = false,
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -93,7 +94,7 @@ export async function runSingleEval(
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
-    const MAX_ATTEMPTS = 5
+    const MAX_ATTEMPTS = promptWithSpec ? 1 : 5
 
     while (currentDecision === 'continue' && attempts < MAX_ATTEMPTS) {
       // Check for process-level errors
@@ -119,11 +120,17 @@ export async function runSingleEval(
       // Get next prompt from prompting agent with timeout
       let agentResponse: z.infer<typeof AgentDecisionSchema>
       try {
-        agentResponse = await promptAiSdkStructured({
-          messages: [
-            {
-              role: 'user',
-              content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
+        agentResponse = promptWithSpec
+          ? {
+              decision: 'continue',
+              reasoning: 'Using spec as sole prompt',
+              next_prompt: evalCommit.spec,
+            }
+          : await promptAiSdkStructured({
+              messages: [
+                {
+                  role: 'user',
+                  content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
 
 Current spec to implement:
 <spec>${evalCommit.spec}</spec>
@@ -142,16 +149,16 @@ You must decide whether to:
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
 Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
-            },
-          ],
-          schema: AgentDecisionSchema,
-          model: 'x-ai/grok-4-fast',
-          clientSessionId,
-          fingerprintId,
-          userInputId: generateCompactId(),
-          userId: undefined,
-          timeout: 5 * 60_000, // 5 minute timeout
-        })
+                },
+              ],
+              schema: AgentDecisionSchema,
+              model: 'x-ai/grok-4-fast',
+              clientSessionId,
+              fingerprintId,
+              userInputId: generateCompactId(),
+              userId: undefined,
+              timeout: 5 * 60_000, // 5 minute timeout
+            })
       } catch (agentError) {
         throw new Error(
           `Agent decision failed: ${agentError instanceof Error ? `${agentError.message}\n${JSON.stringify(agentError)}\n${agentError.stack}` : String(agentError)}`,
