@@ -96,10 +96,6 @@ export const promptAiSdkStream = async function* (
 
   let aiSDKModel = modelToAiSDKModel(options.model)
 
-  console.log('\n\n\n\n\n\n\n\n\nasdf')
-  console.dir({ messages: convertCbToModelMessages(options) }, { depth: null })
-  console.log('qwer')
-
   const response = streamText({
     ...options,
     model: aiSDKModel,
