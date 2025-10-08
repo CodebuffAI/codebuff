@@ -29,3 +29,4 @@
 - Instead, manually run: `git add <files>` then `git commit -m "<message>"`
 - Keep commit message concise but descriptive
 - Include Codebuff footer in commit message
+- Afterward, run `git push`. This will push to a branch, where I can manually review the changes.
