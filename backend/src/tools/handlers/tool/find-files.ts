@@ -68,12 +68,16 @@ export const handleFindFiles = ((params: {
   }
 
   const fileRequestMessagesTokens = countTokensJson(messages)
-  const system = getSearchSystemPrompt(fileContext, fileRequestMessagesTokens, {
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
+  const system = getSearchSystemPrompt({
+    fileContext,
+    messagesTokens: fileRequestMessagesTokens,
+    options: {
+      agentStepId,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      userId,
+    },
   })
 
   const triggerFindFiles: () => Promise<
