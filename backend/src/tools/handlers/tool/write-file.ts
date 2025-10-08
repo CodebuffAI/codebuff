@@ -1,8 +1,9 @@
 import { partition } from 'lodash'
 
 import { processFileBlock } from '../../../process-file-block'
-import { logger } from '../../../util/logger'
 import { requestOptionalFile } from '../../../websockets/websocket-action'
+
+import type { Logger } from '@codebuff/types/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -94,13 +95,14 @@ export const handleWriteFile = (({
     fullResponse?: string
     prompt?: string
     messages?: Message[]
+    logger?: Logger
   } & OptionalFileProcessingState
 }): {
   result: Promise<CodebuffToolOutput<'write_file'>>
   state: FileProcessingState
 } => {
   const { path, instructions, content } = toolCall.input
-  const { ws, fingerprintId, userId, fullResponse, prompt } = state
+  const { ws, fingerprintId, userId, fullResponse, prompt, logger } = state
   if (!ws) {
     throw new Error('Internal error for write_file: Missing WebSocket in state')
   }
@@ -116,6 +118,9 @@ export const handleWriteFile = (({
   const agentMessagesUntruncated = state.messages
   if (!agentMessagesUntruncated) {
     throw new Error('Internal error for write_file: Missing messages in state')
+  }
+  if (!logger) {
+    throw new Error('Internal error for write_file: Missing logger in state')
   }
 
   // Initialize state for this file path if needed
@@ -151,6 +156,7 @@ export const handleWriteFile = (({
     fingerprintId,
     userInputId,
     userId,
+    logger,
   })
     .catch((error) => {
       logger.error(error, 'Error processing write_file block')

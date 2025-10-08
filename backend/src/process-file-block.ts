@@ -9,8 +9,9 @@ import {
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
-import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
+
+import type { Logger } from '@codebuff/types/logger'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
@@ -26,6 +27,7 @@ export async function processFileBlock(params: {
   fingerprintId: string
   userInputId: string
   userId: string | undefined
+  logger: Logger
 }): Promise<
   | {
       tool: 'write_file'
@@ -52,6 +54,7 @@ export async function processFileBlock(params: {
     fingerprintId,
     userInputId,
     userId,
+    logger,
   } = params
   const initialContent = await initialContentPromise
 
@@ -118,6 +121,7 @@ export async function processFileBlock(params: {
       userInputId,
       userId,
       filePath: path,
+      logger,
     })
 
     if (!largeFileContent) {
@@ -232,6 +236,7 @@ export async function handleLargeFile(params: {
   userInputId: string
   userId: string | undefined
   filePath: string
+  logger: Logger
 }): Promise<string | null> {
   const {
     oldContent,
@@ -241,6 +246,7 @@ export async function handleLargeFile(params: {
     userInputId,
     userId,
     filePath,
+    logger,
   } = params
   const startTime = Date.now()
 
