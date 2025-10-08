@@ -11,14 +11,22 @@ const live: Record<string, string[]> = {}
 /** Map from sessionId to WebSocket connection status */
 const sessionConnections: Record<string, true | undefined> = {}
 
-export function startUserInput(userId: string, userInputId: string): void {
+export function startUserInput(params: {
+  userId: string
+  userInputId: string
+}): void {
+  const { userId, userInputId } = params
   if (!live[userId]) {
     live[userId] = []
   }
   live[userId].push(userInputId)
 }
 
-export function cancelUserInput(userId: string, userInputId: string): void {
+export function cancelUserInput(params: {
+  userId: string
+  userInputId: string
+}): void {
+  const { userId, userInputId } = params
   if (live[userId] && live[userId].includes(userInputId)) {
     live[userId] = live[userId].filter((id) => id !== userInputId)
     if (live[userId].length === 0) {

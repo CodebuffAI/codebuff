@@ -157,7 +157,7 @@ const onPrompt = async (
         })
       }
 
-      startUserInput(userId, promptId)
+      startUserInput({ userId, userInputId: promptId })
 
       try {
         const result = await callMainPrompt(ws, action, {
@@ -179,7 +179,7 @@ const onPrompt = async (
           message: response,
         })
       } finally {
-        cancelUserInput(userId, promptId)
+        cancelUserInput({ userId, userInputId: promptId })
         const usageResponse = await genUsageResponse(
           fingerprintId,
           userId,
@@ -319,7 +319,7 @@ const onCancelUserInput = async ({
     logger.error({ authToken }, 'User id not found for authToken')
     return
   }
-  cancelUserInput(userId, promptId)
+  cancelUserInput({ userId, userInputId: promptId })
 }
 
 /**
