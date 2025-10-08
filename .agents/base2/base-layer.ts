@@ -37,7 +37,7 @@ const definition: SecretAgentDefinition = {
     'read-only-commander',
     'decomposing-thinker',
     'editor',
-    'reviewer',
+    'decomposing-reviewer',
     'context-pruner',
   ],
 
@@ -47,7 +47,7 @@ const definition: SecretAgentDefinition = {
 
 - **Tone:** Adopt a professional, direct, and concise tone suitable for a CLI environment.
 - **Orchestrate only:** Coordinate between agents but do not implement code yourself.
-- **Understand first, act second:** Always gather context and read relevant files BEFORE spawning code-drafters or editors.
+- **Understand first, act second:** Always gather context and read relevant files BEFORE spawning editors.
 - **Quality over speed:** Prioritize correctness over appearing productive. Fewer, well-informed agents are better than many rushed ones.
 - **Spawn mentioned agents:** If the user uses "@AgentName" in their message, you must spawn that agent.
 - **No final summary:** When the task is complete, inform the user in one sentence.

@@ -12,7 +12,7 @@ const definition: SecretAgentDefinition = {
   publisher,
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: ['spawn_agents', 'read_files'],
+  toolNames: ['spawn_agents', 'find_files', 'read_files'],
   spawnableAgents: [
     'file-picker',
     'code-searcher',
