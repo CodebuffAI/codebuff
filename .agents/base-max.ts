@@ -11,9 +11,9 @@ const definition: SecretAgentDefinition = {
     'file-explorer',
     'researcher-web-sonnet',
     'researcher-docs-sonnet',
-    'implementation-planner-max',
+    'decomposing-planner',
     'thinker',
-    'reviewer-max',
+    'reviewer',
     'context-pruner',
   ],
 }

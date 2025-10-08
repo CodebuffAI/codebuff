@@ -252,7 +252,7 @@ export const baseAgentUserInputPrompt = (
       `Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read ${isLite ? '8' : '20'} files. The more files you read, the better context you have on the codebase and the better your response will be.`,
 
       isMax &&
-        `IMPORTANT: You must spawn the implementation-planner-max agent for all non-trivial coding tasks. It will help you come up with the best possible code changes. This is non-negotiable. The user needs you to spawn this agent to get the best possible code changes. Use your judgment to deviate from the plan whereever you see fit.`,
+        `IMPORTANT: You must spawn the decomposing-planner agent for all non-trivial coding tasks. It will help you come up with the best possible code changes. This is non-negotiable. The user needs you to spawn this agent to get the best possible code changes. Use your judgment to deviate from the plan whereever you see fit.`,
 
       'If the users uses "@agent-id" or "@AgentName" in their message, you must spawn that agent. If you don\'t know what input parameters that agent expects, use the lookup_agent_info tool to get the agent metadata. Spawn all the agents that the user mentions.',
 
@@ -308,7 +308,7 @@ export const baseAgentUserInputPrompt = (
         `You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file explorer agent first to explore the codebase. ${isLite ? '' : 'Finally, you must spawn the reviewer agent to review your code changes.'}`,
 
       isMax &&
-        `IMPORTANT: You must spawn the implementation-planner-max agent for all non-trivial coding tasks. It will help you come up with the best possible code changes. This is non-negotiable. The user needs you to spawn this agent to get the best possible code changes. Use your judgment to deviate from the plan whereever you see fit.`,
+        `IMPORTANT: You must spawn the decomposing-planner agent for all non-trivial coding tasks. It will help you come up with the best possible code changes. This is non-negotiable. The user needs you to spawn this agent to get the best possible code changes. Use your judgment to deviate from the plan whereever you see fit.`,
 
       !isGPT5 &&
         'Finally, you must use the end_turn tool at the end of your response when you have completed the user request or want the user to respond to your message.',
@@ -330,11 +330,8 @@ If you don't do this, then your response will be cut off and the turn will be en
 }
 
 export const baseAgentAgentStepPrompt = (model: Model) => {
-  return `<system>
-You have ${PLACEHOLDER.REMAINING_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.
+  return `You have ${PLACEHOLDER.REMAINING_STEPS} more response(s) before you will be cut off and the turn will be ended automatically.
 
 Assistant cwd (project root): ${PLACEHOLDER.PROJECT_ROOT}
-User cwd: ${PLACEHOLDER.USER_CWD}
-${closeXml('system')}
-`
+User cwd: ${PLACEHOLDER.USER_CWD}`
 }
