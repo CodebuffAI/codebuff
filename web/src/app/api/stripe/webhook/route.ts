@@ -149,14 +149,15 @@ async function handleCheckoutSessionCompleted(
         'Checkout session completed and paid for user credit purchase.'
       )
 
-      await processAndGrantCredit(
+      await processAndGrantCredit({
         userId,
-        credits,
-        'purchase',
-        `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
-        null,
-        operationId
-      )
+        amount: credits,
+        type: 'purchase',
+        description: `Purchased ${credits.toLocaleString()} credits via checkout session ${sessionId}`,
+        expiresAt: null,
+        operationId,
+        logger,
+      })
     } else {
       logger.warn(
         { sessionId, userId, credits, operationId, paymentStatus },

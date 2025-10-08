@@ -183,14 +183,14 @@ async function processAutoTopupPayment(params: {
     throw new AutoTopupPaymentError('Payment failed or requires action')
   }
 
-  await processAndGrantCredit(
-    userId,
-    amountToTopUp,
-    'purchase',
-    `Auto top-up of ${amountToTopUp.toLocaleString()} credits`,
-    null,
+  await processAndGrantCredit({
+    ...params,
+    amount: amountToTopUp,
+    type: 'purchase',
+    description: `Auto top-up of ${amountToTopUp.toLocaleString()} credits`,
+    expiresAt: null,
     operationId,
-  )
+  })
 
   logger.info(
     {

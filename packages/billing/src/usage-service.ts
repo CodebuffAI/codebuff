@@ -53,7 +53,7 @@ export async function getUserUsageData(params: {
     const now = new Date()
 
     // Check if we need to reset quota and grant new credits
-    const effectiveQuotaResetDate = await triggerMonthlyResetAndGrant(userId)
+    const effectiveQuotaResetDate = await triggerMonthlyResetAndGrant(params)
 
     // Check if we need to trigger auto top-up
     let autoTopupTriggered = false

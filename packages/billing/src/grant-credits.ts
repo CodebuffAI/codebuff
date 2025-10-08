@@ -13,6 +13,7 @@ import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 import { generateOperationIdTimestamp } from './utils'
 
 import type { GrantType } from '@codebuff/common/db/schema'
+import type { Logger } from '@codebuff/types/logger'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
 type DbTransaction = Parameters<typeof db.transaction>[0] extends (
@@ -30,9 +31,12 @@ type DbTransaction = Parameters<typeof db.transaction>[0] extends (
  * @param userId The ID of the user.
  * @returns The amount of the last expired free grant (capped at 2000) or the default.
  */
-export async function getPreviousFreeGrantAmount(
-  userId: string,
-): Promise<number> {
+export async function getPreviousFreeGrantAmount(params: {
+  userId: string
+  logger: Logger
+}): Promise<number> {
+  const { userId, logger } = params
+
   const now = new Date()
   const lastExpiredFreeGrant = await db
     .select({
@@ -72,9 +76,12 @@ export async function getPreviousFreeGrantAmount(
  * @param userId The ID of the user.
  * @returns The total referral bonus credits earned.
  */
-export async function calculateTotalReferralBonus(
-  userId: string,
-): Promise<number> {
+export async function calculateTotalReferralBonus(params: {
+  userId: string
+  logger: Logger
+}): Promise<number> {
+  const { userId, logger } = params
+
   try {
     const result = await db
       .select({
@@ -103,15 +110,27 @@ export async function calculateTotalReferralBonus(
 /**
  * Core grant operation that can be part of a larger transaction.
  */
-export async function grantCreditOperation(
-  userId: string,
-  amount: number,
-  type: GrantType,
-  description: string,
-  expiresAt: Date | null,
-  operationId: string,
-  tx?: DbTransaction,
-) {
+export async function grantCreditOperation(params: {
+  userId: string
+  amount: number
+  type: GrantType
+  description: string
+  expiresAt: Date | null
+  operationId: string
+  tx?: DbTransaction
+  logger: Logger
+}) {
+  const {
+    userId,
+    amount,
+    type,
+    description,
+    expiresAt,
+    operationId,
+    tx,
+    logger,
+  } = params
+
   const dbClient = tx || db
 
   const now = new Date()
@@ -228,36 +247,28 @@ export async function grantCreditOperation(
  * Processes a credit grant request with retries and failure logging.
  * Used for standalone credit grants that need retry logic and failure tracking.
  */
-export async function processAndGrantCredit(
-  userId: string,
-  amount: number,
-  type: GrantType,
-  description: string,
-  expiresAt: Date | null,
-  operationId: string,
-): Promise<void> {
+export async function processAndGrantCredit(params: {
+  userId: string
+  amount: number
+  type: GrantType
+  description: string
+  expiresAt: Date | null
+  operationId: string
+  logger: Logger
+}): Promise<void> {
+  const { operationId, logger } = params
+
   try {
-    await withRetry(
-      () =>
-        grantCreditOperation(
-          userId,
-          amount,
-          type,
-          description,
-          expiresAt,
-          operationId,
-        ),
-      {
-        maxRetries: 3,
-        retryIf: () => true,
-        onRetry: (error, attempt) => {
-          logger.warn(
-            { operationId, attempt, error },
-            `processAndGrantCredit retry ${attempt}`,
-          )
-        },
+    await withRetry(() => grantCreditOperation(params), {
+      maxRetries: 3,
+      retryIf: () => true,
+      onRetry: (error, attempt) => {
+        logger.warn(
+          { operationId, attempt, error },
+          `processAndGrantCredit retry ${attempt}`,
+        )
       },
-    )
+    })
   } catch (error: any) {
     await logSyncFailure({
       id: operationId,
@@ -336,9 +347,12 @@ export async function revokeGrantByOperationId(
  * @param userId The ID of the user
  * @returns The effective quota reset date (either existing or new)
  */
-export async function triggerMonthlyResetAndGrant(
-  userId: string,
-): Promise<Date> {
+export async function triggerMonthlyResetAndGrant(params: {
+  userId: string
+  logger: Logger
+}): Promise<Date> {
+  const { userId, logger } = params
+
   return await db.transaction(async (tx) => {
     const now = new Date()
 
@@ -366,8 +380,8 @@ export async function triggerMonthlyResetAndGrant(
 
     // Calculate grant amounts separately
     const [freeGrantAmount, referralBonus] = await Promise.all([
-      getPreviousFreeGrantAmount(userId),
-      calculateTotalReferralBonus(userId),
+      getPreviousFreeGrantAmount(params),
+      calculateTotalReferralBonus(params),
     ])
 
     // Generate a deterministic operation ID based on userId and reset date to minute precision
@@ -382,25 +396,25 @@ export async function triggerMonthlyResetAndGrant(
       .where(eq(schema.user.id, userId))
 
     // Always grant free credits
-    await processAndGrantCredit(
-      userId,
-      freeGrantAmount,
-      'free',
-      'Monthly free credits',
-      newResetDate, // Free credits expire at next reset
-      freeOperationId,
-    )
+    await processAndGrantCredit({
+      ...params,
+      amount: freeGrantAmount,
+      type: 'free',
+      description: 'Monthly free credits',
+      expiresAt: newResetDate, // Free credits expire at next reset
+      operationId: freeOperationId,
+    })
 
     // Only grant referral credits if there are any
     if (referralBonus > 0) {
-      await processAndGrantCredit(
-        userId,
-        referralBonus,
-        'referral',
-        'Monthly referral bonus',
-        newResetDate, // Referral credits expire at next reset
-        referralOperationId,
-      )
+      await processAndGrantCredit({
+        ...params,
+        amount: referralBonus,
+        type: 'referral',
+        description: 'Monthly referral bonus',
+        expiresAt: newResetDate, // Referral credits expire at next reset
+        operationId: referralOperationId,
+      })
     }
 
     logger.info(
