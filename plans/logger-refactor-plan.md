@@ -1,6 +1,14 @@
-## Plan: Refactor Logger to Pass as Parameter
+## Plan: Refactor Logger to Pass as Parameter**IMPORTANT: This is a LIVE document that MUST be updated as you work!**
 
-This is a live document. You should update it with any unintutive cases you find while running through the steps below. Do _not_ add items in a dedicated section, but just update the sections themselves. Feel free to split one step into multiple steps if it is too long/complicated.
+As you complete each step and encounter unintuitive cases or learn new patterns:
+
+1. **UPDATE THIS DOCUMENT IMMEDIATELY** - Don't wait until the end
+2. **Add learnings directly into the relevant step sections** - Do NOT create a dedicated "Findings" or "Learnings" section
+3. **Update existing instructions inline** - Integrate new knowledge into the step descriptions themselves
+4. **Split complex steps** - Feel free to break one step into multiple sub-steps (e.g., 1, [2], 3, 4 -> 1, [2, 3], 4, 5) if needed
+5. Document any edge cases or special handling required within the relevant step
+
+**This plan serves as documentation for future engineers - keep it accurate and up-to-date!**
 
 ### Step 1: Search for logger imports
 
@@ -31,8 +39,15 @@ For all other files:
 
 - **Always run full `bun run typecheck`** (not head/tail!) to find ALL errors
 - Update function calls to pass object with named properties
-- For tests: create a no-op logger constant called `logger` with all 4 methods (debug, info, warn, error)
-- Use `allowMultiple: true` in str_replace when updating multiple calls in same file
+- **For tests:** Create a no-op logger constant named `logger` (NOT `mockLogger`!) with all 4 methods:
+  ```typescript
+  const logger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  }
+  ```
 - **Check carefully** - there may be multiple call sites in the same file!
 - Repeat typecheck until ALL errors resolved
 

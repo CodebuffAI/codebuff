@@ -148,6 +148,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) =>
     fingerprintId: 'fingerprintId' in action ? action.fingerprintId : undefined,
     authToken: 'authToken' in action ? action.authToken : undefined,
     clientSessionId,
+    logger,
   }),
 )
 

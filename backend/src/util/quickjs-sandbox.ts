@@ -1,7 +1,6 @@
 import { newQuickJSWASMModuleFromVariant } from 'quickjs-emscripten-core'
 
-import { logger } from './logger'
-
+import type { Logger } from '@codebuff/types/logger'
 import type {
   QuickJSContext,
   QuickJSWASMModule,
@@ -52,14 +51,9 @@ export class QuickJSSandbox {
     generatorCode: string
     initialInput: any
     config?: SandboxConfig
-    logger?: {
-      debug: (data: any, msg?: string) => void
-      info: (data: any, msg?: string) => void
-      warn: (data: any, msg?: string) => void
-      error: (data: any, msg?: string) => void
-    }
+    sandboxLogger?: Logger
   }): Promise<QuickJSSandbox> {
-    const { generatorCode, initialInput, config = {}, logger } = params
+    const { generatorCode, initialInput, config = {}, sandboxLogger } = params
     const {
       memoryLimit = 1024 * 1024 * 20, // 20MB
       maxStackSize = 1024 * 512, // 512KB
@@ -105,13 +99,16 @@ export class QuickJSSandbox {
             msgStr = msg ? context.getString(msg) : undefined
 
             // Call the appropriate logger method if available
-            if (logger?.[levelStr as keyof typeof logger]) {
-              logger[levelStr as keyof typeof logger](dataObj, msgStr)
+            if (sandboxLogger?.[levelStr as keyof typeof sandboxLogger]) {
+              sandboxLogger[levelStr as keyof typeof sandboxLogger](
+                dataObj,
+                msgStr,
+              )
             }
           } catch (err) {
             // Fallback for logging errors
-            if (logger?.error) {
-              logger.error({ error: err }, 'Logger handler error')
+            if (sandboxLogger?.error) {
+              sandboxLogger.error({ error: err }, 'Logger handler error')
             }
           }
         },
@@ -231,7 +228,8 @@ export class QuickJSSandbox {
   /**
    * Dispose of the sandbox and clean up resources
    */
-  dispose(): void {
+  dispose(params: { logger: Logger }): void {
+    const { logger } = params
     if (!this.initialized) {
       return
     }
@@ -267,14 +265,17 @@ export class SandboxManager {
     generatorCode: string
     initialInput: any
     config?: SandboxConfig
-    logger?: {
-      debug: (data: any, msg?: string) => void
-      info: (data: any, msg?: string) => void
-      warn: (data: any, msg?: string) => void
-      error: (data: any, msg?: string) => void
-    }
+    sandboxLogger?: Logger
+    logger: Logger
   }): Promise<QuickJSSandbox> {
-    const { runId, generatorCode, initialInput, config, logger } = params
+    const {
+      runId,
+      generatorCode,
+      initialInput,
+      config,
+      sandboxLogger,
+      logger,
+    } = params
     const existing = this.sandboxes.get(runId)
     if (existing && existing.isInitialized()) {
       return existing
@@ -282,7 +283,9 @@ export class SandboxManager {
 
     // Clean up any existing sandbox
     if (existing) {
-      existing.dispose()
+      existing.dispose({
+        logger,
+      })
     }
 
     // Create new sandbox
@@ -290,7 +293,7 @@ export class SandboxManager {
       generatorCode,
       initialInput,
       config,
-      logger,
+      sandboxLogger,
     })
     this.sandboxes.set(runId, sandbox)
     return sandbox
@@ -307,11 +310,11 @@ export class SandboxManager {
   /**
    * Remove and dispose a sandbox
    */
-  removeSandbox(params: { runId: string }): void {
-    const { runId } = params
+  removeSandbox(params: { runId: string; logger: Logger }): void {
+    const { runId, logger } = params
     const sandbox = this.sandboxes.get(runId)
     if (sandbox) {
-      sandbox.dispose()
+      sandbox.dispose({ logger })
       this.sandboxes.delete(runId)
     }
   }
@@ -319,10 +322,11 @@ export class SandboxManager {
   /**
    * Clean up all sandboxes
    */
-  dispose(): void {
+  dispose(params: { logger: Logger }): void {
+    const { logger } = params
     for (const [runId, sandbox] of this.sandboxes) {
       try {
-        sandbox.dispose()
+        sandbox.dispose({ logger })
       } catch (error) {
         logger.warn(
           { error, runId },

@@ -5,7 +5,6 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { closeXml } from '@codebuff/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
-import { logger } from './logger'
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
 
@@ -18,6 +17,7 @@ import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 
 export function messagesWithSystem(params: {
   messages: Message[]
@@ -98,9 +98,13 @@ const numTerminalCommandsToKeep = 5
 function simplifyTerminalHelper(params: {
   toolResult: CodebuffToolOutput<'run_terminal_command'>
   numKept: number
+  logger: Logger
 }): { result: CodebuffToolOutput<'run_terminal_command'>; numKept: number } {
-  const { toolResult, numKept } = params
-  const simplified = simplifyTerminalCommandResults(toolResult)
+  const { toolResult, numKept, logger } = params
+  const simplified = simplifyTerminalCommandResults({
+    messageContent: toolResult,
+    logger,
+  })
 
   // Keep the full output for the N most recent commands
   if (numKept < numTerminalCommandsToKeep && !isEqual(simplified, toolResult)) {
@@ -134,11 +138,13 @@ const replacementMessage = {
  * @param maxTotalTokens - Maximum total tokens allowed, defaults to 200k
  * @returns Trimmed array of messages that fits within token limit
  */
-export function trimMessagesToFitTokenLimit(
-  messages: Message[],
-  systemTokens: number,
-  maxTotalTokens: number = 190_000,
-): Message[] {
+export function trimMessagesToFitTokenLimit(params: {
+  messages: Message[]
+  systemTokens: number
+  maxTotalTokens?: number
+  logger: Logger
+}): Message[] {
+  const { messages, systemTokens, maxTotalTokens = 190_000, logger } = params
   const maxMessageTokens = maxTotalTokens - systemTokens
 
   // Check if we're already under the limit
@@ -169,6 +175,7 @@ export function trimMessagesToFitTokenLimit(
       const result = simplifyTerminalHelper({
         toolResult: terminalResultMessage.content.output,
         numKept,
+        logger,
       })
       terminalResultMessage.content.output = result.result
       numKept = result.numKept
@@ -211,11 +218,17 @@ export function trimMessagesToFitTokenLimit(
   )
 }
 
-export function getMessagesSubset(
-  messages: Message[],
-  otherTokens: number,
-): Message[] {
-  const messagesSubset = trimMessagesToFitTokenLimit(messages, otherTokens)
+export function getMessagesSubset(params: {
+  messages: Message[]
+  otherTokens: number
+  logger: Logger
+}): Message[] {
+  const { messages, otherTokens, logger } = params
+  const messagesSubset = trimMessagesToFitTokenLimit({
+    messages,
+    systemTokens: otherTokens,
+    logger,
+  })
 
   // Remove cache_control from all messages
   for (const message of messagesSubset) {
@@ -255,7 +268,11 @@ export function expireMessages(
   })
 }
 
-export function getEditedFiles(messages: Message[]): string[] {
+export function getEditedFiles(params: {
+  messages: Message[]
+  logger: Logger
+}): string[] {
+  const { messages, logger } = params
   return buildArray(
     messages
       .filter(
@@ -294,11 +311,15 @@ export function getEditedFiles(messages: Message[]): string[] {
   )
 }
 
-export function getPreviouslyReadFiles(messages: Message[]): {
+export function getPreviouslyReadFiles(params: {
+  messages: Message[]
+  logger: Logger
+}): {
   path: string
   content: string
   referencedBy?: Record<string, string[]>
 }[] {
+  const { messages, logger } = params
   const files: ReturnType<typeof getPreviouslyReadFiles> = []
   for (const message of messages) {
     if (message.role !== 'tool') continue

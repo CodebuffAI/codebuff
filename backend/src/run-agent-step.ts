@@ -574,7 +574,8 @@ export const loopAgentSteps = async (
           agentState: programmaticAgentState,
           endTurn,
           stepNumber,
-        } = await runProgrammaticStep(currentAgentState, {
+        } = await runProgrammaticStep({
+          agentState: currentAgentState,
           userId,
           userInputId,
           clientSessionId,
@@ -585,10 +586,11 @@ export const loopAgentSteps = async (
           template: agentTemplate,
           localAgentTemplates,
           prompt: currentPrompt,
-          params: currentParams,
+          toolCallParams: currentParams,
           system,
           stepsComplete: shouldEndTurn,
           stepNumber: totalSteps,
+          logger,
         })
         currentAgentState = programmaticAgentState
         totalSteps = stepNumber

@@ -48,6 +48,7 @@ async function usageHandler(
       fingerprintId,
       authToken,
       clientSessionId,
+      logger,
     })
     if (authResult) {
       const errorMessage =

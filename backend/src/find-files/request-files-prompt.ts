@@ -344,16 +344,17 @@ async function getRelevantFiles(params: {
     logger,
   } = params
   const bufferTokens = 100_000
-  const messagesWithPrompt = getMessagesSubset(
-    [
+  const messagesWithPrompt = getMessagesSubset({
+    messages: [
       ...messages,
       {
         role: 'user' as const,
         content: userPrompt,
       },
     ],
-    bufferTokens,
-  )
+    otherTokens: bufferTokens,
+    logger,
+  })
   const start = performance.now()
   let codebuffMessages = messagesWithSystem({ messages: messagesWithPrompt, system })
 
@@ -435,16 +436,17 @@ async function getRelevantFilesForTraining(params: {
     logger,
   } = params
   const bufferTokens = 100_000
-  const messagesWithPrompt = getMessagesSubset(
-    [
+  const messagesWithPrompt = getMessagesSubset({
+    messages: [
       ...messages,
       {
         role: 'user' as const,
         content: userPrompt,
       },
     ],
-    bufferTokens,
-  )
+    otherTokens: bufferTokens,
+    logger,
+  })
   const start = performance.now()
   let response = await promptAiSdk({
     messages: messagesWithSystem({ messages: messagesWithPrompt, system }),

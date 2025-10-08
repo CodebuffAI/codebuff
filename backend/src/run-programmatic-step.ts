@@ -22,6 +22,7 @@ import type {
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 // Global sandbox manager for QuickJS contexts
@@ -38,16 +39,33 @@ export function clearAgentGeneratorCache() {
   }
   runIdToStepAll.clear()
   // Clean up QuickJS sandboxes
-  sandboxManager.dispose()
+  sandboxManager.dispose({ logger })
 }
 
 // Function to handle programmatic agents
-export async function runProgrammaticStep(
-  agentState: AgentState,
-  {
+export async function runProgrammaticStep(params: {
+  agentState: AgentState
+  template: AgentTemplate
+  prompt: string | undefined
+  toolCallParams: Record<string, any> | undefined
+  system: string | undefined
+  userId: string | undefined
+  userInputId: string
+  clientSessionId: string
+  fingerprintId: string
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
+  fileContext: ProjectFileContext
+  ws: WebSocket
+  localAgentTemplates: Record<string, AgentTemplate>
+  stepsComplete: boolean
+  stepNumber: number
+  logger: Logger
+}): Promise<{ agentState: AgentState; endTurn: boolean; stepNumber: number }> {
+  const {
+    agentState,
     template,
     prompt,
-    params,
+    toolCallParams,
     system,
     userId,
     userInputId,
@@ -58,24 +76,10 @@ export async function runProgrammaticStep(
     ws,
     localAgentTemplates,
     stepsComplete,
-    stepNumber,
-  }: {
-    template: AgentTemplate
-    prompt: string | undefined
-    params: Record<string, any> | undefined
-    system: string | undefined
-    userId: string | undefined
-    userInputId: string
-    clientSessionId: string
-    fingerprintId: string
-    onResponseChunk: (chunk: string | PrintModeEvent) => void
-    fileContext: ProjectFileContext
-    ws: WebSocket
-    localAgentTemplates: Record<string, AgentTemplate>
-    stepsComplete: boolean
-    stepNumber: number
-  },
-): Promise<{ agentState: AgentState; endTurn: boolean; stepNumber: number }> {
+    logger,
+  } = params
+  let { stepNumber } = params
+
   if (!template.handleSteps) {
     throw new Error('No step handler found for agent template ' + template.id)
   }
@@ -119,11 +123,12 @@ export async function runProgrammaticStep(
         initialInput: {
           agentState,
           prompt,
-          params,
+          params: toolCallParams,
           logger: streamingLogger,
         },
         config: undefined, // config
-        logger: streamingLogger, // pass the streaming logger instance for internal use
+        sandboxLogger: streamingLogger, // pass the streaming logger instance for internal use
+        logger,
       })
     } else {
       // Initialize native generator
@@ -363,7 +368,7 @@ export async function runProgrammaticStep(
     if (endTurn) {
       if (sandbox) {
         // Clean up QuickJS sandbox if execution is complete
-        sandboxManager.removeSandbox({ runId: agentState.runId })
+        sandboxManager.removeSandbox({ runId: agentState.runId, logger })
       }
       delete runIdToGenerator[agentState.runId]
       runIdToStepAll.delete(agentState.runId)
