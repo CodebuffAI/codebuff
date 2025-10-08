@@ -26,6 +26,7 @@ import {
   getToolDisplayInfo,
   formatToolOutput,
 } from './codebuff-client'
+import type { ToolName } from '@codebuff/sdk'
 import { logger } from './logger'
 import { ShimmerText } from './shimmer-text'
 
@@ -854,7 +855,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       setCanProcessQueue(false)
       isChainInProgressRef.current = true
 
-      const activeTools = new Map<string, string>()
+      const activeTools = new Map<string, { agentId: string; toolName: ToolName }>()
       let hasReceivedContent = false
       let actualCredits: number | undefined = undefined
 
@@ -928,15 +929,20 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
             if (event.type === 'tool_call' && event.toolCallId) {
               const { toolCallId, toolName, input } = event
 
+              const hiddenTools: ToolName[] = ['spawn_agent_inline', 'end_turn']
+              if (hiddenTools.includes(toolName)) {
+                return
+              }
+
               const displayInfo = getToolDisplayInfo(toolName)
               const agentId = `agent-${toolCallId}`
 
-              activeTools.set(toolCallId, agentId)
+              activeTools.set(toolCallId, { agentId, toolName })
 
               const agentMessage: ChatMessage = {
                 id: agentId,
                 variant: 'agent',
-                content: `Executing ${toolName}...\n\n\`\`\`json\n${JSON.stringify(input, null, 2)}\n\`\`\``,
+                content: `\`\`\`json\n${JSON.stringify(input, null, 2)}\n\`\`\``,
                 timestamp: formatTimestamp(),
                 parentId: aiMessageId,
                 agent: {
@@ -950,19 +956,33 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
               setStreamingAgents((prev) => new Set(prev).add(agentId))
               setCollapsedAgents((prev) => new Set(prev).add(agentId))
             } else if (event.type === 'tool_result' && event.toolCallId) {
-              const agentId = activeTools.get(event.toolCallId)
-              if (!agentId) return
+              const toolInfo = activeTools.get(event.toolCallId)
+              if (!toolInfo) return
 
-              const output = event.error
-                ? `**Error:** ${typeof event.error === 'string' ? event.error : JSON.stringify(event.error)}`
-                : formatToolOutput(event.output)
+              const { agentId, toolName } = toolInfo
+
+              let output: string
+              if (event.error) {
+                output = `**Error:** ${typeof event.error === 'string' ? event.error : JSON.stringify(event.error)}`
+              } else if (toolName === 'run_terminal_command') {
+                const parsed = event.output?.[0]?.value
+                if (parsed?.stdout || parsed?.stderr) {
+                  output = (parsed.stdout || '') + (parsed.stderr || '')
+                } else {
+                  output = formatToolOutput(event.output)
+                }
+              } else {
+                output = formatToolOutput(event.output)
+              }
+
+              const codeBlockLang = toolName === 'run_terminal_command' ? '' : 'yaml'
 
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === agentId
                     ? {
                         ...msg,
-                        content: `${msg.content}\n\n**Result:**\n\`\`\`\n${output}\n\`\`\``,
+                        content: `${msg.content}\n\n**Result:**\n\`\`\`${codeBlockLang}\n${output}\n\`\`\``,
                       }
                     : msg,
                 ),

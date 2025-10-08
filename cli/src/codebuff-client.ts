@@ -33,25 +33,57 @@ export function getToolDisplayInfo(toolName: string): {
   name: string
   type: string
 } {
-  const toolNameMap: Record<string, string> = {
-    write_file: 'File Writer',
-    str_replace: 'File Editor',
-    read_files: 'File Reader',
-    code_search: 'Code Search',
-    run_terminal_command: 'Terminal',
-    browser_logs: 'Browser',
-    run_file_change_hooks: 'File Hooks',
-    web_search: 'Web Search',
-    read_docs: 'Doc Reader',
-    spawn_agents: 'Agent Spawner',
+  const capitalizeWords = (str: string) => {
+    return str.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
   return {
-    name:
-      toolNameMap[toolName] ||
-      toolName.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+    name: capitalizeWords(toolName),
     type: 'tool',
   }
+}
+
+function toYaml(obj: any, indent = 0): string {
+  const spaces = '  '.repeat(indent)
+  
+  if (obj === null || obj === undefined) {
+    return 'null'
+  }
+  
+  if (typeof obj === 'string') {
+    if (obj.includes('\n')) {
+      const lines = obj.split('\n')
+      return '|\n' + lines.map(line => '  '.repeat(indent + 1) + line).join('\n')
+    }
+    return obj.includes(':') || obj.includes('#') ? `"${obj}"` : obj
+  }
+  
+  if (typeof obj === 'number' || typeof obj === 'boolean') {
+    return String(obj)
+  }
+  
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return '[]'
+    return '\n' + obj.map(item => spaces + '- ' + toYaml(item, indent + 1).trimStart()).join('\n')
+  }
+  
+  if (typeof obj === 'object') {
+    const entries = Object.entries(obj)
+    if (entries.length === 0) return '{}'
+    
+    return entries.map(([key, value]) => {
+      const yamlValue = toYaml(value, indent + 1)
+      if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length > 0) {
+        return `${spaces}${key}:\n${yamlValue}`
+      }
+      if (typeof value === 'string' && value.includes('\n')) {
+        return `${spaces}${key}: ${yamlValue}`
+      }
+      return `${spaces}${key}: ${yamlValue}`
+    }).join('\n')
+  }
+  
+  return String(obj)
 }
 
 export function formatToolOutput(output: unknown): string {
@@ -61,7 +93,7 @@ export function formatToolOutput(output: unknown): string {
     return output
       .map((item) => {
         if (item.type === 'json') {
-          return JSON.stringify(item.value, null, 2)
+          return toYaml(item.value)
         }
         if (item.type === 'text') {
           return item.text || ''
@@ -75,5 +107,5 @@ export function formatToolOutput(output: unknown): string {
     return output
   }
 
-  return JSON.stringify(output, null, 2)
+  return toYaml(output)
 }

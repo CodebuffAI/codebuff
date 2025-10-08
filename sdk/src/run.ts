@@ -176,7 +176,7 @@ export async function run({
         if (insideToolCall && buffer.length > BUFFER_SIZE * 10) {
           buffer = buffer.slice(-BUFFER_SIZE * 10)
         }
-      } else if (chunk.type !== 'tool_call') {
+      } else {
         await handleEvent?.(chunk)
       }
     },
