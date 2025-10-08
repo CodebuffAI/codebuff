@@ -457,7 +457,11 @@ function topLevelDirectories(fileContext: ProjectFileContext) {
     .map((node) => node.name)
 }
 
-function getExampleFileList(fileContext: ProjectFileContext, count: number) {
+function getExampleFileList(params: {
+  fileContext: ProjectFileContext
+  count: number
+}) {
+  const { fileContext, count } = params
   const { fileTree } = fileContext
 
   const filePaths = getAllFilePaths(fileTree)
@@ -485,7 +489,7 @@ function generateNonObviousRequestFilesPrompt(
   fileContext: ProjectFileContext,
   count: number,
 ): string {
-  const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
+  const exampleFiles = getExampleFileList({ fileContext, count: NUMBER_OF_EXAMPLE_FILES })
   return `
 Your task is to find the second-order relevant files for the following user request (in quotes).
 
@@ -540,7 +544,7 @@ function generateKeyRequestFilesPrompt(
   fileContext: ProjectFileContext,
   count: number,
 ): string {
-  const exampleFiles = getExampleFileList(fileContext, NUMBER_OF_EXAMPLE_FILES)
+  const exampleFiles = getExampleFileList({ fileContext, count: NUMBER_OF_EXAMPLE_FILES })
 
   return `
 Your task is to find the most relevant files for the following user request (in quotes).
