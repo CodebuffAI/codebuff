@@ -6,7 +6,7 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'file-picker',
   publisher,
-  ...filePicker('google/gemini-2.5-flash'),
+  ...filePicker('x-ai/grok-4-fast'),
 }
 
 export default definition

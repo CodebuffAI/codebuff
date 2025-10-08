@@ -7,8 +7,8 @@ export const filePicker = (
   model: ModelName,
 ): Omit<SecretAgentDefinition, 'id'> => ({
   model,
-  displayName: AGENT_PERSONAS['file-picker'].displayName,
-  spawnerPrompt: AGENT_PERSONAS['file-picker'].purpose,
+  displayName: 'Fletcher the File Fetcher',
+  spawnerPrompt: 'Spawn to find relevant files in a codebase related to the prompt. Cannot do string searches on the codebase.',
   inputSchema: {
     prompt: {
       type: 'string',
