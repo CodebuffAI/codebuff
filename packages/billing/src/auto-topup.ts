@@ -1,11 +1,10 @@
 import { env } from 'process'
 
-import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
-import { logger } from '@codebuff/common/util/logger'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { eq } from 'drizzle-orm'
 
@@ -17,6 +16,7 @@ import {
 } from './org-billing'
 import { generateOperationIdTimestamp } from './utils'
 
+import type { Logger } from '@codebuff/types/logger'
 import type Stripe from 'stripe'
 
 const MINIMUM_PURCHASE_CREDITS = 500
@@ -40,9 +40,11 @@ class AutoTopupPaymentError extends Error {
   }
 }
 
-export async function validateAutoTopupStatus(
-  userId: string,
-): Promise<AutoTopupValidationResult> {
+export async function validateAutoTopupStatus(params: {
+  userId: string
+  logger: Logger
+}): Promise<AutoTopupValidationResult> {
+  const { userId, logger } = params
   const logContext = { userId }
 
   try {
@@ -109,7 +111,7 @@ export async function validateAutoTopupStatus(
         ? error.message
         : 'Unable to verify payment method status.'
 
-    await disableAutoTopup(userId, blockedReason)
+    await disableAutoTopup({ ...params, reason: blockedReason })
 
     return {
       blockedReason,
@@ -118,7 +120,12 @@ export async function validateAutoTopupStatus(
   }
 }
 
-async function disableAutoTopup(userId: string, reason: string) {
+async function disableAutoTopup(params: {
+  userId: string
+  reason: string
+  logger: Logger
+}) {
+  const { userId, reason, logger } = params
   await db
     .update(schema.user)
     .set({ auto_topup_enabled: false })
@@ -127,12 +134,15 @@ async function disableAutoTopup(userId: string, reason: string) {
   logger.info({ userId, reason }, 'Disabled auto top-up')
 }
 
-async function processAutoTopupPayment(
-  userId: string,
-  amountToTopUp: number,
-  stripeCustomerId: string,
-  paymentMethod: Stripe.PaymentMethod,
-): Promise<void> {
+async function processAutoTopupPayment(params: {
+  userId: string
+  amountToTopUp: number
+  stripeCustomerId: string
+  paymentMethod: Stripe.PaymentMethod
+  logger: Logger
+}): Promise<void> {
+  const { userId, amountToTopUp, stripeCustomerId, paymentMethod, logger } =
+    params
   const logContext = { userId, amountToTopUp }
 
   // Generate a deterministic operation ID based on userId and current time to minute precision
@@ -192,9 +202,11 @@ async function processAutoTopupPayment(
   )
 }
 
-export async function checkAndTriggerAutoTopup(
-  userId: string,
-): Promise<number | undefined> {
+export async function checkAndTriggerAutoTopup(params: {
+  userId: string
+  logger: Logger
+}): Promise<number | undefined> {
+  const { userId, logger } = params
   const logContext = { userId }
 
   try {
@@ -268,19 +280,19 @@ export async function checkAndTriggerAutoTopup(
 
     // Validate payment method
     const { blockedReason, validPaymentMethod } =
-      await validateAutoTopupStatus(userId)
+      await validateAutoTopupStatus(params)
 
     if (blockedReason || !validPaymentMethod) {
       throw new Error(blockedReason || 'Auto top-up is not available.')
     }
 
     try {
-      await processAutoTopupPayment(
-        userId,
+      await processAutoTopupPayment({
+        ...params,
         amountToTopUp,
-        user.stripe_customer_id,
-        validPaymentMethod,
-      )
+        stripeCustomerId: user.stripe_customer_id,
+        paymentMethod: validPaymentMethod,
+      })
       return amountToTopUp // Return the amount that was successfully added
     } catch (error) {
       const message =
@@ -288,7 +300,7 @@ export async function checkAndTriggerAutoTopup(
           ? error.message
           : 'Payment failed. Please check your payment method and re-enable auto top-up.'
 
-      await disableAutoTopup(userId, message)
+      await disableAutoTopup({ ...params, reason: message })
       throw new Error(message)
     }
   } catch (error) {
@@ -322,10 +334,12 @@ async function getOrganizationSettings(organizationId: string) {
  * Gets and selects the appropriate payment method for an organization.
  * Handles both card and link payment methods, with preference for existing default.
  */
-async function getOrganizationPaymentMethod(
-  organizationId: string,
-  stripeCustomerId: string,
-): Promise<string> {
+async function getOrganizationPaymentMethod(params: {
+  organizationId: string
+  stripeCustomerId: string
+  logger: Logger
+}): Promise<string> {
+  const { organizationId, stripeCustomerId, logger } = params
   const logContext = { organizationId, stripeCustomerId }
 
   // Get payment methods for the organization - include both card and link types
@@ -421,12 +435,15 @@ async function getOrganizationPaymentMethod(
   return paymentMethodToUse
 }
 
-async function processOrgAutoTopupPayment(
-  organizationId: string,
-  userId: string,
-  amountToTopUp: number,
-  stripeCustomerId: string,
-): Promise<void> {
+async function processOrgAutoTopupPayment(params: {
+  organizationId: string
+  userId: string
+  amountToTopUp: number
+  stripeCustomerId: string
+  logger: Logger
+}): Promise<void> {
+  const { organizationId, userId, amountToTopUp, stripeCustomerId, logger } =
+    params
   const logContext = { organizationId, userId, amountToTopUp, stripeCustomerId }
 
   // Generate a deterministic operation ID based on organizationId and current time to minute precision
@@ -442,10 +459,7 @@ async function processOrgAutoTopupPayment(
   }
 
   // Get the payment method to use for this organization
-  const paymentMethodToUse = await getOrganizationPaymentMethod(
-    organizationId,
-    stripeCustomerId,
-  )
+  const paymentMethodToUse = await getOrganizationPaymentMethod(params)
 
   const paymentIntent = await stripeServer.paymentIntents.create(
     {
@@ -492,11 +506,13 @@ async function processOrgAutoTopupPayment(
   )
 }
 
-export async function checkAndTriggerOrgAutoTopup(
-  organizationId: string,
-  userId: string,
-): Promise<void> {
-  const logContext = { organizationId, userId }
+export async function checkAndTriggerOrgAutoTopup(params: {
+  organizationId: string
+  userId: string
+  logger: Logger
+}): Promise<void> {
+  const { organizationId, userId, logger } = params
+  const logContext: any = { organizationId, userId }
 
   try {
     const org = await getOrganizationSettings(organizationId)
@@ -543,12 +559,11 @@ export async function checkAndTriggerOrgAutoTopup(
     )
 
     try {
-      await processOrgAutoTopupPayment(
-        organizationId,
-        userId,
+      await processOrgAutoTopupPayment({
+        ...params,
         amountToTopUp,
-        org.stripe_customer_id,
-      )
+        stripeCustomerId: org.stripe_customer_id,
+      })
     } catch (error) {
       // Auto-topup failures are automatically logged to sync_failures table
       // by the existing error handling in processOrgAutoTopupPayment

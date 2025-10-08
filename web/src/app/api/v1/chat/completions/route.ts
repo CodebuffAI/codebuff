@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const {
       balance: { totalRemaining },
       nextQuotaReset,
-    } = await getUserUsageData(userId)
+    } = await getUserUsageData({ userId, logger })
     if (totalRemaining <= 0) {
       return NextResponse.json(
         {

@@ -187,7 +187,11 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     if (orgLookup.found && orgLookup.organizationId) {
       // Check and trigger organization auto top-up if needed
       try {
-        await checkAndTriggerOrgAutoTopup(orgLookup.organizationId, userId)
+        await checkAndTriggerOrgAutoTopup({
+          organizationId: orgLookup.organizationId,
+          userId,
+          logger,
+        })
       } catch (error) {
         logger.error(
           {
@@ -318,7 +322,7 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
   // Check if we need to trigger auto top-up and get the amount added (if any)
   let autoTopupAdded: number | undefined = undefined
   try {
-    autoTopupAdded = await checkAndTriggerAutoTopup(userId)
+    autoTopupAdded = await checkAndTriggerAutoTopup({ userId, logger })
   } catch (error) {
     logger.error(
       {

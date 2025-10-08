@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { logger } from '@/util/logger'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -15,7 +16,7 @@ export async function GET() {
 
   try {
     // Use the new consolidated usage service
-    const usageData = await getUserUsageData(userId)
+    const usageData = await getUserUsageData({ userId, logger })
 
     return NextResponse.json(usageData)
   } catch (error) {

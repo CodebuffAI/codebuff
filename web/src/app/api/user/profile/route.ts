@@ -35,7 +35,7 @@ export async function GET() {
     }
 
     const { blockedReason: auto_topup_blocked_reason } =
-      await validateAutoTopupStatus(session.user.id)
+      await validateAutoTopupStatus({ userId: session.user.id, logger })
 
     const response: Partial<UserProfile> = {
       handle: user.handle,

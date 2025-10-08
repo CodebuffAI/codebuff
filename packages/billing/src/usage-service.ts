@@ -12,6 +12,7 @@ import {
 } from './org-billing'
 
 import type { CreditBalance } from './balance-calculator'
+import type { Logger } from '@codebuff/types/logger'
 
 export interface UserUsageData {
   usageThisCycle: number
@@ -43,7 +44,11 @@ export interface OrganizationUsageData {
  * Gets comprehensive user usage data including balance, usage, and auto-topup handling.
  * This consolidates logic from web/src/app/api/user/usage/route.ts
  */
-export async function getUserUsageData(userId: string): Promise<UserUsageData> {
+export async function getUserUsageData(params: {
+  userId: string
+  logger: Logger
+}): Promise<UserUsageData> {
+  const { userId, logger } = params
   try {
     const now = new Date()
 
@@ -53,7 +58,7 @@ export async function getUserUsageData(userId: string): Promise<UserUsageData> {
     // Check if we need to trigger auto top-up
     let autoTopupTriggered = false
     try {
-      const topupAmount = await checkAndTriggerAutoTopup(userId)
+      const topupAmount = await checkAndTriggerAutoTopup(params)
       autoTopupTriggered = topupAmount !== undefined
     } catch (error) {
       logger.error(
