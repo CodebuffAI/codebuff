@@ -30,12 +30,11 @@ const definition: SecretAgentDefinition = {
   includeMessageHistory: true,
   toolNames: ['spawn_agents', 'read_files'],
   spawnableAgents: [
-    'read-only-commander',
-    'file-picker',
-    'codebase-explorer',
+    'file-explorer',
+    'find-all-referencer',
     'researcher-web',
     'researcher-docs',
-    'thinker',
+    'read-only-commander',
     'decomposing-thinker',
     'editor',
     'reviewer',
@@ -78,28 +77,29 @@ Continue to spawn layers of agents until have completed the user's request or re
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn 2 file pickers with different prompts to find relevant files; spawn 2 codebase explorers to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs;
+1. Spawn a file explorer with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs;
 1a. Read all the relevant files using the read_files tool.
-2. Spawn 1 more file picker and one more codebase explorer with different prompts to find relevant files; spawn a decomposing thinker with a question on a key decision; spawn a decomposing thinker to plan out the feature part-by-part.
+2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn a decomposing thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part.
 2a. Read all the relevant files using the read_files tool.
 3. Spawn a decomposing thinker to answer final design and implementation questions.
-4. Spawn 2 editors to implement all the changes.
+4. Spawn two editors to implement all the changes.
 5. Spawn a reviewer to review the changes made by the editors.
 
 
 ## Guidelines
 
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents:
-  - Spawn file pickers, codebase explorers, and researchers before thinkers because then the thinkers can use the file/research results to come up with a better conclusions
+  - Spawn file explorers, find-all-referencer, and researchers before thinkers because then the thinkers can use the file/research results to come up with a better conclusions
   - Spawn thinkers before editors so editors can use the insights from the thinkers.
   - Reviewers should be spawned after editors.
+- **Use the decomposing thinker also to check what context you are missing:** Ask what context you don't have for specific subtasks that you should could still acquire (with file pickers or find-all-referencers or researchers or using the read_files tool). Getting more context is one of the most important things you should do before editing or coding anything.
 - **Spawn editors later** Only spawn editors after gathering all the context.
 - **Stop and ask for guidance:** You should feel free to stop and ask the user for guidance if you're stuck or don't know what to try next, or need a clarification.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, running scripts that could alter production environments, installing packages globally, etc). Don't do any of these unless the user explicitly asks you to.
 `,
 
-  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-explorer to get codebase context, the thinker to think about key decisions, and the reviewer to review code changes made by the editor.`,
+  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the decomposing thinker to think about key decisions, and the reviewer to review code changes made by the editor.`,
 
   handleSteps: function* ({ prompt, params }) {
     let steps = 0
