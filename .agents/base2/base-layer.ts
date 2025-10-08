@@ -32,7 +32,7 @@ const definition: SecretAgentDefinition = {
   spawnableAgents: [
     'read-only-commander',
     'file-picker',
-    'code-searcher',
+    'codebase-explorer',
     'researcher-web',
     'researcher-docs',
     'thinker',

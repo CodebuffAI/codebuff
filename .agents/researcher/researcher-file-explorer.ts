@@ -24,7 +24,7 @@ const fileExplorer: SecretAgentDefinition = {
   outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: ['researcher-file-picker'],
+  spawnableAgents: ['file-picker'],
   inputSchema: {
     prompt: {
       type: 'string',
@@ -47,7 +47,7 @@ const fileExplorer: SecretAgentDefinition = {
         toolName: 'spawn_agents',
         input: {
           agents: filePickerPrompts.map((promptText) => ({
-            agent_type: 'researcher-file-picker',
+            agent_type: 'file-picker',
             prompt: promptText,
           })),
         },
