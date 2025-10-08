@@ -56,6 +56,19 @@ To get started building your own agents, run:
 codebuff init-agents
 ```
 
+> 💡 **Tip**: This command creates a comprehensive agent development guide at `.agents/README.md` (293 lines) with detailed documentation, complete examples, and full TypeScript type definitions. Start there for complete guidance.
+
+This creates:
+```
+.agents/
+├── README.md              # Comprehensive 293-line agent guide
+├── my-custom-agent.ts     # Working agent template to edit
+├── package.json           # NPM package configuration
+├── LICENSE                # Apache-2.0 license for publishing
+├── examples/              # 3 example agents (basic → advanced)
+└── types/                 # Complete TypeScript definitions
+```
+
 You can write agent definition files that give you maximum control over agent behavior.
 
 Implement your workflows by specifying tools, which agents can be spawned, and prompts. We even have TypeScript generators for more programmatic control.
