@@ -540,7 +540,7 @@ const completionMessages = [
   'Done! All updates have been applied.',
 ]
 
-export const App = () => {
+export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const renderer = useRenderer()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<InputRenderable | null>(null)
@@ -592,6 +592,10 @@ export const App = () => {
       timestamp: formatTimestamp(),
     },
   ])
+
+  const completionCallbackRef = useRef<(() => void) | null>(null)
+  const hasAutoSubmittedRef = useRef(false)
+  const activeSubagentsRef = useRef<Set<string>>(new Set())
 
   const handleInputRef = useCallback((instance: InputRenderable | null) => {
     inputRef.current = instance
@@ -757,8 +761,11 @@ export const App = () => {
     return undefined
   }, [messages, scrollToLatest])
 
-  const sendMessage: (content: string) => void = useCallback(
-    (content: string) => {
+  const sendMessage: (content: string, onComplete?: () => void) => void = useCallback(
+    (content: string, onComplete?: () => void) => {
+      if (onComplete) {
+        completionCallbackRef.current = onComplete
+      }
       const timestamp = formatTimestamp()
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -862,7 +869,11 @@ export const App = () => {
           agent: 'base',
           prompt: content,
           handleStreamChunk: (chunk: any) => {
-            logger.info('handleStreamChunk received', { chunk })
+            const isSubagentChunk = activeSubagentsRef.current.size > 0
+            
+            if (isSubagentChunk) {
+              logger.info('Subagent chunk received', { chunk })
+            }
 
             const keys = Object.keys(chunk)
               .filter((k) => !isNaN(Number(k)))
@@ -888,12 +899,30 @@ export const App = () => {
           handleEvent: (event: any) => {
             logger.info('SDK Event received', { type: event.type, event })
 
+            if (event.type === 'subagent-chunk') {
+              logger.info('Subagent chunk received', {
+                agentId: event.agentId,
+                agentType: event.agentType,
+                chunk: event.chunk,
+              })
+            }
+
             if (event.type === 'finish' && event.totalCost !== undefined) {
               actualCredits = event.totalCost
             }
 
             if (event.credits !== undefined) {
               actualCredits = event.credits
+            }
+
+            if (event.type === 'subagent_start' || event.type === 'subagent-start') {
+              if (event.agentId) {
+                activeSubagentsRef.current.add(event.agentId)
+              }
+            } else if (event.type === 'subagent_finish' || event.type === 'subagent-finish') {
+              if (event.agentId) {
+                activeSubagentsRef.current.delete(event.agentId)
+              }
             }
 
             if (event.type === 'tool_call' && event.toolCallId) {
@@ -970,6 +999,12 @@ export const App = () => {
             ...(actualCredits !== undefined && { credits: actualCredits }),
           }
           setMessages((prev) => [...prev, completionMessage])
+
+          if (completionCallbackRef.current) {
+            const callback = completionCallbackRef.current
+            completionCallbackRef.current = null
+            callback()
+          }
         })
         .catch((error) => {
           logger.error('SDK client.run() failed', error)
@@ -1000,10 +1035,70 @@ export const App = () => {
             isCompletion: true,
           }
           setMessages((prev) => [...prev, errorCompletionMessage])
+
+          if (completionCallbackRef.current) {
+            const callback = completionCallbackRef.current
+            completionCallbackRef.current = null
+            callback()
+          }
         })
     },
     [],
   )
+
+  useEffect(() => {
+    if (initialPrompt && !hasAutoSubmittedRef.current) {
+      hasAutoSubmittedRef.current = true
+      
+      const timeout = setTimeout(() => {
+        logger.info('Auto-submitting initial prompt', { prompt: initialPrompt })
+        
+        const handleCompletion = () => {
+          logger.info('Initial prompt completed, reading log file')
+          
+          setTimeout(() => {
+            if (renderer) {
+              renderer.destroy()
+            }
+            
+            setTimeout(() => {
+              try {
+                const fs = require('fs')
+                const path = require('path')
+                const logPath = path.join(process.cwd(), 'debug', 'cli.log')
+                
+                if (fs.existsSync(logPath)) {
+                  const logContents = fs.readFileSync(logPath, 'utf8')
+                  process.stdout.write('\n=== Debug Log Contents ===\n\n')
+                  process.stdout.write(logContents)
+                  process.stdout.write('\n\n=== End of Debug Log ===\n\n')
+                } else {
+                  process.stdout.write('Log file not found at: ' + logPath + '\n')
+                }
+              } catch (error) {
+                process.stdout.write('Error reading log file: ' + String(error) + '\n')
+              }
+              
+              process.exit(0)
+            }, 100)
+          }, 500)
+        }
+        
+        const timeoutId = setTimeout(() => {
+          logger.warn('2-minute timeout reached, exiting')
+          handleCompletion()
+        }, 120000)
+        
+        sendMessage(initialPrompt, () => {
+          clearTimeout(timeoutId)
+          handleCompletion()
+        })
+      }, 100)
+      
+      return () => clearTimeout(timeout)
+    }
+    return undefined
+  }, [initialPrompt, sendMessage])
 
   useEffect(() => {
     if (!canProcessQueue) return
@@ -1825,5 +1920,3 @@ export const App = () => {
     </box>
   )
 }
-
-render(<App />)

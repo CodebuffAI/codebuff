@@ -113,7 +113,6 @@ export async function run({
     resolve = res
   })
 
-  // TODO: bad pattern, switch to using SSE and move off of websockets
   let insideToolCall = false
   let buffer = ''
   const BUFFER_SIZE = 100
@@ -181,7 +180,22 @@ export async function run({
         await handleEvent?.(chunk)
       }
     },
-    onSubagentResponseChunk: async () => {},
+    onSubagentResponseChunk: async (action) => {
+      const { agentId, agentType, chunk } = action
+
+      if (handleEvent) {
+        await handleEvent({
+          type: 'subagent-chunk',
+          agentId,
+          agentType,
+          chunk,
+        } as any)
+      }
+
+      if (handleStreamChunk) {
+        await handleStreamChunk(chunk)
+      }
+    },
 
     onPromptResponse: (action) =>
       handlePromptResponse({
@@ -421,6 +435,7 @@ async function handlePromptResponse({
       return
     }
     const { sessionState, output } = action
+
     const state: RunState = {
       sessionState,
       output: output ?? {
