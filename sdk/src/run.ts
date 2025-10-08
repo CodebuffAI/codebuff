@@ -73,6 +73,7 @@ export type RunOptions = {
   params?: Record<string, any>
   previousRun?: RunState
   extraToolResults?: ToolResultPart[]
+  signal?: AbortSignal
 }
 
 type RunReturnType = Awaited<ReturnType<typeof run>>
@@ -97,14 +98,24 @@ export async function run({
   params,
   previousRun,
   extraToolResults,
+  signal,
 }: RunOptions &
   CodebuffClientOptions & {
     apiKey: string
     fingerprintId: string
   }): Promise<RunState> {
+  checkAborted(signal)
   async function onError(error: { message: string }) {
     if (handleEvent) {
       await handleEvent({ type: 'error', message: error.message })
+    }
+  }
+
+  function checkAborted(signal?: AbortSignal) {
+    if (signal?.aborted) {
+      const error = new Error('Run cancelled by user')
+      error.name = 'AbortError'
+      throw error
     }
   }
 
@@ -147,6 +158,7 @@ export async function run({
     onCostResponse: async () => {},
 
     onResponseChunk: async (action) => {
+      checkAborted(signal)
       const { userInputId, chunk } = action
       if (typeof chunk === 'string') {
         buffer += chunk
@@ -181,6 +193,7 @@ export async function run({
       }
     },
     onSubagentResponseChunk: async (action) => {
+      checkAborted(signal)
       const { agentId, agentType, chunk } = action
 
       if (handleEvent) {
@@ -249,6 +262,7 @@ export async function run({
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
+  checkAborted(signal)
   await websocketHandler.connect()
 
   websocketHandler.sendInput({

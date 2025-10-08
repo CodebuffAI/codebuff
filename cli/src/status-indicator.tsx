@@ -15,9 +15,11 @@ const THINKING_SHIMMER_COLORS = [
 export const StatusIndicator = ({
   isProcessing,
   theme,
+  clipboardMessage,
 }: {
   isProcessing: boolean
   theme: ChatTheme
+  clipboardMessage?: string | null
 }) => {
   const [isConnected, setIsConnected] = useState<boolean | null>(null)
 
@@ -44,6 +46,10 @@ export const StatusIndicator = ({
     return () => clearInterval(interval)
   }, [])
 
+  if (clipboardMessage) {
+    return <span fg={theme.statusAccent}>{clipboardMessage}</span>
+  }
+
   const hasStatus = isConnected === false || isProcessing
 
   if (!hasStatus) {
@@ -61,7 +67,10 @@ export const StatusIndicator = ({
   return null
 }
 
-export const useHasStatus = (isProcessing: boolean): boolean => {
+export const useHasStatus = (
+  isProcessing: boolean,
+  clipboardMessage?: string | null,
+): boolean => {
   const [isConnected, setIsConnected] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -87,5 +96,5 @@ export const useHasStatus = (isProcessing: boolean): boolean => {
     return () => clearInterval(interval)
   }, [])
 
-  return isConnected === false || isProcessing
+  return isConnected === false || isProcessing || !!clipboardMessage
 }

@@ -27,6 +27,7 @@ import {
   formatToolOutput,
 } from './codebuff-client'
 import type { ToolName } from '@codebuff/sdk'
+
 import { logger } from './logger'
 import { ShimmerText } from './shimmer-text'
 
@@ -44,15 +45,28 @@ type AgentMessage = {
   subAgentCount?: number
 }
 
+type ContentBlock =
+  | { type: 'text'; content: string }
+  | {
+      type: 'tool'
+      toolCallId: string
+      toolName: ToolName
+      input: any
+      output?: string
+    }
+
 type ChatMessage = {
   id: string
   variant: ChatVariant
   content: string
+  blocks?: ContentBlock[]
   timestamp: string
   parentId?: string
   agent?: AgentMessage
   isCompletion?: boolean
   credits?: number
+  completionTime?: string
+  isComplete?: boolean
 }
 
 type MarkdownHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
@@ -568,7 +582,9 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const [canProcessQueue, setCanProcessQueue] = useState<boolean>(true)
   const [isWaitingForResponse, setIsWaitingForResponse] =
     useState<boolean>(false)
-  const hasStatus = useHasStatus(isWaitingForResponse)
+  const [clipboardMessage, setClipboardMessage] = useState<string | null>(null)
+  const clipboardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasStatus = useHasStatus(isWaitingForResponse, clipboardMessage)
   const queuedMessagesRef = useRef<string[]>([])
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -626,8 +642,65 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   useEffect(() => {
     return () => {
       clearStreaming()
+      if (clipboardTimeoutRef.current) {
+        clearTimeout(clipboardTimeoutRef.current)
+      }
     }
   }, [clearStreaming])
+
+  const copyToClipboard = useCallback(async (text: string) => {
+    if (!text || text.trim().length === 0) return
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(text)
+      } else if (typeof process !== 'undefined' && process.platform) {
+        const { execSync } = require('child_process')
+        if (process.platform === 'darwin') {
+          execSync('pbcopy', { input: text })
+        } else if (process.platform === 'linux') {
+          try {
+            execSync('xclip -selection clipboard', { input: text })
+          } catch {
+            execSync('xsel --clipboard --input', { input: text })
+          }
+        } else if (process.platform === 'win32') {
+          execSync('clip', { input: text })
+        }
+      } else {
+        return
+      }
+
+      if (clipboardTimeoutRef.current) {
+        clearTimeout(clipboardTimeoutRef.current)
+      }
+
+      setClipboardMessage('Copied to clipboard')
+      clipboardTimeoutRef.current = setTimeout(() => {
+        setClipboardMessage(null)
+        clipboardTimeoutRef.current = null
+      }, 3000)
+    } catch (error) {
+      logger.error('Failed to copy to clipboard', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleSelection = () => {
+      const selection = (renderer as any)?.getSelection?.()
+      if (selection && selection.length > 0) {
+        void copyToClipboard(selection)
+      }
+    }
+
+    if (renderer) {
+      renderer.on?.('selectionchange', handleSelection)
+      return () => {
+        renderer.off?.('selectionchange', handleSelection)
+      }
+    }
+    return undefined
+  }, [renderer, copyToClipboard])
 
 
 
@@ -744,8 +817,10 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     return undefined
   }, [messages, scrollToLatest])
 
-  const sendMessage: (content: string, onComplete?: () => void) => void =
-    useCallback((content: string, onComplete?: () => void) => {
+  const previousRunStateRef = useRef<any>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const sendMessage = useCallback(async (content: string, onComplete?: () => void) => {
       if (onComplete) {
         completionCallbackRef.current = onComplete
       }
@@ -833,6 +908,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
         id: aiMessageId,
         variant: 'ai',
         content: '',
+        blocks: [],
         timestamp: formatTimestamp(),
       }
 
@@ -843,14 +919,20 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       setCanProcessQueue(false)
       isChainInProgressRef.current = true
 
-      const activeTools = new Map<string, { agentId: string; toolName: ToolName }>()
+      const startTime = Date.now()
       let hasReceivedContent = false
       let actualCredits: number | undefined = undefined
 
-      void client
-        .run({
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
+
+      try {
+        const result = await client.run({
           agent: 'base',
           prompt: content,
+          previousRun: previousRunStateRef.current,
+          signal: abortController.signal,
+
           handleStreamChunk: (chunk: any) => {
             const isSubagentChunk = activeSubagentsRef.current.size > 0
 
@@ -868,12 +950,27 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
             if (!hasReceivedContent) {
               hasReceivedContent = true
               setIsWaitingForResponse(false)
-            }
-
-            setMessages((prev) =>
+            }            setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.id === aiMessageId) {
-                  return { ...msg, content: msg.content + text }
+                  const blocks = msg.blocks || []
+                  const lastBlock = blocks[blocks.length - 1]
+                  
+                  if (lastBlock && lastBlock.type === 'text') {
+                    const newContent = lastBlock.content + text
+                    return {
+                      ...msg,
+                      blocks: [
+                        ...blocks.slice(0, -1),
+                        { type: 'text', content: newContent },
+                      ],
+                    }
+                  } else {
+                    return {
+                      ...msg,
+                      blocks: [...blocks, { type: 'text', content: text }],
+                    }
+                  }
                 }
                 return msg
               }),
@@ -922,106 +1019,138 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
                 return
               }
 
-              const displayInfo = getToolDisplayInfo(toolName)
-              const agentId = `agent-${toolCallId}`
+              setMessages((prev) =>
+                prev.map((msg) => {
+                  if (msg.id === aiMessageId) {
+                    const blocks = msg.blocks || []
+                    return {
+                      ...msg,
+                      blocks: [
+                        ...blocks,
+                        { type: 'tool', toolCallId, toolName, input },
+                      ],
+                    }
+                  }
+                  return msg
+                }),
+              )
 
-              activeTools.set(toolCallId, { agentId, toolName })
-
-              const agentMessage: ChatMessage = {
-                id: agentId,
-                variant: 'agent',
-                content: `\`\`\`json\n${JSON.stringify(input, null, 2)}\n\`\`\``,
-                timestamp: formatTimestamp(),
-                parentId: aiMessageId,
-                agent: {
-                  agentName: displayInfo.name,
-                  agentType: displayInfo.type,
-                  responseCount: 1,
-                },
-              }
-
-              setMessages((prev) => [...prev, agentMessage])
-              setStreamingAgents((prev) => new Set(prev).add(agentId))
-              setCollapsedAgents((prev) => new Set(prev).add(agentId))
+              setStreamingAgents((prev) => new Set(prev).add(toolCallId))
+              setCollapsedAgents((prev) => new Set(prev).add(toolCallId))
             } else if (event.type === 'tool_result' && event.toolCallId) {
-              const toolInfo = activeTools.get(event.toolCallId)
-              if (!toolInfo) return
-
-              const { agentId, toolName } = toolInfo
-
-              let output: string
-              if (event.error) {
-                output = `**Error:** ${typeof event.error === 'string' ? event.error : JSON.stringify(event.error)}`
-              } else if (toolName === 'run_terminal_command') {
-                const parsed = event.output?.[0]?.value
-                if (parsed?.stdout || parsed?.stderr) {
-                  output = (parsed.stdout || '') + (parsed.stderr || '')
-                } else {
-                  output = formatToolOutput(event.output)
-                }
-              } else {
-                output = formatToolOutput(event.output)
-              }
-
-              const codeBlockLang = toolName === 'run_terminal_command' ? '' : 'yaml'
+              const { toolCallId } = event
 
               setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === agentId
-                    ? {
-                        ...msg,
-                        content: `${msg.content}\n\n**Result:**\n\`\`\`${codeBlockLang}\n${output}\n\`\`\``,
+                prev.map((msg) => {
+                  if (msg.id === aiMessageId && msg.blocks) {
+                    const blocks = msg.blocks.map((block) => {
+                      if (
+                        block.type === 'tool' &&
+                        block.toolCallId === toolCallId
+                      ) {
+                        let output: string
+                        if (event.error) {
+                          output = `**Error:** ${typeof event.error === 'string' ? event.error : JSON.stringify(event.error)}`
+                        } else if (block.toolName === 'run_terminal_command') {
+                          const parsed = event.output?.[0]?.value
+                          if (parsed?.stdout || parsed?.stderr) {
+                            output = (parsed.stdout || '') + (parsed.stderr || '')
+                          } else {
+                            output = formatToolOutput(event.output)
+                          }
+                        } else {
+                          output = formatToolOutput(event.output)
+                        }
+                        return { ...block, output }
                       }
-                    : msg,
-                ),
+                      return block
+                    })
+                    return { ...msg, blocks }
+                  }
+                  return msg
+                }),
               )
 
               setStreamingAgents((prev) => {
                 const next = new Set(prev)
-                next.delete(agentId)
+                next.delete(toolCallId)
                 return next
               })
             }
           },
         })
-        .then((result) => {
-          logger.info('SDK client.run() completed successfully', {
-            credits: actualCredits,
-          })
-          activeTools.clear()
-          setIsStreaming(false)
-          setCanProcessQueue(true)
-          isChainInProgressRef.current = false
-          setIsWaitingForResponse(false)
 
-          if ((result as any)?.credits !== undefined) {
-            actualCredits = (result as any).credits
-          }
-
-          const completionMessage: ChatMessage = {
-            id: `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            variant: 'ai',
-            content: 'Complete! Type "diff" to review changes.',
-            timestamp: formatTimestamp(),
-            isCompletion: true,
-            ...(actualCredits !== undefined && { credits: actualCredits }),
-          }
-          setMessages((prev) => [...prev, completionMessage])
-
-          if (completionCallbackRef.current) {
-            const callback = completionCallbackRef.current
-            completionCallbackRef.current = null
-            callback()
-          }
+        logger.info('SDK client.run() completed successfully', {
+          credits: actualCredits,
         })
-        .catch((error) => {
-          logger.error('SDK client.run() failed', error)
-          activeTools.clear()
-          setIsStreaming(false)
-          setCanProcessQueue(true)
-          isChainInProgressRef.current = false
-          setIsWaitingForResponse(false)
+        setIsStreaming(false)
+        setCanProcessQueue(true)
+        isChainInProgressRef.current = false
+        setIsWaitingForResponse(false)
 
+        if ((result as any)?.credits !== undefined) {
+          actualCredits = (result as any).credits
+        }
+
+        const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1)
+        
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMessageId
+              ? {
+                  ...msg,
+                  isComplete: true,
+                  completionTime: `${elapsedTime}s`,
+                  ...(actualCredits !== undefined && { credits: actualCredits }),
+                }
+              : msg,
+          ),
+        )
+
+        previousRunStateRef.current = result
+
+        if (completionCallbackRef.current) {
+          const callback = completionCallbackRef.current
+          completionCallbackRef.current = null
+          callback()
+        }
+      } catch (error) {
+        const isAborted = error instanceof Error && error.name === 'AbortError'
+
+        logger.error('SDK client.run() failed', error)
+        setIsStreaming(false)
+        setCanProcessQueue(true)
+        isChainInProgressRef.current = false
+        setIsWaitingForResponse(false)
+
+        if (isAborted) {
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === aiMessageId) {
+                const blocks = msg.blocks || []
+                const lastBlock = blocks[blocks.length - 1]
+                
+                if (lastBlock && lastBlock.type === 'text') {
+                  return {
+                    ...msg,
+                    blocks: [
+                      ...blocks.slice(0, -1),
+                      { type: 'text', content: lastBlock.content + '\n\n[response interrupted]' },
+                    ],
+                    isComplete: true,
+                  }
+                } else {
+                  return {
+                    ...msg,
+                    blocks: [...blocks, { type: 'text', content: '[response interrupted]' }],
+                    isComplete: true,
+                  }
+                }
+              }
+              return msg
+            }),
+          )
+        } else {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error occurred'
           setMessages((prev) =>
@@ -1035,21 +1164,21 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
             ),
           )
 
-          const errorCompletionMessage: ChatMessage = {
-            id: `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            variant: 'ai',
-            content: 'Task failed. Please try again.',
-            timestamp: formatTimestamp(),
-            isCompletion: true,
-          }
-          setMessages((prev) => [...prev, errorCompletionMessage])
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? { ...msg, isComplete: true }
+                : msg,
+            ),
+          )
+        }
 
-          if (completionCallbackRef.current) {
-            const callback = completionCallbackRef.current
-            completionCallbackRef.current = null
-            callback()
-          }
-        })
+        if (completionCallbackRef.current) {
+          const callback = completionCallbackRef.current
+          completionCallbackRef.current = null
+          callback()
+        }
+      }
     }, [])
 
   useEffect(() => {
@@ -1169,6 +1298,29 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
         }
       },
       [handleThemeToggle],
+    ),
+  )
+
+  useKeyboard(
+    useCallback(
+      (key) => {
+        const isEscape = key.name === 'escape'
+        const isCtrlC = key.ctrl && key.name === 'c'
+
+        if ((isEscape || isCtrlC) && (isStreaming || isWaitingForResponse)) {
+          if (
+            'preventDefault' in key &&
+            typeof key.preventDefault === 'function'
+          ) {
+            key.preventDefault()
+          }
+
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+          }
+        }
+      },
+      [isStreaming, isWaitingForResponse],
     ),
   )
 
@@ -1627,6 +1779,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       depth = 0,
       isLastSibling = false,
       ancestorBranches: boolean[] = [],
+      isLastMessage = false,
     ): ReactNode => {
       const isAgent = message.variant === 'agent'
 
@@ -1654,19 +1807,11 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       }
       const markdownOptions = { codeBlockWidth, palette: paletteForMessage }
 
-      const isLoading = isAi && message.content === '' && isWaitingForResponse
-      const renderedContent = isLoading
-        ? ''
-        : isAi
-          ? renderStreamingMarkdown(message.content, markdownOptions)
-          : hasMarkdown(message.content)
-            ? renderMarkdown(message.content, markdownOptions)
-            : message.content
+      const isLoading = isAi && message.content === '' && !message.blocks && isWaitingForResponse
 
       const agentChildren = messageTree.get(message.id) ?? []
-
       const hasAgentChildren = agentChildren.length > 0
-      const showVerticalLine = isUser
+      const showVerticalLine = isUser || isAi
 
       return (
         <box
@@ -1675,7 +1820,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
             width: '100%',
             flexDirection: 'column',
             gap: 0,
-            marginBottom: 1,
+            marginBottom: isLastMessage ? 0 : 1,
           }}
         >
           <box
@@ -1684,7 +1829,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
               flexDirection: 'row',
             }}
           >
-            {showVerticalLine ? (
+            {
               <box
                 style={{
                   flexDirection: 'row',
@@ -1716,7 +1861,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
                     justifyContent: 'center',
                   }}
                 >
-                  {(isCompletion || isUser) && (
+                  {isUser && (
                     <text
                       wrap={false}
                       attributes={TextAttributes.DIM}
@@ -1728,69 +1873,196 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
                       }}
                     >
                       {`[${message.timestamp}]`}
-                      {isCompletion && message.credits && (
-                        <span
-                          fg={theme.statusAccent}
-                        >{` • ${message.credits} credits used`}</span>
-                      )}
                     </text>
                   )}
-                  <text
-                    key={`message-content-${message.id}`}
-                    wrap
-                    style={{
-                      fg: textColor,
-                    }}
-                  >
-                    {renderedContent}
-                  </text>
+                  {message.blocks ? (
+                    <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+                      {message.blocks.map((block, idx) => {
+                        if (block.type === 'text') {
+                          const trimmedContent = block.content.trim()
+                          const renderedContent = hasMarkdown(trimmedContent)
+                            ? renderStreamingMarkdown(trimmedContent, markdownOptions)
+                            : trimmedContent
+                          const prevBlock = idx > 0 ? message.blocks![idx - 1] : null
+                          const marginTop = prevBlock && prevBlock.type === 'tool' ? 0 : 0
+                          return (
+                            <text
+                              key={`${message.id}-text-${idx}`}
+                              wrap
+                              style={{ fg: textColor, marginTop }}
+                            >
+                            {renderedContent}
+                          </text>
+                        )
+                      } else {
+                          const displayInfo = getToolDisplayInfo(block.toolName)
+                          const isCollapsed = collapsedAgents.has(block.toolCallId)
+                          const isStreaming = streamingAgents.has(block.toolCallId)
+                          
+                          const inputContent = `\`\`\`json\n${JSON.stringify(block.input, null, 2)}\n\`\`\``
+                          const codeBlockLang = block.toolName === 'run_terminal_command' ? '' : 'yaml'
+                          const resultContent = block.output
+                            ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${block.output}\n\`\`\``
+                            : ''
+                          const fullContent = inputContent + resultContent
+                          
+                          const lines = fullContent.split('\n').filter((line) => line.trim())
+                          const firstLine = lines[0] || ''
+                          const lastLine = lines[lines.length - 1] || firstLine
+                          
+                        const streamingPreview = isStreaming
+                          ? firstLine.replace(/[#*_`~\[\]()]/g, '').trim() + '...'
+                          : ''
+                        
+                        let finishedPreview = ''
+                        if (!isStreaming && isCollapsed) {
+                          if (block.toolName === 'run_terminal_command' && block.output) {
+                            const outputLines = block.output.split('\n').filter(line => line.trim())
+                            const lastThreeLines = outputLines.slice(-3)
+                            const hasMoreLines = outputLines.length > 3
+                            finishedPreview = hasMoreLines 
+                              ? '...\n' + lastThreeLines.join('\n')
+                              : lastThreeLines.join('\n')
+                          } else {
+                            finishedPreview = lastLine.replace(/[#*_`~\[\]()]/g, '').trim()
+                          }
+                        }
+                          
+                          const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
+                          const agentPalette: MarkdownPalette = {
+                            ...markdownPalette,
+                            inlineCodeFg: theme.agentText,
+                            codeTextFg: theme.agentText,
+                          }
+                          const agentMarkdownOptions = {
+                            codeBlockWidth: agentCodeBlockWidth,
+                            palette: agentPalette,
+                          }
+                          const displayContent = hasMarkdown(fullContent)
+                            ? renderMarkdown(fullContent, agentMarkdownOptions)
+                            : fullContent
+                          
+                          const nextBlock = message.blocks![idx + 1]
+                          const isLastTool = !nextBlock || nextBlock.type === 'text'
+                          const branchChar = isLastTool ? '└─ ' : '├─ '
+                          
+                          return (
+                            <box
+                              key={`${message.id}-tool-${block.toolCallId}`}
+                              style={{ flexDirection: 'row', flexShrink: 0 }}
+                            >
+                              <text wrap={false}>
+                                <span fg={theme.agentPrefix}>{branchChar}</span>
+                              </text>
+                              <box
+                                style={{
+                                  flexDirection: 'column',
+                                  gap: 0,
+                                  flexShrink: 1,
+                                  flexGrow: 1,
+                                }}
+                              >
+                                <box
+                                  style={{
+                                    flexDirection: 'row',
+                                    alignSelf: 'flex-start',
+                                    backgroundColor: isCollapsed
+                                      ? theme.agentResponseCount
+                                      : theme.agentPrefix,
+                                    paddingLeft: 1,
+                                    paddingRight: 1,
+                                  }}
+                                  onMouseDown={() => {
+                                    setCollapsedAgents((prev) => {
+                                      const next = new Set(prev)
+                                      if (next.has(block.toolCallId)) {
+                                        next.delete(block.toolCallId)
+                                      } else {
+                                        next.add(block.toolCallId)
+                                      }
+                                      return next
+                                    })
+                                  }}
+                                >
+                                  <text wrap={false}>
+                                    <span fg={theme.agentToggleText}>
+                                      {isCollapsed ? '▸' : '▾'}{' '}
+                                    </span>
+                                  </text>
+                                  <box style={{ flexShrink: 1 }}>
+                                    <text wrap>
+                                      <span
+                                        fg={theme.agentToggleText}
+                                        attributes={TextAttributes.BOLD}
+                                      >
+                                        {displayInfo.name}
+                                      </span>
+                                    </text>
+                                  </box>
+                                </box>
+                                <box style={{ flexShrink: 1, marginBottom: 0 }}>
+                                  {isStreaming && isCollapsed && streamingPreview && (
+                                    <text
+                                      wrap
+                                      fg={theme.agentText}
+                                      attributes={TextAttributes.ITALIC}
+                                    >
+                                      {streamingPreview}
+                                    </text>
+                                  )}
+                                  {!isStreaming && isCollapsed && finishedPreview && (
+                                    <text
+                                      wrap
+                                      fg={theme.agentResponseCount}
+                                      attributes={TextAttributes.ITALIC}
+                                    >
+                                      {finishedPreview}
+                                    </text>
+                                  )}
+                                  {!isCollapsed && (
+                                    <text
+                                      wrap
+                                      fg={theme.agentContentText}
+                                    >
+                                      {displayContent}
+                                    </text>
+                                  )}
+                                </box>
+                              </box>
+                            </box>
+                          )
+                        }
+                      })}
+                    </box>
+                  ) : (
+                    <text
+                      key={`message-content-${message.id}`}
+                      wrap
+                      style={{ fg: textColor }}
+                    >
+                      {isLoading ? '' : hasMarkdown(message.content)
+                        ? renderStreamingMarkdown(message.content, markdownOptions)
+                        : message.content}
+                    </text>
+                  )}
+                  {isAi && message.isComplete && (message.completionTime || message.credits) && (
+                    <text
+                      wrap={false}
+                      attributes={TextAttributes.DIM}
+                      style={{
+                        fg: theme.statusSecondary,
+                        marginTop: 0,
+                        marginBottom: 0,
+                        alignSelf: 'flex-start',
+                      }}
+                    >
+                      {message.completionTime}
+                      {message.credits && ` • ${message.credits} credits`}
+                    </text>
+                  )}
                 </box>
               </box>
-            ) : (
-              <box
-                style={{
-                  backgroundColor: theme.messageBg,
-                  padding: 0,
-                  paddingLeft: 0,
-                  paddingRight: 0,
-                  paddingTop: 0,
-                  paddingBottom: 0,
-                  gap: 0,
-                  width: '100%',
-                  flexGrow: 1,
-                  justifyContent: 'center',
-                }}
-              >
-                {(isCompletion || isUser) && (
-                  <text
-                    wrap={false}
-                    attributes={TextAttributes.DIM}
-                    style={{
-                      fg: timestampColor,
-                      marginTop: 0,
-                      marginBottom: 0,
-                      alignSelf: 'flex-start',
-                    }}
-                  >
-                    {`[${message.timestamp}]`}
-                    {isCompletion && message.credits && (
-                      <span
-                        fg={theme.statusAccent}
-                      >{` • ${message.credits} credits used`}</span>
-                    )}
-                  </text>
-                )}
-                <text
-                  key={`message-content-ai-${message.id}`}
-                  wrap
-                  style={{
-                    fg: textColor,
-                  }}
-                >
-                  {renderedContent}
-                </text>
-              </box>
-            )}
+            }
           </box>
 
           {hasAgentChildren && (
@@ -1810,7 +2082,10 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       )
     }
 
-    return topLevelMessages.map((message) => renderMessageWithAgents(message))
+    return topLevelMessages.map((message, idx) => {
+      const isLast = idx === topLevelMessages.length - 1
+      return renderMessageWithAgents(message, 0, false, [], isLast)
+    })
   }, [
     messages,
     renderer?.width,
@@ -1916,6 +2191,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
                     <StatusIndicator
                       isProcessing={isWaitingForResponse}
                       theme={theme}
+                      clipboardMessage={clipboardMessage}
                     />
                   </text>
                 </box>
