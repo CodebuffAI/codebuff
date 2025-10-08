@@ -14,8 +14,9 @@ import { closeXml } from '@codebuff/common/util/xml'
 
 import { rerank } from '../llm-apis/relace-api'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import { logger } from '../util/logger'
 import { messagesWithSystem } from '../util/messages'
+
+import type { Logger } from '@codebuff/types/logger'
 
 import type { System } from '../llm-apis/claude'
 import type {
@@ -30,7 +31,12 @@ import type { Request, Response } from 'express'
 
 // --- GET Handler Logic ---
 
-export async function getTracesForUserHandler(req: Request, res: Response) {
+export async function getTracesForUserHandler(params: {
+  req: Request
+  res: Response
+  logger: Logger
+}) {
+  const { req, res, logger } = params
   try {
     // Extract userId from the query parameters
     const userId = req.query.userId as string
@@ -124,7 +130,12 @@ const modelsToRelabel = [
   finetunedVertexModels.ft_filepicker_topk_002,
 ] as const
 
-export async function relabelForUserHandler(req: Request, res: Response) {
+export async function relabelForUserHandler(params: {
+  req: Request
+  res: Response
+  logger: Logger
+}) {
+  const { req, res, logger } = params
   try {
     // Extract userId from the URL query params
     const userId = req.query.userId as string
@@ -140,7 +151,7 @@ export async function relabelForUserHandler(req: Request, res: Response) {
 
     const allResults = []
 
-    const relaceResults = relabelUsingFullFilesForUser({ userId, limit })
+    const relaceResults = relabelUsingFullFilesForUser({ userId, limit, logger })
 
     // Process each model
     for (const model of modelsToRelabel) {
@@ -253,8 +264,9 @@ export async function relabelForUserHandler(req: Request, res: Response) {
 async function relabelUsingFullFilesForUser(params: {
   userId: string
   limit: number
+  logger: Logger
 }) {
-  const { userId, limit } = params
+  const { userId, limit, logger } = params
   // TODO: We need to figure out changing _everything_ to use `getTracesAndAllDataForUser`
   const tracesBundles = await getTracesAndAllDataForUser(userId)
 
@@ -278,7 +290,7 @@ async function relabelUsingFullFilesForUser(params: {
     }
 
     if (!traceBundle.relabels.some((r) => r.model === 'relace-ranker')) {
-      relabelPromises.push(relabelWithRelace({ trace, fileBlobs }))
+      relabelPromises.push(relabelWithRelace({ trace, fileBlobs, logger }))
       didRelabel = true
     }
     for (const model of [
@@ -291,7 +303,7 @@ async function relabelUsingFullFilesForUser(params: {
         )
       ) {
         relabelPromises.push(
-          relabelWithClaudeWithFullFileContext({ trace, fileBlobs, model }),
+          relabelWithClaudeWithFullFileContext({ trace, fileBlobs, model, logger }),
         )
         didRelabel = true
       }
@@ -315,8 +327,9 @@ async function relabelUsingFullFilesForUser(params: {
 async function relabelWithRelace(params: {
   trace: GetRelevantFilesTrace
   fileBlobs: GetExpandedFileContextForTrainingBlobTrace
+  logger: Logger
 }) {
-  const { trace, fileBlobs } = params
+  const { trace, fileBlobs, logger } = params
   logger.info(`Relabeling ${trace.id} with Relace`)
   const messages = trace.payload.messages || []
   const queryBody =
@@ -367,8 +380,9 @@ export async function relabelWithClaudeWithFullFileContext(params: {
   fileBlobs: GetExpandedFileContextForTrainingBlobTrace
   model: string
   dataset?: string
+  logger: Logger
 }) {
-  const { trace, fileBlobs, model, dataset } = params
+  const { trace, fileBlobs, model, dataset, logger } = params
   if (dataset) {
     await setupBigQuery({ dataset, logger })
   }
