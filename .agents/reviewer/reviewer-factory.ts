@@ -1,11 +1,11 @@
-import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/old-constants'
 
 export const reviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
   model,
-  displayName: AGENT_PERSONAS.reviewer.displayName,
-  spawnerPrompt: AGENT_PERSONAS.reviewer.purpose,
+  displayName: 'Nit Pick Nick',
+  spawnerPrompt:
+    'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase; otherwise, no need to use this agent for minor changes since it takes a second.',
   inputSchema: {
     prompt: {
       type: 'string',

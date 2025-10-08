@@ -175,8 +175,8 @@ export async function getAgentPrompt<T extends StringField>({
   let addendum = ''
 
   if (promptType.type === 'stepPrompt' && agentState.agentType) {
-    // Put step prompt within a system-reminder tag so agent doesn't think the user just spoke again.
-    prompt = `<system-reminder>${prompt}</system-reminder>`
+    // Put step prompt within a system_reminder tag so agent doesn't think the user just spoke again.
+    prompt = `<system_reminder>${prompt}</system_reminder>`
   }
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
