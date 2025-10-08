@@ -15,7 +15,7 @@ import { range, shuffle, uniq } from 'lodash'
 import { CustomFilePickerConfigSchema } from './custom-file-picker-config'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import { logger } from '../util/logger'
+import type { Logger } from '@codebuff/types/logger'
 import {
   castAssistantMessage,
   messagesWithSystem,
@@ -35,10 +35,12 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
 
-export async function getCustomFilePickerConfigForOrg(
-  orgId: string | undefined,
-  isRepoApprovedForUserInOrg: boolean | undefined,
-): Promise<CustomFilePickerConfig | null> {
+export async function getCustomFilePickerConfigForOrg(params: {
+  orgId: string | undefined
+  isRepoApprovedForUserInOrg: boolean | undefined
+  logger: Logger
+}): Promise<CustomFilePickerConfig | null> {
+  const { orgId, isRepoApprovedForUserInOrg, logger } = params
   if (!orgId || !isRepoApprovedForUserInOrg) {
     return null
   }
@@ -118,30 +120,40 @@ function isValidFilePickerModelName(
   return Object.keys(finetunedVertexModels).includes(modelName)
 }
 
-export async function requestRelevantFiles(
-  {
+export async function requestRelevantFiles(params: {
+  messages: Message[]
+  system: string | Array<TextBlock>
+  fileContext: ProjectFileContext
+  assistantPrompt: string | null
+  agentStepId: string
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  repoId: string | undefined
+  logger: Logger
+}) {
+  const {
     messages,
     system,
-  }: {
-    messages: Message[]
-    system: string | Array<TextBlock>
-  },
-  fileContext: ProjectFileContext,
-  assistantPrompt: string | null,
-  agentStepId: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  repoId: string | undefined,
-) {
+    fileContext,
+    assistantPrompt,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    repoId,
+    logger,
+  } = params
   // Check for organization custom file picker feature
   const requestContext = getRequestContext()
   const orgId = requestContext?.approvedOrgIdForRepo
-  const customFilePickerConfig = await getCustomFilePickerConfigForOrg(
+  const customFilePickerConfig = await getCustomFilePickerConfigForOrg({
     orgId,
-    requestContext?.isRepoApprovedForUserInOrg,
-  )
+    isRepoApprovedForUserInOrg: requestContext?.isRepoApprovedForUserInOrg,
+    logger,
+  })
 
   const countPerRequest = 12
 
@@ -180,21 +192,20 @@ export async function requestRelevantFiles(
     }
   }
 
-  const keyPromise = getRelevantFiles(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    keyPrompt,
-    'Key',
+  const keyPromise = getRelevantFiles({
+    messages: messagesExcludingLastIfByUser,
+    system,
+    userPrompt: keyPrompt,
+    requestType: 'Key',
     agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
     repoId,
-    modelIdForRequest,
-  ).catch((error) => {
+    modelId: modelIdForRequest,
+    logger,
+  }).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
   })
@@ -216,23 +227,32 @@ export async function requestRelevantFiles(
   return candidateFiles.slice(0, maxFilesPerRequest)
 }
 
-export async function requestRelevantFilesForTraining(
-  {
+export async function requestRelevantFilesForTraining(params: {
+  messages: Message[]
+  system: string | Array<TextBlock>
+  fileContext: ProjectFileContext
+  assistantPrompt: string | null
+  agentStepId: string
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  repoId: string | undefined
+  logger: Logger
+}) {
+  const {
     messages,
     system,
-  }: {
-    messages: Message[]
-    system: string | Array<TextBlock>
-  },
-  fileContext: ProjectFileContext,
-  assistantPrompt: string | null,
-  agentStepId: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  repoId: string | undefined,
-) {
+    fileContext,
+    assistantPrompt,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    repoId,
+    logger,
+  } = params
   const COUNT = 50
 
   const lastMessage = messages[messages.length - 1]
@@ -258,35 +278,33 @@ export async function requestRelevantFilesForTraining(
     COUNT,
   )
 
-  const keyFiles = await getRelevantFilesForTraining(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    keyFilesPrompt,
-    'Key',
+  const keyFiles = await getRelevantFilesForTraining({
+    messages: messagesExcludingLastIfByUser,
+    system,
+    userPrompt: keyFilesPrompt,
+    requestType: 'Key',
     agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
     repoId,
-  )
+    logger,
+  })
 
-  const nonObviousFiles = await getRelevantFilesForTraining(
-    {
-      messages: messagesExcludingLastIfByUser,
-      system,
-    },
-    nonObviousPrompt,
-    'Non-Obvious',
+  const nonObviousFiles = await getRelevantFilesForTraining({
+    messages: messagesExcludingLastIfByUser,
+    system,
+    userPrompt: nonObviousPrompt,
+    requestType: 'Non-Obvious',
     agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
     repoId,
-  )
+    logger,
+  })
 
   const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
   const validatedFiles = validateFilePaths(uniq(candidateFiles))
@@ -297,24 +315,34 @@ export async function requestRelevantFilesForTraining(
   return validatedFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
 
-async function getRelevantFiles(
-  {
+async function getRelevantFiles(params: {
+  messages: Message[]
+  system: string | Array<TextBlock>
+  userPrompt: string
+  requestType: string
+  agentStepId: string
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  repoId: string | undefined
+  modelId?: FinetunedVertexModel
+  logger: Logger
+}) {
+  const {
     messages,
     system,
-  }: {
-    messages: Message[]
-    system: string | Array<TextBlock>
-  },
-  userPrompt: string,
-  requestType: string,
-  agentStepId: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  repoId: string | undefined,
-  modelId?: FinetunedVertexModel,
-) {
+    userPrompt,
+    requestType,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    repoId,
+    modelId,
+    logger,
+  } = params
   const bufferTokens = 100_000
   const messagesWithPrompt = getMessagesSubset(
     [
@@ -380,23 +408,32 @@ async function getRelevantFiles(
   return { files, duration, requestType, response }
 }
 
-async function getRelevantFilesForTraining(
-  {
+async function getRelevantFilesForTraining(params: {
+  messages: Message[]
+  system: string | Array<TextBlock>
+  userPrompt: string
+  requestType: string
+  agentStepId: string
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  repoId: string | undefined
+  logger: Logger
+}) {
+  const {
     messages,
     system,
-  }: {
-    messages: Message[]
-    system: string | Array<TextBlock>
-  },
-  userPrompt: string,
-  requestType: string,
-  agentStepId: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  repoId: string | undefined,
-) {
+    userPrompt,
+    requestType,
+    agentStepId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    repoId,
+    logger,
+  } = params
   const bufferTokens = 100_000
   const messagesWithPrompt = getMessagesSubset(
     [

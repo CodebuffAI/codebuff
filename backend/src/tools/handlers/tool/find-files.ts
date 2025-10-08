@@ -84,17 +84,19 @@ export const handleFindFiles = ((params: {
   const triggerFindFiles: () => Promise<
     CodebuffToolOutput<'find_files'>
   > = async () => {
-    const requestedFiles = await requestRelevantFiles(
-      { messages, system },
+    const requestedFiles = await requestRelevantFiles({
+      messages,
+      system,
       fileContext,
-      prompt,
+      assistantPrompt: prompt,
       agentStepId,
       clientSessionId,
       fingerprintId,
       userInputId,
       userId,
       repoId,
-    )
+      logger,
+    })
 
     if (requestedFiles && requestedFiles.length > 0) {
       const addedFiles = await getFileReadingUpdates(ws, requestedFiles)
@@ -177,8 +179,9 @@ async function uploadExpandedFileContextForTraining(
   userId: string | undefined,
   repoId: string | undefined,
 ) {
-  const files = await requestRelevantFilesForTraining(
-    { messages, system },
+  const files = await requestRelevantFilesForTraining({
+    messages,
+    system,
     fileContext,
     assistantPrompt,
     agentStepId,
@@ -187,7 +190,8 @@ async function uploadExpandedFileContextForTraining(
     userInputId,
     userId,
     repoId,
-  )
+    logger,
+  })
 
   const loadedFiles = await requestFiles({ ws, filePaths: files })
 
