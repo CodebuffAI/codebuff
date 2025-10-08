@@ -1,5 +1,7 @@
 ## Plan: Refactor Logger to Pass as Parameter
 
+This is a live document. You should update it with any unintutive cases you find while running through the steps below. Do _not_ add items in a dedicated section, but just update the sections themselves. Feel free to split one step into multiple steps if it is too long/complicated.
+
 ### Step 1: Search for logger imports
 
 - Use `code_search` with pattern `import \{ logger` (escape curly braces)
