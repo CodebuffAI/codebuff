@@ -90,11 +90,11 @@ async function usageHandler(
     }
 
     // Return personal usage data (default behavior)
-    const usageResponse = await genUsageResponse(
+    const usageResponse = await genUsageResponse({
       fingerprintId,
       userId,
       clientSessionId,
-    )
+    })
 
     return res.status(200).json(usageResponse)
   } catch (error) {

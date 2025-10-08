@@ -75,11 +75,12 @@ export const getUserIdFromAuthToken = async (params: {
  * @param clientSessionId - Optional session ID
  * @returns A UsageResponse object containing usage metrics and referral information
  */
-export async function genUsageResponse(
-  fingerprintId: string,
-  userId: string,
-  clientSessionId: string | undefined,
-): Promise<UsageResponse> {
+export async function genUsageResponse(params: {
+  fingerprintId: string
+  userId: string
+  clientSessionId?: string
+}): Promise<UsageResponse> {
+  const { fingerprintId, userId, clientSessionId } = params
   const logContext = { fingerprintId, userId, sessionId: clientSessionId }
   const defaultResp = {
     type: 'usage-response' as const,
@@ -180,11 +181,10 @@ const onPrompt = async (
         })
       } finally {
         cancelUserInput({ userId, userInputId: promptId })
-        const usageResponse = await genUsageResponse(
+        const usageResponse = await genUsageResponse({
           fingerprintId,
           userId,
-          undefined,
-        )
+        })
         sendAction(ws, usageResponse)
       }
     },
@@ -298,11 +298,11 @@ const onInit = async (
     }
 
     // Send combined init and usage response
-    const usageResponse = await genUsageResponse(
+    const usageResponse = await genUsageResponse({
       fingerprintId,
       userId,
       clientSessionId,
-    )
+    })
     sendAction(ws, {
       ...usageResponse,
       type: 'init-response',
