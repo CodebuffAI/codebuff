@@ -181,7 +181,11 @@ protec.use(async (action, clientSessionId, ws, userInfo) => {
     const { owner, repo } = ownerRepo
 
     // Perform lookup (cache removed)
-    const orgLookup = await findOrganizationForRepository(userId, repoUrl)
+    const orgLookup = await findOrganizationForRepository({
+      userId,
+      repositoryUrl: repoUrl,
+      logger,
+    })
 
     // If an organization covers this repository, check its balance
     if (orgLookup.found && orgLookup.organizationId) {

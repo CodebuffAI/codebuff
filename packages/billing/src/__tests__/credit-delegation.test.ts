@@ -10,6 +10,13 @@ import {
 } from '../credit-delegation'
 
 describe('Credit Delegation', () => {
+  const logger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  }
+
   beforeAll(() => {
     // Mock the org-billing functions that credit-delegation depends on
     mockModule('@codebuff/billing/org-billing', () => ({
@@ -47,14 +54,6 @@ describe('Credit Delegation', () => {
         is_active: 'is_active',
       },
     }))
-
-    mockModule('@codebuff/common/util/logger', () => ({
-      logger: {
-        debug: mock(() => {}),
-        info: mock(() => {}),
-        error: mock(() => {}),
-      },
-    }))
   })
 
   afterAll(() => {
@@ -66,7 +65,11 @@ describe('Credit Delegation', () => {
       const userId = 'user-123'
       const repositoryUrl = 'https://github.com/codebuffai/codebuff'
 
-      const result = await findOrganizationForRepository(userId, repositoryUrl)
+      const result = await findOrganizationForRepository({
+        userId,
+        repositoryUrl,
+        logger,
+      })
 
       expect(result.found).toBe(true)
       expect(result.organizationId).toBe('org-123')
@@ -77,7 +80,11 @@ describe('Credit Delegation', () => {
       const userId = 'user-123'
       const repositoryUrl = 'https://github.com/other/repo'
 
-      const result = await findOrganizationForRepository(userId, repositoryUrl)
+      const result = await findOrganizationForRepository({
+        userId,
+        repositoryUrl,
+        logger,
+      })
 
       expect(result.found).toBe(false)
     })
@@ -89,11 +96,12 @@ describe('Credit Delegation', () => {
       const repositoryUrl = null
       const creditsToConsume = 100
 
-      const result = await consumeCreditsWithDelegation(
+      const result = await consumeCreditsWithDelegation({
         userId,
         repositoryUrl,
         creditsToConsume,
-      )
+        logger,
+      })
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('No repository URL provided')

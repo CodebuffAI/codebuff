@@ -1,6 +1,5 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { logger } from '@codebuff/common/util/logger'
 import { eq, and } from 'drizzle-orm'
 
 import { consumeCredits } from './balance-calculator'
@@ -9,6 +8,8 @@ import {
   normalizeRepositoryUrl,
   extractOwnerAndRepo,
 } from './org-billing'
+
+import type { Logger } from '@codebuff/types/logger'
 
 export interface OrganizationLookupResult {
   found: boolean
@@ -29,10 +30,13 @@ export interface CreditDelegationResult {
  * Finds the organization associated with a repository for a given user.
  * Uses owner/repo comparison for better matching.
  */
-export async function findOrganizationForRepository(
-  userId: string,
-  repositoryUrl: string,
-): Promise<OrganizationLookupResult> {
+export async function findOrganizationForRepository(params: {
+  userId: string
+  repositoryUrl: string
+  logger: Logger
+}): Promise<OrganizationLookupResult> {
+  const { userId, repositoryUrl, logger } = params
+
   try {
     const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
     const ownerRepo = extractOwnerAndRepo(normalizedUrl)
@@ -135,23 +139,28 @@ export async function findOrganizationForRepository(
 /**
  * Consumes credits with organization delegation if applicable.
  */
-export async function consumeCreditsWithDelegation(
-  userId: string,
-  repositoryUrl: string | null,
-  creditsToConsume: number,
-): Promise<CreditDelegationResult> {
-  try {
-    // If no repository URL, fall back to personal credits
-    if (!repositoryUrl) {
-      logger.debug(
-        { userId, creditsToConsume },
-        'No repository URL provided, falling back to personal credits',
-      )
-      return { success: false, error: 'No repository URL provided' }
-    }
+export async function consumeCreditsWithDelegation(params: {
+  userId: string
+  repositoryUrl: string | null
+  creditsToConsume: number
+  logger: Logger
+}): Promise<CreditDelegationResult> {
+  const { userId, repositoryUrl, creditsToConsume, logger } = params
 
+  // If no repository URL, fall back to personal credits
+  if (!repositoryUrl) {
+    logger.debug(
+      { userId, creditsToConsume },
+      'No repository URL provided, falling back to personal credits',
+    )
+    return { success: false, error: 'No repository URL provided' }
+  }
+
+  const withRepoUrl = { ...params, repositoryUrl }
+
+  try {
     // Find organization for this repository
-    const orgLookup = await findOrganizationForRepository(userId, repositoryUrl)
+    const orgLookup = await findOrganizationForRepository(withRepoUrl)
 
     if (!orgLookup.found || !orgLookup.organizationId) {
       logger.debug(
@@ -216,13 +225,6 @@ export async function consumeCreditsWithDelegation(
   }
 }
 
-export interface CreditConsumptionOptions {
-  userId: string
-  creditsToCharge: number
-  repoUrl?: string | null
-  context: string // Description of what the credits are for (e.g., 'web search', 'documentation lookup')
-}
-
 export interface CreditFallbackResult {
   success: boolean
   organizationId?: string
@@ -235,19 +237,23 @@ export interface CreditFallbackResult {
  * Helper function that decides whether to charge credits to an organization or user directly.
  * Tries organization delegation first if a repo URL is available, falls back to personal credits.
  */
-export async function consumeCreditsWithFallback(
-  options: CreditConsumptionOptions,
-): Promise<CreditFallbackResult> {
-  const { userId, creditsToCharge, repoUrl, context } = options
+export async function consumeCreditsWithFallback(params: {
+  userId: string
+  creditsToCharge: number
+  repoUrl?: string | null
+  context: string // Description of what the credits are for (e.g., 'web search', 'documentation lookup')
+  logger: Logger
+}): Promise<CreditFallbackResult> {
+  const { userId, creditsToCharge, repoUrl, context, logger } = params
 
   try {
     // Try organization delegation first if repo URL is available
     if (repoUrl) {
-      const delegationResult = await consumeCreditsWithDelegation(
-        userId,
-        repoUrl,
-        creditsToCharge,
-      )
+      const delegationResult = await consumeCreditsWithDelegation({
+        ...params,
+        repositoryUrl: repoUrl,
+        creditsToConsume: creditsToCharge,
+      })
 
       if (delegationResult.success) {
         logger.debug(

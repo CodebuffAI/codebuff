@@ -76,6 +76,7 @@ export const handleWebSearch = ((params: {
             creditsToCharge,
             repoUrl,
             context: 'web search',
+            logger,
           })
 
           if (!creditResult.success) {

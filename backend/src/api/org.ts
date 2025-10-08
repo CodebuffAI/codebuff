@@ -42,7 +42,11 @@ async function isRepoCoveredHandler(
     }
 
     // Check if repository is covered by an organization
-    const orgLookup = await findOrganizationForRepository(userId, remoteUrl)
+    const orgLookup = await findOrganizationForRepository({
+      userId,
+      repositoryUrl: remoteUrl,
+      logger,
+    })
 
     return res.status(200).json({
       isCovered: orgLookup.found,
