@@ -111,17 +111,6 @@ export function MultilineInput({
       (key: any) => {
         if (!focused) return
 
-        // Debug: log backspace/delete key events to help diagnose issues
-        logger.info('key event:', {
-          name: key.name,
-          meta: key.meta,
-          ctrl: key.ctrl,
-          alt: key.alt,
-          option: key.option,
-          shift: key.shift,
-          sequence: key.sequence,
-        })
-
         const lowerKeyName = (key.name ?? '').toLowerCase()
         const ESC = '\x1b'
         const isAltLikeModifier = Boolean(
