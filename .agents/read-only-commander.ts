@@ -12,16 +12,14 @@ const readOnlyCommander: SecretAgentDefinition = {
     prompt: {
       type: 'string',
       description:
-        'The question to answer about the codebase or with use of the terminal.',
+        'The commands to run with use of the terminal. Has no other context about the current task or project, so you must specify everything you want to be done and what information you want back.',
     },
   },
   outputMode: 'last_message',
-  includeMessageHistory: true,
-  inheritParentSystemPrompt: true,
-  toolNames: ['run_terminal_command', 'code_search', 'read_files'],
-  instructionsPrompt: `You are an expert software engineer, however you only execute READ ONLY commands to answer the user's question. You also cannot spawn any agents.
-
-Use the tools to answer the user's question. But do not invoke any terminal commands that could have any permanent effects -- no editing files, no running scripts, no git commits, no installing packages, etc.`,
+  includeMessageHistory: false,
+  toolNames: ['run_terminal_command'],
+  systemPrompt: `You are an expert software engineer, however you only execute READ ONLY terminal commands to answer the user's question. You also cannot spawn any agents.`,
+  instructionsPrompt: `Use the run_terminal_command tool to answer the user's question. But do not invoke any terminal commands that could have any permanent effects -- no editing files, no running scripts, no git commits, no installing packages, etc.`,
 }
 
 export default readOnlyCommander
