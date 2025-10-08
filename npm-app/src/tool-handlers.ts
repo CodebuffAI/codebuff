@@ -4,7 +4,12 @@ import * as path from 'path'
 import { FileChangeSchema } from '@codebuff/common/actions'
 import { BrowserActionSchema } from '@codebuff/common/browser-actions'
 import { SHOULD_ASK_CONFIG } from '@codebuff/common/old-constants'
+import {
+  flattenTree,
+  getProjectFileTree,
+} from '@codebuff/common/project-file-tree'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
+import micromatch from 'micromatch'
 import { cyan, green, red, yellow } from 'picocolors'
 
 import { handleBrowserInstruction } from './browser-runner'
@@ -181,6 +186,74 @@ export const handleRunTerminalCommand: ToolHandler<
     cwd,
   )
 }
+
+export const handleListDirectory: ToolHandler<'list_directory'> = async (
+  parameters,
+  _id,
+) => {
+  const projectPath = getProjectRoot()
+  const directoryPath = parameters.path
+
+  try {
+    const resolvedPath = path.resolve(projectPath, directoryPath)
+
+    if (!resolvedPath.startsWith(projectPath)) {
+      return [
+        {
+          type: 'json',
+          value: {
+            errorMessage: `Invalid path: Path '${directoryPath}' is outside the project directory.`,
+          },
+        },
+      ]
+    }
+
+    const dirEntries = await import('fs').then((fs) =>
+      fs.promises.readdir(resolvedPath, { withFileTypes: true }),
+    )
+
+    const files: string[] = []
+    const directories: string[] = []
+
+    for (const entry of dirEntries) {
+      if (entry.isDirectory()) {
+        directories.push(entry.name)
+      } else if (entry.isFile()) {
+        files.push(entry.name)
+      }
+    }
+
+    console.log(
+      green(
+        `Listing directory ${directoryPath === '.' ? path.basename(projectPath) : directoryPath}: found ${files.length} files and ${directories.length} directories`,
+      ),
+    )
+    console.log()
+
+    return [
+      {
+        type: 'json',
+        value: {
+          files,
+          directories,
+          path: directoryPath,
+        },
+      },
+    ]
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error(red(`Failed to list directory: ${errorMessage}`))
+    return [
+      {
+        type: 'json',
+        value: {
+          errorMessage: `Failed to list directory: ${errorMessage}`,
+        },
+      },
+    ]
+  }
+}
+
 export const handleCodeSearch: ToolHandler<'code_search'> = async (
   parameters,
   _id,
@@ -408,6 +481,63 @@ const handleFileChangeHooks: ToolHandler<
   return toolResults
 }
 
+const handleGlob: ToolHandler<'glob'> = async (parameters, _id) => {
+  const projectPath = getProjectRoot()
+  const { pattern, cwd } = parameters
+
+  try {
+    // Get all files in the project
+    const fileTree = getProjectFileTree(projectPath)
+    const flattenedNodes = flattenTree(fileTree)
+    let allFilePaths = flattenedNodes
+      .filter((node) => node.type === 'file')
+      .map((node) => node.filePath)
+
+    // Filter by cwd if provided
+    if (cwd) {
+      const cwdPrefix = cwd.endsWith('/') ? cwd : `${cwd}/`
+      allFilePaths = allFilePaths.filter(
+        (filePath) =>
+          filePath === cwd ||
+          filePath.startsWith(cwdPrefix) ||
+          filePath === cwd.replace(/\/$/, ''),
+      )
+    }
+
+    // Use micromatch to filter files by the glob pattern
+    const matchingFiles = micromatch(allFilePaths, pattern)
+
+    const basename = path.basename(projectPath)
+    console.log()
+    console.log(
+      green(
+        `Searching for pattern "${pattern}"${cwd ? ` in ${basename}/${cwd}` : ` in ${basename}`}: found ${matchingFiles.length} file(s)`,
+      ),
+    )
+    console.log()
+
+    return [
+      {
+        type: 'json',
+        value: {
+          files: matchingFiles,
+          count: matchingFiles.length,
+          message: `Found ${matchingFiles.length} file(s) matching pattern "${pattern}"${cwd ? ` in directory "${cwd}"` : ''}`,
+        },
+      },
+    ]
+  } catch (error) {
+    return [
+      {
+        type: 'json',
+        value: {
+          errorMessage: `Failed to search for files: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      },
+    ]
+  }
+}
+
 const handleBrowserLogs: ToolHandler<'browser_logs'> = async (params, _id) => {
   Spinner.get().start('Using browser...')
   let response: BrowserResponse
@@ -499,6 +629,8 @@ export const toolHandlers: {
   create_plan: handleUpdateFile,
   run_terminal_command: handleRunTerminalCommand,
   code_search: handleCodeSearch,
+  glob: handleGlob,
+  list_directory: handleListDirectory,
   run_file_change_hooks: handleFileChangeHooks,
   browser_logs: handleBrowserLogs,
 }

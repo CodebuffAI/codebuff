@@ -5,6 +5,8 @@ import { handleCodeSearch } from './tool/code-search'
 import { handleCreatePlan } from './tool/create-plan'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
+import { handleGlob } from './tool/glob'
+import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
@@ -12,8 +14,8 @@ import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
 import { handleSetMessages } from './tool/set-messages'
 import { handleSetOutput } from './tool/set-output'
-import { handleSpawnAgents } from './tool/spawn-agents'
 import { handleSpawnAgentInline } from './tool/spawn-agent-inline'
+import { handleSpawnAgents } from './tool/spawn-agents'
 import { handleStrReplace } from './tool/str-replace'
 import { handleThinkDeeply } from './tool/think-deeply'
 import { handleUpdateSubgoal } from './tool/update-subgoal'
@@ -40,6 +42,8 @@ export const codebuffToolHandlers = {
   create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
+  glob: handleGlob,
+  list_directory: handleListDirectory,
   lookup_agent_info: handleLookupAgentInfo,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,

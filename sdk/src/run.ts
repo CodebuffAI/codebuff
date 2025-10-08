@@ -5,6 +5,8 @@ import { cloneDeep } from 'lodash'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
+import { glob } from './tools/glob'
+import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
@@ -302,6 +304,17 @@ async function handleToolCall({
         projectPath: requireCwd(cwd, 'code_search'),
         ...input,
       } as Parameters<typeof codeSearch>[0])
+    } else if (toolName === 'list_directory') {
+      result = await listDirectory(
+        (input as { path: string }).path,
+        requireCwd(cwd, 'list_directory'),
+      )
+    } else if (toolName === 'glob') {
+      result = await glob(
+        (input as { pattern: string; cwd?: string }).pattern,
+        requireCwd(cwd, 'glob'),
+        (input as { pattern: string; cwd?: string }).cwd,
+      )
     } else if (toolName === 'run_file_change_hooks') {
       // No-op: SDK doesn't run file change hooks
       result = [

@@ -65,6 +65,7 @@
     "ai": "^5.0.0",
     "diff": "8.0.2",
     "ignore": "7.0.5",
+    "micromatch": "^4.0.8",
     "web-tree-sitter": "0.25.6",
     "ws": "^8.18.0",
     "zod": "^4.0.0"
@@ -72,6 +73,7 @@
   "devDependencies": {
     "@types/bun": "^1.2.11",
     "@types/diff": "8.0.0",
+    "@types/micromatch": "^4.0.9",
     "@types/node": "22",
     "adm-zip": "^0.5.12",
     "dts-bundle-generator": "^9.5.1",

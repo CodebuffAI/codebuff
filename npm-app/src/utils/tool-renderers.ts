@@ -121,6 +121,12 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   code_search: {
     // Don't render anything
   },
+  glob: {
+    // Don't render anything
+  },
+  list_directory: {
+    // Don't render anything
+  },
   browser_logs: {
     // Don't render anything
   },

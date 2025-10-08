@@ -8,6 +8,8 @@ import { codeSearchParams } from './params/tool/code-search'
 import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
+import { globParams } from './params/tool/glob'
+import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
@@ -43,6 +45,8 @@ export const $toolParams = {
   create_plan: createPlanParams,
   end_turn: endTurnParams,
   find_files: findFilesParams,
+  glob: globParams,
+  list_directory: listDirectoryParams,
   lookup_agent_info: lookupAgentInfoParams,
   read_docs: readDocsParams,
   read_files: readFilesParams,
@@ -110,6 +114,14 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('create_plan'),
     input: FileChangeSchema,
+  }),
+  z.object({
+    toolName: z.literal('glob'),
+    input: $toolParams.glob.parameters,
+  }),
+  z.object({
+    toolName: z.literal('list_directory'),
+    input: $toolParams.list_directory.parameters,
   }),
   z.object({
     toolName: z.literal('run_file_change_hooks'),

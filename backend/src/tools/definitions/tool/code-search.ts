@@ -29,7 +29,7 @@ The pattern supports regular expressions and will search recursively through all
 - Automatically ignores binary files, hidden files, and files in .gitignore
 
 
-ADVANCED RIPGREP FLAGS (use the flags parameter):
+Advanced ripgrep flags (use the flags parameter):
 
 - Case sensitivity: "-i" for case-insensitive search
 - File type filtering: "-t ts" (TypeScript), "-t js" (JavaScript), "-t py" (Python), etc.
