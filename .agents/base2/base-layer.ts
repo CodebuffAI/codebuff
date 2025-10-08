@@ -36,6 +36,7 @@ const definition: SecretAgentDefinition = {
     'researcher-web',
     'researcher-docs',
     'thinker',
+    'decomposing-thinker',
     'editor',
     'reviewer',
     'context-pruner',
@@ -77,17 +78,21 @@ Continue to spawn layers of agents until have completed the user's request or re
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn a 3 file pickers with different prompts to find relevant files; spawn 1 code searcher with a few search queries; spawn 1 docs research to find relevant docs;
+1. Spawn 2 file pickers with different prompts to find relevant files; spawn 2 codebase explorers to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs;
 1a. Read all the relevant files using the read_files tool.
-2. Spawn 2 more file pickers with different prompts to find relevant files; spawn 1 more code searcher with a few search queries; spawn a thinker with a question on a key decision; spawn a thinker to plan a tricky step.
+2. Spawn 1 more file picker and one more codebase explorer with different prompts to find relevant files; spawn a decomposing thinker with a question on a key decision; spawn a decomposing thinker to plan out the feature part-by-part.
 2a. Read all the relevant files using the read_files tool.
+3. Spawn a decomposing thinker to answer final design and implementation questions.
 4. Spawn 2 editors to implement all the changes.
 5. Spawn a reviewer to review the changes made by the editors.
 
 
 ## Guidelines
 
-- **Sequence agents properly:** Keep in mind dependencies when spawning different agents: spawn a file picker or researcher before a thinker because then the thinker can use the file picker's results to come up with a better conclusions. Reviewers should be spawned after editors.
+- **Sequence agents properly:** Keep in mind dependencies when spawning different agents:
+  - Spawn file pickers, codebase explorers, and researchers before thinkers because then the thinkers can use the file/research results to come up with a better conclusions
+  - Spawn thinkers before editors so editors can use the insights from the thinkers.
+  - Reviewers should be spawned after editors.
 - **Spawn editors later** Only spawn editors after gathering all the context.
 - **Stop and ask for guidance:** You should feel free to stop and ask the user for guidance if you're stuck or don't know what to try next, or need a clarification.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.

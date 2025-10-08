@@ -17,10 +17,25 @@ const paramsSchema = {
       items: {
         type: 'object' as const,
         properties: {
-          pattern: { type: 'string' as const },
-          flags: { type: 'string' as const },
-          cwd: { type: 'string' as const },
-          maxResults: { type: 'number' as const },
+          pattern: {
+            type: 'string' as const,
+            description: 'The pattern to search for',
+          },
+          flags: {
+            type: 'string' as const,
+            description:
+              'Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files)',
+          },
+          cwd: {
+            type: 'string' as const,
+            description:
+              'Optional working directory to search within, relative to the project root. Defaults to searching the entire project',
+          },
+          maxResults: {
+            type: 'number' as const,
+            description:
+              'Maximum number of results to return per file. Defaults to 15. There is also a global limit of 250 results across all files',
+          },
         },
         required: ['pattern'],
       },
