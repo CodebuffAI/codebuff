@@ -132,7 +132,7 @@ export async function executeBatchStrReplaces({
   const editedFiles: Record<string, string> = {}
 
   // Create the requestClientToolCall function once for all operations
-  const requestClientToolCall = createRequestClientToolCall(ws, userInputId)
+  const requestClientToolCall = createRequestClientToolCall({ ws, userInputId })
 
   // Execute operations grouped by path for better parallelization
   const pathPromises: Record<string, Promise<void>> = {}
@@ -371,7 +371,11 @@ async function executeSingleStrReplace(
 /**
  * Creates a typed requestClientToolCall function for batch mode
  */
-function createRequestClientToolCall(ws: WebSocket, userInputId: string) {
+function createRequestClientToolCall(params: {
+  ws: WebSocket
+  userInputId: string
+}) {
+  const { ws, userInputId } = params
   return async (
     clientToolCall: any,
   ): Promise<CodebuffToolOutput<'str_replace'>> => {
