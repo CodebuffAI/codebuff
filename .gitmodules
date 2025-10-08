@@ -1,0 +1,3 @@
+[submodule "packages/opentui"]
+	path = packages/opentui
+	url = https://github.com/CodebuffAI/opentui.git

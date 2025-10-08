@@ -26,7 +26,8 @@
   },
   "dependencies": {
     "@codebuff/sdk": "workspace:*",
-    "@opentui/react": "^0.1.25",
+    "@opentui/react": "workspace:*",
+    "@opentui/core": "workspace:*",
     "react": "^19.0.0",
     "remark-parse": "^11.0.0",
     "unified": "^11.0.0"

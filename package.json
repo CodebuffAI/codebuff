@@ -10,10 +10,12 @@
     "npm-app",
     "web",
     "packages/*",
+    "packages/opentui/packages/*",
     "scripts",
     "evals",
     "sdk",
-    ".agents"
+    ".agents",
+    "cli"
   ],
   "scripts": {
     "dev": "bash scripts/dev.sh",
