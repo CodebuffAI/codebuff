@@ -13,6 +13,7 @@ import { WebSocket } from 'ws'
 
 import { getRequestContext } from '../context/app-context'
 import { logger, withLoggerContext } from '../util/logger'
+import type { Logger } from '@codebuff/types/logger'
 import { stripNullCharsFromObject } from '../util/object'
 import { SWITCHBOARD } from '../websockets/server'
 import { sendAction } from '../websockets/websocket-action'
@@ -212,13 +213,14 @@ const calcCost = (
 
 const VERBOSE = false
 
-async function syncMessageToStripe(messageData: {
+async function syncMessageToStripe(params: {
   messageId: string
   userId: string
   costInCents: number
   finishedAt: Date
+  logger: Logger
 }) {
-  const { messageId, userId, costInCents, finishedAt } = messageData
+  const { messageId, userId, costInCents, finishedAt, logger } = params
 
   if (!userId || userId === TEST_USER_ID) {
     if (VERBOSE) {
@@ -329,17 +331,19 @@ type InsertMessageParams = {
   latencyMs: number
 }
 
-export async function insertMessageRecordWithRetries(
-  params: InsertMessageParams,
-  maxRetries = 3,
-): Promise<typeof schema.message.$inferSelect | null> {
+export async function insertMessageRecordWithRetries(params: {
+  messageParams: InsertMessageParams
+  logger: Logger
+  maxRetries?: number
+}): Promise<typeof schema.message.$inferSelect | null> {
+  const { messageParams, logger, maxRetries = 3 } = params
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await insertMessageRecord(params)
+      return await insertMessageRecord(messageParams)
     } catch (error) {
       if (attempt === maxRetries) {
         logger.error(
-          { messageId: params.messageId, error, attempt },
+          { messageId: messageParams.messageId, error, attempt },
           `Failed to save message after ${maxRetries} attempts`,
         )
         return null
@@ -347,7 +351,7 @@ export async function insertMessageRecordWithRetries(
         // throw error
       } else {
         logger.warn(
-          { messageId: params.messageId, error: error },
+          { messageId: messageParams.messageId, error: error },
           `Retrying save message to DB (attempt ${attempt}/${maxRetries})`,
         )
         await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
@@ -416,12 +420,14 @@ async function insertMessageRecord(
   return insertResult[0]
 }
 
-async function sendCostResponseToClient(
-  clientSessionId: string,
-  userInputId: string,
-  creditsUsed: number,
-  agentId?: string,
-): Promise<void> {
+async function sendCostResponseToClient(params: {
+  clientSessionId: string
+  userInputId: string
+  creditsUsed: number
+  agentId?: string
+  logger: Logger
+}): Promise<void> {
+  const { clientSessionId, userInputId, creditsUsed, agentId, logger } = params
   try {
     const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
       ([_, state]: [WebSocket, ClientState]) =>
@@ -462,17 +468,19 @@ type CreditConsumptionResult = {
   fromPurchased: number
 }
 
-async function updateUserCycleUsageWithRetries(
-  userId: string,
-  creditsUsed: number,
-  maxRetries = 3,
-): Promise<CreditConsumptionResult> {
+async function updateUserCycleUsageWithRetries(params: {
+  userId: string
+  creditsUsed: number
+  logger: Logger
+  maxRetries?: number
+}): Promise<CreditConsumptionResult> {
+  const { userId, creditsUsed, logger, maxRetries = 3 } = params
   const requestContext = getRequestContext()
   const orgId = requestContext?.approvedOrgIdForRepo
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await updateUserCycleUsage(userId, creditsUsed)
+      return await updateUserCycleUsage({ userId, creditsUsed, logger })
     } catch (error) {
       if (attempt === maxRetries) {
         logger.error(
@@ -496,10 +504,12 @@ async function updateUserCycleUsageWithRetries(
   throw new Error('Failed to update user cycle usage after all attempts.')
 }
 
-async function updateUserCycleUsage(
-  userId: string,
-  creditsUsed: number,
-): Promise<CreditConsumptionResult> {
+async function updateUserCycleUsage(params: {
+  userId: string
+  creditsUsed: number
+  logger: Logger
+}): Promise<CreditConsumptionResult> {
+  const { userId, creditsUsed, logger } = params
   if (creditsUsed <= 0) {
     if (VERBOSE) {
       logger.debug(
@@ -652,17 +662,21 @@ export const saveMessage = async (value: {
         )
       }
 
-      sendCostResponseToClient(
-        value.clientSessionId,
-        value.userInputId,
+      sendCostResponseToClient({
+        clientSessionId: value.clientSessionId,
+        userInputId: value.userInputId,
         creditsUsed,
-        value.agentId,
-      )
+        agentId: value.agentId,
+        logger,
+      })
 
       await insertMessageRecordWithRetries({
-        ...value,
-        cost,
-        creditsUsed,
+        messageParams: {
+          ...value,
+          cost,
+          creditsUsed,
+        },
+        logger,
       })
 
       if (!value.userId) {
@@ -673,10 +687,11 @@ export const saveMessage = async (value: {
         return 0
       }
 
-      const consumptionResult = await updateUserCycleUsageWithRetries(
-        value.userId,
+      const consumptionResult = await updateUserCycleUsageWithRetries({
+        userId: value.userId,
         creditsUsed,
-      )
+        logger,
+      })
 
       // Only sync the portion from purchased credits to Stripe
       if (consumptionResult.fromPurchased > 0) {
@@ -688,6 +703,7 @@ export const saveMessage = async (value: {
           userId: value.userId,
           costInCents: purchasedCostInCents,
           finishedAt: value.finishedAt,
+          logger,
         }).catch((syncError) => {
           logger.error(
             { messageId: value.messageId, error: syncError },
