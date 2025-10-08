@@ -6,8 +6,8 @@ import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptRelaceAI } from './llm-apis/relace-api'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
-import { logger } from './util/logger'
 
+import type { Logger } from '@codebuff/types/logger'
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 import type {
   Message,
@@ -24,6 +24,7 @@ export async function fastRewrite(params: {
   userInputId: string
   userId: string | undefined
   userMessage: string | undefined
+  logger: Logger
 }) {
   const {
     initialContent,
@@ -35,6 +36,7 @@ export async function fastRewrite(params: {
     userInputId,
     userId,
     userMessage,
+    logger,
   } = params
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
@@ -69,6 +71,7 @@ export async function fastRewrite(params: {
       userInputId,
       userId,
       userMessage,
+      logger,
     })
     logger.debug(
       { filePath, relaceResponse, openaiResponse: response, messageId },
@@ -101,6 +104,7 @@ export async function rewriteWithOpenAI(params: {
   userInputId: string
   userId: string | undefined
   userMessage: string | undefined
+  logger: Logger
 }): Promise<string> {
   const {
     oldContent,
@@ -111,6 +115,7 @@ export async function rewriteWithOpenAI(params: {
     userInputId,
     userId,
     userMessage,
+    logger,
   } = params
   const prompt = `You are an expert programmer tasked with implementing changes to a file. Please rewrite the file to implement the changes shown in the edit snippet, while preserving the original formatting and behavior of unchanged parts.
 
@@ -163,6 +168,7 @@ export const shouldAddFilePlaceholders = async (params: {
   clientSessionId: string
   fingerprintId: string
   userInputId: string
+  logger: Logger
 }) => {
   const {
     filePath,
@@ -174,6 +180,7 @@ export const shouldAddFilePlaceholders = async (params: {
     clientSessionId,
     fingerprintId,
     userInputId,
+    logger,
   } = params
   const fileWasPreviouslyEdited = messageHistory
     .filter(

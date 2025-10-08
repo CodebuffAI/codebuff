@@ -145,6 +145,7 @@ export async function processFileBlock(params: {
       userInputId,
       userId,
       userMessage: lastUserPrompt,
+      logger,
     })
     const shouldAddPlaceholders = await shouldAddFilePlaceholders({
       filePath: path,
@@ -156,6 +157,7 @@ export async function processFileBlock(params: {
       clientSessionId,
       fingerprintId,
       userInputId,
+      logger,
     })
 
     if (shouldAddPlaceholders) {
@@ -171,6 +173,7 @@ export async function processFileBlock(params: {
         userInputId,
         userId,
         userMessage: lastUserPrompt,
+        logger,
       })
     }
   }
