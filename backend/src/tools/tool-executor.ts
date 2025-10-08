@@ -6,7 +6,6 @@ import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { checkLiveUserInput } from '../live-user-inputs'
-import { logger } from '../util/logger'
 import { requestToolCall } from '../websockets/websocket-action'
 import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
@@ -31,6 +30,7 @@ import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 export type CustomToolCall = {
@@ -131,28 +131,33 @@ export interface ExecuteToolCallParams<T extends string = ToolName> {
   userId: string | undefined
   autoInsertEndStepParam?: boolean
   excludeToolFromMessageHistory?: boolean
+  logger: Logger
 }
 
-export function executeToolCall<T extends ToolName>({
-  toolName,
-  input,
-  toolCalls,
-  toolResults,
-  toolResultsToAddAfterStream,
-  previousToolCallFinished,
-  ws,
-  agentTemplate,
-  fileContext,
-  agentStepId,
-  clientSessionId,
-  userInputId,
-  fullResponse,
-  onResponseChunk,
-  state,
-  userId,
-  autoInsertEndStepParam = false,
-  excludeToolFromMessageHistory = false,
-}: ExecuteToolCallParams<T>): Promise<void> {
+export function executeToolCall<T extends ToolName>(
+  params: ExecuteToolCallParams<T>,
+): Promise<void> {
+  const {
+    toolName,
+    input,
+    toolCalls,
+    toolResults,
+    toolResultsToAddAfterStream,
+    previousToolCallFinished,
+    ws,
+    agentTemplate,
+    fileContext,
+    agentStepId,
+    clientSessionId,
+    userInputId,
+    fullResponse,
+    onResponseChunk,
+    state,
+    userId,
+    autoInsertEndStepParam = false,
+    excludeToolFromMessageHistory = false,
+    logger,
+  } = params
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
       toolName,
@@ -360,24 +365,28 @@ export function parseRawCustomToolCall(params: {
   }
 }
 
-export async function executeCustomToolCall({
-  toolName,
-  input,
-  toolCalls,
-  toolResults,
-  toolResultsToAddAfterStream,
-  previousToolCallFinished,
-  ws,
-  agentTemplate,
-  fileContext,
-  clientSessionId,
-  userInputId,
-  onResponseChunk,
-  state,
-  userId,
-  autoInsertEndStepParam = false,
-  excludeToolFromMessageHistory = false,
-}: ExecuteToolCallParams<string>): Promise<void> {
+export async function executeCustomToolCall(
+  params: ExecuteToolCallParams<string>,
+): Promise<void> {
+  const {
+    toolName,
+    input,
+    toolCalls,
+    toolResults,
+    toolResultsToAddAfterStream,
+    previousToolCallFinished,
+    ws,
+    agentTemplate,
+    fileContext,
+    clientSessionId,
+    userInputId,
+    onResponseChunk,
+    state,
+    userId,
+    autoInsertEndStepParam = false,
+    excludeToolFromMessageHistory = false,
+    logger,
+  } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
     customToolDefs: await getMCPToolData({
       ws,

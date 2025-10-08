@@ -278,6 +278,7 @@ export async function runProgrammaticStep(
         userId,
         autoInsertEndStepParam: true,
         excludeToolFromMessageHistory,
+        logger,
       })
 
       // TODO: Remove messages from state and always use agentState.messageHistory.

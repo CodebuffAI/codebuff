@@ -200,6 +200,7 @@ export async function processStreamWithTools(options: {
             onResponseChunk,
             state,
             userId,
+            logger,
           })
         }
       },
@@ -227,6 +228,7 @@ export async function processStreamWithTools(options: {
           onResponseChunk,
           state,
           userId,
+          logger,
         })
       },
     }

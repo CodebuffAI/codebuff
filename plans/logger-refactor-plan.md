@@ -31,7 +31,7 @@ For all other files:
 
 - **Always run full `bun run typecheck`** (not head/tail!) to find ALL errors
 - Update function calls to pass object with named properties
-- For tests: create mock logger constant called `logger` with all 4 methods (debug, info, warn, error)
+- For tests: create a no-op logger constant called `logger` with all 4 methods (debug, info, warn, error)
 - Use `allowMultiple: true` in str_replace when updating multiple calls in same file
 - **Check carefully** - there may be multiple call sites in the same file!
 - Repeat typecheck until ALL errors resolved
