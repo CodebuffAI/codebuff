@@ -26,6 +26,15 @@ import {
   benchifyCanFixLanguage,
 } from '../tools/batch-str-replace'
 
+import type { Logger } from '@codebuff/types/logger'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
+
 describe('processStrReplace', () => {
   it('should replace exact string matches', async () => {
     const initialContent = 'const x = 1;\nconst y = 2;\n'
@@ -36,6 +45,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -56,6 +66,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -75,6 +86,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -93,6 +105,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -107,6 +120,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: 'old', new: 'new', allowMultiple: false }],
       initialContentPromise: Promise.resolve(null),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -121,6 +135,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: '', new: 'new', allowMultiple: false }],
       initialContentPromise: Promise.resolve('content'),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -139,6 +154,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -159,6 +175,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -177,6 +194,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -198,6 +216,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -221,6 +240,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements,
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -245,6 +265,7 @@ describe('processStrReplace', () => {
       path: 'test.ts',
       replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect(result).not.toBeNull()
@@ -262,11 +283,12 @@ describe('processStrReplace', () => {
       const oldStr = 'const x'
       const newStr = 'let x'
 
-      const result = await processStrReplace({
-        path: 'test.ts',
-        replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
-        initialContentPromise: Promise.resolve(initialContent),
-      })
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
 
       expect(result).not.toBeNull()
       expect('error' in result).toBe(true)
@@ -285,6 +307,7 @@ describe('processStrReplace', () => {
         path: 'test.ts',
         replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
         initialContentPromise: Promise.resolve(initialContent),
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -303,6 +326,7 @@ describe('processStrReplace', () => {
         path: 'test.ts',
         replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
         initialContentPromise: Promise.resolve(initialContent),
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -324,6 +348,7 @@ describe('processStrReplace', () => {
         path: 'test.ts',
         replacements,
         initialContentPromise: Promise.resolve(initialContent),
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -355,6 +380,7 @@ function test3() {
         path: 'test.ts',
         replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
         initialContentPromise: Promise.resolve(initialContent),
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -378,6 +404,7 @@ function test3() {
         path: 'test.ts',
         replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
         initialContentPromise: Promise.resolve(initialContent),
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -401,6 +428,7 @@ function test3() {
         path: 'test.ts',
         replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
         initialContentPromise: Promise.resolve(initialContent),
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -420,6 +448,7 @@ function test3() {
         path: 'test.ts',
         replacements: [{ old: oldStr, new: newStr, allowMultiple: true }],
         initialContentPromise: Promise.resolve(initialContent),
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -451,6 +480,7 @@ function test3() {
       path: 'test.ts',
       replacements,
       initialContentPromise: Promise.resolve(initialContent),
+      logger,
     })
 
     expect('content' in result).toBe(true)

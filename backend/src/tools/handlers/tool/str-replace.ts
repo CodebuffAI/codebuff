@@ -67,6 +67,7 @@ export const handleStrReplace = ((params: {
     path,
     replacements,
     initialContentPromise: latestContentPromise,
+    logger,
   })
     .catch((error: any) => {
       logger.error(error, 'Error processing str_replace block')

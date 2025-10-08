@@ -1,7 +1,8 @@
 import { createPatch } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
-import { logger } from './util/logger'
+
+import type { Logger } from '@codebuff/types/logger'
 
 function normalizeLineEndings(params: { str: string }): string {
   return params.str.replace(/\r\n/g, '\n')
@@ -11,6 +12,7 @@ export async function processStrReplace(params: {
   path: string
   replacements: { old: string; new: string; allowMultiple: boolean }[]
   initialContentPromise: Promise<string | null>
+  logger: Logger
 }): Promise<
   | {
       tool: 'str_replace'
@@ -21,7 +23,7 @@ export async function processStrReplace(params: {
     }
   | { tool: 'str_replace'; path: string; error: string }
 > {
-  const { path, replacements, initialContentPromise } = params
+  const { path, replacements, initialContentPromise, logger } = params
   const initialContent = await initialContentPromise
   if (initialContent === null) {
     return {
@@ -58,6 +60,7 @@ export async function processStrReplace(params: {
       oldStr: normalizedOldStr,
       newStr: normalizedNewStr,
       allowMultiple,
+      logger,
     })
     let updatedOldStr: string | null
 
@@ -125,8 +128,9 @@ const tryMatchOldStr = (params: {
   oldStr: string
   newStr: string
   allowMultiple: boolean
+  logger: Logger
 }): { success: true; oldStr: string } | { success: false; error: string } => {
-  const { initialContent, oldStr, newStr, allowMultiple } = params
+  const { initialContent, oldStr, newStr, allowMultiple, logger } = params
   // count the number of occurrences of oldStr in initialContent
   const count = initialContent.split(oldStr).length - 1
   if (count === 1) {
