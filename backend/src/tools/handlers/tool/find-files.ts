@@ -71,6 +71,7 @@ export const handleFindFiles = ((params: {
   const system = getSearchSystemPrompt({
     fileContext,
     messagesTokens: fileRequestMessagesTokens,
+    logger,
     options: {
       agentStepId,
       clientSessionId,

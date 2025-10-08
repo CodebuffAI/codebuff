@@ -13,6 +13,7 @@ import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
+import type { Logger } from '@codebuff/types/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export const configSchemaPrompt = `
@@ -146,16 +147,19 @@ export const additionalSystemPrompts = {
   compact: compactPrompt,
 } as const
 
-export const getProjectFileTreePrompt = (
-  fileContext: ProjectFileContext,
-  fileTreeTokenBudget: number,
-  mode: 'search' | 'agent',
-) => {
+export const getProjectFileTreePrompt = (params: {
+  fileContext: ProjectFileContext
+  fileTreeTokenBudget: number
+  mode: 'search' | 'agent'
+  logger: Logger
+}) => {
+  const { fileContext, fileTreeTokenBudget, mode, logger } = params
   const { projectRoot } = fileContext
-  const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget(
+  const { printedTree, truncationLevel } = truncateFileTreeBasedOnTokenBudget({
     fileContext,
-    Math.max(0, fileTreeTokenBudget),
-  )
+    tokenBudget: Math.max(0, fileTreeTokenBudget),
+    logger,
+  })
 
   const truncationNote =
     truncationLevel === 'none'

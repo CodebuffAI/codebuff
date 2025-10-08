@@ -183,6 +183,7 @@ export const runAgentStep = async (
     fileContext,
     agentState,
     agentTemplates: localAgentTemplates,
+    logger,
     additionalToolDefinitions: () => {
       const additionalToolDefinitions = cloneDeep(
         Object.fromEntries(
@@ -460,6 +461,7 @@ export const loopAgentSteps = async (
         fileContext,
         agentState,
         agentTemplates: localAgentTemplates,
+        logger,
         additionalToolDefinitions: () => {
           const additionalToolDefinitions = cloneDeep(
             Object.fromEntries(
@@ -489,6 +491,7 @@ export const loopAgentSteps = async (
           fileContext,
           agentState,
           agentTemplates: localAgentTemplates,
+          logger,
           additionalToolDefinitions: () => {
             const additionalToolDefinitions = cloneDeep(
               Object.fromEntries(
