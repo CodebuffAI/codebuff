@@ -106,6 +106,7 @@ describe('Agent Registry', () => {
     mockModule('@codebuff/backend/util/logger', () => ({
       logger: {
         debug: () => {},
+        log: () => {},
         error: () => {},
         warn: () => {},
       },
@@ -151,9 +152,10 @@ describe('Agent Registry', () => {
     }))
 
     // Mock logger
-    mockModule('../util/logger', () => ({
+    mockModule('@codebuff/backend/util/logger', () => ({
       logger: {
         debug: () => {},
+        log: () => {},
         error: () => {},
         warn: () => {},
       },
