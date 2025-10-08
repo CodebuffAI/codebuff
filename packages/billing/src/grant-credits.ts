@@ -5,7 +5,6 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
-import { logger } from '@codebuff/common/util/logger'
 import { withRetry } from '@codebuff/common/util/promise'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
 import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
@@ -292,10 +291,13 @@ export async function processAndGrantCredit(params: {
  * @param reason The reason for revoking the credits (e.g. refund)
  * @returns true if the grant was found and revoked, false otherwise
  */
-export async function revokeGrantByOperationId(
-  operationId: string,
-  reason: string,
-): Promise<boolean> {
+export async function revokeGrantByOperationId(params: {
+  operationId: string
+  reason: string
+  logger: Logger
+}): Promise<boolean> {
+  const { operationId, reason, logger } = params
+
   return await db.transaction(async (tx) => {
     const grant = await tx.query.creditLedger.findFirst({
       where: eq(schema.creditLedger.operation_id, operationId),

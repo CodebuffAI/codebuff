@@ -375,10 +375,11 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
               'Processing refund, attempting to revoke credits'
             )
 
-            const revoked = await revokeGrantByOperationId(
+            const revoked = await revokeGrantByOperationId({
               operationId,
-              `Refund for charge ${charge.id}`
-            )
+              reason: `Refund for charge ${charge.id}`,
+              logger,
+            })
 
             if (!revoked) {
               logger.error(
