@@ -203,7 +203,6 @@ export const mainPrompt = async (
     clientSessionId,
     onResponseChunk,
     localAgentTemplates,
-    clearUserPromptMessagesAfterResponse: false,
   })
 
   logger.debug({ agentState, output }, 'Main prompt finished')

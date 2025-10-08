@@ -142,6 +142,7 @@ const auxiliaryDataSchema = z.object({
     .union([z.literal('agentStep'), z.literal('userPrompt')])
     .optional(),
   keepDuringTruncation: z.boolean().optional(),
+  keepLastTags: z.string().array().optional(),
 })
 
 export const systemMessageSchema = z
@@ -184,22 +185,12 @@ export const toolMessageSchema = z
   .and(auxiliaryDataSchema)
 export type ToolMessage = z.infer<typeof toolMessageSchema>
 
-export const messageSchema = z
-  .union([
-    systemMessageSchema,
-    userMessageSchema,
-    assistantMessageSchema,
-    toolMessageSchema,
-  ])
-  .and(
-    z.object({
-      providerOptions: providerMetadataSchema.optional(),
-      timeToLive: z
-        .union([z.literal('agentStep'), z.literal('userPrompt')])
-        .optional(),
-      keepDuringTruncation: z.boolean().optional(),
-    }),
-  )
+export const messageSchema = z.union([
+  systemMessageSchema,
+  userMessageSchema,
+  assistantMessageSchema,
+  toolMessageSchema,
+])
 export type Message = z.infer<typeof messageSchema>
 
 // ===== MCP Server Types =====
@@ -226,7 +217,6 @@ export const mcpConfigSchema = z.union([
   mcpConfigStdioSchema,
 ])
 export type MCPConfig = z.input<typeof mcpConfigSchema>
-
 
 // ============================================================================
 // Logger Interface

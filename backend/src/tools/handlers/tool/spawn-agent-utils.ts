@@ -306,7 +306,7 @@ export async function executeSubagent({
   clientSessionId,
   onResponseChunk,
   isOnlyChild = false,
-  clearUserPromptMessagesAfterResponse = false,
+  clearUserPromptMessagesAfterResponse = true,
   parentSystemPrompt,
 }: {
   ws: WebSocket

@@ -211,7 +211,6 @@ export function convertCbToModelMessages({
 
     const lastMessage = aggregated[aggregated.length - 1]
     if (
-      lastMessage.keepDuringTruncation !== message.keepDuringTruncation ||
       lastMessage.timeToLive !== message.timeToLive ||
       !isEqual(lastMessage.providerOptions, message.providerOptions)
     ) {

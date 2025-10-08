@@ -1,4 +1,3 @@
-import { google } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import {
   finetunedVertexModels,
@@ -96,6 +95,10 @@ export const promptAiSdkStream = async function* (
   const startTime = Date.now()
 
   let aiSDKModel = modelToAiSDKModel(options.model)
+
+  console.log('\n\n\n\n\n\n\n\n\nasdf')
+  console.dir({ messages: convertCbToModelMessages(options) }, { depth: null })
+  console.log('qwer')
 
   const response = streamText({
     ...options,

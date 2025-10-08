@@ -407,7 +407,7 @@ export const loopAgentSteps = async (
     userId,
     clientSessionId,
     onResponseChunk,
-    clearUserPromptMessagesAfterResponse = false,
+    clearUserPromptMessagesAfterResponse = true,
     parentSystemPrompt,
   }: {
     userInputId: string
@@ -528,8 +528,7 @@ export const loopAgentSteps = async (
     instructionsPrompt && {
       role: 'user' as const,
       content: instructionsPrompt,
-      timeToLive: 'userPrompt' as const,
-      keepDuringTruncation: true,
+      keepLastTags: ['INSTRUCTIONS_PROMPT'],
     },
   )
 

@@ -92,13 +92,6 @@ export interface AgentDefinition {
     params?: JsonObjectSchema
   }
 
-  /** Whether to include conversation history from the parent agent in context.
-   *
-   * Defaults to false.
-   * Use this when the agent needs to know all the previous messages in the conversation.
-   */
-  includeMessageHistory?: boolean
-
   /** How the agent should output a response to its parent (defaults to 'last_message')
    *
    * last_message: The last message from the agent, typically after using tools.
@@ -120,6 +113,13 @@ export interface AgentDefinition {
    *
    * This field is key if the agent is intended to be spawned by other agents. */
   spawnerPrompt?: string
+
+  /** Whether to include conversation history from the parent agent in context.
+   *
+   * Defaults to false.
+   * Use this when the agent needs to know all the previous messages in the conversation.
+   */
+  includeMessageHistory?: boolean
 
   /** Whether to inherit the parent agent's system prompt instead of using this agent's own systemPrompt.
    *
