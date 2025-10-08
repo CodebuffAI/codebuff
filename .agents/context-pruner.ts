@@ -157,6 +157,17 @@ const definition: AgentDefinition = {
       content: '<system>Previous message(s) omitted due to length</system>',
     }
 
+    const keepLastTags: Record<string, number> = {}
+    for (const [i, message] of afterToolResultsPass.entries()) {
+      if (!message.keepLastTags) {
+        continue
+      }
+      for (const tag of message.keepLastTags) {
+        keepLastTags[tag] = i
+      }
+    }
+    const keepLastIndices = Object.values(keepLastTags)
+
     const requiredTokens = countTokensJson(
       afterToolResultsPass.filter((m: any) => m.keepDuringTruncation),
     )
@@ -167,8 +178,12 @@ const definition: AgentDefinition = {
     const placeholder = 'deleted'
     const filteredMessages: any[] = []
 
-    for (const message of afterToolResultsPass) {
-      if (removedTokens >= tokensToRemove || message.keepDuringTruncation) {
+    for (const [i, message] of afterToolResultsPass.entries()) {
+      if (
+        removedTokens >= tokensToRemove ||
+        message.keepDuringTruncation ||
+        keepLastIndices.includes(i)
+      ) {
         filteredMessages.push(message)
         continue
       }
