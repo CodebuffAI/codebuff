@@ -103,7 +103,7 @@ describe('Agent Registry', () => {
     }))
 
     // Mock logger
-    mockModule('../util/logger', () => ({
+    mockModule('@codebuff/backend/util/logger', () => ({
       logger: {
         debug: () => {},
         error: () => {},

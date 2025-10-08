@@ -8,16 +8,14 @@ import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
-import { expireMessages } from '../util/messages'
+import { executeBatchStrReplaces } from './batch-str-replace'
 import { logger } from '../util/logger'
+import { expireMessages } from '../util/messages'
 import { sendAction } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
-import {
-  executeBatchStrReplaces,
-  BatchStrReplaceState,
-} from './batch-str-replace'
 
+import type { BatchStrReplaceState } from './batch-str-replace'
 import type { CustomToolCall } from './tool-executor'
 import type { StreamChunk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import type { AgentTemplate } from '../templates/types'
@@ -119,6 +117,7 @@ export async function processStreamWithTools(options: {
     agentContext,
     messages,
     system,
+    logger,
   }
 
   function toolCallback<T extends ToolName>(toolName: T) {
