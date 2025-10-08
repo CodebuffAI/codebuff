@@ -8,15 +8,16 @@ import { logger } from './util/logger'
  * Checks if a prompt appears to be a terminal command that can be run directly.
  * Returns the command if it is a terminal command, null otherwise.
  */
-export async function checkTerminalCommand(
-  prompt: string,
+export async function checkTerminalCommand(params: {
+  prompt: string
   options: {
     clientSessionId: string
     fingerprintId: string
     userInputId: string
     userId: string | undefined
-  },
-): Promise<string | null> {
+  }
+}): Promise<string | null> {
+  const { prompt, options } = params
   if (!prompt?.trim()) {
     return null
   }
