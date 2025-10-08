@@ -111,10 +111,11 @@ export async function formatPrompt({
 }
 type StringField = 'systemPrompt' | 'instructionsPrompt' | 'stepPrompt'
 
-export async function collectParentInstructions(
-  agentType: string,
-  agentTemplates: Record<string, AgentTemplate>,
-): Promise<string[]> {
+export async function collectParentInstructions(params: {
+  agentType: string
+  agentTemplates: Record<string, AgentTemplate>
+}): Promise<string[]> {
+  const { agentType, agentTemplates } = params
   const instructions: string[] = []
 
   for (const template of Object.values(agentTemplates)) {
@@ -196,10 +197,10 @@ export async function getAgentPrompt<T extends StringField>({
         agentTemplates,
       ))
 
-    const parentInstructions = await collectParentInstructions(
-      agentState.agentType,
+    const parentInstructions = await collectParentInstructions({
+      agentType: agentState.agentType,
       agentTemplates,
-    )
+    })
 
     if (parentInstructions.length > 0) {
       addendum += '\n\n## Additional Instructions for Spawning Agents\n\n'
