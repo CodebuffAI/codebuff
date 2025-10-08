@@ -48,6 +48,33 @@ Then just tell Codebuff what you want and it handles the rest:
 
 Codebuff will find the right files, makes changes across your codebase, and runs tests to make sure nothing breaks.
 
+## Configuration
+
+For most users, **no configuration is needed**. The CLI authenticates via your browser automatically when you run `codebuff`.
+
+### SDK Usage: API Keys
+
+If you're using the [Codebuff SDK](https://www.npmjs.com/package/@codebuff/sdk) (not the CLI), you'll need an API key:
+
+1. Create a Codebuff account at [codebuff.com](https://codebuff.com)
+2. Get your API key at [codebuff.com/api-keys](https://codebuff.com/api-keys)
+3. Use it in your code:
+
+```typescript
+import { CodebuffClient } from '@codebuff/sdk'
+
+const client = new CodebuffClient({
+  apiKey: process.env.CODEBUFF_API_KEY, // Store securely in environment variables
+  cwd: '/path/to/your/project',
+})
+```
+
+**Best practice**: Store your API key in a `.env` file and load it via `process.env.CODEBUFF_API_KEY`. Never commit API keys to version control.
+
+### Local Development
+
+Contributing to Codebuff? See [.env.example](./.env.example) for all available environment variables and [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed local development setup.
+
 ## Create custom agents
 
 To get started building your own agents, run:
