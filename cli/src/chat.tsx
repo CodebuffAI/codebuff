@@ -27,6 +27,9 @@ import {
   formatToolOutput,
 } from './codebuff-client'
 import { logger } from './logger'
+import { ShimmerText } from './shimmer-text'
+
+import { StatusIndicator, useHasStatus } from './status-indicator'
 import React from 'react'
 
 type ThemeName = 'dark' | 'light'
@@ -66,7 +69,7 @@ interface MarkdownThemeOverrides {
   codeMonochrome?: boolean
 }
 
-interface ChatTheme {
+export interface ChatTheme {
   background: string
   chromeBg: string
   chromeText: string
@@ -564,7 +567,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const [canProcessQueue, setCanProcessQueue] = useState<boolean>(true)
   const [isWaitingForResponse, setIsWaitingForResponse] =
     useState<boolean>(false)
-  const [loadingFrame, setLoadingFrame] = useState<number>(0)
+  const hasStatus = useHasStatus(isWaitingForResponse)
   const queuedMessagesRef = useRef<string[]>([])
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -637,16 +640,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     }
   }, [clearStreaming])
 
-  useEffect(() => {
-    if (!isWaitingForResponse) return
 
-    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-    const interval = setInterval(() => {
-      setLoadingFrame((prev) => (prev + 1) % frames.length)
-    }, 80)
-
-    return () => clearInterval(interval)
-  }, [isWaitingForResponse])
 
   useEffect(() => {
     const isAgentVisible = (agentId: string): boolean => {
@@ -761,8 +755,8 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     return undefined
   }, [messages, scrollToLatest])
 
-  const sendMessage: (content: string, onComplete?: () => void) => void = useCallback(
-    (content: string, onComplete?: () => void) => {
+  const sendMessage: (content: string, onComplete?: () => void) => void =
+    useCallback((content: string, onComplete?: () => void) => {
       if (onComplete) {
         completionCallbackRef.current = onComplete
       }
@@ -870,7 +864,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
           prompt: content,
           handleStreamChunk: (chunk: any) => {
             const isSubagentChunk = activeSubagentsRef.current.size > 0
-            
+
             if (isSubagentChunk) {
               logger.info('Subagent chunk received', { chunk })
             }
@@ -915,11 +909,17 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
               actualCredits = event.credits
             }
 
-            if (event.type === 'subagent_start' || event.type === 'subagent-start') {
+            if (
+              event.type === 'subagent_start' ||
+              event.type === 'subagent-start'
+            ) {
               if (event.agentId) {
                 activeSubagentsRef.current.add(event.agentId)
               }
-            } else if (event.type === 'subagent_finish' || event.type === 'subagent-finish') {
+            } else if (
+              event.type === 'subagent_finish' ||
+              event.type === 'subagent-finish'
+            ) {
               if (event.agentId) {
                 activeSubagentsRef.current.delete(event.agentId)
               }
@@ -1042,59 +1042,61 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
             callback()
           }
         })
-    },
-    [],
-  )
+    }, [])
 
   useEffect(() => {
     if (initialPrompt && !hasAutoSubmittedRef.current) {
       hasAutoSubmittedRef.current = true
-      
+
       const timeout = setTimeout(() => {
         logger.info('Auto-submitting initial prompt', { prompt: initialPrompt })
-        
+
         const handleCompletion = () => {
           logger.info('Initial prompt completed, reading log file')
-          
+
           setTimeout(() => {
             if (renderer) {
               renderer.destroy()
             }
-            
+
             setTimeout(() => {
               try {
                 const fs = require('fs')
                 const path = require('path')
                 const logPath = path.join(process.cwd(), 'debug', 'cli.log')
-                
+
                 if (fs.existsSync(logPath)) {
                   const logContents = fs.readFileSync(logPath, 'utf8')
                   process.stdout.write('\n=== Debug Log Contents ===\n\n')
                   process.stdout.write(logContents)
                   process.stdout.write('\n\n=== End of Debug Log ===\n\n')
                 } else {
-                  process.stdout.write('Log file not found at: ' + logPath + '\n')
+                  process.stdout.write(
+                    'Log file not found at: ' + logPath + '\n',
+                  )
                 }
               } catch (error) {
-                process.stdout.write('Error reading log file: ' + String(error) + '\n')
+                process.stdout.write(
+                  'Error reading log file: ' + String(error) + '\n',
+                )
               }
-              
+
               process.exit(0)
             }, 100)
           }, 500)
         }
-        
+
         const timeoutId = setTimeout(() => {
           logger.warn('2-minute timeout reached, exiting')
           handleCompletion()
         }, 120000)
-        
+
         sendMessage(initialPrompt, () => {
           clearTimeout(timeoutId)
           handleCompletion()
         })
       }, 100)
-      
+
       return () => clearTimeout(timeout)
     }
     return undefined
@@ -1644,10 +1646,9 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       }
       const markdownOptions = { codeBlockWidth, palette: paletteForMessage }
 
-      const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
       const isLoading = isAi && message.content === '' && isWaitingForResponse
       const renderedContent = isLoading
-        ? `Thinking ${frames[loadingFrame]}`
+        ? ''
         : isAi
           ? renderStreamingMarkdown(message.content, markdownOptions)
           : hasMarkdown(message.content)
@@ -1810,7 +1811,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     collapsedAgents,
     focusedAgentId,
     isWaitingForResponse,
-    loadingFrame,
+
     streamingAgents,
     registerAgentRef,
     scrollToAgent,
@@ -1841,10 +1842,10 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
         style={{
           flexDirection: 'column',
           flexGrow: 1,
-          paddingLeft: 1,
-          paddingRight: 1,
+          paddingLeft: 0,
+          paddingRight: 0,
           paddingTop: 0,
-          paddingBottom: 1,
+          paddingBottom: 0,
           backgroundColor: theme.panelBg,
         }}
       >
@@ -1859,7 +1860,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
             rootOptions: {
               flexGrow: 1,
               padding: 0,
-              gap: 1,
+              gap: 0,
               flexDirection: 'column',
               shouldFill: true,
               backgroundColor: theme.panelBg,
@@ -1886,16 +1887,44 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       <box
         style={{
           flexShrink: 0,
-          paddingLeft: 1,
-          paddingRight: 1,
+          paddingLeft: 0,
+          paddingRight: 0,
           backgroundColor: theme.panelBg,
         }}
       >
-        <QueueIndicator
-          messages={queuedMessages}
-          theme={theme}
-          width={renderer.width}
-        />
+        {(hasStatus || queuedMessages.length > 0) && (
+          <>
+            <box
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              {hasStatus && (
+                <box style={{ paddingLeft: 0 }}>
+                  <text wrap={false}>
+                    <StatusIndicator
+                      isProcessing={isWaitingForResponse}
+                      theme={theme}
+                    />
+                  </text>
+                </box>
+              )}
+              <box style={{ flexGrow: 1, flexShrink: 1 }}>
+                <QueueIndicator
+                  messages={queuedMessages}
+                  theme={theme}
+                  width={renderer.width}
+                />
+              </box>
+            </box>
+            {queuedMessages.length > 0 && (
+              <box style={{ height: 1 }} />
+            )}
+          </>
+        )}
         <text
           content={'─'.repeat(renderer.width)}
           wrap={false}

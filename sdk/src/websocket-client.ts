@@ -3,6 +3,7 @@ import { APIRealtimeClient } from '../../common/src/websockets/websocket-client'
 
 import type { ServerAction, ClientAction } from '../../common/src/actions'
 import type { WebSocket } from 'ws'
+import type { ReadyState } from '../../common/src/websockets/websocket-client'
 
 export type WebSocketHandlerOptions = {
   onWebsocketError?: (error: WebSocket.ErrorEvent) => void
@@ -100,6 +101,14 @@ export class WebSocketHandler {
   public close() {
     this.cbWebSocket.close()
     this.isConnected = false
+  }
+
+  public getConnectionStatus(): boolean {
+    return this.isConnected
+  }
+
+  public getReadyState(): ReadyState {
+    return this.cbWebSocket.state
   }
 
   private setupSubscriptions() {

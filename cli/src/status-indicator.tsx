@@ -1,0 +1,91 @@
+import React, { useEffect, useState } from 'react'
+import { ShimmerText } from './shimmer-text'
+import { getCodebuffClient } from './codebuff-client'
+import type { ChatTheme } from './chat'
+
+const THINKING_SHIMMER_COLORS = [
+  '#9ca3af',
+  '#8b92a0',
+  '#7a8090',
+  '#6b7280',
+  '#5a6070',
+  '#4a5060',
+]
+
+export const StatusIndicator = ({
+  isProcessing,
+  theme,
+}: {
+  isProcessing: boolean
+  theme: ChatTheme
+}) => {
+  const [isConnected, setIsConnected] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      const client = getCodebuffClient()
+      if (!client) {
+        setIsConnected(false)
+        return
+      }
+
+      try {
+        const connected = await client.checkConnection()
+        setIsConnected(connected)
+      } catch (error) {
+        setIsConnected(false)
+      }
+    }
+
+    checkConnection()
+
+    const interval = setInterval(checkConnection, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const hasStatus = isConnected === false || isProcessing
+
+  if (!hasStatus) {
+    return null
+  }
+
+  if (isConnected === false) {
+    return <ShimmerText text="connecting..." />
+  }
+
+  if (isProcessing) {
+    return <ShimmerText text="thinking..." colors={THINKING_SHIMMER_COLORS} />
+  }
+
+  return null
+}
+
+export const useHasStatus = (isProcessing: boolean): boolean => {
+  const [isConnected, setIsConnected] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      const client = getCodebuffClient()
+      if (!client) {
+        setIsConnected(false)
+        return
+      }
+
+      try {
+        const connected = await client.checkConnection()
+        setIsConnected(connected)
+      } catch (error) {
+        setIsConnected(false)
+      }
+    }
+
+    checkConnection()
+
+    const interval = setInterval(checkConnection, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  return isConnected === false || isProcessing
+}
