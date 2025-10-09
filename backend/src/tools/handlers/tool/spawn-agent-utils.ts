@@ -334,7 +334,8 @@ export async function executeSubagent(
 
   onResponseChunk({
     type: 'subagent_start',
-    agentId: agentTemplate.id,
+    agentId: agentState.agentId,
+    agentType: agentTemplate.id,
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
   })
@@ -349,7 +350,8 @@ export async function executeSubagent(
 
   onResponseChunk({
     type: 'subagent_finish',
-    agentId: agentTemplate.id,
+    agentId: agentState.agentId,
+    agentType: agentTemplate.id,
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
   })

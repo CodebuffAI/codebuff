@@ -116,6 +116,7 @@ export const runAgentStep = async (
     spawnParams,
     system,
     logger,
+    promptAiSdkStream,
   } = params
   let agentState = params.agentState
 
@@ -238,8 +239,11 @@ export const runAgentStep = async (
   const { model } = agentTemplate
 
   const { getStream } = getAgentStreamFromTemplate({
-    ...params,
-    agentId: agentState.agentId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    agentId: agentState.parentId ? agentState.agentId : undefined,
     template: agentTemplate,
     onCostCalculated: async (credits: number) => {
       try {
@@ -258,6 +262,8 @@ export const runAgentStep = async (
         )
       }
     },
+    promptAiSdkStream,
+    logger,
     includeCacheControl: supportsCacheControl(agentTemplate.model),
   })
 

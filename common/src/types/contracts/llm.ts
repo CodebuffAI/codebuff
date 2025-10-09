@@ -9,6 +9,7 @@ export type StreamChunk =
   | {
       type: 'text'
       text: string
+      agentId?: string
     }
   | {
       type: 'reasoning'

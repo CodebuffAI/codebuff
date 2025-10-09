@@ -181,8 +181,8 @@ export const MessageBlock = ({
                 : ''
 
               const finishedPreview =
-                !isStreaming && isCollapsed
-                  ? lastLine.replace(/[#*_`~\[\]()]/g, '').trim()
+                !isStreaming && isCollapsed && block.initialPrompt
+                  ? block.initialPrompt.replace(/[#*_`~\[\]()]/g, '').trim()
                   : ''
 
               const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
@@ -195,16 +195,88 @@ export const MessageBlock = ({
                 codeBlockWidth: agentCodeBlockWidth,
                 palette: agentPalette,
               }
-              const displayContent = hasMarkdown(block.content)
-                ? renderMarkdown(block.content, agentMarkdownOptions)
-                : block.content
+              
+              const displayContent = block.content
+                ? (hasMarkdown(block.content)
+                    ? renderMarkdown(block.content, agentMarkdownOptions)
+                    : block.content)
+                : ''
+              
+              const nestedToolBlocks = block.blocks && block.blocks.length > 0 && !isCollapsed
+                ? block.blocks.map((nestedBlock, nestedIdx) => {
+                    if (nestedBlock.type === 'tool') {
+                      const displayInfo = getToolDisplayInfo(nestedBlock.toolName)
+                      const isNestedCollapsed = collapsedAgents.has(nestedBlock.toolCallId)
+                      const isNestedStreaming = streamingAgents.has(nestedBlock.toolCallId)
+
+                      const inputContent = `\`\`\`json\n${JSON.stringify(nestedBlock.input, null, 2)}\n\`\`\``
+                      const codeBlockLang =
+                        nestedBlock.toolName === 'run_terminal_command' ? '' : 'yaml'
+                      const resultContent = nestedBlock.output
+                        ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${nestedBlock.output}\n\`\`\``
+                        : ''
+                      const fullNestedContent = inputContent + resultContent
+
+                      const nestedLines = fullNestedContent.split('\n').filter((line) => line.trim())
+                      const firstNestedLine = nestedLines[0] || ''
+                      const lastNestedLine = nestedLines[nestedLines.length - 1] || firstNestedLine
+
+                      const nestedStreamingPreview = isNestedStreaming
+                        ? firstNestedLine.replace(/[#*_`~\[\]()]/g, '').trim() + '...'
+                        : ''
+
+                      let nestedFinishedPreview = ''
+                      if (!isNestedStreaming && isNestedCollapsed) {
+                        if (nestedBlock.toolName === 'run_terminal_command' && nestedBlock.output) {
+                          const outputLines = nestedBlock.output
+                            .split('\n')
+                            .filter((line) => line.trim())
+                          const lastThreeLines = outputLines.slice(-3)
+                          const hasMoreLines = outputLines.length > 3
+                          nestedFinishedPreview = hasMoreLines
+                            ? '...\n' + lastThreeLines.join('\n')
+                            : lastThreeLines.join('\n')
+                        } else {
+                          nestedFinishedPreview = lastNestedLine
+                            .replace(/[#*_`~\[\]()]/g, '')
+                            .trim()
+                        }
+                      }
+
+                      const nestedDisplayContent = hasMarkdown(fullNestedContent)
+                        ? renderMarkdown(fullNestedContent, agentMarkdownOptions)
+                        : fullNestedContent
+
+                      const nextNestedBlock = block.blocks![nestedIdx + 1]
+                      const isLastNestedBranch = !nextNestedBlock
+                      const nestedBranchChar = isLastNestedBranch ? '  └─ ' : '  ├─ '
+
+                      return (
+                        <box key={`${messageId}-agent-${block.agentId}-tool-${nestedBlock.toolCallId}`}>
+                          <BranchItem
+                            name={displayInfo.name}
+                            content={nestedDisplayContent}
+                            isCollapsed={isNestedCollapsed}
+                            isStreaming={isNestedStreaming}
+                            branchChar={nestedBranchChar}
+                            streamingPreview={nestedStreamingPreview}
+                            finishedPreview={nestedFinishedPreview}
+                            theme={theme}
+                            onToggle={() => onToggleCollapsed(nestedBlock.toolCallId)}
+                          />
+                        </box>
+                      )
+                    }
+                    return null
+                  })
+                : null
 
               const nextBlock = blocks[idx + 1]
               const isLastBranch = !nextBlock || nextBlock.type === 'text'
               const branchChar = isLastBranch ? '└─ ' : '├─ '
 
               return (
-                <box key={`${messageId}-agent-${block.agentId}`}>
+                <box key={`${messageId}-agent-${block.agentId}`} style={{ flexDirection: 'column', gap: 0 }}>
                   <BranchItem
                     name={block.agentName}
                     content={displayContent}
@@ -216,6 +288,7 @@ export const MessageBlock = ({
                     theme={theme}
                     onToggle={() => onToggleCollapsed(block.agentId)}
                   />
+                  {nestedToolBlocks}
                 </box>
               )
             }

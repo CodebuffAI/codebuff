@@ -4,7 +4,7 @@ import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import { formatTimestamp } from '../utils/helpers'
 import { logger } from '../utils/logger'
 
-import type { ChatMessage } from '../chat'
+import type { ChatMessage, ContentBlock } from '../chat'
 import type { ToolName } from '@codebuff/sdk'
 
 const completionMessages = [
@@ -54,6 +54,9 @@ export const useSendMessage = ({
   completionCallbackRef,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
+  const spawnAgentsMapRef = useRef<
+    Map<string, { index: number; agentType: string }>
+  >(new Map())
 
   const sendMessage = useCallback(
     async (content: string, onComplete?: () => void) => {
@@ -169,16 +172,15 @@ export const useSendMessage = ({
           signal: abortController.signal,
 
           handleStreamChunk: (chunk: any) => {
-            const isSubagentChunk = activeSubagentsRef.current.size > 0
-
-            if (isSubagentChunk) {
-              logger.info('Subagent chunk received', { chunk })
-            }
-
             const keys = Object.keys(chunk)
               .filter((k) => !isNaN(Number(k)))
               .sort((a, b) => Number(a) - Number(b))
-            const text = keys.map((k) => chunk[k]).join('')
+            let text = keys.map((k) => chunk[k]).join('')
+
+            text = text.replace(
+              /<codebuff_tool_call>[\s\S]*?<\/codebuff_tool_call>/g,
+              '',
+            )
 
             if (!text) return
 
@@ -187,6 +189,9 @@ export const useSendMessage = ({
               setIsWaitingForResponse(false)
             }
 
+            logger.info('setMessages: handleStreamChunk (main agent text)', {
+              text,
+            })
             setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.id === aiMessageId) {
@@ -215,14 +220,69 @@ export const useSendMessage = ({
           },
 
           handleEvent: (event: any) => {
-            logger.info('SDK Event received', { type: event.type, event })
+            logger.info('SDK Event received (raw)', { type: event.type, event })
 
-            if (event.type === 'subagent-chunk') {
-              logger.info('Subagent chunk received', {
-                agentId: event.agentId,
-                agentType: event.agentType,
-                chunk: event.chunk,
-              })
+            if (event.type === 'text') {
+              let text = event.text.replace(
+                /<codebuff_tool_call>[\s\S]*?<\/codebuff_tool_call>/g,
+                '',
+              )
+
+              if (!text) return
+
+              if (event.agentId) {
+                logger.info('setMessages: text event with agentId', {
+                  agentId: event.agentId,
+                  textPreview: text.slice(0, 100),
+                })
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === aiMessageId && msg.blocks) {
+                      const blocks = msg.blocks.map((block) => {
+                        if (
+                          block.type === 'agent' &&
+                          block.agentId === event.agentId
+                        ) {
+                          return { ...block, content: block.content + text }
+                        }
+                        return block
+                      })
+                      return { ...msg, blocks }
+                    }
+                    return msg
+                  }),
+                )
+                return
+              } else {
+                logger.info('setMessages: text event without agentId', {
+                  textPreview: text.slice(0, 100),
+                })
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === aiMessageId) {
+                      const blocks = msg.blocks || []
+                      const lastBlock = blocks[blocks.length - 1]
+
+                      if (lastBlock && lastBlock.type === 'text') {
+                        return {
+                          ...msg,
+                          blocks: [
+                            ...blocks.slice(0, -1),
+                            { type: 'text', content: lastBlock.content + text },
+                          ],
+                        }
+                      } else {
+                        return {
+                          ...msg,
+                          blocks: [...blocks, { type: 'text', content: text }],
+                        }
+                      }
+                    }
+                    return msg
+                  }),
+                )
+                return
+              }
             }
 
             if (event.type === 'finish' && event.totalCost !== undefined) {
@@ -238,33 +298,100 @@ export const useSendMessage = ({
               event.type === 'subagent-start'
             ) {
               if (event.agentId) {
+                logger.info('subagent_start event', {
+                  agentId: event.agentId,
+                  agentType: event.agentType,
+                })
                 activeSubagentsRef.current.add(event.agentId)
 
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === aiMessageId) {
-                      const blocks = msg.blocks || []
-                      return {
-                        ...msg,
-                        blocks: [
-                          ...blocks,
-                          {
-                            type: 'agent',
-                            agentId: event.agentId,
-                            agentName: event.agentType || 'Agent',
-                            agentType: event.agentType || 'unknown',
-                            content: '',
-                            status: 'running',
-                          },
-                        ],
-                      }
-                    }
-                    return msg
-                  }),
-                )
+                let foundExistingBlock = false
+                for (const [
+                  tempId,
+                  info,
+                ] of spawnAgentsMapRef.current.entries()) {
+                  const eventType = event.agentType || ''
+                  const storedType = info.agentType || ''
+                  if (eventType === storedType) {
+                    logger.info(
+                      'setMessages: matching spawn_agents block found',
+                      {
+                        tempId,
+                        realAgentId: event.agentId,
+                        agentType: eventType,
+                      },
+                    )
+                    setMessages((prev) =>
+                      prev.map((msg) => {
+                        if (msg.id === aiMessageId && msg.blocks) {
+                          const blocks = msg.blocks.map((block) => {
+                            if (
+                              block.type === 'agent' &&
+                              block.agentId === tempId
+                            ) {
+                              return { ...block, agentId: event.agentId }
+                            }
+                            return block
+                          })
+                          return { ...msg, blocks }
+                        }
+                        return msg
+                      }),
+                    )
 
-                setStreamingAgents((prev) => new Set(prev).add(event.agentId))
-                setCollapsedAgents((prev) => new Set(prev).add(event.agentId))
+                    setStreamingAgents((prev) => {
+                      const next = new Set(prev)
+                      next.delete(tempId)
+                      next.add(event.agentId)
+                      return next
+                    })
+                    setCollapsedAgents((prev) => {
+                      const next = new Set(prev)
+                      next.delete(tempId)
+                      next.add(event.agentId)
+                      return next
+                    })
+
+                    spawnAgentsMapRef.current.delete(tempId)
+                    foundExistingBlock = true
+                    break
+                  }
+                }
+
+                if (!foundExistingBlock) {
+                  logger.info(
+                    'setMessages: creating new agent block (no spawn_agents match)',
+                    {
+                      agentId: event.agentId,
+                      agentType: event.agentType,
+                    },
+                  )
+                  setMessages((prev) =>
+                    prev.map((msg) => {
+                      if (msg.id === aiMessageId) {
+                        const blocks = msg.blocks || []
+                        return {
+                          ...msg,
+                          blocks: [
+                            ...blocks,
+                            {
+                              type: 'agent',
+                              agentId: event.agentId,
+                              agentName: event.agentType || 'Agent',
+                              agentType: event.agentType || 'unknown',
+                              content: '',
+                              status: 'running',
+                              initialPrompt: '',
+                            },
+                          ],
+                        }
+                      }
+                      return msg
+                    }),
+                  )
+
+                  setStreamingAgents((prev) => new Set(prev).add(event.agentId))
+                  setCollapsedAgents((prev) => new Set(prev).add(event.agentId))
+                }
               }
             } else if (
               event.type === 'subagent_finish' ||
@@ -299,35 +426,74 @@ export const useSendMessage = ({
               }
             }
 
-            if (event.type === 'subagent-chunk' && event.agentId) {
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id === aiMessageId && msg.blocks) {
-                    const blocks = msg.blocks.map((block) => {
-                      if (
-                        block.type === 'agent' &&
-                        block.agentId === event.agentId
-                      ) {
-                        const chunkText =
-                          typeof event.chunk === 'string' ? event.chunk : ''
-                        return { ...block, content: block.content + chunkText }
-                      }
-                      return block
-                    })
-                    return { ...msg, blocks }
-                  }
-                  return msg
-                }),
-              )
-            }
-
             if (event.type === 'tool_call' && event.toolCallId) {
               const { toolCallId, toolName, input } = event
 
-              const hiddenTools: ToolName[] = ['spawn_agent_inline', 'end_turn']
+              if (toolName === 'spawn_agents' && input?.agents) {
+                const agents = Array.isArray(input.agents) ? input.agents : []
+
+                agents.forEach((agent: any, index: number) => {
+                  const tempAgentId = `${toolCallId}-${index}`
+                  spawnAgentsMapRef.current.set(tempAgentId, {
+                    index,
+                    agentType: agent.agent_type || 'unknown',
+                  })
+                })
+
+                logger.info('setMessages: spawn_agents tool call', {
+                  toolCallId,
+                  agentCount: agents.length,
+                  agentTypes: agents.map((a: any) => a.agent_type),
+                })
+
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === aiMessageId) {
+                      const blocks = msg.blocks || []
+                      const newAgentBlocks = agents.map(
+                        (agent: any, index: number) => ({
+                          type: 'agent' as const,
+                          agentId: `${toolCallId}-${index}`,
+                          agentName: agent.agent_type || 'Agent',
+                          agentType: agent.agent_type || 'unknown',
+                          content: agent.prompt || '',
+                          status: 'running' as const,
+                          blocks: [],
+                          initialPrompt: agent.prompt || '',
+                        }),
+                      )
+
+                      return {
+                        ...msg,
+                        blocks: [...blocks, ...newAgentBlocks],
+                      }
+                    }
+                    return msg
+                  }),
+                )
+
+                agents.forEach((_: any, index: number) => {
+                  const agentId = `${toolCallId}-${index}`
+                  setStreamingAgents((prev) => new Set(prev).add(agentId))
+                  setCollapsedAgents((prev) => new Set(prev).add(agentId))
+                })
+
+                return
+              }
+
+              const hiddenTools: ToolName[] = [
+                'spawn_agent_inline',
+                'end_turn',
+                'spawn_agents',
+              ]
               if (hiddenTools.includes(toolName)) {
                 return
               }
+
+              logger.info('setMessages: tool_call event', {
+                toolName,
+                toolCallId,
+              })
 
               setMessages((prev) =>
                 prev.map((msg) => {
@@ -350,32 +516,91 @@ export const useSendMessage = ({
             } else if (event.type === 'tool_result' && event.toolCallId) {
               const { toolCallId } = event
 
+              const isSpawnAgentsResult = event.output?.some(
+                (item: any) => item?.value?.agentName || item?.value?.agentType,
+              )
+
+              if (isSpawnAgentsResult && Array.isArray(event.output)) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === aiMessageId && msg.blocks) {
+                      const blocks = msg.blocks.map((block, blockIndex) => {
+                        if (
+                          block.type === 'agent' &&
+                          block.agentId.startsWith(toolCallId)
+                        ) {
+                          const agentIndex = parseInt(
+                            block.agentId.split('-').pop() || '0',
+                            10,
+                          )
+                          const result = event.output?.[agentIndex]
+
+                          if (result?.value) {
+                            const content =
+                              typeof result.value === 'string'
+                                ? result.value
+                                : result.value.message ||
+                                  formatToolOutput([result])
+
+                            return {
+                              ...block,
+                              content,
+                              status: 'complete' as const,
+                            }
+                          }
+                        }
+                        return block
+                      })
+                      return { ...msg, blocks }
+                    }
+                    return msg
+                  }),
+                )
+
+                event.output.forEach((_: any, index: number) => {
+                  const agentId = `${toolCallId}-${index}`
+                  setStreamingAgents((prev) => {
+                    const next = new Set(prev)
+                    next.delete(agentId)
+                    return next
+                  })
+                })
+                return
+              }
+
+              const updateToolBlock = (
+                blocks: ContentBlock[],
+              ): ContentBlock[] => {
+                return blocks.map((block) => {
+                  if (
+                    block.type === 'tool' &&
+                    block.toolCallId === toolCallId
+                  ) {
+                    let output: string
+                    if (event.error) {
+                      output = `**Error:** ${typeof event.error === 'string' ? event.error : JSON.stringify(event.error)}`
+                    } else if (block.toolName === 'run_terminal_command') {
+                      const parsed = event.output?.[0]?.value
+                      if (parsed?.stdout || parsed?.stderr) {
+                        output = (parsed.stdout || '') + (parsed.stderr || '')
+                      } else {
+                        output = formatToolOutput(event.output)
+                      }
+                    } else {
+                      output = formatToolOutput(event.output)
+                    }
+                    return { ...block, output }
+                  } else if (block.type === 'agent' && block.blocks) {
+                    return { ...block, blocks: updateToolBlock(block.blocks) }
+                  }
+                  return block
+                })
+              }
+
               setMessages((prev) =>
                 prev.map((msg) => {
                   if (msg.id === aiMessageId && msg.blocks) {
-                    const blocks = msg.blocks.map((block) => {
-                      if (
-                        block.type === 'tool' &&
-                        block.toolCallId === toolCallId
-                      ) {
-                        let output: string
-                        if (event.error) {
-                          output = `**Error:** ${typeof event.error === 'string' ? event.error : JSON.stringify(event.error)}`
-                        } else if (block.toolName === 'run_terminal_command') {
-                          const parsed = event.output?.[0]?.value
-                          if (parsed?.stdout || parsed?.stderr) {
-                            output = (parsed.stdout || '') + (parsed.stderr || '')
-                          } else {
-                            output = formatToolOutput(event.output)
-                          }
-                        } else {
-                          output = formatToolOutput(event.output)
-                        }
-                        return { ...block, output }
-                      }
-                      return block
-                    })
-                    return { ...msg, blocks }
+                    return { ...msg, blocks: updateToolBlock(msg.blocks) }
                   }
                   return msg
                 }),
@@ -411,7 +636,9 @@ export const useSendMessage = ({
                   ...msg,
                   isComplete: true,
                   completionTime: `${elapsedTime}s`,
-                  ...(actualCredits !== undefined && { credits: actualCredits }),
+                  ...(actualCredits !== undefined && {
+                    credits: actualCredits,
+                  }),
                 }
               : msg,
           ),
@@ -447,7 +674,8 @@ export const useSendMessage = ({
                       ...blocks.slice(0, -1),
                       {
                         type: 'text',
-                        content: lastBlock.content + '\n\n[response interrupted]',
+                        content:
+                          lastBlock.content + '\n\n[response interrupted]',
                       },
                     ],
                     isComplete: true,

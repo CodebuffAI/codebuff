@@ -127,6 +127,8 @@ export async function run({
   let insideToolCall = false
   let buffer = ''
   const BUFFER_SIZE = 100
+  
+  const subagentBuffers = new Map<string, { buffer: string; insideToolCall: boolean }>()
 
   const websocketHandler = new WebSocketHandler({
     apiKey,
@@ -189,7 +191,41 @@ export async function run({
           buffer = buffer.slice(-BUFFER_SIZE * 10)
         }
       } else {
-        await handleEvent?.(chunk)
+        // Handle event objects - if it's a text event, apply the same filtering
+        if (chunk.type === 'text' && typeof chunk.text === 'string') {
+          buffer += chunk.text
+
+          if (!insideToolCall && buffer.includes('<codebuff_tool_call>')) {
+            const openTagIndex = buffer.indexOf('<codebuff_tool_call>')
+            const beforeTag = buffer.substring(0, openTagIndex)
+            if (beforeTag && handleStreamChunk) {
+              await handleStreamChunk(beforeTag)
+            }
+            insideToolCall = true
+            buffer = buffer.substring(openTagIndex)
+          } else if (insideToolCall && buffer.includes('</codebuff_tool_call>')) {
+            const closeTagIndex = buffer.indexOf('</codebuff_tool_call>')
+            insideToolCall = false
+            buffer = buffer.substring(
+              closeTagIndex + '</codebuff_tool_call>'.length,
+            )
+          } else if (!insideToolCall) {
+            if (buffer.length > 50) {
+              const safeToOutput = buffer.substring(0, buffer.length - 50)
+              if (handleStreamChunk) {
+                await handleStreamChunk(safeToOutput)
+              }
+              buffer = buffer.substring(buffer.length - 50)
+            }
+          }
+
+          if (insideToolCall && buffer.length > BUFFER_SIZE * 10) {
+            buffer = buffer.slice(-BUFFER_SIZE * 10)
+          }
+        } else {
+          // For non-text events, pass through to handleEvent
+          await handleEvent?.(chunk)
+        }
       }
     },
     onSubagentResponseChunk: async (action) => {
@@ -206,7 +242,39 @@ export async function run({
       }
 
       if (handleStreamChunk) {
-        await handleStreamChunk(chunk)
+        let bufferState = subagentBuffers.get(agentId)
+        if (!bufferState) {
+          bufferState = { buffer: '', insideToolCall: false }
+          subagentBuffers.set(agentId, bufferState)
+        }
+
+        bufferState.buffer += chunk
+
+        if (!bufferState.insideToolCall && bufferState.buffer.includes('<codebuff_tool_call>')) {
+          const openTagIndex = bufferState.buffer.indexOf('<codebuff_tool_call>')
+          const beforeTag = bufferState.buffer.substring(0, openTagIndex)
+          if (beforeTag) {
+            await handleStreamChunk(beforeTag)
+          }
+          bufferState.insideToolCall = true
+          bufferState.buffer = bufferState.buffer.substring(openTagIndex)
+        } else if (bufferState.insideToolCall && bufferState.buffer.includes('</codebuff_tool_call>')) {
+          const closeTagIndex = bufferState.buffer.indexOf('</codebuff_tool_call>')
+          bufferState.insideToolCall = false
+          bufferState.buffer = bufferState.buffer.substring(
+            closeTagIndex + '</codebuff_tool_call>'.length,
+          )
+        } else if (!bufferState.insideToolCall) {
+          if (bufferState.buffer.length > 50) {
+            const safeToOutput = bufferState.buffer.substring(0, bufferState.buffer.length - 50)
+            await handleStreamChunk(safeToOutput)
+            bufferState.buffer = bufferState.buffer.substring(bufferState.buffer.length - 50)
+          }
+        }
+
+        if (bufferState.insideToolCall && bufferState.buffer.length > BUFFER_SIZE * 10) {
+          bufferState.buffer = bufferState.buffer.slice(-BUFFER_SIZE * 10)
+        }
       }
     },
 

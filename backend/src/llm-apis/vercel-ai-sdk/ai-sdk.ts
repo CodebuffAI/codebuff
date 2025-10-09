@@ -31,6 +31,17 @@ import type {
 import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
 
+export type StreamChunk =
+  | {
+      type: 'text'
+      text: string
+      agentId?: string
+    }
+  | {
+      type: 'reasoning'
+      text: string
+    }
+  | { type: 'error'; message: string }
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModel => {
   if (
@@ -57,6 +68,9 @@ export async function* promptAiSdkStream(
   params: ParamsOf<PromptAiSdkStreamFn>,
 ): ReturnType<PromptAiSdkStreamFn> {
   const { logger } = params
+  const agentChunkMetadata =
+    params.agentId != null ? { agentId: params.agentId } : undefined
+
   if (
     !checkLiveUserInput({ ...params, clientSessionId: params.clientSessionId })
   ) {
@@ -92,6 +106,7 @@ export async function* promptAiSdkStream(
         yield {
           type: 'text',
           text: flushed,
+          ...(agentChunkMetadata ?? {}),
         }
       }
     }
@@ -144,6 +159,7 @@ export async function* promptAiSdkStream(
           yield {
             type: 'text',
             text: chunk.text,
+            ...(agentChunkMetadata ?? {}),
           }
         }
         continue
@@ -155,6 +171,7 @@ export async function* promptAiSdkStream(
         yield {
           type: 'text',
           text: stopSequenceResult.text,
+          ...(agentChunkMetadata ?? {}),
         }
       }
     }
@@ -165,6 +182,7 @@ export async function* promptAiSdkStream(
     yield {
       type: 'text',
       text: flushed,
+      ...(agentChunkMetadata ?? {}),
     }
   }
 

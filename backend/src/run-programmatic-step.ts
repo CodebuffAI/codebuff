@@ -268,12 +268,6 @@ export async function runProgrammaticStep(
           role: 'assistant' as const,
           content: toolCallString,
         })
-        state.sendSubagentChunk({
-          userInputId,
-          agentId: state.agentState.agentId,
-          agentType: state.agentState.agentType!,
-          chunk: toolCallString,
-        })
       }
 
       // Execute the tool synchronously and get the result immediately
