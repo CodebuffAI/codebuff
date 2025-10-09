@@ -1,7 +1,7 @@
 import { withTimeout } from '@codebuff/common/util/promise'
 import { env } from '@codebuff/internal'
 
-import { logger } from '../util/logger'
+import type { Logger } from '@codebuff/types/logger'
 
 const LINKUP_API_BASE_URL = 'https://api.linkup.so/v1'
 const FETCH_TIMEOUT_MS = 30_000
@@ -23,13 +23,12 @@ export interface LinkupSearchResponse {
  * @param options Search options including depth and max results
  * @returns Array containing a single result with the sourced answer or null if the request fails
  */
-export async function searchWeb(
-  query: string,
-  options: {
-    depth?: 'standard' | 'deep'
-  } = {},
-): Promise<string | null> {
-  const { depth = 'standard' } = options
+export async function searchWeb(options: {
+  query: string
+  depth?: 'standard' | 'deep'
+  logger: Logger
+}): Promise<string | null> {
+  const { query, depth = 'standard', logger } = options
   const apiStartTime = Date.now()
 
   const requestBody = {

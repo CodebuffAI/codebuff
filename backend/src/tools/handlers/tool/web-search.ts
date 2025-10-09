@@ -5,11 +5,11 @@ import { searchWeb } from '../../../llm-apis/linkup-api'
 import { PROFIT_MARGIN } from '../../../llm-apis/message-cost-tracker'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { Logger } from '@codebuff/types/logger'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/types/logger'
 
 export const handleWebSearch = ((params: {
   previousToolCallFinished: Promise<void>
@@ -59,7 +59,7 @@ export const handleWebSearch = ((params: {
   const webSearchPromise: Promise<CodebuffToolOutput<'web_search'>> =
     (async () => {
       try {
-        const searchResult = await searchWeb(query, { depth })
+        const searchResult = await searchWeb({ query, depth, logger })
         const searchDuration = Date.now() - searchStartTime
         const resultLength = searchResult?.length || 0
         const hasResults = Boolean(searchResult && searchResult.trim())
