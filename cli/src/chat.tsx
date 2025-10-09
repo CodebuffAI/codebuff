@@ -9,17 +9,19 @@ import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
 import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageRenderer } from './hooks/use-message-renderer'
-import { useScrollManagement } from './hooks/use-scroll-management'
+import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { formatTimestamp, formatQueuedPreview } from './utils/helpers'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
+
 import {
   type ThemeName,
   chatThemes,
   createMarkdownPalette,
   detectSystemTheme,
 } from './utils/theme-system'
+import { TextAttributes } from '@opentui/core'
 
 import type { ToolName } from '@codebuff/sdk'
 import type { InputRenderable, ScrollBoxRenderable } from '@opentui/core'
@@ -49,6 +51,8 @@ export type ContentBlock =
       agentType: string
       content: string
       status: 'running' | 'complete'
+      blocks?: ContentBlock[]
+      initialPrompt?: string
     }
 
 export type ChatMessage = {
@@ -117,7 +121,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     }
   }, [])
 
-  const { scrollToAgent } = useScrollManagement(
+  const { scrollToAgent, scrollboxProps } = useChatScrollbox(
     scrollRef,
     messages,
     agentRefsMap,
@@ -320,6 +324,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
           stickyStart="bottom"
           scrollX={false}
           scrollbarOptions={{ visible: false }}
+          {...scrollboxProps}
           style={{
             flexGrow: 1,
             rootOptions: {

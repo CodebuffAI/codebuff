@@ -1,14 +1,66 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import type { ScrollBoxRenderable } from '@opentui/core'
+import { isZedIDE } from '../utils/detect-ide'
+import { ZedScrollAccel } from '../utils/zed-scroll-accel'
 
-export const useScrollManagement = (
+const easeOutCubic = (t: number): number => {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+export const useChatScrollbox = (
   scrollRef: React.RefObject<ScrollBoxRenderable | null>,
   messages: any[],
   agentRefsMap: React.MutableRefObject<Map<string, any>>,
 ) => {
+  const isZed = isZedIDE()
+  const scrollAcceleration = useMemo(
+    () => (isZed ? new ZedScrollAccel() : undefined),
+    [isZed],
+  )
   const autoScrollEnabledRef = useRef<boolean>(true)
   const programmaticScrollRef = useRef<boolean>(false)
+  const animationFrameRef = useRef<number | null>(null)
+
+  const cancelAnimation = useCallback(() => {
+    if (animationFrameRef.current !== null) {
+      clearTimeout(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+  }, [])
+
+  const animateScrollTo = useCallback(
+    (targetScroll: number, duration: number = isZed ? 400 : 200) => {
+      const scrollbox = scrollRef.current
+      if (!scrollbox) return
+
+      cancelAnimation()
+
+      const startScroll = scrollbox.scrollTop
+      const distance = targetScroll - startScroll
+      const startTime = Date.now()
+      const frameInterval = isZed ? 40 : 16
+
+      const animate = () => {
+        const elapsed = Date.now() - startTime
+        const progress = Math.min(elapsed / duration, 1)
+        const easedProgress = easeOutCubic(progress)
+        const newScroll = startScroll + distance * easedProgress
+
+        programmaticScrollRef.current = true
+        scrollbox.scrollTop = newScroll
+
+        if (progress < 1) {
+          animationFrameRef.current = setTimeout(animate, frameInterval) as any
+        } else {
+          animationFrameRef.current = null
+        }
+      }
+
+      animate()
+    },
+    [scrollRef, isZed, cancelAnimation],
+  )
 
   const scrollToLatest = useCallback((): void => {
     const scrollbox = scrollRef.current
@@ -18,9 +70,8 @@ export const useScrollManagement = (
       0,
       scrollbox.scrollHeight - scrollbox.viewport.height,
     )
-    programmaticScrollRef.current = true
-    scrollbox.verticalScrollBar.scrollPosition = maxScroll
-  }, [scrollRef])
+    animateScrollTo(maxScroll)
+  }, [scrollRef, animateScrollTo])
 
   const scrollToAgent = useCallback(
     (agentId: string, retries = 5) => {
@@ -64,11 +115,10 @@ export const useScrollManagement = (
           )
         }
 
-        programmaticScrollRef.current = true
-        scrollbox.scrollTo(targetScroll)
+        animateScrollTo(targetScroll)
       }, 100)
     },
-    [scrollRef, agentRefsMap],
+    [scrollRef, agentRefsMap, animateScrollTo],
   )
 
   useEffect(() => {
@@ -89,6 +139,7 @@ export const useScrollManagement = (
         return
       }
 
+      cancelAnimation()
       autoScrollEnabledRef.current = isNearBottom
     }
 
@@ -97,7 +148,7 @@ export const useScrollManagement = (
     return () => {
       scrollbox.verticalScrollBar.off('change', handleScrollChange)
     }
-  }, [scrollRef])
+  }, [scrollRef, cancelAnimation])
 
   useEffect(() => {
     const scrollbox = scrollRef.current
@@ -120,8 +171,17 @@ export const useScrollManagement = (
     return undefined
   }, [messages, scrollToLatest, scrollRef])
 
+  useEffect(() => {
+    return () => {
+      cancelAnimation()
+    }
+  }, [cancelAnimation])
+
   return {
     scrollToLatest,
     scrollToAgent,
+    scrollboxProps: {
+      scrollAcceleration,
+    },
   }
 }
