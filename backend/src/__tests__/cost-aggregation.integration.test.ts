@@ -12,7 +12,6 @@ import {
 } from 'bun:test'
 
 import * as messageCostTracker from '../llm-apis/message-cost-tracker'
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as agentRegistry from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
@@ -372,29 +371,27 @@ describe('Cost Aggregation Integration Tests', () => {
   it('should maintain cost integrity when subagents fail', async () => {
     // Mock scenario where subagent fails after incurring partial costs
     let callCount = 0
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(
-      async function* (options) {
-        callCount++
+    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
+      callCount++
 
-        if (options.onCostCalculated) {
-          await options.onCostCalculated(6) // Each call costs 6 credits
+      if (options.onCostCalculated) {
+        await options.onCostCalculated(6) // Each call costs 6 credits
+      }
+
+      if (callCount === 1) {
+        // Main agent spawns subagent
+        yield {
+          type: 'text' as const,
+          text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "This will fail"}]}\n</codebuff_tool_call>',
         }
+      } else {
+        // Subagent fails after incurring cost
+        yield { type: 'text' as const, text: 'Some response' }
+        throw new Error('Subagent execution failed')
+      }
 
-        if (callCount === 1) {
-          // Main agent spawns subagent
-          yield {
-            type: 'text' as const,
-            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "This will fail"}]}\n</codebuff_tool_call>',
-          }
-        } else {
-          // Subagent fails after incurring cost
-          yield { type: 'text' as const, text: 'Some response' }
-          throw new Error('Subagent execution failed')
-        }
-
-        return 'mock-message-id'
-      },
-    )
+      return 'mock-message-id'
+    }
 
     const sessionState = getInitialSessionState(mockFileContext)
     sessionState.mainAgentState.agentType = 'base'

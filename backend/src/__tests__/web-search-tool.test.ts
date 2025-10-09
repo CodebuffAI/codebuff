@@ -33,7 +33,7 @@ import type { WebSocket } from 'ws'
 
 let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 function mockAgentStream(content: string | string[]) {
-  agentRuntimeImpl['promptAiSdkStream'] = async function* ({}) {
+  agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
     if (typeof content === 'string') {
       content = [content]
     }
