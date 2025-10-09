@@ -18,6 +18,7 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
+import { z } from 'zod/v4'
 
 import { withAppContext } from '../context/app-context'
 import { loopAgentSteps } from '../run-agent-step'
@@ -25,11 +26,12 @@ import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { mockFileContext, MockWebSocket } from './test-utils'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 
+import type { getAgentTemplate } from '../templates/agent-registry'
 import type { AgentTemplate } from '../templates/types'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
 import type { AgentState } from '@codebuff/common/types/session-state'
+import type { ParamsOf } from '@codebuff/types/common'
 import type { WebSocket } from 'ws'
-import { z } from 'zod/v4'
 
 describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => {
   let mockTemplate: AgentTemplate
@@ -54,17 +56,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   }
 
   beforeAll(() => {
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
-
     // Mock bigquery
     mockModule('@codebuff/bigquery', () => ({
       insertTrace: () => {},
@@ -72,8 +63,11 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
     // Mock agent registry
     mockModule('@codebuff/backend/templates/agent-registry', () => ({
-      getAgentTemplate: async (agentType: string, localTemplates: any) => {
-        return localTemplates[agentType] || mockTemplate
+      getAgentTemplate: async ({
+        agentId,
+        localAgentTemplates,
+      }: ParamsOf<typeof getAgentTemplate>) => {
+        return localAgentTemplates[agentId] || mockTemplate
       },
     }))
 
@@ -539,10 +533,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const mockedRunProgrammaticStep = await mockModule(
       '@codebuff/backend/run-programmatic-step',
       () => ({
-        runProgrammaticStep: async (agentState: any, options: any) => {
-          runProgrammaticStepCalls.push({ agentState, options })
+        runProgrammaticStep: async (params: any) => {
+          runProgrammaticStepCalls.push(params)
           // Return default behavior
-          return { agentState, endTurn: false }
+          return { agentState: params.agentState, endTurn: false }
         },
         clearAgentGeneratorCache: () => {},
         agentIdToStepAll: new Set(),
@@ -584,10 +578,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(runProgrammaticStepCalls).toHaveLength(2)
 
     // First call should have stepsComplete: false
-    expect(runProgrammaticStepCalls[0].options.stepsComplete).toBe(false)
+    expect(runProgrammaticStepCalls[0].stepsComplete).toBe(false)
 
     // Second call should have stepsComplete: true (after end_turn tool was called)
-    expect(runProgrammaticStepCalls[1].options.stepsComplete).toBe(true)
+    expect(runProgrammaticStepCalls[1].stepsComplete).toBe(true)
   })
 
   it('should restart loop when agent finishes without setting required output', async () => {
