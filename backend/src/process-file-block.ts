@@ -298,7 +298,11 @@ Please output just the SEARCH/REPLACE blocks like this:
   })
 
   const { diffBlocks, diffBlocksThatDidntMatch } =
-    parseAndGetDiffBlocksSingleFile(response, oldContent)
+    parseAndGetDiffBlocksSingleFile({
+      newContent: response,
+      oldFileContent: oldContent,
+      logger,
+    })
 
   let updatedContent = oldContent
   for (const { searchContent, replaceContent } of diffBlocks) {
@@ -328,6 +332,7 @@ Please output just the SEARCH/REPLACE blocks like this:
         userInputId,
         userId,
         diffBlocksThatDidntMatch,
+        logger,
       })
 
     if (newDiffBlocksThatDidntMatch.length > 0) {

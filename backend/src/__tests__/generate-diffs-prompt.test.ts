@@ -2,6 +2,15 @@ import { expect, describe, it } from 'bun:test'
 
 import { parseAndGetDiffBlocksSingleFile } from '../generate-diffs-prompt'
 
+import type { Logger } from '@codebuff/types/logger'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
+
 describe('parseAndGetDiffBlocksSingleFile', () => {
   it('should parse diff blocks with newline before closing marker', () => {
     const oldContent = 'function test() {\n  return true;\n}\n'
@@ -16,7 +25,11 @@ function test() {
 }
 >>>>>>> REPLACE`
 
-    const result = parseAndGetDiffBlocksSingleFile(newContent, oldContent)
+    const result = parseAndGetDiffBlocksSingleFile({
+      newContent,
+      oldFileContent: oldContent,
+      logger,
+    })
     console.log(JSON.stringify({ result }))
 
     expect(result.diffBlocks.length).toBe(1)
@@ -41,7 +54,11 @@ function test() {
   return true;
 }>>>>>>> REPLACE`
 
-    const result = parseAndGetDiffBlocksSingleFile(newContent, oldContent)
+    const result = parseAndGetDiffBlocksSingleFile({
+      newContent,
+      oldFileContent: oldContent,
+      logger,
+    })
 
     expect(result.diffBlocks.length).toBe(1)
     expect(result.diffBlocksThatDidntMatch.length).toBe(0)
@@ -90,7 +107,11 @@ function subtract(a, b) {
 }
 >>>>>>> REPLACE`
 
-    const result = parseAndGetDiffBlocksSingleFile(newContent, oldContent)
+    const result = parseAndGetDiffBlocksSingleFile({
+      newContent,
+      oldFileContent: oldContent,
+      logger,
+    })
 
     expect(result.diffBlocks.length).toBe(2)
     expect(result.diffBlocksThatDidntMatch.length).toBe(0)
@@ -114,7 +135,11 @@ function subtract(a, b) {
 =======
 >>>>>>> REPLACE`
 
-    const result = parseAndGetDiffBlocksSingleFile(newContent, oldContent)
+    const result = parseAndGetDiffBlocksSingleFile({
+      newContent,
+      oldFileContent: oldContent,
+      logger,
+    })
 
     expect(result.diffBlocks.length).toBe(1)
     expect(result.diffBlocksThatDidntMatch.length).toBe(0)

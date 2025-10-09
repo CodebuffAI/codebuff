@@ -5,12 +5,15 @@ import {
 } from '@codebuff/common/util/file'
 
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
-import { logger } from './util/logger'
 
-export const parseAndGetDiffBlocksSingleFile = (
-  newContent: string,
-  oldFileContent: string,
-) => {
+import type { Logger } from '@codebuff/types/logger'
+
+export const parseAndGetDiffBlocksSingleFile = (params: {
+  newContent: string
+  oldFileContent: string
+  logger: Logger
+}) => {
+  const { newContent, oldFileContent, logger } = params
   const diffBlocksThatDidntMatch: {
     searchContent: string
     replaceContent: string
@@ -138,6 +141,7 @@ export async function retryDiffBlocksPrompt(params: {
   userInputId: string
   userId: string | undefined
   diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[]
+  logger: Logger
 }) {
   const {
     filePath,
@@ -147,6 +151,7 @@ export async function retryDiffBlocksPrompt(params: {
     userInputId,
     userId,
     diffBlocksThatDidntMatch,
+    logger,
   } = params
   const newPrompt =
     `The assistant failed to find a match for the following changes. Please help the assistant understand what the changes should be.
@@ -173,7 +178,11 @@ Provide a new set of SEARCH/REPLACE changes to make the intended edit from the o
   const {
     diffBlocks: newDiffBlocks,
     diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,
-  } = parseAndGetDiffBlocksSingleFile(response, oldContent)
+  } = parseAndGetDiffBlocksSingleFile({
+    newContent: response,
+    oldFileContent: oldContent,
+    logger,
+  })
 
   if (newDiffBlocksThatDidntMatch.length > 0) {
     logger.error(
