@@ -1,4 +1,4 @@
-import { logger } from './util/logger'
+import type { Logger } from '@codebuff/types/logger'
 
 let liveUserInputCheckEnabled = true
 export const disableLiveUserInputCheck = () => {
@@ -25,8 +25,9 @@ export function startUserInput(params: {
 export function cancelUserInput(params: {
   userId: string
   userInputId: string
+  logger: Logger
 }): void {
-  const { userId, userInputId } = params
+  const { userId, userInputId, logger } = params
   if (live[userId] && live[userId].includes(userInputId)) {
     live[userId] = live[userId].filter((id) => id !== userInputId)
     if (live[userId].length === 0) {

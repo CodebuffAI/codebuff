@@ -10,6 +10,15 @@ import {
   resetLiveUserInputsState,
 } from '../live-user-inputs'
 
+import type { Logger } from '@codebuff/types/logger'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
+
 describe('live-user-inputs', () => {
   beforeEach(() => {
     // Clear any existing state before each test
@@ -54,7 +63,7 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
       startUserInput({ userId: 'user-1', userInputId: 'input-456' })
 
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' })
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger })
 
       const liveInputs = getLiveUserInputIds('user-1')
       expect(liveInputs).toEqual(['input-456'])
@@ -63,7 +72,7 @@ describe('live-user-inputs', () => {
     it('should remove user from tracking when all inputs cancelled', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
 
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' })
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger })
 
       const liveInputs = getLiveUserInputIds('user-1')
       expect(liveInputs).toBeUndefined()
@@ -74,7 +83,11 @@ describe('live-user-inputs', () => {
 
       // Should not throw
       expect(() => {
-        cancelUserInput({ userId: 'user-1', userInputId: 'input-nonexistent' })
+        cancelUserInput({
+          userId: 'user-1',
+          userInputId: 'input-nonexistent',
+          logger,
+        })
       }).not.toThrow()
 
       const liveInputs = getLiveUserInputIds('user-1')
@@ -84,7 +97,11 @@ describe('live-user-inputs', () => {
     it('should handle cancelling for non-existent user gracefully', () => {
       // Should not throw
       expect(() => {
-        cancelUserInput({ userId: 'user-nonexistent', userInputId: 'input-123' })
+        cancelUserInput({
+          userId: 'user-nonexistent',
+          userInputId: 'input-123',
+          logger,
+        })
       }).not.toThrow()
     })
   })
@@ -94,7 +111,7 @@ describe('live-user-inputs', () => {
       // Note: Testing the actual behavior requires integration with the constants module
       // For unit testing, we'll test the function directly
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' }) // This simulates the behavior when async agents disabled
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger }) // This simulates the behavior when async agents disabled
 
       const liveInputs = getLiveUserInputIds('user-1')
       expect(liveInputs).toBeUndefined()
@@ -237,7 +254,7 @@ describe('live-user-inputs', () => {
       expect(getLiveUserInputIds('user-1')).toEqual(['input-123'])
 
       // End user input
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' })
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger })
 
       // Verify input is no longer live
       expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(false)
@@ -273,7 +290,7 @@ describe('live-user-inputs', () => {
       expect(getLiveUserInputIds('user-1')).toEqual(['input-123', 'input-456'])
 
       // Cancel one input
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' })
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger })
 
       expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(false)
       expect(checkLiveUserInput('user-1', 'input-456', 'session-1')).toBe(true)
