@@ -1,8 +1,6 @@
 import { useRef, useCallback } from 'react'
-import type { InputRenderable } from '@opentui/core'
 
 export const useInputHistory = (
-  inputRenderable: InputRenderable | null,
   inputValue: string,
   setInputValue: (value: string) => void,
 ) => {
@@ -17,12 +15,8 @@ export const useInputHistory = (
   }, [])
 
   const navigateUp = useCallback(() => {
-    if (!inputRenderable) return
     const history = messageHistoryRef.current
     if (history.length === 0) return
-
-    const cursor = inputRenderable.cursorPosition
-    if (cursor !== 0) return
 
     if (historyIndexRef.current === -1) {
       currentDraftRef.current = inputValue
@@ -33,43 +27,23 @@ export const useInputHistory = (
 
     const historyMessage = history[historyIndexRef.current]
     setInputValue(historyMessage)
-    setTimeout(() => {
-      if (inputRenderable) {
-        inputRenderable.cursorPosition = historyMessage.length
-      }
-    }, 0)
-  }, [inputRenderable, inputValue, setInputValue])
+  }, [inputValue, setInputValue])
 
   const navigateDown = useCallback(() => {
-    if (!inputRenderable) return
     const history = messageHistoryRef.current
     if (history.length === 0) return
     if (historyIndexRef.current === -1) return
-
-    const cursor = inputRenderable.cursorPosition
-    const value = inputRenderable.value
-    if (cursor !== value.length) return
 
     if (historyIndexRef.current < history.length - 1) {
       historyIndexRef.current += 1
       const historyMessage = history[historyIndexRef.current]
       setInputValue(historyMessage)
-      setTimeout(() => {
-        if (inputRenderable) {
-          inputRenderable.cursorPosition = historyMessage.length
-        }
-      }, 0)
     } else {
       historyIndexRef.current = -1
       const draft = currentDraftRef.current
       setInputValue(draft)
-      setTimeout(() => {
-        if (inputRenderable) {
-          inputRenderable.cursorPosition = draft.length
-        }
-      }, 0)
     }
-  }, [inputRenderable, setInputValue])
+  }, [setInputValue])
 
   return { saveToHistory, navigateUp, navigateDown }
 }

@@ -1,6 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { useEffect, useMemo, useState } from 'react'
-import React from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 export const DEFAULT_SHIMMER_COLORS = [
   '#ff8c00',

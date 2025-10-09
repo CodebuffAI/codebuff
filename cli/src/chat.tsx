@@ -1,54 +1,38 @@
-import {
-  InputRenderable,
-  LayoutEvents,
-  ScrollBoxRenderable,
-  TextAttributes,
-} from '@opentui/core'
-import { render, useKeyboard, useRenderer } from '@opentui/react'
-import { MultilineInput } from './multiline-input'
-import {
-  renderMarkdown,
-  renderStreamingMarkdown,
-  hasMarkdown,
-  type MarkdownPalette,
-} from './markdown-renderer'
-import {
-  Fragment,
+import { useRenderer } from '@opentui/react'
+import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react'
+
+
+import { logger } from './logger'
+import { buildMessageTree } from './message-tree-utils'
+import { MultilineInput } from './multiline-input'
+import { Separator } from './separator'
+import { StatusIndicator, useHasStatus } from './status-indicator'
 import {
-  getCodebuffClient,
-  getToolDisplayInfo,
-  formatToolOutput,
-} from './codebuff-client'
-import type { ToolName } from '@codebuff/sdk'
-import {
-  type ChatTheme,
   type ThemeName,
   chatThemes,
   createMarkdownPalette,
   detectSystemTheme,
 } from './theme-system'
-import { formatTimestamp, formatQueuedPreview } from './utils'
 import { useClipboard } from './use-clipboard'
 import { useInputHistory } from './use-input-history'
-import { useMessageQueue } from './use-message-queue'
-import { buildMessageTree } from './message-tree-utils'
-import { useSendMessage } from './use-send-message'
-import { useMessageRenderer } from './use-message-renderer'
 import { useKeyboardHandlers } from './use-keyboard-handlers'
+import { useMessageQueue } from './use-message-queue'
+import { useMessageRenderer } from './use-message-renderer'
 import { useScrollManagement } from './use-scroll-management'
+import { useSendMessage } from './use-send-message'
+import { formatTimestamp, formatQueuedPreview } from './utils'
 
-import { logger } from './logger'
-
-import { StatusIndicator, useHasStatus } from './status-indicator'
-import { Separator } from './separator'
-import React from 'react'
+import type { ToolName } from '@codebuff/sdk'
+import type {
+  InputRenderable,
+  ScrollBoxRenderable,
+} from '@opentui/core'
 
 type ChatVariant = 'ai' | 'user' | 'agent'
 
@@ -95,9 +79,6 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const renderer = useRenderer()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<InputRenderable | null>(null)
-  const [inputRenderable, setInputRenderable] =
-    useState<InputRenderable | null>(null)
-  const [inputWidth, setInputWidth] = useState<number>(0)
 
   const [themeName, setThemeName] = useState<ThemeName>(() =>
     detectSystemTheme(),
@@ -109,7 +90,6 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const [inputFocused, setInputFocused] = useState<boolean>(true)
 
   const activeAgentStreamsRef = useRef<number>(0)
-  const allAgentsScheduledRef = useRef<boolean>(false)
   const isChainInProgressRef = useRef<boolean>(false)
 
   const { clipboardMessage } = useClipboard()
@@ -117,7 +97,6 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const [collapsedAgents, setCollapsedAgents] = useState<Set<string>>(new Set())
   const [streamingAgents, setStreamingAgents] = useState<Set<string>>(new Set())
   const [focusedAgentId, setFocusedAgentId] = useState<string | null>(null)
-  const agentIdsRef = useRef<string[]>([])
   const agentRefsMap = useRef<Map<string, any>>(new Map())
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -134,42 +113,13 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const hasAutoSubmittedRef = useRef(false)
   const activeSubagentsRef = useRef<Set<string>>(new Set())
 
-  const handleInputRef = useCallback((instance: InputRenderable | null) => {
-    inputRef.current = instance
-    setInputRenderable(instance)
-    if (instance) {
-      setInputWidth(Math.max(0, instance.width))
-    }
-  }, [])
-
-
-
   useEffect(() => {
     renderer?.setBackgroundColor(theme.background)
   }, [renderer, theme.background])
 
 
 
-  useEffect(() => {
-    const instance = inputRenderable
-    if (!instance) return
 
-    const updateWidth = () => {
-      setInputWidth(Math.max(0, instance.width))
-    }
-
-    updateWidth()
-
-    const handleResize = ({ width }: { width: number }) => {
-      setInputWidth(Math.max(0, width))
-    }
-
-    instance.on(LayoutEvents.RESIZED, handleResize)
-
-    return () => {
-      instance.off(LayoutEvents.RESIZED, handleResize)
-    }
-  }, [inputRenderable])
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -181,14 +131,13 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     }
   }, [])
 
-  const { scrollToLatest, scrollToAgent } = useScrollManagement(
+  const { scrollToAgent } = useScrollManagement(
     scrollRef,
     messages,
     agentRefsMap,
   )
 
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
-    inputRenderable,
     inputValue,
     setInputValue,
   )
@@ -198,14 +147,12 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const {
     queuedMessages,
     isStreaming,
-    canProcessQueue,
     isWaitingForResponse,
     streamMessageIdRef,
     addToQueue,
     startStreaming,
     stopStreaming,
     setIsWaitingForResponse,
-    clearStreaming,
     setCanProcessQueue,
     setIsStreaming,
   } = useMessageQueue(
@@ -325,7 +272,6 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     isWaitingForResponse,
     abortControllerRef,
     focusedAgentId,
-    inputRenderable,
     setFocusedAgentId,
     setInputFocused,
     inputRef,
@@ -351,17 +297,6 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     registerAgentRef,
     scrollToAgent,
   })
-
-  const fallbackInputWidth = Math.max(4, renderer.width - 6)
-  const effectiveInputWidth = inputWidth > 0 ? inputWidth : fallbackInputWidth
-  const maxCharsPerLine = Math.max(1, effectiveInputWidth - 1)
-  const textLengthForRows = Math.max(1, inputValue.length)
-  const computedLineCount = Math.max(
-    1,
-    Math.ceil(textLengthForRows / maxCharsPerLine),
-  )
-  const maxInputHeight = 5
-  const inputHeight = Math.max(1, Math.min(computedLineCount, maxInputHeight))
 
   return (
     <box

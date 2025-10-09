@@ -1,4 +1,5 @@
 import React from 'react'
+
 import type { ChatTheme } from './theme-system'
 
 interface SeparatorProps {

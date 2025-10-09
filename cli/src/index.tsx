@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { render } from '@opentui/react'
-import { App } from './chat'
 import React from 'react'
+
+import { App } from './chat'
 
 function parseArgs(): string | null {
   const args = process.argv.slice(2)

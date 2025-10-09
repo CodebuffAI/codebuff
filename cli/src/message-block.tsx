@@ -1,15 +1,17 @@
-import React, { type ReactNode } from 'react'
 import { TextAttributes } from '@opentui/core'
+import React, { type ReactNode } from 'react'
+
+import { BranchItem } from './branch-item'
+import { getToolDisplayInfo } from './codebuff-client'
 import {
   renderMarkdown,
   renderStreamingMarkdown,
   hasMarkdown,
   type MarkdownPalette,
 } from './markdown-renderer'
-import { getToolDisplayInfo } from './codebuff-client'
-import { BranchItem } from './branch-item'
-import type { ChatTheme } from './theme-system'
+
 import type { ContentBlock } from './chat'
+import type { ChatTheme } from './theme-system'
 
 interface MessageBlockProps {
   messageId: string
@@ -152,7 +154,6 @@ export const MessageBlock = ({
               return (
                 <box key={`${messageId}-tool-${block.toolCallId}`}>
                   <BranchItem
-                    id={block.toolCallId}
                     name={displayInfo.name}
                     content={displayContent}
                     isCollapsed={isCollapsed}
@@ -205,7 +206,6 @@ export const MessageBlock = ({
               return (
                 <box key={`${messageId}-agent-${block.agentId}`}>
                   <BranchItem
-                    id={block.agentId}
                     name={block.agentName}
                     content={displayContent}
                     isCollapsed={isCollapsed}

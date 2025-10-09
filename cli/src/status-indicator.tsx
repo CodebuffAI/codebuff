@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { ShimmerText } from './shimmer-text'
+
 import { getCodebuffClient } from './codebuff-client'
+import { ShimmerText } from './shimmer-text'
+
 import type { ChatTheme } from './theme-system'
 
 const THINKING_SHIMMER_COLORS = [

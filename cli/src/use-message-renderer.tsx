@@ -1,15 +1,18 @@
-import { useMemo, type ReactNode } from 'react'
 import { TextAttributes } from '@opentui/core'
+import { useMemo, type ReactNode } from 'react'
+import React from 'react'
+
 import {
   renderMarkdown,
   hasMarkdown,
   type MarkdownPalette,
 } from './markdown-renderer'
-import type { ChatTheme } from './theme-system'
-import type { ChatMessage } from './chat'
 import { MessageBlock } from './message-block'
 import { getDescendantIds, getAncestorIds } from './message-tree-utils'
-import React from 'react'
+
+import type { ChatMessage } from './chat'
+import type { ChatTheme } from './theme-system'
+
 
 interface UseMessageRendererProps {
   messages: ChatMessage[]

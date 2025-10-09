@@ -1,9 +1,9 @@
-import React, { type ReactNode } from 'react'
 import { TextAttributes } from '@opentui/core'
+import React, { type ReactNode } from 'react'
+
 import type { ChatTheme } from './theme-system'
 
 interface BranchItemProps {
-  id: string
   name: string
   content: ReactNode
   isCollapsed: boolean
@@ -16,7 +16,6 @@ interface BranchItemProps {
 }
 
 export const BranchItem = ({
-  id,
   name,
   content,
   isCollapsed,

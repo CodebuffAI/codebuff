@@ -1,5 +1,6 @@
-import { useCallback } from 'react'
 import { useKeyboard } from '@opentui/react'
+import { useCallback } from 'react'
+
 import type { InputRenderable } from '@opentui/core'
 
 interface KeyboardHandlersConfig {
@@ -8,7 +9,6 @@ interface KeyboardHandlersConfig {
   isWaitingForResponse: boolean
   abortControllerRef: React.MutableRefObject<AbortController | null>
   focusedAgentId: string | null
-  inputRenderable: InputRenderable | null
   setFocusedAgentId: (id: string | null) => void
   setInputFocused: (focused: boolean) => void
   inputRef: React.MutableRefObject<InputRenderable | null>
@@ -23,7 +23,6 @@ export const useKeyboardHandlers = ({
   isWaitingForResponse,
   abortControllerRef,
   focusedAgentId,
-  inputRenderable,
   setFocusedAgentId,
   setInputFocused,
   inputRef,
@@ -69,7 +68,6 @@ export const useKeyboardHandlers = ({
     useCallback(
       (key) => {
         if (!focusedAgentId) return
-        if (inputRenderable?.focused && inputRenderable.value.length > 0) return
 
         const isSpace =
           key.name === 'space' && !key.ctrl && !key.meta && !key.shift
@@ -116,7 +114,7 @@ export const useKeyboardHandlers = ({
           })
         }
       },
-      [focusedAgentId, inputRenderable, setCollapsedAgents],
+      [focusedAgentId, setCollapsedAgents],
     ),
   )
 
@@ -142,8 +140,6 @@ export const useKeyboardHandlers = ({
   useKeyboard(
     useCallback(
       (key) => {
-        if (!inputRenderable || !inputRenderable.focused) return
-
         const isUpArrow =
           key.name === 'up' && !key.ctrl && !key.meta && !key.shift
         const isDownArrow =
@@ -164,7 +160,7 @@ export const useKeyboardHandlers = ({
           navigateDown()
         }
       },
-      [inputRenderable, navigateUp, navigateDown],
+      [navigateUp, navigateDown],
     ),
   )
 }

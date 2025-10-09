@@ -12,7 +12,7 @@ export function highlightCode(
   bg: string,
   options: HighlightOptions = {},
 ): ReactNode {
-  const { fg = 'brightWhite', monochrome = false } = options
+  const { fg = 'brightWhite' } = options
 
   // For now, just return the code with basic styling
   // Can be enhanced later with actual syntax highlighting

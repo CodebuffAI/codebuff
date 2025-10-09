@@ -1,4 +1,5 @@
 import { CodebuffClient } from '@codebuff/sdk'
+
 import { logger } from './logger'
 
 let clientInstance: CodebuffClient | null = null

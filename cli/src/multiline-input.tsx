@@ -1,7 +1,8 @@
-import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
 import { useKeyboard, usePaste } from '@opentui/react'
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
+
 import type { ScrollBoxRenderable } from '@opentui/core'
-import { logger } from './logger'
+
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {

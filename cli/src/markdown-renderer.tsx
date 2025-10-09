@@ -1,5 +1,9 @@
-import { unified } from 'unified'
+import React, { type ReactNode } from 'react'
 import remarkParse from 'remark-parse'
+import { unified } from 'unified'
+
+import { logger } from './logger'
+
 import type {
   Root,
   Content,
@@ -9,13 +13,12 @@ import type {
   InlineCode,
   Code,
   Heading,
-  Paragraph,
   List,
   ListItem,
   Blockquote,
 } from 'mdast'
-import React, { Fragment, type ReactNode } from 'react'
-import { logger } from './logger'
+
+
 
 export interface MarkdownPalette {
   inlineCodeFg: string
