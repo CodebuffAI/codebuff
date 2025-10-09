@@ -199,7 +199,7 @@ async function runSingleEvalTask(options: {
       fingerprintId,
       codingAgent,
       agentType,
-      true,
+      false,
     )
 
     const duration = Date.now() - startTime
