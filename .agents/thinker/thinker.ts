@@ -23,7 +23,7 @@ const definition: SecretAgentDefinition = {
   instructionsPrompt: `
 Think deeply, step by step, about the user request and how best to approach it.
 
-Consider edge cases, potential issues, and alternative approaches.
+Consider edge cases, potential issues, and alternative approaches. Also, propose reading files or spawning agents to get more context that would be helpful for solving the problem.
 
 Come up with a list of insights that would help someone arrive at the best solution.
 

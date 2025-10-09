@@ -1,4 +1,7 @@
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+
 import { publisher } from '../constants'
+
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const paramsSchema = {
@@ -15,7 +18,7 @@ const paramsSchema = {
 }
 
 const fileExplorer: SecretAgentDefinition = {
-  id: 'researcher-file-explorer',
+  id: AgentTemplateTypes.file_explorer,
   displayName: 'Dora the File Explorer',
   spawnerPrompt:
     'Comprehensively explores the codebase and reports back on the results',
@@ -24,7 +27,7 @@ const fileExplorer: SecretAgentDefinition = {
   outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: ['researcher-file-picker'],
+  spawnableAgents: ['file-picker'],
   inputSchema: {
     prompt: {
       type: 'string',
@@ -47,7 +50,7 @@ const fileExplorer: SecretAgentDefinition = {
         toolName: 'spawn_agents',
         input: {
           agents: filePickerPrompts.map((promptText) => ({
-            agent_type: 'researcher-file-picker',
+            agent_type: 'file-picker',
             prompt: promptText,
           })),
         },

@@ -11,7 +11,7 @@ const definition: SecretAgentDefinition = {
   displayName: 'Grok 4 Fast Researcher',
   toolNames: ['spawn_agents'],
   spawnableAgents: [
-    'researcher-file-explorer',
+    'file-explorer',
     // 'researcher-codebase-explorer',
     'researcher-web',
     'researcher-docs',
@@ -38,7 +38,7 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 Take as many steps as you need to gather information first:
 - Use the spawn_agents tool to spawn agents to research the codebase and web. Spawn as many agents in parallel as possible. Feel free to call it multiple times to find more information.
 
-You should likely spawn the researcher-file-explorer agent to get a comprehensive understanding of the codebase. You should also spawn the researcher-web and researcher-docs agents to get up-to-date information from the web and docs, if relevant.
+You should likely spawn the file-explorer agent to get a comprehensive understanding of the codebase. You should also spawn the researcher-web and researcher-docs agents to get up-to-date information from the web and docs, if relevant.
 
 Finally, write up a research report that answers the user question to the best of your ability from the information gathered from the agents. Don't add any opinions or recommendations, just all the plain facts that are relevant. Mention which files are relevant to the user question. Be clear and concise.`,
 }
