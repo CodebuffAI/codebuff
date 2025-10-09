@@ -3,21 +3,19 @@ import * as schema from '@codebuff/common/db/schema'
 import { utils } from '@codebuff/internal'
 import { eq } from 'drizzle-orm'
 
-import { logger } from './logger'
 import { extractAuthTokenFromHeader } from './auth-helpers'
 
 import type { ServerAction } from '@codebuff/common/actions'
+import type { Logger } from '@codebuff/types/logger'
 import type { Request, Response, NextFunction } from 'express'
 
-export const checkAuth = async ({
-  fingerprintId,
-  authToken,
-  clientSessionId,
-}: {
+export const checkAuth = async (params: {
   fingerprintId?: string
   authToken?: string
   clientSessionId: string
+  logger: Logger
 }): Promise<void | ServerAction> => {
+  const { fingerprintId, authToken, clientSessionId, logger } = params
   // Use shared auth check functionality
   const authResult = await utils.checkAuthToken({
     fingerprintId,
@@ -45,7 +43,7 @@ export const checkAuth = async ({
 }
 
 // Express middleware for checking admin access
-export const checkAdmin = async (
+export const checkAdmin = (logger: Logger) => async (
   req: Request,
   res: Response,
   next: NextFunction,
@@ -63,6 +61,7 @@ export const checkAdmin = async (
   const authResult = await checkAuth({
     authToken,
     clientSessionId,
+    logger,
   })
 
   if (authResult) {

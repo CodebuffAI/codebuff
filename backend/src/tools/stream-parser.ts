@@ -8,16 +8,14 @@ import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
+import { executeBatchStrReplaces } from './batch-str-replace'
+import type { Logger } from '@codebuff/types/logger'
 import { expireMessages } from '../util/messages'
-import { logger } from '../util/logger'
 import { sendAction } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
-import {
-  executeBatchStrReplaces,
-  BatchStrReplaceState,
-} from './batch-str-replace'
 
+import type { BatchStrReplaceState } from './batch-str-replace'
 import type { CustomToolCall } from './tool-executor'
 import type { StreamChunk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import type { AgentTemplate } from '../templates/types'
@@ -58,6 +56,7 @@ export async function processStreamWithTools(options: {
   agentContext: Record<string, Subgoal>
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   fullResponse: string
+  logger: Logger
 }) {
   const {
     stream,
@@ -75,6 +74,7 @@ export async function processStreamWithTools(options: {
     system,
     agentState,
     onResponseChunk,
+    logger,
   } = options
   const fullResponseChunks: string[] = [options.fullResponse]
 
@@ -119,6 +119,7 @@ export async function processStreamWithTools(options: {
     agentContext,
     messages,
     system,
+    logger,
   }
 
   function toolCallback<T extends ToolName>(toolName: T) {
@@ -176,6 +177,7 @@ export async function processStreamWithTools(options: {
                   onResponseChunk,
                   state,
                   userId,
+                  logger,
                 })
               },
             )
@@ -198,6 +200,7 @@ export async function processStreamWithTools(options: {
             onResponseChunk,
             state,
             userId,
+            logger,
           })
         }
       },
@@ -225,22 +228,23 @@ export async function processStreamWithTools(options: {
           onResponseChunk,
           state,
           userId,
+          logger,
         })
       },
     }
   }
 
-  const streamWithTags = processStreamWithTags(
+  const streamWithTags = processStreamWithTags({
     stream,
-    Object.fromEntries([
+    processors: Object.fromEntries([
       ...toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
       ...Object.keys(fileContext.customToolDefinitions).map((toolName) => [
         toolName,
         customToolCallback(toolName),
       ]),
     ]),
-    customToolCallback,
-    (toolName, error) => {
+    defaultProcessor: customToolCallback,
+    onError: (toolName, error) => {
       const toolResult: ToolResultPart = {
         type: 'tool-result',
         toolName,
@@ -251,12 +255,13 @@ export async function processStreamWithTools(options: {
       toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     },
     onResponseChunk,
-    {
+    logger,
+    loggerOptions: {
       userId,
       model: agentTemplate.model,
       agentName: agentTemplate.id,
     },
-  )
+  })
 
   let reasoning = false
   for await (const chunk of streamWithTags) {
@@ -339,6 +344,7 @@ export async function processStreamWithTools(options: {
         onResponseChunk,
         state,
         userId,
+        logger,
       })
       logger.info(
         {

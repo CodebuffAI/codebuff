@@ -4,8 +4,9 @@ import {
 } from '@codebuff/common/util/file'
 import { sampleSizeWithSeed } from '@codebuff/common/util/random'
 
-import { logger } from '../util/logger'
 import { countTokens, countTokensJson } from '../util/token-counter'
+
+import type { Logger } from '@codebuff/types/logger'
 
 import type {
   FileTreeNode,
@@ -15,14 +16,16 @@ import type {
 type TruncationLevel = 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
 const DEBUG = false
 
-export const truncateFileTreeBasedOnTokenBudget = (
-  fileContext: ProjectFileContext,
-  tokenBudget: number,
-): {
+export const truncateFileTreeBasedOnTokenBudget = (params: {
+  fileContext: ProjectFileContext
+  tokenBudget: number
+  logger: Logger
+}): {
   printedTree: string
   tokenCount: number
   truncationLevel: TruncationLevel
 } => {
+  const { fileContext, tokenBudget, logger } = params
   const startTime = performance.now()
   const { fileTree, fileTokenScores } = fileContext
 
@@ -69,6 +72,7 @@ export const truncateFileTreeBasedOnTokenBudget = (
       fileTree: filteredTree,
       fileTokenScores,
       tokenBudget,
+      logger,
     })
 
     if (tokenCount <= tokenBudget) {
@@ -220,8 +224,9 @@ function pruneFileTokenScores(params: {
   fileTree: FileTreeNode[]
   fileTokenScores: Record<string, Record<string, number>>
   tokenBudget: number
+  logger: Logger
 }) {
-  const { fileTree, fileTokenScores, tokenBudget } = params
+  const { fileTree, fileTokenScores, tokenBudget, logger } = params
   const startTime = performance.now()
 
   // Create sorted array of tokens by score

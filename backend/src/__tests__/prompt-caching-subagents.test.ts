@@ -1,15 +1,9 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
   beforeEach,
   afterEach,
-  beforeAll,
-  afterAll,
   describe,
   expect,
   it,
@@ -23,7 +17,15 @@ import * as websocketAction from '../websockets/websocket-action'
 import type { AgentTemplate } from '../templates/types'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
 
 const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
@@ -61,19 +63,6 @@ class MockWebSocket {
 describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
   let mockLocalAgentTemplates: Record<string, AgentTemplate>
   let capturedMessages: Message[] = []
-
-  beforeAll(() => {
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
-  })
 
   beforeEach(() => {
     capturedMessages = []
@@ -167,16 +156,13 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     mock.restore()
   })
 
-  afterAll(() => {
-    clearMockedModules()
-  })
-
   it('should inherit parent system prompt when inheritParentSystemPrompt is true', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const ws = new MockWebSocket() as unknown as WebSocket
 
     // Run parent agent first to establish system prompt
-    const parentResult = await loopAgentSteps(ws, {
+    const parentResult = await loopAgentSteps({
+      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       params: undefined,
@@ -188,6 +174,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
+      logger,
     })
 
     // Capture parent's messages which include the system prompt
@@ -208,7 +195,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       messageHistory: [],
     }
 
-    await loopAgentSteps(ws, {
+    await loopAgentSteps({
+      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       params: undefined,
@@ -221,6 +209,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
+      logger,
     })
 
     // Verify child uses parent's system prompt
@@ -255,7 +244,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     mockLocalAgentTemplates['standalone-child'] = standaloneChild
 
     // Run parent agent first
-    const parentResult = await loopAgentSteps(ws, {
+    const parentResult = await loopAgentSteps({
+      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       params: undefined,
@@ -267,6 +257,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
+      logger,
     })
 
     const parentMessages = capturedMessages
@@ -281,7 +272,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       messageHistory: [],
     }
 
-    await loopAgentSteps(ws, {
+    await loopAgentSteps({
+      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       params: undefined,
@@ -294,6 +286,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
+      logger,
     })
 
     const childMessages = capturedMessages
@@ -329,7 +322,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     mockLocalAgentTemplates['message-history-child'] = messageHistoryChild
 
     // Run parent agent first
-    await loopAgentSteps(ws, {
+    await loopAgentSteps({
+      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       params: undefined,
@@ -341,6 +335,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
+      logger,
     })
 
     const parentMessages = capturedMessages
@@ -358,7 +353,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ],
     }
 
-    await loopAgentSteps(ws, {
+    await loopAgentSteps({
+      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       params: undefined,
@@ -371,6 +367,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
+      logger,
     })
 
     const childMessages = capturedMessages
@@ -432,7 +429,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const ws = new MockWebSocket() as unknown as WebSocket
 
     // Run parent agent
-    const parentResult = await loopAgentSteps(ws, {
+    const parentResult = await loopAgentSteps({
+      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       params: undefined,
@@ -444,6 +442,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
+      logger,
     })
 
     const parentMessages = capturedMessages
@@ -458,7 +457,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       messageHistory: [],
     }
 
-    await loopAgentSteps(ws, {
+    await loopAgentSteps({
+      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       params: undefined,
@@ -471,6 +471,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
+      logger,
     })
 
     const childMessages = capturedMessages
@@ -510,7 +511,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     mockLocalAgentTemplates['full-inherit-child'] = fullInheritChild
 
     // Run parent agent first with some message history
-    const parentResult = await loopAgentSteps(ws, {
+    const parentResult = await loopAgentSteps({
+      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       params: undefined,
@@ -528,6 +530,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
+      logger,
     })
 
     const parentMessages = capturedMessages
@@ -545,7 +548,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ],
     }
 
-    await loopAgentSteps(ws, {
+    await loopAgentSteps({
+      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       params: undefined,
@@ -558,6 +562,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
+      logger,
     })
 
     const childMessages = capturedMessages

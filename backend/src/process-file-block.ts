@@ -9,10 +9,10 @@ import {
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
-import { logger } from './util/logger'
 import { countTokens } from './util/token-counter'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 
 export async function processFileBlock(params: {
   path: string
@@ -26,6 +26,7 @@ export async function processFileBlock(params: {
   fingerprintId: string
   userInputId: string
   userId: string | undefined
+  logger: Logger
 }): Promise<
   | {
       tool: 'write_file'
@@ -52,6 +53,7 @@ export async function processFileBlock(params: {
     fingerprintId,
     userInputId,
     userId,
+    logger,
   } = params
   const initialContent = await initialContentPromise
 
@@ -118,6 +120,7 @@ export async function processFileBlock(params: {
       userInputId,
       userId,
       filePath: path,
+      logger,
     })
 
     if (!largeFileContent) {
@@ -141,6 +144,7 @@ export async function processFileBlock(params: {
       userInputId,
       userId,
       userMessage: lastUserPrompt,
+      logger,
     })
     const shouldAddPlaceholders = await shouldAddFilePlaceholders({
       filePath: path,
@@ -152,6 +156,7 @@ export async function processFileBlock(params: {
       clientSessionId,
       fingerprintId,
       userInputId,
+      logger,
     })
 
     if (shouldAddPlaceholders) {
@@ -167,6 +172,7 @@ export async function processFileBlock(params: {
         userInputId,
         userId,
         userMessage: lastUserPrompt,
+        logger,
       })
     }
   }
@@ -232,6 +238,7 @@ export async function handleLargeFile(params: {
   userInputId: string
   userId: string | undefined
   filePath: string
+  logger: Logger
 }): Promise<string | null> {
   const {
     oldContent,
@@ -241,6 +248,7 @@ export async function handleLargeFile(params: {
     userInputId,
     userId,
     filePath,
+    logger,
   } = params
   const startTime = Date.now()
 
@@ -286,10 +294,15 @@ Please output just the SEARCH/REPLACE blocks like this:
     fingerprintId,
     userInputId,
     userId,
+    logger,
   })
 
   const { diffBlocks, diffBlocksThatDidntMatch } =
-    parseAndGetDiffBlocksSingleFile(response, oldContent)
+    parseAndGetDiffBlocksSingleFile({
+      newContent: response,
+      oldFileContent: oldContent,
+      logger,
+    })
 
   let updatedContent = oldContent
   for (const { searchContent, replaceContent } of diffBlocks) {
@@ -319,6 +332,7 @@ Please output just the SEARCH/REPLACE blocks like this:
         userInputId,
         userId,
         diffBlocksThatDidntMatch,
+        logger,
       })
 
     if (newDiffBlocksThatDidntMatch.length > 0) {

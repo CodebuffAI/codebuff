@@ -28,6 +28,7 @@ import type {
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 /**
@@ -79,8 +80,9 @@ export async function genUsageResponse(params: {
   fingerprintId: string
   userId: string
   clientSessionId?: string
+  logger: Logger
 }): Promise<UsageResponse> {
-  const { fingerprintId, userId, clientSessionId } = params
+  const { fingerprintId, userId, clientSessionId, logger } = params
   const logContext = { fingerprintId, userId, sessionId: clientSessionId }
   const defaultResp = {
     type: 'usage-response' as const,
@@ -134,11 +136,13 @@ export async function genUsageResponse(params: {
  * @param clientSessionId - The client's session ID
  * @param ws - The WebSocket connection
  */
-const onPrompt = async (
-  action: ClientAction<'prompt'>,
-  clientSessionId: string,
-  ws: WebSocket,
-) => {
+const onPrompt = async (params: {
+  action: ClientAction<'prompt'>
+  clientSessionId: string
+  ws: WebSocket
+  logger: Logger
+}) => {
+  const { action, clientSessionId, ws, logger } = params
   const { fingerprintId, authToken, promptId, prompt, costMode } = action
 
   await withLoggerContext(
@@ -165,10 +169,13 @@ const onPrompt = async (
       startUserInput({ userId, userInputId: promptId })
 
       try {
-        const result = await callMainPrompt(ws, action, {
+        const result = await callMainPrompt({
+          ws,
+          action,
           userId,
           promptId,
           clientSessionId,
+          logger,
         })
         if (result.output.type === 'error') {
           throw new Error(result.output.message)
@@ -184,10 +191,11 @@ const onPrompt = async (
           message: response,
         })
       } finally {
-        cancelUserInput({ userId, userInputId: promptId })
+        cancelUserInput({ userId, userInputId: promptId, logger })
         const usageResponse = await genUsageResponse({
           fingerprintId,
           userId,
+          logger,
         })
         sendAction(ws, usageResponse)
       }
@@ -195,16 +203,15 @@ const onPrompt = async (
   )
 }
 
-export const callMainPrompt = async (
-  ws: WebSocket,
-  action: ClientAction<'prompt'>,
-  options: {
-    userId: string
-    promptId: string
-    clientSessionId: string
-  },
-) => {
-  const { userId, promptId, clientSessionId } = options
+export const callMainPrompt = async (params: {
+  ws: WebSocket
+  action: ClientAction<'prompt'>
+  userId: string
+  promptId: string
+  clientSessionId: string
+  logger: Logger
+}) => {
+  const { ws, action, userId, promptId, clientSessionId, logger } = params
   const { fileContext } = action.sessionState
 
   // Enforce server-side state authority: reset creditsUsed to 0
@@ -214,7 +221,7 @@ export const callMainPrompt = async (
 
   // Assemble local agent templates from fileContext
   const { agentTemplates: localAgentTemplates, validationErrors } =
-    assembleLocalAgentTemplates(fileContext)
+    assembleLocalAgentTemplates({ fileContext, logger })
 
   if (validationErrors.length > 0) {
     sendAction(ws, {
@@ -235,12 +242,13 @@ export const callMainPrompt = async (
     },
   })
 
-  const result = await mainPrompt(ws, action, {
-    userId,
-    clientSessionId,
+  const result = await mainPrompt({
+    ...params,
     localAgentTemplates,
     onResponseChunk: (chunk) => {
-      if (checkLiveUserInput(userId, promptId, clientSessionId)) {
+      if (
+        checkLiveUserInput({ userId, userInputId: promptId, clientSessionId })
+      ) {
         sendAction(ws, {
           type: 'response-chunk',
           userInputId: promptId,
@@ -283,11 +291,15 @@ export const callMainPrompt = async (
  * @param clientSessionId - The client's session ID
  * @param ws - The WebSocket connection
  */
-const onInit = async (
-  { fileContext, fingerprintId, authToken }: ClientAction<'init'>,
-  clientSessionId: string,
-  ws: WebSocket,
-) => {
+const onInit = async (params: {
+  action: ClientAction<'init'>
+  clientSessionId: string
+  ws: WebSocket
+  logger: Logger
+}) => {
+  const { action, clientSessionId, ws, logger } = params
+  const { fileContext, fingerprintId, authToken } = action
+
   await withLoggerContext({ fingerprintId }, async () => {
     const userId = await getUserIdFromAuthToken({ authToken })
 
@@ -306,6 +318,7 @@ const onInit = async (
       fingerprintId,
       userId,
       clientSessionId,
+      logger,
     })
     sendAction(ws, {
       ...usageResponse,
@@ -314,16 +327,19 @@ const onInit = async (
   })
 }
 
-const onCancelUserInput = async ({
-  authToken,
-  promptId,
-}: ClientAction<'cancel-user-input'>) => {
+const onCancelUserInput = async (params: {
+  action: ClientAction<'cancel-user-input'>
+  logger: Logger
+}) => {
+  const { action, logger } = params
+  const { authToken, promptId } = action
+
   const userId = await getUserIdFromAuthToken({ authToken })
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')
     return
   }
-  cancelUserInput({ userId, userInputId: promptId })
+  cancelUserInput({ userId, userInputId: promptId, logger })
 }
 
 /**
@@ -368,11 +384,14 @@ export const subscribeToAction = <T extends ClientAction['type']>(
  * @param clientSessionId - The client's session ID
  * @param msg - The action message from the client
  */
-export const onWebsocketAction = async (
-  ws: WebSocket,
-  clientSessionId: string,
-  msg: ClientMessage & { type: 'action' },
-) => {
+export const onWebsocketAction = async (params: {
+  ws: WebSocket
+  clientSessionId: string
+  msg: ClientMessage & { type: 'action' }
+  logger: Logger
+}) => {
+  const { ws, clientSessionId, msg, logger } = params
+
   await withLoggerContext({ clientSessionId }, async () => {
     const callbacks = callbacksByAction[msg.data.type] ?? []
     try {
@@ -392,9 +411,15 @@ export const onWebsocketAction = async (
 }
 
 // Register action handlers
-subscribeToAction('prompt', protec.run(onPrompt))
-subscribeToAction('init', protec.run(onInit, { silent: true }))
-subscribeToAction('cancel-user-input', protec.run(onCancelUserInput))
+subscribeToAction('prompt', protec.run({ baseAction: onPrompt, logger }))
+subscribeToAction(
+  'init',
+  protec.run({ baseAction: onInit, silent: true, logger }),
+)
+subscribeToAction(
+  'cancel-user-input',
+  protec.run({ baseAction: onCancelUserInput, logger }),
+)
 
 /**
  * Requests multiple files from the client

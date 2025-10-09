@@ -6,6 +6,7 @@ import { globalStopSequence } from './tools/constants'
 import type { AgentTemplate } from './templates/types'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
+import type { Logger } from '@codebuff/types/logger'
 
 export const getAgentStreamFromTemplate = (params: {
   clientSessionId: string
@@ -17,6 +18,7 @@ export const getAgentStreamFromTemplate = (params: {
   includeCacheControl?: boolean
 
   template: AgentTemplate
+  logger: Logger
 }) => {
   const {
     clientSessionId,
@@ -27,6 +29,7 @@ export const getAgentStreamFromTemplate = (params: {
     agentId,
     includeCacheControl,
     template,
+    logger,
   } = params
 
   if (!template) {
@@ -36,7 +39,7 @@ export const getAgentStreamFromTemplate = (params: {
   const { model } = template
 
   const getStream = (messages: Message[]) => {
-    const options: Parameters<typeof promptAiSdkStream>[0] = {
+    const aiSdkStreamParams: Parameters<typeof promptAiSdkStream>[0] = {
       messages,
       model,
       stopSequences: [globalStopSequence],
@@ -49,6 +52,7 @@ export const getAgentStreamFromTemplate = (params: {
       includeCacheControl,
       agentId,
       maxRetries: 3,
+      logger,
     }
 
     // Add Gemini-specific options if needed
@@ -56,17 +60,17 @@ export const getAgentStreamFromTemplate = (params: {
     const provider =
       providerModelNames[primaryModel as keyof typeof providerModelNames]
 
-    if (!options.providerOptions) {
-      options.providerOptions = {}
+    if (!aiSdkStreamParams.providerOptions) {
+      aiSdkStreamParams.providerOptions = {}
     }
-    if (!options.providerOptions.openrouter) {
-      options.providerOptions.openrouter = {}
+    if (!aiSdkStreamParams.providerOptions.openrouter) {
+      aiSdkStreamParams.providerOptions.openrouter = {}
     }
     ;(
-      options.providerOptions.openrouter as OpenRouterProviderOptions
+      aiSdkStreamParams.providerOptions.openrouter as OpenRouterProviderOptions
     ).reasoning = template.reasoningOptions
 
-    return promptAiSdkStream(options)
+    return promptAiSdkStream(aiSdkStreamParams)
   }
 
   return { getStream }

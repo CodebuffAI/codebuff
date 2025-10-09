@@ -19,9 +19,9 @@ import type {
 } from 'express'
 
 function createMockReq(query: Record<string, any>): Partial<ExpressRequest> {
-  return { 
-    query, 
-    headers: { 'x-codebuff-api-key': 'test-api-key' } 
+  return {
+    query,
+    headers: { 'x-codebuff-api-key': 'test-api-key' },
   } as any
 }
 
@@ -78,7 +78,11 @@ describe('validateAgentNameHandler', () => {
 
     await validateAgentNameHandler(req as any, res as any, noopNext)
 
-    expect(spy).toHaveBeenCalledWith(agentId, {})
+    expect(spy).toHaveBeenCalledWith({
+      agentId,
+      localAgentTemplates: {},
+      logger: expect.anything(),
+    })
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(true)
     expect(res.jsonPayload.source).toBe('published')
@@ -96,7 +100,11 @@ describe('validateAgentNameHandler', () => {
 
     await validateAgentNameHandler(req as any, res as any, noopNext)
 
-    expect(spy).toHaveBeenCalledWith(agentId, {})
+    expect(spy).toHaveBeenCalledWith({
+      agentId,
+      localAgentTemplates: {},
+      logger: expect.anything(),
+    })
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(true)
     expect(res.jsonPayload.source).toBe('published')
@@ -114,7 +122,11 @@ describe('validateAgentNameHandler', () => {
 
     await validateAgentNameHandler(req as any, res as any, noopNext)
 
-    expect(spy).toHaveBeenCalledWith(agentId, {})
+    expect(spy).toHaveBeenCalledWith({
+      agentId,
+      localAgentTemplates: {},
+      logger: expect.anything(),
+    })
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(false)
   })

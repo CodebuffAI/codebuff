@@ -35,10 +35,6 @@ describe('Linkup API', () => {
       },
     }))
 
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: mockLogger,
-    }))
-
     // Mock withTimeout utility
     mockModule('@codebuff/common/util/promise', () => ({
       withTimeout: async (promise: Promise<any>, timeout: number) => promise,
@@ -84,7 +80,10 @@ describe('Linkup API', () => {
       }),
     )
 
-    const result = await searchWeb('React tutorial')
+    const result = await searchWeb({
+      query: 'React tutorial',
+      logger: mockLogger,
+    })
 
     expect(result).toBe(
       'React is a JavaScript library for building user interfaces. You can learn how to build your first React application by following the official documentation.',
@@ -128,8 +127,10 @@ describe('Linkup API', () => {
       }),
     )
 
-    const result = await searchWeb('React patterns', {
+    const result = await searchWeb({
+      query: 'React patterns',
       depth: 'deep',
+      logger: mockLogger,
     })
 
     expect(result).toBe(
@@ -157,7 +158,7 @@ describe('Linkup API', () => {
       }),
     )
 
-    const result = await searchWeb('test query')
+    const result = await searchWeb({ query: 'test query', logger: mockLogger })
 
     expect(result).toBeNull()
   })
@@ -165,7 +166,7 @@ describe('Linkup API', () => {
   test('should handle network errors', async () => {
     spyOn(global, 'fetch').mockRejectedValue(new Error('Network error'))
 
-    const result = await searchWeb('test query')
+    const result = await searchWeb({ query: 'test query', logger: mockLogger })
 
     expect(result).toBeNull()
   })
@@ -178,7 +179,7 @@ describe('Linkup API', () => {
       }),
     )
 
-    const result = await searchWeb('test query')
+    const result = await searchWeb({ query: 'test query', logger: mockLogger })
 
     expect(result).toBeNull()
   })
@@ -191,7 +192,7 @@ describe('Linkup API', () => {
       }),
     )
 
-    const result = await searchWeb('test query')
+    const result = await searchWeb({ query: 'test query', logger: mockLogger })
 
     expect(result).toBeNull()
   })
@@ -208,7 +209,7 @@ describe('Linkup API', () => {
       }),
     )
 
-    const result = await searchWeb('test query')
+    const result = await searchWeb({ query: 'test query', logger: mockLogger })
 
     expect(result).toBeNull()
   })
@@ -228,7 +229,7 @@ describe('Linkup API', () => {
       }),
     )
 
-    await searchWeb('test query')
+    await searchWeb({ query: 'test query', logger: mockLogger })
 
     // Verify fetch was called with default parameters
     expect(fetch).toHaveBeenCalledWith(
@@ -251,7 +252,7 @@ describe('Linkup API', () => {
       }),
     )
 
-    const result = await searchWeb('test query')
+    const result = await searchWeb({ query: 'test query', logger: mockLogger })
 
     expect(result).toBeNull()
     // Verify that error logging was called
@@ -269,7 +270,10 @@ describe('Linkup API', () => {
       }),
     )
 
-    const result = await searchWeb('test query for 404')
+    const result = await searchWeb({
+      query: 'test query for 404',
+      logger: mockLogger,
+    })
 
     expect(result).toBeNull()
     // Verify that detailed error logging was called with 404 info

@@ -10,6 +10,15 @@ import {
   resetLiveUserInputsState,
 } from '../live-user-inputs'
 
+import type { Logger } from '@codebuff/types/logger'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
+
 describe('live-user-inputs', () => {
   beforeEach(() => {
     // Clear any existing state before each test
@@ -54,7 +63,7 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
       startUserInput({ userId: 'user-1', userInputId: 'input-456' })
 
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' })
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger })
 
       const liveInputs = getLiveUserInputIds('user-1')
       expect(liveInputs).toEqual(['input-456'])
@@ -63,7 +72,7 @@ describe('live-user-inputs', () => {
     it('should remove user from tracking when all inputs cancelled', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
 
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' })
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger })
 
       const liveInputs = getLiveUserInputIds('user-1')
       expect(liveInputs).toBeUndefined()
@@ -74,7 +83,11 @@ describe('live-user-inputs', () => {
 
       // Should not throw
       expect(() => {
-        cancelUserInput({ userId: 'user-1', userInputId: 'input-nonexistent' })
+        cancelUserInput({
+          userId: 'user-1',
+          userInputId: 'input-nonexistent',
+          logger,
+        })
       }).not.toThrow()
 
       const liveInputs = getLiveUserInputIds('user-1')
@@ -84,7 +97,11 @@ describe('live-user-inputs', () => {
     it('should handle cancelling for non-existent user gracefully', () => {
       // Should not throw
       expect(() => {
-        cancelUserInput({ userId: 'user-nonexistent', userInputId: 'input-123' })
+        cancelUserInput({
+          userId: 'user-nonexistent',
+          userInputId: 'input-123',
+          logger,
+        })
       }).not.toThrow()
     })
   })
@@ -94,7 +111,7 @@ describe('live-user-inputs', () => {
       // Note: Testing the actual behavior requires integration with the constants module
       // For unit testing, we'll test the function directly
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' }) // This simulates the behavior when async agents disabled
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger }) // This simulates the behavior when async agents disabled
 
       const liveInputs = getLiveUserInputIds('user-1')
       expect(liveInputs).toBeUndefined()
@@ -116,7 +133,11 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
       setSessionConnected('session-1', true)
 
-      const isLive = checkLiveUserInput('user-1', 'input-123', 'session-1')
+      const isLive = checkLiveUserInput({
+        userId: 'user-1',
+        userInputId: 'input-123',
+        clientSessionId: 'session-1',
+      })
       expect(isLive).toBe(true)
     })
 
@@ -124,29 +145,33 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
       setSessionConnected('session-1', true)
 
-      const isLive = checkLiveUserInput(
-        'user-1',
-        'input-123-async-agent',
-        'session-1',
-      )
+      const isLive = checkLiveUserInput({
+        userId: 'user-1',
+        userInputId: 'input-123-async-agent',
+        clientSessionId: 'session-1',
+      })
       expect(isLive).toBe(true)
     })
 
     it('should return false for non-existent user', () => {
       setSessionConnected('session-1', true)
 
-      const isLive = checkLiveUserInput(
-        'user-nonexistent',
-        'input-123',
-        'session-1',
-      )
+      const isLive = checkLiveUserInput({
+        userId: 'user-nonexistent',
+        userInputId: 'input-123',
+        clientSessionId: 'session-1',
+      })
       expect(isLive).toBe(false)
     })
 
     it('should return false for undefined user', () => {
       setSessionConnected('session-1', true)
 
-      const isLive = checkLiveUserInput(undefined, 'input-123', 'session-1')
+      const isLive = checkLiveUserInput({
+        userId: undefined,
+        userInputId: 'input-123',
+        clientSessionId: 'session-1',
+      })
       expect(isLive).toBe(false)
     })
 
@@ -154,7 +179,11 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
       setSessionConnected('session-1', false)
 
-      const isLive = checkLiveUserInput('user-1', 'input-123', 'session-1')
+      const isLive = checkLiveUserInput({
+        userId: 'user-1',
+        userInputId: 'input-123',
+        clientSessionId: 'session-1',
+      })
       expect(isLive).toBe(false)
     })
 
@@ -162,14 +191,22 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
       setSessionConnected('session-1', true)
 
-      const isLive = checkLiveUserInput('user-1', 'input-456', 'session-1')
+      const isLive = checkLiveUserInput({
+        userId: 'user-1',
+        userInputId: 'input-456',
+        clientSessionId: 'session-1',
+      })
       expect(isLive).toBe(false)
     })
 
     it('should return true when live user input check is disabled', () => {
       disableLiveUserInputCheck()
 
-      const isLive = checkLiveUserInput('user-1', 'input-123', 'session-1')
+      const isLive = checkLiveUserInput({
+        userId: 'user-1',
+        userInputId: 'input-123',
+        clientSessionId: 'session-1',
+      })
       expect(isLive).toBe(true)
     })
   })
@@ -179,7 +216,11 @@ describe('live-user-inputs', () => {
       setSessionConnected('session-1', true)
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
 
-      const isLive = checkLiveUserInput('user-1', 'input-123', 'session-1')
+      const isLive = checkLiveUserInput({
+        userId: 'user-1',
+        userInputId: 'input-123',
+        clientSessionId: 'session-1',
+      })
       expect(isLive).toBe(true)
     })
 
@@ -188,11 +229,23 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
 
       // First verify it's connected
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(true)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(true)
 
       // Then disconnect
       setSessionConnected('session-1', false)
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(false)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(false)
     })
 
     it('should handle multiple sessions independently', () => {
@@ -201,8 +254,20 @@ describe('live-user-inputs', () => {
 
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
 
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(true)
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-2')).toBe(false)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(true)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-2',
+        }),
+      ).toBe(false)
     })
   })
 
@@ -233,14 +298,26 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
 
       // Verify input is live
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(true)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(true)
       expect(getLiveUserInputIds('user-1')).toEqual(['input-123'])
 
       // End user input
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' })
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger })
 
       // Verify input is no longer live
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(false)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(false)
       expect(getLiveUserInputIds('user-1')).toBeUndefined()
     })
 
@@ -250,13 +327,25 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
 
       // Verify input is live
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(true)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(true)
 
       // Disconnect session
       setSessionConnected('session-1', false)
 
       // Input should no longer be considered live
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(false)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(false)
 
       // But input ID should still exist (for potential reconnection)
       expect(getLiveUserInputIds('user-1')).toEqual(['input-123'])
@@ -268,15 +357,39 @@ describe('live-user-inputs', () => {
       startUserInput({ userId: 'user-1', userInputId: 'input-123' })
       startUserInput({ userId: 'user-1', userInputId: 'input-456' })
 
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(true)
-      expect(checkLiveUserInput('user-1', 'input-456', 'session-1')).toBe(true)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(true)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-456',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(true)
       expect(getLiveUserInputIds('user-1')).toEqual(['input-123', 'input-456'])
 
       // Cancel one input
-      cancelUserInput({ userId: 'user-1', userInputId: 'input-123' })
+      cancelUserInput({ userId: 'user-1', userInputId: 'input-123', logger })
 
-      expect(checkLiveUserInput('user-1', 'input-123', 'session-1')).toBe(false)
-      expect(checkLiveUserInput('user-1', 'input-456', 'session-1')).toBe(true)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-123',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(false)
+      expect(
+        checkLiveUserInput({
+          userId: 'user-1',
+          userInputId: 'input-456',
+          clientSessionId: 'session-1',
+        }),
+      ).toBe(true)
       expect(getLiveUserInputIds('user-1')).toEqual(['input-456'])
     })
   })

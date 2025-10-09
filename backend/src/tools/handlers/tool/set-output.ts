@@ -1,5 +1,5 @@
 import { getAgentTemplate } from '../../../templates/agent-registry'
-import { logger } from '../../../util/logger'
+import type { Logger } from '@codebuff/types/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -19,11 +19,12 @@ export const handleSetOutput = ((params: {
     agentState?: AgentState
     localAgentTemplates?: Record<string, AgentTemplate>
   }
+  logger: Logger
 }): {
   result: Promise<CodebuffToolOutput<ToolName>>
   state: { agentState: AgentState }
 } => {
-  const { previousToolCallFinished, toolCall, state } = params
+  const { previousToolCallFinished, toolCall, state, logger } = params
   const output = toolCall.input
   const { agentState, localAgentTemplates } = state
 
@@ -43,10 +44,11 @@ export const handleSetOutput = ((params: {
     // Validate output against outputSchema if defined
     let agentTemplate = null
     if (agentState.agentType) {
-      agentTemplate = await getAgentTemplate(
-        agentState.agentType,
+      agentTemplate = await getAgentTemplate({
+        agentId: agentState.agentType,
         localAgentTemplates,
-      )
+        logger,
+      })
     }
     if (agentTemplate?.outputSchema) {
       try {

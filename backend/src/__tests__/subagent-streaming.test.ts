@@ -20,8 +20,16 @@ import * as loggerModule from '../util/logger'
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/types/logger'
 import type { Mock } from 'bun:test'
 import type { WebSocket } from 'ws'
+
+const logger: Logger = {
+  debug: () => {},
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+}
 
 describe('Subagent Streaming', () => {
   let mockSendSubagentChunk: Mock<SendSubagentChunk>
@@ -79,7 +87,7 @@ describe('Subagent Streaming', () => {
     mockLoopAgentSteps = spyOn(
       runAgentStep,
       'loopAgentSteps',
-    ).mockImplementation(async (ws, options) => {
+    ).mockImplementation(async (options) => {
       // Simulate streaming chunks by calling the callback
       if (options.onResponseChunk) {
         options.onResponseChunk('Thinking about the problem...')
@@ -165,6 +173,7 @@ describe('Subagent Streaming', () => {
         agentState,
         system: 'Test system prompt',
       },
+      logger,
     })
 
     await result
@@ -242,6 +251,7 @@ describe('Subagent Streaming', () => {
         agentState,
         system: 'Test system prompt',
       },
+      logger,
     })
     await result
 

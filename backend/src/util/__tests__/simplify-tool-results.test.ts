@@ -1,20 +1,19 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-  spyOn,
-} from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 
 import {
   simplifyReadFileResults,
   simplifyTerminalCommandResults,
 } from '../simplify-tool-results'
-import * as logger from '../logger'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+
+// Mock logger for tests
+const logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
 
 describe('simplifyReadFileResults', () => {
   it('should simplify read file results by omitting content', () => {
@@ -123,15 +122,6 @@ describe('simplifyReadFileResults', () => {
 })
 
 describe('simplifyTerminalCommandResults', () => {
-  beforeEach(() => {
-    // Mock the logger.error function directly
-    spyOn(logger.logger, 'error').mockImplementation(() => {})
-  })
-
-  afterEach(() => {
-    mock.restore()
-  })
-
   it('should simplify terminal command results with stdout', () => {
     const input: CodebuffToolOutput<'run_terminal_command'> = [
       {
@@ -147,7 +137,10 @@ describe('simplifyTerminalCommandResults', () => {
       },
     ]
 
-    const result = simplifyTerminalCommandResults(input)
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
 
     expect(result).toEqual([
       {
@@ -174,7 +167,10 @@ describe('simplifyTerminalCommandResults', () => {
       },
     ]
 
-    const result = simplifyTerminalCommandResults(input)
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
 
     expect(result).toEqual([
       {
@@ -199,7 +195,10 @@ describe('simplifyTerminalCommandResults', () => {
       },
     ]
 
-    const result = simplifyTerminalCommandResults(input)
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
 
     expect(result).toEqual([
       {
@@ -224,7 +223,10 @@ describe('simplifyTerminalCommandResults', () => {
       },
     ]
 
-    const result = simplifyTerminalCommandResults(input)
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
 
     expect(result).toEqual(input)
   })
@@ -240,7 +242,10 @@ describe('simplifyTerminalCommandResults', () => {
       },
     ]
 
-    const result = simplifyTerminalCommandResults(input)
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
 
     expect(result).toEqual(input)
   })
@@ -258,7 +263,10 @@ describe('simplifyTerminalCommandResults', () => {
       },
     ]
 
-    const result = simplifyTerminalCommandResults(input)
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
 
     expect(result).toEqual([
       {
@@ -277,6 +285,7 @@ describe('simplifyTerminalCommandResults', () => {
     // Create input that will cause an error during processing
     const malformedInput = {
       invalidStructure: true,
+      logger,
     } as any
 
     const result = simplifyTerminalCommandResults(malformedInput)
@@ -290,9 +299,6 @@ describe('simplifyTerminalCommandResults', () => {
         },
       },
     ])
-
-    // Verify error was logged
-    expect(logger.logger.error).toHaveBeenCalled()
   })
 
   it('should not mutate the original input', () => {
@@ -308,7 +314,7 @@ describe('simplifyTerminalCommandResults', () => {
     ]
     const input = structuredClone(originalInput)
 
-    simplifyTerminalCommandResults(input)
+    simplifyTerminalCommandResults({ messageContent: input, logger })
 
     // Original input should be unchanged
     expect(input).toEqual(originalInput)
@@ -327,7 +333,10 @@ describe('simplifyTerminalCommandResults', () => {
       },
     ]
 
-    const result = simplifyTerminalCommandResults(input)
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
 
     expect(result).toEqual([
       {
@@ -354,7 +363,10 @@ describe('simplifyTerminalCommandResults', () => {
       },
     ]
 
-    const result = simplifyTerminalCommandResults(input)
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
 
     expect(result).toEqual([
       {

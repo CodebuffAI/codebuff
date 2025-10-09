@@ -9,19 +9,17 @@ import { applyPatch } from 'diff'
 
 import { processFileBlock } from '../process-file-block'
 
+import type { Logger } from '@codebuff/types/logger'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
+
 describe('processFileBlockModule', () => {
   beforeAll(() => {
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
-
     // Mock database interactions
     mockModule('pg-pool', () => ({
       Pool: class {
@@ -87,6 +85,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -123,6 +122,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -155,6 +155,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -180,6 +181,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        logger,
       })
 
       expect(result).not.toBeNull()
@@ -226,6 +228,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        logger,
       })
 
       expect(result).not.toBeNull()

@@ -4,12 +4,15 @@ import { getAgentTemplate } from './agent-registry'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
+import type { Logger } from '@codebuff/types/logger'
 import { buildArray } from '@codebuff/common/util/array'
 
-export async function buildSpawnableAgentsDescription(
-  spawnableAgents: AgentTemplateType[],
-  agentTemplates: Record<string, AgentTemplate>,
-): Promise<string> {
+export async function buildSpawnableAgentsDescription(params: {
+  spawnableAgents: AgentTemplateType[]
+  agentTemplates: Record<string, AgentTemplate>
+  logger: Logger
+}): Promise<string> {
+  const { spawnableAgents, agentTemplates, logger } = params
   if (spawnableAgents.length === 0) {
     return ''
   }
@@ -18,7 +21,7 @@ export async function buildSpawnableAgentsDescription(
     spawnableAgents.map(async (agentType) => {
       return [
         agentType,
-        await getAgentTemplate(agentType, agentTemplates),
+        await getAgentTemplate({ agentId: agentType, localAgentTemplates: agentTemplates, logger }),
       ] as const
     }),
   )

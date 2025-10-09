@@ -113,7 +113,7 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response'),
     )
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
   })
 
   afterEach(() => {
@@ -121,7 +121,7 @@ describe('runAgentStep - set_output tool', () => {
   })
 
   afterAll(() => {
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
   })
 
   class MockWebSocket {
@@ -176,23 +176,22 @@ describe('runAgentStep - set_output tool', () => {
       'test-set-output-agent': testAgent,
     }
 
-    const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
-      {
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        onResponseChunk: () => {},
-        agentType: 'test-set-output-agent',
-        fileContext: mockFileContext,
-        localAgentTemplates,
-        agentState,
-        prompt: 'Analyze the codebase',
-        params: undefined,
-        system: 'Test system prompt',
-      },
-    )
+    const result = await runAgentStep({
+      ws: new MockWebSocket() as unknown as WebSocket,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'test-set-output-agent',
+      fileContext: mockFileContext,
+      localAgentTemplates,
+      agentState,
+      prompt: 'Analyze the codebase',
+      params: undefined,
+      system: 'Test system prompt',
+      logger,
+    })
 
     expect(result.agentState.output).toEqual({
       message: 'Hi',
@@ -219,23 +218,22 @@ describe('runAgentStep - set_output tool', () => {
       'test-set-output-agent': testAgent,
     }
 
-    const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
-      {
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        onResponseChunk: () => {},
-        agentType: 'test-set-output-agent',
-        fileContext: mockFileContext,
-        localAgentTemplates,
-        agentState,
-        prompt: 'Analyze the codebase',
-        params: undefined,
-        system: 'Test system prompt',
-      },
-    )
+    const result = await runAgentStep({
+      ws: new MockWebSocket() as unknown as WebSocket,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'test-set-output-agent',
+      fileContext: mockFileContext,
+      localAgentTemplates,
+      agentState,
+      prompt: 'Analyze the codebase',
+      params: undefined,
+      system: 'Test system prompt',
+      logger,
+    })
 
     expect(result.agentState.output).toEqual({
       message: 'Analysis complete',
@@ -268,23 +266,22 @@ describe('runAgentStep - set_output tool', () => {
       'test-set-output-agent': testAgent,
     }
 
-    const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
-      {
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        onResponseChunk: () => {},
-        agentType: 'test-set-output-agent',
-        fileContext: mockFileContext,
-        localAgentTemplates,
-        agentState,
-        prompt: 'Update the output',
-        params: undefined,
-        system: 'Test system prompt',
-      },
-    )
+    const result = await runAgentStep({
+      ws: new MockWebSocket() as unknown as WebSocket,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'test-set-output-agent',
+      fileContext: mockFileContext,
+      localAgentTemplates,
+      agentState,
+      prompt: 'Update the output',
+      params: undefined,
+      system: 'Test system prompt',
+      logger,
+    })
 
     expect(result.agentState.output).toEqual({
       newField: 'new value',
@@ -308,23 +305,22 @@ describe('runAgentStep - set_output tool', () => {
       'test-set-output-agent': testAgent,
     }
 
-    const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
-      {
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        onResponseChunk: () => {},
-        agentType: 'test-set-output-agent',
-        fileContext: mockFileContext,
-        localAgentTemplates,
-        agentState,
-        prompt: 'Update with empty object',
-        params: undefined,
-        system: 'Test system prompt',
-      },
-    )
+    const result = await runAgentStep({
+      ws: new MockWebSocket() as unknown as WebSocket,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'test-set-output-agent',
+      fileContext: mockFileContext,
+      localAgentTemplates,
+      agentState,
+      prompt: 'Update with empty object',
+      params: undefined,
+      system: 'Test system prompt',
+      logger,
+    })
 
     // Should replace with empty object
     expect(result.agentState.output).toEqual({})
@@ -405,23 +401,22 @@ describe('runAgentStep - set_output tool', () => {
 
     const initialMessageCount = agentState.messageHistory.length
 
-    const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
-      {
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        onResponseChunk: () => {},
-        agentType: 'test-handlesteps-agent',
-        fileContext: mockFileContext,
-        localAgentTemplates: mockAgentRegistry,
-        agentState,
-        prompt: 'Test the handleSteps functionality',
-        params: undefined,
-        system: 'Test system prompt',
-      },
-    )
+    const result = await runAgentStep({
+      ws: new MockWebSocket() as unknown as WebSocket,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'test-handlesteps-agent',
+      fileContext: mockFileContext,
+      localAgentTemplates: mockAgentRegistry,
+      agentState,
+      prompt: 'Test the handleSteps functionality',
+      params: undefined,
+      system: 'Test system prompt',
+      logger,
+    })
 
     // Should end turn because toolCalls.length === 0 && toolResults.length === 0 from LLM processing
     // (The programmatic step tool results don't count toward this calculation)
@@ -566,23 +561,22 @@ describe('runAgentStep - set_output tool', () => {
       },
     ]
 
-    const result = await runAgentStep(
-      new MockWebSocket() as unknown as WebSocket,
-      {
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        onResponseChunk: () => {},
-        agentType: 'parent-agent',
-        fileContext: mockFileContext,
-        localAgentTemplates: mockAgentRegistry,
-        agentState,
-        prompt: 'Spawn an inline agent to clean up messages',
-        params: undefined,
-        system: 'Parent system prompt',
-      },
-    )
+    const result = await runAgentStep({
+      ws: new MockWebSocket() as unknown as WebSocket,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'parent-agent',
+      fileContext: mockFileContext,
+      localAgentTemplates: mockAgentRegistry,
+      agentState,
+      prompt: 'Spawn an inline agent to clean up messages',
+      params: undefined,
+      system: 'Parent system prompt',
+      logger,
+    })
 
     const finalMessages = result.agentState.messageHistory
 

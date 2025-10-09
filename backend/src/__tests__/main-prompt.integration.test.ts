@@ -17,14 +17,21 @@ import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
-import { logger } from '../util/logger'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 // --- Shared Mocks & Helpers ---
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
 
 class MockWebSocket {
   send(msg: string) {}
@@ -107,13 +114,6 @@ describe.skip('mainPrompt (Integration)', () => {
   })
 
   it('should delete a specified function while preserving other code', async () => {
-    // Mock necessary non-LLM functions
-    spyOn(logger, 'debug').mockImplementation(() => {})
-    spyOn(logger, 'error').mockImplementation(() => {})
-    spyOn(logger, 'info').mockImplementation(() => {})
-    spyOn(logger, 'warn').mockImplementation(() => {})
-    spyOn(requestFilesPrompt, 'requestRelevantFiles').mockResolvedValue([])
-
     const initialContent = `import { Message } from '@codebuff/common/types/message'
 import { withCacheControl } from '@codebuff/common/util/messages'
 
@@ -384,21 +384,20 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       toolResults: [],
     }
 
-    const { output, sessionState: finalSessionState } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
+    const { output, sessionState: finalSessionState } = await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session-delete-function-integration',
-        localAgentTemplates: mockLocalAgentTemplates,
-        onResponseChunk: (chunk: string | PrintModeEvent) => {
-          if (typeof chunk !== 'string') {
-            return
-          }
-          process.stdout.write(chunk)
-        },
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session-delete-function-integration',
+      localAgentTemplates: mockLocalAgentTemplates,
+      onResponseChunk: (chunk: string | PrintModeEvent) => {
+        if (typeof chunk !== 'string') {
+          return
+        }
+        process.stdout.write(chunk)
       },
-    )
+      logger,
+    })
     const requestToolCallSpy = websocketAction.requestToolCall as any
 
     // Find the write_file tool call
@@ -474,7 +473,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         toolResults: [],
       }
 
-      await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+      await mainPrompt({
+        ws: new MockWebSocket() as unknown as WebSocket,
+        action,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session-delete-function-integration',
         localAgentTemplates: {
@@ -501,6 +502,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
           }
           process.stdout.write(chunk)
         },
+        logger,
       })
 
       const requestToolCallSpy = websocketAction.requestToolCall as any

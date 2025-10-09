@@ -149,16 +149,17 @@ You must decide whether to:
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
 Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
-                },
-              ],
-              schema: AgentDecisionSchema,
-              model: 'x-ai/grok-4-fast',
-              clientSessionId,
-              fingerprintId,
-              userInputId: generateCompactId(),
-              userId: undefined,
-              timeout: 5 * 60_000, // 5 minute timeout
-            })
+            },
+          ],
+          schema: AgentDecisionSchema,
+          model: 'x-ai/grok-4-fast',
+          clientSessionId,
+          fingerprintId,
+          userInputId: generateCompactId(),
+          userId: undefined,
+          timeout: 5 * 60_000, // 5 minute timeout
+          logger: console,
+        })
       } catch (agentError) {
         throw new Error(
           `Agent decision failed: ${agentError instanceof Error ? `${agentError.message}\n${JSON.stringify(agentError)}\n${agentError.stack}` : String(agentError)}`,

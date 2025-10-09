@@ -46,7 +46,7 @@ async function gradeTraces({ logger }: { logger: Logger }) {
         batch.map(async (traceAndRelabels) => {
           try {
             console.log(`Grading trace ${traceAndRelabels.trace.id}`)
-            const result = await gradeRun(traceAndRelabels)
+            const result = await gradeRun({ ...traceAndRelabels, logger })
             return {
               traceId: traceAndRelabels.trace.id,
               status: 'success',

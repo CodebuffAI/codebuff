@@ -6,7 +6,7 @@ import {
   logAgentSpawn,
   executeSubagent,
 } from './spawn-agent-utils'
-import { logger } from '../../../util/logger'
+import type { Logger } from '@codebuff/types/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -50,6 +50,7 @@ export const handleSpawnAgents = ((params: {
     agentState?: AgentState
     system?: string
   }
+  logger: Logger
 }): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
     previousToolCallFinished,
@@ -64,6 +65,7 @@ export const handleSpawnAgents = ((params: {
   } = params
   const { agents } = toolCall.input
   const validatedState = validateSpawnState(state, 'spawn_agents')
+  const { logger } = params
   const { sendSubagentChunk, system: parentSystemPrompt } = state
 
   if (!sendSubagentChunk) {
@@ -84,11 +86,12 @@ export const handleSpawnAgents = ((params: {
   const triggerSpawnAgents = async () => {
     const results = await Promise.allSettled(
       agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-        const { agentTemplate, agentType } = await validateAndGetAgentTemplate(
+        const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
           agentTypeStr,
           parentAgentTemplate,
           localAgentTemplates,
-        )
+          logger,
+        })
 
         validateAgentInput(agentTemplate, agentType, prompt, params)
 
@@ -100,14 +103,15 @@ export const handleSpawnAgents = ((params: {
           {},
         )
 
-        logAgentSpawn(
+        logAgentSpawn({
           agentTemplate,
           agentType,
-          subAgentState.agentId,
-          subAgentState.parentId,
+          agentId: subAgentState.agentId,
+          parentId: subAgentState.parentId,
           prompt,
           params,
-        )
+          logger,
+        })
 
         const result = await executeSubagent({
           ws,
@@ -140,6 +144,7 @@ export const handleSpawnAgents = ((params: {
               prompt,
             })
           },
+          logger,
         })
         return { ...result, agentType, agentName: agentTemplate.displayName }
       }),

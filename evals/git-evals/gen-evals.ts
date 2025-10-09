@@ -1,13 +1,13 @@
 import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { mapLimit } from 'async'
 
+import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/old-constants'
+import { mapLimit } from 'async'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
-import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 
 import type { EvalData, EvalInput, FileState, EvalCommit } from './types'
 const SPEC_GENERATION_PROMPT = `Given a set of file changes and an optional description, write a clear specification describing WHAT needs to be implemented.
@@ -132,6 +132,7 @@ File Changes:\n${fileContext}`
       fingerprintId,
       userInputId,
       userId: undefined,
+      logger: console,
     })
 
     // Extract spec from <spec></spec> tags

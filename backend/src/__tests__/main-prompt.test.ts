@@ -229,16 +229,15 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { sessionState: newSessionState, output } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
+    const { sessionState: newSessionState, output } = await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        localAgentTemplates: mockLocalAgentTemplates,
-      },
-    )
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
+      logger,
+    })
 
     // Verify that requestToolCall was called with the terminal command
     const requestToolCallSpy = websocketAction.requestToolCall as any
@@ -291,7 +290,9 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+    await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
+      action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
@@ -329,6 +330,7 @@ describe('mainPrompt', () => {
           stepPrompt: '',
         },
       },
+      logger,
     })
 
     // Assert that requestToolCall was called exactly once
@@ -367,16 +369,15 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { output } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
+    const { output } = await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        localAgentTemplates: mockLocalAgentTemplates,
-      },
-    )
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
+      logger,
+    })
 
     expect(output.type).toBeDefined() // Output should exist
   })
@@ -395,16 +396,15 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
+    const { sessionState: newSessionState } = await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        localAgentTemplates: mockLocalAgentTemplates,
-      },
-    )
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
+      logger,
+    })
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
     expect(newSessionState.mainAgentState.stepsRemaining).toBe(
@@ -427,16 +427,15 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { sessionState: newSessionState } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
+    const { sessionState: newSessionState } = await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        localAgentTemplates: mockLocalAgentTemplates,
-      },
-    )
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
+      logger,
+    })
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
     expect(newSessionState.mainAgentState.stepsRemaining).toBe(initialCount - 1)
@@ -457,16 +456,15 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    const { output } = await mainPrompt(
-      new MockWebSocket() as unknown as WebSocket,
+    const { output } = await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
       action,
-      {
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        localAgentTemplates: mockLocalAgentTemplates,
-      },
-    )
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
+      logger,
+    })
 
     expect(output.type).toBeDefined() // Output should exist even for empty response
   })
@@ -498,11 +496,14 @@ describe('mainPrompt', () => {
       toolResults: [],
     }
 
-    await mainPrompt(new MockWebSocket() as unknown as WebSocket, action, {
+    await mainPrompt({
+      ws: new MockWebSocket() as unknown as WebSocket,
+      action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
+      logger,
     })
 
     // Assert that requestToolCall was called exactly once

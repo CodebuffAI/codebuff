@@ -131,6 +131,7 @@ describe('malformed tool call error handling', () => {
       agentContext: {},
       onResponseChunk,
       fullResponse: '',
+      logger,
     })
 
     // Should have tool result errors in the final message history
@@ -187,6 +188,7 @@ describe('malformed tool call error handling', () => {
       agentContext: {},
       onResponseChunk,
       fullResponse: '',
+      logger,
     })
 
     // Should have multiple error tool results
@@ -233,6 +235,7 @@ describe('malformed tool call error handling', () => {
       agentContext: {},
       onResponseChunk,
       fullResponse: '',
+      logger,
     })
 
     // Should have error in both toolResults and message history
@@ -283,6 +286,7 @@ describe('malformed tool call error handling', () => {
       agentContext: {},
       onResponseChunk,
       fullResponse: '',
+      logger,
     })
 
     const toolMessages = result.state.messages.filter(
@@ -335,6 +339,7 @@ describe('malformed tool call error handling', () => {
       agentContext: {},
       onResponseChunk,
       fullResponse: '',
+      logger,
     })
 
     const toolMessages = result.state.messages.filter(
@@ -389,6 +394,7 @@ describe('malformed tool call error handling', () => {
       agentContext: {},
       onResponseChunk,
       fullResponse: '',
+      logger,
     })
 
     const toolMessages = result.state.messages.filter(

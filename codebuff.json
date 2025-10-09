@@ -76,5 +76,6 @@
       "command": "set -o pipefail && git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx)$' | xargs -r npx eslint --fix --quiet",
       "filePattern": "**/*.{ts,tsx,js,jsx}"
     }
-  ]
+  ],
+  "maxAgentSteps": 100
 }

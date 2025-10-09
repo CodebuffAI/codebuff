@@ -19,11 +19,13 @@ import type { Adapter } from 'next-auth/adapters'
 
 import { logger } from '@/util/logger'
 
-async function createAndLinkStripeCustomer(
-  userId: string,
-  email: string | null,
+async function createAndLinkStripeCustomer(params: {
+  userId: string
+  email: string | null
   name: string | null
-): Promise<string | null> {
+}): Promise<string | null> {
+  const { userId, email, name } = params
+
   if (!email || !name) {
     logger.warn(
       { userId },
@@ -228,11 +230,10 @@ export const authOptions: NextAuthOptions = {
         return
       }
 
-      const customerId = await createAndLinkStripeCustomer(
-        userData.id,
-        userData.email,
-        userData.name
-      )
+      const customerId = await createAndLinkStripeCustomer({
+        ...userData,
+        userId: userData.id,
+      })
 
       if (customerId) {
         await createInitialCreditGrant({
@@ -243,11 +244,11 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Call the imported function
-      await loops.sendSignupEventToLoops(
-        userData.id,
-        userData.email,
-        userData.name
-      )
+      await loops.sendSignupEventToLoops({
+        ...userData,
+        userId: userData.id,
+        logger,
+      })
 
       trackEvent({
         event: AnalyticsEvent.SIGNUP,

@@ -10,6 +10,15 @@ import { createPatch } from 'diff'
 
 import { rewriteWithOpenAI } from '../fast-rewrite'
 
+import type { Logger } from '@codebuff/types/logger'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
+
 describe.skip('rewriteWithOpenAI', () => {
   beforeAll(() => {
     // Mock database interactions
@@ -52,6 +61,7 @@ describe.skip('rewriteWithOpenAI', () => {
       userInputId: 'userInputId',
       userId: TEST_USER_ID,
       userMessage: undefined,
+      logger,
     })
 
     const patch = createPatch('test.ts', expectedResult, result)

@@ -5,7 +5,6 @@ import { uniq } from 'lodash'
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
 import { getAgentTemplate } from './templates/agent-registry'
-import { logger } from './util/logger'
 import { expireMessages } from './util/messages'
 import { requestToolCall } from './websockets/websocket-action'
 
@@ -18,25 +17,32 @@ import type {
   AgentTemplateType,
   AgentOutput,
 } from '@codebuff/common/types/session-state'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
-export interface MainPromptOptions {
+export const mainPrompt = async (params: {
+  ws: WebSocket
+  action: ClientAction<'prompt'>
+
   userId: string | undefined
   clientSessionId: string
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   localAgentTemplates: Record<string, AgentTemplate>
-}
 
-export const mainPrompt = async (
-  ws: WebSocket,
-  action: ClientAction<'prompt'>,
-  options: MainPromptOptions,
-): Promise<{
+  logger: Logger
+}): Promise<{
   sessionState: SessionState
   output: AgentOutput
 }> => {
-  const { userId, clientSessionId, onResponseChunk, localAgentTemplates } =
-    options
+  const {
+    ws,
+    action,
+    userId,
+    clientSessionId,
+    onResponseChunk,
+    localAgentTemplates,
+    logger,
+  } = params
 
   const {
     prompt,
@@ -56,7 +62,7 @@ export const mainPrompt = async (
   let agentType: AgentTemplateType
 
   if (agentId) {
-    if (!(await getAgentTemplate(agentId, localAgentTemplates))) {
+    if (!(await getAgentTemplate({ agentId, localAgentTemplates, logger }))) {
       throw new Error(
         `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`,
       )
@@ -75,7 +81,13 @@ export const mainPrompt = async (
     // Check for base agent in config
     const configBaseAgent = fileContext.codebuffConfig?.baseAgent
     if (configBaseAgent) {
-      if (!(await getAgentTemplate(configBaseAgent, localAgentTemplates))) {
+      if (
+        !(await getAgentTemplate({
+          agentId: configBaseAgent,
+          localAgentTemplates,
+          logger,
+        }))
+      ) {
         throw new Error(
           `Invalid base agent in config: "${configBaseAgent}". Available agents: ${availableAgents.join(', ')}`,
         )
@@ -105,7 +117,11 @@ export const mainPrompt = async (
 
   mainAgentState.agentType = agentType
 
-  let mainAgentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+  let mainAgentTemplate = await getAgentTemplate({
+    agentId: agentType,
+    localAgentTemplates,
+    logger,
+  })
   if (!mainAgentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
@@ -135,12 +151,11 @@ export const mainPrompt = async (
     const startTime = Date.now()
     const terminalCommand = await checkTerminalCommand({
       prompt,
-      options: {
-        clientSessionId,
-        fingerprintId,
-        userInputId: promptId,
-        userId,
-      },
+      clientSessionId,
+      fingerprintId,
+      userInputId: promptId,
+      userId,
+      logger,
     })
     const duration = Date.now() - startTime
 
@@ -193,7 +208,8 @@ export const mainPrompt = async (
     }
   }
 
-  const { agentState, output } = await loopAgentSteps(ws, {
+  const { agentState, output } = await loopAgentSteps({
+    ws,
     userInputId: promptId,
     prompt,
     content,
@@ -206,6 +222,7 @@ export const mainPrompt = async (
     clientSessionId,
     onResponseChunk,
     localAgentTemplates,
+    logger,
   })
 
   logger.debug({ agentState, output }, 'Main prompt finished')

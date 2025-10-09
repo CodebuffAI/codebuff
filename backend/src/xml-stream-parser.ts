@@ -7,8 +7,6 @@ import {
   toolNameParam,
 } from '@codebuff/common/tools/constants'
 
-import { logger } from './util/logger'
-
 import type { StreamChunk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import type { Model } from '@codebuff/common/old-constants'
 import type {
@@ -16,6 +14,7 @@ import type {
   PrintModeText,
   PrintModeToolCall,
 } from '@codebuff/common/types/print-mode'
+import type { Logger } from '@codebuff/types/logger'
 
 const toolExtractionPattern = new RegExp(
   `${startToolTag}(.*?)${endToolTag}`,
@@ -24,29 +23,40 @@ const toolExtractionPattern = new RegExp(
 
 const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
 
-export async function* processStreamWithTags(
-  stream: AsyncGenerator<StreamChunk, string | null>,
+export async function* processStreamWithTags(params: {
+  stream: AsyncGenerator<StreamChunk, string | null>
   processors: Record<
     string,
     {
       onTagStart: (tagName: string, attributes: Record<string, string>) => void
       onTagEnd: (tagName: string, params: Record<string, any>) => void
     }
-  >,
+  >
   defaultProcessor: (toolName: string) => {
     onTagStart: (tagName: string, attributes: Record<string, string>) => void
     onTagEnd: (tagName: string, params: Record<string, any>) => void
-  },
-  onError: (tagName: string, errorMessage: string) => void,
+  }
+  onError: (tagName: string, errorMessage: string) => void
   onResponseChunk: (
     chunk: PrintModeText | PrintModeToolCall | PrintModeError,
-  ) => void,
+  ) => void
+  logger: Logger
   loggerOptions?: {
     userId?: string
     model?: Model
     agentName?: string
-  },
-): AsyncGenerator<StreamChunk, string | null> {
+  }
+}): AsyncGenerator<StreamChunk, string | null> {
+  const {
+    stream,
+    processors,
+    defaultProcessor,
+    onError,
+    onResponseChunk,
+    logger,
+    loggerOptions,
+  } = params
+
   let streamCompleted = false
   let buffer = ''
   let autocompleted = false

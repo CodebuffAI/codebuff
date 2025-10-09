@@ -1,6 +1,6 @@
 import { db } from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { logger } from '@codebuff/common/util/logger'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { and, gte, lt, sql } from 'drizzle-orm'
 
 async function calculateMonthlyUsage(month: string) {
@@ -87,7 +87,10 @@ async function calculateMonthlyUsage(month: string) {
       }
     })
   } catch (error) {
-    logger.error({ error }, 'Error calculating monthly usage')
+    console.error(
+      { error: getErrorObject(error) },
+      'Error calculating monthly usage',
+    )
     throw error
   }
 }

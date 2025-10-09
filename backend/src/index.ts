@@ -94,7 +94,7 @@ server.listen(port, () => {
   logger.debug(`🚀 Server is running on port ${port}`)
   console.log(`🚀 Server is running on port ${port}`)
 })
-webSocketListen({ server, path: '/ws' })
+webSocketListen({ server, path: '/ws', logger })
 
 let shutdownInProgress = false
 // Graceful shutdown handler for both SIGTERM and SIGINT

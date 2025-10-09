@@ -6,6 +6,7 @@ import {
   executeSubagent,
   createAgentState,
 } from './spawn-agent-utils'
+import type { Logger } from '@codebuff/types/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -39,6 +40,7 @@ export const handleSpawnAgentInline = ((params: {
     agentState?: AgentState
     system?: string
   }
+  logger: Logger
 }): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
     previousToolCallFinished,
@@ -65,12 +67,15 @@ export const handleSpawnAgentInline = ((params: {
     system,
   } = validateSpawnState(state, 'spawn_agent_inline')
 
+  const { logger } = params
+
   const triggerSpawnAgentInline = async () => {
-    const { agentTemplate, agentType } = await validateAndGetAgentTemplate(
+    const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
       agentTypeStr,
       parentAgentTemplate,
       localAgentTemplates,
-    )
+      logger,
+    })
 
     validateAgentInput(agentTemplate, agentType, prompt, agentParams)
 
@@ -83,15 +88,16 @@ export const handleSpawnAgentInline = ((params: {
       parentAgentState.agentContext,
     )
 
-    logAgentSpawn(
+    logAgentSpawn({
       agentTemplate,
       agentType,
-      childAgentState.agentId,
-      childAgentState.parentId,
+      agentId: childAgentState.agentId,
+      parentId: childAgentState.parentId,
       prompt,
-      agentParams,
-      true, // inline = true
-    )
+      params: agentParams,
+      inline: true,
+      logger,
+    })
 
     const result = await executeSubagent({
       ws,
@@ -113,6 +119,7 @@ export const handleSpawnAgentInline = ((params: {
         // writeToClient(chunk)
       },
       clearUserPromptMessagesAfterResponse: false,
+      logger,
     })
 
     // Update parent's message history with child's final state

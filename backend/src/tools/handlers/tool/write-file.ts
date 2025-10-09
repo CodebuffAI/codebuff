@@ -1,8 +1,9 @@
 import { partition } from 'lodash'
 
 import { processFileBlock } from '../../../process-file-block'
-import { logger } from '../../../util/logger'
 import { requestOptionalFile } from '../../../websockets/websocket-action'
+
+import type { Logger } from '@codebuff/types/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -74,6 +75,7 @@ export const handleWriteFile = (({
 
   getLatestState,
   state,
+  logger,
 }: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'write_file'>
@@ -95,6 +97,7 @@ export const handleWriteFile = (({
     prompt?: string
     messages?: Message[]
   } & OptionalFileProcessingState
+  logger: Logger
 }): {
   result: Promise<CodebuffToolOutput<'write_file'>>
   state: FileProcessingState
@@ -151,6 +154,7 @@ export const handleWriteFile = (({
     fingerprintId,
     userInputId,
     userId,
+    logger,
   })
     .catch((error) => {
       logger.error(error, 'Error processing write_file block')
