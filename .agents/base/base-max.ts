@@ -9,10 +9,11 @@ const definition: SecretAgentDefinition = {
   ...base('anthropic/claude-sonnet-4.5', 'max'),
   spawnableAgents: [
     'file-explorer',
+    'find-all-referencer',
     'researcher-web-sonnet',
     'researcher-docs-sonnet',
     'decomposing-planner',
-    'thinker',
+    'decomposing-thinker',
     'reviewer',
     'context-pruner',
   ],

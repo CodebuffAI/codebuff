@@ -22,6 +22,7 @@ const definition: SecretAgentDefinition = {
   ],
   spawnableAgents: [
     'file-explorer',
+    'find-all-referencer',
     'researcher-web',
     'researcher-docs',
     'context-pruner',

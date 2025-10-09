@@ -14,7 +14,10 @@ const definition: SecretAgentDefinition = {
   publisher,
   model: 'x-ai/grok-4-fast',
   spawnableAgents: [
-    'researcher-grok-4-fast',
+    'file-explorer',
+    'find-all-referencer',
+    'researcher-web',
+    'researcher-docs',
     'thinker',
     'reviewer-lite',
     'context-pruner',
