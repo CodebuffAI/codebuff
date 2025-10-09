@@ -1,7 +1,7 @@
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
-import type { ChatTheme } from './theme-system'
+import type { ChatTheme } from '../utils/theme-system'
 
 interface BranchItemProps {
   name: string

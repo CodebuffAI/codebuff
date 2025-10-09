@@ -1,7 +1,7 @@
 import { useRenderer } from '@opentui/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { logger } from './logger'
+import { logger } from '../utils/logger'
 
 export const useClipboard = () => {
   const renderer = useRenderer()

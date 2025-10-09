@@ -2,16 +2,16 @@ import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
 import { BranchItem } from './branch-item'
-import { getToolDisplayInfo } from './codebuff-client'
+import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
   renderMarkdown,
   renderStreamingMarkdown,
   hasMarkdown,
   type MarkdownPalette,
-} from './markdown-renderer'
+} from '../utils/markdown-renderer'
 
-import type { ContentBlock } from './chat'
-import type { ChatTheme } from './theme-system'
+import type { ContentBlock } from '../chat'
+import type { ChatTheme } from '../utils/theme-system'
 
 interface MessageBlockProps {
   messageId: string

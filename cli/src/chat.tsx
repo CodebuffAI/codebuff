@@ -1,38 +1,28 @@
 import { useRenderer } from '@opentui/react'
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-
-import { logger } from './logger'
-import { buildMessageTree } from './message-tree-utils'
-import { MultilineInput } from './multiline-input'
-import { Separator } from './separator'
-import { StatusIndicator, useHasStatus } from './status-indicator'
+import { MultilineInput } from './components/multiline-input'
+import { Separator } from './components/separator'
+import { StatusIndicator, useHasStatus } from './components/status-indicator'
+import { useClipboard } from './hooks/use-clipboard'
+import { useInputHistory } from './hooks/use-input-history'
+import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
+import { useMessageQueue } from './hooks/use-message-queue'
+import { useMessageRenderer } from './hooks/use-message-renderer'
+import { useScrollManagement } from './hooks/use-scroll-management'
+import { useSendMessage } from './hooks/use-send-message'
+import { formatTimestamp, formatQueuedPreview } from './utils/helpers'
+import { logger } from './utils/logger'
+import { buildMessageTree } from './utils/message-tree-utils'
 import {
   type ThemeName,
   chatThemes,
   createMarkdownPalette,
   detectSystemTheme,
-} from './theme-system'
-import { useClipboard } from './use-clipboard'
-import { useInputHistory } from './use-input-history'
-import { useKeyboardHandlers } from './use-keyboard-handlers'
-import { useMessageQueue } from './use-message-queue'
-import { useMessageRenderer } from './use-message-renderer'
-import { useScrollManagement } from './use-scroll-management'
-import { useSendMessage } from './use-send-message'
-import { formatTimestamp, formatQueuedPreview } from './utils'
+} from './utils/theme-system'
 
 import type { ToolName } from '@codebuff/sdk'
-import type {
-  InputRenderable,
-  ScrollBoxRenderable,
-} from '@opentui/core'
+import type { InputRenderable, ScrollBoxRenderable } from '@opentui/core'
 
 type ChatVariant = 'ai' | 'user' | 'agent'
 
@@ -117,10 +107,6 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     renderer?.setBackgroundColor(theme.background)
   }, [renderer, theme.background])
 
-
-
-
-
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const registerAgentRef = useCallback((agentId: string, element: any) => {
@@ -142,7 +128,8 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     setInputValue,
   )
 
-  const sendMessageRef = useRef<(content: string, onComplete?: () => void) => Promise<void>>()
+  const sendMessageRef =
+    useRef<(content: string, onComplete?: () => void) => Promise<void>>()
 
   const {
     queuedMessages,
@@ -260,7 +247,15 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     }
 
     sendMessage(trimmed)
-  }, [inputValue, isStreaming, sendMessage, saveToHistory, addToQueue, streamMessageIdRef, isChainInProgressRef])
+  }, [
+    inputValue,
+    isStreaming,
+    sendMessage,
+    saveToHistory,
+    addToQueue,
+    streamMessageIdRef,
+    isChainInProgressRef,
+  ])
 
   const handleThemeToggle = useCallback(() => {
     setThemeName((prev) => (prev === 'dark' ? 'light' : 'dark'))
@@ -372,11 +367,12 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
               />
               {hasStatus && queuedMessages.length > 0 && '  '}
               {queuedMessages.length > 0 && (
-                <span
-                  fg={theme.statusSecondary}
-                  bg={theme.inputFocusedBg}
-                >
-                  {' '}{formatQueuedPreview(queuedMessages, Math.max(30, renderer.width - 25))}{' '}
+                <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
+                  {' '}
+                  {formatQueuedPreview(
+                    queuedMessages,
+                    Math.max(30, renderer.width - 25),
+                  )}{' '}
                 </span>
               )}
             </text>

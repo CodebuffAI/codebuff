@@ -1,10 +1,10 @@
 import { useCallback, useRef } from 'react'
 
-import { getCodebuffClient, formatToolOutput } from './codebuff-client'
-import { logger } from './logger'
-import { formatTimestamp } from './utils'
+import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
+import { formatTimestamp } from '../utils/helpers'
+import { logger } from '../utils/logger'
 
-import type { ChatMessage } from './chat'
+import type { ChatMessage } from '../chat'
 import type { ToolName } from '@codebuff/sdk'
 
 const completionMessages = [

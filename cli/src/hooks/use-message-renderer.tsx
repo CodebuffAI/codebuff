@@ -2,16 +2,16 @@ import { TextAttributes } from '@opentui/core'
 import { useMemo, type ReactNode } from 'react'
 import React from 'react'
 
+import { MessageBlock } from '../components/message-block'
 import {
   renderMarkdown,
   hasMarkdown,
   type MarkdownPalette,
-} from './markdown-renderer'
-import { MessageBlock } from './message-block'
-import { getDescendantIds, getAncestorIds } from './message-tree-utils'
+} from '../utils/markdown-renderer'
+import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
-import type { ChatMessage } from './chat'
-import type { ChatTheme } from './theme-system'
+import type { ChatMessage } from '../chat'
+import type { ChatTheme } from '../utils/theme-system'
 
 
 interface UseMessageRendererProps {
