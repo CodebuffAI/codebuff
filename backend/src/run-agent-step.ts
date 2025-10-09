@@ -45,7 +45,10 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ParamsExcluding } from '@codebuff/types/common'
-import type { StartAgentRunFn } from '@codebuff/types/database'
+import type {
+  FinishAgentRunFn,
+  StartAgentRunFn,
+} from '@codebuff/types/database'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
@@ -424,6 +427,7 @@ export const loopAgentSteps = async (
     onResponseChunk: (chunk: string | PrintModeEvent) => void
 
     startAgentRun: StartAgentRunFn
+    finishAgentRun: FinishAgentRunFn
     logger: Logger
   } & ParamsExcluding<
     typeof runProgrammaticStep,

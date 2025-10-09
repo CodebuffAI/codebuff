@@ -14,4 +14,5 @@ export const testAgentRuntimeImpl: AgentRuntimeDeps = {
   startAgentRun: async () => {
     return 'test-agent-run-id'
   },
+  finishAgentRun: async () => {},
 }
