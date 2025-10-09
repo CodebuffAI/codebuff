@@ -25,13 +25,21 @@ class RunEvalSetCommand extends Command {
 
   static examples = [
     '$ bun run run-eval-set',
-    '$ bun run run-eval-set --output-dir custom-output',
+    '$ bun run run-eval-set --sets codebuff,manifold',
+    '$ bun run run-eval-set --sets all',
+    '$ bun run run-eval-set --sets plane --output-dir custom-output',
     '$ bun run run-eval-set --email --no-analysis',
     '$ bun run run-eval-set --mock --no-insert',
     '$ bun run run-eval-set --title "Weekly Performance Test"',
   ]
 
   static flags = {
+    sets: Flags.string({
+      char: 's',
+      description:
+        'Comma-separated list of eval sets to run (codebuff, manifold, plane, saleor) or "all" for all sets',
+      default: 'codebuff',
+    }),
     'output-dir': Flags.string({
       char: 'o',
       description: 'Output directory for evaluation results',
@@ -85,6 +93,7 @@ class RunEvalSetCommand extends Command {
 }
 
 async function runEvalSet(options: {
+  sets: string
   'output-dir': string
   email: boolean
   analysis: boolean
@@ -96,6 +105,7 @@ async function runEvalSet(options: {
   agent: string
 }): Promise<void> {
   const {
+    sets,
     'output-dir': outputDir,
     email: sendEmail,
     analysis: postEvalAnalysis,
@@ -127,8 +137,21 @@ async function runEvalSet(options: {
 
   setGlobalConcurrencyLimit(options.concurrency ?? 5)
 
-  // Define the eval configurations
-  const evalConfigs: EvalConfig[] = [
+  const validSets = ['codebuff', 'manifold', 'plane', 'saleor']
+  const requestedSets =
+    sets.trim().toLowerCase() === 'all'
+      ? validSets
+      : sets.split(',').map((s) => s.trim())
+
+  const invalidSets = requestedSets.filter((s) => !validSets.includes(s))
+
+  if (invalidSets.length > 0) {
+    throw new Error(
+      `Invalid eval sets: ${invalidSets.join(', ')}. Valid sets are: ${validSets.join(', ')} or "all"`,
+    )
+  }
+
+  const allEvalConfigs: EvalConfig[] = [
     {
       name: 'codebuff',
       evalDataPath: path.join(__dirname, 'eval-codebuff2.json'),
@@ -150,6 +173,10 @@ async function runEvalSet(options: {
       outputDir,
     },
   ]
+
+  const evalConfigs = allEvalConfigs.filter((config) =>
+    requestedSets.includes(config.name),
+  )
 
   console.log(`Running ${evalConfigs.length} evaluations:`)
   evalConfigs.forEach((config) => {
