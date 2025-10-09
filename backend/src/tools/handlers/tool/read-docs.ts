@@ -1,7 +1,7 @@
 import { fetchContext7LibraryDocumentation } from '../../../llm-apis/context7-api'
-import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { Logger } from '@codebuff/types/logger'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
@@ -10,6 +10,7 @@ import type {
 export const handleReadDocs = (({
   previousToolCallFinished,
   toolCall,
+  logger,
   agentStepId,
   clientSessionId,
   userInputId,
@@ -17,6 +18,7 @@ export const handleReadDocs = (({
 }: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'read_docs'>
+  logger: Logger
 
   agentStepId: string
   clientSessionId: string

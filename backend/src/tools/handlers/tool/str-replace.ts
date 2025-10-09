@@ -1,9 +1,9 @@
 import { getFileProcessingValues, postStreamProcessing } from './write-file'
 import { processStrReplace } from '../../../process-str-replace'
-import { logger } from '../../../util/logger'
 import { requestOptionalFile } from '../../../websockets/websocket-action'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { Logger } from '@codebuff/types/logger'
 import type {
   FileProcessingState,
   OptionalFileProcessingState,
@@ -22,6 +22,7 @@ export const handleStrReplace = ((params: {
     toolCall: ClientToolCall<'str_replace'>,
   ) => Promise<CodebuffToolOutput<'str_replace'>>
   writeToClient: (chunk: string) => void
+  logger: Logger
 
   getLatestState: () => FileProcessingState
   state: {
@@ -36,6 +37,7 @@ export const handleStrReplace = ((params: {
     toolCall,
     requestClientToolCall,
     writeToClient,
+    logger,
     getLatestState,
     state,
   } = params

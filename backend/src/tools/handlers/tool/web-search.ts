@@ -3,9 +3,9 @@ import { consumeCreditsWithFallback } from '@codebuff/billing'
 import { getRequestContext } from '../../../context/app-context'
 import { searchWeb } from '../../../llm-apis/linkup-api'
 import { PROFIT_MARGIN } from '../../../llm-apis/message-cost-tracker'
-import { logger } from '../../../util/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { Logger } from '@codebuff/types/logger'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
@@ -14,6 +14,7 @@ import type {
 export const handleWebSearch = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'web_search'>
+  logger: Logger
 
   agentStepId: string
   clientSessionId: string
@@ -28,6 +29,7 @@ export const handleWebSearch = ((params: {
   const {
     previousToolCallFinished,
     toolCall,
+    logger,
     agentStepId,
     clientSessionId,
     userInputId,

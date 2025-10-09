@@ -358,6 +358,7 @@ async function executeSingleStrReplace(params: {
       toolCall,
       requestClientToolCall,
       writeToClient: onResponseChunk,
+      logger,
       getLatestState: () => getFileProcessingValues(isolatedState),
       state: isolatedState,
     })
