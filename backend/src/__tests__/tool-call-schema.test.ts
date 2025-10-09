@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 
-import { logger } from '../util/logger'
-
 import type { WebSocket } from 'ws'
 
 describe('Backend Tool Call Schema', () => {
@@ -221,7 +219,6 @@ export async function generateMockProjectStructureAnalysis(
 
     return analysis
   } catch (error) {
-    logger.error({ error }, 'Project analysis failed')
     return `Project analysis failed: ${error instanceof Error ? error.message : error}`
   }
 }
@@ -276,7 +273,6 @@ src/utils.ts:2:import { readFileSync } from 'fs'`,
 
     return analysis
   } catch (error) {
-    logger.error({ error }, 'Dependency analysis failed')
     return `Dependency analysis failed: ${error instanceof Error ? error.message : error}`
   }
 }
@@ -318,7 +314,6 @@ export async function generateMockFileContentAnalysis(
 
     return analysis
   } catch (error) {
-    logger.error({ error }, 'File content analysis failed')
     return `File content analysis failed: ${error instanceof Error ? error.message : error}`
   }
 }
