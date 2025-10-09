@@ -1,4 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -20,16 +21,8 @@ import * as loggerModule from '../util/logger'
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { Logger } from '@codebuff/types/logger'
 import type { Mock } from 'bun:test'
 import type { WebSocket } from 'ws'
-
-const logger: Logger = {
-  debug: () => {},
-  error: () => {},
-  info: () => {},
-  warn: () => {},
-}
 
 describe('Subagent Streaming', () => {
   let mockSendSubagentChunk: Mock<SendSubagentChunk>
@@ -153,6 +146,7 @@ describe('Subagent Streaming', () => {
     }
 
     const { result } = handleSpawnAgents({
+      ...testAgentRuntimeImpl,
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext: mockFileContext,
@@ -173,7 +167,6 @@ describe('Subagent Streaming', () => {
         agentState,
         system: 'Test system prompt',
       },
-      logger,
     })
 
     await result
@@ -231,6 +224,7 @@ describe('Subagent Streaming', () => {
     }
 
     const { result } = handleSpawnAgents({
+      ...testAgentRuntimeImpl,
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext: mockFileContext,
@@ -251,7 +245,6 @@ describe('Subagent Streaming', () => {
         agentState,
         system: 'Test system prompt',
       },
-      logger,
     })
     await result
 

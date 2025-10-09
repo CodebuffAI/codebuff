@@ -6,7 +6,6 @@ import {
   logAgentSpawn,
   executeSubagent,
 } from './spawn-agent-utils'
-import type { Logger } from '@codebuff/types/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -18,6 +17,8 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { AgentRuntimeDeps } from '@codebuff/types/deps/agent-runtime'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 export type SendSubagentChunk = (data: {
@@ -29,29 +30,31 @@ export type SendSubagentChunk = (data: {
 }) => void
 
 type ToolName = 'spawn_agents'
-export const handleSpawnAgents = ((params: {
-  previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<ToolName>
+export const handleSpawnAgents = ((
+  params: {
+    previousToolCallFinished: Promise<void>
+    toolCall: CodebuffToolCall<ToolName>
 
-  fileContext: ProjectFileContext
-  clientSessionId: string
-  userInputId: string
-  writeToClient: (chunk: string | PrintModeEvent) => void
+    fileContext: ProjectFileContext
+    clientSessionId: string
+    userInputId: string
+    writeToClient: (chunk: string | PrintModeEvent) => void
 
-  getLatestState: () => { messages: Message[] }
-  state: {
-    ws?: WebSocket
-    fingerprintId?: string
-    userId?: string
-    agentTemplate?: AgentTemplate
-    localAgentTemplates?: Record<string, AgentTemplate>
-    sendSubagentChunk?: SendSubagentChunk
-    messages?: Message[]
-    agentState?: AgentState
-    system?: string
-  }
-  logger: Logger
-}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
+    getLatestState: () => { messages: Message[] }
+    state: {
+      ws?: WebSocket
+      fingerprintId?: string
+      userId?: string
+      agentTemplate?: AgentTemplate
+      localAgentTemplates?: Record<string, AgentTemplate>
+      sendSubagentChunk?: SendSubagentChunk
+      messages?: Message[]
+      agentState?: AgentState
+      system?: string
+    }
+    logger: Logger
+  } & AgentRuntimeDeps,
+): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -85,69 +88,72 @@ export const handleSpawnAgents = ((params: {
 
   const triggerSpawnAgents = async () => {
     const results = await Promise.allSettled(
-      agents.map(async ({ agent_type: agentTypeStr, prompt, params }) => {
-        const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
-          agentTypeStr,
-          parentAgentTemplate,
-          localAgentTemplates,
-          logger,
-        })
-
-        validateAgentInput(agentTemplate, agentType, prompt, params)
-
-        const subAgentState = createAgentState(
-          agentType,
-          agentTemplate,
-          parentAgentState,
-          getLatestState().messages,
-          {},
-        )
-
-        logAgentSpawn({
-          agentTemplate,
-          agentType,
-          agentId: subAgentState.agentId,
-          parentId: subAgentState.parentId,
-          prompt,
-          params,
-          logger,
-        })
-
-        const result = await executeSubagent({
-          ws,
-          userInputId: `${userInputId}-${agentType}${subAgentState.agentId}`,
-          prompt: prompt || '',
-          params,
-          agentTemplate,
-          parentAgentState,
-          agentState: subAgentState,
-          fingerprintId,
-          fileContext,
-          localAgentTemplates,
-          userId,
-          clientSessionId,
-          isOnlyChild: agents.length === 1,
-          parentSystemPrompt,
-          onResponseChunk: (chunk: string | PrintModeEvent) => {
-            if (agents.length === 1) {
-              writeToClient(chunk)
-            }
-            if (typeof chunk !== 'string') {
-              return
-            }
-            // Send subagent streaming chunks to client
-            sendSubagentChunk({
-              userInputId,
-              agentId: subAgentState.agentId,
-              agentType,
-              chunk,
-              prompt,
+      agents.map(
+        async ({ agent_type: agentTypeStr, prompt, params: spawnParams }) => {
+          const { agentTemplate, agentType } =
+            await validateAndGetAgentTemplate({
+              agentTypeStr,
+              parentAgentTemplate,
+              localAgentTemplates,
+              logger,
             })
-          },
-          logger,
-        })
-        return { ...result, agentType, agentName: agentTemplate.displayName }
-      }),
+
+          validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
+
+          const subAgentState = createAgentState(
+            agentType,
+            agentTemplate,
+            parentAgentState,
+            getLatestState().messages,
+            {},
+          )
+
+          logAgentSpawn({
+            agentTemplate,
+            agentType,
+            agentId: subAgentState.agentId,
+            parentId: subAgentState.parentId,
+            prompt,
+            spawnParams,
+            logger,
+          })
+
+          const result = await executeSubagent({
+            ...params,
+            ws,
+            userInputId: `${userInputId}-${agentType}${subAgentState.agentId}`,
+            prompt: prompt || '',
+            spawnParams,
+            agentTemplate,
+            parentAgentState,
+            agentState: subAgentState,
+            fingerprintId,
+            fileContext,
+            localAgentTemplates,
+            userId,
+            clientSessionId,
+            isOnlyChild: agents.length === 1,
+            parentSystemPrompt,
+            onResponseChunk: (chunk: string | PrintModeEvent) => {
+              if (agents.length === 1) {
+                writeToClient(chunk)
+              }
+              if (typeof chunk !== 'string') {
+                return
+              }
+              // Send subagent streaming chunks to client
+              sendSubagentChunk({
+                userInputId,
+                agentId: subAgentState.agentId,
+                agentType,
+                chunk,
+                prompt,
+              })
+            },
+          })
+          return { ...result, agentType, agentName: agentTemplate.displayName }
+        },
+      ),
     )
 
     const reports = await Promise.all(

@@ -16,10 +16,12 @@ import { getUserInfoFromAuthToken } from './auth'
 import { updateRequestContext } from './request-context'
 import { sendAction } from './websocket-action'
 import { withAppContext } from '../context/app-context'
+import { backendAgentRuntimeImpl } from '../impl/agent-runtime'
 import { checkAuth } from '../util/check-auth'
 
 import type { UserInfo } from './auth'
 import type { ClientAction, ServerAction } from '@codebuff/common/actions'
+import type { AgentRuntimeDeps } from '@codebuff/types/deps/agent-runtime'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
@@ -51,6 +53,11 @@ function getServerErrorAction<T extends ClientAction>(
 
 export class WebSocketMiddleware {
   private middlewares: Array<MiddlewareCallback> = []
+  private impl: AgentRuntimeDeps
+
+  constructor(params: AgentRuntimeDeps) {
+    this.impl = params
+  }
 
   use<T extends ClientAction['type']>(
     callback: (params: {
@@ -105,16 +112,16 @@ export class WebSocketMiddleware {
   }
 
   run<T extends ClientAction['type']>(params: {
-    baseAction: (params: {
-      action: ClientAction<T>
-      clientSessionId: string
-      ws: WebSocket
-      logger: Logger
-    }) => void
+    baseAction: (
+      params: {
+        action: ClientAction<T>
+        clientSessionId: string
+        ws: WebSocket
+      } & AgentRuntimeDeps,
+    ) => void
     silent?: boolean
-    logger: Logger
   }) {
-    const { baseAction, silent, logger } = params
+    const { baseAction, silent } = params
 
     return async (
       action: ClientAction<T>,
@@ -141,10 +148,15 @@ export class WebSocketMiddleware {
             clientSessionId,
             ws,
             silent,
-            logger,
+            ...this.impl,
           })
           if (shouldContinue) {
-            baseAction({ action, clientSessionId, ws, logger })
+            baseAction({
+              action,
+              clientSessionId,
+              ws,
+              ...this.impl,
+            })
           }
         },
       )
@@ -152,9 +164,9 @@ export class WebSocketMiddleware {
   }
 }
 
-export const protec = new WebSocketMiddleware()
+export const protec = new WebSocketMiddleware(backendAgentRuntimeImpl)
 
-protec.use(async ({ action, clientSessionId, ws, userInfo, logger }) =>
+protec.use(async ({ action, clientSessionId, logger }) =>
   checkAuth({
     fingerprintId: 'fingerprintId' in action ? action.fingerprintId : undefined,
     authToken: 'authToken' in action ? action.authToken : undefined,
@@ -164,7 +176,7 @@ protec.use(async ({ action, clientSessionId, ws, userInfo, logger }) =>
 )
 
 // Organization repository coverage detection middleware
-protec.use(async ({ action, clientSessionId, ws, userInfo, logger }) => {
+protec.use(async ({ action, userInfo, logger }) => {
   const userId = userInfo?.id
 
   // Only process actions that have repoUrl as a valid string

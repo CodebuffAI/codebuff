@@ -1,6 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   AgentTemplateTypes,
@@ -236,7 +237,7 @@ describe('mainPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // Verify that requestToolCall was called with the terminal command
@@ -330,7 +331,7 @@ describe('mainPrompt', () => {
           stepPrompt: '',
         },
       },
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // Assert that requestToolCall was called exactly once
@@ -376,7 +377,7 @@ describe('mainPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     expect(output.type).toBeDefined() // Output should exist
@@ -403,7 +404,7 @@ describe('mainPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
@@ -434,7 +435,7 @@ describe('mainPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
@@ -463,7 +464,7 @@ describe('mainPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     expect(output.type).toBeDefined() // Output should exist even for empty response
@@ -503,7 +504,7 @@ describe('mainPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // Assert that requestToolCall was called exactly once

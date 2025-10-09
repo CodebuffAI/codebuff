@@ -17,32 +17,38 @@ import type {
   AgentTemplateType,
   AgentOutput,
 } from '@codebuff/common/types/session-state'
+import type { ParamsExcluding } from '@codebuff/types/common'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
-export const mainPrompt = async (params: {
-  ws: WebSocket
-  action: ClientAction<'prompt'>
+export const mainPrompt = async (
+  params: {
+    ws: WebSocket
+    action: ClientAction<'prompt'>
 
-  userId: string | undefined
-  clientSessionId: string
-  onResponseChunk: (chunk: string | PrintModeEvent) => void
-  localAgentTemplates: Record<string, AgentTemplate>
+    userId: string | undefined
+    clientSessionId: string
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    localAgentTemplates: Record<string, AgentTemplate>
 
-  logger: Logger
-}): Promise<{
+    logger: Logger
+  } & ParamsExcluding<
+    typeof loopAgentSteps,
+    | 'userInputId'
+    | 'spawnParams'
+    | 'agentState'
+    | 'prompt'
+    | 'content'
+    | 'agentType'
+    | 'fingerprintId'
+    | 'fileContext'
+  >,
+): Promise<{
   sessionState: SessionState
   output: AgentOutput
 }> => {
-  const {
-    ws,
-    action,
-    userId,
-    clientSessionId,
-    onResponseChunk,
-    localAgentTemplates,
-    logger,
-  } = params
+  const { ws, action, userId, clientSessionId, localAgentTemplates, logger } =
+    params
 
   const {
     prompt,
@@ -207,22 +213,16 @@ export const mainPrompt = async (params: {
       }
     }
   }
-
   const { agentState, output } = await loopAgentSteps({
-    ws,
+    ...params,
     userInputId: promptId,
+    spawnParams: promptParams,
+    agentState: mainAgentState,
     prompt,
     content,
-    params: promptParams,
     agentType,
-    agentState: mainAgentState,
     fingerprintId,
     fileContext,
-    userId,
-    clientSessionId,
-    onResponseChunk,
-    localAgentTemplates,
-    logger,
   })
 
   logger.debug({ agentState, output }, 'Main prompt finished')

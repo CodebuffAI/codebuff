@@ -1,4 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   describe,
@@ -17,15 +18,7 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
-
-const logger: Logger = {
-  debug: () => {},
-  error: () => {},
-  info: () => {},
-  warn: () => {},
-}
 
 describe('Spawn Agents Message History', () => {
   let mockSendSubagentChunk: any
@@ -114,6 +107,7 @@ describe('Spawn Agents Message History', () => {
     ]
 
     const { result } = handleSpawnAgents({
+      ...testAgentRuntimeImpl,
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext: mockFileContext,
@@ -132,7 +126,6 @@ describe('Spawn Agents Message History', () => {
         agentState: sessionState.mainAgentState,
         system: 'Test system prompt',
       },
-      logger,
     })
 
     await result
@@ -186,6 +179,7 @@ describe('Spawn Agents Message History', () => {
     ]
 
     const { result } = handleSpawnAgents({
+      ...testAgentRuntimeImpl,
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext: mockFileContext,
@@ -204,7 +198,6 @@ describe('Spawn Agents Message History', () => {
         agentState: sessionState.mainAgentState,
         system: 'Test system prompt',
       },
-      logger,
     })
 
     await result
@@ -223,6 +216,7 @@ describe('Spawn Agents Message History', () => {
     const mockMessages: Message[] = [] // Empty message history
 
     const { result } = handleSpawnAgents({
+      ...testAgentRuntimeImpl,
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext: mockFileContext,
@@ -241,7 +235,6 @@ describe('Spawn Agents Message History', () => {
         agentState: sessionState.mainAgentState,
         system: 'Test system prompt',
       },
-      logger,
     })
 
     await result
@@ -263,6 +256,7 @@ describe('Spawn Agents Message History', () => {
     ]
 
     const { result } = handleSpawnAgents({
+      ...testAgentRuntimeImpl,
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext: mockFileContext,
@@ -281,7 +275,6 @@ describe('Spawn Agents Message History', () => {
         agentState: sessionState.mainAgentState,
         system: 'Test system prompt',
       },
-      logger,
     })
 
     await result

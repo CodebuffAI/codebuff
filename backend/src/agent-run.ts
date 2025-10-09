@@ -3,6 +3,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { eq } from 'drizzle-orm'
 
+import type { ParamsOf } from '@codebuff/types/common'
 import type {
   AddAgentStepFn,
   FinishAgentRunFn,
@@ -13,7 +14,7 @@ import type {
  * Starts a new agent run and creates an entry in the agent_run table
  */
 export async function startAgentRun(
-  params: Parameters<StartAgentRunFn>[0],
+  params: ParamsOf<StartAgentRunFn>,
 ): ReturnType<StartAgentRunFn> {
   const { runId, userId, agentId, ancestorRunIds, logger } = params
   if (userId === TEST_USER_ID) {
@@ -46,7 +47,7 @@ export async function startAgentRun(
  * Completes an agent run by updating its status and metrics
  */
 export async function finishAgentRun(
-  params: Parameters<FinishAgentRunFn>[0],
+  params: ParamsOf<FinishAgentRunFn>,
 ): ReturnType<FinishAgentRunFn> {
   const {
     userId,

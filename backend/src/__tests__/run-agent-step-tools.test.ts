@@ -2,6 +2,7 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -25,17 +26,10 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 describe('runAgentStep - set_output tool', () => {
   let testAgent: AgentTemplate
-  const logger: Logger = {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  }
 
   beforeEach(async () => {
     // Create a test agent that supports set_output
@@ -69,7 +63,7 @@ describe('runAgentStep - set_output tool', () => {
 
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics({ logger })
+    analytics.initAnalytics(testAgentRuntimeImpl)
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
@@ -113,7 +107,7 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response'),
     )
-    clearAgentGeneratorCache({ logger })
+    clearAgentGeneratorCache(testAgentRuntimeImpl)
   })
 
   afterEach(() => {
@@ -121,7 +115,7 @@ describe('runAgentStep - set_output tool', () => {
   })
 
   afterAll(() => {
-    clearAgentGeneratorCache({ logger })
+    clearAgentGeneratorCache(testAgentRuntimeImpl)
   })
 
   class MockWebSocket {
@@ -188,9 +182,9 @@ describe('runAgentStep - set_output tool', () => {
       localAgentTemplates,
       agentState,
       prompt: 'Analyze the codebase',
-      params: undefined,
+      spawnParams: undefined,
       system: 'Test system prompt',
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     expect(result.agentState.output).toEqual({
@@ -230,9 +224,9 @@ describe('runAgentStep - set_output tool', () => {
       localAgentTemplates,
       agentState,
       prompt: 'Analyze the codebase',
-      params: undefined,
+      spawnParams: undefined,
       system: 'Test system prompt',
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     expect(result.agentState.output).toEqual({
@@ -278,9 +272,9 @@ describe('runAgentStep - set_output tool', () => {
       localAgentTemplates,
       agentState,
       prompt: 'Update the output',
-      params: undefined,
+      spawnParams: undefined,
       system: 'Test system prompt',
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     expect(result.agentState.output).toEqual({
@@ -317,9 +311,9 @@ describe('runAgentStep - set_output tool', () => {
       localAgentTemplates,
       agentState,
       prompt: 'Update with empty object',
-      params: undefined,
+      spawnParams: undefined,
       system: 'Test system prompt',
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // Should replace with empty object
@@ -413,9 +407,9 @@ describe('runAgentStep - set_output tool', () => {
       localAgentTemplates: mockAgentRegistry,
       agentState,
       prompt: 'Test the handleSteps functionality',
-      params: undefined,
+      spawnParams: undefined,
       system: 'Test system prompt',
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // Should end turn because toolCalls.length === 0 && toolResults.length === 0 from LLM processing
@@ -562,6 +556,7 @@ describe('runAgentStep - set_output tool', () => {
     ]
 
     const result = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -573,9 +568,8 @@ describe('runAgentStep - set_output tool', () => {
       localAgentTemplates: mockAgentRegistry,
       agentState,
       prompt: 'Spawn an inline agent to clean up messages',
-      params: undefined,
+      spawnParams: undefined,
       system: 'Parent system prompt',
-      logger,
     })
 
     const finalMessages = result.agentState.messageHistory

@@ -1,3 +1,4 @@
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   getInitialAgentState,
   getInitialSessionState,
@@ -18,15 +19,7 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
-
-const logger: Logger = {
-  debug: () => {},
-  error: () => {},
-  info: () => {},
-  warn: () => {},
-}
 
 const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
@@ -187,6 +180,7 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,
@@ -195,7 +189,6 @@ describe('Cost Aggregation System', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: mockValidatedState,
-        logger,
       })
 
       await result.result
@@ -267,6 +260,7 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,
@@ -275,7 +269,6 @@ describe('Cost Aggregation System', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: mockValidatedState,
-        logger,
       })
 
       await result.result
@@ -424,6 +417,7 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,
@@ -432,7 +426,6 @@ describe('Cost Aggregation System', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: mockValidatedState,
-        logger,
       })
 
       await result.result

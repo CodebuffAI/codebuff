@@ -20,8 +20,7 @@ import type {
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { ParamsOf } from '@codebuff/types/common'
+import type { ParamsExcluding, ParamsOf } from '@codebuff/types/common'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
@@ -45,24 +44,38 @@ export function clearAgentGeneratorCache(
 }
 
 // Function to handle programmatic agents
-export async function runProgrammaticStep(params: {
-  agentState: AgentState
-  template: AgentTemplate
-  prompt: string | undefined
-  toolCallParams: Record<string, any> | undefined
-  system: string | undefined
-  userId: string | undefined
-  userInputId: string
-  clientSessionId: string
-  fingerprintId: string
-  onResponseChunk: (chunk: string | PrintModeEvent) => void
-  fileContext: ProjectFileContext
-  ws: WebSocket
-  localAgentTemplates: Record<string, AgentTemplate>
-  stepsComplete: boolean
-  stepNumber: number
-  logger: Logger
-}): Promise<{ agentState: AgentState; endTurn: boolean; stepNumber: number }> {
+export async function runProgrammaticStep(
+  params: {
+    agentState: AgentState
+    template: AgentTemplate
+    prompt: string | undefined
+    toolCallParams: Record<string, any> | undefined
+    system: string | undefined
+    userId: string | undefined
+    userInputId: string
+    fingerprintId: string
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    ws: WebSocket
+    localAgentTemplates: Record<string, AgentTemplate>
+    stepsComplete: boolean
+    stepNumber: number
+    logger: Logger
+  } & ParamsExcluding<
+    typeof executeToolCall,
+    | 'toolName'
+    | 'input'
+    | 'toolCalls'
+    | 'toolResults'
+    | 'toolResultsToAddAfterStream'
+    | 'previousToolCallFinished'
+    | 'agentStepId'
+    | 'agentTemplate'
+    | 'fullResponse'
+    | 'autoInsertEndStepParam'
+    | 'state'
+    | 'excludeToolFromMessageHistory'
+  >,
+): Promise<{ agentState: AgentState; endTurn: boolean; stepNumber: number }> {
   const {
     agentState,
     template,
@@ -71,10 +84,8 @@ export async function runProgrammaticStep(params: {
     system,
     userId,
     userInputId,
-    clientSessionId,
     fingerprintId,
     onResponseChunk,
-    fileContext,
     ws,
     localAgentTemplates,
     stepsComplete,
@@ -267,25 +278,19 @@ export async function runProgrammaticStep(params: {
 
       // Execute the tool synchronously and get the result immediately
       await executeToolCall({
+        ...params,
         toolName: toolCall.toolName,
         input: toolCall.input,
         toolCalls,
         toolResults,
         toolResultsToAddAfterStream: [],
         previousToolCallFinished: Promise.resolve(),
-        ws,
         agentTemplate: template,
-        fileContext,
         agentStepId,
-        clientSessionId,
-        userInputId,
         fullResponse: '',
-        onResponseChunk,
         state,
-        userId,
         autoInsertEndStepParam: true,
         excludeToolFromMessageHistory,
-        logger,
       })
 
       // TODO: Remove messages from state and always use agentState.messageHistory.

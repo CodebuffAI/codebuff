@@ -14,6 +14,7 @@ import { getSystemInfo } from '@codebuff/npm-app/utils/system-info'
 import { mock } from 'bun:test'
 import { blue } from 'picocolors'
 
+import { evalAgentRuntimeImpl } from './impl/agent-runtime'
 import {
   getAllFilePaths,
   getProjectFileTree,
@@ -181,6 +182,7 @@ export async function runAgentStepScaffolding(
   })
 
   const result = await runAgentStep({
+    ...evalAgentRuntimeImpl,
     ws: mockWs,
     userId: TEST_USER_ID,
     userInputId: generateCompactId(),
@@ -200,9 +202,8 @@ export async function runAgentStepScaffolding(
     localAgentTemplates,
     agentState,
     prompt,
-    params: undefined,
+    spawnParams: undefined,
     system: 'Test system prompt',
-    logger: console,
   })
 
   return {

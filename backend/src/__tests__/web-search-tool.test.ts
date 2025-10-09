@@ -4,6 +4,7 @@ process.env.LINKUP_API_KEY = 'test-api-key'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -27,7 +28,6 @@ import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
-import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 function mockAgentStream(content: string | string[]) {
@@ -43,17 +43,10 @@ function mockAgentStream(content: string | string[]) {
 }
 
 describe('web_search tool with researcher agent', () => {
-  const logger: Logger = {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  }
-
   beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics({ logger })
+    analytics.initAnalytics(testAgentRuntimeImpl)
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
@@ -121,11 +114,12 @@ describe('web_search tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -138,8 +132,7 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for test',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Just verify that searchWeb was called
@@ -171,11 +164,12 @@ describe('web_search tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -188,8 +182,7 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for Next.js 15 new features',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     expect(linkupApi.searchWeb).toHaveBeenCalledWith({
@@ -230,11 +223,12 @@ describe('web_search tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -247,8 +241,7 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for React Server Components tutorial with deep search',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     expect(linkupApi.searchWeb).toHaveBeenCalledWith({
@@ -274,11 +267,12 @@ describe('web_search tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -291,8 +285,7 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: "Search for something that doesn't exist",
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Verify that searchWeb was called
@@ -332,11 +325,12 @@ describe('web_search tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -349,8 +343,7 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for something',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Verify that searchWeb was called
@@ -389,11 +382,12 @@ describe('web_search tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -406,8 +400,7 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for something',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Verify that searchWeb was called
@@ -436,11 +429,12 @@ describe('web_search tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -453,8 +447,7 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for something',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Verify that searchWeb was called
@@ -495,11 +488,12 @@ describe('web_search tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -512,8 +506,7 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Test search result formatting',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Verify that searchWeb was called

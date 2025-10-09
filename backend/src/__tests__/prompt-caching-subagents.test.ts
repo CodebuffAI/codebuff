@@ -1,4 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
@@ -17,15 +18,7 @@ import * as websocketAction from '../websockets/websocket-action'
 import type { AgentTemplate } from '../templates/types'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
-
-const logger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-}
 
 const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
@@ -165,7 +158,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'parent',
       agentState: sessionState.mainAgentState,
       fingerprintId: 'test-fingerprint',
@@ -174,7 +167,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // Capture parent's messages which include the system prompt
@@ -199,7 +192,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'child',
       agentState: childAgentState,
       fingerprintId: 'test-fingerprint',
@@ -209,7 +202,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     // Verify child uses parent's system prompt
@@ -248,7 +241,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'parent',
       agentState: sessionState.mainAgentState,
       fingerprintId: 'test-fingerprint',
@@ -257,7 +250,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     const parentMessages = capturedMessages
@@ -276,7 +269,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'standalone-child',
       agentState: childAgentState,
       fingerprintId: 'test-fingerprint',
@@ -286,7 +279,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     const childMessages = capturedMessages
@@ -326,7 +319,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'parent',
       agentState: sessionState.mainAgentState,
       fingerprintId: 'test-fingerprint',
@@ -335,7 +328,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     const parentMessages = capturedMessages
@@ -357,7 +350,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'message-history-child',
       agentState: childAgentState,
       fingerprintId: 'test-fingerprint',
@@ -367,7 +360,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     const childMessages = capturedMessages
@@ -433,7 +426,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'parent',
       agentState: sessionState.mainAgentState,
       fingerprintId: 'test-fingerprint',
@@ -442,7 +435,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     const parentMessages = capturedMessages
@@ -461,7 +454,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'child',
       agentState: childAgentState,
       fingerprintId: 'test-fingerprint',
@@ -471,7 +464,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     const childMessages = capturedMessages
@@ -515,7 +508,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'parent',
       agentState: {
         ...sessionState.mainAgentState,
@@ -530,7 +523,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     const parentMessages = capturedMessages
@@ -552,7 +545,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
-      params: undefined,
+      spawnParams: undefined,
       agentType: 'full-inherit-child',
       agentState: childAgentState,
       fingerprintId: 'test-fingerprint',
@@ -562,7 +555,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger,
+      ...testAgentRuntimeImpl,
     })
 
     const childMessages = capturedMessages

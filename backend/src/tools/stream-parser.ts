@@ -9,14 +9,13 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { executeBatchStrReplaces } from './batch-str-replace'
-import type { Logger } from '@codebuff/types/logger'
 import { expireMessages } from '../util/messages'
 import { sendAction } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 
 import type { BatchStrReplaceState } from './batch-str-replace'
-import type { CustomToolCall } from './tool-executor'
+import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { StreamChunk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
@@ -29,6 +28,8 @@ import type { ToolResultPart } from '@codebuff/common/types/messages/content-par
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ParamsExcluding } from '@codebuff/types/common'
+import type { Logger } from '@codebuff/types/logger'
 import type { ToolCallPart } from 'ai'
 import type { WebSocket } from 'ws'
 
@@ -38,31 +39,46 @@ export type ToolCallError = {
   error: string
 } & Omit<ToolCallPart, 'type'>
 
-export async function processStreamWithTools(options: {
-  stream: AsyncGenerator<StreamChunk>
-  ws: WebSocket
-  agentStepId: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  repoId: string | undefined
-  agentTemplate: AgentTemplate
-  localAgentTemplates: Record<string, AgentTemplate>
-  fileContext: ProjectFileContext
-  messages: Message[]
-  system: string
-  agentState: AgentState
-  agentContext: Record<string, Subgoal>
-  onResponseChunk: (chunk: string | PrintModeEvent) => void
-  fullResponse: string
-  logger: Logger
-}) {
+export async function processStreamWithTools(
+  params: {
+    stream: AsyncGenerator<StreamChunk>
+    ws: WebSocket
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    repoId: string | undefined
+    agentTemplate: AgentTemplate
+    localAgentTemplates: Record<string, AgentTemplate>
+    fileContext: ProjectFileContext
+    messages: Message[]
+    system: string
+    agentState: AgentState
+    agentContext: Record<string, Subgoal>
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    fullResponse: string
+    logger: Logger
+  } & Omit<
+    ExecuteToolCallParams<any>,
+    | 'toolName'
+    | 'input'
+    | 'toolCalls'
+    | 'toolResults'
+    | 'toolResultsToAddAfterStream'
+    | 'previousToolCallFinished'
+    | 'fullResponse'
+    | 'state'
+  > &
+    ParamsExcluding<
+      typeof executeBatchStrReplaces,
+      'deferredStrReplaces' | 'toolCalls' | 'toolResults' | 'state'
+    >,
+) {
   const {
     stream,
     ws,
     agentStepId,
-    clientSessionId,
     fingerprintId,
     userInputId,
     userId,
@@ -75,10 +91,10 @@ export async function processStreamWithTools(options: {
     agentState,
     onResponseChunk,
     logger,
-  } = options
-  const fullResponseChunks: string[] = [options.fullResponse]
+  } = params
+  const fullResponseChunks: string[] = [params.fullResponse]
 
-  const messages = [...options.messages]
+  const messages = [...params.messages]
 
   const toolResults: ToolResultPart[] = []
   const toolResultsToAddAfterStream: ToolResultPart[] = []
@@ -167,40 +183,28 @@ export async function processStreamWithTools(options: {
             previousToolCallFinished = previousToolCallFinished.then(
               async () => {
                 await executeBatchStrReplaces({
+                  ...params,
                   deferredStrReplaces: batchState.deferredStrReplaces,
                   toolCalls,
                   toolResults,
-                  ws,
-                  agentStepId,
-                  clientSessionId,
-                  userInputId,
                   onResponseChunk,
                   state,
-                  userId,
-                  logger,
                 })
               },
             )
           }
 
           previousToolCallFinished = executeToolCall({
+            ...params,
             toolName,
             input,
             toolCalls,
             toolResults,
             toolResultsToAddAfterStream,
             previousToolCallFinished,
-            ws,
-            agentTemplate,
-            fileContext,
-            agentStepId,
-            clientSessionId,
-            userInputId,
             fullResponse: fullResponseChunks.join(''),
             onResponseChunk,
             state,
-            userId,
-            logger,
           })
         }
       },
@@ -212,23 +216,15 @@ export async function processStreamWithTools(options: {
       onTagEnd: async (_: string, input: Record<string, string>) => {
         // delegated to reusable helper
         previousToolCallFinished = executeCustomToolCall({
+          ...params,
           toolName,
           input,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
           previousToolCallFinished,
-          ws,
-          agentTemplate,
-          fileContext,
-          agentStepId,
-          clientSessionId,
-          userInputId,
           fullResponse: fullResponseChunks.join(''),
-          onResponseChunk,
           state,
-          userId,
-          logger,
         })
       },
     }
@@ -334,17 +330,11 @@ export async function processStreamWithTools(options: {
         'stream-parser: About to call executeBatchStrReplaces from stream end handler',
       )
       await executeBatchStrReplaces({
+        ...params,
         deferredStrReplaces: batchState.deferredStrReplaces,
         toolCalls,
         toolResults,
-        ws,
-        agentStepId,
-        clientSessionId,
-        userInputId,
-        onResponseChunk,
         state,
-        userId,
-        logger,
       })
       logger.info(
         {

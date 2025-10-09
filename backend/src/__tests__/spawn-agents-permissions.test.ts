@@ -1,4 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   describe,
@@ -18,15 +19,7 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
-
-const logger: Logger = {
-  debug: () => {},
-  error: () => {},
-  info: () => {},
-  warn: () => {},
-}
 
 describe('Spawn Agents Permissions', () => {
   let mockSendSubagentChunk: any
@@ -242,6 +235,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('thinker')
 
       const { result } = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -260,7 +254,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       const output = await result
@@ -276,6 +269,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('reviewer') // Try to spawn reviewer
 
       const { result } = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -294,7 +288,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       const output = await result
@@ -312,6 +305,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('nonexistent')
 
       const { result } = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -330,7 +324,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       const output = await result
@@ -350,6 +343,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('codebuff/thinker@1.0.0')
 
       const { result } = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -368,7 +362,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       const output = await result
@@ -384,6 +377,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('thinker') // Simple name
 
       const { result } = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -405,7 +399,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       const output = await result
@@ -421,6 +414,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('codebuff/thinker@2.0.0')
 
       const { result } = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -439,7 +433,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       const output = await result
@@ -469,6 +462,7 @@ describe('Spawn Agents Permissions', () => {
       }
 
       const { result } = handleSpawnAgents({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -490,7 +484,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       const output = await result
@@ -524,6 +517,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('thinker')
 
       const { result } = handleSpawnAgentInline({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -541,7 +535,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       await result // Should not throw
@@ -556,6 +549,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('reviewer') // Try to spawn reviewer
 
       const { result } = handleSpawnAgentInline({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -573,7 +567,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       await expect(result).rejects.toThrow(
@@ -589,6 +582,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('nonexistent')
 
       const { result } = handleSpawnAgentInline({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -606,7 +600,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       await expect(result).rejects.toThrow('Agent type nonexistent not found')
@@ -621,6 +614,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('codebuff/thinker@1.0.0')
 
       const { result } = handleSpawnAgentInline({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -638,7 +632,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       await result // Should not throw
@@ -653,6 +646,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('thinker') // Simple name
 
       const { result } = handleSpawnAgentInline({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -673,7 +667,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       await result // Should not throw
@@ -688,6 +681,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('codebuff/thinker@2.0.0')
 
       const { result } = handleSpawnAgentInline({
+        ...testAgentRuntimeImpl,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -705,7 +699,6 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
-        logger,
       })
 
       await expect(result).rejects.toThrow(
@@ -720,6 +713,7 @@ describe('Spawn Agents Permissions', () => {
 
       expect(() => {
         handleSpawnAgentInline({
+          ...testAgentRuntimeImpl,
           previousToolCallFinished: Promise.resolve(),
           toolCall,
           fileContext: mockFileContext,
@@ -732,7 +726,6 @@ describe('Spawn Agents Permissions', () => {
             agentTemplate: parentAgent,
             localAgentTemplates: {},
           },
-          logger,
         })
       }).toThrow('Missing WebSocket in state')
       expect(mockLoopAgentSteps).not.toHaveBeenCalled()

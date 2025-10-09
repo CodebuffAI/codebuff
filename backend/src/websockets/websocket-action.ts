@@ -18,7 +18,7 @@ import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendMessage } from './server'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
-import { logger, withLoggerContext } from '../util/logger'
+import { withLoggerContext } from '../util/logger'
 
 import type {
   ClientAction,
@@ -28,6 +28,7 @@ import type {
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
+import type { ParamsExcluding } from '@codebuff/types/common'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
@@ -136,12 +137,14 @@ export async function genUsageResponse(params: {
  * @param clientSessionId - The client's session ID
  * @param ws - The WebSocket connection
  */
-const onPrompt = async (params: {
-  action: ClientAction<'prompt'>
-  clientSessionId: string
-  ws: WebSocket
-  logger: Logger
-}) => {
+const onPrompt = async (
+  params: {
+    action: ClientAction<'prompt'>
+    clientSessionId: string
+    ws: WebSocket
+    logger: Logger
+  } & ParamsExcluding<typeof callMainPrompt, 'userId' | 'promptId'>,
+) => {
   const { action, clientSessionId, ws, logger } = params
   const { fingerprintId, authToken, promptId, prompt, costMode } = action
 
@@ -170,12 +173,9 @@ const onPrompt = async (params: {
 
       try {
         const result = await callMainPrompt({
-          ws,
-          action,
+          ...params,
           userId,
           promptId,
-          clientSessionId,
-          logger,
         })
         if (result.output.type === 'error') {
           throw new Error(result.output.message)
@@ -203,14 +203,19 @@ const onPrompt = async (params: {
   )
 }
 
-export const callMainPrompt = async (params: {
-  ws: WebSocket
-  action: ClientAction<'prompt'>
-  userId: string
-  promptId: string
-  clientSessionId: string
-  logger: Logger
-}) => {
+export const callMainPrompt = async (
+  params: {
+    ws: WebSocket
+    action: ClientAction<'prompt'>
+    userId: string
+    promptId: string
+    clientSessionId: string
+    logger: Logger
+  } & ParamsExcluding<
+    typeof mainPrompt,
+    'localAgentTemplates' | 'onResponseChunk'
+  >,
+) => {
   const { ws, action, userId, promptId, clientSessionId, logger } = params
   const { fileContext } = action.sessionState
 
@@ -411,14 +416,11 @@ export const onWebsocketAction = async (params: {
 }
 
 // Register action handlers
-subscribeToAction('prompt', protec.run({ baseAction: onPrompt, logger }))
-subscribeToAction(
-  'init',
-  protec.run({ baseAction: onInit, silent: true, logger }),
-)
+subscribeToAction('prompt', protec.run({ baseAction: onPrompt }))
+subscribeToAction('init', protec.run({ baseAction: onInit, silent: true }))
 subscribeToAction(
   'cancel-user-input',
-  protec.run({ baseAction: onCancelUserInput, logger }),
+  protec.run({ baseAction: onCancelUserInput }),
 )
 
 /**

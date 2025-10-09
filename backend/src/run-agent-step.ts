@@ -7,7 +7,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import { addAgentStep, finishAgentRun, startAgentRun } from './agent-run'
+import { addAgentStep, finishAgentRun } from './agent-run'
 import { checkLiveUserInput } from './live-user-inputs'
 import { getMCPToolData } from './mcp/util'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -44,6 +44,8 @@ import type {
   AgentOutput,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ParamsExcluding } from '@codebuff/types/common'
+import type { StartAgentRunFn } from '@codebuff/types/database'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
@@ -71,27 +73,34 @@ function buildUserMessageContent(
   return asUserMessage(textParts.join('\n\n'))
 }
 
-export interface AgentOptions {
-  ws: WebSocket
-  userId: string | undefined
-  userInputId: string
-  clientSessionId: string
-  fingerprintId: string
-  onResponseChunk: (chunk: string | PrintModeEvent) => void
-
-  agentType: AgentTemplateType
-  fileContext: ProjectFileContext
-  agentState: AgentState
-  localAgentTemplates: Record<string, AgentTemplate>
-
-  prompt: string | undefined
-  params: Record<string, any> | undefined
-  system: string
-  logger: Logger
-}
-
 export const runAgentStep = async (
-  options: AgentOptions,
+  params: {
+    ws: WebSocket
+    userId: string | undefined
+    userInputId: string
+    clientSessionId: string
+    fingerprintId: string
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+
+    agentType: AgentTemplateType
+    fileContext: ProjectFileContext
+    agentState: AgentState
+    localAgentTemplates: Record<string, AgentTemplate>
+
+    prompt: string | undefined
+    spawnParams: Record<string, any> | undefined
+    system: string
+  } & ParamsExcluding<
+    typeof processStreamWithTools,
+    | 'stream'
+    | 'agentStepId'
+    | 'agentState'
+    | 'repoId'
+    | 'messages'
+    | 'agentTemplate'
+    | 'agentContext'
+    | 'fullResponse'
+  >,
 ): Promise<{
   agentState: AgentState
   fullResponse: string
@@ -109,11 +118,11 @@ export const runAgentStep = async (
     agentType,
     localAgentTemplates,
     prompt,
-    params,
+    spawnParams,
     system,
     logger,
-  } = options
-  let agentState = options.agentState
+  } = params
+  let agentState = params.agentState
 
   const { agentContext } = agentState
 
@@ -275,7 +284,7 @@ export const runAgentStep = async (
       agentMessages: agentState.messageHistory,
       system,
       prompt,
-      params,
+      params: spawnParams,
       agentContext,
       systemTokens,
       agentTemplate,
@@ -297,24 +306,15 @@ export const runAgentStep = async (
     fullResponse: fullResponseAfterStream,
     fullResponseChunks,
   } = await processStreamWithTools({
+    ...params,
     stream,
-    ws,
     agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
     agentState,
     repoId,
     messages: agentMessages,
-    system,
     agentTemplate,
-    localAgentTemplates,
-    fileContext,
     agentContext,
-    onResponseChunk,
     fullResponse,
-    logger,
   })
   toolResults.push(...newToolResults)
 
@@ -404,45 +404,61 @@ export const runAgentStep = async (
   }
 }
 
-export const loopAgentSteps = async ({
-  ws,
-  userInputId,
-  agentType,
-  agentState,
-  prompt,
-  content,
-  params,
-  fingerprintId,
-  fileContext,
-  localAgentTemplates,
-  userId,
-  clientSessionId,
-  onResponseChunk,
-  clearUserPromptMessagesAfterResponse = true,
-  parentSystemPrompt,
-  logger,
-}: {
-  ws: WebSocket
-  userInputId: string
-  agentType: AgentTemplateType
-  agentState: AgentState
-  prompt: string | undefined
-  content?: Array<TextPart | ImagePart>
-  params: Record<string, any> | undefined
-  fingerprintId: string
-  fileContext: ProjectFileContext
-  localAgentTemplates: Record<string, AgentTemplate>
-  clearUserPromptMessagesAfterResponse?: boolean
-  parentSystemPrompt?: string
+export const loopAgentSteps = async (
+  params: {
+    ws: WebSocket
+    userInputId: string
+    agentType: AgentTemplateType
+    agentState: AgentState
+    prompt: string | undefined
+    content?: Array<TextPart | ImagePart>
+    spawnParams: Record<string, any> | undefined
+    fingerprintId: string
+    fileContext: ProjectFileContext
+    localAgentTemplates: Record<string, AgentTemplate>
+    clearUserPromptMessagesAfterResponse?: boolean
+    parentSystemPrompt?: string
 
-  userId: string | undefined
-  clientSessionId: string
-  onResponseChunk: (chunk: string | PrintModeEvent) => void
-  logger: Logger
-}): Promise<{
+    userId: string | undefined
+    clientSessionId: string
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+
+    startAgentRun: StartAgentRunFn
+    logger: Logger
+  } & ParamsExcluding<
+    typeof runProgrammaticStep,
+    | 'agentState'
+    | 'template'
+    | 'prompt'
+    | 'toolCallParams'
+    | 'stepsComplete'
+    | 'stepNumber'
+    | 'system'
+  >,
+): Promise<{
   agentState: AgentState
   output: AgentOutput
 }> => {
+  const {
+    ws,
+    userInputId,
+    agentType,
+    agentState,
+    prompt,
+    content,
+    spawnParams,
+    fingerprintId,
+    fileContext,
+    localAgentTemplates,
+    userId,
+    clientSessionId,
+    onResponseChunk,
+    clearUserPromptMessagesAfterResponse = true,
+    parentSystemPrompt,
+    startAgentRun,
+    logger,
+  } = params
+
   const agentTemplate = await getAgentTemplate({
     agentId: agentType,
     localAgentTemplates,
@@ -464,7 +480,7 @@ export const loopAgentSteps = async ({
 
   // Initialize message history with user prompt and instructions on first iteration
   const hasPrompt = Boolean(
-    prompt || (params && Object.keys(params).length > 0),
+    prompt || (spawnParams && Object.keys(spawnParams).length > 0),
   )
 
   // Get the instructions prompt if we have a prompt/params
@@ -530,7 +546,7 @@ export const loopAgentSteps = async ({
       {
         // Actual user prompt!
         role: 'user' as const,
-        content: buildUserMessageContent(prompt, params, content),
+        content: buildUserMessageContent(prompt, spawnParams, content),
         keepDuringTruncation: true,
       },
       prompt &&
@@ -558,7 +574,7 @@ export const loopAgentSteps = async ({
   let shouldEndTurn = false
   let hasRetriedOutputSchema = false
   let currentPrompt = prompt
-  let currentParams = params
+  let currentParams = spawnParams
   let totalSteps = 0
 
   try {
@@ -588,13 +604,8 @@ export const loopAgentSteps = async ({
           endTurn,
           stepNumber,
         } = await runProgrammaticStep({
+          ...params,
           agentState: currentAgentState,
-          userId,
-          userInputId,
-          clientSessionId,
-          fingerprintId,
-          onResponseChunk,
-          fileContext,
           ws,
           template: agentTemplate,
           localAgentTemplates,
@@ -603,7 +614,6 @@ export const loopAgentSteps = async ({
           system,
           stepsComplete: shouldEndTurn,
           stepNumber: totalSteps,
-          logger,
         })
         currentAgentState = programmaticAgentState
         totalSteps = stepNumber
@@ -660,6 +670,7 @@ export const loopAgentSteps = async ({
         shouldEndTurn: llmShouldEndTurn,
         messageId,
       } = await runAgentStep({
+        ...params,
         ws,
         userId,
         userInputId,
@@ -671,9 +682,8 @@ export const loopAgentSteps = async ({
         fileContext,
         agentState: currentAgentState,
         prompt: currentPrompt,
-        params: currentParams,
+        spawnParams: currentParams,
         system,
-        logger,
       })
 
       if (newAgentState.runId) {

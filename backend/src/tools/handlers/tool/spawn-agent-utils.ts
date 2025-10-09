@@ -3,8 +3,8 @@ import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { getAgentTemplate } from '../../../templates/agent-registry'
-import type { Logger } from '@codebuff/types/logger'
 
+import type { loopAgentSteps } from '../../../run-agent-step'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -14,7 +14,10 @@ import type {
   Subgoal,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ParamsExcluding, WithDefaults } from '@codebuff/types/common'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
+
 export interface SpawnAgentParams {
   agent_type: string
   prompt?: string
@@ -277,7 +280,7 @@ export function logAgentSpawn(params: {
   agentId: string
   parentId: string | undefined
   prompt?: string
-  params?: any
+  spawnParams?: any
   inline?: boolean
   logger: Logger
 }): void {
@@ -287,7 +290,7 @@ export function logAgentSpawn(params: {
     agentId,
     parentId,
     prompt,
-    params: spawnParams,
+    spawnParams,
     inline = false,
     logger,
   } = params
@@ -306,43 +309,25 @@ export function logAgentSpawn(params: {
 /**
  * Executes a subagent using loopAgentSteps
  */
-export async function executeSubagent({
-  ws,
-  userInputId,
-  prompt,
-  params,
-  agentTemplate,
-  parentAgentState,
-  agentState,
-  fingerprintId,
-  fileContext,
-  localAgentTemplates,
-  userId,
-  clientSessionId,
-  onResponseChunk,
-  isOnlyChild = false,
-  clearUserPromptMessagesAfterResponse = true,
-  parentSystemPrompt,
-  logger,
-}: {
-  ws: WebSocket
-  userInputId: string
-  prompt: string
-  params: any
-  agentTemplate: AgentTemplate
-  parentAgentState: AgentState
-  agentState: AgentState
-  fingerprintId: string
-  fileContext: ProjectFileContext
-  localAgentTemplates: Record<string, AgentTemplate>
-  userId?: string
-  clientSessionId: string
-  onResponseChunk: (chunk: string | PrintModeEvent) => void
-  isOnlyChild?: boolean
-  clearUserPromptMessagesAfterResponse?: boolean
-  parentSystemPrompt?: string
-  logger: Logger
-}) {
+export async function executeSubagent(
+  options: WithDefaults<
+    {
+      agentTemplate: AgentTemplate
+      parentAgentState: AgentState
+      onResponseChunk: (chunk: string | PrintModeEvent) => void
+      isOnlyChild?: boolean
+    } & ParamsExcluding<typeof loopAgentSteps, 'agentType'>,
+    'isOnlyChild' | 'clearUserPromptMessagesAfterResponse'
+  >,
+) {
+  const withDefaults = {
+    isOnlyChild: false,
+    clearUserPromptMessagesAfterResponse: true,
+    ...options,
+  }
+  const { onResponseChunk, agentTemplate, parentAgentState, isOnlyChild } =
+    withDefaults
+
   onResponseChunk({
     type: 'subagent_start',
     agentId: agentTemplate.id,
@@ -354,21 +339,8 @@ export async function executeSubagent({
   const { loopAgentSteps } = await import('../../../run-agent-step')
 
   const result = await loopAgentSteps({
-    ws,
-    userInputId,
-    prompt,
-    params,
+    ...withDefaults,
     agentType: agentTemplate.id,
-    agentState,
-    fingerprintId,
-    fileContext,
-    localAgentTemplates,
-    userId,
-    clientSessionId,
-    onResponseChunk,
-    clearUserPromptMessagesAfterResponse,
-    parentSystemPrompt,
-    logger,
   })
 
   onResponseChunk({

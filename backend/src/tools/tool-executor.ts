@@ -30,7 +30,7 @@ import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
-import type { Logger } from '@codebuff/types/logger'
+import type { AgentRuntimeDeps } from '@codebuff/types/deps/agent-runtime'
 import type { WebSocket } from 'ws'
 
 export type CustomToolCall = {
@@ -112,7 +112,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   } as CodebuffToolCall<T>
 }
 
-export interface ExecuteToolCallParams<T extends string = ToolName> {
+export type ExecuteToolCallParams<T extends string = ToolName> = {
   toolName: T
   input: Record<string, unknown>
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
@@ -131,8 +131,7 @@ export interface ExecuteToolCallParams<T extends string = ToolName> {
   userId: string | undefined
   autoInsertEndStepParam?: boolean
   excludeToolFromMessageHistory?: boolean
-  logger: Logger
-}
+} & AgentRuntimeDeps
 
 export function executeToolCall<T extends ToolName>(
   params: ExecuteToolCallParams<T>,
@@ -221,6 +220,7 @@ export function executeToolCall<T extends ToolName>(
   // Cast to any to avoid type errors
   const handler = codebuffToolHandlers[toolName] as any
   const { result: toolResultPromise, state: stateUpdate } = handler({
+    ...params,
     previousToolCallFinished,
     fileContext,
     agentStepId,
@@ -246,7 +246,6 @@ export function executeToolCall<T extends ToolName>(
     toolCall,
     getLatestState: () => state,
     state,
-    logger,
   }) as ReturnType<CodebuffToolHandlerFunction<T>>
 
   for (const [key, value] of Object.entries(stateUpdate ?? {})) {

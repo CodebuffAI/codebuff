@@ -1,6 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -24,15 +25,7 @@ import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
-import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
-
-const logger: Logger = {
-  debug: () => {},
-  error: () => {},
-  info: () => {},
-  warn: () => {},
-}
 
 function mockAgentStream(content: string | string[]) {
   spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
@@ -63,7 +56,7 @@ describe('read_docs tool with researcher agent', () => {
       name: 'analytics.initAnalytics',
       spy: analyticsInitSpy,
     })
-    analytics.initAnalytics({ logger })
+    analytics.initAnalytics(testAgentRuntimeImpl)
 
     const trackEventSpy = spyOn(analytics, 'trackEvent').mockImplementation(
       () => {},
@@ -293,11 +286,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -310,8 +304,7 @@ describe('read_docs tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React documentation',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith({
@@ -366,11 +359,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -383,8 +377,7 @@ describe('read_docs tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React hooks documentation',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith({
@@ -416,11 +409,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -433,8 +427,7 @@ describe('read_docs tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get documentation for NonExistentLibrary',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Check that the "no documentation found" message was added
@@ -483,11 +476,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -500,8 +494,7 @@ describe('read_docs tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React documentation',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Check that the error message was added
@@ -549,11 +542,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -566,8 +560,7 @@ describe('read_docs tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React server components documentation',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Check that the topic is included in the error message
@@ -616,11 +609,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
+      ...testAgentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
-      logger,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -633,8 +627,7 @@ describe('read_docs tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React documentation',
-      params: undefined,
-      logger,
+      spawnParams: undefined,
     })
 
     // Check that the generic error message was added
