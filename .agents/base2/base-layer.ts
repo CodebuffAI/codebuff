@@ -36,8 +36,10 @@ const definition: SecretAgentDefinition = {
     'researcher-docs',
     'read-only-commander',
     'decomposing-thinker',
+    'code-sketcher',
     'editor',
     'decomposing-reviewer',
+    'reviewer',
     'context-pruner',
   ],
 
@@ -79,9 +81,9 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 1. Spawn a file explorer with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs;
 1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn a decomposing thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part.
+2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn a decomposing thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part. Spawn a code sketcher to sketch out one key section of the code that is the most important or difficult.
 2a. Read all the relevant files using the read_files tool.
-3. Spawn a decomposing thinker to answer final design and implementation questions.
+3. Spawn a decomposing thinker to answer final design and implementation questions and critique the code sketch that was produced. Spawn one more code sketcher to sketch another key section.
 4. Spawn two editors to implement all the changes.
 5. Spawn a reviewer to review the changes made by the editors.
 
@@ -99,7 +101,7 @@ The user asks you to implement a new feature. You respond in multiple steps:
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, running scripts that could alter production environments, installing packages globally, etc). Don't do any of these unless the user explicitly asks you to.
 `,
 
-  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the decomposing thinker to think about key decisions, and the reviewer to review code changes made by the editor.`,
+  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, and the reviewer/decomposing-reviewer to review code changes made by the editor(s).`,
 
   handleSteps: function* ({ prompt, params }) {
     let steps = 0
