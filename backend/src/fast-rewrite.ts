@@ -40,19 +40,18 @@ export async function fastRewrite(params: {
   } = params
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
-  let response = await promptRelaceAI(
-    initialContent,
+  let response = await promptRelaceAI({
+    initialCode: initialContent,
     editSnippet,
     instructions,
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      userMessage,
-      messageId,
-    },
-  )
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    userMessage,
+    messageId,
+    logger,
+  })
   const relaceDuration = Date.now() - relaceStartTime
 
   // Check if response still contains lazy edits

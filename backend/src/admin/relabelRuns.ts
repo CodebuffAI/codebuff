@@ -16,8 +16,6 @@ import { rerank } from '../llm-apis/relace-api'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { messagesWithSystem } from '../util/messages'
 
-import type { Logger } from '@codebuff/types/logger'
-
 import type { System } from '../llm-apis/claude'
 import type {
   GetExpandedFileContextForTrainingBlobTrace,
@@ -27,6 +25,7 @@ import type {
   Relabel,
 } from '@codebuff/bigquery'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 import type { Request, Response } from 'express'
 
 // --- GET Handler Logic ---
@@ -151,7 +150,11 @@ export async function relabelForUserHandler(params: {
 
     const allResults = []
 
-    const relaceResults = relabelUsingFullFilesForUser({ userId, limit, logger })
+    const relaceResults = relabelUsingFullFilesForUser({
+      userId,
+      limit,
+      logger,
+    })
 
     // Process each model
     for (const model of modelsToRelabel) {
@@ -303,7 +306,12 @@ async function relabelUsingFullFilesForUser(params: {
         )
       ) {
         relabelPromises.push(
-          relabelWithClaudeWithFullFileContext({ trace, fileBlobs, model, logger }),
+          relabelWithClaudeWithFullFileContext({
+            trace,
+            fileBlobs,
+            model,
+            logger,
+          }),
         )
         didRelabel = true
       }
@@ -348,12 +356,15 @@ async function relabelWithRelace(params: {
     }),
   )
 
-  const relaced = await rerank(filesWithPath, query, {
+  const relaced = await rerank({
+    files: filesWithPath,
+    prompt: query,
     clientSessionId: trace.payload.client_session_id,
     fingerprintId: trace.payload.fingerprint_id,
     userInputId: trace.payload.user_input_id,
     userId: 'test-user-id', // Make sure we don't bill em for it!!
     messageId: trace.id,
+    logger,
   })
 
   const relabel = {
@@ -415,7 +426,10 @@ export async function relabelWithClaudeWithFullFileContext(params: {
   }
 
   const output = await promptAiSdk({
-    messages: messagesWithSystem({ messages: trace.payload.messages as Message[], system }),
+    messages: messagesWithSystem({
+      messages: trace.payload.messages as Message[],
+      system,
+    }),
     model: model as any, // Model type is string here for flexibility
     clientSessionId: 'relabel-trace-api',
     fingerprintId: 'relabel-trace-api',
