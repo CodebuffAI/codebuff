@@ -8,7 +8,7 @@ import { parsePublishedAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
 import { and, desc, eq } from 'drizzle-orm'
 
-import { logger } from '../util/logger'
+import type { Logger } from '@codebuff/types/logger'
 
 import type { DynamicAgentValidationError } from '@codebuff/common/templates/agent-validation'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
@@ -23,11 +23,15 @@ const databaseAgentCache = new Map<string, AgentTemplate | null>()
 /**
  * Fetch an agent from the database by publisher/agent-id[@version] format
  */
-async function fetchAgentFromDatabase(parsedAgentId: {
-  publisherId: string
-  agentId: string
-  version?: string
+async function fetchAgentFromDatabase(params: {
+  parsedAgentId: {
+    publisherId: string
+    agentId: string
+    version?: string
+  }
+  logger: Logger
 }): Promise<AgentTemplate | null> {
+  const { parsedAgentId, logger } = params
   const { publisherId, agentId, version } = parsedAgentId
 
   try {
@@ -128,10 +132,12 @@ async function fetchAgentFromDatabase(parsedAgentId: {
  * 2. Database cache
  * 3. Database query
  */
-export async function getAgentTemplate(
-  agentId: string,
-  localAgentTemplates: Record<string, AgentTemplate>,
-): Promise<AgentTemplate | null> {
+export async function getAgentTemplate(params: {
+  agentId: string
+  localAgentTemplates: Record<string, AgentTemplate>
+  logger: Logger
+}): Promise<AgentTemplate | null> {
+  const { agentId, localAgentTemplates, logger } = params
   // 1. Check localAgentTemplates first (dynamic agents + static templates)
   if (localAgentTemplates[agentId]) {
     return localAgentTemplates[agentId]
@@ -148,7 +154,7 @@ export async function getAgentTemplate(
       `${DEFAULT_ORG_PREFIX}${agentId}`,
     )
     if (codebuffParsed) {
-      const dbAgent = await fetchAgentFromDatabase(codebuffParsed)
+      const dbAgent = await fetchAgentFromDatabase({ parsedAgentId: codebuffParsed, logger })
       if (dbAgent) {
         databaseAgentCache.set(dbAgent.id, dbAgent)
         return dbAgent
@@ -159,7 +165,7 @@ export async function getAgentTemplate(
   }
 
   // 3. Query database (only for publisher/agent-id format)
-  const dbAgent = await fetchAgentFromDatabase(parsed)
+  const dbAgent = await fetchAgentFromDatabase({ parsedAgentId: parsed, logger })
   if (dbAgent && parsed.version && parsed.version !== 'latest') {
     // Cache only specific versions to avoid stale 'latest' results
     databaseAgentCache.set(dbAgent.id, dbAgent)
@@ -170,10 +176,14 @@ export async function getAgentTemplate(
 /**
  * Assemble local agent templates from fileContext + static templates
  */
-export function assembleLocalAgentTemplates(fileContext: ProjectFileContext): {
+export function assembleLocalAgentTemplates(params: {
+  fileContext: ProjectFileContext
+  logger: Logger
+}): {
   agentTemplates: Record<string, AgentTemplate>
   validationErrors: DynamicAgentValidationError[]
 } {
+  const { fileContext, logger } = params
   // Load dynamic agents using the service
   const { templates: dynamicTemplates, validationErrors } = validateAgents({
     agentTemplates: fileContext.agentTemplates,

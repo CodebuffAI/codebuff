@@ -67,22 +67,22 @@ async function runTraces() {
                   fingerprintId: 'relabel-trace-run',
                   userInputId: 'relabel-trace-run',
                   userId: TEST_USER_ID,
+                  logger: console,
                 })
               } else {
-                output = await promptFlashWithFallbacks(
-                  messagesWithSystem({
+                output = await promptFlashWithFallbacks({
+                  messages: messagesWithSystem({
                     messages: messages as Message[],
                     system: system as System,
                   }),
-                  {
-                    model:
-                      model as typeof models.openrouter_gemini2_5_pro_preview,
-                    clientSessionId: 'relabel-trace-run',
-                    fingerprintId: 'relabel-trace-run',
-                    userInputId: 'relabel-trace-run',
-                    userId: 'relabel-trace-run',
-                  },
-                )
+                  model:
+                    model as typeof models.openrouter_gemini2_5_pro_preview,
+                  clientSessionId: 'relabel-trace-run',
+                  fingerprintId: 'relabel-trace-run',
+                  userInputId: 'relabel-trace-run',
+                  userId: 'relabel-trace-run',
+                  logger: console,
+                })
               }
 
               // Create relabel record

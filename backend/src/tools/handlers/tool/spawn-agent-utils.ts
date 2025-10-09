@@ -3,7 +3,7 @@ import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { getAgentTemplate } from '../../../templates/agent-registry'
-import { logger } from '../../../util/logger'
+import type { Logger } from '@codebuff/types/logger'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -165,15 +165,19 @@ export function getMatchingSpawn(
 /**
  * Validates agent template and permissions
  */
-export async function validateAndGetAgentTemplate(
-  agentTypeStr: string,
-  parentAgentTemplate: AgentTemplate,
-  localAgentTemplates: Record<string, AgentTemplate>,
-): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
-  const agentTemplate = await getAgentTemplate(
-    agentTypeStr,
+export async function validateAndGetAgentTemplate(params: {
+  agentTypeStr: string
+  parentAgentTemplate: AgentTemplate
+  localAgentTemplates: Record<string, AgentTemplate>
+  logger: Logger
+}): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
+  const { agentTypeStr, parentAgentTemplate, localAgentTemplates, logger } =
+    params
+  const agentTemplate = await getAgentTemplate({
+    agentId: agentTypeStr,
     localAgentTemplates,
-  )
+    logger,
+  })
 
   if (!agentTemplate) {
     throw new Error(`Agent type ${agentTypeStr} not found.`)
@@ -267,20 +271,31 @@ export function createAgentState(
 /**
  * Logs agent spawn information
  */
-export function logAgentSpawn(
-  agentTemplate: AgentTemplate,
-  agentType: string,
-  agentId: string,
-  parentId: string | undefined,
-  prompt?: string,
-  params?: any,
-  inline = false,
-): void {
+export function logAgentSpawn(params: {
+  agentTemplate: AgentTemplate
+  agentType: string
+  agentId: string
+  parentId: string | undefined
+  prompt?: string
+  params?: any
+  inline?: boolean
+  logger: Logger
+}): void {
+  const {
+    agentTemplate,
+    agentType,
+    agentId,
+    parentId,
+    prompt,
+    params: spawnParams,
+    inline = false,
+    logger,
+  } = params
   logger.debug(
     {
       agentTemplate,
       prompt,
-      params,
+      params: spawnParams,
       agentId,
       parentId,
     },
@@ -308,6 +323,7 @@ export async function executeSubagent({
   isOnlyChild = false,
   clearUserPromptMessagesAfterResponse = true,
   parentSystemPrompt,
+  logger,
 }: {
   ws: WebSocket
   userInputId: string
@@ -325,6 +341,7 @@ export async function executeSubagent({
   isOnlyChild?: boolean
   clearUserPromptMessagesAfterResponse?: boolean
   parentSystemPrompt?: string
+  logger: Logger
 }) {
   onResponseChunk({
     type: 'subagent_start',
@@ -336,7 +353,8 @@ export async function executeSubagent({
   // Import loopAgentSteps dynamically to avoid circular dependency
   const { loopAgentSteps } = await import('../../../run-agent-step')
 
-  const result = await loopAgentSteps(ws, {
+  const result = await loopAgentSteps({
+    ws,
     userInputId,
     prompt,
     params,
@@ -350,6 +368,7 @@ export async function executeSubagent({
     onResponseChunk,
     clearUserPromptMessagesAfterResponse,
     parentSystemPrompt,
+    logger,
   })
 
   onResponseChunk({
@@ -361,8 +380,6 @@ export async function executeSubagent({
 
   if (result.agentState.runId) {
     parentAgentState.childRunIds.push(result.agentState.runId)
-  } else {
-    logger.error('No runId found for agent state after executing agent')
   }
 
   return result

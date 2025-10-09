@@ -5,9 +5,9 @@ import { WebSocketServer } from 'ws'
 import { setSessionConnected } from '../live-user-inputs'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
-import { logger } from '../util/logger'
 
 import type { ServerMessage } from '@codebuff/common/websockets/websocket-schema'
+import type { Logger } from '@codebuff/types/logger'
 import type { Server as HttpServer } from 'node:http'
 import type { RawData, WebSocket } from 'ws'
 
@@ -29,11 +29,14 @@ function serializeError(err: unknown) {
   return isError(err) ? err.message : 'Unexpected error.'
 }
 
-async function processMessage(
-  ws: WebSocket,
-  clientSessionId: string,
-  data: RawData,
-): Promise<ServerMessage<'ack'>> {
+async function processMessage(params: {
+  ws: WebSocket
+  clientSessionId: string
+  data: RawData
+  logger: Logger
+}): Promise<ServerMessage<'ack'>> {
+  const { ws, clientSessionId, data, logger } = params
+
   let messageObj: any
   try {
     messageObj = JSON.parse(data.toString())
@@ -62,7 +65,7 @@ async function processMessage(
         break
       }
       case 'action': {
-        onWebsocketAction(ws, clientSessionId, msg)
+        onWebsocketAction({ ws, clientSessionId, msg, logger })
         break
       }
       default:
@@ -80,8 +83,12 @@ async function processMessage(
   }
 }
 
-export function listen(params: { server: HttpServer; path: string }) {
-  const { server, path } = params
+export function listen(params: {
+  server: HttpServer
+  path: string
+  logger: Logger
+}) {
+  const { server, path, logger } = params
   const wss = new WebSocketServer({ server, path })
   let deadConnectionCleaner: NodeJS.Timeout | undefined
   wss.on('listening', () => {
@@ -129,7 +136,7 @@ export function listen(params: { server: HttpServer; path: string }) {
     // Mark session as connected
     setSessionConnected(clientSessionId, true)
     ws.on('message', async (data: RawData) => {
-      const result = await processMessage(ws, clientSessionId, data)
+      const result = await processMessage({ ws, clientSessionId, data, logger })
       // mqp: check ws.readyState before sending?
       ws.send(JSON.stringify(result))
     })

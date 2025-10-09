@@ -75,6 +75,7 @@ export const handleWriteFile = (({
 
   getLatestState,
   state,
+  logger,
 }: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'write_file'>
@@ -95,14 +96,14 @@ export const handleWriteFile = (({
     fullResponse?: string
     prompt?: string
     messages?: Message[]
-    logger?: Logger
   } & OptionalFileProcessingState
+  logger: Logger
 }): {
   result: Promise<CodebuffToolOutput<'write_file'>>
   state: FileProcessingState
 } => {
   const { path, instructions, content } = toolCall.input
-  const { ws, fingerprintId, userId, fullResponse, prompt, logger } = state
+  const { ws, fingerprintId, userId, fullResponse, prompt } = state
   if (!ws) {
     throw new Error('Internal error for write_file: Missing WebSocket in state')
   }
@@ -118,9 +119,6 @@ export const handleWriteFile = (({
   const agentMessagesUntruncated = state.messages
   if (!agentMessagesUntruncated) {
     throw new Error('Internal error for write_file: Missing messages in state')
-  }
-  if (!logger) {
-    throw new Error('Internal error for write_file: Missing logger in state')
   }
 
   // Initialize state for this file path if needed

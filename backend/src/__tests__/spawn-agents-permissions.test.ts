@@ -15,11 +15,18 @@ import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
 import { getMatchingSpawn } from '../tools/handlers/tool/spawn-agent-utils'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
-import * as loggerModule from '../util/logger'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
+
+const logger: Logger = {
+  debug: () => {},
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+}
 
 describe('Spawn Agents Permissions', () => {
   let mockSendSubagentChunk: any
@@ -50,15 +57,6 @@ describe('Spawn Agents Permissions', () => {
   })
 
   beforeEach(() => {
-    // Mock logger to reduce noise in tests
-    spyOn(loggerModule.logger, 'debug').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'error').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'info').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'warn').mockImplementation(() => {})
-    spyOn(loggerModule, 'withLoggerContext').mockImplementation(
-      async (context: any, fn: () => Promise<any>) => fn(),
-    )
-
     // Mock sendSubagentChunk
     mockSendSubagentChunk = mock(() => {})
 
@@ -66,7 +64,7 @@ describe('Spawn Agents Permissions', () => {
     mockLoopAgentSteps = spyOn(
       runAgentStep,
       'loopAgentSteps',
-    ).mockImplementation(async (ws, options) => {
+    ).mockImplementation(async (options) => {
       return {
         agentState: {
           ...options.agentState,
@@ -262,6 +260,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       const output = await result
@@ -295,6 +294,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       const output = await result
@@ -330,6 +330,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       const output = await result
@@ -367,6 +368,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       const output = await result
@@ -403,6 +405,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       const output = await result
@@ -436,6 +439,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       const output = await result
@@ -486,6 +490,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       const output = await result
@@ -536,6 +541,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       await result // Should not throw
@@ -567,6 +573,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       await expect(result).rejects.toThrow(
@@ -599,6 +606,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       await expect(result).rejects.toThrow('Agent type nonexistent not found')
@@ -630,6 +638,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       await result // Should not throw
@@ -664,6 +673,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       await result // Should not throw
@@ -695,6 +705,7 @@ describe('Spawn Agents Permissions', () => {
           agentState: sessionState.mainAgentState,
           system: 'Test system prompt',
         },
+        logger,
       })
 
       await expect(result).rejects.toThrow(
@@ -721,6 +732,7 @@ describe('Spawn Agents Permissions', () => {
             agentTemplate: parentAgent,
             localAgentTemplates: {},
           },
+          logger,
         })
       }).toThrow('Missing WebSocket in state')
       expect(mockLoopAgentSteps).not.toHaveBeenCalled()

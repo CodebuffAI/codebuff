@@ -18,6 +18,7 @@ import {
 } from '../tools/prompts'
 import { parseUserMessage } from '../util/messages'
 
+import type { Logger } from '@codebuff/types/logger'
 import type { AgentTemplate, PlaceholderValue } from './types'
 import type {
   AgentState,
@@ -34,6 +35,7 @@ export async function formatPrompt({
   agentTemplates,
   intitialAgentPrompt,
   additionalToolDefinitions,
+  logger,
 }: {
   prompt: string
   fileContext: ProjectFileContext
@@ -45,6 +47,7 @@ export async function formatPrompt({
   additionalToolDefinitions: () => Promise<
     ProjectFileContext['customToolDefinitions']
   >
+  logger: Logger
 }): Promise<string> {
   const { messageHistory } = agentState
   const lastUserMessage = messageHistory.findLast(
@@ -58,7 +61,7 @@ export async function formatPrompt({
     : undefined
 
   const agentTemplate = agentState.agentType
-    ? await getAgentTemplate(agentState.agentType, agentTemplates)
+    ? await getAgentTemplate({ agentId: agentState.agentType, localAgentTemplates: agentTemplates, logger })
     : null
 
   const toInject: Record<PlaceholderValue, () => string | Promise<string>> = {
@@ -66,9 +69,19 @@ export async function formatPrompt({
       agentTemplate ? agentTemplate.displayName || 'Unknown Agent' : 'Buffy',
     [PLACEHOLDER.CONFIG_SCHEMA]: () => schemaToJsonStr(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT_SMALL]: () =>
-      getProjectFileTreePrompt(fileContext, 2_500, 'agent'),
+      getProjectFileTreePrompt({
+        fileContext,
+        fileTreeTokenBudget: 2_500,
+        mode: 'agent',
+        logger,
+      }),
     [PLACEHOLDER.FILE_TREE_PROMPT]: () =>
-      getProjectFileTreePrompt(fileContext, 10_000, 'agent'),
+      getProjectFileTreePrompt({
+        fileContext,
+        fileTreeTokenBudget: 10_000,
+        mode: 'agent',
+        logger,
+      }),
     [PLACEHOLDER.GIT_CHANGES_PROMPT]: () => getGitChangesPrompt(fileContext),
     [PLACEHOLDER.REMAINING_STEPS]: () => `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: () => fileContext.projectRoot,
@@ -76,7 +89,7 @@ export async function formatPrompt({
     [PLACEHOLDER.TOOLS_PROMPT]: async () =>
       getToolsInstructions(tools, await additionalToolDefinitions()),
     [PLACEHOLDER.AGENTS_PROMPT]: () =>
-      buildSpawnableAgentsDescription(spawnableAgents, agentTemplates),
+      buildSpawnableAgentsDescription({ spawnableAgents, agentTemplates, logger }),
     [PLACEHOLDER.USER_CWD]: () => fileContext.cwd,
     [PLACEHOLDER.USER_INPUT_PROMPT]: () => escapeString(lastUserInput ?? ''),
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: () =>
@@ -142,6 +155,7 @@ export async function getAgentPrompt<T extends StringField>({
   agentState,
   agentTemplates,
   additionalToolDefinitions,
+  logger,
 }: {
   agentTemplate: AgentTemplate
   promptType: { type: T }
@@ -151,6 +165,7 @@ export async function getAgentPrompt<T extends StringField>({
   additionalToolDefinitions: () => Promise<
     ProjectFileContext['customToolDefinitions']
   >
+  logger: Logger
 }): Promise<string | undefined> {
   let promptValue = agentTemplate[promptType.type]
   for (const placeholder of additionalPlaceholders[promptType.type]) {
@@ -171,6 +186,7 @@ export async function getAgentPrompt<T extends StringField>({
     spawnableAgents: agentTemplate.spawnableAgents,
     agentTemplates,
     additionalToolDefinitions,
+    logger,
   })
 
   let addendum = ''
@@ -192,10 +208,11 @@ export async function getAgentPrompt<T extends StringField>({
       '\n\n' +
       toolsInstructions +
       '\n\n' +
-      (await buildSpawnableAgentsDescription(
-        agentTemplate.spawnableAgents,
+      (await buildSpawnableAgentsDescription({
+        spawnableAgents: agentTemplate.spawnableAgents,
         agentTemplates,
-      ))
+        logger,
+      }))
 
     const parentInstructions = await collectParentInstructions({
       agentType: agentState.agentType,

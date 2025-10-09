@@ -1,9 +1,8 @@
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import { logger } from './logger'
-
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/types/logger'
 
 export function simplifyReadFileResults(
   messageContent: CodebuffToolOutput<'read_files'>,
@@ -21,9 +20,11 @@ export function simplifyReadFileResults(
   ]
 }
 
-export function simplifyTerminalCommandResults(
-  messageContent: CodebuffToolOutput<'run_terminal_command'>,
-): CodebuffToolOutput<'run_terminal_command'> {
+export function simplifyTerminalCommandResults(params: {
+  messageContent: CodebuffToolOutput<'run_terminal_command'>
+  logger: Logger
+}): CodebuffToolOutput<'run_terminal_command'> {
+  const { messageContent, logger } = params
   try {
     const clone = cloneDeep(messageContent)
     const content = clone[0].value

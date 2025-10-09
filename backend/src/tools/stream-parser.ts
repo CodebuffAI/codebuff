@@ -9,7 +9,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { executeBatchStrReplaces } from './batch-str-replace'
-import { logger } from '../util/logger'
+import type { Logger } from '@codebuff/types/logger'
 import { expireMessages } from '../util/messages'
 import { sendAction } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
@@ -56,6 +56,7 @@ export async function processStreamWithTools(options: {
   agentContext: Record<string, Subgoal>
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   fullResponse: string
+  logger: Logger
 }) {
   const {
     stream,
@@ -73,6 +74,7 @@ export async function processStreamWithTools(options: {
     system,
     agentState,
     onResponseChunk,
+    logger,
   } = options
   const fullResponseChunks: string[] = [options.fullResponse]
 
@@ -175,6 +177,7 @@ export async function processStreamWithTools(options: {
                   onResponseChunk,
                   state,
                   userId,
+                  logger,
                 })
               },
             )
@@ -197,6 +200,7 @@ export async function processStreamWithTools(options: {
             onResponseChunk,
             state,
             userId,
+            logger,
           })
         }
       },
@@ -224,6 +228,7 @@ export async function processStreamWithTools(options: {
           onResponseChunk,
           state,
           userId,
+          logger,
         })
       },
     }
@@ -339,6 +344,7 @@ export async function processStreamWithTools(options: {
         onResponseChunk,
         state,
         userId,
+        logger,
       })
       logger.info(
         {

@@ -12,13 +12,13 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { APICallError, generateObject, generateText, streamText } from 'ai'
 
 import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
-import { logger } from '../../util/logger'
 import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 import type { Model, OpenAIModel } from '@codebuff/common/old-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 import type {
   OpenRouterProviderOptions,
   OpenRouterUsageAccounting,
@@ -60,7 +60,7 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
 // also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
 export const promptAiSdkStream = async function* (
-  options: {
+  params: {
     messages: Message[]
     clientSessionId: string
     fingerprintId: string
@@ -73,20 +73,18 @@ export const promptAiSdkStream = async function* (
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
+    logger: Logger
   } & Omit<Parameters<typeof streamText>[0], 'model' | 'messages'>,
 ): AsyncGenerator<StreamChunk, string | null> {
+  const { logger } = params
   if (
-    !checkLiveUserInput(
-      options.userId,
-      options.userInputId,
-      options.clientSessionId,
-    )
+    !checkLiveUserInput({ ...params, clientSessionId: params.clientSessionId })
   ) {
     logger.info(
       {
-        userId: options.userId,
-        userInputId: options.userInputId,
-        liveUserInputId: getLiveUserInputIds(options.userId),
+        userId: params.userId,
+        userInputId: params.userInputId,
+        liveUserInputId: getLiveUserInputIds(params.userId),
       },
       'Skipping stream due to canceled user input',
     )
@@ -94,16 +92,16 @@ export const promptAiSdkStream = async function* (
   }
   const startTime = Date.now()
 
-  let aiSDKModel = modelToAiSDKModel(options.model)
+  let aiSDKModel = modelToAiSDKModel(params.model)
 
   const response = streamText({
-    ...options,
+    ...params,
     model: aiSDKModel,
-    messages: convertCbToModelMessages(options),
+    messages: convertCbToModelMessages(params),
   })
 
   let content = ''
-  const stopSequenceHandler = new StopSequenceHandler(options.stopSequences)
+  const stopSequenceHandler = new StopSequenceHandler(params.stopSequences)
 
   for await (const chunk of response.fullStream) {
     if (chunk.type !== 'text-delta') {
@@ -121,7 +119,7 @@ export const promptAiSdkStream = async function* (
         {
           chunk: { ...chunk, error: undefined },
           error: getErrorObject(chunk.error),
-          model: options.model,
+          model: params.model,
         },
         'Error from AI SDK',
       )
@@ -135,7 +133,7 @@ export const promptAiSdkStream = async function* (
           : typeof chunk.error === 'string'
             ? chunk.error
             : JSON.stringify(chunk.error)
-      const errorMessage = `Error from AI SDK (model ${options.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
+      const errorMessage = `Error from AI SDK (model ${params.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
       yield {
         type: 'error',
         message: errorMessage,
@@ -146,7 +144,7 @@ export const promptAiSdkStream = async function* (
     if (chunk.type === 'reasoning-delta') {
       if (
         (
-          options.providerOptions?.openrouter as
+          params.providerOptions?.openrouter as
             | OpenRouterProviderOptions
             | undefined
         )?.reasoning?.exclude
@@ -159,7 +157,7 @@ export const promptAiSdkStream = async function* (
       }
     }
     if (chunk.type === 'text-delta') {
-      if (!options.stopSequences) {
+      if (!params.stopSequences) {
         content += chunk.text
         if (chunk.text) {
           yield {
@@ -223,12 +221,12 @@ export const promptAiSdkStream = async function* (
   const messageId = (await response.response).id
   const creditsUsedPromise = saveMessage({
     messageId,
-    userId: options.userId,
-    clientSessionId: options.clientSessionId,
-    fingerprintId: options.fingerprintId,
-    userInputId: options.userInputId,
-    model: options.model,
-    request: options.messages,
+    userId: params.userId,
+    clientSessionId: params.clientSessionId,
+    fingerprintId: params.fingerprintId,
+    userInputId: params.userInputId,
+    model: params.model,
+    request: params.messages,
     response: content,
     inputTokens,
     outputTokens,
@@ -236,15 +234,16 @@ export const promptAiSdkStream = async function* (
     cacheReadInputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
-    chargeUser: options.chargeUser ?? true,
+    chargeUser: params.chargeUser ?? true,
     costOverrideDollars,
-    agentId: options.agentId,
+    agentId: params.agentId,
+    logger,
   })
 
   // Call the cost callback if provided
-  if (options.onCostCalculated) {
+  if (params.onCostCalculated) {
     const creditsUsed = await creditsUsedPromise
-    await options.onCostCalculated(creditsUsed)
+    await params.onCostCalculated(creditsUsed)
   }
 
   return messageId
@@ -252,7 +251,7 @@ export const promptAiSdkStream = async function* (
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
 export const promptAiSdk = async function (
-  options: {
+  params: {
     messages: Message[]
     clientSessionId: string
     fingerprintId: string
@@ -264,20 +263,17 @@ export const promptAiSdk = async function (
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
     maxRetries?: number
+    logger: Logger
   } & Omit<Parameters<typeof generateText>[0], 'model' | 'messages'>,
 ): Promise<string> {
-  if (
-    !checkLiveUserInput(
-      options.userId,
-      options.userInputId,
-      options.clientSessionId,
-    )
-  ) {
+  const { logger } = params
+
+  if (!checkLiveUserInput(params)) {
     logger.info(
       {
-        userId: options.userId,
-        userInputId: options.userInputId,
-        liveUserInputId: getLiveUserInputIds(options.userId),
+        userId: params.userId,
+        userInputId: params.userInputId,
+        liveUserInputId: getLiveUserInputIds(params.userId),
       },
       'Skipping prompt due to canceled user input',
     )
@@ -285,12 +281,12 @@ export const promptAiSdk = async function (
   }
 
   const startTime = Date.now()
-  let aiSDKModel = modelToAiSDKModel(options.model)
+  let aiSDKModel = modelToAiSDKModel(params.model)
 
   const response = await generateText({
-    ...options,
+    ...params,
     model: aiSDKModel,
-    messages: convertCbToModelMessages(options),
+    messages: convertCbToModelMessages(params),
   })
   const content = response.text
   const inputTokens = response.usage.inputTokens || 0
@@ -298,32 +294,33 @@ export const promptAiSdk = async function (
 
   const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
-    userId: options.userId,
-    clientSessionId: options.clientSessionId,
-    fingerprintId: options.fingerprintId,
-    userInputId: options.userInputId,
-    model: options.model,
-    request: options.messages,
+    userId: params.userId,
+    clientSessionId: params.clientSessionId,
+    fingerprintId: params.fingerprintId,
+    userInputId: params.userInputId,
+    model: params.model,
+    request: params.messages,
     response: content,
     inputTokens,
     outputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
-    chargeUser: options.chargeUser ?? true,
-    agentId: options.agentId,
+    chargeUser: params.chargeUser ?? true,
+    agentId: params.agentId,
+    logger,
   })
 
   // Call the cost callback if provided
-  if (options.onCostCalculated) {
+  if (params.onCostCalculated) {
     const creditsUsed = await creditsUsedPromise
-    await options.onCostCalculated(creditsUsed)
+    await params.onCostCalculated(creditsUsed)
   }
 
   return content
 }
 
 // Copied over exactly from promptAiSdk but with a schema
-export const promptAiSdkStructured = async function <T>(options: {
+export const promptAiSdkStructured = async function <T>(params: {
   messages: Message[]
   schema: z.ZodType<T>
   clientSessionId: string
@@ -339,62 +336,60 @@ export const promptAiSdkStructured = async function <T>(options: {
   onCostCalculated?: (credits: number) => Promise<void>
   includeCacheControl?: boolean
   maxRetries?: number
+  logger: Logger
 }): Promise<T> {
-  if (
-    !checkLiveUserInput(
-      options.userId,
-      options.userInputId,
-      options.clientSessionId,
-    )
-  ) {
+  const { logger } = params
+
+  if (!checkLiveUserInput(params)) {
     logger.info(
       {
-        userId: options.userId,
-        userInputId: options.userInputId,
-        liveUserInputId: getLiveUserInputIds(options.userId),
+        userId: params.userId,
+        userInputId: params.userInputId,
+        liveUserInputId: getLiveUserInputIds(params.userId),
       },
       'Skipping structured prompt due to canceled user input',
     )
     return {} as T
   }
   const startTime = Date.now()
-  let aiSDKModel = modelToAiSDKModel(options.model)
+  let aiSDKModel = modelToAiSDKModel(params.model)
 
   const responsePromise = generateObject<z.ZodType<T>, 'object'>({
-    ...options,
+    ...params,
     model: aiSDKModel,
     output: 'object',
-    messages: convertCbToModelMessages(options),
+    messages: convertCbToModelMessages(params),
   })
 
-  const response = await (options.timeout === undefined
+  const response = await (params.timeout === undefined
     ? responsePromise
-    : withTimeout(responsePromise, options.timeout))
+    : withTimeout(responsePromise, params.timeout))
   const content = response.object
   const inputTokens = response.usage.inputTokens || 0
   const outputTokens = response.usage.inputTokens || 0
 
   const creditsUsedPromise = saveMessage({
     messageId: generateCompactId(),
-    userId: options.userId,
-    clientSessionId: options.clientSessionId,
-    fingerprintId: options.fingerprintId,
-    userInputId: options.userInputId,
-    model: options.model,
-    request: options.messages,
+    userId: params.userId,
+    clientSessionId: params.clientSessionId,
+    fingerprintId: params.fingerprintId,
+    userInputId: params.userInputId,
+    model: params.model,
+    request: params.messages,
     response: JSON.stringify(content),
     inputTokens,
     outputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
-    chargeUser: options.chargeUser ?? true,
-    agentId: options.agentId,
+    chargeUser: params.chargeUser ?? true,
+    agentId: params.agentId,
+    logger,
   })
 
   // Call the cost callback if provided
-  if (options.onCostCalculated) {
+  if (params.onCostCalculated) {
     const creditsUsed = await creditsUsedPromise
-    await options.onCostCalculated(creditsUsed)
+    await params.onCostCalculated(creditsUsed)
   }
 
   return content

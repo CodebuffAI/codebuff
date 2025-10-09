@@ -3,7 +3,6 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -32,6 +31,13 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
+const logger: Logger = {
+  debug: () => {},
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+}
+
 describe('runProgrammaticStep', () => {
   let mockTemplate: AgentTemplate
   let mockAgentState: AgentState
@@ -40,17 +46,6 @@ describe('runProgrammaticStep', () => {
   let getRequestContextSpy: any
   let addAgentStepSpy: any
   let sendActionSpy: any
-  let logger: Logger
-
-  beforeAll(() => {
-    // Mock logger
-    logger = {
-      debug: () => {},
-      error: () => {},
-      info: () => {},
-      warn: () => {},
-    }
-  })
 
   beforeEach(() => {
     // Mock analytics
@@ -125,6 +120,7 @@ describe('runProgrammaticStep', () => {
 
     // Create mock params
     mockParams = {
+      agentState: mockAgentState,
       template: mockTemplate,
       prompt: 'Test prompt',
       params: { testParam: 'value' },
@@ -140,13 +136,14 @@ describe('runProgrammaticStep', () => {
       localAgentTemplates: {},
       stepsComplete: false,
       stepNumber: 1,
+      logger,
     }
   })
 
   afterEach(() => {
     mock.restore()
     // Clear the generator cache between tests
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
   })
 
   describe('generator lifecycle', () => {
@@ -157,7 +154,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(result.endTurn).toBe(true)
       expect(result.agentState).toBeDefined()
@@ -175,11 +172,11 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = createGenerator
       // First call
-      await runProgrammaticStep(mockAgentState, mockParams)
+      await runProgrammaticStep(mockParams)
       expect(callCount).toBe(1)
 
       // Second call with same agent ID should create a new generator
-      await runProgrammaticStep(mockAgentState, mockParams)
+      await runProgrammaticStep(mockParams)
       expect(callCount).toBe(2) // Should create new generator
     })
 
@@ -192,12 +189,15 @@ describe('runProgrammaticStep', () => {
       mockTemplate.handleSteps = () => mockGenerator
 
       // First call to set STEP_ALL state
-      const result1 = await runProgrammaticStep(mockAgentState, mockParams)
+      const result1 = await runProgrammaticStep(mockParams)
       expect(result1.endTurn).toBe(false)
 
       // Second call should return early due to STEP_ALL state
       // Use the same agent state with the same runId
-      const result2 = await runProgrammaticStep(result1.agentState, mockParams)
+      const result2 = await runProgrammaticStep({
+        ...mockParams,
+        agentState: result1.agentState,
+      })
       expect(result2.endTurn).toBe(false)
       expect(result2.agentState.agentId).toEqual(result1.agentState.agentId)
     })
@@ -205,9 +205,9 @@ describe('runProgrammaticStep', () => {
     it('should throw error when template has no handleStep', async () => {
       mockTemplate.handleSteps = undefined
 
-      await expect(
-        runProgrammaticStep(mockAgentState, mockParams),
-      ).rejects.toThrow('No step handler found for agent template test-agent')
+      await expect(runProgrammaticStep(mockParams)).rejects.toThrow(
+        'No step handler found for agent template test-agent',
+      )
     })
   })
 
@@ -234,7 +234,7 @@ describe('runProgrammaticStep', () => {
         }
       })
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       // Verify add_message tool was executed
       expect(executeToolCallSpy).toHaveBeenCalledWith(
@@ -284,7 +284,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(executeToolCallSpy).toHaveBeenCalledTimes(2)
       expect(executeToolCallSpy).toHaveBeenCalledWith(
@@ -336,7 +336,7 @@ describe('runProgrammaticStep', () => {
         return {}
       })
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -372,7 +372,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(executeToolCallSpy).toHaveBeenCalledTimes(3)
       expect(result.endTurn).toBe(true)
@@ -553,7 +553,7 @@ describe('runProgrammaticStep', () => {
       })
 
       // First call - should execute all tools and transition to STEP_ALL
-      const result1 = await runProgrammaticStep(mockAgentState, mockParams)
+      const result1 = await runProgrammaticStep(mockParams)
 
       // Verify all tools were executed
       expect(executeToolCallSpy).toHaveBeenCalledTimes(7) // 7 tools before STEP_ALL
@@ -619,9 +619,10 @@ describe('runProgrammaticStep', () => {
       executeToolCallSpy.mockClear()
 
       // Second call - should return early due to STEP_ALL state
-      const result2 = await runProgrammaticStep(result1.agentState, {
+      const result2 = await runProgrammaticStep({
         ...mockParams,
         // Use the updated agent state from first call
+        agentState: result1.agentState,
       })
 
       // Verify STEP_ALL behavior
@@ -631,8 +632,9 @@ describe('runProgrammaticStep', () => {
       expect(stepCount).toBe(1) // Generator should not have run again
 
       // Third call - verify STEP_ALL state persists
-      const result3 = await runProgrammaticStep(result2.agentState, {
+      const result3 = await runProgrammaticStep({
         ...mockParams,
+        agentState: result2.agentState,
       })
 
       expect(executeToolCallSpy).not.toHaveBeenCalled()
@@ -673,7 +675,7 @@ describe('runProgrammaticStep', () => {
         }
       })
 
-      await runProgrammaticStep(mockAgentState, mockParams)
+      await runProgrammaticStep(mockParams)
 
       expect(receivedToolResult).toEqual([
         {
@@ -697,7 +699,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(executeToolCallSpy).toHaveBeenCalledTimes(1) // Only first tool call
       expect(result.endTurn).toBe(false)
@@ -711,7 +713,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(result.endTurn).toBe(true)
     })
@@ -728,7 +730,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(executeToolCallSpy).toHaveBeenCalledTimes(2) // read_files + end_turn
       expect(result.endTurn).toBe(true)
@@ -755,7 +757,7 @@ describe('runProgrammaticStep', () => {
         }
       })
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(result.agentState.output).toEqual({ status: 'complete' })
     })
@@ -767,7 +769,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(result.agentState.messageHistory).toEqual([
         ...mockAgentState.messageHistory,
@@ -791,7 +793,7 @@ describe('runProgrammaticStep', () => {
       const responseChunks: string[] = []
       mockParams.onResponseChunk = (chunk: string) => responseChunks.push(chunk)
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(result.endTurn).toBe(true)
       expect(result.agentState.output?.error).toContain('Generator error')
@@ -812,7 +814,7 @@ describe('runProgrammaticStep', () => {
       const responseChunks: string[] = []
       mockParams.onResponseChunk = (chunk: string) => responseChunks.push(chunk)
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(result.endTurn).toBe(true)
       expect(result.agentState.output?.error).toContain('Tool execution failed')
@@ -825,7 +827,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const result = await runProgrammaticStep(mockAgentState, mockParams)
+      const result = await runProgrammaticStep(mockParams)
 
       expect(result.endTurn).toBe(true)
       expect(result.agentState.output?.error).toContain('Unknown error')
@@ -867,7 +869,7 @@ describe('runProgrammaticStep', () => {
       // Don't mock executeToolCall - let it use the real implementation
       executeToolCallSpy.mockRestore()
 
-      const result = await runProgrammaticStep(mockAgentState, {
+      const result = await runProgrammaticStep({
         ...mockParams,
         template: schemaTemplate,
         localAgentTemplates: { 'test-agent': schemaTemplate },
@@ -917,7 +919,7 @@ describe('runProgrammaticStep', () => {
       const responseChunks: string[] = []
       mockParams.onResponseChunk = (chunk: string) => responseChunks.push(chunk)
 
-      const result = await runProgrammaticStep(mockAgentState, {
+      const result = await runProgrammaticStep({
         ...mockParams,
         template: schemaTemplate,
         localAgentTemplates: { 'test-agent': schemaTemplate },
@@ -953,7 +955,7 @@ describe('runProgrammaticStep', () => {
       // Don't mock executeToolCall - let it use the real implementation
       executeToolCallSpy.mockRestore()
 
-      const result = await runProgrammaticStep(mockAgentState, {
+      const result = await runProgrammaticStep({
         ...mockParams,
         template: noSchemaTemplate,
         localAgentTemplates: { 'test-agent': noSchemaTemplate },
@@ -990,7 +992,7 @@ describe('runProgrammaticStep', () => {
       // Don't mock executeToolCall - let it use the real implementation
       executeToolCallSpy.mockRestore()
 
-      const result = await runProgrammaticStep(mockAgentState, {
+      const result = await runProgrammaticStep({
         ...mockParams,
         template: schemaWithoutSchemaTemplate,
         localAgentTemplates: { 'test-agent': schemaWithoutSchemaTemplate },
@@ -1019,7 +1021,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      await runProgrammaticStep(mockAgentState, {
+      await runProgrammaticStep({
         ...mockParams,
         stepsComplete: false,
       })
@@ -1041,7 +1043,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      await runProgrammaticStep(mockAgentState, {
+      await runProgrammaticStep({
         ...mockParams,
         stepsComplete: true,
       })
@@ -1081,7 +1083,7 @@ describe('runProgrammaticStep', () => {
         }
       })
 
-      const result = await runProgrammaticStep(mockAgentState, {
+      const result = await runProgrammaticStep({
         ...mockParams,
         stepsComplete: true,
       })
@@ -1120,7 +1122,7 @@ describe('runProgrammaticStep', () => {
       mockTemplate.toolNames = ['set_output', 'end_turn']
 
       // First call to set STEP_ALL state
-      const result1 = await runProgrammaticStep(mockAgentState, {
+      const result1 = await runProgrammaticStep({
         ...mockParams,
         stepsComplete: false,
       })
@@ -1128,8 +1130,9 @@ describe('runProgrammaticStep', () => {
       expect(generatorCallCount).toBe(1)
 
       // Second call with stepsComplete=false should return early due to STEP_ALL
-      const result2 = await runProgrammaticStep(result1.agentState, {
+      const result2 = await runProgrammaticStep({
         ...mockParams,
+        agentState: result1.agentState,
         stepsComplete: false,
       })
       expect(result2.endTurn).toBe(false)
@@ -1142,8 +1145,9 @@ describe('runProgrammaticStep', () => {
         }
       })
 
-      const result3 = await runProgrammaticStep(result2.agentState, {
+      const result3 = await runProgrammaticStep({
         ...mockParams,
+        agentState: result2.agentState,
         stepsComplete: true,
       })
 
@@ -1206,7 +1210,7 @@ describe('runProgrammaticStep', () => {
       })
 
       // First call with stepsComplete=true (post-processing mode)
-      const result = await runProgrammaticStep(mockAgentState, {
+      const result = await runProgrammaticStep({
         ...mockParams,
         stepsComplete: true,
       })
@@ -1219,7 +1223,7 @@ describe('runProgrammaticStep', () => {
       expect(result.endTurn).toBe(false) // Should not end due to STEP
       expect(executeToolCallSpy).toHaveBeenCalledTimes(2) // read_files + write_file
 
-      const finalResult = await runProgrammaticStep(mockAgentState, {
+      const finalResult = await runProgrammaticStep({
         ...mockParams,
         stepsComplete: false,
       })
@@ -1265,7 +1269,7 @@ describe('runProgrammaticStep', () => {
       mockTemplate.toolNames = ['read_files', 'write_file', 'end_turn']
 
       // First call with stepsComplete=true
-      const result = await runProgrammaticStep(mockAgentState, {
+      const result = await runProgrammaticStep({
         ...mockParams,
         stepsComplete: true,
       })
@@ -1386,7 +1390,7 @@ describe('runProgrammaticStep', () => {
       })
 
       // Call with stepsComplete=true to trigger post-processing
-      const result = await runProgrammaticStep(mockAgentState, {
+      const result = await runProgrammaticStep({
         ...mockParams,
         stepsComplete: true,
       })
@@ -1416,7 +1420,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      await runProgrammaticStep(mockAgentState, mockParams)
+      await runProgrammaticStep(mockParams)
 
       // Logger is mocked, but we can verify the function completes without error
       expect(true).toBe(true)
@@ -1429,7 +1433,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      await runProgrammaticStep(mockAgentState, mockParams)
+      await runProgrammaticStep(mockParams)
 
       expect(getRequestContextSpy).toHaveBeenCalled()
     })
@@ -1442,7 +1446,7 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      await runProgrammaticStep(mockAgentState, mockParams)
+      await runProgrammaticStep(mockParams)
 
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({

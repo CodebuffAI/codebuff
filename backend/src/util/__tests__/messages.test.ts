@@ -8,7 +8,6 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { logger } from '../logger'
 import {
   trimMessagesToFitTokenLimit,
   messagesWithSystem,
@@ -39,6 +38,14 @@ describe('messagesWithSystem', () => {
     ])
   })
 })
+
+// Mock logger for tests
+const logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
 
 describe('trimMessagesToFitTokenLimit', () => {
   beforeEach(() => {
@@ -211,11 +218,12 @@ describe('trimMessagesToFitTokenLimit', () => {
   it('handles all features working together correctly', () => {
     const maxTotalTokens = 3000
     const systemTokens = 0
-    const result = trimMessagesToFitTokenLimit(
-      testMessages,
+    const result = trimMessagesToFitTokenLimit({
+      messages: testMessages,
       systemTokens,
       maxTotalTokens,
-    )
+      logger,
+    })
 
     // Should have replacement message for omitted content
     expect(result.length).toBeGreaterThan(0)
@@ -236,11 +244,12 @@ describe('trimMessagesToFitTokenLimit', () => {
   it('subtracts system tokens from total tokens', () => {
     const maxTotalTokens = 10_000
     const systemTokens = 7_000
-    const result = trimMessagesToFitTokenLimit(
-      testMessages,
+    const result = trimMessagesToFitTokenLimit({
+      messages: testMessages,
       systemTokens,
       maxTotalTokens,
-    )
+      logger,
+    })
 
     // Should have replacement message for omitted content
     expect(result.length).toBeGreaterThan(0)
@@ -261,11 +270,12 @@ describe('trimMessagesToFitTokenLimit', () => {
   it('does not simplify if under token limit', () => {
     const maxTotalTokens = 10_000
     const systemTokens = 100
-    const result = trimMessagesToFitTokenLimit(
-      testMessages,
+    const result = trimMessagesToFitTokenLimit({
+      messages: testMessages,
       systemTokens,
       maxTotalTokens,
-    )
+      logger,
+    })
 
     // All messages should be unchanged
     expect(result).toHaveLength(testMessages.length)
@@ -282,7 +292,7 @@ describe('trimMessagesToFitTokenLimit', () => {
   it('handles empty messages array', () => {
     const maxTotalTokens = 200
     const systemTokens = 100
-    const result = trimMessagesToFitTokenLimit([], systemTokens, maxTotalTokens)
+    const result = trimMessagesToFitTokenLimit({ messages: [], systemTokens, maxTotalTokens, logger })
 
     expect(result).toEqual([])
   })
@@ -305,7 +315,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         },
       ]
 
-      const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
+      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 1000, logger })
 
       // Should contain the kept messages
       const keptMessages = result.filter(
@@ -335,7 +345,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         },
       ] as Message[]
 
-      const result = trimMessagesToFitTokenLimit(messages, 0, 10000)
+      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 10000, logger })
 
       // Should be unchanged when under token limit
       expect(result).toHaveLength(2)
@@ -351,7 +361,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'Keep this', keepDuringTruncation: true },
       ]
 
-      const result = trimMessagesToFitTokenLimit(messages, 0, 1000)
+      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 1000, logger })
 
       // Should only have one replacement message for consecutive removals
       const replacementMessages = result.filter(
@@ -381,7 +391,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'C'.repeat(100) }, // Might be kept
       ]
 
-      const result = trimMessagesToFitTokenLimit(messages, 0, 2000)
+      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 2000, logger })
 
       // Should preserve the keepDuringTruncation message
       const keptMessage = result.find(
@@ -405,7 +415,7 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'C'.repeat(800) }, // Large message to force truncation
       ]
 
-      const result = trimMessagesToFitTokenLimit(messages, 0, 500)
+      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 500, logger })
 
       // Should keep both marked messages
       const keptMessages = result.filter(
@@ -428,7 +438,7 @@ describe('trimMessagesToFitTokenLimit', () => {
 
 describe('getPreviouslyReadFiles', () => {
   it('returns empty array when no messages provided', () => {
-    const result = getPreviouslyReadFiles([])
+    const result = getPreviouslyReadFiles({ messages: [], logger })
     expect(result).toEqual([])
   })
 
@@ -449,7 +459,7 @@ describe('getPreviouslyReadFiles', () => {
       } satisfies CodebuffToolMessage<'write_file'>,
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([])
   })
 
@@ -481,7 +491,7 @@ describe('getPreviouslyReadFiles', () => {
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([
       {
         path: 'src/test.ts',
@@ -518,7 +528,7 @@ describe('getPreviouslyReadFiles', () => {
       } satisfies CodebuffToolMessage<'find_files'>,
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([
       {
         path: 'components/Button.tsx',
@@ -573,7 +583,7 @@ describe('getPreviouslyReadFiles', () => {
       },
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([
       { path: 'file1.ts', content: 'content 1' },
       { path: 'file2.ts', content: 'content 2' },
@@ -611,7 +621,7 @@ describe('getPreviouslyReadFiles', () => {
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([
       { path: 'small-file.ts', content: 'small content' },
       { path: 'another-small-file.ts', content: 'another small content' },
@@ -633,7 +643,7 @@ describe('getPreviouslyReadFiles', () => {
       },
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([])
     expect(mockLoggerError).toHaveBeenCalled()
 
@@ -660,7 +670,7 @@ describe('getPreviouslyReadFiles', () => {
       } satisfies CodebuffToolMessage<'find_files'>,
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([])
   })
 
@@ -690,7 +700,7 @@ describe('getPreviouslyReadFiles', () => {
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([{ path: 'test.ts', content: 'test content' }])
   })
 
@@ -712,7 +722,7 @@ describe('getPreviouslyReadFiles', () => {
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
-    const result = getPreviouslyReadFiles(messages)
+    const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([])
   })
 })

@@ -1,8 +1,4 @@
 import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import {
   getInitialAgentState,
   type AgentState,
 } from '@codebuff/common/types/session-state'
@@ -18,7 +14,15 @@ import * as requestContext from '../websockets/request-context'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
+
+const logger: Logger = {
+  debug: () => {},
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+}
 
 describe('QuickJS Sandbox Generator', () => {
   let mockAgentState: AgentState
@@ -26,7 +30,7 @@ describe('QuickJS Sandbox Generator', () => {
   let mockTemplate: AgentTemplate
 
   beforeEach(() => {
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
 
     // Mock dependencies
     spyOn(agentRun, 'addAgentStep').mockImplementation(
@@ -40,17 +44,6 @@ describe('QuickJS Sandbox Generator', () => {
       () =>
         'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`,
     )
-
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
 
     // Reuse common test data structure
     mockAgentState = {
@@ -85,6 +78,7 @@ describe('QuickJS Sandbox Generator', () => {
 
     // Common params structure
     mockParams = {
+      agentState: mockAgentState,
       template: mockTemplate,
       prompt: 'Test prompt',
       params: { testParam: 'value' },
@@ -101,12 +95,12 @@ describe('QuickJS Sandbox Generator', () => {
       localAgentTemplates: {},
       stepsComplete: false,
       stepNumber: 1,
+      logger,
     }
   })
 
   afterEach(() => {
-    clearAgentGeneratorCache()
-    clearMockedModules()
+    clearAgentGeneratorCache({ logger })
   })
 
   test('should execute string-based generator in QuickJS sandbox', async () => {
@@ -126,7 +120,7 @@ describe('QuickJS Sandbox Generator', () => {
     mockParams.template = mockTemplate
     mockParams.localAgentTemplates = { 'test-vm-agent': mockTemplate }
 
-    const result = await runProgrammaticStep(mockAgentState, mockParams)
+    const result = await runProgrammaticStep(mockParams)
 
     expect(result.agentState.output).toEqual({
       message: 'Hello from QuickJS sandbox!',
@@ -155,7 +149,7 @@ describe('QuickJS Sandbox Generator', () => {
     mockParams.params = {}
     mockParams.localAgentTemplates = { 'test-vm-agent-error': mockTemplate }
 
-    const result = await runProgrammaticStep(mockAgentState, mockParams)
+    const result = await runProgrammaticStep(mockParams)
 
     expect(result.endTurn).toBe(true)
     expect(result.agentState.output?.error).toContain(

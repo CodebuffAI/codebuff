@@ -95,6 +95,7 @@ async function runTraces() {
                 fileBlobs,
                 model: MODEL_TO_TEST,
                 dataset: DATASET,
+                logger: console,
               })
               console.log(`Successfully stored relabel for trace ${trace.id}`)
             } catch (error) {

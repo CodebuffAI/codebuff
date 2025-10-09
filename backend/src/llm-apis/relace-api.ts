@@ -6,36 +6,40 @@ import {
 import { env } from '@codebuff/internal'
 
 import { saveMessage } from '../llm-apis/message-cost-tracker'
-import { logger } from '../util/logger'
 import { countTokens } from '../util/token-counter'
 import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
+
+import type { Logger } from '@codebuff/types/logger'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Relace API request timed out')), ms),
   )
 
-export async function promptRelaceAI(
-  initialCode: string,
-  editSnippet: string,
-  instructions: string | undefined,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-    messageId: string
-    userMessage?: string
-  },
-) {
+export async function promptRelaceAI(params: {
+  initialCode: string
+  editSnippet: string
+  instructions: string | undefined
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  messageId: string
+  userMessage?: string
+  logger: Logger
+}) {
   const {
+    initialCode,
+    editSnippet,
+    instructions,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
     userMessage,
     messageId,
-  } = options
+    logger,
+  } = params
   const startTime = Date.now()
 
   try {
@@ -90,6 +94,7 @@ export async function promptRelaceAI(
       outputTokens: countTokens(content),
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
+      logger,
     })
     return content + '\n'
   } catch (error) {
@@ -134,6 +139,7 @@ Please output just the complete updated file content with no other text.`
       userInputId,
       model: models.o3mini,
       userId,
+      logger,
     })
 
     return parseMarkdownCodeBlock(content) + '\n'
@@ -150,19 +156,26 @@ export type FileWithPath = {
   content: string
 }
 
-export async function rerank(
-  files: FileWithPath[],
-  prompt: string,
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
-    messageId: string
-  },
-) {
-  const { clientSessionId, fingerprintId, userInputId, userId, messageId } =
-    options
+export async function rerank(params: {
+  files: FileWithPath[]
+  prompt: string
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  userId: string | undefined
+  messageId: string
+  logger: Logger
+}) {
+  const {
+    files,
+    prompt,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    messageId,
+    logger,
+  } = params
   const startTime = Date.now()
 
   if (!prompt || !files.length) {
@@ -227,6 +240,7 @@ export async function rerank(
       outputTokens: countTokens(JSON.stringify(rankings)),
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
+      logger,
     })
 
     return rankings

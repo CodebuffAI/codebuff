@@ -48,6 +48,7 @@ async function usageHandler(
       fingerprintId,
       authToken,
       clientSessionId,
+      logger,
     })
     if (authResult) {
       const errorMessage =
@@ -95,6 +96,7 @@ async function usageHandler(
       fingerprintId,
       userId,
       clientSessionId,
+      logger,
     })
 
     return res.status(200).json(usageResponse)

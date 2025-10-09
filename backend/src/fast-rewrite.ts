@@ -7,12 +7,12 @@ import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptRelaceAI } from './llm-apis/relace-api'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
-import type { Logger } from '@codebuff/types/logger'
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 
 export async function fastRewrite(params: {
   initialContent: string
@@ -40,19 +40,18 @@ export async function fastRewrite(params: {
   } = params
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
-  let response = await promptRelaceAI(
-    initialContent,
+  let response = await promptRelaceAI({
+    initialCode: initialContent,
     editSnippet,
     instructions,
-    {
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      userMessage,
-      messageId,
-    },
-  )
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    userMessage,
+    messageId,
+    logger,
+  })
   const relaceDuration = Date.now() - relaceStartTime
 
   // Check if response still contains lazy edits
@@ -148,6 +147,7 @@ Please output just the complete updated file content with the edit applied and n
     fingerprintId,
     userInputId,
     userId,
+    logger,
   })
 
   return parseMarkdownCodeBlock(response) + '\n'
@@ -243,12 +243,14 @@ Do not write anything else.
       content: prompt,
     },
   )
-  const response = await promptFlashWithFallbacks(messages, {
+  const response = await promptFlashWithFallbacks({
+    messages,
     clientSessionId,
     fingerprintId,
     userInputId,
     model: models.openrouter_gemini2_5_flash,
     userId,
+    logger,
   })
   const shouldAddPlaceholderComments = response.includes('LOCAL_CHANGE_ONLY')
   logger.debug(

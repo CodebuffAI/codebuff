@@ -58,6 +58,12 @@ describe('requestRelevantFiles', () => {
   const mockUserId = 'user1'
   const mockCostMode: CostMode = 'normal'
   const mockRepoId = 'owner/repo'
+  const logger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  }
 
   let getCustomFilePickerConfigForOrgSpy: any // Explicitly typed as any
 
@@ -127,17 +133,19 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use default file counts and maxFiles when no custom config', async () => {
-    await OriginalRequestFilesPromptModule.requestRelevantFiles(
-      { messages: mockMessages, system: mockSystem },
-      mockFileContext,
-      mockAssistantPrompt,
-      mockAgentStepId,
-      mockClientSessionId,
-      mockFingerprintId,
-      mockUserInputId,
-      mockUserId,
-      mockRepoId,
-    )
+    await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      messages: mockMessages,
+      system: mockSystem,
+      fileContext: mockFileContext,
+      assistantPrompt: mockAssistantPrompt,
+      agentStepId: mockAgentStepId,
+      clientSessionId: mockClientSessionId,
+      fingerprintId: mockFingerprintId,
+      userInputId: mockUserInputId,
+      userId: mockUserId,
+      repoId: mockRepoId,
+      logger,
+    })
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalled()
@@ -152,17 +160,19 @@ describe('requestRelevantFiles', () => {
     }
     getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
-    await OriginalRequestFilesPromptModule.requestRelevantFiles(
-      { messages: mockMessages, system: mockSystem },
-      mockFileContext,
-      mockAssistantPrompt,
-      mockAgentStepId,
-      mockClientSessionId,
-      mockFingerprintId,
-      mockUserInputId,
-      mockUserId,
-      mockRepoId,
-    )
+    await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      messages: mockMessages,
+      system: mockSystem,
+      fileContext: mockFileContext,
+      assistantPrompt: mockAssistantPrompt,
+      agentStepId: mockAgentStepId,
+      clientSessionId: mockClientSessionId,
+      fingerprintId: mockFingerprintId,
+      userInputId: mockUserInputId,
+      userId: mockUserId,
+      repoId: mockRepoId,
+      logger,
+    })
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalled()
@@ -176,17 +186,19 @@ describe('requestRelevantFiles', () => {
     }
     getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
-    const result = await OriginalRequestFilesPromptModule.requestRelevantFiles(
-      { messages: mockMessages, system: mockSystem },
-      mockFileContext,
-      mockAssistantPrompt,
-      mockAgentStepId,
-      mockClientSessionId,
-      mockFingerprintId,
-      mockUserInputId,
-      mockUserId,
-      mockRepoId,
-    )
+    const result = await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      messages: mockMessages,
+      system: mockSystem,
+      fileContext: mockFileContext,
+      assistantPrompt: mockAssistantPrompt,
+      agentStepId: mockAgentStepId,
+      clientSessionId: mockClientSessionId,
+      fingerprintId: mockFingerprintId,
+      userInputId: mockUserInputId,
+      userId: mockUserId,
+      repoId: mockRepoId,
+      logger,
+    })
     expect(result).toBeArray()
     if (result) {
       expect(result.length).toBeLessThanOrEqual(3)
@@ -200,21 +212,22 @@ describe('requestRelevantFiles', () => {
     }
     getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
-    await OriginalRequestFilesPromptModule.requestRelevantFiles(
-      { messages: mockMessages, system: mockSystem },
-      mockFileContext,
-      mockAssistantPrompt,
-      mockAgentStepId,
-      mockClientSessionId,
-      mockFingerprintId,
-      mockUserInputId,
-      mockUserId,
-      mockRepoId,
-    )
+    await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      messages: mockMessages,
+      system: mockSystem,
+      fileContext: mockFileContext,
+      assistantPrompt: mockAssistantPrompt,
+      agentStepId: mockAgentStepId,
+      clientSessionId: mockClientSessionId,
+      fingerprintId: mockFingerprintId,
+      userInputId: mockUserInputId,
+      userId: mockUserId,
+      repoId: mockRepoId,
+      logger,
+    })
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({
         useFinetunedModel: finetunedVertexModels.ft_filepicker_010,
       }),
@@ -228,22 +241,23 @@ describe('requestRelevantFiles', () => {
     }
     getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
-    await OriginalRequestFilesPromptModule.requestRelevantFiles(
-      { messages: mockMessages, system: mockSystem },
-      mockFileContext,
-      mockAssistantPrompt,
-      mockAgentStepId,
-      mockClientSessionId,
-      mockFingerprintId,
-      mockUserInputId,
-      mockUserId,
-      mockRepoId,
-    )
+    await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      messages: mockMessages,
+      system: mockSystem,
+      fileContext: mockFileContext,
+      assistantPrompt: mockAssistantPrompt,
+      agentStepId: mockAgentStepId,
+      clientSessionId: mockClientSessionId,
+      fingerprintId: mockFingerprintId,
+      userInputId: mockUserInputId,
+      userId: mockUserId,
+      repoId: mockRepoId,
+      logger,
+    })
     const expectedModel = finetunedVertexModels.ft_filepicker_010
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({
         useFinetunedModel: expectedModel,
       }),

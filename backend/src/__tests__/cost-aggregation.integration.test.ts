@@ -229,7 +229,7 @@ describe('Cost Aggregation Integration Tests', () => {
 
     // Mock getAgentTemplate to return our mock templates
     spyOn(agentRegistry, 'getAgentTemplate').mockImplementation(
-      async (agentId, localAgentTemplates) => {
+      async ({ agentId, localAgentTemplates }) => {
         return localAgentTemplates[agentId] || null
       },
     )

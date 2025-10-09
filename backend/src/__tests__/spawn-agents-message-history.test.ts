@@ -13,12 +13,19 @@ import {
 import { mockFileContext, MockWebSocket } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
-import * as loggerModule from '../util/logger'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
+
+const logger: Logger = {
+  debug: () => {},
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+}
 
 describe('Spawn Agents Message History', () => {
   let mockSendSubagentChunk: any
@@ -26,15 +33,6 @@ describe('Spawn Agents Message History', () => {
   let capturedSubAgentState: any
 
   beforeEach(() => {
-    // Mock logger to reduce noise in tests
-    spyOn(loggerModule.logger, 'debug').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'error').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'info').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'warn').mockImplementation(() => {})
-    spyOn(loggerModule, 'withLoggerContext').mockImplementation(
-      async (context: any, fn: () => Promise<any>) => fn(),
-    )
-
     // Mock sendSubagentChunk
     mockSendSubagentChunk = mock(() => {})
 
@@ -42,7 +40,7 @@ describe('Spawn Agents Message History', () => {
     mockLoopAgentSteps = spyOn(
       runAgentStep,
       'loopAgentSteps',
-    ).mockImplementation(async (ws, options) => {
+    ).mockImplementation(async (options) => {
       capturedSubAgentState = options.agentState
       return {
         agentState: {
@@ -134,6 +132,7 @@ describe('Spawn Agents Message History', () => {
         agentState: sessionState.mainAgentState,
         system: 'Test system prompt',
       },
+      logger,
     })
 
     await result
@@ -205,6 +204,7 @@ describe('Spawn Agents Message History', () => {
         agentState: sessionState.mainAgentState,
         system: 'Test system prompt',
       },
+      logger,
     })
 
     await result
@@ -241,6 +241,7 @@ describe('Spawn Agents Message History', () => {
         agentState: sessionState.mainAgentState,
         system: 'Test system prompt',
       },
+      logger,
     })
 
     await result
@@ -280,6 +281,7 @@ describe('Spawn Agents Message History', () => {
         agentState: sessionState.mainAgentState,
         system: 'Test system prompt',
       },
+      logger,
     })
 
     await result
