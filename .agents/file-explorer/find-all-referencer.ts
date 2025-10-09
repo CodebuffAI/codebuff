@@ -39,7 +39,7 @@ Strategy:
 
 Use lots of different agents in parallel to gather more information faster.
 
-Finally, synthesize all findings into a comprehensive and concise answer.`,
+Finally, synthesize all findings into a concise answer. No need to elaborate, just state the facts.`,
 
   handleSteps: function* ({ prompt, params }) {
     yield {
