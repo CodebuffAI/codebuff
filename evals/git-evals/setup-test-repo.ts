@@ -35,6 +35,39 @@ export function extractRepoNameFromUrl(repoUrl: string): string {
   return parts[parts.length - 1]
 }
 
+/**
+ * Executes a git command with retry logic and exponential backoff
+ */
+async function executeGitCommandWithRetry(
+  command: string,
+  args: string[],
+  options: any,
+  maxRetries: number = 3,
+  baseDelay: number = 1000,
+): Promise<void> {
+  let lastError: Error | undefined
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      execFileSync(command, args, options)
+      return // Success!
+    } catch (error) {
+      lastError = error as Error
+
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt)
+        console.warn(
+          `Git command failed (attempt ${attempt + 1}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
+        )
+        console.warn(`Retrying in ${delay}ms...`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  throw lastError || new Error('Git command failed after all retries')
+}
+
 export async function setupTestRepo(
   repoUrl: string,
   customRepoName: string,
@@ -115,19 +148,25 @@ export async function setupTestRepo(
         ...process.env,
         GIT_TERMINAL_PROMPT: '0', // Disable interactive prompts
         GIT_ASKPASS: 'echo', // Provide empty password if prompted
+        GIT_HTTP_LOW_SPEED_LIMIT: '1000', // Minimum speed (bytes/sec)
+        GIT_HTTP_LOW_SPEED_TIME: '30', // Time window for speed check (seconds)
       }
 
-      execFileSync('git', ['clone', '--no-checkout', cloneUrl, repoDir], {
-        timeout: 120_000, // 2 minute timeout for cloning
-        stdio: 'inherit',
-        env: gitEnv,
-      })
-      execFileSync('git', ['fetch', 'origin', commitSha], {
+      await executeGitCommandWithRetry(
+        'git',
+        ['clone', '--no-checkout', cloneUrl, repoDir],
+        {
+          timeout: 600_000, // 10 minute timeout for cloning
+          stdio: 'inherit',
+          env: gitEnv,
+        },
+      )
+      await executeGitCommandWithRetry('git', ['fetch', 'origin', commitSha], {
         cwd: repoDir,
         stdio: 'inherit',
         env: gitEnv,
       })
-      execFileSync('git', ['checkout', commitSha], {
+      await executeGitCommandWithRetry('git', ['checkout', commitSha], {
         cwd: repoDir,
         stdio: 'inherit',
       })
@@ -135,22 +174,38 @@ export async function setupTestRepo(
       // Local development or public repos
       console.log(`Local environment detected - cloning from: ${repoUrl}`)
 
-      execFileSync(
+      const localGitEnv = {
+        ...process.env,
+        GIT_HTTP_LOW_SPEED_LIMIT: '1000', // Minimum speed (bytes/sec)
+        GIT_HTTP_LOW_SPEED_TIME: '30', // Time window for speed check (seconds)
+      }
+
+      await executeGitCommandWithRetry(
         'git',
         ['clone', '--no-checkout', '--quiet', repoUrl, repoDir],
         {
-          timeout: 120_000, // 2 minute timeout for cloning
+          timeout: 600_000, // 10 minute timeout for cloning
+          stdio: 'inherit',
+          env: localGitEnv,
+        },
+      )
+      await executeGitCommandWithRetry(
+        'git',
+        ['fetch', 'origin', '--quiet', commitSha],
+        {
+          cwd: repoDir,
+          stdio: 'inherit',
+          env: localGitEnv,
+        },
+      )
+      await executeGitCommandWithRetry(
+        'git',
+        ['checkout', '--quiet', commitSha],
+        {
+          cwd: repoDir,
           stdio: 'inherit',
         },
       )
-      execFileSync('git', ['fetch', 'origin', '--quiet', commitSha], {
-        cwd: repoDir,
-        stdio: 'inherit',
-      })
-      execFileSync('git', ['checkout', '--quiet', commitSha], {
-        cwd: repoDir,
-        stdio: 'inherit',
-      })
     }
 
     console.log('Repository cloned successfully!')
