@@ -105,11 +105,12 @@ export class WebSocketMiddleware {
   }
 
   run<T extends ClientAction['type']>(params: {
-    baseAction: (
-      action: ClientAction<T>,
-      clientSessionId: string,
-      ws: WebSocket,
-    ) => void
+    baseAction: (params: {
+      action: ClientAction<T>
+      clientSessionId: string
+      ws: WebSocket
+      logger: Logger
+    }) => void
     silent?: boolean
     logger: Logger
   }) {
@@ -143,7 +144,7 @@ export class WebSocketMiddleware {
             logger,
           })
           if (shouldContinue) {
-            baseAction(action, clientSessionId, ws)
+            baseAction({ action, clientSessionId, ws, logger })
           }
         },
       )

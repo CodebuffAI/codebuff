@@ -96,6 +96,7 @@ async function usageHandler(
       fingerprintId,
       userId,
       clientSessionId,
+      logger,
     })
 
     return res.status(200).json(usageResponse)

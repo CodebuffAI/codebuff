@@ -80,8 +80,9 @@ export async function genUsageResponse(params: {
   fingerprintId: string
   userId: string
   clientSessionId?: string
+  logger: Logger
 }): Promise<UsageResponse> {
-  const { fingerprintId, userId, clientSessionId } = params
+  const { fingerprintId, userId, clientSessionId, logger } = params
   const logContext = { fingerprintId, userId, sessionId: clientSessionId }
   const defaultResp = {
     type: 'usage-response' as const,
@@ -135,11 +136,13 @@ export async function genUsageResponse(params: {
  * @param clientSessionId - The client's session ID
  * @param ws - The WebSocket connection
  */
-const onPrompt = async (
-  action: ClientAction<'prompt'>,
-  clientSessionId: string,
-  ws: WebSocket,
-) => {
+const onPrompt = async (params: {
+  action: ClientAction<'prompt'>
+  clientSessionId: string
+  ws: WebSocket
+  logger: Logger
+}) => {
+  const { action, clientSessionId, ws, logger } = params
   const { fingerprintId, authToken, promptId, prompt, costMode } = action
 
   await withLoggerContext(
@@ -192,6 +195,7 @@ const onPrompt = async (
         const usageResponse = await genUsageResponse({
           fingerprintId,
           userId,
+          logger,
         })
         sendAction(ws, usageResponse)
       }
@@ -207,7 +211,7 @@ export const callMainPrompt = async (params: {
   clientSessionId: string
   logger: Logger
 }) => {
-  const { ws, action, userId, promptId, clientSessionId } = params
+  const { ws, action, userId, promptId, clientSessionId, logger } = params
   const { fileContext } = action.sessionState
 
   // Enforce server-side state authority: reset creditsUsed to 0
@@ -287,11 +291,15 @@ export const callMainPrompt = async (params: {
  * @param clientSessionId - The client's session ID
  * @param ws - The WebSocket connection
  */
-const onInit = async (
-  { fileContext, fingerprintId, authToken }: ClientAction<'init'>,
-  clientSessionId: string,
-  ws: WebSocket,
-) => {
+const onInit = async (params: {
+  action: ClientAction<'init'>
+  clientSessionId: string
+  ws: WebSocket
+  logger: Logger
+}) => {
+  const { action, clientSessionId, ws, logger } = params
+  const { fileContext, fingerprintId, authToken } = action
+
   await withLoggerContext({ fingerprintId }, async () => {
     const userId = await getUserIdFromAuthToken({ authToken })
 
@@ -310,6 +318,7 @@ const onInit = async (
       fingerprintId,
       userId,
       clientSessionId,
+      logger,
     })
     sendAction(ws, {
       ...usageResponse,
@@ -318,10 +327,13 @@ const onInit = async (
   })
 }
 
-const onCancelUserInput = async ({
-  authToken,
-  promptId,
-}: ClientAction<'cancel-user-input'>) => {
+const onCancelUserInput = async (params: {
+  action: ClientAction<'cancel-user-input'>
+  logger: Logger
+}) => {
+  const { action, logger } = params
+  const { authToken, promptId } = action
+
   const userId = await getUserIdFromAuthToken({ authToken })
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')
@@ -372,11 +384,14 @@ export const subscribeToAction = <T extends ClientAction['type']>(
  * @param clientSessionId - The client's session ID
  * @param msg - The action message from the client
  */
-export const onWebsocketAction = async (
-  ws: WebSocket,
-  clientSessionId: string,
-  msg: ClientMessage & { type: 'action' },
-) => {
+export const onWebsocketAction = async (params: {
+  ws: WebSocket
+  clientSessionId: string
+  msg: ClientMessage & { type: 'action' }
+  logger: Logger
+}) => {
+  const { ws, clientSessionId, msg, logger } = params
+
   await withLoggerContext({ clientSessionId }, async () => {
     const callbacks = callbacksByAction[msg.data.type] ?? []
     try {

@@ -65,7 +65,7 @@ async function processMessage(params: {
         break
       }
       case 'action': {
-        onWebsocketAction(ws, clientSessionId, msg)
+        onWebsocketAction({ ws, clientSessionId, msg, logger })
         break
       }
       default:
