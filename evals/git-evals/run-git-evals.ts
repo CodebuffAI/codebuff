@@ -250,16 +250,6 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
       },
     }
 
-    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
-      const { eval_commit, gitDiff, ...rest } = result
-      const { fileStates, ...rest2 } = eval_commit
-
-      writeJsonToFile(
-        { ...rest, ...rest2 },
-        path.join(__dirname, `trace-${evalCommit.sha}.json`),
-      )
-    }
-
     return result
   } catch (judgingError) {
     console.error('Error in judging:', judgingError)
