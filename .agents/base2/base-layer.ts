@@ -37,8 +37,8 @@ const definition: SecretAgentDefinition = {
     'read-only-commander',
     'decomposing-thinker',
     'code-sketcher',
+    'iterative-planner',
     'editor',
-    'decomposing-reviewer',
     'reviewer',
     'context-pruner',
   ],
@@ -83,25 +83,28 @@ The user asks you to implement a new feature. You respond in multiple steps:
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn a decomposing thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part. Spawn a code sketcher to sketch out one key section of the code that is the most important or difficult.
 2a. Read all the relevant files using the read_files tool.
-3. Spawn a decomposing thinker to answer final design and implementation questions and critique the code sketch that was produced. Spawn one more code sketcher to sketch another key section.
+3. Spawn an iterative-planner with a step-by-step initial plan. Spawn one more code sketcher to sketch another key section.
 4. Spawn two editors to implement all the changes.
 5. Spawn a reviewer to review the changes made by the editors.
 
 
-## Guidelines
+## Spawning agents guidelines
 
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents:
   - Spawn file explorers, find-all-referencer, and researchers before thinkers because then the thinkers can use the file/research results to come up with a better conclusions
   - Spawn thinkers before editors so editors can use the insights from the thinkers.
   - Reviewers should be spawned after editors.
-- **Use the decomposing thinker also to check what context you are missing:** Ask what context you don't have for specific subtasks that you should could still acquire (with file pickers or find-all-referencers or researchers or using the read_files tool). Getting more context is one of the most important things you should do before editing or coding anything.
-- **Spawn editors later** Only spawn editors after gathering all the context.
-- **Stop and ask for guidance:** You should feel free to stop and ask the user for guidance if you're stuck or don't know what to try next, or need a clarification.
+- **Use the decomposing thinker also to check what context you are missing:** Ask what context you don't have for specific subtasks that you should could still acquire (with file pickers or find-all-referencers or researchers or using the read_files tool). Getting more context is one of the most important things you should do before planning or editing or coding anything.
+- **Once you've gathered all the context you need, create a plan:** Spawn an iterative-planner with a step-by-step initial plan, or if it's not a complex task simply write out your plan as a bullet point list.
+- **Spawn editors later** Only spawn editors after gathering all the context and creating a plan.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
+
+## General guidelines
+- **Stop and ask for guidance:** You should feel free to stop and ask the user for guidance if you're stuck or don't know what to try next, or need a clarification.
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, running scripts that could alter production environments, installing packages globally, etc). Don't do any of these unless the user explicitly asks you to.
 `,
 
-  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, and the reviewer/decomposing-reviewer to review code changes made by the editor(s).`,
+  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, the iterative-planner to create a plan, and the reviewer/decomposing-reviewer to review code changes made by the editor(s).`,
 
   handleSteps: function* ({ prompt, params }) {
     let steps = 0
