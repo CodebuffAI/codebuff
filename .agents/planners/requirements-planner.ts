@@ -17,7 +17,7 @@ const definition: SecretAgentDefinition = {
   outputMode: 'structured_output',
   toolNames: ['spawn_agents', 'set_output', 'end_turn'],
   spawnableAgents: [
-    'researcher-file-explorer',
+    'file-explorer',
     'researcher-web',
     'researcher-docs',
     'two-wave-planner',
@@ -29,7 +29,7 @@ const definition: SecretAgentDefinition = {
   instructionsPrompt: `You are an expert requirements planner with deep experience in software engineering, architecture, and project management.
 
 Instructions:
-1. Spawn a researcher-file-explorer agent to get more context about the codebase. Optionally, in parallel, spawn a researcher-web and/or researcher-docs agent to get context about the web and docs.
+1. Spawn a file-explorer agent to get more context about the codebase. Optionally, in parallel, spawn a researcher-web and/or researcher-docs agent to get context about the web and docs.
 2. Read any new files that have not already been read that could possibly be relevant to the user request or could help with planning.
 3. Analyze the user request in "<analysis>" tags. Explain the key steps and components that will be needed to accomplish the task.
 4. Come up with 2-8 explicit requirements. Try to keep the requirements disjoint, cover the whole task, and focus on the important and challenging parts of the task.
