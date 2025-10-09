@@ -147,6 +147,7 @@ Please output just the complete updated file content with the edit applied and n
     fingerprintId,
     userInputId,
     userId,
+    logger,
   })
 
   return parseMarkdownCodeBlock(response) + '\n'

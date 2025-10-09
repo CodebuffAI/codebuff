@@ -202,6 +202,7 @@ ${closeXml('user_query')}
         ),
       }),
       timeout: 5_000,
+      logger,
     })
     return {
       libraries: response.libraries,
@@ -266,6 +267,7 @@ ${closeXml('documentation_chunks')}
         relevant_chunks: z.array(z.number()),
       }),
       timeout: 20_000,
+      logger,
     })
     const geminiDuration = Date.now() - geminiStartTime
 

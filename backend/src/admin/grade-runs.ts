@@ -4,6 +4,7 @@ import { closeXml } from '@codebuff/common/util/xml'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 
 import type { Relabel, GetRelevantFilesTrace } from '@codebuff/bigquery'
+import type { Logger } from '@codebuff/types/logger'
 
 const PROMPT = `
 You are an evaluator system, measuring how well various models perform at selecting the most relevant files for a given user request.
@@ -96,11 +97,12 @@ function extractResponse(response: string): {
   }
 }
 
-export async function gradeRun(tracesAndRelabels: {
+export async function gradeRun(params: {
   trace: GetRelevantFilesTrace
   relabels: Relabel[]
+  logger: Logger
 }) {
-  const { trace, relabels } = tracesAndRelabels
+  const { trace, relabels, logger } = params
   const messages = trace.payload.messages
 
   const originalOutput = trace.payload.output
@@ -152,6 +154,7 @@ export async function gradeRun(tracesAndRelabels: {
     //     type: 'enabled',
     //     budget_tokens: 10000,
     //   },
+    logger,
   })
 
   const { scores } = extractResponse(response)

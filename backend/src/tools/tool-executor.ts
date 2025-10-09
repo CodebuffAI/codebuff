@@ -231,7 +231,7 @@ export function executeToolCall<T extends ToolName>(
     requestClientToolCall: async (
       clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
     ) => {
-      if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
+      if (!checkLiveUserInput(params)) {
         return []
       }
 
@@ -462,7 +462,7 @@ export async function executeCustomToolCall(
 
   return previousToolCallFinished
     .then(async () => {
-      if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
+      if (!checkLiveUserInput(params)) {
         return null
       }
 

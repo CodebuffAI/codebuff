@@ -192,6 +192,7 @@ export async function relabelForUserHandler(params: {
               fingerprintId: 'relabel-trace-api',
               userInputId: 'relabel-trace-api',
               userId: TEST_USER_ID,
+              logger,
             })
 
             // Create relabel record
@@ -436,6 +437,7 @@ export async function relabelWithClaudeWithFullFileContext(params: {
     userInputId: 'relabel-trace-api',
     userId: TEST_USER_ID,
     maxOutputTokens: 1000,
+    logger,
   })
 
   const relabel = {

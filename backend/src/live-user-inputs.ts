@@ -41,11 +41,13 @@ export function cancelUserInput(params: {
   }
 }
 
-export function checkLiveUserInput(
-  userId: string | undefined,
-  userInputId: string,
-  sessionId: string,
-): boolean {
+export function checkLiveUserInput(params: {
+  userId: string | undefined
+  userInputId: string
+  clientSessionId: string
+}): boolean {
+  const { userId, userInputId, clientSessionId } = params
+
   if (!liveUserInputCheckEnabled) {
     return true
   }
@@ -54,7 +56,7 @@ export function checkLiveUserInput(
   }
 
   // Check if WebSocket is still connected for this session
-  if (!sessionConnections[sessionId]) {
+  if (!sessionConnections[clientSessionId]) {
     return false
   }
 

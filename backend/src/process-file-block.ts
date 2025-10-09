@@ -11,9 +11,8 @@ import {
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { countTokens } from './util/token-counter'
 
-import type { Logger } from '@codebuff/types/logger'
-
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 
 export async function processFileBlock(params: {
   path: string
@@ -295,6 +294,7 @@ Please output just the SEARCH/REPLACE blocks like this:
     fingerprintId,
     userInputId,
     userId,
+    logger,
   })
 
   const { diffBlocks, diffBlocksThatDidntMatch } =

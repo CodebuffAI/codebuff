@@ -242,7 +242,9 @@ export const callMainPrompt = async (params: {
     ...params,
     localAgentTemplates,
     onResponseChunk: (chunk) => {
-      if (checkLiveUserInput(userId, promptId, clientSessionId)) {
+      if (
+        checkLiveUserInput({ userId, userInputId: promptId, clientSessionId })
+      ) {
         sendAction(ws, {
           type: 'response-chunk',
           userInputId: promptId,

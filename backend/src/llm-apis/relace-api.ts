@@ -139,6 +139,7 @@ Please output just the complete updated file content with no other text.`
       userInputId,
       model: models.o3mini,
       userId,
+      logger,
     })
 
     return parseMarkdownCodeBlock(content) + '\n'

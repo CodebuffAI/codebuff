@@ -174,6 +174,7 @@ Provide a new set of SEARCH/REPLACE changes to make the intended edit from the o
     fingerprintId,
     userInputId,
     userId,
+    logger,
   })
   const {
     diffBlocks: newDiffBlocks,

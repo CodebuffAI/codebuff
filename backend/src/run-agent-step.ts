@@ -258,6 +258,7 @@ export const runAgentStep = async (
       }
     },
     includeCacheControl: supportsCacheControl(agentTemplate.model),
+    logger,
   })
 
   const iterationNum = agentState.messageHistory.length
@@ -563,7 +564,7 @@ export const loopAgentSteps = async ({
   try {
     while (true) {
       totalSteps++
-      if (!checkLiveUserInput(userId, userInputId, clientSessionId)) {
+      if (!checkLiveUserInput({ userId, userInputId, clientSessionId })) {
         logger.warn(
           {
             userId,
@@ -705,7 +706,7 @@ export const loopAgentSteps = async ({
       )
     }
 
-    const status = checkLiveUserInput(userId, userInputId, clientSessionId)
+    const status = checkLiveUserInput({ userId, userInputId, clientSessionId })
       ? 'completed'
       : 'cancelled'
     await finishAgentRun({
@@ -737,7 +738,7 @@ export const loopAgentSteps = async ({
     )
     const errorMessage = typeof error === 'string' ? error : `${error}`
 
-    const status = checkLiveUserInput(userId, userInputId, clientSessionId)
+    const status = checkLiveUserInput({ userId, userInputId, clientSessionId })
       ? 'failed'
       : 'cancelled'
     await finishAgentRun({

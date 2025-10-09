@@ -66,6 +66,7 @@ export async function promptFlashWithFallbacks(params: {
         ...geminiOptions,
         messages,
         model: useFinetunedModel,
+        logger,
       })
     } catch (error) {
       logger.warn(
@@ -77,7 +78,7 @@ export async function promptFlashWithFallbacks(params: {
 
   try {
     // First try Gemini
-    return await promptAiSdk({ ...geminiOptions, messages })
+    return await promptAiSdk({ ...geminiOptions, messages, logger })
   } catch (error) {
     logger.warn(
       { error },
@@ -95,6 +96,7 @@ export async function promptFlashWithFallbacks(params: {
             experimental: openrouterModels.openrouter_claude_3_5_haiku,
             ask: openrouterModels.openrouter_claude_3_5_haiku,
           }[costMode ?? 'normal'],
+      logger,
     })
   }
 }

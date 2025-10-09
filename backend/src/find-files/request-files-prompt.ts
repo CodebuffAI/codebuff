@@ -461,6 +461,7 @@ async function getRelevantFilesForTraining(params: {
     model: models.openrouter_claude_sonnet_4,
     userId,
     chargeUser: false,
+    logger,
   })
 
   const end = performance.now()
