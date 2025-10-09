@@ -149,17 +149,17 @@ You must decide whether to:
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
 Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
-            },
-          ],
-          schema: AgentDecisionSchema,
-          model: 'x-ai/grok-4-fast',
-          clientSessionId,
-          fingerprintId,
-          userInputId: generateCompactId(),
-          userId: undefined,
-          timeout: 5 * 60_000, // 5 minute timeout
-          logger: console,
-        })
+                },
+              ],
+              schema: AgentDecisionSchema,
+              model: 'x-ai/grok-4-fast',
+              clientSessionId,
+              fingerprintId,
+              userInputId: generateCompactId(),
+              userId: undefined,
+              timeout: 5 * 60_000, // 5 minute timeout
+              logger: console,
+            })
       } catch (agentError) {
         throw new Error(
           `Agent decision failed: ${agentError instanceof Error ? `${agentError.message}\n${JSON.stringify(agentError)}\n${agentError.stack}` : String(agentError)}`,
@@ -376,6 +376,7 @@ export async function runGitEvals(
   limit?: number,
   logToStdout: boolean = false,
   agent: string = 'base',
+  worktreePath?: string,
 ): Promise<FullEvalLog> {
   // Set up signal handlers if this is the main module
   if (require.main === module) {
@@ -469,14 +470,25 @@ export async function runGitEvals(
               : fs.createWriteStream(logPath)
 
             // Write evalCommit to temporary file to avoid long command line arguments
-            const tempEvalCommitPath = path.join(
+            // Use absolute path so it works from worktree too
+            const tempEvalCommitPath = path.resolve(
               logsDir,
               `eval-commit-${evalCommit.sha.slice(0, 7)}.json`,
             )
             fs.writeFileSync(tempEvalCommitPath, JSON.stringify(evalCommit))
 
+            // Resolve the process script path relative to worktree if provided
+            const processScriptPath = worktreePath
+              ? path.join(
+                  worktreePath,
+                  'evals',
+                  'git-evals',
+                  'run-single-eval-process.ts',
+                )
+              : path.resolve(__dirname, 'run-single-eval-process.ts')
+
             const child = fork(
-              path.resolve(__dirname, 'run-single-eval-process.ts'),
+              processScriptPath,
               [
                 tempEvalCommitPath,
                 projectPath,
@@ -489,6 +501,8 @@ export async function runGitEvals(
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
                 env: process.env,
                 detached: true, // Create new process group for proper signal handling
+                // Set cwd to worktree so relative imports work correctly
+                ...(worktreePath ? { cwd: worktreePath } : {}),
               },
             )
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 
+import { execFileSync } from 'child_process'
 import path from 'path'
 
+import { generateCompactId } from '@codebuff/common/util/string'
 import { Command, Flags } from '@oclif/core'
 
 import { sendEvalResultsEmail } from './email-eval-results'
@@ -92,6 +94,70 @@ class RunEvalSetCommand extends Command {
   }
 }
 
+/**
+ * Creates a git worktree for the current commit to isolate code version
+ */
+function createEvalWorktree(): string {
+  const currentCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+    encoding: 'utf-8',
+  }).trim()
+
+  const worktreeId = generateCompactId()
+  // Get project root by going up from the evals/git-evals directory
+  const projectRoot = path.resolve(__dirname, '../..')
+  const worktreePath = path.resolve(
+    projectRoot,
+    '..',
+    `codebuff-eval-worktree-${worktreeId}`,
+  )
+
+  console.log(`Creating eval worktree at ${worktreePath}...`)
+  console.log(`Commit: ${currentCommit}`)
+
+  try {
+    execFileSync('git', ['worktree', 'add', worktreePath, currentCommit], {
+      stdio: 'inherit',
+    })
+    console.log('✅ Worktree created successfully')
+
+    // Install dependencies in worktree to ensure node_modules are in sync
+    console.log('Installing dependencies in worktree...')
+    execFileSync('bun', ['install'], {
+      cwd: worktreePath,
+      stdio: 'inherit',
+    })
+    console.log('✅ Dependencies installed successfully')
+
+    return worktreePath
+  } catch (error) {
+    console.error('Failed to create worktree:', error)
+    throw error
+  }
+}
+
+/**
+ * Removes the eval worktree
+ */
+function cleanupEvalWorktree(worktreePath: string): void {
+  console.log(`\nCleaning up eval worktree at ${worktreePath}...`)
+
+  try {
+    // Remove the worktree
+    execFileSync('git', ['worktree', 'remove', worktreePath, '--force'], {
+      stdio: 'inherit',
+    })
+    console.log('✅ Worktree removed successfully')
+  } catch (error) {
+    console.error('Failed to remove worktree:', error)
+    // Try to prune if remove failed
+    try {
+      execFileSync('git', ['worktree', 'prune'], { stdio: 'inherit' })
+    } catch (pruneError) {
+      console.error('Failed to prune worktrees:', pruneError)
+    }
+  }
+}
+
 async function runEvalSet(options: {
   sets: string
   'output-dir': string
@@ -124,10 +190,14 @@ async function runEvalSet(options: {
   console.log('Starting eval set run...')
   console.log(`Output directory: ${outputDir}`)
 
-  // Set up signal handlers to clean up child processes
+  // Create worktree to freeze code version for this eval run
+  const worktreePath = createEvalWorktree()
+
+  // Set up signal handlers to clean up child processes and worktree
   const signalHandler = async (signal: string) => {
     console.log(`\nReceived ${signal}, cleaning up evaluation processes...`)
     await terminateAllEvalChildren()
+    cleanupEvalWorktree(worktreePath)
     console.log('Cleanup complete.')
     process.exit(signal === 'SIGINT' ? 130 : 143)
   }
@@ -151,25 +221,28 @@ async function runEvalSet(options: {
     )
   }
 
+  // Resolve paths relative to worktree if using one
+  const baseDir = path.join(worktreePath, 'evals', 'git-evals')
+
   const allEvalConfigs: EvalConfig[] = [
     {
       name: 'codebuff',
-      evalDataPath: path.join(__dirname, 'eval-codebuff2.json'),
+      evalDataPath: path.join(baseDir, 'eval-codebuff2.json'),
       outputDir,
     },
     {
       name: 'manifold',
-      evalDataPath: path.join(__dirname, 'eval-manifold2.json'),
+      evalDataPath: path.join(baseDir, 'eval-manifold2.json'),
       outputDir,
     },
     {
       name: 'plane',
-      evalDataPath: path.join(__dirname, 'eval-plane.json'),
+      evalDataPath: path.join(baseDir, 'eval-plane.json'),
       outputDir,
     },
     {
       name: 'saleor',
-      evalDataPath: path.join(__dirname, 'eval-saleor.json'),
+      evalDataPath: path.join(baseDir, 'eval-saleor.json'),
       outputDir,
     },
   ]
@@ -204,6 +277,7 @@ async function runEvalSet(options: {
             config.limit,
             options.concurrency === 1,
             agent,
+            worktreePath,
           )
     } catch (error) {
       const evalDuration = Date.now() - evalStartTime
@@ -446,6 +520,9 @@ async function runEvalSet(options: {
       console.log('💾 No successful eval results to insert into database')
     }
   }
+
+  // Clean up worktree before exiting
+  cleanupEvalWorktree(worktreePath)
 
   if (failureCount > 0) {
     console.log(
