@@ -5,4 +5,5 @@ export const evalAgentRuntimeImpl: AgentRuntimeDeps = {
 
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
+  addAgentStep: async () => 'test-agent-step-id',
 }

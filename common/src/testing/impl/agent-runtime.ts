@@ -11,8 +11,7 @@ export const testLogger: Logger = {
 export const testAgentRuntimeImpl: AgentRuntimeDeps = {
   logger: testLogger,
 
-  startAgentRun: async () => {
-    return 'test-agent-run-id'
-  },
+  startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
+  addAgentStep: async () => 'test-agent-step-id',
 }

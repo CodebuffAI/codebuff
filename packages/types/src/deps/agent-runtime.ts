@@ -1,4 +1,8 @@
-import type { FinishAgentRunFn, StartAgentRunFn } from '../database'
+import type {
+  AddAgentStepFn,
+  FinishAgentRunFn,
+  StartAgentRunFn,
+} from '../database'
 import type { Logger } from '../logger'
 
 export type AgentRuntimeDeps = {
@@ -6,4 +10,5 @@ export type AgentRuntimeDeps = {
 
   startAgentRun: StartAgentRunFn
   finishAgentRun: FinishAgentRunFn
+  addAgentStep: AddAgentStepFn
 }

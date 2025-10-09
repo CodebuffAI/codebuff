@@ -7,7 +7,6 @@ import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import { addAgentStep, finishAgentRun } from './agent-run'
 import { checkLiveUserInput } from './live-user-inputs'
 import { getMCPToolData } from './mcp/util'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -46,6 +45,7 @@ import type {
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ParamsExcluding } from '@codebuff/types/common'
 import type {
+  AddAgentStepFn,
   FinishAgentRunFn,
   StartAgentRunFn,
 } from '@codebuff/types/database'
@@ -428,6 +428,7 @@ export const loopAgentSteps = async (
 
     startAgentRun: StartAgentRunFn
     finishAgentRun: FinishAgentRunFn
+    addAgentStep: AddAgentStepFn
     logger: Logger
   } & ParamsExcluding<
     typeof runProgrammaticStep,
@@ -460,6 +461,8 @@ export const loopAgentSteps = async (
     clearUserPromptMessagesAfterResponse = true,
     parentSystemPrompt,
     startAgentRun,
+    finishAgentRun,
+    addAgentStep,
     logger,
   } = params
 
