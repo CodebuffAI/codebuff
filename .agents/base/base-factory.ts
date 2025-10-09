@@ -4,7 +4,7 @@ import {
   baseAgentAgentStepPrompt,
   baseAgentSystemPrompt,
   baseAgentUserInputPrompt,
-} from '../prompts'
+} from './base-prompts'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import type { ModelName } from 'types/agent-definition'

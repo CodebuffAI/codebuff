@@ -1,4 +1,4 @@
-import { publisher } from './constants'
+import { publisher } from '../constants'
 import {
   PLACEHOLDER,
   SecretAgentDefinition,
@@ -13,7 +13,12 @@ const definition: SecretAgentDefinition = {
   displayName: 'Base Lite Grok 4 Fast',
   publisher,
   model: 'x-ai/grok-4-fast',
-  spawnableAgents: ['researcher-grok-4-fast', 'thinker', 'reviewer-lite', 'context-pruner'],
+  spawnableAgents: [
+    'researcher-grok-4-fast',
+    'thinker',
+    'reviewer-lite',
+    'context-pruner',
+  ],
   instructionsPrompt:
     PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS +
     '\n\n<system_instructions>' +

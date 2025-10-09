@@ -19,8 +19,7 @@ const definition: SecretAgentDefinition = {
   spawnableAgents: [],
 
   systemPrompt: `You are an expert researcher who can search the web to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use web_search to find current information.`,
-  instructionsPrompt: `
-Provide comprehensive research on the user's prompt.
+  instructionsPrompt: `Provide comprehensive research on the user's prompt.
 
 Use web_search to find current information. Repeat the web_search tool call until you have gathered all the relevant information.
 

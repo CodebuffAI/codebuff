@@ -1,6 +1,7 @@
-import { Message } from 'types/util-types'
 import { publisher } from '../constants'
 import { type SecretAgentDefinition } from '../types/secret-agent-definition'
+
+import type { Message } from 'types/util-types'
 
 const editor: SecretAgentDefinition = {
   id: 'editor',
@@ -36,7 +37,7 @@ const editor: SecretAgentDefinition = {
     'set_output',
     'end_turn',
   ],
-  spawnableAgents: ['file-explorer', 'web-researcher', 'docs-researcher'],
+  spawnableAgents: ['file-explorer', 'researcher-web', 'researcher-docs'],
 
   includeMessageHistory: true,
   inheritParentSystemPrompt: true,

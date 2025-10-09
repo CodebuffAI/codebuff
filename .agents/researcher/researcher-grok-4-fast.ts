@@ -12,7 +12,6 @@ const definition: SecretAgentDefinition = {
   toolNames: ['spawn_agents'],
   spawnableAgents: [
     'file-explorer',
-    // 'researcher-codebase-explorer',
     'researcher-web',
     'researcher-docs',
   ],

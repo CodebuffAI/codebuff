@@ -4,7 +4,7 @@ import {
   askAgentAgentStepPrompt,
   askAgentSystemPrompt,
   askAgentUserInputPrompt,
-} from '../prompts'
+} from './ask-prompts'
 import {
   AgentTemplateTypes,
   PLACEHOLDER,

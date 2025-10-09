@@ -17,7 +17,7 @@ import {
   test,
 } from 'bun:test'
 
-import researcherAgent from '../../../.agents/researcher'
+import researcherAgent from '../../../.agents/researcher/researcher'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'

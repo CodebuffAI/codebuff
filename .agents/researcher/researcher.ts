@@ -1,14 +1,12 @@
-import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
-
+import { publisher } from '../constants'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { Model } from '@codebuff/common/old-constants'
 
-export const researcher = (
-  model: Model,
-): Omit<SecretAgentDefinition, 'id'> => ({
-  model,
-  displayName: AGENT_PERSONAS.researcher.displayName,
+const definition: SecretAgentDefinition = {
+  id: 'researcher',
+  publisher,
+  displayName: 'Reid Searcher the Researcher',
   spawnerPrompt: `Expert at browsing the web or reading technical documentation to find relevant information.`,
+  model: 'x-ai/grok-4-fast',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -28,11 +26,13 @@ In your report, include key findings, relevant insights, and actionable recommen
   `.trim(),
   stepPrompt: `Always end your response with the end_turn tool.`,
 
-  handleSteps: function* ({ agentState, prompt, params }) {
+  handleSteps: function* ({ prompt }) {
     yield {
       toolName: 'web_search' as const,
       input: { query: prompt || '', depth: 'standard' as const },
     }
     yield 'STEP_ALL'
   },
-})
+}
+
+export default definition

@@ -1,7 +1,7 @@
-import { publisher } from './constants.ts'
-import { base } from './factory/base.ts'
+import { base } from './base-factory.ts'
+import { publisher } from '../constants.ts'
 
-import type { SecretAgentDefinition } from './types/secret-agent-definition.ts'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition.ts'
 
 const definition: SecretAgentDefinition = {
   id: 'base-lite',
@@ -27,8 +27,8 @@ const definition: SecretAgentDefinition = {
   ],
   spawnableAgents: [
     'file-explorer',
-    'web-researcher',
-    'docs-researcher',
+    'researcher-web',
+    'researcher-docs',
     'context-pruner',
   ],
 }
