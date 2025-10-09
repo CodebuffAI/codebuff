@@ -8,26 +8,32 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { countTokens } from './util/token-counter'
 
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
-export async function processFileBlock(params: {
-  path: string
-  instructions: string | undefined
-  initialContentPromise: Promise<string | null>
-  newContent: string
-  messages: Message[]
-  fullResponse: string
-  lastUserPrompt: string | undefined
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  logger: Logger
-}): Promise<
+export async function processFileBlock(
+  params: {
+    path: string
+    instructions: string | undefined
+    initialContentPromise: Promise<string | null>
+    newContent: string
+    messages: Message[]
+    fullResponse: string
+    lastUserPrompt: string | undefined
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    logger: Logger
+  } & ParamsExcluding<
+    typeof handleLargeFile,
+    'oldContent' | 'editSnippet' | 'filePath'
+  >,
+): Promise<
   | {
       tool: 'write_file'
       path: string
@@ -113,14 +119,10 @@ export async function processFileBlock(params: {
   )
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
     const largeFileContent = await handleLargeFile({
+      ...params,
       oldContent: normalizedInitialContent,
       editSnippet: normalizedEditSnippet,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
       filePath: path,
-      logger,
     })
 
     if (!largeFileContent) {
@@ -239,6 +241,7 @@ export async function handleLargeFile(params: {
   userId: string | undefined
   filePath: string
   logger: Logger
+  promptAiSdk: PromptAiSdkFn
 }): Promise<string | null> {
   const {
     oldContent,
@@ -248,6 +251,7 @@ export async function handleLargeFile(params: {
     userInputId,
     userId,
     filePath,
+    promptAiSdk,
     logger,
   } = params
   const startTime = Date.now()

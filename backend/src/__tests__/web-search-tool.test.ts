@@ -23,7 +23,6 @@ import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
 import { MockWebSocket, mockFileContext } from './test-utils'
 import * as linkupApi from '../llm-apis/linkup-api'
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
@@ -67,9 +66,9 @@ describe('web_search tool with researcher agent', () => {
     }))
 
     // Mock LLM APIs
-    spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-      Promise.resolve('Test response'),
-    )
+    agentRuntimeImpl.promptAiSdk = async function () {
+      return 'Test response'
+    }
 
     // Mock other required modules
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(

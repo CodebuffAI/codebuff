@@ -10,4 +10,7 @@ export const EVALS_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   promptAiSdkStream: async function* () {
     throw new Error('promptAiSdkStream not implemented in eval runtime')
   },
+  promptAiSdk: async function () {
+    throw new Error('promptAiSdk not implemented in eval runtime')
+  },
 })

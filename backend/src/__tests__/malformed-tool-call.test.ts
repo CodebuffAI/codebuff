@@ -16,16 +16,18 @@ import {
 } from 'bun:test'
 
 import { MockWebSocket, mockFileContext } from './test-utils'
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { processStreamWithTools } from '../tools/stream-parser'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
 import type { WebSocket } from 'ws'
+
+let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
 describe('malformed tool call error handling', () => {
   let testAgent: AgentTemplate
@@ -72,9 +74,9 @@ describe('malformed tool call error handling', () => {
     }))
 
     // Mock LLM APIs
-    spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-      Promise.resolve('Test response'),
-    )
+    agentRuntimeImpl.promptAiSdk = async function () {
+      return 'Test response'
+    }
 
     // Mock generateCompactId for consistent test results
     spyOn(stringUtils, 'generateCompactId').mockReturnValue('test-tool-call-id')
@@ -82,6 +84,7 @@ describe('malformed tool call error handling', () => {
 
   afterEach(() => {
     mock.restore()
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   function createMockStream(chunks: string[]) {

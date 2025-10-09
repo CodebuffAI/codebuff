@@ -17,12 +17,12 @@ import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 import type { Model, OpenAIModel } from '@codebuff/common/old-constants'
-import type { PromptAiSdkStreamFn } from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
+  PromptAiSdkFn,
+  PromptAiSdkStreamFn,
+} from '@codebuff/common/types/contracts/llm'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   OpenRouterProviderOptions,
@@ -231,21 +231,8 @@ export const promptAiSdkStream = async function* (
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
 export const promptAiSdk = async function (
-  params: {
-    messages: Message[]
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: Model
-    userId: string | undefined
-    chargeUser?: boolean
-    agentId?: string
-    onCostCalculated?: (credits: number) => Promise<void>
-    includeCacheControl?: boolean
-    maxRetries?: number
-    logger: Logger
-  } & ParamsExcluding<typeof generateText, 'model' | 'messages'>,
-): Promise<string> {
+  params: ParamsOf<PromptAiSdkFn>,
+): ReturnType<PromptAiSdkFn> {
   const { logger } = params
 
   if (!checkLiveUserInput(params)) {

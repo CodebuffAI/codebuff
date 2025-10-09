@@ -1,8 +1,8 @@
 import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
-import type { Message } from '../messages/codebuff-message'
-import type { streamText } from 'ai'
 import type { Model } from '../../old-constants'
+import type { Message } from '../messages/codebuff-message'
+import type { generateText, streamText } from 'ai'
 
 export type StreamChunk =
   | {
@@ -32,3 +32,20 @@ export type PromptAiSdkStreamFn = (
     logger: Logger
   } & ParamsExcluding<typeof streamText, 'model' | 'messages'>,
 ) => AsyncGenerator<StreamChunk, string | null>
+
+export type PromptAiSdkFn = (
+  params: {
+    messages: Message[]
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: Model
+    userId: string | undefined
+    chargeUser?: boolean
+    agentId?: string
+    onCostCalculated?: (credits: number) => Promise<void>
+    includeCacheControl?: boolean
+    maxRetries?: number
+    logger: Logger
+  } & ParamsExcluding<typeof generateText, 'model' | 'messages'>,
+) => Promise<string>

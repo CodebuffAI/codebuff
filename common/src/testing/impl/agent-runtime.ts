@@ -18,6 +18,9 @@ export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   promptAiSdkStream: async function* () {
     throw new Error('promptAiSdkStream not implemented in test runtime')
   },
+  promptAiSdk: async function () {
+    throw new Error('promptAiSdk not implemented in test runtime')
+  },
 
   // Other
   logger: testLogger,

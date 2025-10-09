@@ -18,7 +18,6 @@ import {
 
 // Mock imports
 import * as liveUserInputs from '../live-user-inputs'
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { asUserMessage } from '../util/messages'
@@ -106,9 +105,9 @@ describe('runAgentStep - set_output tool', () => {
     // Don't mock requestToolCall for integration test - let real tool execution happen
 
     // Mock LLM APIs
-    spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-      Promise.resolve('Test response'),
-    )
+    agentRuntimeImpl.promptAiSdk = async function () {
+      return 'Test response'
+    }
     clearAgentGeneratorCache(agentRuntimeImpl)
   })
 

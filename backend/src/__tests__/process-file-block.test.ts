@@ -1,4 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
@@ -9,14 +10,9 @@ import { applyPatch } from 'diff'
 
 import { processFileBlock } from '../process-file-block'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
-const logger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-}
+let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
 describe('processFileBlockModule', () => {
   beforeAll(() => {
@@ -74,6 +70,7 @@ describe('processFileBlockModule', () => {
       const expectedContent = 'function test() {\n  return true;\n}'
 
       const result = await processFileBlock({
+        ...agentRuntimeImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(null),
@@ -85,7 +82,6 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
-        logger,
       })
 
       expect(result).not.toBeNull()
@@ -111,6 +107,7 @@ describe('processFileBlockModule', () => {
         '}\r\n'
 
       const result = await processFileBlock({
+        ...agentRuntimeImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -122,7 +119,6 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
-        logger,
       })
 
       expect(result).not.toBeNull()
@@ -144,6 +140,7 @@ describe('processFileBlockModule', () => {
       const newContent = 'function test() {\n  return true;\n}\n'
 
       const result = await processFileBlock({
+        ...agentRuntimeImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -155,7 +152,6 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
-        logger,
       })
 
       expect(result).not.toBeNull()
@@ -170,6 +166,7 @@ describe('processFileBlockModule', () => {
       const newContent = 'const x = 1;\r\nconst z = 3;\r\n'
 
       const result = await processFileBlock({
+        ...agentRuntimeImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -181,7 +178,6 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
-        logger,
       })
 
       expect(result).not.toBeNull()
@@ -217,6 +213,7 @@ describe('processFileBlockModule', () => {
         '// ... existing code ...\nconst x = 1;\n// ... existing code ...'
 
       const result = await processFileBlock({
+        ...agentRuntimeImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(null),
@@ -228,7 +225,6 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
-        logger,
       })
 
       expect(result).not.toBeNull()
