@@ -1,7 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -20,15 +20,17 @@ import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
 import { MockWebSocket, mockFileContext } from './test-utils'
 import * as context7Api from '../llm-apis/context7-api'
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { WebSocket } from 'ws'
 
+let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
+
 function mockAgentStream(content: string | string[]) {
-  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
+  agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
     if (typeof content === 'string') {
       content = [content]
     }
@@ -36,7 +38,7 @@ function mockAgentStream(content: string | string[]) {
       yield { type: 'text' as const, text: chunk }
     }
     return 'mock-message-id'
-  })
+  }
 }
 
 describe('read_docs tool with researcher agent', () => {
@@ -56,7 +58,7 @@ describe('read_docs tool with researcher agent', () => {
       name: 'analytics.initAnalytics',
       spy: analyticsInitSpy,
     })
-    analytics.initAnalytics(testAgentRuntimeImpl)
+    analytics.initAnalytics(agentRuntimeImpl)
 
     const trackEventSpy = spyOn(analytics, 'trackEvent').mockImplementation(
       () => {},
@@ -121,12 +123,6 @@ describe('read_docs tool with researcher agent', () => {
       spy: sendActionSpy,
     })
 
-    // Mock LLM APIs
-    const promptAiSdkSpy = spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-      Promise.resolve('Test response'),
-    )
-    mockedFunctions.push({ name: 'aisdk.promptAiSdk', spy: promptAiSdkSpy })
-
     // Mock other required modules
     const requestRelevantFilesSpy = spyOn(
       requestFilesPrompt,
@@ -177,6 +173,7 @@ describe('read_docs tool with researcher agent', () => {
 
   afterEach(() => {
     mock.restore()
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   // MockWebSocket and mockFileContext imported from test-utils
@@ -229,28 +226,6 @@ describe('read_docs tool with researcher agent', () => {
     await expect(insertTraceMock?.spy()).resolves.toBe(true)
   })
 
-  test('async generator mock completes properly', async () => {
-    // Test that our async generator mock properly completes
-    const mockResponse = 'test response'
-
-    mockAgentStream(mockResponse)
-
-    const generator = aisdk.promptAiSdkStream({} as any)
-    const results = []
-
-    // Consume the generator
-    for await (const value of generator) {
-      results.push(value)
-    }
-
-    // Should have yielded exactly one value and then completed
-    expect(results).toEqual([{ type: 'text', text: mockResponse }])
-
-    // Generator should be done
-    const { done } = await generator.next()
-    expect(done).toBe(true)
-  })
-
   test('should successfully fetch documentation with basic query', async () => {
     const mockDocumentation =
       'React is a JavaScript library for building user interfaces...'
@@ -286,12 +261,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -359,12 +334,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
     })
 
     await runAgentStep({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -409,12 +384,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -476,12 +451,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -542,12 +517,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -609,12 +584,12 @@ describe('read_docs tool with researcher agent', () => {
       agentType: 'researcher' as const,
     }
     const { agentTemplates } = assembleLocalAgentTemplates({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       fileContext: mockFileContextWithAgents,
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,

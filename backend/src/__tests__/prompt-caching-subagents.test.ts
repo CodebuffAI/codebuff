@@ -1,5 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
@@ -11,11 +11,11 @@ import {
   mock,
 } from 'bun:test'
 
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { loopAgentSteps } from '../run-agent-step'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -56,6 +56,7 @@ class MockWebSocket {
 describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
   let mockLocalAgentTemplates: Record<string, AgentTemplate>
   let capturedMessages: Message[] = []
+  let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
   beforeEach(() => {
     capturedMessages = []
@@ -97,24 +98,22 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     // Mock LLM API to capture messages and end turn immediately
-    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(
-      async function* (options) {
-        // Capture the messages sent to the LLM
-        capturedMessages = options.messages
+    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
+      // Capture the messages sent to the LLM
+      capturedMessages = options.messages
 
-        // Simulate immediate end turn
-        yield {
-          type: 'text' as const,
-          text: 'Test response',
-        }
+      // Simulate immediate end turn
+      yield {
+        type: 'text' as const,
+        text: 'Test response',
+      }
 
-        if (options.onCostCalculated) {
-          await options.onCostCalculated(1)
-        }
+      if (options.onCostCalculated) {
+        await options.onCostCalculated(1)
+      }
 
-        return 'mock-message-id'
-      },
-    )
+      return 'mock-message-id'
+    }
 
     // Mock file operations
     spyOn(websocketAction, 'requestFiles').mockImplementation(
@@ -147,6 +146,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
   afterEach(() => {
     mock.restore()
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   it('should inherit parent system prompt when inheritParentSystemPrompt is true', async () => {
@@ -155,6 +155,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent first to establish system prompt
     const parentResult = await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -167,7 +168,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      ...testAgentRuntimeImpl,
     })
 
     // Capture parent's messages which include the system prompt
@@ -189,6 +189,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -202,7 +203,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      ...testAgentRuntimeImpl,
     })
 
     // Verify child uses parent's system prompt
@@ -238,6 +238,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent first
     const parentResult = await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -250,7 +251,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      ...testAgentRuntimeImpl,
     })
 
     const parentMessages = capturedMessages
@@ -266,6 +266,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -279,7 +280,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      ...testAgentRuntimeImpl,
     })
 
     const childMessages = capturedMessages
@@ -316,6 +316,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent first
     await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -328,7 +329,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      ...testAgentRuntimeImpl,
     })
 
     const parentMessages = capturedMessages
@@ -347,6 +347,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -360,7 +361,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      ...testAgentRuntimeImpl,
     })
 
     const childMessages = capturedMessages
@@ -423,6 +423,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent
     const parentResult = await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -435,7 +436,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      ...testAgentRuntimeImpl,
     })
 
     const parentMessages = capturedMessages
@@ -451,6 +451,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -464,7 +465,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      ...testAgentRuntimeImpl,
     })
 
     const childMessages = capturedMessages
@@ -505,6 +505,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent first with some message history
     const parentResult = await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -523,7 +524,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      ...testAgentRuntimeImpl,
     })
 
     const parentMessages = capturedMessages
@@ -542,6 +542,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
+      ...agentRuntimeImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -555,7 +556,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      ...testAgentRuntimeImpl,
     })
 
     const childMessages = capturedMessages
