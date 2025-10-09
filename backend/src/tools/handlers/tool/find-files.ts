@@ -6,13 +6,13 @@ import {
 } from '../../../find-files/request-files-prompt'
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
-import { logger } from '../../../util/logger'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from '../../../util/token-counter'
 import { requestFiles } from '../../../websockets/websocket-action'
 
 import type { TextBlock } from '../../../llm-apis/claude'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { Logger } from '@codebuff/types/logger'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
 import type {
   CodebuffToolCall,
@@ -29,6 +29,7 @@ const COLLECT_FULL_FILE_CONTEXT = false
 export const handleFindFiles = ((params: {
   previousToolCallFinished: Promise<any>
   toolCall: CodebuffToolCall<'find_files'>
+  logger: Logger
 
   fileContext: ProjectFileContext
   agentStepId: string
@@ -46,6 +47,7 @@ export const handleFindFiles = ((params: {
   const {
     previousToolCallFinished,
     toolCall,
+    logger,
     fileContext,
     agentStepId,
     clientSessionId,
@@ -113,6 +115,7 @@ export const handleFindFiles = ((params: {
           userInputId,
           userId,
           repoId,
+          logger,
         ).catch((error) => {
           logger.error(
             { error },
@@ -178,6 +181,7 @@ async function uploadExpandedFileContextForTraining(
   userInputId: string,
   userId: string | undefined,
   repoId: string | undefined,
+  logger: Logger,
 ) {
   const files = await requestRelevantFilesForTraining({
     messages,
