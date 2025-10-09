@@ -20,10 +20,10 @@ import type { Model, OpenAIModel } from '@codebuff/common/old-constants'
 import type {
   PromptAiSdkFn,
   PromptAiSdkStreamFn,
+  PromptAiSdkStructuredInput,
+  PromptAiSdkStructuredOutput,
 } from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   OpenRouterProviderOptions,
   OpenRouterUsageAccounting,
@@ -287,24 +287,9 @@ export const promptAiSdk = async function (
 }
 
 // Copied over exactly from promptAiSdk but with a schema
-export const promptAiSdkStructured = async function <T>(params: {
-  messages: Message[]
-  schema: z.ZodType<T>
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  model: Model
-  userId: string | undefined
-  maxTokens?: number
-  temperature?: number
-  timeout?: number
-  chargeUser?: boolean
-  agentId?: string
-  onCostCalculated?: (credits: number) => Promise<void>
-  includeCacheControl?: boolean
-  maxRetries?: number
-  logger: Logger
-}): Promise<T> {
+export const promptAiSdkStructured = async function <T>(
+  params: PromptAiSdkStructuredInput<T>,
+): PromptAiSdkStructuredOutput<T> {
   const { logger } = params
 
   if (!checkLiveUserInput(params)) {

@@ -21,6 +21,9 @@ export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   promptAiSdk: async function () {
     throw new Error('promptAiSdk not implemented in test runtime')
   },
+  promptAiSdkStructured: async function () {
+    throw new Error('promptAiSdkStructured not implemented in test runtime')
+  },
 
   // Other
   logger: testLogger,
