@@ -14,7 +14,7 @@ export const testAgentRuntimeImpl: AgentRuntimeDeps = {
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
-  promptAiSdkStream: async function* () {
-    throw new Error('promptAiSdkStream not implemented in test runtime')
-  },
+  // promptAiSdkStream: async function* () {
+  //   throw new Error('promptAiSdkStream not implemented in test runtime')
+  // },
 }
