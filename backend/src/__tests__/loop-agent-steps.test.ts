@@ -1,7 +1,7 @@
 import * as analytics from '@codebuff/common/analytics'
 import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
@@ -25,16 +25,14 @@ import { withAppContext } from '../context/app-context'
 import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { mockFileContext, MockWebSocket } from './test-utils'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 
 import type { getAgentTemplate } from '../templates/agent-registry'
 import type { AgentTemplate } from '../templates/types'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { WebSocket } from 'ws'
-
-let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
 describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => {
   let mockTemplate: AgentTemplate
@@ -96,6 +94,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   beforeEach(() => {
+    clearAgentGeneratorCache(testAgentRuntimeImpl)
+
     llmCallCount = 0
 
     // Setup spies for database operations
@@ -113,14 +113,14 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       })),
     } as any)
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       llmCallCount++
       yield {
         type: 'text' as const,
         text: `LLM response\n\n${getToolCallString('end_turn', {})}`,
       }
       return 'mock-message-id'
-    }
+    })
 
     // Mock analytics
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -165,9 +165,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   afterEach(() => {
-    clearAgentGeneratorCache(agentRuntimeImpl)
+    clearAgentGeneratorCache(testAgentRuntimeImpl)
+
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   afterAll(() => {
@@ -199,7 +199,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -245,7 +245,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -293,7 +293,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -340,7 +340,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -380,7 +380,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -412,7 +412,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -446,7 +446,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -497,7 +497,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -546,7 +546,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -598,7 +598,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     let llmCallNumber = 0
     let capturedAgentState: AgentState | null = null
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       llmCallNumber++
       if (llmCallNumber === 1) {
         // First call: agent tries to end turn without setting output
@@ -627,13 +627,13 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         }
       }
       return 'mock-message-id'
-    }
+    })
 
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -689,7 +689,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     let llmCallNumber = 0
     let capturedAgentState: AgentState | null = null
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       llmCallNumber++
       // Agent sets output correctly on first call
       if (capturedAgentState) {
@@ -700,13 +700,13 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         text: `Setting output\n\n${getToolCallString('set_output', { result: 'success' })}\n\n${getToolCallString('end_turn', {})}`,
       }
       return 'mock-message-id'
-    }
+    })
 
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -742,17 +742,17 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     let llmCallNumber = 0
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       llmCallNumber++
       yield {
         type: 'text' as const,
         text: `Response without output\n\n${getToolCallString('end_turn', {})}`,
       }
       return 'mock-message-id'
-    }
+    })
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
@@ -795,7 +795,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     let llmCallNumber = 0
     let capturedAgentState: AgentState | null = null
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       llmCallNumber++
       if (llmCallNumber === 1) {
         // First call: agent does some work but doesn't end turn
@@ -814,13 +814,13 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         }
       }
       return 'mock-message-id'
-    }
+    })
 
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
     const result = await runLoopAgentStepsWithContext({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',

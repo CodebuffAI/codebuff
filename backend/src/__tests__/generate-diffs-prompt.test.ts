@@ -1,7 +1,15 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { expect, describe, it } from 'bun:test'
 
 import { parseAndGetDiffBlocksSingleFile } from '../generate-diffs-prompt'
+
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
 
 describe('parseAndGetDiffBlocksSingleFile', () => {
   it('should parse diff blocks with newline before closing marker', () => {
@@ -18,9 +26,9 @@ function test() {
 >>>>>>> REPLACE`
 
     const result = parseAndGetDiffBlocksSingleFile({
-      ...TEST_AGENT_RUNTIME_IMPL,
       newContent,
       oldFileContent: oldContent,
+      logger,
     })
     console.log(JSON.stringify({ result }))
 
@@ -47,9 +55,9 @@ function test() {
 }>>>>>>> REPLACE`
 
     const result = parseAndGetDiffBlocksSingleFile({
-      ...TEST_AGENT_RUNTIME_IMPL,
       newContent,
       oldFileContent: oldContent,
+      logger,
     })
 
     expect(result.diffBlocks.length).toBe(1)
@@ -100,9 +108,9 @@ function subtract(a, b) {
 >>>>>>> REPLACE`
 
     const result = parseAndGetDiffBlocksSingleFile({
-      ...TEST_AGENT_RUNTIME_IMPL,
       newContent,
       oldFileContent: oldContent,
+      logger,
     })
 
     expect(result.diffBlocks.length).toBe(2)
@@ -128,9 +136,9 @@ function subtract(a, b) {
 >>>>>>> REPLACE`
 
     const result = parseAndGetDiffBlocksSingleFile({
-      ...TEST_AGENT_RUNTIME_IMPL,
       newContent,
       oldFileContent: oldContent,
+      logger,
     })
 
     expect(result.diffBlocks.length).toBe(1)

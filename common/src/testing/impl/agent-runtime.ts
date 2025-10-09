@@ -8,17 +8,13 @@ export const testLogger: Logger = {
   warn: () => {},
 }
 
-export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
-  // Database
+export const testAgentRuntimeImpl: AgentRuntimeDeps = {
+  logger: testLogger,
+
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
-
-  // LLM
-  promptAiSdkStream: async function* () {
-    throw new Error('promptAiSdkStream not implemented in test runtime')
-  },
-
-  // Other
-  logger: testLogger,
-})
+  // promptAiSdkStream: async function* () {
+  //   throw new Error('promptAiSdkStream not implemented in test runtime')
+  // },
+}

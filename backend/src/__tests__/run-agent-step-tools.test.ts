@@ -2,7 +2,7 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -25,13 +25,11 @@ import { asUserMessage } from '../util/messages'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 describe('runAgentStep - set_output tool', () => {
   let testAgent: AgentTemplate
-  let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
   beforeEach(async () => {
     // Create a test agent that supports set_output
@@ -65,7 +63,7 @@ describe('runAgentStep - set_output tool', () => {
 
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics(agentRuntimeImpl)
+    analytics.initAnalytics(testAgentRuntimeImpl)
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
@@ -109,16 +107,15 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response'),
     )
-    clearAgentGeneratorCache(agentRuntimeImpl)
+    clearAgentGeneratorCache(testAgentRuntimeImpl)
   })
 
   afterEach(() => {
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   afterAll(() => {
-    clearAgentGeneratorCache(agentRuntimeImpl)
+    clearAgentGeneratorCache(testAgentRuntimeImpl)
   })
 
   class MockWebSocket {
@@ -162,10 +159,10 @@ describe('runAgentStep - set_output tool', () => {
       '\n\n' +
       getToolCallString('end_turn', {})
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
       return 'mock-message-id'
-    }
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
@@ -174,7 +171,6 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -188,6 +184,7 @@ describe('runAgentStep - set_output tool', () => {
       prompt: 'Analyze the codebase',
       spawnParams: undefined,
       system: 'Test system prompt',
+      ...testAgentRuntimeImpl,
     })
 
     expect(result.agentState.output).toEqual({
@@ -204,10 +201,10 @@ describe('runAgentStep - set_output tool', () => {
         findings: ['Bug in auth.ts', 'Missing validation'],
       }) + getToolCallString('end_turn', {})
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
       return 'mock-message-id'
-    }
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
@@ -216,7 +213,6 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -230,6 +226,7 @@ describe('runAgentStep - set_output tool', () => {
       prompt: 'Analyze the codebase',
       spawnParams: undefined,
       system: 'Test system prompt',
+      ...testAgentRuntimeImpl,
     })
 
     expect(result.agentState.output).toEqual({
@@ -247,10 +244,10 @@ describe('runAgentStep - set_output tool', () => {
         existingField: 'updated value',
       }) + getToolCallString('end_turn', {})
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
       return 'mock-message-id'
-    }
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
@@ -264,7 +261,6 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -278,6 +274,7 @@ describe('runAgentStep - set_output tool', () => {
       prompt: 'Update the output',
       spawnParams: undefined,
       system: 'Test system prompt',
+      ...testAgentRuntimeImpl,
     })
 
     expect(result.agentState.output).toEqual({
@@ -290,10 +287,10 @@ describe('runAgentStep - set_output tool', () => {
     const mockResponse =
       getToolCallString('set_output', {}) + getToolCallString('end_turn', {})
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
       return 'mock-message-id'
-    }
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
@@ -303,7 +300,6 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -317,6 +313,7 @@ describe('runAgentStep - set_output tool', () => {
       prompt: 'Update with empty object',
       spawnParams: undefined,
       system: 'Test system prompt',
+      ...testAgentRuntimeImpl,
     })
 
     // Should replace with empty object
@@ -372,10 +369,10 @@ describe('runAgentStep - set_output tool', () => {
     )
 
     // Mock the LLM stream to return a response that doesn't end the turn
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield { type: 'text' as const, text: 'Continuing with the analysis...' } // Non-empty response, no tool calls
       return 'mock-message-id'
-    }
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
@@ -399,7 +396,6 @@ describe('runAgentStep - set_output tool', () => {
     const initialMessageCount = agentState.messageHistory.length
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -413,6 +409,7 @@ describe('runAgentStep - set_output tool', () => {
       prompt: 'Test the handleSteps functionality',
       spawnParams: undefined,
       system: 'Test system prompt',
+      ...testAgentRuntimeImpl,
     })
 
     // Should end turn because toolCalls.length === 0 && toolResults.length === 0 from LLM processing
@@ -522,7 +519,7 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock the LLM stream to spawn the inline agent
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
       yield {
         type: 'text' as const,
         text: getToolCallString('spawn_agent_inline', {
@@ -531,7 +528,7 @@ describe('runAgentStep - set_output tool', () => {
         }),
       }
       return 'mock-message-id'
-    }
+    })
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
@@ -559,7 +556,7 @@ describe('runAgentStep - set_output tool', () => {
     ]
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',

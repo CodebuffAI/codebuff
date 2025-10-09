@@ -1,5 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
@@ -12,12 +12,12 @@ import {
 } from 'bun:test'
 
 import * as messageCostTracker from '../llm-apis/message-cost-tracker'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as agentRegistry from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -99,7 +99,6 @@ class MockWebSocket {
 describe('Cost Aggregation Integration Tests', () => {
   let mockLocalAgentTemplates: Record<string, any>
   let mockWebSocket: MockWebSocket
-  let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
   beforeEach(async () => {
     mockWebSocket = new MockWebSocket()
@@ -151,31 +150,33 @@ describe('Cost Aggregation Integration Tests', () => {
     // Mock LLM streaming
     let callCount = 0
     const creditHistory: number[] = []
-    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
-      callCount++
-      const credits = callCount === 1 ? 10 : 7 // Main agent vs subagent costs
-      creditHistory.push(credits)
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(
+      async function* (options) {
+        callCount++
+        const credits = callCount === 1 ? 10 : 7 // Main agent vs subagent costs
+        creditHistory.push(credits)
 
-      if (options.onCostCalculated) {
-        await options.onCostCalculated(credits)
-      }
+        if (options.onCostCalculated) {
+          await options.onCostCalculated(credits)
+        }
 
-      // Simulate different responses based on call
-      if (callCount === 1) {
-        // Main agent spawns a subagent
-        yield {
-          type: 'text' as const,
-          text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write a simple hello world file"}]}\n</codebuff_tool_call>',
+        // Simulate different responses based on call
+        if (callCount === 1) {
+          // Main agent spawns a subagent
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write a simple hello world file"}]}\n</codebuff_tool_call>',
+          }
+        } else {
+          // Subagent writes a file
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "hello.txt", "instructions": "Create hello world file", "content": "Hello, World!"}\n</codebuff_tool_call>',
+          }
         }
-      } else {
-        // Subagent writes a file
-        yield {
-          type: 'text' as const,
-          text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "hello.txt", "instructions": "Create hello world file", "content": "Hello, World!"}\n</codebuff_tool_call>',
-        }
-      }
-      return 'mock-message-id'
-    }
+        return 'mock-message-id'
+      },
+    )
 
     // Mock tool call execution
     spyOn(websocketAction, 'requestToolCall').mockImplementation(
@@ -230,7 +231,6 @@ describe('Cost Aggregation Integration Tests', () => {
 
   afterEach(() => {
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   it('should correctly aggregate costs across the entire main prompt flow', async () => {
@@ -250,7 +250,7 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     const result = await mainPrompt({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -285,7 +285,7 @@ describe('Cost Aggregation Integration Tests', () => {
 
     // Call through websocket action handler to test full integration
     await websocketAction.callMainPrompt({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -308,35 +308,37 @@ describe('Cost Aggregation Integration Tests', () => {
   it('should handle multi-level subagent hierarchies correctly', async () => {
     // Mock a more complex scenario with nested subagents
     let callCount = 0
-    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
-      callCount++
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(
+      async function* (options) {
+        callCount++
 
-      if (options.onCostCalculated) {
-        await options.onCostCalculated(5) // Each call costs 5 credits
-      }
+        if (options.onCostCalculated) {
+          await options.onCostCalculated(5) // Each call costs 5 credits
+        }
 
-      if (callCount === 1) {
-        // Main agent spawns first-level subagent
-        yield {
-          type: 'text' as const,
-          text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Create files"}]}\n</codebuff_tool_call>',
+        if (callCount === 1) {
+          // Main agent spawns first-level subagent
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Create files"}]}\n</codebuff_tool_call>',
+          }
+        } else if (callCount === 2) {
+          // First-level subagent spawns second-level subagent
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write specific file"}]}\n</codebuff_tool_call>',
+          }
+        } else {
+          // Second-level subagent does actual work
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "nested.txt", "instructions": "Create nested file", "content": "Nested content"}\n</codebuff_tool_call>',
+          }
         }
-      } else if (callCount === 2) {
-        // First-level subagent spawns second-level subagent
-        yield {
-          type: 'text' as const,
-          text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write specific file"}]}\n</codebuff_tool_call>',
-        }
-      } else {
-        // Second-level subagent does actual work
-        yield {
-          type: 'text' as const,
-          text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "nested.txt", "instructions": "Create nested file", "content": "Nested content"}\n</codebuff_tool_call>',
-        }
-      }
 
-      return 'mock-message-id'
-    }
+        return 'mock-message-id'
+      },
+    )
 
     const sessionState = getInitialSessionState(mockFileContext)
     sessionState.mainAgentState.stepsRemaining = 10
@@ -353,7 +355,7 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     const result = await mainPrompt({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -371,27 +373,29 @@ describe('Cost Aggregation Integration Tests', () => {
   it('should maintain cost integrity when subagents fail', async () => {
     // Mock scenario where subagent fails after incurring partial costs
     let callCount = 0
-    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
-      callCount++
+    spyOn(aisdk, 'promptAiSdkStream').mockImplementation(
+      async function* (options) {
+        callCount++
 
-      if (options.onCostCalculated) {
-        await options.onCostCalculated(6) // Each call costs 6 credits
-      }
-
-      if (callCount === 1) {
-        // Main agent spawns subagent
-        yield {
-          type: 'text' as const,
-          text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "This will fail"}]}\n</codebuff_tool_call>',
+        if (options.onCostCalculated) {
+          await options.onCostCalculated(6) // Each call costs 6 credits
         }
-      } else {
-        // Subagent fails after incurring cost
-        yield { type: 'text' as const, text: 'Some response' }
-        throw new Error('Subagent execution failed')
-      }
 
-      return 'mock-message-id'
-    }
+        if (callCount === 1) {
+          // Main agent spawns subagent
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "This will fail"}]}\n</codebuff_tool_call>',
+          }
+        } else {
+          // Subagent fails after incurring cost
+          yield { type: 'text' as const, text: 'Some response' }
+          throw new Error('Subagent execution failed')
+        }
+
+        return 'mock-message-id'
+      },
+    )
 
     const sessionState = getInitialSessionState(mockFileContext)
     sessionState.mainAgentState.agentType = 'base'
@@ -409,7 +413,7 @@ describe('Cost Aggregation Integration Tests', () => {
     let result
     try {
       result = await mainPrompt({
-        ...agentRuntimeImpl,
+        ...testAgentRuntimeImpl,
         ws: mockWebSocket as unknown as WebSocket,
         action,
         userId: TEST_USER_ID,
@@ -458,7 +462,7 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     await mainPrompt({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -498,7 +502,7 @@ describe('Cost Aggregation Integration Tests', () => {
 
     // Call through websocket action to test server-side reset
     await websocketAction.callMainPrompt({
-      ...agentRuntimeImpl,
+      ...testAgentRuntimeImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,

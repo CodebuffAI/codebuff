@@ -1,7 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   AgentTemplateTypes,
@@ -22,23 +22,21 @@ import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import * as liveUserInputs from '../live-user-inputs'
+import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
-let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
-
 const mockAgentStream = (streamOutput: string) => {
-  agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+  spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
     yield { type: 'text' as const, text: streamOutput }
     return 'mock-message-id'
-  }
+  })
 }
 
 describe('mainPrompt', () => {
@@ -111,6 +109,9 @@ describe('mainPrompt', () => {
     )
 
     // Mock LLM APIs
+    spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
+      Promise.resolve('Test response'),
+    )
     mockAgentStream('Test response')
 
     // Mock websocket actions
@@ -176,7 +177,6 @@ describe('mainPrompt', () => {
   afterEach(() => {
     // Clear all mocks after each test
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   class MockWebSocket {
@@ -231,13 +231,13 @@ describe('mainPrompt', () => {
     }
 
     const { sessionState: newSessionState, output } = await mainPrompt({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
+      ...testAgentRuntimeImpl,
     })
 
     // Verify that requestToolCall was called with the terminal command
@@ -292,7 +292,6 @@ describe('mainPrompt', () => {
     }
 
     await mainPrompt({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -332,6 +331,7 @@ describe('mainPrompt', () => {
           stepPrompt: '',
         },
       },
+      ...testAgentRuntimeImpl,
     })
 
     // Assert that requestToolCall was called exactly once
@@ -371,13 +371,13 @@ describe('mainPrompt', () => {
     }
 
     const { output } = await mainPrompt({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
+      ...testAgentRuntimeImpl,
     })
 
     expect(output.type).toBeDefined() // Output should exist
@@ -398,13 +398,13 @@ describe('mainPrompt', () => {
     }
 
     const { sessionState: newSessionState } = await mainPrompt({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
+      ...testAgentRuntimeImpl,
     })
 
     // When there's a new prompt, consecutiveAssistantMessages should be set to 1
@@ -429,13 +429,13 @@ describe('mainPrompt', () => {
     }
 
     const { sessionState: newSessionState } = await mainPrompt({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
+      ...testAgentRuntimeImpl,
     })
 
     // When there's no new prompt, consecutiveAssistantMessages should increment by 1
@@ -458,13 +458,13 @@ describe('mainPrompt', () => {
     }
 
     const { output } = await mainPrompt({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
+      ...testAgentRuntimeImpl,
     })
 
     expect(output.type).toBeDefined() // Output should exist even for empty response
@@ -498,13 +498,13 @@ describe('mainPrompt', () => {
     }
 
     await mainPrompt({
-      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
+      ...testAgentRuntimeImpl,
     })
 
     // Assert that requestToolCall was called exactly once

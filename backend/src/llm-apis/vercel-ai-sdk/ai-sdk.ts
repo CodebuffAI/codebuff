@@ -17,12 +17,8 @@ import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 import type { Model, OpenAIModel } from '@codebuff/common/old-constants'
-import type { PromptAiSdkStreamFn } from '@codebuff/common/types/contracts/llm'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   OpenRouterProviderOptions,
@@ -30,6 +26,17 @@ import type {
 } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
+
+export type StreamChunk =
+  | {
+      type: 'text'
+      text: string
+    }
+  | {
+      type: 'reasoning'
+      text: string
+    }
+  | { type: 'error'; message: string }
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModel => {
@@ -54,8 +61,22 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
 // also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
 export const promptAiSdkStream = async function* (
-  params: ParamsOf<PromptAiSdkStreamFn>,
-): ReturnType<PromptAiSdkStreamFn> {
+  params: {
+    messages: Message[]
+    clientSessionId: string
+    fingerprintId: string
+    model: Model
+    userId: string | undefined
+    chargeUser?: boolean
+    thinkingBudget?: number
+    userInputId: string
+    agentId?: string
+    maxRetries?: number
+    onCostCalculated?: (credits: number) => Promise<void>
+    includeCacheControl?: boolean
+    logger: Logger
+  } & ParamsExcluding<typeof streamText, 'model' | 'messages'>,
+): AsyncGenerator<StreamChunk, string | null> {
   const { logger } = params
   if (
     !checkLiveUserInput({ ...params, clientSessionId: params.clientSessionId })

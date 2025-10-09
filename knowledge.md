@@ -152,6 +152,9 @@ afterEach(() => {
 spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
   Promise.resolve('Test response'),
 )
+spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
+  yield 'Test response'
+})
 
 // From rage-detector.test.ts - Mocking Date
 spyOn(Date, 'now').mockImplementation(() => currentTime)

@@ -103,11 +103,7 @@ export const runAgentStep = async (
     | 'agentTemplate'
     | 'agentContext'
     | 'fullResponse'
-  > &
-    ParamsExcluding<
-      typeof getAgentStreamFromTemplate,
-      'agentId' | 'template' | 'onCostCalculated' | 'includeCacheControl'
-    >,
+  >,
 ): Promise<{
   agentState: AgentState
   fullResponse: string
@@ -250,7 +246,10 @@ export const runAgentStep = async (
   const { model } = agentTemplate
 
   const { getStream } = getAgentStreamFromTemplate({
-    ...params,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
     agentId: agentState.agentId,
     template: agentTemplate,
     onCostCalculated: async (credits: number) => {
@@ -271,6 +270,7 @@ export const runAgentStep = async (
       }
     },
     includeCacheControl: supportsCacheControl(agentTemplate.model),
+    logger,
   })
 
   const iterationNum = agentState.messageHistory.length
