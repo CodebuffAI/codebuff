@@ -3,14 +3,14 @@
 import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { mapLimit } from 'async'
 
+import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/old-constants'
+import { mapLimit } from 'async'
 import { z } from 'zod/v4'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
-import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
 
 // Types for commit data
 export interface CommitDiff {
@@ -379,6 +379,7 @@ async function screenCommitsWithGpt5(
         fingerprintId,
         userInputId,
         userId: undefined,
+        logger: console,
       })
 
       // Handle empty or invalid response

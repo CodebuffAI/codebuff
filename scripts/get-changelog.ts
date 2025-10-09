@@ -172,6 +172,7 @@ Start your response with a heading using ### (three hashes) and organize the con
       model: models.openrouter_claude_sonnet_4,
       userId: undefined,
       chargeUser: false,
+      logger: console,
     })
 
     // Clean up the AI response

@@ -151,6 +151,7 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
           userInputId: generateCompactId(),
           userId: undefined,
           timeout: 5 * 60_000, // 5 minute timeout
+          logger: console,
         })
       } catch (agentError) {
         throw new Error(
