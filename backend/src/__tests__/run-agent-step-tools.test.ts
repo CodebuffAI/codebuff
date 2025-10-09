@@ -113,7 +113,7 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
       Promise.resolve('Test response'),
     )
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
   })
 
   afterEach(() => {
@@ -121,7 +121,7 @@ describe('runAgentStep - set_output tool', () => {
   })
 
   afterAll(() => {
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
   })
 
   class MockWebSocket {

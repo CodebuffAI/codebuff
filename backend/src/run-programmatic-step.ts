@@ -4,7 +4,6 @@ import { cloneDeep } from 'lodash'
 
 import { addAgentStep } from './agent-run'
 import { executeToolCall } from './tools/tool-executor'
-import { logger } from './util/logger'
 import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
 import { sendAction } from './websockets/websocket-action'
@@ -22,6 +21,7 @@ import type {
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ParamsOf } from '@codebuff/types/common'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
@@ -33,13 +33,15 @@ const runIdToGenerator: Record<string, StepGenerator | undefined> = {}
 export const runIdToStepAll: Set<string> = new Set()
 
 // Function to clear the generator cache for testing purposes
-export function clearAgentGeneratorCache() {
+export function clearAgentGeneratorCache(
+  params: ParamsOf<typeof sandboxManager.dispose>,
+) {
   for (const key in runIdToGenerator) {
     delete runIdToGenerator[key]
   }
   runIdToStepAll.clear()
   // Clean up QuickJS sandboxes
-  sandboxManager.dispose({ logger })
+  sandboxManager.dispose(params)
 }
 
 // Function to handle programmatic agents

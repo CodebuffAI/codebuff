@@ -101,7 +101,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   beforeEach(() => {
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
 
     llmCallCount = 0
 
@@ -172,7 +172,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   afterEach(() => {
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
 
     mock.restore()
   })

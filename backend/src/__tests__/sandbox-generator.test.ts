@@ -30,7 +30,7 @@ describe('QuickJS Sandbox Generator', () => {
   let mockTemplate: AgentTemplate
 
   beforeEach(() => {
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
 
     // Mock dependencies
     spyOn(agentRun, 'addAgentStep').mockImplementation(
@@ -100,7 +100,7 @@ describe('QuickJS Sandbox Generator', () => {
   })
 
   afterEach(() => {
-    clearAgentGeneratorCache()
+    clearAgentGeneratorCache({ logger })
   })
 
   test('should execute string-based generator in QuickJS sandbox', async () => {
