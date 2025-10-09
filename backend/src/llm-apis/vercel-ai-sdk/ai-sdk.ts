@@ -31,17 +31,6 @@ import type {
 import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
 
-export type StreamChunk =
-  | {
-      type: 'text'
-      text: string
-    }
-  | {
-      type: 'reasoning'
-      text: string
-    }
-  | { type: 'error'; message: string }
-
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModel => {
   if (
