@@ -2,7 +2,7 @@ import { initAnalytics } from '@codebuff/common/analytics'
 // Errors if this file is included in client bundles
 import 'server-only'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 import { logger } from '@/util/logger'
 

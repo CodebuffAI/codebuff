@@ -17,7 +17,7 @@ import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export function messagesWithSystem(params: {
   messages: Message[]

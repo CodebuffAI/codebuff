@@ -17,8 +17,8 @@ import type {
   AgentTemplateType,
   AgentOutput,
 } from '@codebuff/common/types/session-state'
-import type { ParamsExcluding } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 export const mainPrompt = async (

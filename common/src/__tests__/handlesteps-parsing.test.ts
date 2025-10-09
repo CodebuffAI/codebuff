@@ -6,7 +6,7 @@ import { DynamicAgentDefinitionSchema } from '../types/dynamic-agent-template'
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 import type { AgentState } from '../types/session-state'
 import type { ProjectFileContext } from '../util/file'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('handleSteps Parsing Tests', () => {
   let mockFileContext: ProjectFileContext

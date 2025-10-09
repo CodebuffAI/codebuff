@@ -21,8 +21,8 @@ import { checkAuth } from '../util/check-auth'
 
 import type { UserInfo } from './auth'
 import type { ClientAction, ServerAction } from '@codebuff/common/actions'
-import type { AgentRuntimeDeps } from '@codebuff/types/deps/agent-runtime'
-import type { Logger } from '@codebuff/types/logger'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 type MiddlewareCallback = (params: {

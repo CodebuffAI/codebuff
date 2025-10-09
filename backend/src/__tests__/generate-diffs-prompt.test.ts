@@ -2,7 +2,7 @@ import { expect, describe, it } from 'bun:test'
 
 import { parseAndGetDiffBlocksSingleFile } from '../generate-diffs-prompt'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const logger: Logger = {
   debug: () => {},

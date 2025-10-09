@@ -28,7 +28,7 @@ import type {
   ToolResultPart,
 } from '@codebuff/common/types/messages/content-part'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 const logger: Logger = {

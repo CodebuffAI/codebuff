@@ -4,8 +4,8 @@ import { eq } from 'drizzle-orm'
 import { LoopsClient, APIError } from 'loops'
 
 import type { LoopsEmailData, SendEmailResult } from './types'
-import type { ParamsExcluding, WithDefaults } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { ParamsExcluding, WithDefaults } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const ORGANIZATION_INVITATION_TRANSACTIONAL_ID = 'cmbikixxm15xo4a0iiemzkzw1'
 const BASIC_TRANSACTIONAL_ID = 'cmb8pafk92r820w0i7lkplkt2'

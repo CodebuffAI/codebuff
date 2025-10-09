@@ -1,4 +1,4 @@
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 let liveUserInputCheckEnabled = true
 export const disableLiveUserInputCheck = () => {

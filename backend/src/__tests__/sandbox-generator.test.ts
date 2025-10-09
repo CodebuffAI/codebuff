@@ -14,7 +14,7 @@ import * as requestContext from '../websockets/request-context'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 const logger: Logger = {

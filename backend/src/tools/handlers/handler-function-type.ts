@@ -8,7 +8,7 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { AgentRuntimeDeps } from '@codebuff/types/deps/agent-runtime'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }

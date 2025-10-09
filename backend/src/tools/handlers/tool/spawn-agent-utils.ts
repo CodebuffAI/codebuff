@@ -14,8 +14,8 @@ import type {
   Subgoal,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { ParamsExcluding, WithDefaults } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { ParamsExcluding, WithDefaults } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 export interface SpawnAgentParams {

@@ -12,7 +12,7 @@ import {
   validateAndNormalizeRepositoryUrl,
 } from '../org-billing'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Mock the database
 const mockGrants = [

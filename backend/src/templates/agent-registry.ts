@@ -8,7 +8,7 @@ import { parsePublishedAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
 import { and, desc, eq } from 'drizzle-orm'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 import type { DynamicAgentValidationError } from '@codebuff/common/templates/agent-validation'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'

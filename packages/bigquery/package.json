@@ -27,8 +27,7 @@
   },
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.4",
-    "@codebuff/common": "workspace:*",
-    "@codebuff/types": "workspace:*"
+    "@codebuff/common": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22",

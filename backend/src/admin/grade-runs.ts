@@ -4,7 +4,7 @@ import { closeXml } from '@codebuff/common/util/xml'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 
 import type { Relabel, GetRelevantFilesTrace } from '@codebuff/bigquery'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const PROMPT = `
 You are an evaluator system, measuring how well various models perform at selecting the most relevant files for a given user request.

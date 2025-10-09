@@ -8,7 +8,7 @@ import { validateSpawnableAgents } from '../util/agent-template-validation'
 
 import type { AgentTemplate } from '../types/agent-template'
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export interface DynamicAgentValidationError {
   filePath: string

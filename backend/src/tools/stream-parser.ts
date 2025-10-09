@@ -28,8 +28,8 @@ import type { ToolResultPart } from '@codebuff/common/types/messages/content-par
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { ParamsExcluding } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ToolCallPart } from 'ai'
 import type { WebSocket } from 'ws'
 

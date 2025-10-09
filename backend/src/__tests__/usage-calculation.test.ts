@@ -7,7 +7,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 
 import type { GrantType } from '@codebuff/common/db/schema'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('Usage Calculation System', () => {
   const logger: Logger = {

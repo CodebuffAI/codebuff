@@ -29,7 +29,7 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 const mockAgentStream = (streamOutput: string) => {

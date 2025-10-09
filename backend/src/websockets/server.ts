@@ -7,7 +7,7 @@ import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
 
 import type { ServerMessage } from '@codebuff/common/websockets/websocket-schema'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Server as HttpServer } from 'node:http'
 import type { RawData, WebSocket } from 'ws'
 

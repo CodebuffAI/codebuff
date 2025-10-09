@@ -12,8 +12,8 @@ import type {
   ParamsExcluding,
   ParamsOf,
   WithDefaults,
-} from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+} from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export interface CreditBalance {
   totalRemaining: number

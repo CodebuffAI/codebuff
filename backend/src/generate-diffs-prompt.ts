@@ -6,7 +6,7 @@ import {
 
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const parseAndGetDiffBlocksSingleFile = (params: {
   newContent: string

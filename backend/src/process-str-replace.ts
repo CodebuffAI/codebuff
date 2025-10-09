@@ -2,7 +2,7 @@ import { createPatch } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 function normalizeLineEndings(params: { str: string }): string {
   return params.str.replace(/\r\n/g, '\n')

@@ -19,7 +19,7 @@ import { sendAction } from '../websockets/websocket-action'
 
 import type { ClientState } from '../websockets/switchboard'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const PROFIT_MARGIN = 0.055
 

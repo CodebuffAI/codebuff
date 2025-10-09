@@ -14,7 +14,7 @@ import type {
   PrintModeText,
   PrintModeToolCall,
 } from '@codebuff/common/types/print-mode'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const toolExtractionPattern = new RegExp(
   `${startToolTag}(.*?)${endToolTag}`,

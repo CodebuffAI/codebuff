@@ -9,7 +9,7 @@ import {
   extractOwnerAndRepo,
 } from './org-billing'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export interface OrganizationLookupResult {
   found: boolean

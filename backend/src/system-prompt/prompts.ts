@@ -13,7 +13,7 @@ import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export const configSchemaPrompt = `

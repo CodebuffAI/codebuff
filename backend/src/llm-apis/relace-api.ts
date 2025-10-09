@@ -9,7 +9,7 @@ import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { countTokens } from '../util/token-counter'
 import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>

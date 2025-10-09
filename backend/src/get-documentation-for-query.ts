@@ -6,7 +6,7 @@ import { z } from 'zod/v4'
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
 import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const DELIMITER = `\n\n----------------------------------------\n\n`
 

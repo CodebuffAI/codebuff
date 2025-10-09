@@ -7,7 +7,7 @@ import {
   benchifyCanFixLanguage,
 } from '../tools/batch-str-replace'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Mock the benchify module to simulate missing API key
 mock.module('benchify', () => ({

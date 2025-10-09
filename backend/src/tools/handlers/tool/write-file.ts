@@ -3,7 +3,7 @@ import { partition } from 'lodash'
 import { processFileBlock } from '../../../process-file-block'
 import { requestOptionalFile } from '../../../websockets/websocket-action'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {

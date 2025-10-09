@@ -12,7 +12,7 @@ import { requestFiles } from '../../../websockets/websocket-action'
 
 import type { TextBlock } from '../../../llm-apis/claude'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
 import type {
   CodebuffToolCall,

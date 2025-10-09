@@ -1,7 +1,7 @@
 import db from './index'
 import { withRetry } from '../util/promise'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 type TransactionCallback<T> = Parameters<typeof db.transaction<T>>[0]
 

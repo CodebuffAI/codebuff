@@ -8,7 +8,7 @@ import {
 } from './prompts'
 import { countTokens, countTokensJson } from '../util/token-counter'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export function getSearchSystemPrompt(params: {

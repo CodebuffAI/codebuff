@@ -1,5 +1,5 @@
 import { getAgentTemplate } from '../../../templates/agent-registry'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {

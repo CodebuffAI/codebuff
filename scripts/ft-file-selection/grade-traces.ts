@@ -2,7 +2,7 @@ import { getTracesAndRelabelsForUser, setupBigQuery } from '@codebuff/bigquery'
 
 import { gradeRun } from '../../backend/src/admin/grade-runs'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Parse command line arguments to check for --prod flag
 const isProd = process.argv.includes('--prod')

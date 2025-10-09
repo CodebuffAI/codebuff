@@ -9,7 +9,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const handleWebSearch = ((params: {
   previousToolCallFinished: Promise<void>

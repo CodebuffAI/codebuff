@@ -17,8 +17,8 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { AgentRuntimeDeps } from '@codebuff/types/deps/agent-runtime'
-import type { Logger } from '@codebuff/types/logger'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 export type SendSubagentChunk = (data: {

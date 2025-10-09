@@ -30,7 +30,7 @@ import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
-import type { AgentRuntimeDeps } from '@codebuff/types/deps/agent-runtime'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { WebSocket } from 'ws'
 
 export type CustomToolCall = {

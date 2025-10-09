@@ -25,7 +25,7 @@ import type {
   Relabel,
 } from '@codebuff/bigquery'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Request, Response } from 'express'
 
 // --- GET Handler Logic ---

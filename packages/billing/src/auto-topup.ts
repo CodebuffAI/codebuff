@@ -16,7 +16,7 @@ import {
 } from './org-billing'
 import { generateOperationIdTimestamp } from './utils'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type Stripe from 'stripe'
 
 const MINIMUM_PURCHASE_CREDITS = 500

@@ -1,8 +1,8 @@
 import { withTimeout } from '@codebuff/common/util/promise'
 import { env } from '@codebuff/internal/env'
 
-import type { ParamsOf } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const CONTEXT7_API_BASE_URL = 'https://context7.com/api/v1'
 const DEFAULT_TYPE = 'txt'

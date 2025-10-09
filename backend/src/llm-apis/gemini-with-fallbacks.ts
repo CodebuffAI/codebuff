@@ -8,7 +8,7 @@ import type {
   Model,
 } from '@codebuff/common/old-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 /**
  * Prompts a Gemini model with fallback logic.

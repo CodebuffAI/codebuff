@@ -4,7 +4,7 @@ import { getAgentTemplate } from './agent-registry'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import { buildArray } from '@codebuff/common/util/array'
 
 export async function buildSpawnableAgentsDescription(params: {

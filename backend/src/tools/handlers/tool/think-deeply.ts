@@ -1,5 +1,5 @@
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,

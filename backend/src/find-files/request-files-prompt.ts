@@ -30,7 +30,7 @@ import type {
 } from '@codebuff/bigquery'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30

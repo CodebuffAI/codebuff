@@ -1,7 +1,7 @@
 import { withTimeout } from '@codebuff/common/util/promise'
 import { env } from '@codebuff/internal'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const LINKUP_API_BASE_URL = 'https://api.linkup.so/v1'
 const FETCH_TIMEOUT_MS = 30_000

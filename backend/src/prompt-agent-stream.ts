@@ -6,7 +6,7 @@ import { globalStopSequence } from './tools/constants'
 import type { AgentTemplate } from './templates/types'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const getAgentStreamFromTemplate = (params: {
   clientSessionId: string

@@ -11,7 +11,7 @@ import {
 } from './org-billing'
 
 import type { CreditBalance } from './balance-calculator'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export interface UserUsageData {
   usageThisCycle: number

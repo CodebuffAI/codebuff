@@ -2,7 +2,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export function simplifyReadFileResults(
   messageContent: CodebuffToolOutput<'read_files'>,

@@ -17,8 +17,9 @@ import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 import type { Model, OpenAIModel } from '@codebuff/common/old-constants'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { Logger } from '@codebuff/types/logger'
 import type {
   OpenRouterProviderOptions,
   OpenRouterUsageAccounting,
@@ -74,7 +75,7 @@ export const promptAiSdkStream = async function* (
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
     logger: Logger
-  } & Omit<Parameters<typeof streamText>[0], 'model' | 'messages'>,
+  } & ParamsExcluding<typeof streamText, 'model' | 'messages'>,
 ): AsyncGenerator<StreamChunk, string | null> {
   const { logger } = params
   if (
@@ -264,7 +265,7 @@ export const promptAiSdk = async function (
     includeCacheControl?: boolean
     maxRetries?: number
     logger: Logger
-  } & Omit<Parameters<typeof generateText>[0], 'model' | 'messages'>,
+  } & ParamsExcluding<typeof generateText, 'model' | 'messages'>,
 ): Promise<string> {
   const { logger } = params
 

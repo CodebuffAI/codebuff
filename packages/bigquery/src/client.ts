@@ -10,7 +10,7 @@ import type {
   Relabel,
   Trace,
 } from './schema'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const DATASET =
   process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'

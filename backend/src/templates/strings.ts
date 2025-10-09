@@ -18,7 +18,7 @@ import {
 } from '../tools/prompts'
 import { parseUserMessage } from '../util/messages'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { AgentTemplate, PlaceholderValue } from './types'
 import type {
   AgentState,

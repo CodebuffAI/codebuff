@@ -3,8 +3,8 @@ import { withTimeout } from '@codebuff/common/util/promise'
 
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
-import type { ParamsExcluding } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 /**
  * Checks if a prompt appears to be a terminal command that can be run directly.

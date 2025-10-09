@@ -16,7 +16,7 @@ import {
   spyOn,
 } from 'bun:test'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('Auto Top-up System', () => {
   describe('checkAndTriggerAutoTopup', () => {

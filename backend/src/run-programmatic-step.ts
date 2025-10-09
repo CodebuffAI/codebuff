@@ -20,8 +20,8 @@ import type {
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { ParamsExcluding, ParamsOf } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { ParamsExcluding, ParamsOf } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 // Global sandbox manager for QuickJS contexts

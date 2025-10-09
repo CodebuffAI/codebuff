@@ -5,7 +5,7 @@ import { describe, expect, it } from 'bun:test'
 import { globalStopSequence } from '../tools/constants'
 import { processStreamWithTags } from '../xml-stream-parser'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const logger: Logger = {
   debug: () => {},

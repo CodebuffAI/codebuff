@@ -10,7 +10,7 @@ import {
   resetLiveUserInputsState,
 } from '../live-user-inputs'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const logger: Logger = {
   debug: () => {},

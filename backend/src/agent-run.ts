@@ -3,12 +3,12 @@ import * as schema from '@codebuff/common/db/schema'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { eq } from 'drizzle-orm'
 
-import type { ParamsOf } from '@codebuff/types/common'
 import type {
   AddAgentStepFn,
   FinishAgentRunFn,
   StartAgentRunFn,
-} from '@codebuff/types/database'
+} from '@codebuff/common/types/contracts/database'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 
 /**
  * Starts a new agent run and creates an entry in the agent_run table

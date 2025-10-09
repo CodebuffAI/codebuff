@@ -28,8 +28,8 @@ import type {
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
-import type { ParamsExcluding } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 /**

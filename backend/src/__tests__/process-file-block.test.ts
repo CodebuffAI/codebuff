@@ -9,7 +9,7 @@ import { applyPatch } from 'diff'
 
 import { processFileBlock } from '../process-file-block'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const logger: Logger = {
   debug: () => {},

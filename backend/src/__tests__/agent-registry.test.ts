@@ -23,8 +23,8 @@ import {
 
 import type { AgentTemplate } from '../templates/types'
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { Logger } from '@codebuff/types/logger'
 
 const logger: Logger = {
   debug: () => {},

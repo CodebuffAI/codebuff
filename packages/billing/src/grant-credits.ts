@@ -12,7 +12,7 @@ import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 import { generateOperationIdTimestamp } from './utils'
 
 import type { GrantType } from '@codebuff/common/db/schema'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
 type DbTransaction = Parameters<typeof db.transaction>[0] extends (

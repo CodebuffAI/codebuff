@@ -31,7 +31,7 @@ import type { getAgentTemplate } from '../templates/agent-registry'
 import type { AgentTemplate } from '../templates/types'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { ParamsOf } from '@codebuff/types/common'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { WebSocket } from 'ws'
 
 describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => {

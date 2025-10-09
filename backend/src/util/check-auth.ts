@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import { extractAuthTokenFromHeader } from './auth-helpers'
 
 import type { ServerAction } from '@codebuff/common/actions'
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Request, Response, NextFunction } from 'express'
 
 export const checkAuth = async (params: {

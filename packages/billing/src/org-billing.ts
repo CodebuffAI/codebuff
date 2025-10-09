@@ -15,8 +15,8 @@ import type {
   CreditConsumptionResult,
 } from './balance-calculator'
 import type { GrantType } from '@codebuff/common/db/schema'
-import type { WithDefaults } from '@codebuff/types/common'
-import type { Logger } from '@codebuff/types/logger'
+import type { WithDefaults } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<typeof db, 'select' | 'update'>

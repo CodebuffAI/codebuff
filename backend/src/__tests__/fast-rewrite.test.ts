@@ -10,7 +10,7 @@ import { createPatch } from 'diff'
 
 import { rewriteWithOpenAI } from '../fast-rewrite'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const logger: Logger = {
   debug: () => {},

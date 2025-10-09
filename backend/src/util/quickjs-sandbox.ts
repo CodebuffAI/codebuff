@@ -1,6 +1,6 @@
 import { newQuickJSWASMModuleFromVariant } from 'quickjs-emscripten-core'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   QuickJSContext,
   QuickJSWASMModule,

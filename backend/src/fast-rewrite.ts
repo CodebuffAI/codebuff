@@ -8,11 +8,11 @@ import { promptRelaceAI } from './llm-apis/relace-api'
 import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
-import type { Logger } from '@codebuff/types/logger'
 
 export async function fastRewrite(params: {
   initialContent: string

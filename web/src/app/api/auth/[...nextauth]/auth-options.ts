@@ -13,7 +13,7 @@ import { loops, env } from '@codebuff/internal'
 import { eq } from 'drizzle-orm'
 import GitHubProvider from 'next-auth/providers/github'
 
-import type { Logger } from '@codebuff/types/logger'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextAuthOptions } from 'next-auth'
 import type { Adapter } from 'next-auth/adapters'
 
