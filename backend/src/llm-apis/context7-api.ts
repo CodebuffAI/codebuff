@@ -1,7 +1,8 @@
 import { withTimeout } from '@codebuff/common/util/promise'
 import { env } from '@codebuff/internal/env'
 
-import { logger } from '../util/logger'
+import type { ParamsOf } from '@codebuff/types/common'
+import type { Logger } from '@codebuff/types/logger'
 
 const CONTEXT7_API_BASE_URL = 'https://context7.com/api/v1'
 const DEFAULT_TYPE = 'txt'
@@ -42,9 +43,12 @@ export interface SearchResult {
  * Lists all available documentation projects from Context7
  * @returns Array of projects with their metadata, or null if the request fails
  */
-export async function searchLibraries(
-  query: string,
-): Promise<SearchResult[] | null> {
+export async function searchLibraries(params: {
+  query: string
+  logger: Logger
+}): Promise<SearchResult[] | null> {
+  const { query, logger } = params
+
   const searchStartTime = Date.now()
   const searchContext = {
     query,
@@ -127,23 +131,26 @@ export async function searchLibraries(
  * @returns The documentation text or null if the request fails
  */
 export async function fetchContext7LibraryDocumentation(
-  query: string,
-  options: {
+  params: {
+    query: string
     tokens?: number
     topic?: string
     folders?: string
-  } = {},
+    logger: Logger
+  } & ParamsOf<typeof searchLibraries>,
 ): Promise<string | null> {
+  const { query, tokens, topic, folders, logger } = params
+
   const apiStartTime = Date.now()
   const apiContext = {
     query,
-    requestedTokens: options.tokens,
-    topic: options.topic,
-    folders: options.folders,
+    requestedTokens: tokens,
+    topic,
+    folders,
   }
 
   const searchStartTime = Date.now()
-  const libraries = await searchLibraries(query)
+  const libraries = await searchLibraries(params)
   const searchDuration = Date.now() - searchStartTime
 
   if (!libraries || libraries.length === 0) {
@@ -179,10 +186,9 @@ export async function fetchContext7LibraryDocumentation(
 
   try {
     const url = new URL(`${CONTEXT7_API_BASE_URL}/${libraryId}`)
-    if (options.tokens)
-      url.searchParams.set('tokens', options.tokens.toString())
-    if (options.topic) url.searchParams.set('topic', options.topic)
-    if (options.folders) url.searchParams.set('folders', options.folders)
+    if (tokens) url.searchParams.set('tokens', tokens.toString())
+    if (topic) url.searchParams.set('topic', topic)
+    if (folders) url.searchParams.set('folders', folders)
     url.searchParams.set('type', DEFAULT_TYPE)
 
     const fetchStartTime = Date.now()

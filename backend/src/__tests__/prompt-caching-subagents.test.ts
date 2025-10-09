@@ -1,15 +1,9 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
   beforeEach,
   afterEach,
-  beforeAll,
-  afterAll,
   describe,
   expect,
   it,
@@ -23,7 +17,15 @@ import * as websocketAction from '../websockets/websocket-action'
 import type { AgentTemplate } from '../templates/types'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
+
+const logger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+}
 
 const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
@@ -61,19 +63,6 @@ class MockWebSocket {
 describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
   let mockLocalAgentTemplates: Record<string, AgentTemplate>
   let capturedMessages: Message[] = []
-
-  beforeAll(() => {
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        error: () => {},
-        info: () => {},
-        warn: () => {},
-      },
-      withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-    }))
-  })
 
   beforeEach(() => {
     capturedMessages = []
@@ -167,10 +156,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     mock.restore()
   })
 
-  afterAll(() => {
-    clearMockedModules()
-  })
-
   it('should inherit parent system prompt when inheritParentSystemPrompt is true', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const ws = new MockWebSocket() as unknown as WebSocket
@@ -189,7 +174,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger: console as any,
+      logger,
     })
 
     // Capture parent's messages which include the system prompt
@@ -224,7 +209,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger: console as any,
+      logger,
     })
 
     // Verify child uses parent's system prompt
@@ -272,7 +257,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger: console as any,
+      logger,
     })
 
     const parentMessages = capturedMessages
@@ -301,7 +286,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger: console as any,
+      logger,
     })
 
     const childMessages = capturedMessages
@@ -350,7 +335,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger: console as any,
+      logger,
     })
 
     const parentMessages = capturedMessages
@@ -382,7 +367,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger: console as any,
+      logger,
     })
 
     const childMessages = capturedMessages
@@ -457,7 +442,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger: console as any,
+      logger,
     })
 
     const parentMessages = capturedMessages
@@ -486,7 +471,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger: console as any,
+      logger,
     })
 
     const childMessages = capturedMessages
@@ -545,7 +530,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
-      logger: console as any,
+      logger,
     })
 
     const parentMessages = capturedMessages
@@ -577,7 +562,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
-      logger: console as any,
+      logger,
     })
 
     const childMessages = capturedMessages

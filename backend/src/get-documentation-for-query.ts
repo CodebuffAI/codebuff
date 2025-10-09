@@ -69,9 +69,11 @@ export async function getDocumentationForQuery(params: {
   const allRawChunks = (
     await Promise.all(
       libraries.map(({ libraryName, topic }) =>
-        fetchContext7LibraryDocumentation(libraryName, {
+        fetchContext7LibraryDocumentation({
+          query: libraryName,
           tokens,
           topic,
+          logger,
         }),
       ),
     )

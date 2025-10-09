@@ -1,11 +1,11 @@
 import { fetchContext7LibraryDocumentation } from '../../../llm-apis/context7-api'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { Logger } from '@codebuff/types/logger'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/types/logger'
 
 export const handleReadDocs = (({
   previousToolCallFinished,
@@ -60,13 +60,12 @@ export const handleReadDocs = (({
 
   const documentationPromise = (async () => {
     try {
-      const documentation = await fetchContext7LibraryDocumentation(
-        libraryTitle,
-        {
-          topic,
-          tokens: max_tokens,
-        },
-      )
+      const documentation = await fetchContext7LibraryDocumentation({
+        query: libraryTitle,
+        topic,
+        tokens: max_tokens,
+        logger,
+      })
 
       const docsDuration = Date.now() - docsStartTime
       const resultLength = documentation?.length || 0
