@@ -64,7 +64,7 @@ describe('Spawn Agents Permissions', () => {
     mockLoopAgentSteps = spyOn(
       runAgentStep,
       'loopAgentSteps',
-    ).mockImplementation(async (ws, options) => {
+    ).mockImplementation(async (options) => {
       return {
         agentState: {
           ...options.agentState,

@@ -171,7 +171,8 @@ export async function validateAndGetAgentTemplate(params: {
   localAgentTemplates: Record<string, AgentTemplate>
   logger: Logger
 }): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
-  const { agentTypeStr, parentAgentTemplate, localAgentTemplates, logger } = params
+  const { agentTypeStr, parentAgentTemplate, localAgentTemplates, logger } =
+    params
   const agentTemplate = await getAgentTemplate({
     agentId: agentTypeStr,
     localAgentTemplates,
@@ -280,7 +281,16 @@ export function logAgentSpawn(params: {
   inline?: boolean
   logger: Logger
 }): void {
-  const { agentTemplate, agentType, agentId, parentId, prompt, params: spawnParams, inline = false, logger } = params
+  const {
+    agentTemplate,
+    agentType,
+    agentId,
+    parentId,
+    prompt,
+    params: spawnParams,
+    inline = false,
+    logger,
+  } = params
   logger.debug(
     {
       agentTemplate,
@@ -313,6 +323,7 @@ export async function executeSubagent({
   isOnlyChild = false,
   clearUserPromptMessagesAfterResponse = true,
   parentSystemPrompt,
+  logger,
 }: {
   ws: WebSocket
   userInputId: string
@@ -330,6 +341,7 @@ export async function executeSubagent({
   isOnlyChild?: boolean
   clearUserPromptMessagesAfterResponse?: boolean
   parentSystemPrompt?: string
+  logger: Logger
 }) {
   onResponseChunk({
     type: 'subagent_start',
@@ -341,7 +353,8 @@ export async function executeSubagent({
   // Import loopAgentSteps dynamically to avoid circular dependency
   const { loopAgentSteps } = await import('../../../run-agent-step')
 
-  const result = await loopAgentSteps(ws, {
+  const result = await loopAgentSteps({
+    ws,
     userInputId,
     prompt,
     params,
@@ -355,6 +368,7 @@ export async function executeSubagent({
     onResponseChunk,
     clearUserPromptMessagesAfterResponse,
     parentSystemPrompt,
+    logger,
   })
 
   onResponseChunk({

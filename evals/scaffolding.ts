@@ -180,7 +180,8 @@ export async function runAgentStepScaffolding(
     logger: console,
   })
 
-  const result = await runAgentStep(mockWs, {
+  const result = await runAgentStep({
+    ws: mockWs,
     userId: TEST_USER_ID,
     userInputId: generateCompactId(),
     clientSessionId: sessionId,
@@ -201,6 +202,7 @@ export async function runAgentStepScaffolding(
     prompt,
     params: undefined,
     system: 'Test system prompt',
+    logger: console,
   })
 
   return {

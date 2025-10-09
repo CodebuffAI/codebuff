@@ -119,6 +119,7 @@ export const handleSpawnAgentInline = ((params: {
         // writeToClient(chunk)
       },
       clearUserPromptMessagesAfterResponse: false,
+      logger,
     })
 
     // Update parent's message history with child's final state

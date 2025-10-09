@@ -144,6 +144,7 @@ export const handleSpawnAgents = ((params: {
               prompt,
             })
           },
+          logger,
         })
         return { ...result, agentType, agentName: agentTemplate.displayName }
       }),

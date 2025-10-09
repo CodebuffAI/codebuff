@@ -16,7 +16,6 @@ import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
-import { logger } from './util/logger'
 import {
   asSystemInstruction,
   asSystemMessage,
@@ -45,6 +44,7 @@ import type {
   AgentOutput,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
 /**
@@ -72,6 +72,7 @@ function buildUserMessageContent(
 }
 
 export interface AgentOptions {
+  ws: WebSocket
   userId: string | undefined
   userInputId: string
   clientSessionId: string
@@ -86,10 +87,10 @@ export interface AgentOptions {
   prompt: string | undefined
   params: Record<string, any> | undefined
   system: string
+  logger: Logger
 }
 
 export const runAgentStep = async (
-  ws: WebSocket,
   options: AgentOptions,
 ): Promise<{
   agentState: AgentState
@@ -98,6 +99,7 @@ export const runAgentStep = async (
   messageId: string | null
 }> => {
   const {
+    ws,
     userId,
     userInputId,
     fingerprintId,
@@ -109,6 +111,7 @@ export const runAgentStep = async (
     prompt,
     params,
     system,
+    logger,
   } = options
   let agentState = options.agentState
 
@@ -170,7 +173,11 @@ export const runAgentStep = async (
     }
   }
 
-  const agentTemplate = await getAgentTemplate({ agentId: agentType, localAgentTemplates, logger })
+  const agentTemplate = await getAgentTemplate({
+    agentId: agentType,
+    localAgentTemplates,
+    logger,
+  })
   if (!agentTemplate) {
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${Object.keys(localAgentTemplates).join(', ')}`,
@@ -396,45 +403,50 @@ export const runAgentStep = async (
   }
 }
 
-export const loopAgentSteps = async (
-  ws: WebSocket,
-  {
-    userInputId,
-    agentType,
-    agentState,
-    prompt,
-    content,
-    params,
-    fingerprintId,
-    fileContext,
-    localAgentTemplates,
-    userId,
-    clientSessionId,
-    onResponseChunk,
-    clearUserPromptMessagesAfterResponse = true,
-    parentSystemPrompt,
-  }: {
-    userInputId: string
-    agentType: AgentTemplateType
-    agentState: AgentState
-    prompt: string | undefined
-    content?: Array<TextPart | ImagePart>
-    params: Record<string, any> | undefined
-    fingerprintId: string
-    fileContext: ProjectFileContext
-    localAgentTemplates: Record<string, AgentTemplate>
-    clearUserPromptMessagesAfterResponse?: boolean
-    parentSystemPrompt?: string
+export const loopAgentSteps = async ({
+  ws,
+  userInputId,
+  agentType,
+  agentState,
+  prompt,
+  content,
+  params,
+  fingerprintId,
+  fileContext,
+  localAgentTemplates,
+  userId,
+  clientSessionId,
+  onResponseChunk,
+  clearUserPromptMessagesAfterResponse = true,
+  parentSystemPrompt,
+  logger,
+}: {
+  ws: WebSocket
+  userInputId: string
+  agentType: AgentTemplateType
+  agentState: AgentState
+  prompt: string | undefined
+  content?: Array<TextPart | ImagePart>
+  params: Record<string, any> | undefined
+  fingerprintId: string
+  fileContext: ProjectFileContext
+  localAgentTemplates: Record<string, AgentTemplate>
+  clearUserPromptMessagesAfterResponse?: boolean
+  parentSystemPrompt?: string
 
-    userId: string | undefined
-    clientSessionId: string
-    onResponseChunk: (chunk: string | PrintModeEvent) => void
-  },
-): Promise<{
+  userId: string | undefined
+  clientSessionId: string
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
+  logger: Logger
+}): Promise<{
   agentState: AgentState
   output: AgentOutput
 }> => {
-  const agentTemplate = await getAgentTemplate({ agentId: agentType, localAgentTemplates, logger })
+  const agentTemplate = await getAgentTemplate({
+    agentId: agentType,
+    localAgentTemplates,
+    logger,
+  })
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
@@ -646,7 +658,8 @@ export const loopAgentSteps = async (
         agentState: newAgentState,
         shouldEndTurn: llmShouldEndTurn,
         messageId,
-      } = await runAgentStep(ws, {
+      } = await runAgentStep({
+        ws,
         userId,
         userInputId,
         clientSessionId,
@@ -659,6 +672,7 @@ export const loopAgentSteps = async (
         prompt: currentPrompt,
         params: currentParams,
         system,
+        logger,
       })
 
       if (newAgentState.runId) {

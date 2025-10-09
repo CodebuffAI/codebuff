@@ -40,7 +40,7 @@ describe('Spawn Agents Message History', () => {
     mockLoopAgentSteps = spyOn(
       runAgentStep,
       'loopAgentSteps',
-    ).mockImplementation(async (ws, options) => {
+    ).mockImplementation(async (options) => {
       capturedSubAgentState = options.agentState
       return {
         agentState: {

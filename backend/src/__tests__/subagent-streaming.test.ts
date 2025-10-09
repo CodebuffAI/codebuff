@@ -87,7 +87,7 @@ describe('Subagent Streaming', () => {
     mockLoopAgentSteps = spyOn(
       runAgentStep,
       'loopAgentSteps',
-    ).mockImplementation(async (ws, options) => {
+    ).mockImplementation(async (options) => {
       // Simulate streaming chunks by calling the callback
       if (options.onResponseChunk) {
         options.onResponseChunk('Thinking about the problem...')
