@@ -396,9 +396,15 @@ export const onWebsocketAction = async (
 }
 
 // Register action handlers
-subscribeToAction('prompt', protec.run(onPrompt))
-subscribeToAction('init', protec.run(onInit, { silent: true }))
-subscribeToAction('cancel-user-input', protec.run(onCancelUserInput))
+subscribeToAction('prompt', protec.run({ baseAction: onPrompt, logger }))
+subscribeToAction(
+  'init',
+  protec.run({ baseAction: onInit, silent: true, logger }),
+)
+subscribeToAction(
+  'cancel-user-input',
+  protec.run({ baseAction: onCancelUserInput, logger }),
+)
 
 /**
  * Requests multiple files from the client
