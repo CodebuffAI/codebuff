@@ -77,7 +77,7 @@ export async function validateAgentNameHandler(
     }
 
     // Check published agents (database)
-    const found = await getAgentTemplate(agentId, {})
+    const found = await getAgentTemplate({ agentId, localAgentTemplates: {}, logger })
     if (found) {
       const result = {
         valid: true as const,

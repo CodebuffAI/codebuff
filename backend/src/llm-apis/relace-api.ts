@@ -90,6 +90,7 @@ export async function promptRelaceAI(
       outputTokens: countTokens(content),
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
+      logger,
     })
     return content + '\n'
   } catch (error) {
@@ -227,6 +228,7 @@ export async function rerank(
       outputTokens: countTokens(JSON.stringify(rankings)),
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
+      logger,
     })
 
     return rankings

@@ -61,7 +61,7 @@ export async function formatPrompt({
     : undefined
 
   const agentTemplate = agentState.agentType
-    ? await getAgentTemplate(agentState.agentType, agentTemplates)
+    ? await getAgentTemplate({ agentId: agentState.agentType, localAgentTemplates: agentTemplates, logger })
     : null
 
   const toInject: Record<PlaceholderValue, () => string | Promise<string>> = {
@@ -89,7 +89,7 @@ export async function formatPrompt({
     [PLACEHOLDER.TOOLS_PROMPT]: async () =>
       getToolsInstructions(tools, await additionalToolDefinitions()),
     [PLACEHOLDER.AGENTS_PROMPT]: () =>
-      buildSpawnableAgentsDescription(spawnableAgents, agentTemplates),
+      buildSpawnableAgentsDescription({ spawnableAgents, agentTemplates, logger }),
     [PLACEHOLDER.USER_CWD]: () => fileContext.cwd,
     [PLACEHOLDER.USER_INPUT_PROMPT]: () => escapeString(lastUserInput ?? ''),
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: () =>
@@ -208,10 +208,11 @@ export async function getAgentPrompt<T extends StringField>({
       '\n\n' +
       toolsInstructions +
       '\n\n' +
-      (await buildSpawnableAgentsDescription(
-        agentTemplate.spawnableAgents,
+      (await buildSpawnableAgentsDescription({
+        spawnableAgents: agentTemplate.spawnableAgents,
         agentTemplates,
-      ))
+        logger,
+      }))
 
     const parentInstructions = await collectParentInstructions({
       agentType: agentState.agentType,

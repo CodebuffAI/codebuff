@@ -26,6 +26,13 @@ import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { Logger } from '@codebuff/types/logger'
 
+const logger: Logger = {
+  debug: () => {},
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+}
+
 // Create mock static templates that will be used by the agent registry
 const mockStaticTemplates: Record<string, AgentTemplate> = {
   base: {
@@ -101,16 +108,6 @@ describe('Agent Registry', () => {
       desc: (field: any) => ({ type: 'desc', field }),
       eq: (field: any, value: any) => ({ type: 'eq', field, value }),
     }))
-
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        log: () => {},
-        error: () => {},
-        warn: () => {},
-      },
-    }))
   })
   let mockFileContext: ProjectFileContext
 
@@ -149,16 +146,6 @@ describe('Agent Registry', () => {
       and: (...args: any[]) => ({ type: 'and', args }),
       desc: (field: any) => ({ type: 'desc', field }),
       eq: (field: any, value: any) => ({ type: 'eq', field, value }),
-    }))
-
-    // Mock logger
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        debug: () => {},
-        log: () => {},
-        error: () => {},
-        warn: () => {},
-      },
     }))
   })
 
@@ -253,33 +240,80 @@ describe('Agent Registry', () => {
         } as AgentTemplate,
       }
 
-      const result = await getAgentTemplate('my-agent', localAgents)
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'my-agent',
+        localAgentTemplates: localAgents,
+        logger,
+      })
       expect(result).toBeTruthy()
       expect(result?.id).toBe('my-agent')
     })
 
     it('should handle agent IDs with publisher but no version', async () => {
-      const result = await getAgentTemplate('publisher/agent-name', {})
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'publisher/agent-name',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
 
     it('should handle agent IDs with publisher and version', async () => {
-      const result = await getAgentTemplate('publisher/agent-name@1.0.0', {})
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'publisher/agent-name@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
 
     it('should return null for invalid agent ID formats', async () => {
-      const result = await getAgentTemplate(
-        'invalid/format/with/too/many/slashes',
-        {},
-      )
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'invalid/format/with/too/many/slashes',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
   })
 
   describe('fetchAgentFromDatabase', () => {
     it('should return null when agent not found in database', async () => {
-      const result = await getAgentTemplate('nonexistent/agent@1.0.0', {})
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'nonexistent/agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
 
@@ -317,10 +351,17 @@ describe('Agent Registry', () => {
           }) as any,
       )
 
-      const result = await getAgentTemplate(
-        'test-publisher/test-agent@1.0.0',
-        {},
-      )
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'test-publisher/test-agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeTruthy()
       expect(result?.id).toBe('test-publisher/test-agent@1.0.0')
     })
@@ -347,7 +388,17 @@ describe('Agent Registry', () => {
         } as AgentTemplate,
       }
 
-      const result = await getAgentTemplate('test-agent', localAgents)
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'test-agent',
+        localAgentTemplates: localAgents,
+        logger,
+      })
       expect(result).toBeTruthy()
       expect(result?.displayName).toBe('Local Test Agent')
     })
@@ -387,18 +438,20 @@ describe('Agent Registry', () => {
       )
 
       // First call - should hit database
-      const result1 = await getAgentTemplate(
-        'test-publisher/cached-agent@1.0.0',
-        {},
-      )
+      const result1 = await getAgentTemplate({
+        agentId: 'test-publisher/cached-agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result1).toBeTruthy()
       expect(selectSpy).toHaveBeenCalledTimes(1)
 
       // Second call - should use cache
-      const result2 = await getAgentTemplate(
-        'test-publisher/cached-agent@1.0.0',
-        {},
-      )
+      const result2 = await getAgentTemplate({
+        agentId: 'test-publisher/cached-agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result2).toBeTruthy()
       expect(result2?.displayName).toBe('Cached Agent')
       expect(selectSpy).toHaveBeenCalledTimes(1)
@@ -426,7 +479,13 @@ describe('Agent Registry', () => {
         },
       }
 
-      const result = assembleLocalAgentTemplates(fileContext)
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = assembleLocalAgentTemplates({ fileContext, logger })
 
       // Should have dynamic template
       expect(result.agentTemplates).toHaveProperty('custom-agent')
@@ -450,7 +509,13 @@ describe('Agent Registry', () => {
         },
       }
 
-      const result = assembleLocalAgentTemplates(fileContext)
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = assembleLocalAgentTemplates({ fileContext, logger })
 
       // Should not have invalid template
       expect(result.agentTemplates).not.toHaveProperty('invalid-agent')
@@ -465,7 +530,13 @@ describe('Agent Registry', () => {
         agentTemplates: {},
       }
 
-      const result = assembleLocalAgentTemplates(fileContext)
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = assembleLocalAgentTemplates({ fileContext, logger })
 
       // Should have no validation errors
       expect(result.validationErrors).toHaveLength(0)
@@ -511,35 +582,83 @@ describe('Agent Registry', () => {
       )
 
       // First call - should hit database and populate cache
-      await getAgentTemplate('test-publisher/cache-test-agent@1.0.0', {})
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      await getAgentTemplate({
+        agentId: 'test-publisher/cache-test-agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(selectSpy).toHaveBeenCalledTimes(1)
 
       // Second call - should use cache
-      await getAgentTemplate('test-publisher/cache-test-agent@1.0.0', {})
+      await getAgentTemplate({
+        agentId: 'test-publisher/cache-test-agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(selectSpy).toHaveBeenCalledTimes(1)
 
       // Clear cache
       clearDatabaseCache()
 
       // Third call - should hit database again after cache clear
-      await getAgentTemplate('test-publisher/cache-test-agent@1.0.0', {})
+      await getAgentTemplate({
+        agentId: 'test-publisher/cache-test-agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(selectSpy).toHaveBeenCalledTimes(2)
     })
   })
 
   describe('edge cases', () => {
     it('should handle empty agent ID', async () => {
-      const result = await getAgentTemplate('', {})
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: '',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
 
     it('should handle agent ID with multiple @ symbols', async () => {
-      const result = await getAgentTemplate('publisher/agent@1.0.0@extra', {})
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'publisher/agent@1.0.0@extra',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
 
     it('should handle agent ID with only @ symbol', async () => {
-      const result = await getAgentTemplate('publisher/agent@', {})
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'publisher/agent@',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
 
@@ -549,7 +668,17 @@ describe('Agent Registry', () => {
         throw new Error('Database connection failed')
       })
 
-      const result = await getAgentTemplate('publisher/agent@1.0.0', {})
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'publisher/agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
 
@@ -579,10 +708,17 @@ describe('Agent Registry', () => {
           }) as any,
       )
 
-      const result = await getAgentTemplate(
-        'publisher/malformed-agent@1.0.0',
-        {},
-      )
+      const logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const result = await getAgentTemplate({
+        agentId: 'publisher/malformed-agent@1.0.0',
+        localAgentTemplates: {},
+        logger,
+      })
       expect(result).toBeNull()
     })
   })

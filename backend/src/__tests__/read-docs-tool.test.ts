@@ -27,6 +27,13 @@ import * as websocketAction from '../websockets/websocket-action'
 import type { Logger } from '@codebuff/types/logger'
 import type { WebSocket } from 'ws'
 
+const logger: Logger = {
+  debug: () => {},
+  error: () => {},
+  info: () => {},
+  warn: () => {},
+}
+
 function mockAgentStream(content: string | string[]) {
   spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* ({}) {
     if (typeof content === 'string') {
@@ -42,12 +49,6 @@ function mockAgentStream(content: string | string[]) {
 describe('read_docs tool with researcher agent', () => {
   // Track all mocked functions to verify they're being used
   const mockedFunctions: Array<{ name: string; spy: any }> = []
-  const logger: Logger = {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  }
 
   beforeEach(() => {
     // Clear tracked mocks
@@ -291,9 +292,10 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -365,9 +367,10 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       system: 'Test system prompt',
@@ -413,9 +416,10 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -480,9 +484,10 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -546,9 +551,10 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -613,9 +619,10 @@ describe('read_docs tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,

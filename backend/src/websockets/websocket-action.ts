@@ -217,7 +217,7 @@ export const callMainPrompt = async (params: {
 
   // Assemble local agent templates from fileContext
   const { agentTemplates: localAgentTemplates, validationErrors } =
-    assembleLocalAgentTemplates(fileContext)
+    assembleLocalAgentTemplates({ fileContext, logger })
 
   if (validationErrors.length > 0) {
     sendAction(ws, {

@@ -8,6 +8,7 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
@@ -29,6 +30,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
 
     getLatestState: () => any
     state: { [K in string]?: any }
+    logger: Logger
   } & PresentOrAbsent<
     'requestClientToolCall',
     (

@@ -16,7 +16,7 @@ As you complete each step and encounter unintuitive cases or learn new patterns:
 - Set `cwd: "backend"` to limit search scope
 - Exclude websocket-action.ts files
 
-### Step 2: For each file (except websocket-action.ts and library-integrated functions)
+### Step 2: Select a file (except websocket-action.ts and library-integrated functions)
 
 **Exception**: Do NOT refactor functions that are directly integrated with external libraries and must maintain a specific signature required by that library. Examples include:
 
@@ -58,3 +58,5 @@ For all other files:
   - This will push to a branch, where I can manually review the changes.
 - Keep commit message concise but descriptive
 - Include Codebuff footer in commit message
+
+### Step 5: Go back to Step 1 and repeat

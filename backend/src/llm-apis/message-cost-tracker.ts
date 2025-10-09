@@ -12,14 +12,14 @@ import Stripe from 'stripe'
 import { WebSocket } from 'ws'
 
 import { getRequestContext } from '../context/app-context'
-import { logger, withLoggerContext } from '../util/logger'
-import type { Logger } from '@codebuff/types/logger'
+import { withLoggerContext } from '../util/logger'
 import { stripNullCharsFromObject } from '../util/object'
 import { SWITCHBOARD } from '../websockets/server'
 import { sendAction } from '../websockets/websocket-action'
 
 import type { ClientState } from '../websockets/switchboard'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 
 export const PROFIT_MARGIN = 0.055
 
@@ -600,6 +600,7 @@ export const saveMessage = async (value: {
   chargeUser?: boolean
   costOverrideDollars?: number
   agentId?: string
+  logger: Logger
 }): Promise<number> =>
   withLoggerContext(
     {
@@ -608,6 +609,7 @@ export const saveMessage = async (value: {
       fingerprintId: value.fingerprintId,
     },
     async () => {
+      const { logger } = value
       const cost =
         value.costOverrideDollars ??
         calcCost(

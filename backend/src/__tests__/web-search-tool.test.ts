@@ -120,9 +120,10 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       system: 'Test system prompt',
@@ -165,9 +166,10 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -225,9 +227,10 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     await runAgentStep(new MockWebSocket() as unknown as WebSocket, {
       system: 'Test system prompt',
@@ -267,9 +270,10 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -326,9 +330,10 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -381,9 +386,10 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -426,9 +432,10 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,
@@ -483,9 +490,10 @@ describe('web_search tool with researcher agent', () => {
       ...sessionState.mainAgentState,
       agentType: 'researcher' as const,
     }
-    const { agentTemplates } = assembleLocalAgentTemplates(
-      mockFileContextWithAgents,
-    )
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      fileContext: mockFileContextWithAgents,
+      logger,
+    })
 
     const { agentState: newAgentState } = await runAgentStep(
       new MockWebSocket() as unknown as WebSocket,

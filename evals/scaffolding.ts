@@ -175,8 +175,10 @@ export async function runAgentStepScaffolding(
   mockWs.close = mock()
 
   let fullResponse = ''
-  const { agentTemplates: localAgentTemplates } =
-    assembleLocalAgentTemplates(fileContext)
+  const { agentTemplates: localAgentTemplates } = assembleLocalAgentTemplates({
+    fileContext,
+    logger: console,
+  })
 
   const result = await runAgentStep(mockWs, {
     userId: TEST_USER_ID,

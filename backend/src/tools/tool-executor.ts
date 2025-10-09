@@ -246,6 +246,7 @@ export function executeToolCall<T extends ToolName>(
     toolCall,
     getLatestState: () => state,
     state,
+    logger,
   }) as ReturnType<CodebuffToolHandlerFunction<T>>
 
   for (const [key, value] of Object.entries(stateUpdate ?? {})) {

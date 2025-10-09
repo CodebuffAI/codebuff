@@ -62,7 +62,7 @@ export const mainPrompt = async (params: {
   let agentType: AgentTemplateType
 
   if (agentId) {
-    if (!(await getAgentTemplate(agentId, localAgentTemplates))) {
+    if (!(await getAgentTemplate({ agentId, localAgentTemplates, logger }))) {
       throw new Error(
         `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`,
       )
@@ -81,7 +81,7 @@ export const mainPrompt = async (params: {
     // Check for base agent in config
     const configBaseAgent = fileContext.codebuffConfig?.baseAgent
     if (configBaseAgent) {
-      if (!(await getAgentTemplate(configBaseAgent, localAgentTemplates))) {
+      if (!(await getAgentTemplate({ agentId: configBaseAgent, localAgentTemplates, logger }))) {
         throw new Error(
           `Invalid base agent in config: "${configBaseAgent}". Available agents: ${availableAgents.join(', ')}`,
         )
@@ -111,7 +111,7 @@ export const mainPrompt = async (params: {
 
   mainAgentState.agentType = agentType
 
-  let mainAgentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+  let mainAgentTemplate = await getAgentTemplate({ agentId: agentType, localAgentTemplates, logger })
   if (!mainAgentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }

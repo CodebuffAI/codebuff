@@ -11,10 +11,11 @@ export const handleLookupAgentInfo: CodebuffToolHandlerFunction<
 
   return {
     result: (async () => {
-      const agentTemplate = await getAgentTemplate(
+      const agentTemplate = await getAgentTemplate({
         agentId,
-        params.state.localAgentTemplates || {},
-      )
+        localAgentTemplates: params.state.localAgentTemplates || {},
+        logger: params.logger,
+      })
 
       if (!agentTemplate) {
         return [

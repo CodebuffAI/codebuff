@@ -170,7 +170,7 @@ export const runAgentStep = async (
     }
   }
 
-  const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+  const agentTemplate = await getAgentTemplate({ agentId: agentType, localAgentTemplates, logger })
   if (!agentTemplate) {
     throw new Error(
       `Agent template not found for type: ${agentType}. Available types: ${Object.keys(localAgentTemplates).join(', ')}`,
@@ -434,7 +434,7 @@ export const loopAgentSteps = async (
   agentState: AgentState
   output: AgentOutput
 }> => {
-  const agentTemplate = await getAgentTemplate(agentType, localAgentTemplates)
+  const agentTemplate = await getAgentTemplate({ agentId: agentType, localAgentTemplates, logger })
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }

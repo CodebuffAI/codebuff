@@ -239,6 +239,7 @@ export const promptAiSdkStream = async function* (
     chargeUser: options.chargeUser ?? true,
     costOverrideDollars,
     agentId: options.agentId,
+    logger,
   })
 
   // Call the cost callback if provided
@@ -311,6 +312,7 @@ export const promptAiSdk = async function (
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
     agentId: options.agentId,
+    logger,
   })
 
   // Call the cost callback if provided
@@ -389,6 +391,7 @@ export const promptAiSdkStructured = async function <T>(options: {
     latencyMs: Date.now() - startTime,
     chargeUser: options.chargeUser ?? true,
     agentId: options.agentId,
+    logger,
   })
 
   // Call the cost callback if provided
