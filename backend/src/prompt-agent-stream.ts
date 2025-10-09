@@ -1,12 +1,13 @@
 import { providerModelNames } from '@codebuff/common/old-constants'
 
-import { promptAiSdkStream } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { globalStopSequence } from './tools/constants'
 
 import type { AgentTemplate } from './templates/types'
+import type { PromptAiSdkStreamFn } from '@codebuff/common/types/contracts/llm'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const getAgentStreamFromTemplate = (params: {
   clientSessionId: string
@@ -19,6 +20,7 @@ export const getAgentStreamFromTemplate = (params: {
 
   template: AgentTemplate
   logger: Logger
+  promptAiSdkStream: PromptAiSdkStreamFn
 }) => {
   const {
     clientSessionId,
@@ -30,6 +32,7 @@ export const getAgentStreamFromTemplate = (params: {
     includeCacheControl,
     template,
     logger,
+    promptAiSdkStream,
   } = params
 
   if (!template) {
@@ -39,7 +42,7 @@ export const getAgentStreamFromTemplate = (params: {
   const { model } = template
 
   const getStream = (messages: Message[]) => {
-    const aiSdkStreamParams: Parameters<typeof promptAiSdkStream>[0] = {
+    const aiSdkStreamParams: ParamsOf<PromptAiSdkStreamFn> = {
       messages,
       model,
       stopSequences: [globalStopSequence],

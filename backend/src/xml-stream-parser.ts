@@ -7,14 +7,14 @@ import {
   toolNameParam,
 } from '@codebuff/common/tools/constants'
 
-import type { StreamChunk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import type { Model } from '@codebuff/common/old-constants'
+import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   PrintModeError,
   PrintModeText,
   PrintModeToolCall,
 } from '@codebuff/common/types/print-mode'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const toolExtractionPattern = new RegExp(
   `${startToolTag}(.*?)${endToolTag}`,

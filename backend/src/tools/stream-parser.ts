@@ -16,10 +16,12 @@ import { executeCustomToolCall, executeToolCall } from './tool-executor'
 
 import type { BatchStrReplaceState } from './batch-str-replace'
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
-import type { StreamChunk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {
   Message,
   ToolMessage,
@@ -28,8 +30,6 @@ import type { ToolResultPart } from '@codebuff/common/types/messages/content-par
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ToolCallPart } from 'ai'
 import type { WebSocket } from 'ws'
 

@@ -1,7 +1,7 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 
 // Mock imports needed for setup within the test
-import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -377,7 +377,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     }
 
     const { output, sessionState: finalSessionState } = await mainPrompt({
-      ...testAgentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_IMPL,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -459,7 +459,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       }
 
       await mainPrompt({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         ws: new MockWebSocket() as unknown as WebSocket,
         action,
         userId: TEST_USER_ID,

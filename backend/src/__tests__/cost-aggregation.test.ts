@@ -1,4 +1,4 @@
-import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   getInitialAgentState,
   getInitialSessionState,
@@ -180,7 +180,7 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,
@@ -260,7 +260,7 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,
@@ -417,7 +417,7 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,

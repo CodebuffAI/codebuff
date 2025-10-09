@@ -3,14 +3,18 @@ import type {
   FinishAgentRunFn,
   StartAgentRunFn,
 } from './database'
+import type { PromptAiSdkStreamFn } from './llm'
 import type { Logger } from './logger'
 
 export type AgentRuntimeDeps = {
-  logger: Logger
-
+  // Database
   startAgentRun: StartAgentRunFn
   finishAgentRun: FinishAgentRunFn
   addAgentStep: AddAgentStepFn
 
-  // promptAiSdkStream: PromptAiSdkStreamFn
+  // LLM
+  promptAiSdkStream: PromptAiSdkStreamFn
+
+  // Other
+  logger: Logger
 }

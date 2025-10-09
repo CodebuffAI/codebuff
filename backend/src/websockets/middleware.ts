@@ -16,7 +16,7 @@ import { getUserInfoFromAuthToken } from './auth'
 import { updateRequestContext } from './request-context'
 import { sendAction } from './websocket-action'
 import { withAppContext } from '../context/app-context'
-import { backendAgentRuntimeImpl } from '../impl/agent-runtime'
+import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 import { checkAuth } from '../util/check-auth'
 
 import type { UserInfo } from './auth'
@@ -164,7 +164,7 @@ export class WebSocketMiddleware {
   }
 }
 
-export const protec = new WebSocketMiddleware(backendAgentRuntimeImpl)
+export const protec = new WebSocketMiddleware(BACKEND_AGENT_RUNTIME_IMPL)
 
 protec.use(async ({ action, clientSessionId, logger }) =>
   checkAuth({
