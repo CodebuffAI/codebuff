@@ -15,7 +15,6 @@ import { range, shuffle, uniq } from 'lodash'
 import { CustomFilePickerConfigSchema } from './custom-file-picker-config'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import type { Logger } from '@codebuff/types/logger'
 import {
   castAssistantMessage,
   messagesWithSystem,
@@ -31,6 +30,7 @@ import type {
 } from '@codebuff/bigquery'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebuff/types/logger'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
@@ -356,7 +356,10 @@ async function getRelevantFiles(params: {
     logger,
   })
   const start = performance.now()
-  let codebuffMessages = messagesWithSystem({ messages: messagesWithPrompt, system })
+  let codebuffMessages = messagesWithSystem({
+    messages: messagesWithPrompt,
+    system,
+  })
 
   // Converts assistant messages to user messages for finetuned model
   codebuffMessages = codebuffMessages
@@ -370,13 +373,15 @@ async function getRelevantFiles(params: {
     .filter((msg) => msg !== null)
   const finetunedModel = modelId ?? finetunedVertexModels.ft_filepicker_010
 
-  let response = await promptFlashWithFallbacks(codebuffMessages, {
+  let response = await promptFlashWithFallbacks({
+    messages: codebuffMessages,
     clientSessionId,
     userInputId,
     model: models.openrouter_gemini2_5_flash,
     userId,
     useFinetunedModel: finetunedModel,
     fingerprintId,
+    logger,
   })
   const end = performance.now()
   const duration = end - start
@@ -528,7 +533,10 @@ function generateNonObviousRequestFilesPrompt(
   fileContext: ProjectFileContext,
   count: number,
 ): string {
-  const exampleFiles = getExampleFileList({ fileContext, count: NUMBER_OF_EXAMPLE_FILES })
+  const exampleFiles = getExampleFileList({
+    fileContext,
+    count: NUMBER_OF_EXAMPLE_FILES,
+  })
   return `
 Your task is to find the second-order relevant files for the following user request (in quotes).
 
@@ -583,7 +591,10 @@ function generateKeyRequestFilesPrompt(
   fileContext: ProjectFileContext,
   count: number,
 ): string {
-  const exampleFiles = getExampleFileList({ fileContext, count: NUMBER_OF_EXAMPLE_FILES })
+  const exampleFiles = getExampleFileList({
+    fileContext,
+    count: NUMBER_OF_EXAMPLE_FILES,
+  })
 
   return `
 Your task is to find the most relevant files for the following user request (in quotes).

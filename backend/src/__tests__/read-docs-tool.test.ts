@@ -314,12 +314,11 @@ describe('read_docs tool with researcher agent', () => {
       logger,
     })
 
-    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
-      'React',
-      {
-        topic: 'hooks',
-      },
-    )
+    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith({
+      query: 'React',
+      topic: 'hooks',
+      logger: expect.anything(),
+    })
 
     // Check that the documentation was added to the message history
     const toolResultMessages = newAgentState.messageHistory.filter(
@@ -388,13 +387,12 @@ describe('read_docs tool with researcher agent', () => {
       logger,
     })
 
-    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
-      'React',
-      {
-        topic: 'hooks',
-        tokens: 5000,
-      },
-    )
+    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith({
+      query: 'React',
+      topic: 'hooks',
+      tokens: 5000,
+      logger: expect.anything(),
+    })
   }, 10000)
 
   test('should handle case when no documentation is found', async () => {

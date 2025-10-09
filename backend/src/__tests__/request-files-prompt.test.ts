@@ -228,7 +228,6 @@ describe('requestRelevantFiles', () => {
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({
         useFinetunedModel: finetunedVertexModels.ft_filepicker_010,
       }),
@@ -259,7 +258,6 @@ describe('requestRelevantFiles', () => {
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({
         useFinetunedModel: expectedModel,
       }),

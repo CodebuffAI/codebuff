@@ -1,6 +1,5 @@
 import { openaiModels, openrouterModels } from '@codebuff/common/old-constants'
 
-import { logger } from '../util/logger'
 import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 
 import type {
@@ -9,6 +8,7 @@ import type {
   Model,
 } from '@codebuff/common/old-constants'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Logger } from '@codebuff/types/logger'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -35,28 +35,29 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
  * @returns A promise that resolves to the complete response string from the successful API call.
  * @throws If all API calls (primary and fallbacks) fail.
  */
-export async function promptFlashWithFallbacks(
-  messages: Message[],
-  options: {
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: Model
-    userId: string | undefined
-    maxTokens?: number
-    temperature?: number
-    costMode?: CostMode
-    useGPT4oInsteadOfClaude?: boolean
-    thinkingBudget?: number
-    useFinetunedModel?: FinetunedVertexModel | undefined
-  },
-): Promise<string> {
+export async function promptFlashWithFallbacks(params: {
+  messages: Message[]
+  clientSessionId: string
+  fingerprintId: string
+  userInputId: string
+  model: Model
+  userId: string | undefined
+  maxTokens?: number
+  temperature?: number
+  costMode?: CostMode
+  useGPT4oInsteadOfClaude?: boolean
+  thinkingBudget?: number
+  useFinetunedModel?: FinetunedVertexModel | undefined
+  logger: Logger
+}): Promise<string> {
   const {
+    messages,
     costMode,
     useGPT4oInsteadOfClaude,
     useFinetunedModel,
+    logger,
     ...geminiOptions
-  } = options
+  } = params
 
   // Try finetuned model first if enabled
   if (useFinetunedModel) {
