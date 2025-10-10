@@ -3,7 +3,6 @@ import * as schema from '@codebuff/common/db/schema'
 import { validateAgentsWithSpawnableAgents } from '@codebuff/common/templates/agent-validation'
 import { publishAgentsRequestSchema } from '@codebuff/common/types/api/agents/publish'
 import {
-  checkAuthToken,
   determineNextVersion,
   stringifyVersion,
   versionExists,
@@ -22,6 +21,7 @@ import { authOptions } from '../../auth/[...nextauth]/auth-options'
 import type { Version } from '@codebuff/internal'
 import type { NextRequest } from 'next/server'
 
+import { getUserInfoFromApiKey } from '@/db/user'
 import { logger } from '@/util/logger'
 
 async function getPublishedAgentIds(publisherId: string) {
@@ -96,9 +96,12 @@ export async function POST(request: NextRequest) {
     if (session?.user?.id) {
       userId = session.user.id
     } else if (authToken) {
-      const authResult = await checkAuthToken({ authToken })
-      if (authResult.success && authResult.user) {
-        userId = authResult.user.id
+      const user = await getUserInfoFromApiKey({
+        apiKey: authToken,
+        fields: ['id'],
+      })
+      if (user) {
+        userId = user.id
       }
     }
 

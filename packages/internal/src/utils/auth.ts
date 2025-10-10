@@ -2,8 +2,6 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
-import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
-
 // List of admin user emails - single source of truth
 const CODEBUFF_ADMIN_USER_EMAILS = [
   'venkateshrameshkumar+1@gmail.com',
@@ -35,62 +33,6 @@ export interface AuthResult {
     id: string
     email: string
     discord_id: string | null
-  }
-}
-
-/**
- * Check authentication based on auth token and fingerprint ID
- * Returns structured result instead of throwing or logging directly
- */
-export async function checkAuthToken({
-  fingerprintId,
-  authToken,
-}: {
-  fingerprintId?: string
-  authToken?: string
-}): Promise<AuthResult> {
-  if (!authToken) {
-    if (!fingerprintId) {
-      return {
-        success: false,
-        error: {
-          type: 'missing-credentials',
-          message: 'Auth token and fingerprint ID are missing',
-        },
-      }
-    }
-    return { success: true }
-  }
-
-  const user = await db
-    .select({
-      id: schema.user.id,
-      email: schema.user.email,
-      discord_id: schema.user.discord_id,
-    })
-    .from(schema.user)
-    .innerJoin(schema.session, eq(schema.user.id, schema.session.userId))
-    .where(eq(schema.session.sessionToken, authToken))
-    .then((users) => {
-      if (users.length === 1) {
-        return users[0]
-      }
-      return undefined
-    })
-
-  if (!user) {
-    return {
-      success: false,
-      error: {
-        type: 'invalid-token',
-        message: INVALID_AUTH_TOKEN_MESSAGE,
-      },
-    }
-  }
-
-  return {
-    success: true,
-    user,
   }
 }
 
