@@ -30,6 +30,43 @@ Please wrap your final specification in <spec></spec> tags.`
 const fingerprintId = 'evals-v2'
 const userInputId = 'evals-v2'
 
+async function getParentSha(
+  repoPath: string,
+  commitSha: string,
+): Promise<string | null> {
+  try {
+    const parentSha = execSync(`git rev-parse ${commitSha}^`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    return parentSha
+  } catch (error) {
+    try {
+      const parents = execSync(`git log --pretty=%P -n 1 ${commitSha}`, {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim()
+      const parentCount = parents.split(' ').filter(Boolean).length
+      if (parentCount === 0) {
+        console.warn(
+          `Skipping ${commitSha.slice(0, 8)} - initial commit (no parent)`,
+        )
+        return null
+      } else if (parentCount > 1) {
+        console.warn(
+          `Skipping ${commitSha.slice(0, 8)} - merge commit (${parentCount} parents)`,
+        )
+        return null
+      }
+    } catch (e) {
+      console.error(`Error checking parents for ${commitSha.slice(0, 8)}:`, e)
+    }
+    return null
+  }
+}
+
 async function generateFileStateFromCommit(
   repoPath: string,
   commitSha: string,
@@ -191,6 +228,14 @@ export async function generateEvalFile({
       return null
     }
 
+    // Get parent SHA - either provided or computed from commit
+    const parentSha =
+      evalInput.parentSha ?? (await getParentSha(repoPath, evalInput.commitSha))
+
+    if (!parentSha) {
+      return null
+    }
+
     // Get file states - either provided or computed from commit
     const fileStates =
       evalInput.fileStates ??
@@ -205,6 +250,7 @@ export async function generateEvalFile({
 
     return {
       sha: evalInput.commitSha,
+      parentSha,
       spec,
       fileStates,
     }

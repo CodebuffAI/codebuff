@@ -12,6 +12,7 @@ export interface FileState {
 
 export interface EvalCommit {
   sha: string
+  parentSha: string // The commit right before the target commit -- what the coding agent checks out.
   spec: string
   fileStates: FileState[] // Ground truth file states
 }
@@ -27,6 +28,7 @@ export interface EvalData {
 // Input structure for creating evaluations (from gen-evals)
 export interface EvalInput {
   commitSha: string // Required - defines the codebase state to load for the task
+  parentSha?: string // Optional - if not provided, will compute from commit parent
   fileStates?: FileState[] // Optional - if not provided, will compute from commit parent
 }
 

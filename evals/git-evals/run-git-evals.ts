@@ -69,8 +69,8 @@ export async function runSingleEval(
   process.on('unhandledRejection', unhandledHandler)
 
   try {
-    // Reset to the commit before the target commit
-    resetRepoToCommit(projectPath, `${evalCommit.sha}^`)
+    // Reset to the parent commit
+    resetRepoToCommit(projectPath, evalCommit.parentSha)
 
     // Initialize state
     let runner: Runner
@@ -221,7 +221,7 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
   const endTime = new Date()
   const durationMs = endTime.getTime() - startTime.getTime()
 
-  const fileStates = getCodebuffFileStates(evalCommit.sha, projectPath)
+  const fileStates = getCodebuffFileStates(evalCommit, projectPath)
 
   if (fs.existsSync(projectPath) && fs.statSync(projectPath).isDirectory()) {
     fs.rmSync(projectPath, { recursive: true, force: true })
@@ -284,13 +284,12 @@ function writeJsonToFile(json: any, path: string) {
 }
 
 function getCodebuffFileStates(
-  evalCommitSha: string,
+  evalCommit: EvalCommit,
   projectPath: string,
 ): string {
-  // Get all changes since the commit before the target commit
   execFileSync('git', ['add', '.'], { cwd: projectPath, stdio: 'ignore' })
 
-  return execFileSync('git', ['diff', `${evalCommitSha}^`], {
+  return execFileSync('git', ['diff', evalCommit.parentSha], {
     cwd: projectPath,
     stdio: ['ignore', 'pipe', 'pipe'],
   }).toString()
@@ -453,6 +452,7 @@ export async function runGitEvals(
               evalCommit.sha,
               true,
               evalData.initCommand,
+              evalCommit.parentSha,
             )
 
             console.log(
