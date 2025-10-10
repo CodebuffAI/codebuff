@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import type { ScrollBoxRenderable } from '@opentui/core'
-import { isZedIDE } from '../utils/detect-ide'
-import { ZedScrollAccel } from '../utils/zed-scroll-accel'
 
 const easeOutCubic = (t: number): number => {
   return 1 - Math.pow(1 - t, 3)
@@ -13,11 +11,6 @@ export const useChatScrollbox = (
   messages: any[],
   agentRefsMap: React.MutableRefObject<Map<string, any>>,
 ) => {
-  const isZed = isZedIDE()
-  const scrollAcceleration = useMemo(
-    () => (isZed ? new ZedScrollAccel() : undefined),
-    [isZed],
-  )
   const autoScrollEnabledRef = useRef<boolean>(true)
   const programmaticScrollRef = useRef<boolean>(false)
   const animationFrameRef = useRef<number | null>(null)
@@ -30,7 +23,7 @@ export const useChatScrollbox = (
   }, [])
 
   const animateScrollTo = useCallback(
-    (targetScroll: number, duration: number = isZed ? 400 : 200) => {
+    (targetScroll: number, duration = 200) => {
       const scrollbox = scrollRef.current
       if (!scrollbox) return
 
@@ -39,7 +32,7 @@ export const useChatScrollbox = (
       const startScroll = scrollbox.scrollTop
       const distance = targetScroll - startScroll
       const startTime = Date.now()
-      const frameInterval = isZed ? 40 : 16
+      const frameInterval = 16
 
       const animate = () => {
         const elapsed = Date.now() - startTime
@@ -59,7 +52,7 @@ export const useChatScrollbox = (
 
       animate()
     },
-    [scrollRef, isZed, cancelAnimation],
+    [scrollRef, cancelAnimation],
   )
 
   const scrollToLatest = useCallback((): void => {
@@ -182,8 +175,6 @@ export const useChatScrollbox = (
   return {
     scrollToLatest,
     scrollToAgent,
-    scrollboxProps: {
-      scrollAcceleration,
-    },
+    scrollboxProps: {},
   }
 }
