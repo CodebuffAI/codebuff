@@ -8,12 +8,11 @@ export type { AgentDefinition } from '../../common/src/templates/initial-agents-
 // Re-export code analysis functionality
 export * from '../../packages/code-map/src/index'
 
-export type { PublishedToolName } from '../../common/src/tools/constants'
 export type { ClientToolCall, ClientToolName, CodebuffToolOutput } from '../../common/src/tools/list'
 export * from './client'
 export * from './custom-tool'
 export * from './native/ripgrep'
 export * from './run-state'
-export { ToolHelpers } from './tools'
+export { ToolHelpers, ToolName } from './tools'
 export * from './websocket-client'
 
