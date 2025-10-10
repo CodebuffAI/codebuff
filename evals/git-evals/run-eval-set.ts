@@ -82,7 +82,7 @@ class RunEvalSetCommand extends Command {
     }),
     agent: Flags.string({
       description: 'Codebuff agent id to use',
-      default: 'base2',
+      default: 'base-lite',
     }),
     'prompt-with-agent': Flags.boolean({
       description: 'Prompt with agent',
