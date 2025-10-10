@@ -1,7 +1,7 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 
 // Mock imports needed for setup within the test
-import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -15,15 +15,17 @@ import {
 } from 'bun:test'
 
 import * as checkTerminalCommandModule from '../check-terminal-command'
-import * as aisdk from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import { mainPrompt } from '../main-prompt'
 import * as websocketAction from '../websockets/websocket-action'
 
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 // --- Shared Mocks & Helpers ---
+
+let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
 class MockWebSocket {
   send(msg: string) {}
@@ -103,6 +105,7 @@ describe.skip('mainPrompt (Integration)', () => {
 
   afterEach(() => {
     mock.restore()
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   it('should delete a specified function while preserving other code', async () => {
@@ -337,7 +340,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     )
 
     // Mock LLM calls
-    spyOn(aisdk, 'promptAiSdk').mockResolvedValue('Mocked non-stream AiSdk')
+    agentRuntimeImpl.promptAiSdk = async function () {
+      return 'Mocked non-stream AiSdk'
+    }
 
     const sessionState = getInitialSessionState(mockFileContext)
     sessionState.mainAgentState.messageHistory.push(
@@ -377,7 +382,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     }
 
     const { output, sessionState: finalSessionState } = await mainPrompt({
-      ...testAgentRuntimeImpl,
+      ...agentRuntimeImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -419,7 +424,9 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       ).mockResolvedValue(null)
 
       // Mock LLM calls
-      spyOn(aisdk, 'promptAiSdk').mockResolvedValue('Mocked non-stream AiSdk')
+      agentRuntimeImpl.promptAiSdk = async function () {
+        return 'Mocked non-stream AiSdk'
+      }
 
       const sessionState = getInitialSessionState(mockFileContext)
       sessionState.mainAgentState.messageHistory.push(
@@ -459,7 +466,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       }
 
       await mainPrompt({
-        ...testAgentRuntimeImpl,
+        ...agentRuntimeImpl,
         ws: new MockWebSocket() as unknown as WebSocket,
         action,
         userId: TEST_USER_ID,

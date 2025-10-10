@@ -149,12 +149,13 @@ afterEach(() => {
 
 ```typescript
 // From main-prompt.test.ts - Mocking LLM APIs
-spyOn(aisdk, 'promptAiSdk').mockImplementation(() =>
-  Promise.resolve('Test response'),
-)
-spyOn(aisdk, 'promptAiSdkStream').mockImplementation(async function* () {
-  yield 'Test response'
-})
+agentRuntimeImpl.promptAiSdk = async function () {
+  return 'Test response'
+}
+agentRuntimeImpl.promptAiSdkStream = async function* () {
+  yield { type: 'text' as const, text: 'Test response' }
+  return 'mock-message-id'
+}
 
 // From rage-detector.test.ts - Mocking Date
 spyOn(Date, 'now').mockImplementation(() => currentTime)

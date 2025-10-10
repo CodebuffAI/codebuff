@@ -7,8 +7,8 @@ import { env } from '@codebuff/internal'
 
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 import { countTokens } from '../util/token-counter'
-import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
 
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const timeoutPromise = (ms: number) =>
@@ -26,6 +26,7 @@ export async function promptRelaceAI(params: {
   userId: string | undefined
   messageId: string
   userMessage?: string
+  promptAiSdk: PromptAiSdkFn
   logger: Logger
 }) {
   const {
@@ -38,6 +39,7 @@ export async function promptRelaceAI(params: {
     userId,
     userMessage,
     messageId,
+    promptAiSdk,
     logger,
   } = params
   const startTime = Date.now()

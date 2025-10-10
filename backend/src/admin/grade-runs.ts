@@ -1,9 +1,8 @@
 import { models, TEST_USER_ID } from '@codebuff/common/old-constants'
 import { closeXml } from '@codebuff/common/util/xml'
 
-import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
-
 import type { Relabel, GetRelevantFilesTrace } from '@codebuff/bigquery'
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const PROMPT = `
@@ -100,9 +99,10 @@ function extractResponse(response: string): {
 export async function gradeRun(params: {
   trace: GetRelevantFilesTrace
   relabels: Relabel[]
+  promptAiSdk: PromptAiSdkFn
   logger: Logger
 }) {
-  const { trace, relabels, logger } = params
+  const { trace, relabels, promptAiSdk, logger } = params
   const messages = trace.payload.messages
 
   const originalOutput = trace.payload.output

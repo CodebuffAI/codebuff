@@ -1,14 +1,13 @@
 import { openaiModels, openrouterModels } from '@codebuff/common/old-constants'
 
-import { promptAiSdk } from './vercel-ai-sdk/ai-sdk'
-
 import type {
   CostMode,
   FinetunedVertexModel,
-  Model,
 } from '@codebuff/common/old-constants'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 /**
  * Prompts a Gemini model with fallback logic.
@@ -35,38 +34,33 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
  * @returns A promise that resolves to the complete response string from the successful API call.
  * @throws If all API calls (primary and fallbacks) fail.
  */
-export async function promptFlashWithFallbacks(params: {
-  messages: Message[]
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  model: Model
-  userId: string | undefined
-  maxTokens?: number
-  temperature?: number
-  costMode?: CostMode
-  useGPT4oInsteadOfClaude?: boolean
-  thinkingBudget?: number
-  useFinetunedModel?: FinetunedVertexModel | undefined
-  logger: Logger
-}): Promise<string> {
+export async function promptFlashWithFallbacks(
+  params: {
+    messages: Message[]
+    costMode?: CostMode
+    useGPT4oInsteadOfClaude?: boolean
+    thinkingBudget?: number
+    useFinetunedModel?: FinetunedVertexModel | undefined
+    promptAiSdk: PromptAiSdkFn
+    logger: Logger
+  } & ParamsExcluding<PromptAiSdkFn, 'messages'>,
+): Promise<string> {
   const {
     messages,
     costMode,
     useGPT4oInsteadOfClaude,
     useFinetunedModel,
+    promptAiSdk,
     logger,
-    ...geminiOptions
   } = params
 
   // Try finetuned model first if enabled
   if (useFinetunedModel) {
     try {
       return await promptAiSdk({
-        ...geminiOptions,
+        ...params,
         messages,
         model: useFinetunedModel,
-        logger,
       })
     } catch (error) {
       logger.warn(
@@ -78,14 +72,14 @@ export async function promptFlashWithFallbacks(params: {
 
   try {
     // First try Gemini
-    return await promptAiSdk({ ...geminiOptions, messages, logger })
+    return await promptAiSdk({ ...params, messages })
   } catch (error) {
     logger.warn(
       { error },
       `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`,
     )
     return await promptAiSdk({
-      ...geminiOptions,
+      ...params,
       messages,
       model: useGPT4oInsteadOfClaude
         ? openaiModels.gpt4o
@@ -96,7 +90,6 @@ export async function promptFlashWithFallbacks(params: {
             experimental: openrouterModels.openrouter_claude_3_5_haiku,
             ask: openrouterModels.openrouter_claude_3_5_haiku,
           }[costMode ?? 'normal'],
-      logger,
     })
   }
 }

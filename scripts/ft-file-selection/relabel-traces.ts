@@ -82,6 +82,7 @@ async function runTraces() {
                   userInputId: 'relabel-trace-run',
                   userId: 'relabel-trace-run',
                   logger: console,
+                  promptAiSdk,
                 })
               }
 

@@ -11,14 +11,14 @@ import { requestToolCall } from './websockets/websocket-action'
 import type { AgentTemplate } from './templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/old-constants'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   SessionState,
   AgentTemplateType,
   AgentOutput,
 } from '@codebuff/common/types/session-state'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 export const mainPrompt = async (
@@ -42,7 +42,11 @@ export const mainPrompt = async (
     | 'agentType'
     | 'fingerprintId'
     | 'fileContext'
-  >,
+  > &
+    ParamsExcluding<
+      typeof checkTerminalCommand,
+      'prompt' | 'fingerprintId' | 'userInputId'
+    >,
 ): Promise<{
   sessionState: SessionState
   output: AgentOutput
@@ -156,12 +160,10 @@ export const mainPrompt = async (
     // Check if this is a direct terminal command
     const startTime = Date.now()
     const terminalCommand = await checkTerminalCommand({
+      ...params,
       prompt,
-      clientSessionId,
       fingerprintId,
       userInputId: promptId,
-      userId,
-      logger,
     })
     const duration = Date.now() - startTime
 

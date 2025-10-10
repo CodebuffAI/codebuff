@@ -10,14 +10,17 @@ import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from '../../../util/token-counter'
 import { requestFiles } from '../../../websockets/websocket-action'
 
-import type { TextBlock } from '../../../llm-apis/claude'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -26,24 +29,44 @@ import type { WebSocket } from 'ws'
 // TODO: We might want to be able to turn this on on a per-repo basis.
 const COLLECT_FULL_FILE_CONTEXT = false
 
-export const handleFindFiles = ((params: {
-  previousToolCallFinished: Promise<any>
-  toolCall: CodebuffToolCall<'find_files'>
-  logger: Logger
+export const handleFindFiles = ((
+  params: {
+    previousToolCallFinished: Promise<any>
+    toolCall: CodebuffToolCall<'find_files'>
+    logger: Logger
 
-  fileContext: ProjectFileContext
-  agentStepId: string
-  clientSessionId: string
-  userInputId: string
+    fileContext: ProjectFileContext
+    agentStepId: string
+    clientSessionId: string
+    userInputId: string
 
-  state: {
-    ws?: WebSocket
-    fingerprintId?: string
-    userId?: string
-    repoId?: string
-    messages?: Message[]
-  }
-}): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
+    state: {
+      ws?: WebSocket
+      fingerprintId?: string
+      userId?: string
+      repoId?: string
+      messages?: Message[]
+    }
+  } & ParamsExcluding<
+    typeof requestRelevantFiles,
+    | 'messages'
+    | 'system'
+    | 'assistantPrompt'
+    | 'fingerprintId'
+    | 'userId'
+    | 'repoId'
+  > &
+    ParamsExcluding<
+      typeof uploadExpandedFileContextForTraining,
+      | 'ws'
+      | 'messages'
+      | 'system'
+      | 'assistantPrompt'
+      | 'fingerprintId'
+      | 'userId'
+      | 'repoId'
+    >,
+): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -87,36 +110,29 @@ export const handleFindFiles = ((params: {
     CodebuffToolOutput<'find_files'>
   > = async () => {
     const requestedFiles = await requestRelevantFiles({
+      ...params,
       messages,
       system,
-      fileContext,
       assistantPrompt: prompt,
-      agentStepId,
-      clientSessionId,
       fingerprintId,
-      userInputId,
       userId,
       repoId,
-      logger,
     })
 
     if (requestedFiles && requestedFiles.length > 0) {
       const addedFiles = await getFileReadingUpdates(ws, requestedFiles)
 
       if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
-        uploadExpandedFileContextForTraining(
+        uploadExpandedFileContextForTraining({
+          ...params,
           ws,
-          { messages, system },
-          fileContext,
-          prompt,
-          agentStepId,
-          clientSessionId,
+          messages,
+          system,
+          assistantPrompt: prompt,
           fingerprintId,
-          userInputId,
           userId,
           repoId,
-          logger,
-        ).catch((error) => {
+        }).catch((error) => {
           logger.error(
             { error },
             'Error uploading expanded file context for training',
@@ -165,37 +181,26 @@ export const handleFindFiles = ((params: {
 }) satisfies CodebuffToolHandlerFunction<'find_files'>
 
 async function uploadExpandedFileContextForTraining(
-  ws: WebSocket,
-  {
-    messages,
-    system,
-  }: {
-    messages: Message[]
-    system: string | Array<TextBlock>
-  },
-  fileContext: ProjectFileContext,
-  assistantPrompt: string | null,
-  agentStepId: string,
-  clientSessionId: string,
-  fingerprintId: string,
-  userInputId: string,
-  userId: string | undefined,
-  repoId: string | undefined,
-  logger: Logger,
+  params: {
+    ws: WebSocket
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    logger: Logger
+  } & ParamsOf<typeof requestRelevantFilesForTraining>,
 ) {
-  const files = await requestRelevantFilesForTraining({
-    messages,
-    system,
-    fileContext,
-    assistantPrompt,
+  const {
+    ws,
     agentStepId,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    repoId,
     logger,
-  })
+  } = params
+  const files = await requestRelevantFilesForTraining(params)
 
   const loadedFiles = await requestFiles({ ws, filePaths: files })
 

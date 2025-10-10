@@ -8,26 +8,39 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 import { countTokens } from './util/token-counter'
 
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
-export async function processFileBlock(params: {
-  path: string
-  instructions: string | undefined
-  initialContentPromise: Promise<string | null>
-  newContent: string
-  messages: Message[]
-  fullResponse: string
-  lastUserPrompt: string | undefined
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  logger: Logger
-}): Promise<
+export async function processFileBlock(
+  params: {
+    path: string
+    initialContentPromise: Promise<string | null>
+    newContent: string
+    messages: Message[]
+    fullResponse: string
+    lastUserPrompt: string | undefined
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    logger: Logger
+  } & ParamsExcluding<
+    typeof handleLargeFile,
+    'oldContent' | 'editSnippet' | 'filePath'
+  > &
+    ParamsExcluding<
+      typeof fastRewrite,
+      'initialContent' | 'editSnippet' | 'filePath' | 'userMessage'
+    > &
+    ParamsExcluding<
+      typeof shouldAddFilePlaceholders,
+      'filePath' | 'oldContent' | 'rewrittenNewContent' | 'messageHistory'
+    >,
+): Promise<
   | {
       tool: 'write_file'
       path: string
@@ -43,7 +56,6 @@ export async function processFileBlock(params: {
 > {
   const {
     path,
-    instructions,
     initialContentPromise,
     newContent,
     messages,
@@ -113,14 +125,10 @@ export async function processFileBlock(params: {
   )
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
     const largeFileContent = await handleLargeFile({
+      ...params,
       oldContent: normalizedInitialContent,
       editSnippet: normalizedEditSnippet,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
       filePath: path,
-      logger,
     })
 
     if (!largeFileContent) {
@@ -135,44 +143,29 @@ export async function processFileBlock(params: {
     updatedContent = largeFileContent
   } else {
     updatedContent = await fastRewrite({
+      ...params,
       initialContent: normalizedInitialContent,
       editSnippet: normalizedEditSnippet,
       filePath: path,
-      instructions,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
       userMessage: lastUserPrompt,
-      logger,
     })
     const shouldAddPlaceholders = await shouldAddFilePlaceholders({
+      ...params,
       filePath: path,
       oldContent: normalizedInitialContent,
       rewrittenNewContent: updatedContent,
       messageHistory: messages,
-      fullResponse,
-      userId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      logger,
     })
 
     if (shouldAddPlaceholders) {
       const placeholderComment = `... existing code ...`
       const updatedEditSnippet = `${placeholderComment}\n${updatedContent}\n${placeholderComment}`
       updatedContent = await fastRewrite({
+        ...params,
         initialContent: normalizedInitialContent,
         editSnippet: updatedEditSnippet,
         filePath: path,
-        instructions,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
         userMessage: lastUserPrompt,
-        logger,
       })
     }
   }
@@ -230,16 +223,22 @@ export async function processFileBlock(params: {
 
 const LARGE_FILE_TOKEN_LIMIT = 64_000
 
-export async function handleLargeFile(params: {
-  oldContent: string
-  editSnippet: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  filePath: string
-  logger: Logger
-}): Promise<string | null> {
+export async function handleLargeFile(
+  params: {
+    oldContent: string
+    editSnippet: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    filePath: string
+    logger: Logger
+    promptAiSdk: PromptAiSdkFn
+  } & ParamsExcluding<
+    typeof retryDiffBlocksPrompt,
+    'oldContent' | 'diffBlocksThatDidntMatch'
+  >,
+): Promise<string | null> {
   const {
     oldContent,
     editSnippet,
@@ -248,6 +247,7 @@ export async function handleLargeFile(params: {
     userInputId,
     userId,
     filePath,
+    promptAiSdk,
     logger,
   } = params
   const startTime = Date.now()
@@ -325,14 +325,9 @@ Please output just the SEARCH/REPLACE blocks like this:
 
     const { newDiffBlocks, newDiffBlocksThatDidntMatch } =
       await retryDiffBlocksPrompt({
-        filePath,
+        ...params,
         oldContent: updatedContent,
-        clientSessionId,
-        fingerprintId,
-        userInputId,
-        userId,
         diffBlocksThatDidntMatch,
-        logger,
       })
 
     if (newDiffBlocksThatDidntMatch.length > 0) {

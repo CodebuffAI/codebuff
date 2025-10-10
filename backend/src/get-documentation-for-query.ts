@@ -4,9 +4,13 @@ import { uniq } from 'lodash'
 import { z } from 'zod/v4'
 
 import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
-import { promptAiSdkStructured } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
+import type { PromptAiSdkStructuredFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 
 const DELIMITER = `\n\n----------------------------------------\n\n`
 
@@ -20,15 +24,18 @@ const DELIMITER = `\n\n----------------------------------------\n\n`
  * @param options.userId The ID of the user making the request
  * @returns The documentation text chunks or null if no relevant docs found
  */
-export async function getDocumentationForQuery(params: {
-  query: string
-  tokens?: number
-  clientSessionId: string
-  userInputId: string
-  fingerprintId: string
-  userId?: string
-  logger: Logger
-}): Promise<string | null> {
+export async function getDocumentationForQuery(
+  params: {
+    query: string
+    tokens?: number
+    clientSessionId: string
+    userInputId: string
+    fingerprintId: string
+    userId?: string
+    logger: Logger
+  } & ParamsOf<typeof suggestLibraries> &
+    ParamsExcluding<typeof filterRelevantChunks, 'allChunks'>,
+): Promise<string | null> {
   const {
     query,
     tokens,
@@ -41,14 +48,7 @@ export async function getDocumentationForQuery(params: {
   const startTime = Date.now()
 
   // 1. Search for relevant libraries
-  const libraryResults = await suggestLibraries({
-    query,
-    clientSessionId,
-    userInputId,
-    fingerprintId,
-    userId,
-    logger,
-  })
+  const libraryResults = await suggestLibraries(params)
 
   if (!libraryResults || libraryResults.libraries.length === 0) {
     logger.info(
@@ -104,6 +104,7 @@ export async function getDocumentationForQuery(params: {
 
   // 3. Filter relevant chunks using another LLM call
   const filterResults = await filterRelevantChunks({
+    ...params,
     query,
     allChunks: allUniqueChunks,
     clientSessionId,
@@ -163,10 +164,18 @@ const suggestLibraries = async (params: {
   userInputId: string
   fingerprintId: string
   userId?: string
+  promptAiSdkStructured: PromptAiSdkStructuredFn
   logger: Logger
 }) => {
-  const { query, clientSessionId, userInputId, fingerprintId, userId, logger } =
-    params
+  const {
+    query,
+    clientSessionId,
+    userInputId,
+    fingerprintId,
+    userId,
+    promptAiSdkStructured,
+    logger,
+  } = params
   const prompt =
     `You are an expert at documentation for libraries. Given a user's query return a list of (library name, topic) where each library name is the name of a library and topic is a keyword or phrase that specifies a topic within the library that is most relevant to the user's query.
 
@@ -231,6 +240,7 @@ async function filterRelevantChunks(params: {
   userInputId: string
   fingerprintId: string
   userId?: string
+  promptAiSdkStructured: PromptAiSdkStructuredFn
   logger: Logger
 }): Promise<{ relevantChunks: string[]; geminiDuration: number } | null> {
   const {
@@ -240,6 +250,7 @@ async function filterRelevantChunks(params: {
     userInputId,
     fingerprintId,
     userId,
+    promptAiSdkStructured,
     logger,
   } = params
   const prompt = `You are an expert at analyzing documentation queries. Given a user's query and a list of documentation chunks, determine which chunks are relevant to the query. Choose as few chunks as possible, likely none. Only include chunks if they are relevant to the user query.

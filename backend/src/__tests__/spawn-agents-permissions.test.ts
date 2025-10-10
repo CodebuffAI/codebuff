@@ -1,5 +1,5 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { testAgentRuntimeImpl } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   describe,
@@ -235,7 +235,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('thinker')
 
       const { result } = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -269,7 +269,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('reviewer') // Try to spawn reviewer
 
       const { result } = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -305,7 +305,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('nonexistent')
 
       const { result } = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -343,7 +343,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('codebuff/thinker@1.0.0')
 
       const { result } = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -377,7 +377,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('thinker') // Simple name
 
       const { result } = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -414,7 +414,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createSpawnToolCall('codebuff/thinker@2.0.0')
 
       const { result } = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -462,7 +462,7 @@ describe('Spawn Agents Permissions', () => {
       }
 
       const { result } = handleSpawnAgents({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -517,7 +517,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('thinker')
 
       const { result } = handleSpawnAgentInline({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -549,7 +549,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('reviewer') // Try to spawn reviewer
 
       const { result } = handleSpawnAgentInline({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -582,7 +582,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('nonexistent')
 
       const { result } = handleSpawnAgentInline({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -614,7 +614,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('codebuff/thinker@1.0.0')
 
       const { result } = handleSpawnAgentInline({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -646,7 +646,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('thinker') // Simple name
 
       const { result } = handleSpawnAgentInline({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -681,7 +681,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('codebuff/thinker@2.0.0')
 
       const { result } = handleSpawnAgentInline({
-        ...testAgentRuntimeImpl,
+        ...TEST_AGENT_RUNTIME_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -713,7 +713,7 @@ describe('Spawn Agents Permissions', () => {
 
       expect(() => {
         handleSpawnAgentInline({
-          ...testAgentRuntimeImpl,
+          ...TEST_AGENT_RUNTIME_IMPL,
           previousToolCallFinished: Promise.resolve(),
           toolCall,
           fileContext: mockFileContext,

@@ -17,26 +17,19 @@ import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
 
 import type { Model, OpenAIModel } from '@codebuff/common/old-constants'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  PromptAiSdkFn,
+  PromptAiSdkStreamFn,
+  PromptAiSdkStructuredInput,
+  PromptAiSdkStructuredOutput,
+} from '@codebuff/common/types/contracts/llm'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type {
   OpenRouterProviderOptions,
   OpenRouterUsageAccounting,
 } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
 import type { z } from 'zod/v4'
-
-export type StreamChunk =
-  | {
-      type: 'text'
-      text: string
-    }
-  | {
-      type: 'reasoning'
-      text: string
-    }
-  | { type: 'error'; message: string }
 
 // TODO: We'll want to add all our models here!
 const modelToAiSDKModel = (model: Model): LanguageModel => {
@@ -60,23 +53,9 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
 // TODO: Add retries & fallbacks: likely by allowing this to instead of "model"
 // also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
-export const promptAiSdkStream = async function* (
-  params: {
-    messages: Message[]
-    clientSessionId: string
-    fingerprintId: string
-    model: Model
-    userId: string | undefined
-    chargeUser?: boolean
-    thinkingBudget?: number
-    userInputId: string
-    agentId?: string
-    maxRetries?: number
-    onCostCalculated?: (credits: number) => Promise<void>
-    includeCacheControl?: boolean
-    logger: Logger
-  } & ParamsExcluding<typeof streamText, 'model' | 'messages'>,
-): AsyncGenerator<StreamChunk, string | null> {
+export async function* promptAiSdkStream(
+  params: ParamsOf<PromptAiSdkStreamFn>,
+): ReturnType<PromptAiSdkStreamFn> {
   const { logger } = params
   if (
     !checkLiveUserInput({ ...params, clientSessionId: params.clientSessionId })
@@ -251,22 +230,9 @@ export const promptAiSdkStream = async function* (
 }
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
-export const promptAiSdk = async function (
-  params: {
-    messages: Message[]
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    model: Model
-    userId: string | undefined
-    chargeUser?: boolean
-    agentId?: string
-    onCostCalculated?: (credits: number) => Promise<void>
-    includeCacheControl?: boolean
-    maxRetries?: number
-    logger: Logger
-  } & ParamsExcluding<typeof generateText, 'model' | 'messages'>,
-): Promise<string> {
+export async function promptAiSdk(
+  params: ParamsOf<PromptAiSdkFn>,
+): ReturnType<PromptAiSdkFn> {
   const { logger } = params
 
   if (!checkLiveUserInput(params)) {
@@ -321,24 +287,9 @@ export const promptAiSdk = async function (
 }
 
 // Copied over exactly from promptAiSdk but with a schema
-export const promptAiSdkStructured = async function <T>(params: {
-  messages: Message[]
-  schema: z.ZodType<T>
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  model: Model
-  userId: string | undefined
-  maxTokens?: number
-  temperature?: number
-  timeout?: number
-  chargeUser?: boolean
-  agentId?: string
-  onCostCalculated?: (credits: number) => Promise<void>
-  includeCacheControl?: boolean
-  maxRetries?: number
-  logger: Logger
-}): Promise<T> {
+export async function promptAiSdkStructured<T>(
+  params: PromptAiSdkStructuredInput<T>,
+): PromptAiSdkStructuredOutput<T> {
   const { logger } = params
 
   if (!checkLiveUserInput(params)) {
