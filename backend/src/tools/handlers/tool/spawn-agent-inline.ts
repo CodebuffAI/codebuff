@@ -66,6 +66,7 @@ export const handleSpawnAgentInline = ((
     userInputId,
     getLatestState,
     state,
+    writeToClient,
   } = params
   const {
     agent_type: agentTypeStr,
@@ -126,9 +127,10 @@ export const handleSpawnAgentInline = ((
       fingerprintId,
       parentSystemPrompt: system,
       onResponseChunk: (chunk) => {
-        // Disabled.
-        // Inherits parent's onResponseChunk
-        // writeToClient(chunk)
+        // Inherits parent's onResponseChunk, except for context-pruner (TODO: add an option for it to be silent?)
+        if (agentType !== 'context-pruner') {
+          writeToClient(chunk)
+        }
       },
       clearUserPromptMessagesAfterResponse: false,
     })

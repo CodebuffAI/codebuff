@@ -1,48 +1,55 @@
+import { buildArray } from '@codebuff/common/util/array'
+
 import { publisher } from '../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
 
-const definition: SecretAgentDefinition = {
-  id: 'base2',
-  publisher,
-  model: 'anthropic/claude-sonnet-4.5',
-  displayName: 'Buffy the Orchestrator',
-  spawnerPrompt:
-    'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
-  inputSchema: {
-    prompt: {
-      type: 'string',
-      description: 'A coding task to complete',
-    },
-    params: {
-      type: 'object',
-      properties: {
-        maxContextLength: {
-          type: 'number',
-        },
+export const createBase2: (mode: 'normal' | 'max') => SecretAgentDefinition = (
+  mode,
+) => {
+  const isMax = mode === 'max'
+  return {
+    id: 'base2',
+    publisher,
+    model: 'anthropic/claude-sonnet-4.5',
+    displayName: 'Buffy the Orchestrator',
+    spawnerPrompt:
+      'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
+    inputSchema: {
+      prompt: {
+        type: 'string',
+        description: 'A coding task to complete',
       },
-      required: [],
+      params: {
+        type: 'object',
+        properties: {
+          maxContextLength: {
+            type: 'number',
+          },
+        },
+        required: [],
+      },
     },
-  },
-  outputMode: 'last_message',
-  includeMessageHistory: true,
-  toolNames: ['spawn_agents', 'read_files'],
-  spawnableAgents: [
-    'file-explorer',
-    'find-all-referencer',
-    'researcher-web',
-    'researcher-docs',
-    'read-only-commander',
-    'decomposing-thinker',
-    'code-sketcher',
-    'editor',
-    'reviewer',
-    'context-pruner',
-  ],
+    outputMode: 'last_message',
+    includeMessageHistory: true,
+    toolNames: ['spawn_agents', 'spawn_agent_inline', 'read_files'],
+    spawnableAgents: buildArray(
+      isMax && 'inline-file-explorer-max',
+      'file-picker',
+      'find-all-referencer',
+      'researcher-web',
+      'researcher-docs',
+      'read-only-commander',
+      'decomposing-thinker',
+      'code-sketcher',
+      'editor',
+      'reviewer',
+      'context-pruner',
+    ),
 
-  systemPrompt: `You are Buffy, a strategic coding assistant that orchestrates complex coding tasks through specialized sub-agents.
+    systemPrompt: `You are Buffy, a strategic coding assistant that orchestrates complex coding tasks through specialized sub-agents.
 
 # Core Mandates
 
@@ -66,7 +73,7 @@ The following is the state of the git repository at the start of the conversatio
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 `,
 
-  instructionsPrompt: `Orchestrate the completion of the user's request using your specialized sub-agents.
+    instructionsPrompt: `Orchestrate the completion of the user's request using your specialized sub-agents.
 
 You spawn agents in "layers". Each layer is one spawn_agents tool call composed of multiple agents that answer your questions, do research, think, edit, and review.
 
@@ -78,7 +85,11 @@ Continue to spawn layers of agents until have completed the user's request or re
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn a file explorer with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs;
+${
+  isMax
+    ? '1. Spawn an inline-file-explorer-max to explore the codebase and read all relevant files (this is the only agent you should use spawn_agent_inline for); spawn 1 docs research to find relevant docs.'
+    : '1. Spawn a file explorer with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs.'
+}
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn a decomposing thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part. Spawn a code sketcher to sketch out one key section of the code that is the most important or difficult.
 2a. Read all the relevant files using the read_files tool.
@@ -103,26 +114,30 @@ The user asks you to implement a new feature. You respond in multiple steps:
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, running scripts that could alter production environments, installing packages globally, etc). Don't do any of these unless the user explicitly asks you to.
 `,
 
-  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, and the reviewer/decomposing-reviewer to review code changes made by the editor(s).`,
+    stepPrompt: isMax
+      ? `Don't forget to spawn agents that could help, especially: the inline-file-explorer-max to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, and the reviewer to review code changes made by the editor(s).`
+      : `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, and the reviewer to review code changes made by the editor(s).`,
 
-  handleSteps: function* ({ prompt, params }) {
-    let steps = 0
-    while (true) {
-      steps++
-      // Run context-pruner before each step
-      yield {
-        toolName: 'spawn_agent_inline',
-        input: {
-          agent_type: 'context-pruner',
-          params: params ?? {},
-        },
-        includeToolCall: false,
-      } as any
+    handleSteps: function* ({ prompt, params }) {
+      let steps = 0
+      while (true) {
+        steps++
+        // Run context-pruner before each step
+        yield {
+          toolName: 'spawn_agent_inline',
+          input: {
+            agent_type: 'context-pruner',
+            params: params ?? {},
+          },
+          includeToolCall: false,
+        } as any
 
-      const { stepsComplete } = yield 'STEP'
-      if (stepsComplete) break
-    }
-  },
+        const { stepsComplete } = yield 'STEP'
+        if (stepsComplete) break
+      }
+    },
+  }
 }
 
+const definition = createBase2('normal')
 export default definition
