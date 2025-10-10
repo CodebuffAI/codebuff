@@ -94,7 +94,7 @@ export async function runSingleEval(
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
-    const MAX_ATTEMPTS = promptWithAgent ? 1 : 5
+    const MAX_ATTEMPTS = promptWithAgent ? 5 : 1
 
     while (currentDecision === 'continue' && attempts < MAX_ATTEMPTS) {
       // Check for process-level errors
@@ -120,7 +120,7 @@ export async function runSingleEval(
       // Get next prompt from prompting agent with timeout
       let agentResponse: z.infer<typeof AgentDecisionSchema>
       try {
-        agentResponse = !promptWithAgent
+        agentResponse = promptWithAgent
           ? {
               decision: 'continue',
               reasoning: 'Using spec as sole prompt',
@@ -458,7 +458,8 @@ export async function runGitEvals(
               .split('\n')[0]
               .replace(/[^a-zA-Z0-9]/g, '_')
               .slice(0, 30)
-            const logFilename = `${safeMessage}-${evalCommit.sha.slice(0, 7)}.log`
+            const date = new Date().toISOString().replace(/[:.]/g, '-')
+            const logFilename = `${date}-${safeMessage}-${evalCommit.sha.slice(0, 7)}.log`
             const logPath = path.join(logsDir, logFilename)
             const logStream = logToStdout
               ? process.stdout
