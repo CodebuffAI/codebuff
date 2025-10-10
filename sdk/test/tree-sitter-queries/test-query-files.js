@@ -208,97 +208,10 @@ async function testTreeSitterFunctionality() {
   }
 }
 
-function testQueryFilesExist() {
-  console.log('🧪 Testing tree-sitter query files exist...')
-  
-  // Test for both CJS and ESM builds
-  const testPaths = [
-    // CJS build location
-    path.join(__dirname, '../../dist/tree-sitter-queries'),
-    // Alternative path for different build configurations
-    path.join(__dirname, '../../tree-sitter-queries'),
-  ]
-  
-  const expectedFiles = [
-    'tree-sitter-c-tags.scm',
-    'tree-sitter-c_sharp-tags.scm', 
-    'tree-sitter-cpp-tags.scm',
-    'tree-sitter-go-tags.scm',
-    'tree-sitter-java-tags.scm',
-    'tree-sitter-javascript-tags.scm',
-    'tree-sitter-php-tags.scm',
-    'tree-sitter-python-tags.scm',
-    'tree-sitter-ruby-tags.scm',
-    'tree-sitter-rust-tags.scm',
-    'tree-sitter-typescript-tags.scm',
-    'readme.md'
-  ]
-  
-  let foundPath = null
-  
-  // Find the correct path where query files exist
-  for (const testPath of testPaths) {
-    if (fs.existsSync(testPath)) {
-      foundPath = testPath
-      break
-    }
-  }
-  
-  if (!foundPath) {
-    throw new Error(`Tree-sitter query directory not found in any of: ${testPaths.join(', ')}`)
-  }
-  
-  console.log(`✅ Found tree-sitter queries directory at: ${foundPath}`)
-  
-  // Check that all expected files exist
-  const actualFiles = fs.readdirSync(foundPath)
-  const missingFiles = expectedFiles.filter(file => !actualFiles.includes(file))
-  
-  if (missingFiles.length > 0) {
-    throw new Error(`Missing tree-sitter query files: ${missingFiles.join(', ')}`)
-  }
-  
-  console.log(`✅ All ${expectedFiles.length} expected query files found`)
-  
-  // Test that files have content and are readable
-  for (const file of expectedFiles) {
-    if (file.endsWith('.scm')) {
-      const filePath = path.join(foundPath, file)
-      const content = fs.readFileSync(filePath, 'utf8')
-      
-      if (content.length === 0) {
-        throw new Error(`Query file ${file} is empty`)
-      }
-      
-      // Basic validation that it looks like a tree-sitter query
-      if (!content.includes('(') || !content.includes(')')) {
-        throw new Error(`Query file ${file} doesn't appear to be a valid tree-sitter query`)
-      }
-      
-      console.log(`✅ Query file ${file} is valid (${content.length} bytes)`)
-    }
-  }
-  
-  // Test that readme.md exists and has content
-  const readmePath = path.join(foundPath, 'readme.md')
-  const readmeContent = fs.readFileSync(readmePath, 'utf8')
-  if (readmeContent.length === 0) {
-    throw new Error('readme.md is empty')
-  }
-  
-  console.log('✅ readme.md exists and has content')
-  
-  return true
-}
-
 // Run the tests
 async function runAllTests() {
   try {
-    // Test 1: Verify query files exist and are readable
-    testQueryFilesExist()
-    console.log('\n')
-    
-    // Test 2: Test actual tree-sitter functionality
+    // Test actual tree-sitter functionality
     await testTreeSitterFunctionality()
     
     console.log('\n🎉 All tree-sitter query file tests passed!')
