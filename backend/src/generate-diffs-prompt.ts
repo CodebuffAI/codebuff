@@ -4,9 +4,9 @@ import {
   createSearchReplaceBlock,
 } from '@codebuff/common/util/file'
 
-import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
-
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 export const parseAndGetDiffBlocksSingleFile = (params: {
   newContent: string
@@ -133,24 +133,27 @@ export const tryToDoStringReplacementWithExtraIndentation = (params: {
   return null
 }
 
-export async function retryDiffBlocksPrompt(params: {
-  filePath: string
-  oldContent: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  diffBlocksThatDidntMatch: { searchContent: string; replaceContent: string }[]
-  logger: Logger
-}) {
+export async function retryDiffBlocksPrompt(
+  params: {
+    filePath: string
+    oldContent: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    diffBlocksThatDidntMatch: {
+      searchContent: string
+      replaceContent: string
+    }[]
+    promptAiSdk: PromptAiSdkFn
+    logger: Logger
+  } & ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
+) {
   const {
     filePath,
     oldContent,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
     diffBlocksThatDidntMatch,
+    promptAiSdk,
     logger,
   } = params
   const newPrompt =
@@ -168,13 +171,9 @@ The search content needs to match an exact substring of the old file content, wh
 Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
 
   const response = await promptAiSdk({
+    ...params,
     messages: [{ role: 'user', content: newPrompt }],
     model: models.openrouter_claude_sonnet_4,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    logger,
   })
   const {
     diffBlocks: newDiffBlocks,

@@ -1,3 +1,4 @@
+import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { getTracesAndRelabelsForUser, setupBigQuery } from '@codebuff/bigquery'
 
 import { gradeRun } from '../../backend/src/admin/grade-runs'
@@ -46,7 +47,11 @@ async function gradeTraces({ logger }: { logger: Logger }) {
         batch.map(async (traceAndRelabels) => {
           try {
             console.log(`Grading trace ${traceAndRelabels.trace.id}`)
-            const result = await gradeRun({ ...traceAndRelabels, logger })
+            const result = await gradeRun({
+              ...traceAndRelabels,
+              promptAiSdk,
+              logger,
+            })
             return {
               traceId: traceAndRelabels.trace.id,
               status: 'success',

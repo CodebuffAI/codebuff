@@ -1,8 +1,7 @@
 import { models } from '@codebuff/common/old-constants'
 import { withTimeout } from '@codebuff/common/util/promise'
 
-import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
-
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
@@ -13,10 +12,11 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 export async function checkTerminalCommand(
   params: {
     prompt: string
+    promptAiSdk: PromptAiSdkFn
     logger: Logger
-  } & ParamsExcluding<typeof promptAiSdk, 'messages' | 'model'>,
+  } & ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
 ): Promise<string | null> {
-  const { prompt, logger } = params
+  const { prompt, promptAiSdk, logger } = params
   if (!prompt?.trim()) {
     return null
   }

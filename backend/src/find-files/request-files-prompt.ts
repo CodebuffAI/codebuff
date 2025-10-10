@@ -14,7 +14,6 @@ import { range, shuffle, uniq } from 'lodash'
 
 import { CustomFilePickerConfigSchema } from './custom-file-picker-config'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
-import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
 import {
   castAssistantMessage,
   messagesWithSystem,
@@ -28,9 +27,11 @@ import type {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,
 } from '@codebuff/bigquery'
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
@@ -120,32 +121,25 @@ function isValidFilePickerModelName(
   return Object.keys(finetunedVertexModels).includes(modelName)
 }
 
-export async function requestRelevantFiles(params: {
-  messages: Message[]
-  system: string | Array<TextBlock>
-  fileContext: ProjectFileContext
-  assistantPrompt: string | null
-  agentStepId: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  repoId: string | undefined
-  logger: Logger
-}) {
-  const {
-    messages,
-    system,
-    fileContext,
-    assistantPrompt,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
-    logger,
-  } = params
+export async function requestRelevantFiles(
+  params: {
+    messages: Message[]
+    system: string | Array<TextBlock>
+    fileContext: ProjectFileContext
+    assistantPrompt: string | null
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    repoId: string | undefined
+    logger: Logger
+  } & ParamsExcluding<
+    typeof getRelevantFiles,
+    'messages' | 'userPrompt' | 'requestType' | 'modelId'
+  >,
+) {
+  const { messages, fileContext, assistantPrompt, logger } = params
   // Check for organization custom file picker feature
   const requestContext = getRequestContext()
   const orgId = requestContext?.approvedOrgIdForRepo
@@ -193,18 +187,11 @@ export async function requestRelevantFiles(params: {
   }
 
   const keyPromise = getRelevantFiles({
+    ...params,
     messages: messagesExcludingLastIfByUser,
-    system,
     userPrompt: keyPrompt,
     requestType: 'Key',
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
     modelId: modelIdForRequest,
-    logger,
   }).catch((error) => {
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
@@ -227,32 +214,18 @@ export async function requestRelevantFiles(params: {
   return candidateFiles.slice(0, maxFilesPerRequest)
 }
 
-export async function requestRelevantFilesForTraining(params: {
-  messages: Message[]
-  system: string | Array<TextBlock>
-  fileContext: ProjectFileContext
-  assistantPrompt: string | null
-  agentStepId: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  repoId: string | undefined
-  logger: Logger
-}) {
-  const {
-    messages,
-    system,
-    fileContext,
-    assistantPrompt,
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
-    logger,
-  } = params
+export async function requestRelevantFilesForTraining(
+  params: {
+    messages: Message[]
+    fileContext: ProjectFileContext
+    assistantPrompt: string | null
+    logger: Logger
+  } & ParamsExcluding<
+    typeof getRelevantFilesForTraining,
+    'messages' | 'userPrompt' | 'requestType'
+  >,
+) {
+  const { messages, fileContext, assistantPrompt, logger } = params
   const COUNT = 50
 
   const lastMessage = messages[messages.length - 1]
@@ -279,31 +252,17 @@ export async function requestRelevantFilesForTraining(params: {
   )
 
   const keyFiles = await getRelevantFilesForTraining({
+    ...params,
     messages: messagesExcludingLastIfByUser,
-    system,
     userPrompt: keyFilesPrompt,
     requestType: 'Key',
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
-    logger,
   })
 
   const nonObviousFiles = await getRelevantFilesForTraining({
+    ...params,
     messages: messagesExcludingLastIfByUser,
-    system,
     userPrompt: nonObviousPrompt,
     requestType: 'Non-Obvious',
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    repoId,
-    logger,
   })
 
   const candidateFiles = [...keyFiles.files, ...nonObviousFiles.files]
@@ -315,20 +274,25 @@ export async function requestRelevantFilesForTraining(params: {
   return validatedFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
 
-async function getRelevantFiles(params: {
-  messages: Message[]
-  system: string | Array<TextBlock>
-  userPrompt: string
-  requestType: string
-  agentStepId: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  repoId: string | undefined
-  modelId?: FinetunedVertexModel
-  logger: Logger
-}) {
+async function getRelevantFiles(
+  params: {
+    messages: Message[]
+    system: string | Array<TextBlock>
+    userPrompt: string
+    requestType: string
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    repoId: string | undefined
+    modelId?: FinetunedVertexModel
+    logger: Logger
+  } & ParamsExcluding<
+    typeof promptFlashWithFallbacks,
+    'messages' | 'model' | 'useFinetunedModel'
+  >,
+) {
   const {
     messages,
     system,
@@ -374,14 +338,10 @@ async function getRelevantFiles(params: {
   const finetunedModel = modelId ?? finetunedVertexModels.ft_filepicker_010
 
   let response = await promptFlashWithFallbacks({
+    ...params,
     messages: codebuffMessages,
-    clientSessionId,
-    userInputId,
     model: models.openrouter_gemini2_5_flash,
-    userId,
     useFinetunedModel: finetunedModel,
-    fingerprintId,
-    logger,
   })
   const end = performance.now()
   const duration = end - start
@@ -425,6 +385,7 @@ async function getRelevantFilesForTraining(params: {
   userInputId: string
   userId: string | undefined
   repoId: string | undefined
+  promptAiSdk: PromptAiSdkFn
   logger: Logger
 }) {
   const {
@@ -438,6 +399,7 @@ async function getRelevantFilesForTraining(params: {
     userInputId,
     userId,
     repoId,
+    promptAiSdk,
     logger,
   } = params
   const bufferTokens = 100_000

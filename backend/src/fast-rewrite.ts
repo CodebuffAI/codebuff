@@ -5,52 +5,33 @@ import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
 
 import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptRelaceAI } from './llm-apis/relace-api'
-import { promptAiSdk } from './llm-apis/vercel-ai-sdk/ai-sdk'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
 
-export async function fastRewrite(params: {
-  initialContent: string
-  editSnippet: string
-  filePath: string
-  instructions: string | undefined
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  userMessage: string | undefined
-  logger: Logger
-}) {
-  const {
-    initialContent,
-    editSnippet,
-    filePath,
-    instructions,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    userMessage,
-    logger,
-  } = params
+export async function fastRewrite(
+  params: {
+    initialContent: string
+    editSnippet: string
+    filePath: string
+    userMessage: string | undefined
+    logger: Logger
+  } & ParamsExcluding<typeof promptRelaceAI, 'initialCode' | 'messageId'> &
+    ParamsExcluding<typeof rewriteWithOpenAI, 'oldContent'>,
+) {
+  const { initialContent, editSnippet, filePath, userMessage, logger } = params
   const relaceStartTime = Date.now()
   const messageId = generateCompactId('cb-')
   let response = await promptRelaceAI({
+    ...params,
     initialCode: initialContent,
-    editSnippet,
-    instructions,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    userMessage,
     messageId,
-    logger,
   })
   const relaceDuration = Date.now() - relaceStartTime
 
@@ -62,15 +43,8 @@ export async function fastRewrite(params: {
   ) {
     const relaceResponse = response
     response = await rewriteWithOpenAI({
+      ...params,
       oldContent: initialContent,
-      editSnippet,
-      filePath,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      userMessage,
-      logger,
     })
     logger.debug(
       { filePath, relaceResponse, openaiResponse: response, messageId },
@@ -97,23 +71,21 @@ export async function fastRewrite(params: {
 export async function rewriteWithOpenAI(params: {
   oldContent: string
   editSnippet: string
-  filePath: string
   clientSessionId: string
   fingerprintId: string
   userInputId: string
   userId: string | undefined
-  userMessage: string | undefined
+  promptAiSdk: PromptAiSdkFn
   logger: Logger
 }): Promise<string> {
   const {
     oldContent,
     editSnippet,
-    filePath,
     clientSessionId,
     fingerprintId,
     userInputId,
     userId,
-    userMessage,
+    promptAiSdk,
     logger,
   } = params
   const prompt = `You are an expert programmer tasked with implementing changes to a file. Please rewrite the file to implement the changes shown in the edit snippet, while preserving the original formatting and behavior of unchanged parts.
@@ -158,28 +130,22 @@ Please output just the complete updated file content with the edit applied and n
  * sketches an update to a single function, but forgets to add ... existing code ...
  * above and below the function.
  */
-export const shouldAddFilePlaceholders = async (params: {
-  filePath: string
-  oldContent: string
-  rewrittenNewContent: string
-  messageHistory: Message[]
-  fullResponse: string
-  userId: string | undefined
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  logger: Logger
-}) => {
+export const shouldAddFilePlaceholders = async (
+  params: {
+    filePath: string
+    oldContent: string
+    rewrittenNewContent: string
+    messageHistory: Message[]
+    fullResponse: string
+    logger: Logger
+  } & ParamsExcluding<typeof promptFlashWithFallbacks, 'messages' | 'model'>,
+) => {
   const {
     filePath,
     oldContent,
     rewrittenNewContent,
     messageHistory,
     fullResponse,
-    userId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
     logger,
   } = params
   const fileWasPreviouslyEdited = messageHistory
@@ -244,13 +210,9 @@ Do not write anything else.
     },
   )
   const response = await promptFlashWithFallbacks({
+    ...params,
     messages,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
     model: models.openrouter_gemini2_5_flash,
-    userId,
-    logger,
   })
   const shouldAddPlaceholderComments = response.includes('LOCAL_CHANGE_ONLY')
   logger.debug(

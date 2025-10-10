@@ -24,8 +24,10 @@ import type {
   GetRelevantFilesTrace,
   Relabel,
 } from '@codebuff/bigquery'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { Request, Response } from 'express'
 
 // --- GET Handler Logic ---
@@ -153,6 +155,7 @@ export async function relabelForUserHandler(params: {
     const relaceResults = relabelUsingFullFilesForUser({
       userId,
       limit,
+      promptAiSdk,
       logger,
     })
 
@@ -265,11 +268,16 @@ export async function relabelForUserHandler(params: {
   }
 }
 
-async function relabelUsingFullFilesForUser(params: {
-  userId: string
-  limit: number
-  logger: Logger
-}) {
+async function relabelUsingFullFilesForUser(
+  params: {
+    userId: string
+    limit: number
+    logger: Logger
+  } & ParamsExcluding<
+    typeof relabelWithClaudeWithFullFileContext,
+    'trace' | 'fileBlobs' | 'model'
+  >,
+) {
   const { userId, limit, logger } = params
   // TODO: We need to figure out changing _everything_ to use `getTracesAndAllDataForUser`
   const tracesBundles = await getTracesAndAllDataForUser(userId)
@@ -308,10 +316,10 @@ async function relabelUsingFullFilesForUser(params: {
       ) {
         relabelPromises.push(
           relabelWithClaudeWithFullFileContext({
+            ...params,
             trace,
             fileBlobs,
             model,
-            logger,
           }),
         )
         didRelabel = true
@@ -392,9 +400,10 @@ export async function relabelWithClaudeWithFullFileContext(params: {
   fileBlobs: GetExpandedFileContextForTrainingBlobTrace
   model: string
   dataset?: string
+  promptAiSdk: PromptAiSdkFn
   logger: Logger
 }) {
-  const { trace, fileBlobs, model, dataset, logger } = params
+  const { trace, fileBlobs, model, dataset, promptAiSdk, logger } = params
   if (dataset) {
     await setupBigQuery({ dataset, logger })
   }

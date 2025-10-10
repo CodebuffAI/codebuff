@@ -1,4 +1,5 @@
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
@@ -18,9 +19,12 @@ import * as OriginalRequestFilesPromptModule from '../find-files/request-files-p
 import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
 
 import type { CostMode } from '@codebuff/common/old-constants'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { Mock } from 'bun:test'
+
+let agentRuntimeImpl: AgentRuntimeDeps
 
 describe('requestRelevantFiles', () => {
   const mockMessages: Message[] = [{ role: 'user', content: 'test prompt' }]
@@ -58,12 +62,6 @@ describe('requestRelevantFiles', () => {
   const mockUserId = 'user1'
   const mockCostMode: CostMode = 'normal'
   const mockRepoId = 'owner/repo'
-  const logger = {
-    debug: () => {},
-    info: () => {},
-    warn: () => {},
-    error: () => {},
-  }
 
   let getCustomFilePickerConfigForOrgSpy: any // Explicitly typed as any
 
@@ -79,15 +77,6 @@ describe('requestRelevantFiles', () => {
         approvedOrgIdForRepo: 'org123',
         isRepoApprovedForUserInOrg: true,
       })),
-    }))
-
-    mockModule('@codebuff/backend/util/logger', () => ({
-      logger: {
-        info: bunMockFn(() => {}),
-        error: bunMockFn(() => {}),
-        warn: bunMockFn(() => {}),
-        debug: bunMockFn(() => {}),
-      },
     }))
 
     mockModule('@codebuff/common/db', () => ({
@@ -109,6 +98,8 @@ describe('requestRelevantFiles', () => {
   })
 
   beforeEach(() => {
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+
     // If the spy was created in a previous test, restore it
     if (
       getCustomFilePickerConfigForOrgSpy &&
@@ -134,6 +125,7 @@ describe('requestRelevantFiles', () => {
 
   it('should use default file counts and maxFiles when no custom config', async () => {
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      ...agentRuntimeImpl,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -144,7 +136,6 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
-      logger,
     })
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
@@ -161,6 +152,7 @@ describe('requestRelevantFiles', () => {
     getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      ...agentRuntimeImpl,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -171,7 +163,6 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
-      logger,
     })
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
@@ -187,6 +178,7 @@ describe('requestRelevantFiles', () => {
     getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
     const result = await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      ...agentRuntimeImpl,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -197,7 +189,6 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
-      logger,
     })
     expect(result).toBeArray()
     if (result) {
@@ -213,6 +204,7 @@ describe('requestRelevantFiles', () => {
     getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      ...agentRuntimeImpl,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -223,7 +215,6 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
-      logger,
     })
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
@@ -242,6 +233,7 @@ describe('requestRelevantFiles', () => {
     getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
+      ...agentRuntimeImpl,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -252,7 +244,6 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
-      logger,
     })
     const expectedModel = finetunedVertexModels.ft_filepicker_010
     expect(
