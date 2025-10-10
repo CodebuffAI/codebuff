@@ -14,8 +14,14 @@ import {
   setGlobalConcurrencyLimit,
   terminateAllEvalChildren,
 } from './run-git-evals'
+import {
+  printComparisonTable,
+  runMultiAgentEvals,
+  writeComparisonResults,
+} from './run-eval-set-multi-agent'
 
 import type { EvalConfig, EvalResult } from './types'
+import type { AgentConfig } from './run-eval-set-multi-agent'
 import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
@@ -33,6 +39,8 @@ class RunEvalSetCommand extends Command {
     '$ bun run run-eval-set --email --no-analysis',
     '$ bun run run-eval-set --mock --no-insert',
     '$ bun run run-eval-set --title "Weekly Performance Test"',
+    '$ bun run run-eval-set --agents base,base-lite,base2 --sets codebuff',
+    '$ bun run run-eval-set --concurrency 1',
   ]
 
   static flags = {
@@ -73,7 +81,8 @@ class RunEvalSetCommand extends Command {
     }),
     concurrency: Flags.integer({
       char: 'c',
-      description: 'Number of concurrent evals to run',
+      description:
+        'Number of concurrent evals to run. Use 1 to see subprocess logs for debugging.',
       min: 1,
     }),
     'coding-agent': Flags.string({
@@ -89,11 +98,30 @@ class RunEvalSetCommand extends Command {
       default: false,
       allowNo: true,
     }),
+    agents: Flags.string({
+      description:
+        'Agent ID for single-agent mode, or comma-separated list of valid agent IDs for multi-agent comparison (e.g., base,base-lite,base2). Check .agents directory for available agents.',
+    }),
     help: Flags.help({ char: 'h' }),
   }
 
   async run(): Promise<void> {
     const { flags } = await this.parse(RunEvalSetCommand)
+
+    if (flags.agents) {
+      const agentList = flags.agents.split(',').map((a) => a.trim())
+      if (agentList.length > 1) {
+        await runMultiAgentEvalSet({
+          agents: flags.agents,
+          sets: flags.sets,
+          'output-dir': flags['output-dir'],
+          concurrency: flags.concurrency,
+          'coding-agent': flags['coding-agent'],
+          'prompt-with-agent': flags['prompt-with-agent'],
+        })
+        return
+      }
+    }
 
     await runEvalSet(flags)
   }
@@ -160,6 +188,134 @@ function cleanupEvalWorktree(worktreePath: string): void {
     } catch (pruneError) {
       console.error('Failed to prune worktrees:', pruneError)
     }
+  }
+}
+
+function getAllEvalConfigs(baseDir: string, outputDir: string): EvalConfig[] {
+  return [
+    {
+      name: 'codebuff',
+      evalDataPath: path.join(baseDir, 'eval-codebuff2.json'),
+      outputDir,
+    },
+    {
+      name: 'manifold',
+      evalDataPath: path.join(baseDir, 'eval-manifold2.json'),
+      outputDir,
+    },
+    {
+      name: 'plane',
+      evalDataPath: path.join(baseDir, 'eval-plane.json'),
+      outputDir,
+    },
+    {
+      name: 'saleor',
+      evalDataPath: path.join(baseDir, 'eval-saleor.json'),
+      outputDir,
+    },
+  ]
+}
+
+async function runMultiAgentEvalSet(options: {
+  agents: string
+  sets: string
+  'output-dir': string
+  concurrency?: number
+  'coding-agent': string
+  'prompt-with-agent': boolean
+}): Promise<void> {
+  const {
+    agents: agentsStr,
+    sets,
+    'output-dir': outputDir,
+    'coding-agent': codingAgentStr,
+    'prompt-with-agent': promptWithAgent,
+  } = options
+
+  if (!['codebuff', 'claude'].includes(codingAgentStr)) {
+    throw new Error(`Invalid coding agent: ${codingAgentStr}`)
+  }
+  const codingAgent = codingAgentStr as 'codebuff' | 'claude'
+
+  console.log('Starting multi-agent eval comparison...')
+
+  const agentConfigs: AgentConfig[] = agentsStr
+    .split(',')
+    .map((id) => id.trim())
+    .map((id) => ({
+      agentId: id,
+      displayName: id,
+    }))
+
+  console.log(
+    `Comparing ${agentConfigs.length} agents: ${agentConfigs.map((a) => a.agentId).join(', ')}`,
+  )
+
+  const worktreePath = createEvalWorktree()
+
+  const signalHandler = async (signal: string) => {
+    console.log(`\nReceived ${signal}, cleaning up...`)
+    await terminateAllEvalChildren()
+    cleanupEvalWorktree(worktreePath)
+    process.exit(signal === 'SIGINT' ? 130 : 143)
+  }
+
+  process.on('SIGINT', () => signalHandler('SIGINT'))
+  process.on('SIGTERM', () => signalHandler('SIGTERM'))
+
+  setGlobalConcurrencyLimit(options.concurrency ?? 5)
+
+  const validSets = ['codebuff', 'manifold', 'plane', 'saleor']
+  const requestedSets =
+    sets.trim().toLowerCase() === 'all'
+      ? validSets
+      : sets.split(',').map((s) => s.trim())
+
+  const baseDir = path.join(worktreePath, 'evals', 'git-evals')
+
+  const evalConfigs = getAllEvalConfigs(baseDir, outputDir).filter((config) =>
+    requestedSets.includes(config.name),
+  )
+
+  console.log(
+    `Running ${evalConfigs.length} eval sets with ${agentConfigs.length} agents each`,
+  )
+
+  const startTime = Date.now()
+
+  const traceId = generateCompactId()
+  console.log(`Starting multi-agent eval run with trace ID: ${traceId}`)
+
+  try {
+    const results = await runMultiAgentEvals({
+      agents: agentConfigs,
+      evalConfigs,
+      outputDir,
+      concurrency: options.concurrency,
+      codingAgent,
+      worktreePath,
+      promptWithAgent,
+    })
+
+    const totalDuration = Date.now() - startTime
+
+    printComparisonTable(
+      results,
+      evalConfigs.map((c) => c.name),
+    )
+
+    writeComparisonResults(results, outputDir, traceId)
+
+    console.log(`\nTotal time: ${(totalDuration / 1000).toFixed(1)}s`)
+    console.log(`Results saved to: ${outputDir}`)
+
+    cleanupEvalWorktree(worktreePath)
+
+    process.exit(0)
+  } catch (error) {
+    console.error('Error in multi-agent eval:', error)
+    cleanupEvalWorktree(worktreePath)
+    process.exit(1)
   }
 }
 
@@ -231,28 +387,7 @@ async function runEvalSet(options: {
   // Resolve paths relative to worktree if using one
   const baseDir = path.join(worktreePath, 'evals', 'git-evals')
 
-  const allEvalConfigs: EvalConfig[] = [
-    {
-      name: 'codebuff',
-      evalDataPath: path.join(baseDir, 'eval-codebuff2.json'),
-      outputDir,
-    },
-    {
-      name: 'manifold',
-      evalDataPath: path.join(baseDir, 'eval-manifold2.json'),
-      outputDir,
-    },
-    {
-      name: 'plane',
-      evalDataPath: path.join(baseDir, 'eval-plane.json'),
-      outputDir,
-    },
-    {
-      name: 'saleor',
-      evalDataPath: path.join(baseDir, 'eval-saleor.json'),
-      outputDir,
-    },
-  ]
+  const allEvalConfigs = getAllEvalConfigs(baseDir, outputDir)
 
   const evalConfigs = allEvalConfigs.filter((config) =>
     requestedSets.includes(config.name),

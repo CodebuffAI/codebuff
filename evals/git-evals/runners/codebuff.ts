@@ -50,7 +50,7 @@ export class CodebuffRunner implements Runner {
       }),
     )
     console.log(
-      'Loaded local agent definitions:',
+      '[CodebuffRunner] Loaded local agent definitions:',
       localAgentDefinitions.map((a) => a.id),
     )
 
@@ -61,7 +61,10 @@ export class CodebuffRunner implements Runner {
       prompt,
       handleEvent: (event) => {
         if (event.type === 'error') {
-          console.log('\n\n' + JSON.stringify(event, null, 2))
+          console.log(
+            '[CodebuffRunner] ERROR event:',
+            JSON.stringify(event, null, 2),
+          )
           lastErrorMessage = event.message
         }
         if (event.type === 'text') {
@@ -71,7 +74,6 @@ export class CodebuffRunner implements Runner {
           }
           responseText += event.text
         } else if (event.type === 'tool_call') {
-          // Do not include set_messages
           if (event.toolName === 'set_messages') {
             return
           }

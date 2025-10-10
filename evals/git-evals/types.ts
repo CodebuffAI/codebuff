@@ -122,3 +122,45 @@ export interface EvalResult {
   error?: string
   duration: number
 }
+
+export interface AgentComparisonResult {
+  agentId: string
+  displayName: string
+  evalSetResults: Map<string, FullEvalLog>
+  overallMetrics: {
+    avgOverallScore: number
+    avgCompletionScore: number
+    avgCodeQualityScore: number
+    avgCostUsd: number
+    avgDurationMs: number
+    successRate: number
+  }
+}
+
+export interface MultiAgentEvalSummary {
+  agents: AgentComparisonResult[]
+  evalSets: string[]
+  timestamp: string
+  totalDuration: number
+}
+
+export interface AgentComparisonResult {
+  agentId: string
+  displayName: string
+  evalSetResults: Map<string, FullEvalLog>
+  overallMetrics: {
+    avgOverallScore: number
+    avgCompletionScore: number
+    avgCodeQualityScore: number
+    avgCostUsd: number
+    avgDurationMs: number
+    successRate: number
+  }
+}
+
+export interface MultiAgentEvalSummary {
+  agents: AgentComparisonResult[]
+  evalSets: string[]
+  timestamp: string
+  totalDuration: number
+}

@@ -160,6 +160,19 @@ bun run evals/git-evals/run-git-evals.ts \
   codebuff
 ```
 
+### Multi-Agent Comparison
+
+The evaluation system supports running multiple agents in parallel on the same eval tasks to compare their performance side-by-side. Multi-agent mode is automatically activated when you specify multiple comma-separated agents with the `--agents` flag.
+
+#### Usage
+
+```bash
+# Compare three agents on codebuff eval set
+bun run evals/git-evals/run-eval-set.ts \
+  --agents base,base2,base-lite
+```
+
+
 ### Creating New Evaluations
 
 #### 1. Pick Commits from Repository
