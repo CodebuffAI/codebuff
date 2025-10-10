@@ -12,7 +12,7 @@ export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   // Database
   getUserInfoFromApiKey: async () => ({
     id: 'test-user-id',
-    email: 'test-email',
+   email: 'test-email',
     discord_id: 'test-discord-id',
   }),
   fetchAgentFromDatabase: async () => null,

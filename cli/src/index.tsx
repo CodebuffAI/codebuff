@@ -7,13 +7,11 @@ import { clearLogFile } from './utils/logger'
 
 function parseArgs(): { initialPrompt: string | null; clearLogs: boolean } {
   const args = process.argv.slice(2)
-  const pIndex = args.indexOf('-p')
   const clearLogs = args.includes('--clear-logs')
 
-  let initialPrompt: string | null = null
-  if (pIndex !== -1 && pIndex < args.length - 1) {
-    initialPrompt = args[pIndex + 1]
-  }
+  // Filter out --clear-logs and use remaining args as the prompt
+  const promptArgs = args.filter((arg) => arg !== '--clear-logs')
+  const initialPrompt = promptArgs.length > 0 ? promptArgs.join(' ') : null
 
   return { initialPrompt, clearLogs }
 }

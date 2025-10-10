@@ -342,7 +342,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     agentText: '#1f2937',
     agentCheckmark: '#059669',
     agentResponseCount: '#6b7280',
-    agentFocusedBg: '#e5e7eb',
+    agentFocusedBg: '#f3f4f6',
     agentContentText: '#111827',
     agentToggleHeaderBg: '#059669',
     agentToggleHeaderText: '#ffffff',
