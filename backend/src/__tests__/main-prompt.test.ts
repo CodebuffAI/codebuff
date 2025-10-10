@@ -28,11 +28,10 @@ import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
-let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
+let agentRuntimeImpl: AgentRuntimeDeps
 
 const mockAgentStream = (streamOutput: string) => {
   agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
@@ -43,14 +42,10 @@ const mockAgentStream = (streamOutput: string) => {
 
 describe('mainPrompt', () => {
   let mockLocalAgentTemplates: Record<string, any>
-  const logger: Logger = {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  }
 
   beforeEach(() => {
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+
     // Setup common mock agent templates
     mockLocalAgentTemplates = {
       [AgentTemplateTypes.base]: {
@@ -86,12 +81,10 @@ describe('mainPrompt', () => {
         stepPrompt: '',
       } satisfies AgentTemplate,
     }
-  })
 
-  beforeEach(() => {
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics({ logger }) // Initialize the mock
+    analytics.initAnalytics(agentRuntimeImpl) // Initialize the mock
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
@@ -176,7 +169,6 @@ describe('mainPrompt', () => {
   afterEach(() => {
     // Clear all mocks after each test
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   class MockWebSocket {

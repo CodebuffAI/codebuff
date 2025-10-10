@@ -53,7 +53,7 @@ const modelToAiSDKModel = (model: Model): LanguageModel => {
 // TODO: Add retries & fallbacks: likely by allowing this to instead of "model"
 // also take an array of form [{model: Model, retries: number}, {model: Model, retries: number}...]
 // eg: [{model: "gemini-2.0-flash-001"}, {model: "vertex/gemini-2.0-flash-001"}, {model: "claude-3-5-haiku", retries: 3}]
-export const promptAiSdkStream = async function* (
+export async function* promptAiSdkStream(
   params: ParamsOf<PromptAiSdkStreamFn>,
 ): ReturnType<PromptAiSdkStreamFn> {
   const { logger } = params
@@ -230,7 +230,7 @@ export const promptAiSdkStream = async function* (
 }
 
 // TODO: figure out a nice way to unify stream & non-stream versions maybe?
-export const promptAiSdk = async function (
+export async function promptAiSdk(
   params: ParamsOf<PromptAiSdkFn>,
 ): ReturnType<PromptAiSdkFn> {
   const { logger } = params
@@ -287,7 +287,7 @@ export const promptAiSdk = async function (
 }
 
 // Copied over exactly from promptAiSdk but with a schema
-export const promptAiSdkStructured = async function <T>(
+export async function promptAiSdkStructured<T>(
   params: PromptAiSdkStructuredInput<T>,
 ): PromptAiSdkStructuredOutput<T> {
   const { logger } = params

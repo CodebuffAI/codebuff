@@ -99,9 +99,10 @@ class MockWebSocket {
 describe('Cost Aggregation Integration Tests', () => {
   let mockLocalAgentTemplates: Record<string, any>
   let mockWebSocket: MockWebSocket
-  let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
+  let agentRuntimeImpl: AgentRuntimeDeps
 
   beforeEach(async () => {
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
     mockWebSocket = new MockWebSocket()
 
     // Setup mock agent templates
@@ -230,7 +231,6 @@ describe('Cost Aggregation Integration Tests', () => {
 
   afterEach(() => {
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   it('should correctly aggregate costs across the entire main prompt flow', async () => {
