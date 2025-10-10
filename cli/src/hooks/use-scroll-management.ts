@@ -160,9 +160,11 @@ export const useChatScrollbox = (
         )
 
         if (scrollbox.scrollTop > maxScroll) {
+          programmaticScrollRef.current = true
           scrollbox.scrollTop = maxScroll
         } else if (autoScrollEnabledRef.current) {
-          scrollToLatest()
+          programmaticScrollRef.current = true
+          scrollbox.scrollTop = maxScroll
         }
       }, 50)
 
