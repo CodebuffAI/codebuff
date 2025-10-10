@@ -16,7 +16,9 @@
   },
   "scripts": {
     "dev": "bun run --watch src/index.tsx",
+    "prebuild": "bun run build:opentui",
     "build": "bun build src/index.tsx --outdir dist --target node --format esm",
+    "build:opentui": "cd ../packages/opentui && bun run build",
     "start": "bun run dist/index.js",
     "typecheck": "tsc --noEmit -p ."
   },
@@ -26,8 +28,8 @@
   },
   "dependencies": {
     "@codebuff/sdk": "workspace:*",
-    "@opentui/react": "workspace:*",
-    "@opentui/core": "workspace:*",
+    "@opentui/react": "file:../packages/opentui/packages/react",
+    "@opentui/core": "file:../packages/opentui/packages/core",
     "react": "^19.0.0",
     "remark-parse": "^11.0.0",
     "unified": "^11.0.0"
