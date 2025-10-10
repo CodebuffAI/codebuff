@@ -76,13 +76,40 @@ export const BranchItem = ({
 
     if (isTextRenderable(value)) {
       return (
-        <text wrap fg={theme.agentText}>
+        <text wrap fg={theme.agentText} key="expanded-text">
           {value}
         </text>
       )
     }
 
-    return value
+    if (React.isValidElement(value)) {
+      if (value.key === null || value.key === undefined) {
+        return (
+          <box key="expanded-node" style={{ flexDirection: 'column', gap: 0 }}>
+            {value}
+          </box>
+        )
+      }
+      return value
+    }
+
+    if (Array.isArray(value)) {
+      return (
+        <box key="expanded-array" style={{ flexDirection: 'column', gap: 0 }}>
+          {value.map((child, idx) => (
+            <box key={`expanded-array-${idx}`} style={{ flexDirection: 'column', gap: 0 }}>
+              {child}
+            </box>
+          ))}
+        </box>
+      )
+    }
+
+    return (
+      <box key="expanded-unknown" style={{ flexDirection: 'column', gap: 0 }}>
+        {value}
+      </box>
+    )
   }
 
   return (
@@ -125,6 +152,7 @@ export const BranchItem = ({
         <box style={{ flexShrink: 1, marginBottom: 0 }}>
           {isStreaming && isCollapsed && streamingPreview && (
             <text
+              key="streaming-preview"
               wrap
               fg={theme.agentText}
               attributes={TextAttributes.ITALIC}
@@ -134,6 +162,7 @@ export const BranchItem = ({
           )}
           {!isStreaming && isCollapsed && finishedPreview && (
             <text
+              key="finished-preview"
               wrap
               fg={theme.agentResponseCount}
               attributes={TextAttributes.ITALIC}

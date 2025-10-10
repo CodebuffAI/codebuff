@@ -13,6 +13,9 @@ import {
 import type { ContentBlock } from '../chat'
 import type { ChatTheme } from '../utils/theme-system'
 
+const trimTrailingNewlines = (value: string): string =>
+  value.replace(/[\r\n]+$/g, '')
+
 interface MessageBlockProps {
   messageId: string
   blocks?: ContentBlock[]
@@ -33,6 +36,7 @@ interface MessageBlockProps {
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
+  registerAgentRef: (id: string, element: any) => void
 }
 
 export const MessageBlock = ({
@@ -55,6 +59,7 @@ export const MessageBlock = ({
   collapsedAgents,
   streamingAgents,
   onToggleCollapsed,
+  registerAgentRef,
 }: MessageBlockProps): ReactNode => {
   return (
     <>
@@ -76,10 +81,16 @@ export const MessageBlock = ({
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
           {blocks.map((block, idx) => {
             if (block.type === 'text') {
-              const trimmedContent = block.content.trim()
-              const renderedContent = hasMarkdown(trimmedContent)
-                ? renderStreamingMarkdown(trimmedContent, markdownOptions)
-                : trimmedContent
+              const isStreamingText = isLoading || !isComplete
+              const rawContent = isStreamingText
+                ? trimTrailingNewlines(block.content)
+                : block.content.trim()
+              const renderKey = `${messageId}-text-${idx}-${rawContent.length}-${isStreamingText ? 'stream' : 'final'}`
+              const renderedContent = hasMarkdown(rawContent)
+                ? isStreamingText
+                  ? renderStreamingMarkdown(rawContent, markdownOptions)
+                  : renderMarkdown(rawContent, markdownOptions)
+                : rawContent
               const prevBlock = idx > 0 ? blocks[idx - 1] : null
               const marginTop =
                 prevBlock &&
@@ -88,7 +99,7 @@ export const MessageBlock = ({
                   : 0
               return (
                 <text
-                  key={`${messageId}-text-${idx}`}
+                  key={renderKey}
                   wrap
                   style={{ fg: textColor, marginTop }}
                 >
@@ -155,7 +166,10 @@ export const MessageBlock = ({
               const branchChar = isLastBranch ? '└─ ' : '├─ '
 
               return (
-                <box key={`${messageId}-tool-${block.toolCallId}`}>
+                <box
+                  key={`${messageId}-tool-${block.toolCallId}`}
+                  ref={(el: any) => registerAgentRef(block.toolCallId, el)}
+                >
                   <BranchItem
                     name={displayInfo.name}
                     content={displayContent}
@@ -171,7 +185,8 @@ export const MessageBlock = ({
               )
             } else if (block.type === 'agent') {
               const isCollapsed = collapsedAgents.has(block.agentId)
-              const isStreaming = streamingAgents.has(block.agentId)
+              const isStreaming =
+                block.status === 'running' || streamingAgents.has(block.agentId)
 
               const allTextContent =
                 block.blocks
@@ -208,15 +223,27 @@ export const MessageBlock = ({
                 <box style={{ flexDirection: 'column', gap: 0 }}>
                   {block.blocks?.map((nestedBlock, nestedIdx) => {
                     if (nestedBlock.type === 'text') {
-                      const renderedContent = hasMarkdown(nestedBlock.content)
-                        ? renderStreamingMarkdown(
-                            nestedBlock.content,
-                            agentMarkdownOptions,
-                          )
-                        : nestedBlock.content
+                      const nestedStatus =
+                        typeof (nestedBlock as any).status === 'string'
+                          ? (nestedBlock as any).status
+                          : undefined
+                      const isNestedStreamingText =
+                        isStreaming || nestedStatus === 'running'
+                      const rawNestedContent = isNestedStreamingText
+                        ? trimTrailingNewlines(nestedBlock.content)
+                        : nestedBlock.content.trim()
+                      const renderKey = `${messageId}-agent-${block.agentId}-text-${nestedIdx}-${rawNestedContent.length}-${isNestedStreamingText ? 'stream' : 'final'}`
+                      const renderedContent = hasMarkdown(rawNestedContent)
+                        ? isNestedStreamingText
+                          ? renderStreamingMarkdown(
+                              rawNestedContent,
+                              agentMarkdownOptions,
+                            )
+                          : renderMarkdown(rawNestedContent, agentMarkdownOptions)
+                        : rawNestedContent
                       return (
                         <text
-                          key={`${messageId}-agent-${block.agentId}-text-${nestedIdx}`}
+                          key={renderKey}
                           wrap
                           style={{ fg: theme.agentText, marginLeft: 2 }}
                         >
@@ -305,6 +332,9 @@ export const MessageBlock = ({
                         return (
                           <box
                             key={`${messageId}-agent-${block.agentId}-tool-${nestedBlock.toolCallId}`}
+                            ref={(el: any) =>
+                              registerAgentRef(nestedBlock.toolCallId, el)
+                            }
                           >
                             <BranchItem
                               name={displayInfo.name}
@@ -333,6 +363,7 @@ export const MessageBlock = ({
               return (
                 <box
                   key={`${messageId}-agent-${block.agentId}`}
+                  ref={(el: any) => registerAgentRef(block.agentId, el)}
                   style={{ flexDirection: 'column', gap: 0 }}
                 >
                   <BranchItem
@@ -354,17 +385,26 @@ export const MessageBlock = ({
           })}
         </box>
       ) : (
-        <text
-          key={`message-content-${messageId}`}
-          wrap
-          style={{ fg: textColor }}
-        >
-          {isLoading
-            ? ''
-            : hasMarkdown(content)
-              ? renderStreamingMarkdown(content, markdownOptions)
-              : content}
-        </text>
+        (() => {
+          const isStreamingMessage = isLoading || !isComplete
+          const normalizedContent = isStreamingMessage
+            ? trimTrailingNewlines(content)
+            : content.trim()
+          const displayContent = hasMarkdown(normalizedContent)
+            ? isStreamingMessage
+              ? renderStreamingMarkdown(normalizedContent, markdownOptions)
+              : renderMarkdown(normalizedContent, markdownOptions)
+            : normalizedContent
+          return (
+            <text
+              key={`message-content-${messageId}-${normalizedContent.length}-${isStreamingMessage ? 'stream' : 'final'}`}
+              wrap
+              style={{ fg: textColor }}
+            >
+              {displayContent}
+            </text>
+          )
+        })()
       )}
       {isAi && isComplete && (completionTime || credits) && (
         <text
