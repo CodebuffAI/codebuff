@@ -31,6 +31,7 @@ async function main() {
     fingerprintId,
     codingAgent,
     agent,
+    promptWithAgent,
   ] = process.argv.slice(2)
 
   if (
@@ -39,7 +40,8 @@ async function main() {
     !clientSessionId ||
     !fingerprintId ||
     !codingAgent ||
-    !agent
+    !agent ||
+    !promptWithAgent
   ) {
     console.error('Missing required arguments for single eval process')
     process.exit(1)
@@ -74,7 +76,7 @@ async function main() {
       fingerprintId,
       codingAgent as any,
       agent,
-      false,
+      promptWithAgent === 'true',
     )
 
     // Check again after long-running operation

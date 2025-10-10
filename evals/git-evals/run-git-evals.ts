@@ -42,7 +42,7 @@ export async function runSingleEval(
   fingerprintId: string,
   codingAgent: 'codebuff' | 'claude',
   agent?: string,
-  promptWithSpec: boolean = false,
+  promptWithAgent: boolean = false,
 ): Promise<EvalRunJudged> {
   const startTime = new Date()
   const trace: CodebuffTrace[] = []
@@ -94,7 +94,7 @@ export async function runSingleEval(
 
     let currentDecision: AgentDecision = 'continue'
     let attempts = 0
-    const MAX_ATTEMPTS = promptWithSpec ? 1 : 5
+    const MAX_ATTEMPTS = promptWithAgent ? 1 : 5
 
     while (currentDecision === 'continue' && attempts < MAX_ATTEMPTS) {
       // Check for process-level errors
@@ -120,7 +120,7 @@ export async function runSingleEval(
       // Get next prompt from prompting agent with timeout
       let agentResponse: z.infer<typeof AgentDecisionSchema>
       try {
-        agentResponse = promptWithSpec
+        agentResponse = !promptWithAgent
           ? {
               decision: 'continue',
               reasoning: 'Using spec as sole prompt',
@@ -376,6 +376,7 @@ export async function runGitEvals(
   logToStdout: boolean = false,
   agent: string = 'base',
   worktreePath?: string,
+  promptWithAgent: boolean = false,
 ): Promise<FullEvalLog> {
   // Set up signal handlers if this is the main module
   if (require.main === module) {
@@ -416,12 +417,6 @@ export async function runGitEvals(
 
   const logsDir = path.join(outputDir, 'logs', `${testRepoName}-${traceId}`)
   fs.mkdirSync(logsDir, { recursive: true })
-
-  // Generate filenames with trace ID (single file that gets overwritten)
-  const partialOutputPath = path.join(
-    outputDir,
-    `eval-partial-${testRepoName}-${traceId}.json`,
-  )
 
   const commitsToRun = limit
     ? evalData.evalCommits.slice(0, limit)
@@ -496,6 +491,7 @@ export async function runGitEvals(
                 fingerprintId,
                 codingAgent,
                 agent,
+                promptWithAgent.toString(),
               ],
               {
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc'],

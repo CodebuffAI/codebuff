@@ -84,6 +84,11 @@ class RunEvalSetCommand extends Command {
       description: 'Codebuff agent id to use',
       default: 'base',
     }),
+    'prompt-with-agent': Flags.boolean({
+      description: 'Prompt with agent',
+      default: false,
+      allowNo: true,
+    }),
     help: Flags.help({ char: 'h' }),
   }
 
@@ -169,6 +174,7 @@ async function runEvalSet(options: {
   concurrency?: number
   'coding-agent': string
   agent: string
+  'prompt-with-agent': boolean
 }): Promise<void> {
   const {
     sets,
@@ -180,6 +186,7 @@ async function runEvalSet(options: {
     title,
     'coding-agent': codingAgentstr,
     agent,
+    'prompt-with-agent': promptWithAgent,
   } = options
 
   if (!['codebuff', 'claude'].includes(codingAgentstr)) {
@@ -278,6 +285,7 @@ async function runEvalSet(options: {
             options.concurrency === 1,
             agent,
             worktreePath,
+            promptWithAgent,
           )
     } catch (error) {
       const evalDuration = Date.now() - evalStartTime
