@@ -57,6 +57,15 @@ interface MultilineInputProps {
   value: string
   onChange: (value: string) => void
   onSubmit: () => void
+  onKeyIntercept?: (
+    key: any,
+    helpers: {
+      value: string
+      cursorPosition: number
+      setValue: (newValue: string) => number
+      setCursorPosition: (position: number) => void
+    },
+  ) => boolean
   placeholder?: string
   focused?: boolean
   maxHeight?: number
@@ -80,6 +89,7 @@ export function MultilineInput({
   maxHeight = 5,
   theme,
   width,
+  onKeyIntercept,
 }: MultilineInputProps) {
   const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
   const [cursorPosition, setCursorPosition] = useState(value.length)
@@ -126,6 +136,22 @@ export function MultilineInput({
     useCallback(
       (key: any) => {
         if (!focused) return
+
+        if (onKeyIntercept) {
+          const handled = onKeyIntercept(key, {
+            value,
+            cursorPosition,
+            setValue: (newValue: string) => {
+              onChange(newValue)
+              return newValue.length
+            },
+            setCursorPosition: (position: number) =>
+              setCursorPosition(Math.max(0, position)),
+          })
+          if (handled) {
+            return
+          }
+        }
 
         const lowerKeyName = (key.name ?? '').toLowerCase()
         const ESC = '\x1b'
@@ -361,7 +387,7 @@ export function MultilineInput({
           return
         }
       },
-      [focused, value, cursorPosition, onChange, onSubmit],
+      [focused, value, cursorPosition, onChange, onSubmit, onKeyIntercept],
     ),
   )
 
