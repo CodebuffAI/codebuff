@@ -14,7 +14,10 @@ import type {
   Subgoal,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { ParamsExcluding, WithDefaults } from '@codebuff/common/types/function-params'
+import type {
+  ParamsExcluding,
+  OptionalFields,
+} from '@codebuff/common/types/function-params'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
@@ -310,7 +313,7 @@ export function logAgentSpawn(params: {
  * Executes a subagent using loopAgentSteps
  */
 export async function executeSubagent(
-  options: WithDefaults<
+  options: OptionalFields<
     {
       agentTemplate: AgentTemplate
       parentAgentState: AgentState

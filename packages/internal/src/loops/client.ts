@@ -4,7 +4,10 @@ import { eq } from 'drizzle-orm'
 import { LoopsClient, APIError } from 'loops'
 
 import type { LoopsEmailData, SendEmailResult } from './types'
-import type { ParamsExcluding, WithDefaults } from '@codebuff/common/types/function-params'
+import type {
+  ParamsExcluding,
+  OptionalFields,
+} from '@codebuff/common/types/function-params'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const ORGANIZATION_INVITATION_TRANSACTIONAL_ID = 'cmbikixxm15xo4a0iiemzkzw1'
@@ -17,7 +20,7 @@ if (process.env.LOOPS_API_KEY) {
 }
 
 async function sendTransactionalEmail(
-  params: WithDefaults<
+  params: OptionalFields<
     {
       transactionalId: string
       email: string

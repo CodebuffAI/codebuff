@@ -7,13 +7,13 @@ import { failure, success } from '@codebuff/common/util/error'
 import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
 
 import type { GrantType } from '@codebuff/common/db/schema'
-import type { ErrorOr } from '@codebuff/common/util/error'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
   ParamsOf,
-  WithDefaults,
+  OptionalFields,
 } from '@codebuff/common/types/function-params'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ErrorOr } from '@codebuff/common/util/error'
 
 export interface CreditBalance {
   totalRemaining: number
@@ -200,7 +200,7 @@ export async function consumeFromOrderedGrants(
  * This is more efficient than calculating them separately.
  */
 export async function calculateUsageAndBalance(
-  params: WithDefaults<
+  params: OptionalFields<
     {
       userId: string
       quotaResetDate: Date

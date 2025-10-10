@@ -16,7 +16,7 @@ export type ParamsOf<T> = Prettify<
   T extends any[] ? ParamsOfArray<T> : ParamsOfUnion<T>
 >
 
-export type WithDefaults<T, K extends keyof T> = Prettify<
+export type OptionalFields<T, K extends keyof T> = Prettify<
   Omit<T, K> & Partial<Pick<T, K>>
 >
 

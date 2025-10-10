@@ -26,8 +26,6 @@ export const mainPrompt = async (
     ws: WebSocket
     action: ClientAction<'prompt'>
 
-    userId: string | undefined
-    clientSessionId: string
     onResponseChunk: (chunk: string | PrintModeEvent) => void
     localAgentTemplates: Record<string, AgentTemplate>
 
@@ -51,8 +49,7 @@ export const mainPrompt = async (
   sessionState: SessionState
   output: AgentOutput
 }> => {
-  const { ws, action, userId, clientSessionId, localAgentTemplates, logger } =
-    params
+  const { ws, action, localAgentTemplates, logger } = params
 
   const {
     prompt,

@@ -15,8 +15,8 @@ import type {
   CreditConsumptionResult,
 } from './balance-calculator'
 import type { GrantType } from '@codebuff/common/db/schema'
-import type { WithDefaults } from '@codebuff/common/types/function-params'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { OptionalFields } from '@codebuff/common/types/function-params'
 
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<typeof db, 'select' | 'update'>
@@ -128,7 +128,7 @@ export async function syncOrganizationBillingCycle(params: {
  * Gets active grants for an organization, ordered by expiration, priority, and creation date.
  */
 export async function getOrderedActiveOrganizationGrants(
-  params: WithDefaults<
+  params: OptionalFields<
     {
       organizationId: string
       now: Date
@@ -163,7 +163,7 @@ export async function getOrderedActiveOrganizationGrants(
  * Calculates both the current balance and usage in this cycle for an organization.
  */
 export async function calculateOrganizationUsageAndBalance(
-  params: WithDefaults<
+  params: OptionalFields<
     {
       organizationId: string
       quotaResetDate: Date
@@ -310,7 +310,7 @@ export async function consumeOrganizationCredits(params: {
  * Grants credits to an organization.
  */
 export async function grantOrganizationCredits(
-  params: WithDefaults<
+  params: OptionalFields<
     {
       organizationId: string
       userId: string
