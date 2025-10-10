@@ -53,7 +53,7 @@ export const BranchItem = ({
         >
           <text wrap={false}>
             <span fg={theme.agentToggleText}>
-              {isCollapsed ? '▸' : '▾'}{' '}
+              {isCollapsed ? '▸ ' : '▾ '}
             </span>
           </text>
           <box style={{ flexShrink: 1 }}>
