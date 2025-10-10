@@ -11,15 +11,14 @@ import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
+import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { formatTimestamp, formatQueuedPreview } from './utils/helpers'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 
 import {
-  type ThemeName,
   chatThemes,
   createMarkdownPalette,
-  detectSystemTheme,
 } from './utils/theme-system'
 import { TextAttributes } from '@opentui/core'
 
@@ -74,9 +73,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<InputRenderable | null>(null)
 
-  const [themeName, setThemeName] = useState<ThemeName>(() =>
-    detectSystemTheme(),
-  )
+  const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
@@ -217,12 +214,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     isChainInProgressRef,
   ])
 
-  const handleThemeToggle = useCallback(() => {
-    setThemeName((prev) => (prev === 'dark' ? 'light' : 'dark'))
-  }, [])
-
   useKeyboardHandlers({
-    onThemeToggle: handleThemeToggle,
     isStreaming,
     isWaitingForResponse,
     abortControllerRef,

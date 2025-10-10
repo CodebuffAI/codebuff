@@ -4,7 +4,6 @@ import { useCallback } from 'react'
 import type { InputRenderable } from '@opentui/core'
 
 interface KeyboardHandlersConfig {
-  onThemeToggle: () => void
   isStreaming: boolean
   isWaitingForResponse: boolean
   abortControllerRef: React.MutableRefObject<AbortController | null>
@@ -18,7 +17,6 @@ interface KeyboardHandlersConfig {
 }
 
 export const useKeyboardHandlers = ({
-  onThemeToggle,
   isStreaming,
   isWaitingForResponse,
   abortControllerRef,
@@ -30,17 +28,6 @@ export const useKeyboardHandlers = ({
   navigateUp,
   navigateDown,
 }: KeyboardHandlersConfig) => {
-  useKeyboard(
-    useCallback(
-      (key) => {
-        if (key.ctrl && key.name === 't') {
-          onThemeToggle()
-        }
-      },
-      [onThemeToggle],
-    ),
-  )
-
   useKeyboard(
     useCallback(
       (key) => {
