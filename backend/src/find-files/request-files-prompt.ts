@@ -143,11 +143,14 @@ export async function requestRelevantFiles(
   // Check for organization custom file picker feature
   const requestContext = getRequestContext()
   const orgId = requestContext?.approvedOrgIdForRepo
-  const customFilePickerConfig = await getCustomFilePickerConfigForOrg({
-    orgId,
-    isRepoApprovedForUserInOrg: requestContext?.isRepoApprovedForUserInOrg,
-    logger,
-  })
+  const customFilePickerConfig = null satisfies Awaited<
+    ReturnType<typeof getCustomFilePickerConfigForOrg>
+  > as Awaited<ReturnType<typeof getCustomFilePickerConfigForOrg>>
+  // const customFilePickerConfig = await getCustomFilePickerConfigForOrg({
+  //   orgId,
+  //   isRepoApprovedForUserInOrg: requestContext?.isRepoApprovedForUserInOrg,
+  //   logger,
+  // })
 
   const countPerRequest = 12
 
