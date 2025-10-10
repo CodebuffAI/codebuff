@@ -365,7 +365,9 @@ export const useMessageRenderer = (props: UseMessageRendererProps): ReactNode[] 
                         }
                         return next
                       })
+                      scrollToAgent(id)
                     }}
+                    registerAgentRef={registerAgentRef}
                   />
                 </box>
               </box>
@@ -413,7 +415,9 @@ export const useMessageRenderer = (props: UseMessageRendererProps): ReactNode[] 
                       }
                       return next
                     })
+                    scrollToAgent(id)
                   }}
+                  registerAgentRef={registerAgentRef}
                 />
               </box>
             )}
