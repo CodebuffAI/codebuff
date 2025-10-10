@@ -353,3 +353,65 @@ const Parent = () => {
 ```
 
 This pattern allows multiple styled components to be composed together within a single `<text>` element while avoiding the "Text must be created inside of a text node" error.
+
+### Markdown Renderer Fragment Issue
+
+**CRITICAL**: When `renderMarkdown()` returns a Fragment, it contains a **mix of JSX elements AND raw text strings** (newlines, text content, etc.). These raw strings become text nodes that violate OpenTUI's reconciler rules if not wrapped properly.
+
+**The problem:**
+```tsx
+// renderMarkdown() returns something like:
+<>
+  <strong>Bold text</strong>
+  '\n'                          // ⚠️ Raw string!
+  <span>More content</span>
+  '\n'                          // ⚠️ Raw string!
+</>
+
+// ❌ WRONG: Passing directly to <box>
+<box>
+  {renderMarkdown(content)}     // Raw strings create text nodes outside <text>
+</box>
+```
+
+**The solution:**
+```tsx
+// ✅ CORRECT: Always wrap markdown output in <text>
+<box>
+  <text wrap>
+    {renderMarkdown(content)}   // Raw strings now inside <text> element
+  </text>
+</box>
+```
+
+**Real-world example from BranchItem component:**
+
+The bug occurred when tool toggles were rendered. Agent toggles worked fine, but tool toggles crashed.
+
+**Why agents worked:**
+```tsx
+// Agent content always wrapped in <text>
+<text wrap style={{ fg: theme.agentText }}>
+  {nestedBlock.content}
+</text>
+```
+
+**Why tools failed before fix:**
+```tsx
+// Tool content passed directly to <box> - raw strings violated reconciler rules!
+<box>
+  {displayContent}  // Could be renderMarkdown() output with raw strings
+</box>
+```
+
+**The fix:**
+```tsx
+// Always wrap ALL content in <text>, whether string or ReactNode
+<box>
+  <text wrap fg={theme.agentText}>
+    {content}  // Safe for both strings and markdown Fragments
+  </text>
+</box>
+```
+
+**Key lesson:** Any component that receives content from `renderMarkdown()` or `renderStreamingMarkdown()` MUST wrap it in a `<text>` element, even if the content might be ReactNode. The Fragment can contain raw strings that need the text wrapper to be valid.

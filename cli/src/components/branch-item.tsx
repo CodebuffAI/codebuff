@@ -86,7 +86,11 @@ export const BranchItem = ({
               {finishedPreview}
             </text>
           )}
-          {!isCollapsed && content && content}
+          {!isCollapsed && content && (
+            <text wrap fg={theme.agentText}>
+              {content}
+            </text>
+          )}
         </box>
       </box>
     </box>
