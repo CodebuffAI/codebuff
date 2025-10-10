@@ -162,11 +162,13 @@ export const useSendMessage = ({
             if (msg.id === aiMessageId && msg.blocks) {
               const newBlocks = msg.blocks.map((block) => {
                 if (block.type === 'agent' && block.agentId === agentId) {
-                  const agentBlocks = block.blocks || []
+                  const agentBlocks: ContentBlock[] = block.blocks
+                    ? [...block.blocks]
+                    : []
                   if (update.type === 'text' && update.content) {
                     const lastBlock = agentBlocks[agentBlocks.length - 1]
                     if (lastBlock && lastBlock.type === 'text') {
-                      const updatedLastBlock = {
+                      const updatedLastBlock: ContentBlock = {
                         ...lastBlock,
                         content: lastBlock.content + update.content,
                       }
@@ -234,27 +236,38 @@ export const useSendMessage = ({
             })
             setMessages((prev) =>
               prev.map((msg) => {
-                if (msg.id === aiMessageId) {
-                  const blocks = msg.blocks || []
-                  const lastBlock = blocks[blocks.length - 1]
+                if (msg.id !== aiMessageId) {
+                  return msg
+                }
 
-                  if (lastBlock && lastBlock.type === 'text') {
-                    const newContent = lastBlock.content + text
-                    return {
-                      ...msg,
-                      blocks: [
-                        ...blocks.slice(0, -1),
-                        { type: 'text', content: newContent },
-                      ],
-                    }
-                  } else {
-                    return {
-                      ...msg,
-                      blocks: [...blocks, { type: 'text', content: text }],
-                    }
+                const blocks: ContentBlock[] = msg.blocks
+                  ? [...msg.blocks]
+                  : []
+                const lastBlock = blocks[blocks.length - 1]
+
+                if (lastBlock && lastBlock.type === 'text') {
+                  const newContent = lastBlock.content + text
+                  const updatedTextBlock: ContentBlock = {
+                    type: 'text',
+                    content: newContent,
+                  }
+                  return {
+                    ...msg,
+                    blocks: [
+                      ...blocks.slice(0, -1),
+                      updatedTextBlock,
+                    ],
                   }
                 }
-                return msg
+
+                const newTextBlock: ContentBlock = {
+                  type: 'text',
+                  content: text,
+                }
+                return {
+                  ...msg,
+                  blocks: [...blocks, newTextBlock],
+                }
               }),
             )
           },
@@ -366,26 +379,37 @@ export const useSendMessage = ({
                 })
                 setMessages((prev) =>
                   prev.map((msg) => {
-                    if (msg.id === aiMessageId) {
-                      const blocks = msg.blocks || []
-                      const lastBlock = blocks[blocks.length - 1]
+                    if (msg.id !== aiMessageId) {
+                      return msg
+                    }
 
-                      if (lastBlock && lastBlock.type === 'text') {
-                        return {
-                          ...msg,
-                          blocks: [
-                            ...blocks.slice(0, -1),
-                            { type: 'text', content: lastBlock.content + text },
-                          ],
-                        }
-                      } else {
-                        return {
-                          ...msg,
-                          blocks: [...blocks, { type: 'text', content: text }],
-                        }
+                    const blocks: ContentBlock[] = msg.blocks
+                      ? [...msg.blocks]
+                      : []
+                    const lastBlock = blocks[blocks.length - 1]
+
+                    if (lastBlock && lastBlock.type === 'text') {
+                      const updatedTextBlock: ContentBlock = {
+                        type: 'text',
+                        content: lastBlock.content + text,
+                      }
+                      return {
+                        ...msg,
+                        blocks: [
+                          ...blocks.slice(0, -1),
+                          updatedTextBlock,
+                        ],
                       }
                     }
-                    return msg
+
+                    const newTextBlock: ContentBlock = {
+                      type: 'text',
+                      content: text,
+                    }
+                    return {
+                      ...msg,
+                      blocks: [...blocks, newTextBlock],
+                    }
                   }),
                 )
                 return
@@ -474,25 +498,28 @@ export const useSendMessage = ({
                   )
                   setMessages((prev) =>
                     prev.map((msg) => {
-                      if (msg.id === aiMessageId) {
-                        const blocks = msg.blocks || []
-                        return {
-                          ...msg,
-                          blocks: [
-                            ...blocks,
-                            {
-                              type: 'agent',
-                              agentId: event.agentId,
-                              agentName: event.agentType || 'Agent',
-                              agentType: event.agentType || 'unknown',
-                              content: '',
-                              status: 'running',
-                              initialPrompt: '',
-                            },
-                          ],
-                        }
+                      if (msg.id !== aiMessageId) {
+                        return msg
                       }
-                      return msg
+
+                      const blocks: ContentBlock[] = msg.blocks
+                        ? [...msg.blocks]
+                        : []
+                      const newAgentBlock: ContentBlock = {
+                        type: 'agent',
+                        agentId: event.agentId,
+                        agentName: event.agentType || 'Agent',
+                        agentType: event.agentType || 'unknown',
+                        content: '',
+                        status: 'running' as const,
+                        blocks: [] as ContentBlock[],
+                        initialPrompt: '',
+                      }
+
+                      return {
+                        ...msg,
+                        blocks: [...blocks, newAgentBlock],
+                      }
                     }),
                   )
 
@@ -555,27 +582,31 @@ export const useSendMessage = ({
 
                 setMessages((prev) =>
                   prev.map((msg) => {
-                    if (msg.id === aiMessageId) {
-                      const blocks = msg.blocks || []
-                      const newAgentBlocks = agents.map(
-                        (agent: any, index: number) => ({
-                          type: 'agent' as const,
-                          agentId: `${toolCallId}-${index}`,
-                          agentName: agent.agent_type || 'Agent',
-                          agentType: agent.agent_type || 'unknown',
-                          content: agent.prompt || '',
-                          status: 'running' as const,
-                          blocks: [],
-                          initialPrompt: agent.prompt || '',
-                        }),
-                      )
-
-                      return {
-                        ...msg,
-                        blocks: [...blocks, ...newAgentBlocks],
-                      }
+                    if (msg.id !== aiMessageId) {
+                      return msg
                     }
-                    return msg
+
+                    const existingBlocks: ContentBlock[] = msg.blocks
+                      ? [...msg.blocks]
+                      : []
+
+                    const newAgentBlocks: ContentBlock[] = agents.map(
+                      (agent: any, index: number) => ({
+                        type: 'agent',
+                        agentId: `${toolCallId}-${index}`,
+                        agentName: agent.agent_type || 'Agent',
+                        agentType: agent.agent_type || 'unknown',
+                        content: agent.prompt || '',
+                        status: 'running' as const,
+                        blocks: [] as ContentBlock[],
+                        initialPrompt: agent.prompt || '',
+                      }),
+                    )
+
+                    return {
+                      ...msg,
+                      blocks: [...existingBlocks, ...newAgentBlocks],
+                    }
                   }),
                 )
 
@@ -613,40 +644,58 @@ export const useSendMessage = ({
 
                 setMessages((prev) =>
                   prev.map((msg) => {
-                    if (msg.id === aiMessageId && msg.blocks) {
-                      const blocks = msg.blocks.map((block) => {
-                        if (block.type === 'agent' && block.agentId === agentId) {
-                          const agentBlocks = block.blocks || []
-                          return {
-                            ...block,
-                            blocks: [
-                              ...agentBlocks,
-                              { type: 'tool', toolCallId, toolName, input },
-                            ],
-                          }
-                        }
-                        return block
-                      })
-                      return { ...msg, blocks }
+                    if (msg.id !== aiMessageId || !msg.blocks) {
+                      return msg
                     }
-                    return msg
+
+                    const updatedBlocks: ContentBlock[] = msg.blocks.map(
+                      (block) => {
+                        if (block.type !== 'agent' || block.agentId !== agentId) {
+                          return block
+                        }
+
+                        const agentBlocks: ContentBlock[] = block.blocks
+                          ? [...block.blocks]
+                          : []
+                        const newToolBlock: ContentBlock = {
+                          type: 'tool',
+                          toolCallId,
+                          toolName,
+                          input,
+                        }
+
+                        return {
+                          ...block,
+                          blocks: [...agentBlocks, newToolBlock],
+                        }
+                      },
+                    )
+
+                    return { ...msg, blocks: updatedBlocks }
                   }),
                 )
               } else {
                 // Top-level tool call
                 setMessages((prev) =>
                   prev.map((msg) => {
-                    if (msg.id === aiMessageId) {
-                      const blocks = msg.blocks || []
-                      return {
-                        ...msg,
-                        blocks: [
-                          ...blocks,
-                          { type: 'tool', toolCallId, toolName, input },
-                        ],
-                      }
+                    if (msg.id !== aiMessageId) {
+                      return msg
                     }
-                    return msg
+
+                    const existingBlocks: ContentBlock[] = msg.blocks
+                      ? [...msg.blocks]
+                      : []
+                    const newToolBlock: ContentBlock = {
+                      type: 'tool',
+                      toolCallId,
+                      toolName,
+                      input,
+                    }
+
+                    return {
+                      ...msg,
+                      blocks: [...existingBlocks, newToolBlock],
+                    }
                   }),
                 )
               }
@@ -702,9 +751,13 @@ export const useSendMessage = ({
                               contentPreview: content.substring(0, 100),
                             })
 
+                            const resultTextBlock: ContentBlock = {
+                              type: 'text',
+                              content,
+                            }
                             return {
                               ...block,
-                              blocks: [{ type: 'text', content }],
+                              blocks: [resultTextBlock],
                               status: 'complete' as const,
                             }
                           }
@@ -817,35 +870,36 @@ export const useSendMessage = ({
         if (isAborted) {
           setMessages((prev) =>
             prev.map((msg) => {
-              if (msg.id === aiMessageId) {
-                const blocks = msg.blocks || []
-                const lastBlock = blocks[blocks.length - 1]
+              if (msg.id !== aiMessageId) {
+                return msg
+              }
 
-                if (lastBlock && lastBlock.type === 'text') {
-                  return {
-                    ...msg,
-                    blocks: [
-                      ...blocks.slice(0, -1),
-                      {
-                        type: 'text',
-                        content:
-                          lastBlock.content + '\n\n[response interrupted]',
-                      },
-                    ],
-                    isComplete: true,
-                  }
-                } else {
-                  return {
-                    ...msg,
-                    blocks: [
-                      ...blocks,
-                      { type: 'text', content: '[response interrupted]' },
-                    ],
-                    isComplete: true,
-                  }
+              const blocks: ContentBlock[] = msg.blocks
+                ? [...msg.blocks]
+                : []
+              const lastBlock = blocks[blocks.length - 1]
+
+              if (lastBlock && lastBlock.type === 'text') {
+                const interruptedBlock: ContentBlock = {
+                  type: 'text',
+                  content: `${lastBlock.content}\n\n[response interrupted]`,
+                }
+                return {
+                  ...msg,
+                  blocks: [...blocks.slice(0, -1), interruptedBlock],
+                  isComplete: true,
                 }
               }
-              return msg
+
+              const interruptionNotice: ContentBlock = {
+                type: 'text',
+                content: '[response interrupted]',
+              }
+              return {
+                ...msg,
+                blocks: [...blocks, interruptionNotice],
+                isComplete: true,
+              }
             }),
           )
         } else {
