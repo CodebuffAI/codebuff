@@ -16,8 +16,9 @@
   },
   "scripts": {
     "dev": "bun run --watch src/index.tsx",
-    "prebuild": "bun run build:opentui",
+    "prebuild": "bun run build:sdk && bun run build:opentui",
     "build": "bun build src/index.tsx --outdir dist --target node --format esm",
+    "build:sdk": "cd ../sdk && bun run build",
     "build:opentui": "cd ../packages/opentui && bun run build",
     "start": "bun run dist/index.js",
     "typecheck": "tsc --noEmit -p ."

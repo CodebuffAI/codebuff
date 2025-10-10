@@ -46,44 +46,58 @@ export function getToolDisplayInfo(toolName: string): {
 
 function toYaml(obj: any, indent = 0): string {
   const spaces = '  '.repeat(indent)
-  
+
   if (obj === null || obj === undefined) {
     return 'null'
   }
-  
+
   if (typeof obj === 'string') {
     if (obj.includes('\n')) {
       const lines = obj.split('\n')
-      return '|\n' + lines.map(line => '  '.repeat(indent + 1) + line).join('\n')
+      return (
+        '|\n' + lines.map((line) => '  '.repeat(indent + 1) + line).join('\n')
+      )
     }
     return obj.includes(':') || obj.includes('#') ? `"${obj}"` : obj
   }
-  
+
   if (typeof obj === 'number' || typeof obj === 'boolean') {
     return String(obj)
   }
-  
+
   if (Array.isArray(obj)) {
     if (obj.length === 0) return '[]'
-    return '\n' + obj.map(item => spaces + '- ' + toYaml(item, indent + 1).trimStart()).join('\n')
+    return (
+      '\n' +
+      obj
+        .map((item) => spaces + '- ' + toYaml(item, indent + 1).trimStart())
+        .join('\n')
+    )
   }
-  
+
   if (typeof obj === 'object') {
     const entries = Object.entries(obj)
     if (entries.length === 0) return '{}'
-    
-    return entries.map(([key, value]) => {
-      const yamlValue = toYaml(value, indent + 1)
-      if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length > 0) {
-        return `${spaces}${key}:\n${yamlValue}`
-      }
-      if (typeof value === 'string' && value.includes('\n')) {
+
+    return entries
+      .map(([key, value]) => {
+        const yamlValue = toYaml(value, indent + 1)
+        if (
+          typeof value === 'object' &&
+          value !== null &&
+          !Array.isArray(value) &&
+          Object.keys(value).length > 0
+        ) {
+          return `${spaces}${key}:\n${yamlValue}`
+        }
+        if (typeof value === 'string' && value.includes('\n')) {
+          return `${spaces}${key}: ${yamlValue}`
+        }
         return `${spaces}${key}: ${yamlValue}`
-      }
-      return `${spaces}${key}: ${yamlValue}`
-    }).join('\n')
+      })
+      .join('\n')
   }
-  
+
   return String(obj)
 }
 
