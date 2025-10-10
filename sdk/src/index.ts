@@ -5,14 +5,19 @@ export type * from '../../common/src/types/print-mode'
 export type * from './run'
 // Agent type exports
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
+export type { ToolName } from '../../common/src/templates/initial-agents-dir/types/tools'
+
 // Re-export code analysis functionality
 export * from '../../packages/code-map/src/index'
 
-export type { ClientToolCall, ClientToolName, CodebuffToolOutput } from '../../common/src/tools/list'
+export type {
+  ClientToolCall,
+  ClientToolName,
+  CodebuffToolOutput,
+} from '../../common/src/tools/list'
 export * from './client'
 export * from './custom-tool'
 export * from './native/ripgrep'
 export * from './run-state'
-export { ToolHelpers, ToolName } from './tools'
+export { ToolHelpers } from './tools'
 export * from './websocket-client'
-
