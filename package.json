@@ -18,6 +18,7 @@
     "cli"
   ],
   "scripts": {
+    "postinstall": "git submodule update --init --recursive packages/opentui",
     "dev": "bash scripts/dev.sh",
     "start-db": "bun --cwd common db:start",
     "start-bin": "bun --cwd npm-app start-bin",
