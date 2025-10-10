@@ -1,12 +1,10 @@
 import { getOrganizationUsageResponse } from '@codebuff/billing'
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
 import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
-import { eq } from 'drizzle-orm'
 import { z } from 'zod/v4'
 
 import { checkAuth } from '../util/check-auth'
 import { logger } from '../util/logger'
+import { getUserInfoFromApiKey } from '../websockets/auth'
 import { genUsageResponse } from '../websockets/websocket-action'
 
 import type {
@@ -20,18 +18,6 @@ const usageRequestSchema = z.object({
   authToken: z.string().optional(),
   orgId: z.string().optional(),
 })
-
-async function getUserIdFromAuthToken(
-  token: string,
-): Promise<string | undefined> {
-  const user = await db
-    .select({ userId: schema.user.id })
-    .from(schema.user)
-    .innerJoin(schema.session, eq(schema.user.id, schema.session.userId))
-    .where(eq(schema.session.sessionToken, token))
-    .then((users) => users[0]?.userId)
-  return user
-}
 
 async function usageHandler(
   req: ExpressRequest,
@@ -59,7 +45,7 @@ async function usageHandler(
     }
 
     const userId = authToken
-      ? await getUserIdFromAuthToken(authToken)
+      ? (await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] }))?.id
       : undefined
 
     if (!userId) {

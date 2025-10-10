@@ -1,5 +1,25 @@
 import type { Logger } from './logger'
 
+type User = {
+  id: string
+  email: string
+  discord_id: string | null
+}
+export type UserColumn = keyof User
+export type GetUserInfoFromApiKeyInput<T extends UserColumn> = {
+  apiKey: string
+  fields: readonly T[]
+}
+export type GetUserInfoFromApiKeyOutput<T extends UserColumn> = Promise<
+  | {
+      [K in T]: User[K]
+    }
+  | null
+>
+export type GetUserInfoFromApiKeyFn = <T extends UserColumn>(
+  params: GetUserInfoFromApiKeyInput<T>,
+) => GetUserInfoFromApiKeyOutput<T>
+
 export type StartAgentRunFn = (params: {
   runId?: string
   userId?: string

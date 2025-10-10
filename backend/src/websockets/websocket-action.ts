@@ -25,11 +25,12 @@ import type {
   ServerAction,
   UsageResponse,
 } from '@codebuff/common/actions'
+import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 /**
@@ -42,32 +43,6 @@ export const sendAction = (ws: WebSocket, action: ServerAction) => {
     type: 'action',
     data: action,
   })
-}
-
-/**
- * Retrieves a user ID from an authentication token
- * @param authToken - The authentication token to validate
- * @returns The user ID if found, undefined otherwise
- */
-export const getUserIdFromAuthToken = async (params: {
-  authToken?: string
-}): Promise<string | undefined> => {
-  const { authToken } = params
-  if (!authToken) return undefined
-
-  const userId = await db
-    .select({ userId: schema.user.id })
-    .from(schema.user)
-    .innerJoin(schema.session, eq(schema.user.id, schema.session.userId))
-    .where(eq(schema.session.sessionToken, authToken))
-    .then((users) => {
-      if (users.length === 1) {
-        return users[0].userId
-      }
-      return undefined
-    })
-
-  return userId
 }
 
 /**
@@ -140,18 +115,21 @@ export async function genUsageResponse(params: {
 const onPrompt = async (
   params: {
     action: ClientAction<'prompt'>
-    clientSessionId: string
     ws: WebSocket
+    getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
     logger: Logger
   } & ParamsExcluding<typeof callMainPrompt, 'userId' | 'promptId'>,
 ) => {
-  const { action, clientSessionId, ws, logger } = params
+  const { action, ws, getUserInfoFromApiKey, logger } = params
   const { fingerprintId, authToken, promptId, prompt, costMode } = action
 
   await withLoggerContext(
     { fingerprintId, clientRequestId: promptId, costMode },
     async () => {
-      const userId = await getUserIdFromAuthToken({ authToken })
+      const userId = authToken
+        ? (await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] }))
+            ?.id
+        : null
       if (!userId) {
         throw new Error('User not found')
       }
@@ -300,13 +278,16 @@ const onInit = async (params: {
   action: ClientAction<'init'>
   clientSessionId: string
   ws: WebSocket
+  getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
 }) => {
-  const { action, clientSessionId, ws, logger } = params
+  const { action, clientSessionId, ws, getUserInfoFromApiKey, logger } = params
   const { fileContext, fingerprintId, authToken } = action
 
   await withLoggerContext({ fingerprintId }, async () => {
-    const userId = await getUserIdFromAuthToken({ authToken })
+    const userId = authToken
+      ? (await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] }))?.id
+      : undefined
 
     if (!userId) {
       sendAction(ws, {
@@ -334,12 +315,15 @@ const onInit = async (params: {
 
 const onCancelUserInput = async (params: {
   action: ClientAction<'cancel-user-input'>
+  getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
 }) => {
-  const { action, logger } = params
+  const { action, getUserInfoFromApiKey, logger } = params
   const { authToken, promptId } = action
 
-  const userId = await getUserIdFromAuthToken({ authToken })
+  const userId = (
+    await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] })
+  )?.id
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')
     return

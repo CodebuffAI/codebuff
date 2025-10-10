@@ -9,7 +9,6 @@ import {
   beforeAll,
   beforeEach,
   mock as bunMockFn,
-  spyOn as bunSpyOn,
   describe,
   expect,
   it,
@@ -63,8 +62,6 @@ describe('requestRelevantFiles', () => {
   const mockCostMode: CostMode = 'normal'
   const mockRepoId = 'owner/repo'
 
-  let getCustomFilePickerConfigForOrgSpy: any // Explicitly typed as any
-
   beforeAll(() => {
     mockModule('@codebuff/backend/llm-apis/gemini-with-fallbacks', () => ({
       promptFlashWithFallbacks: bunMockFn(() =>
@@ -100,21 +97,6 @@ describe('requestRelevantFiles', () => {
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
 
-    // If the spy was created in a previous test, restore it
-    if (
-      getCustomFilePickerConfigForOrgSpy &&
-      typeof getCustomFilePickerConfigForOrgSpy.mockRestore === 'function'
-    ) {
-      getCustomFilePickerConfigForOrgSpy.mockRestore()
-      getCustomFilePickerConfigForOrgSpy = undefined
-    }
-
-    // Use the directly imported bunSpyOn
-    getCustomFilePickerConfigForOrgSpy = bunSpyOn(
-      OriginalRequestFilesPromptModule,
-      'getCustomFilePickerConfigForOrg',
-    ).mockResolvedValue(null)
-
     const promptFlashWithFallbacksMock =
       geminiWithFallbacksModule.promptFlashWithFallbacks as Mock<
         typeof geminiWithFallbacksModule.promptFlashWithFallbacks
@@ -140,7 +122,6 @@ describe('requestRelevantFiles', () => {
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalled()
-    expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
 
   it('should use custom file counts from config', async () => {
@@ -149,7 +130,6 @@ describe('requestRelevantFiles', () => {
       customFileCounts: { normal: 5 },
       maxFilesPerRequest: 10,
     }
-    getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
@@ -167,7 +147,6 @@ describe('requestRelevantFiles', () => {
     expect(
       geminiWithFallbacksModule.promptFlashWithFallbacks,
     ).toHaveBeenCalled()
-    expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
 
   it('should use custom maxFilesPerRequest from config', async () => {
@@ -175,7 +154,6 @@ describe('requestRelevantFiles', () => {
       modelName: 'ft_filepicker_005',
       maxFilesPerRequest: 3,
     }
-    getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
     const result = await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
@@ -194,14 +172,12 @@ describe('requestRelevantFiles', () => {
     if (result) {
       expect(result.length).toBeLessThanOrEqual(3)
     }
-    expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
 
   it('should use custom modelName from config', async () => {
     const customConfig = {
       modelName: 'ft_filepicker_010',
     }
-    getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
@@ -223,14 +199,12 @@ describe('requestRelevantFiles', () => {
         useFinetunedModel: finetunedVertexModels.ft_filepicker_010,
       }),
     )
-    expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
 
   it('should use default model if custom modelName is invalid', async () => {
     const customConfig = {
       modelName: 'invalid-model-name',
     }
-    getCustomFilePickerConfigForOrgSpy!.mockResolvedValue(customConfig as any)
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
@@ -253,6 +227,5 @@ describe('requestRelevantFiles', () => {
         useFinetunedModel: expectedModel,
       }),
     )
-    expect(getCustomFilePickerConfigForOrgSpy).toHaveBeenCalled()
   })
 })

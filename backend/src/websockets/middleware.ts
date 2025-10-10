@@ -12,16 +12,16 @@ import * as schema from '@codebuff/common/db/schema'
 import { pluralize } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
 
-import { getUserInfoFromAuthToken } from './auth'
+import { getUserInfoFromApiKey } from './auth'
 import { updateRequestContext } from './request-context'
 import { sendAction } from './websocket-action'
 import { withAppContext } from '../context/app-context'
 import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 import { checkAuth } from '../util/check-auth'
 
-import type { UserInfo } from './auth'
 import type { ClientAction, ServerAction } from '@codebuff/common/actions'
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
@@ -29,7 +29,7 @@ type MiddlewareCallback = (params: {
   action: ClientAction
   clientSessionId: string
   ws: WebSocket
-  userInfo: UserInfo | undefined
+  userInfo: { id: string } | null
   logger: Logger
 }) => Promise<void | ServerAction>
 
@@ -64,7 +64,7 @@ export class WebSocketMiddleware {
       action: ClientAction<T>
       clientSessionId: string
       ws: WebSocket
-      userInfo: UserInfo | undefined
+      userInfo: { id: string } | null
       logger: Logger
     }) => Promise<void | ServerAction>,
   ) {
@@ -76,14 +76,18 @@ export class WebSocketMiddleware {
     clientSessionId: string
     ws: WebSocket
     silent?: boolean
+    getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
     logger: Logger
   }): Promise<boolean> {
     const { action, clientSessionId, ws, silent, logger } = params
 
     const userInfo =
       'authToken' in action && action.authToken
-        ? await getUserInfoFromAuthToken(action.authToken)
-        : undefined
+        ? await getUserInfoFromApiKey({
+            apiKey: action.authToken,
+            fields: ['id'],
+          })
+        : null
 
     for (const middleware of this.middlewares) {
       const actionOrContinue = await middleware({
@@ -130,7 +134,10 @@ export class WebSocketMiddleware {
     ) => {
       const userInfo =
         'authToken' in action
-          ? await getUserInfoFromAuthToken(action.authToken!)
+          ? await getUserInfoFromApiKey({
+              apiKey: action.authToken!,
+              fields: ['id', 'email', 'discord_id'],
+            })
           : undefined
 
       // Use the new combined context - much cleaner!

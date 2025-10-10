@@ -10,6 +10,11 @@ export const testLogger: Logger = {
 
 export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   // Database
+  getUserInfoFromApiKey: async () => ({
+    id: 'test-user-id',
+    email: 'test-email',
+    discord_id: 'test-discord-id',
+  }),
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',

@@ -1,6 +1,7 @@
 import type {
   AddAgentStepFn,
   FinishAgentRunFn,
+  GetUserInfoFromApiKeyFn,
   StartAgentRunFn,
 } from './database'
 import type {
@@ -12,6 +13,7 @@ import type { Logger } from './logger'
 
 export type AgentRuntimeDeps = {
   // Database
+  getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   startAgentRun: StartAgentRunFn
   finishAgentRun: FinishAgentRunFn
   addAgentStep: AddAgentStepFn
