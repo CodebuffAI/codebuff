@@ -61,6 +61,10 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 - Issue: When markdown-rendered content returned arbitrary React elements (e.g., nested `<box>` containers) under `<text>`, toggling a branch threw `Error: TextNodeRenderable only accepts strings, TextNodeRenderable instances, or StyledText instances`.
 - Fix (Oct 2025): `cli/src/components/branch-item.tsx` now inspects expanded content; if it is text-renderable, it stays inside `<text>`, otherwise the raw element tree is rendered directly. This prevents invalid children from reaching `TextNodeRenderable` while preserving formatted markdown.
 - Related adjustment: `cli/src/hooks/use-message-renderer.tsx` ensures the toggle header renders within a single `<text>` block so glyphs and names remain StyledText-safe.
+- Toggling any agent/tool branch now calls `scrollToAgent`, and each branch registers its container via `registerAgentRef`. This keeps the toggled item anchored in the top third of the scrollbox, improving navigation in long sessions.
+- Typing `/` now opens a five-item slash menu (mirroring npm-app commands) directly above the input. Use arrow keys or Tab/Shift+Tab to move the highlight and Enter to insert the selected command; the list scrolls as you move beyond the first five items.
+- Typing `@` scans the local `.agents` directory, surfaces agent `displayName`s (e.g., `@Codebase Commands Explorer`), and inserts the highlighted agent mention with Enter. Navigation mirrors the slash menu, and both menus cap the visible list at five entries.
+- Streaming markdown now renders as plain text until the message or agent finishes, preventing scroll jitter that occurred when partial formatting changed line heights mid-stream.
 
 ### Shell Shims (Direct Commands)
 
