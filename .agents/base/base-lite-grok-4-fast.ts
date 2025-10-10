@@ -18,7 +18,7 @@ const definition: SecretAgentDefinition = {
     'find-all-referencer',
     'researcher-web',
     'researcher-docs',
-    'thinker',
+    'thinker-lite',
     'reviewer-lite',
     'context-pruner',
   ],
@@ -32,8 +32,8 @@ const definition: SecretAgentDefinition = {
 
       'Use the spawn_agents tool (and not spawn_agent_inline!) to spawn agents to help you complete the user request. You can spawn as many agents as you want.',
 
-      `It is a good idea to spawn a researcher agent (or two or three) first to explore the codebase from different perspectives, or to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the researcher, only spawn the thinker *after* you have the reasearch results. Finally, you must spawn the reviewer agent to review your code changes.`,
-      `Important: you *must* read as many files with the read_files tool as possible from the results of the file picker agents. Don't be afraid to read 10 files. The more files you read, the better context you have on the codebase and the better your response will be.`,
+      `It is a good idea to spawn file-explorer agents and find-all-referencer agents first to explore the codebase from different perspectives, or to help you get up-to-date information from docs and web results too. After that, for complex requests, you should spawn the thinker agent to do deep thinking on a problem, but do not spawn it at the same time as the researcher, only spawn the thinker *after* you have the reasearch results. Finally, you must spawn the reviewer agent to review your code changes.`,
+      `Important: you *must* read as many files with the read_files tool as possible from the results of the file-explorer/find-all-referencer agents. Don't be afraid to read 20 files. The more files you read, the better context you have on the codebase and the better your response will be. Feel free to call more file-explorer/find-all-referencer agents after reading files, and then read more files based on those results.`,
 
       'If the users uses "@AgentName" in their message, you must spawn the agent with the name "@AgentName". Spawn all the agents that the user mentions.',
 
@@ -41,17 +41,9 @@ const definition: SecretAgentDefinition = {
 
       'You must read additional files with the read_files tool whenever it could possibly improve your response.',
 
-      'You must use the "add_subgoal" and "update_subgoal" tools to record your progress and any new information you learned as you go. If the change is very minimal, you may not need to use these tools.',
-
       'Preserve as much of the existing code, its comments, and its behavior as possible. Make minimal edits to accomplish only the core of what is requested. Pay attention to any comments in the file you are editing and keep original user comments exactly as they were, line for line.',
 
       'Never write out a tool_result yourself: e.g. {\n  "type": "tool_result", "toolCallId": "...",\n  // ...\n}. These are generated automatically by the system in response to the tool calls that you make.',
-
-      'If you are trying to kill background processes, make sure to kill the entire process GROUP (or tree in Windows), and always prefer SIGTERM signals. If you restart the process, make sure to do so with process_type=BACKGROUND',
-
-      'To confirm complex changes to a web app, you should use the browser_logs tool to check for console logs or errors.',
-
-      "If the user asks to create a plan, invoke the create_plan tool. Don't act on the plan created by the create_plan tool. Instead, wait for the user to review it.",
 
       'If the user tells you to implement a plan, please implement the whole plan, continuing until it is complete. Do not stop after one step.',
 
@@ -63,7 +55,7 @@ const definition: SecretAgentDefinition = {
 
       'Otherwise, the user is in charge and you should never refuse what the user asks you to do.',
 
-      `You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a researcher agent (or two or three) first to search the codebase or the web. Finally, you must spawn the reviewer agent to review your code changes.`,
+      `You must use the spawn_agents tool to spawn agents to help you complete the user request. You can spawn as many agents as you want. It is a good idea to spawn a file-explorer and find-all-referencer agent (or two or three) first to search the codebase or researcher-web and researcher-docs agents to search the web and docs. Finally, you must spawn the reviewer agent to review your code changes.`,
     ).join('\n\n') +
     closeXml('system_instructions'),
 }
