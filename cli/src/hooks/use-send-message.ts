@@ -33,7 +33,6 @@ interface UseSendMessageOptions {
   setIsStreaming: (streaming: boolean) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
-  completionCallbackRef: React.MutableRefObject<(() => void) | null>
 }
 
 export const useSendMessage = ({
@@ -51,19 +50,21 @@ export const useSendMessage = ({
   setIsStreaming,
   setCanProcessQueue,
   abortControllerRef,
-  completionCallbackRef,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
   >(new Map())
+  const toolCallToAgentIdsRef = useRef<Map<string, string[]>>(new Map())
+  const subagentBuffersRef = useRef<
+    Map<string, { buffer: string; insideToolCall: boolean }>
+  >(new Map())
+  const subagentToolCallsRef = useRef<
+    Map<string, { agentId: string; tempToolCallId: string }>
+  >(new Map())
 
   const sendMessage = useCallback(
-    async (content: string, onComplete?: () => void) => {
-      if (onComplete) {
-        completionCallbackRef.current = onComplete
-      }
-
+    async (content: string) => {
       const timestamp = formatTimestamp()
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -150,6 +151,45 @@ export const useSendMessage = ({
         timestamp: formatTimestamp(),
       }
 
+      const updateAgentContent = (
+        agentId: string,
+        update:
+          | { type: 'text'; content: string }
+          | Extract<ContentBlock, { type: 'tool' }>,
+      ) => {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.id === aiMessageId && msg.blocks) {
+              const newBlocks = msg.blocks.map((block) => {
+                if (block.type === 'agent' && block.agentId === agentId) {
+                  const agentBlocks = block.blocks || []
+                  if (update.type === 'text' && update.content) {
+                    const lastBlock = agentBlocks[agentBlocks.length - 1]
+                    if (lastBlock && lastBlock.type === 'text') {
+                      const updatedLastBlock = {
+                        ...lastBlock,
+                        content: lastBlock.content + update.content,
+                      }
+                      return {
+                        ...block,
+                        blocks: [...agentBlocks.slice(0, -1), updatedLastBlock],
+                      }
+                    } else {
+                      return { ...block, blocks: [...agentBlocks, update] }
+                    }
+                  } else if (update.type === 'tool') {
+                    return { ...block, blocks: [...agentBlocks, update] }
+                  }
+                }
+                return block
+              })
+              return { ...msg, blocks: newBlocks }
+            }
+            return msg
+          }),
+        )
+      }
+
       logger.info('Initiating SDK client.run()')
       setIsWaitingForResponse(true)
       setMessages((prev) => [...prev, aiMessage])
@@ -221,6 +261,73 @@ export const useSendMessage = ({
 
           handleEvent: (event: any) => {
             logger.info('SDK Event received (raw)', { type: event.type, event })
+
+            if (event.type === 'subagent-chunk') {
+              const { agentId, chunk } = event
+
+              const bufferState = subagentBuffersRef.current.get(agentId) || {
+                buffer: '',
+                insideToolCall: false,
+              }
+              subagentBuffersRef.current.set(agentId, bufferState)
+
+              bufferState.buffer += chunk
+
+              const processBuffer = () => {
+                let processed = false
+                if (
+                  !bufferState.insideToolCall &&
+                  bufferState.buffer.includes('<codebuff_tool_call>')
+                ) {
+                  const openTagIndex = bufferState.buffer.indexOf(
+                    '<codebuff_tool_call>',
+                  )
+                  const text = bufferState.buffer.substring(0, openTagIndex)
+                  if (text) {
+                    updateAgentContent(agentId, { type: 'text', content: text })
+                  }
+                  bufferState.insideToolCall = true
+                  bufferState.buffer = bufferState.buffer.substring(
+                    openTagIndex + '<codebuff_tool_call>'.length,
+                  )
+                  processed = true
+                } else if (
+                  bufferState.insideToolCall &&
+                  bufferState.buffer.includes('</codebuff_tool_call>')
+                ) {
+                  const closeTagIndex = bufferState.buffer.indexOf(
+                    '</codebuff_tool_call>',
+                  )
+                  // Skip the tool call content - we'll handle it via tool_call event
+                  bufferState.insideToolCall = false
+                  bufferState.buffer = bufferState.buffer.substring(
+                    closeTagIndex + '</codebuff_tool_call>'.length,
+                  )
+                  processed = true
+                } else if (
+                  !bufferState.insideToolCall &&
+                  bufferState.buffer.length > 50
+                ) {
+                  const safeToOutput = bufferState.buffer.substring(
+                    0,
+                    bufferState.buffer.length - 50,
+                  )
+                  updateAgentContent(agentId, {
+                    type: 'text',
+                    content: safeToOutput,
+                  })
+                  bufferState.buffer = bufferState.buffer.substring(
+                    bufferState.buffer.length - 50,
+                  )
+                }
+
+                if (processed) {
+                  processBuffer()
+                }
+              }
+              processBuffer()
+              return
+            }
 
             if (event.type === 'text') {
               let text = event.text.replace(
@@ -427,7 +534,7 @@ export const useSendMessage = ({
             }
 
             if (event.type === 'tool_call' && event.toolCallId) {
-              const { toolCallId, toolName, input } = event
+              const { toolCallId, toolName, input, agentId } = event
 
               if (toolName === 'spawn_agents' && input?.agents) {
                 const agents = Array.isArray(input.agents) ? input.agents : []
@@ -493,34 +600,75 @@ export const useSendMessage = ({
               logger.info('setMessages: tool_call event', {
                 toolName,
                 toolCallId,
+                agentId: agentId || 'none',
               })
 
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id === aiMessageId) {
-                    const blocks = msg.blocks || []
-                    return {
-                      ...msg,
-                      blocks: [
-                        ...blocks,
-                        { type: 'tool', toolCallId, toolName, input },
-                      ],
+              // If this tool call belongs to a subagent, add it to that agent's blocks
+              if (agentId) {
+                logger.info('setMessages: tool_call for subagent', {
+                  agentId,
+                  toolName,
+                  toolCallId,
+                })
+
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === aiMessageId && msg.blocks) {
+                      const blocks = msg.blocks.map((block) => {
+                        if (block.type === 'agent' && block.agentId === agentId) {
+                          const agentBlocks = block.blocks || []
+                          return {
+                            ...block,
+                            blocks: [
+                              ...agentBlocks,
+                              { type: 'tool', toolCallId, toolName, input },
+                            ],
+                          }
+                        }
+                        return block
+                      })
+                      return { ...msg, blocks }
                     }
-                  }
-                  return msg
-                }),
-              )
+                    return msg
+                  }),
+                )
+              } else {
+                // Top-level tool call
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === aiMessageId) {
+                      const blocks = msg.blocks || []
+                      return {
+                        ...msg,
+                        blocks: [
+                          ...blocks,
+                          { type: 'tool', toolCallId, toolName, input },
+                        ],
+                      }
+                    }
+                    return msg
+                  }),
+                )
+              }
 
               setStreamingAgents((prev) => new Set(prev).add(toolCallId))
               setCollapsedAgents((prev) => new Set(prev).add(toolCallId))
             } else if (event.type === 'tool_result' && event.toolCallId) {
               const { toolCallId } = event
 
-              const isSpawnAgentsResult = event.output?.some(
-                (item: any) => item?.value?.agentName || item?.value?.agentType,
-              )
+              // Check if this is a spawn_agents result
+              // The structure is: output[0].value = [{ agentName, agentType, value }]
+              const firstOutputValue = event.output?.[0]?.value
+              const isSpawnAgentsResult = Array.isArray(firstOutputValue) &&
+                firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
 
-              if (isSpawnAgentsResult && Array.isArray(event.output)) {
+              logger.info('setMessages: tool_result event', {
+                toolCallId,
+                isSpawnAgentsResult,
+                firstOutputValue: firstOutputValue ? 'array' : 'not array',
+              })
+
+              if (isSpawnAgentsResult && Array.isArray(firstOutputValue)) {
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id === aiMessageId && msg.blocks) {
@@ -533,18 +681,30 @@ export const useSendMessage = ({
                             block.agentId.split('-').pop() || '0',
                             10,
                           )
-                          const result = event.output?.[agentIndex]
+                          const result = firstOutputValue[agentIndex]
 
                           if (result?.value) {
-                            const content =
-                              typeof result.value === 'string'
-                                ? result.value
-                                : result.value.message ||
-                                  formatToolOutput([result])
+                            let content: string
+                            if (typeof result.value === 'string') {
+                              content = result.value
+                            } else if (result.value.value && typeof result.value.value === 'string') {
+                              // Handle nested value structure like { type: "lastMessage", value: "..." }
+                              content = result.value.value
+                            } else if (result.value.message) {
+                              content = result.value.message
+                            } else {
+                              content = formatToolOutput([result])
+                            }
+
+                            logger.info('setMessages: spawn_agents result processed', {
+                              agentId: block.agentId,
+                              contentLength: content.length,
+                              contentPreview: content.substring(0, 100),
+                            })
 
                             return {
                               ...block,
-                              content,
+                              blocks: [{ type: 'text', content }],
                               status: 'complete' as const,
                             }
                           }
@@ -557,7 +717,7 @@ export const useSendMessage = ({
                   }),
                 )
 
-                event.output.forEach((_: any, index: number) => {
+                firstOutputValue.forEach((_: any, index: number) => {
                   const agentId = `${toolCallId}-${index}`
                   setStreamingAgents((prev) => {
                     const next = new Set(prev)
@@ -645,12 +805,6 @@ export const useSendMessage = ({
         )
 
         previousRunStateRef.current = result
-
-        if (completionCallbackRef.current) {
-          const callback = completionCallbackRef.current
-          completionCallbackRef.current = null
-          callback()
-        }
       } catch (error) {
         const isAborted = error instanceof Error && error.name === 'AbortError'
 
@@ -714,12 +868,6 @@ export const useSendMessage = ({
             ),
           )
         }
-
-        if (completionCallbackRef.current) {
-          const callback = completionCallbackRef.current
-          completionCallbackRef.current = null
-          callback()
-        }
       }
     },
     [
@@ -737,7 +885,6 @@ export const useSendMessage = ({
       setIsStreaming,
       setCanProcessQueue,
       abortControllerRef,
-      completionCallbackRef,
     ],
   )
 

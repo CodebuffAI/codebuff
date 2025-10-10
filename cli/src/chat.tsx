@@ -103,7 +103,6 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     },
   ])
 
-  const completionCallbackRef = useRef<(() => void) | null>(null)
   const hasAutoSubmittedRef = useRef(false)
   const activeSubagentsRef = useRef<Set<string>>(new Set())
 
@@ -167,12 +166,9 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     setIsStreaming,
     setCanProcessQueue,
     abortControllerRef,
-    completionCallbackRef,
   })
 
   sendMessageRef.current = sendMessage
-
-  const hasStatus = useHasStatus(isWaitingForResponse, clipboardMessage)
 
   useEffect(() => {
     if (initialPrompt && !hasAutoSubmittedRef.current) {
@@ -180,57 +176,17 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
 
       const timeout = setTimeout(() => {
         logger.info('Auto-submitting initial prompt', { prompt: initialPrompt })
-
-        const handleCompletion = () => {
-          logger.info('Initial prompt completed, reading log file')
-
-          setTimeout(() => {
-            if (renderer) {
-              renderer.destroy()
-            }
-
-            setTimeout(() => {
-              try {
-                const fs = require('fs')
-                const path = require('path')
-                const logPath = path.join(process.cwd(), 'debug', 'cli.log')
-
-                if (fs.existsSync(logPath)) {
-                  const logContents = fs.readFileSync(logPath, 'utf8')
-                  process.stdout.write('\n=== Debug Log Contents ===\n\n')
-                  process.stdout.write(logContents)
-                  process.stdout.write('\n\n=== End of Debug Log ===\n\n')
-                } else {
-                  process.stdout.write(
-                    'Log file not found at: ' + logPath + '\n',
-                  )
-                }
-              } catch (error) {
-                process.stdout.write(
-                  'Error reading log file: ' + String(error) + '\n',
-                )
-              }
-
-              process.exit(0)
-            }, 100)
-          }, 500)
+        if (sendMessageRef.current) {
+          sendMessageRef.current(initialPrompt)
         }
-
-        const timeoutId = setTimeout(() => {
-          logger.warn('2-minute timeout reached, exiting')
-          handleCompletion()
-        }, 120000)
-
-        sendMessage(initialPrompt, () => {
-          clearTimeout(timeoutId)
-          handleCompletion()
-        })
       }, 100)
 
       return () => clearTimeout(timeout)
     }
     return undefined
-  }, [initialPrompt, sendMessage])
+  }, [initialPrompt])
+
+  const hasStatus = useHasStatus(isWaitingForResponse, clipboardMessage)
 
   const handleSubmit = useCallback(() => {
     const trimmed = inputValue.trim()

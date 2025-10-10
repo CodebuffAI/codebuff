@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync } from 'fs'
+import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import { join, dirname } from 'path'
 
 function findGitRoot(): string {
@@ -60,6 +60,16 @@ function writeLog(level: string, message: string, data?: any) {
     appendFileSync(LOG_FILE, formattedMessage, 'utf8')
   } catch (error) {
     console.error('Failed to write to log file:', error)
+  }
+}
+
+export function clearLogFile() {
+  try {
+    if (existsSync(LOG_FILE)) {
+      unlinkSync(LOG_FILE)
+    }
+  } catch (error) {
+    console.error('Failed to clear log file:', error)
   }
 }
 
