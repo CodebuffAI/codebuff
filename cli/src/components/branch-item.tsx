@@ -26,6 +26,65 @@ export const BranchItem = ({
   theme,
   onToggle,
 }: BranchItemProps) => {
+  const isTextRenderable = (value: ReactNode): boolean => {
+    if (
+      value === null ||
+      value === undefined ||
+      typeof value === 'boolean'
+    ) {
+      return false
+    }
+
+    if (typeof value === 'string' || typeof value === 'number') {
+      return true
+    }
+
+    if (Array.isArray(value)) {
+      return value.every((child) => isTextRenderable(child))
+    }
+
+    if (React.isValidElement(value)) {
+      if (value.type === React.Fragment) {
+        return isTextRenderable(value.props.children)
+      }
+
+      if (typeof value.type === 'string') {
+        if (
+          value.type === 'span' ||
+          value.type === 'strong' ||
+          value.type === 'em'
+        ) {
+          return isTextRenderable(value.props.children)
+        }
+
+        return false
+      }
+    }
+
+    return false
+  }
+
+  const renderExpandedContent = (value: ReactNode): ReactNode => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === false ||
+      value === true
+    ) {
+      return null
+    }
+
+    if (isTextRenderable(value)) {
+      return (
+        <text wrap fg={theme.agentText}>
+          {value}
+        </text>
+      )
+    }
+
+    return value
+  }
+
   return (
     <box style={{ flexDirection: 'row', flexShrink: 0 }}>
       <text wrap={false}>
@@ -51,21 +110,17 @@ export const BranchItem = ({
           }}
           onMouseDown={onToggle}
         >
-          <text wrap={false}>
+          <text wrap>
             <span fg={theme.agentToggleText}>
               {isCollapsed ? '▸ ' : '▾ '}
             </span>
+            <span
+              fg={theme.agentToggleText}
+              attributes={TextAttributes.BOLD}
+            >
+              {name}
+            </span>
           </text>
-          <box style={{ flexShrink: 1 }}>
-            <text wrap>
-              <span
-                fg={theme.agentToggleText}
-                attributes={TextAttributes.BOLD}
-              >
-                {name}
-              </span>
-            </text>
-          </box>
         </box>
         <box style={{ flexShrink: 1, marginBottom: 0 }}>
           {isStreaming && isCollapsed && streamingPreview && (
@@ -86,11 +141,7 @@ export const BranchItem = ({
               {finishedPreview}
             </text>
           )}
-          {!isCollapsed && content && (
-            <text wrap fg={theme.agentText}>
-              {content}
-            </text>
-          )}
+          {!isCollapsed && content && renderExpandedContent(content)}
         </box>
       </box>
     </box>

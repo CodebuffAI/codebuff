@@ -55,6 +55,13 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 - ESC key to toggle menu or stop AI response
 - CTRL+C to exit the application
 
+### CLI Toggle Rendering Notes
+
+- The agent/tool toggles in the TUI render inside `<text>` components from OpenTUI. Any expanded content must resolve to plain strings or StyledText-compatible fragments (`<span>`, `<strong>`, `<em>`, etc.) so the reconciler can convert them into `TextNodeRenderable` instances.
+- Issue: When markdown-rendered content returned arbitrary React elements (e.g., nested `<box>` containers) under `<text>`, toggling a branch threw `Error: TextNodeRenderable only accepts strings, TextNodeRenderable instances, or StyledText instances`.
+- Fix (Oct 2025): `cli/src/components/branch-item.tsx` now inspects expanded content; if it is text-renderable, it stays inside `<text>`, otherwise the raw element tree is rendered directly. This prevents invalid children from reaching `TextNodeRenderable` while preserving formatted markdown.
+- Related adjustment: `cli/src/hooks/use-message-renderer.tsx` ensures the toggle header renders within a single `<text>` block so glyphs and names remain StyledText-safe.
+
 ### Shell Shims (Direct Commands)
 
 Codebuff supports shell shims for direct command invocation without the `codebuff` prefix.

@@ -175,26 +175,22 @@ export const useMessageRenderer = (props: UseMessageRendererProps): ReactNode[] 
                     ? theme.agentResponseCount
                     : theme.agentPrefix,
                   paddingLeft: 1,
-                  paddingRight: 1,
-                }}
-                onMouseDown={handleTitleClick}
-              >
-                <text wrap={false}>
-                  <span fg={theme.agentToggleText}>
-                    {isCollapsed ? '▸' : '▾'}{' '}
-                  </span>
-                </text>
-                <box style={{ flexShrink: 1 }}>
-                  <text wrap>
-                    <span
-                      fg={theme.agentToggleText}
-                      attributes={TextAttributes.BOLD}
-                    >
-                      {agentInfo.agentName}
-                    </span>
-                  </text>
-                </box>
-              </box>
+          paddingRight: 1,
+        }}
+        onMouseDown={handleTitleClick}
+      >
+        <text wrap>
+          <span fg={theme.agentToggleText}>
+            {isCollapsed ? '▸ ' : '▾ '}
+          </span>
+          <span
+            fg={theme.agentToggleText}
+            attributes={TextAttributes.BOLD}
+          >
+            {agentInfo.agentName}
+          </span>
+        </text>
+      </box>
               <box
                 style={{ flexShrink: 1, marginBottom: isCollapsed ? 1 : 0 }}
                 onMouseDown={handleContentClick}
