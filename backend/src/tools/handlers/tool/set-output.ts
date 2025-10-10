@@ -1,29 +1,11 @@
 import { getAgentTemplate } from '../../../templates/agent-registry'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { AgentState } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 type ToolName = 'set_output'
-export const handleSetOutput = ((params: {
-  previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<ToolName>
-  fileContext: ProjectFileContext
-  state: {
-    agentState?: AgentState
-    localAgentTemplates?: Record<string, AgentTemplate>
-  }
-  logger: Logger
-}): {
-  result: Promise<CodebuffToolOutput<ToolName>>
-  state: { agentState: AgentState }
-} => {
+export const handleSetOutput: CodebuffToolHandlerFunction<ToolName> = (
+  params,
+) => {
   const { previousToolCallFinished, toolCall, state, logger } = params
   const output = toolCall.input
   const { agentState, localAgentTemplates } = state
@@ -45,9 +27,9 @@ export const handleSetOutput = ((params: {
     let agentTemplate = null
     if (agentState.agentType) {
       agentTemplate = await getAgentTemplate({
+        ...params,
         agentId: agentState.agentType,
         localAgentTemplates,
-        logger,
       })
     }
     if (agentTemplate?.outputSchema) {
@@ -88,4 +70,4 @@ export const handleSetOutput = ((params: {
     })(),
     state: { agentState: agentState },
   }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
+}

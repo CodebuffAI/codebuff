@@ -44,7 +44,8 @@ export const mainPrompt = async (
     ParamsExcluding<
       typeof checkTerminalCommand,
       'prompt' | 'fingerprintId' | 'userInputId'
-    >,
+    > &
+    ParamsExcluding<typeof getAgentTemplate, 'agentId'>,
 ): Promise<{
   sessionState: SessionState
   output: AgentOutput
@@ -69,7 +70,7 @@ export const mainPrompt = async (
   let agentType: AgentTemplateType
 
   if (agentId) {
-    if (!(await getAgentTemplate({ agentId, localAgentTemplates, logger }))) {
+    if (!(await getAgentTemplate({ ...params, agentId }))) {
       throw new Error(
         `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`,
       )
@@ -90,9 +91,8 @@ export const mainPrompt = async (
     if (configBaseAgent) {
       if (
         !(await getAgentTemplate({
+          ...params,
           agentId: configBaseAgent,
-          localAgentTemplates,
-          logger,
         }))
       ) {
         throw new Error(
@@ -125,9 +125,8 @@ export const mainPrompt = async (
   mainAgentState.agentType = agentType
 
   let mainAgentTemplate = await getAgentTemplate({
+    ...params,
     agentId: agentType,
-    localAgentTemplates,
-    logger,
   })
   if (!mainAgentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)

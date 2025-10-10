@@ -6,6 +6,11 @@ import { getAgentTemplate } from '../../../templates/agent-registry'
 
 import type { loopAgentSteps } from '../../../run-agent-step'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  ParamsExcluding,
+  OptionalFields,
+} from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -14,11 +19,6 @@ import type {
   Subgoal,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type {
-  ParamsExcluding,
-  OptionalFields,
-} from '@codebuff/common/types/function-params'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 export interface SpawnAgentParams {
@@ -171,18 +171,19 @@ export function getMatchingSpawn(
 /**
  * Validates agent template and permissions
  */
-export async function validateAndGetAgentTemplate(params: {
-  agentTypeStr: string
-  parentAgentTemplate: AgentTemplate
-  localAgentTemplates: Record<string, AgentTemplate>
-  logger: Logger
-}): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
+export async function validateAndGetAgentTemplate(
+  params: {
+    agentTypeStr: string
+    parentAgentTemplate: AgentTemplate
+    localAgentTemplates: Record<string, AgentTemplate>
+    logger: Logger
+  } & ParamsExcluding<typeof getAgentTemplate, 'agentId'>,
+): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
   const { agentTypeStr, parentAgentTemplate, localAgentTemplates, logger } =
     params
   const agentTemplate = await getAgentTemplate({
+    ...params,
     agentId: agentTypeStr,
-    localAgentTemplates,
-    logger,
   })
 
   if (!agentTemplate) {

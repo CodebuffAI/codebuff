@@ -1,5 +1,7 @@
 import { isExplicitlyDefinedModel } from './util/model-utils'
 
+export const PROFIT_MARGIN = 0.055
+
 export const STOP_MARKER = '[' + 'END]'
 export const FIND_FILES_MARKER = '[' + 'FIND_FILES_PLEASE]'
 export const EXISTING_CODE_MARKER = '[[**REPLACE_WITH_EXISTING_CODE**]]'

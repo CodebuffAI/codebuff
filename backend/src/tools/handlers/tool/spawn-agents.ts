@@ -13,12 +13,11 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 export type SendSubagentChunk = (data: {
@@ -35,8 +34,6 @@ export const handleSpawnAgents = ((
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
 
-    fileContext: ProjectFileContext
-    clientSessionId: string
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
 
@@ -53,14 +50,31 @@ export const handleSpawnAgents = ((
       system?: string
     }
     logger: Logger
-  } & AgentRuntimeDeps,
+  } & ParamsExcluding<
+    typeof validateAndGetAgentTemplate,
+    'agentTypeStr' | 'parentAgentTemplate' | 'localAgentTemplates'
+  > &
+    ParamsExcluding<
+      typeof executeSubagent,
+      | 'ws'
+      | 'userInputId'
+      | 'prompt'
+      | 'spawnParams'
+      | 'agentTemplate'
+      | 'parentAgentState'
+      | 'agentState'
+      | 'fingerprintId'
+      | 'localAgentTemplates'
+      | 'userId'
+      | 'isOnlyChild'
+      | 'parentSystemPrompt'
+      | 'onResponseChunk'
+    >,
 ): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
 
-    fileContext,
-    clientSessionId,
     userInputId,
     getLatestState,
     state,
@@ -92,10 +106,10 @@ export const handleSpawnAgents = ((
         async ({ agent_type: agentTypeStr, prompt, params: spawnParams }) => {
           const { agentTemplate, agentType } =
             await validateAndGetAgentTemplate({
+              ...params,
               agentTypeStr,
               parentAgentTemplate,
               localAgentTemplates,
-              logger,
             })
 
           validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
@@ -128,10 +142,8 @@ export const handleSpawnAgents = ((
             parentAgentState,
             agentState: subAgentState,
             fingerprintId,
-            fileContext,
             localAgentTemplates,
             userId,
-            clientSessionId,
             isOnlyChild: agents.length === 1,
             parentSystemPrompt,
             onResponseChunk: (chunk: string | PrintModeEvent) => {

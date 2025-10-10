@@ -1,8 +1,9 @@
 import { removeUndefinedProps } from '@codebuff/common/util/object'
+import z from 'zod/v4'
+
 import { getAgentTemplate } from '../../../templates/agent-registry'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import z from 'zod/v4'
 
 export const handleLookupAgentInfo: CodebuffToolHandlerFunction<
   'lookup_agent_info'
@@ -12,9 +13,9 @@ export const handleLookupAgentInfo: CodebuffToolHandlerFunction<
   return {
     result: (async () => {
       const agentTemplate = await getAgentTemplate({
+        ...params,
         agentId,
         localAgentTemplates: params.state.localAgentTemplates || {},
-        logger: params.logger,
       })
 
       if (!agentTemplate) {

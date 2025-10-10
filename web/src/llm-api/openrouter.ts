@@ -3,6 +3,7 @@ import {
   setupBigQuery,
 } from '@codebuff/bigquery'
 import { consumeCreditsAndAddAgentStep as consumeCreditsAndAddMessage } from '@codebuff/billing'
+import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 
@@ -13,8 +14,6 @@ import type { OpenRouterStreamChatCompletionChunk } from './type/openrouter'
 import { logger } from '@/util/logger'
 
 type StreamState = { responseText: string; reasoningText: string }
-
-const PROFIT_MARGIN = 0.055
 
 export async function handleOpenRouterStream({
   body,

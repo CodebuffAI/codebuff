@@ -1,3 +1,4 @@
+import type { AgentTemplate } from '../agent-template'
 import type { Logger } from './logger'
 
 type User = {
@@ -19,6 +20,18 @@ export type GetUserInfoFromApiKeyOutput<T extends UserColumn> = Promise<
 export type GetUserInfoFromApiKeyFn = <T extends UserColumn>(
   params: GetUserInfoFromApiKeyInput<T>,
 ) => GetUserInfoFromApiKeyOutput<T>
+
+/**
+ * Fetch and validate an agent from the database by `publisher/agent-id[@version]` format
+ */
+export type FetchAgentFromDatabaseFn = (params: {
+  parsedAgentId: {
+    publisherId: string
+    agentId: string
+    version?: string
+  }
+  logger: Logger
+}) => Promise<AgentTemplate | null>
 
 export type StartAgentRunFn = (params: {
   runId?: string

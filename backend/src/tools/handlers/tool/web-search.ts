@@ -1,8 +1,8 @@
 import { consumeCreditsWithFallback } from '@codebuff/billing'
+import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 
 import { getRequestContext } from '../../../context/app-context'
 import { searchWeb } from '../../../llm-apis/linkup-api'
-import { PROFIT_MARGIN } from '../../../llm-apis/message-cost-tracker'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {

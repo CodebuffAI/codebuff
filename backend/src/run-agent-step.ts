@@ -107,6 +107,15 @@ export const runAgentStep = async (
     ParamsExcluding<
       typeof getAgentStreamFromTemplate,
       'agentId' | 'template' | 'onCostCalculated' | 'includeCacheControl'
+    > &
+    ParamsExcluding<typeof getAgentTemplate, 'agentId'> &
+    ParamsExcluding<
+      typeof getAgentPrompt,
+      | 'agentTemplate'
+      | 'promptType'
+      | 'agentState'
+      | 'agentTemplates'
+      | 'additionalToolDefinitions'
     >,
 ): Promise<{
   agentState: AgentState
@@ -190,9 +199,8 @@ export const runAgentStep = async (
   }
 
   const agentTemplate = await getAgentTemplate({
+    ...params,
     agentId: agentType,
-    localAgentTemplates,
-    logger,
   })
   if (!agentTemplate) {
     throw new Error(
@@ -201,6 +209,7 @@ export const runAgentStep = async (
   }
 
   const stepPrompt = await getAgentPrompt({
+    ...params,
     agentTemplate,
     promptType: { type: 'stepPrompt' },
     fileContext,
@@ -439,7 +448,15 @@ export const loopAgentSteps = async (
     | 'stepsComplete'
     | 'stepNumber'
     | 'system'
-  >,
+  > &
+    ParamsExcluding<typeof getAgentTemplate, 'agentId'> &
+    ParamsExcluding<
+      typeof getAgentPrompt,
+      | 'agentTemplate'
+      | 'promptType'
+      | 'agentTemplates'
+      | 'additionalToolDefinitions'
+    >,
 ): Promise<{
   agentState: AgentState
   output: AgentOutput
@@ -467,9 +484,8 @@ export const loopAgentSteps = async (
   } = params
 
   const agentTemplate = await getAgentTemplate({
+    ...params,
     agentId: agentType,
-    localAgentTemplates,
-    logger,
   })
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
@@ -493,12 +509,10 @@ export const loopAgentSteps = async (
   // Get the instructions prompt if we have a prompt/params
   const instructionsPrompt = hasPrompt
     ? await getAgentPrompt({
+        ...params,
         agentTemplate,
         promptType: { type: 'instructionsPrompt' },
-        fileContext,
-        agentState,
         agentTemplates: localAgentTemplates,
-        logger,
         additionalToolDefinitions: () => {
           const additionalToolDefinitions = cloneDeep(
             Object.fromEntries(
@@ -523,12 +537,10 @@ export const loopAgentSteps = async (
     agentTemplate.inheritParentSystemPrompt && parentSystemPrompt
       ? parentSystemPrompt
       : (await getAgentPrompt({
+          ...params,
           agentTemplate,
           promptType: { type: 'systemPrompt' },
-          fileContext,
-          agentState,
           agentTemplates: localAgentTemplates,
-          logger,
           additionalToolDefinitions: () => {
             const additionalToolDefinitions = cloneDeep(
               Object.fromEntries(

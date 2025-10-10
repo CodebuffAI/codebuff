@@ -3,7 +3,11 @@ import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { models, TEST_USER_ID } from '@codebuff/common/old-constants'
+import {
+  models,
+  PROFIT_MARGIN,
+  TEST_USER_ID,
+} from '@codebuff/common/old-constants'
 import { withRetry } from '@codebuff/common/util/promise'
 import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
@@ -18,10 +22,8 @@ import { SWITCHBOARD } from '../websockets/server'
 import { sendAction } from '../websockets/websocket-action'
 
 import type { ClientState } from '../websockets/switchboard'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-
-export const PROFIT_MARGIN = 0.055
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 // Pricing details:
 // - https://www.anthropic.com/pricing#anthropic-api
@@ -581,7 +583,7 @@ async function updateUserCycleUsage(params: {
   }
 }
 
-export const saveMessage = async (value: {
+export async function saveMessage(value: {
   messageId: string
   userId: string | undefined
   clientSessionId: string
@@ -601,8 +603,8 @@ export const saveMessage = async (value: {
   costOverrideDollars?: number
   agentId?: string
   logger: Logger
-}): Promise<number> =>
-  withLoggerContext(
+}): Promise<number> {
+  return withLoggerContext(
     {
       messageId: value.messageId,
       userId: value.userId,
@@ -722,3 +724,4 @@ export const saveMessage = async (value: {
       return creditsUsed
     },
   )
+}

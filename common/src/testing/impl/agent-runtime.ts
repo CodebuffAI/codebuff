@@ -15,6 +15,7 @@ export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
     email: 'test-email',
     discord_id: 'test-discord-id',
   }),
+  fetchAgentFromDatabase: async () => null,
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',

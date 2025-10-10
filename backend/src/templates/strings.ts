@@ -18,37 +18,45 @@ import {
 } from '../tools/prompts'
 import { parseUserMessage } from '../util/messages'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { AgentTemplate, PlaceholderValue } from './types'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {
   AgentState,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-export async function formatPrompt({
-  prompt,
-  fileContext,
-  agentState,
-  tools,
-  spawnableAgents,
-  agentTemplates,
-  intitialAgentPrompt,
-  additionalToolDefinitions,
-  logger,
-}: {
-  prompt: string
-  fileContext: ProjectFileContext
-  agentState: AgentState
-  tools: readonly string[]
-  spawnableAgents: AgentTemplateType[]
-  agentTemplates: Record<string, AgentTemplate>
-  intitialAgentPrompt?: string
-  additionalToolDefinitions: () => Promise<
-    ProjectFileContext['customToolDefinitions']
-  >
-  logger: Logger
-}): Promise<string> {
+export async function formatPrompt(
+  params: {
+    prompt: string
+    fileContext: ProjectFileContext
+    agentState: AgentState
+    tools: readonly string[]
+    spawnableAgents: AgentTemplateType[]
+    agentTemplates: Record<string, AgentTemplate>
+    intitialAgentPrompt?: string
+    additionalToolDefinitions: () => Promise<
+      ProjectFileContext['customToolDefinitions']
+    >
+    logger: Logger
+  } & ParamsExcluding<
+    typeof getAgentTemplate,
+    'agentId' | 'localAgentTemplates'
+  >,
+): Promise<string> {
+  const {
+    fileContext,
+    agentState,
+    tools,
+    spawnableAgents,
+    agentTemplates,
+    intitialAgentPrompt,
+    additionalToolDefinitions,
+    logger,
+  } = params
+  let { prompt } = params
+
   const { messageHistory } = agentState
   const lastUserMessage = messageHistory.findLast(
     ({ role, content }) =>
@@ -61,7 +69,11 @@ export async function formatPrompt({
     : undefined
 
   const agentTemplate = agentState.agentType
-    ? await getAgentTemplate({ agentId: agentState.agentType, localAgentTemplates: agentTemplates, logger })
+    ? await getAgentTemplate({
+        ...params,
+        agentId: agentState.agentType,
+        localAgentTemplates: agentTemplates,
+      })
     : null
 
   const toInject: Record<PlaceholderValue, () => string | Promise<string>> = {
@@ -88,8 +100,7 @@ export async function formatPrompt({
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: () => getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.TOOLS_PROMPT]: async () =>
       getToolsInstructions(tools, await additionalToolDefinitions()),
-    [PLACEHOLDER.AGENTS_PROMPT]: () =>
-      buildSpawnableAgentsDescription({ spawnableAgents, agentTemplates, logger }),
+    [PLACEHOLDER.AGENTS_PROMPT]: () => buildSpawnableAgentsDescription(params),
     [PLACEHOLDER.USER_CWD]: () => fileContext.cwd,
     [PLACEHOLDER.USER_INPUT_PROMPT]: () => escapeString(lastUserInput ?? ''),
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: () =>
@@ -148,25 +159,36 @@ const additionalPlaceholders = {
   instructionsPrompt: [],
   stepPrompt: [],
 } satisfies Record<StringField, string[]>
-export async function getAgentPrompt<T extends StringField>({
-  agentTemplate,
-  promptType,
-  fileContext,
-  agentState,
-  agentTemplates,
-  additionalToolDefinitions,
-  logger,
-}: {
-  agentTemplate: AgentTemplate
-  promptType: { type: T }
-  fileContext: ProjectFileContext
-  agentState: AgentState
-  agentTemplates: Record<string, AgentTemplate>
-  additionalToolDefinitions: () => Promise<
-    ProjectFileContext['customToolDefinitions']
-  >
-  logger: Logger
-}): Promise<string | undefined> {
+export async function getAgentPrompt<T extends StringField>(
+  params: {
+    agentTemplate: AgentTemplate
+    promptType: { type: T }
+    fileContext: ProjectFileContext
+    agentState: AgentState
+    agentTemplates: Record<string, AgentTemplate>
+    additionalToolDefinitions: () => Promise<
+      ProjectFileContext['customToolDefinitions']
+    >
+    logger: Logger
+  } & ParamsExcluding<
+    typeof formatPrompt,
+    'prompt' | 'tools' | 'spawnableAgents'
+  > &
+    ParamsExcluding<
+      typeof buildSpawnableAgentsDescription,
+      'spawnableAgents' | 'agentTemplates'
+    >,
+): Promise<string | undefined> {
+  const {
+    agentTemplate,
+    promptType,
+    fileContext,
+    agentState,
+    agentTemplates,
+    additionalToolDefinitions,
+    logger,
+  } = params
+
   let promptValue = agentTemplate[promptType.type]
   for (const placeholder of additionalPlaceholders[promptType.type]) {
     if (!promptValue.includes(placeholder)) {
@@ -179,14 +201,10 @@ export async function getAgentPrompt<T extends StringField>({
   }
 
   let prompt = await formatPrompt({
+    ...params,
     prompt: promptValue,
-    fileContext,
-    agentState,
     tools: agentTemplate.toolNames,
     spawnableAgents: agentTemplate.spawnableAgents,
-    agentTemplates,
-    additionalToolDefinitions,
-    logger,
   })
 
   let addendum = ''
@@ -209,9 +227,9 @@ export async function getAgentPrompt<T extends StringField>({
       toolsInstructions +
       '\n\n' +
       (await buildSpawnableAgentsDescription({
+        ...params,
         spawnableAgents: agentTemplate.spawnableAgents,
         agentTemplates,
-        logger,
       }))
 
     const parentInstructions = await collectParentInstructions({

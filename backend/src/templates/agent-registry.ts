@@ -8,11 +8,12 @@ import { parsePublishedAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
 import { and, desc, eq } from 'drizzle-orm'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-
 import type { DynamicAgentValidationError } from '@codebuff/common/templates/agent-validation'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { FetchAgentFromDatabaseFn } from '@codebuff/common/types/contracts/database'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export type AgentRegistry = Record<string, AgentTemplate>
@@ -21,16 +22,11 @@ export type AgentRegistry = Record<string, AgentTemplate>
 const databaseAgentCache = new Map<string, AgentTemplate | null>()
 
 /**
- * Fetch an agent from the database by publisher/agent-id[@version] format
+ * Fetch and validate an agent from the database by publisher/agent-id[@version] format
  */
-async function fetchAgentFromDatabase(params: {
-  parsedAgentId: {
-    publisherId: string
-    agentId: string
-    version?: string
-  }
-  logger: Logger
-}): Promise<AgentTemplate | null> {
+export async function fetchAgentFromDatabase(
+  params: ParamsOf<FetchAgentFromDatabaseFn>,
+): ReturnType<FetchAgentFromDatabaseFn> {
   const { parsedAgentId, logger } = params
   const { publisherId, agentId, version } = parsedAgentId
 
@@ -135,9 +131,11 @@ async function fetchAgentFromDatabase(params: {
 export async function getAgentTemplate(params: {
   agentId: string
   localAgentTemplates: Record<string, AgentTemplate>
+  fetchAgentFromDatabase: FetchAgentFromDatabaseFn
   logger: Logger
 }): Promise<AgentTemplate | null> {
-  const { agentId, localAgentTemplates, logger } = params
+  const { agentId, localAgentTemplates, fetchAgentFromDatabase, logger } =
+    params
   // 1. Check localAgentTemplates first (dynamic agents + static templates)
   if (localAgentTemplates[agentId]) {
     return localAgentTemplates[agentId]
@@ -154,7 +152,10 @@ export async function getAgentTemplate(params: {
       `${DEFAULT_ORG_PREFIX}${agentId}`,
     )
     if (codebuffParsed) {
-      const dbAgent = await fetchAgentFromDatabase({ parsedAgentId: codebuffParsed, logger })
+      const dbAgent = await fetchAgentFromDatabase({
+        parsedAgentId: codebuffParsed,
+        logger,
+      })
       if (dbAgent) {
         databaseAgentCache.set(dbAgent.id, dbAgent)
         return dbAgent
@@ -165,7 +166,10 @@ export async function getAgentTemplate(params: {
   }
 
   // 3. Query database (only for publisher/agent-id format)
-  const dbAgent = await fetchAgentFromDatabase({ parsedAgentId: parsed, logger })
+  const dbAgent = await fetchAgentFromDatabase({
+    parsedAgentId: parsed,
+    logger,
+  })
   if (dbAgent && parsed.version && parsed.version !== 'latest') {
     // Cache only specific versions to avoid stale 'latest' results
     databaseAgentCache.set(dbAgent.id, dbAgent)
