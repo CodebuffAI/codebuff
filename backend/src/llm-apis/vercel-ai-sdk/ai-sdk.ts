@@ -76,6 +76,7 @@ export async function* promptAiSdkStream(
 
   const response = streamText({
     ...params,
+    prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
   })
@@ -252,6 +253,7 @@ export async function promptAiSdk(
 
   const response = await generateText({
     ...params,
+    prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
   })
@@ -308,6 +310,7 @@ export async function promptAiSdkStructured<T>(
 
   const responsePromise = generateObject<z.ZodType<T>, 'object'>({
     ...params,
+    prompt: undefined,
     model: aiSDKModel,
     output: 'object',
     messages: convertCbToModelMessages(params),
