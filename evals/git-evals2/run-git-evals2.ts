@@ -198,9 +198,8 @@ export async function runGitEvals2(options: {
 
         const analysisData = {
           commitSha: commit.sha,
-          spec: commit.spec,
           timestamp: new Date().toISOString(),
-          analysis,
+          ...analysis,
           results: commitTraces.map((t) => ({
             agentId: t.agentId,
             ...t.judgeResult,
@@ -208,6 +207,7 @@ export async function runGitEvals2(options: {
             durationMs: t.durationMs,
             error: t.error,
           })),
+          spec: commit.spec,
         }
 
         fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
@@ -259,7 +259,28 @@ export async function runGitEvals2(options: {
     console.log(`\nResults written to ${outputPath}`)
   }
 
-  console.log(`\nTraces saved to ${logsDir}`)
+  const logFiles = fs.readdirSync(logsDir)
+
+  const finalResults = {
+    metadata: {
+      timestamp: result.timestamp,
+      evalDataPath,
+      agentsTested: agents,
+      commitsEvaluated: commitsToRun.length,
+      totalCommitsInEval: evalData.evalCommits.length,
+      repoUrl: evalData.repoUrl,
+      initCommand: evalData.initCommand,
+      totalDuration: result.totalDuration,
+      logsDirectory: logsDir,
+      files: logFiles,
+    },
+    ...result.agents,
+  }
+
+  const finalResultsPath = path.join(logsDir, 'FINAL_RESULTS.json')
+  fs.writeFileSync(finalResultsPath, JSON.stringify(finalResults, null, 2))
+
+  console.log(`Traces saved to ${logsDir}`)
   console.log('\n=== Summary ===')
   for (const [agentId, data] of Object.entries(results)) {
     console.log(`\n${agentId}:`)

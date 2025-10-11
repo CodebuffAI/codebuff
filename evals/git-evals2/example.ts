@@ -7,7 +7,6 @@ async function main() {
   const results = await runGitEvals2({
     evalDataPath: path.join(__dirname, '../git-evals/eval-codebuff2.json'),
     agents: ['base', 'base-lite'],
-    outputPath: path.join(__dirname, '../git-evals2/example-results.json'),
     limit: 3,
     onProgress: (event) => {
       if (event.type === 'agent_start') {

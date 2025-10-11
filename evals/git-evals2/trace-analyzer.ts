@@ -16,24 +16,15 @@ export interface AgentTraceData {
   timestamp: string
 }
 
-interface AgentComparison {
-  overallAnalysis: string
-  agentFeedback: Array<{
-    agentId: string
-    strengths: string[]
-    weaknesses: string[]
-    relativePerformance: string
-  }>
-  recommendations: string[]
-}
-
 function truncateTrace(trace: AgentStep[]): AgentStep[] {
   return trace.map((step) => ({
     ...step,
     toolResults: step.toolResults.map((result) => {
       // Truncate read_files, run_terminal_command, and code_search results to save tokens
       if (result.toolName === 'read_files' && result.output) {
-        const output = Array.isArray(result.output) ? result.output : [result.output]
+        const output = Array.isArray(result.output)
+          ? result.output
+          : [result.output]
         const truncatedOutput = output.map((item: any) => {
           if (item.type === 'json' && Array.isArray(item.value)) {
             // Truncate file contents in read_files results
@@ -58,19 +49,22 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
           output: truncatedOutput,
         }
       }
-      
+
       // Truncate run_terminal_command results (keep first 500 chars)
       if (result.toolName === 'run_terminal_command' && result.output) {
-        const output = Array.isArray(result.output) ? result.output : [result.output]
+        const output = Array.isArray(result.output)
+          ? result.output
+          : [result.output]
         const truncatedOutput = output.map((item: any) => {
           if (item.type === 'json' && item.value?.stdout) {
             return {
               ...item,
               value: {
                 ...item.value,
-                stdout: item.value.stdout.length > 500 
-                  ? item.value.stdout.slice(0, 500) + '... [TRUNCATED]'
-                  : item.value.stdout,
+                stdout:
+                  item.value.stdout.length > 500
+                    ? item.value.stdout.slice(0, 500) + '... [TRUNCATED]'
+                    : item.value.stdout,
               },
             }
           }
@@ -81,19 +75,22 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
           output: truncatedOutput,
         }
       }
-      
+
       // Truncate code_search results (keep first 500 chars)
       if (result.toolName === 'code_search' && result.output) {
-        const output = Array.isArray(result.output) ? result.output : [result.output]
+        const output = Array.isArray(result.output)
+          ? result.output
+          : [result.output]
         const truncatedOutput = output.map((item: any) => {
           if (item.type === 'json' && item.value?.stdout) {
             return {
               ...item,
               value: {
                 ...item.value,
-                stdout: item.value.stdout.length > 500
-                  ? item.value.stdout.slice(0, 500) + '... [TRUNCATED]'
-                  : item.value.stdout,
+                stdout:
+                  item.value.stdout.length > 500
+                    ? item.value.stdout.slice(0, 500) + '... [TRUNCATED]'
+                    : item.value.stdout,
               },
             }
           }
@@ -104,7 +101,7 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
           output: truncatedOutput,
         }
       }
-      
+
       return result
     }),
   }))
@@ -113,7 +110,7 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
 const traceAnalyzerAgent: AgentDefinition = {
   id: 'git-evals2-trace-analyzer',
   displayName: 'Git Evals2 Trace Analyzer',
-  model: 'anthropic/claude-3.5-sonnet',
+  model: 'openai/gpt-5',
   toolNames: ['set_output'],
   inputSchema: {
     prompt: { type: 'string', description: 'The analysis prompt' },
@@ -205,7 +202,16 @@ export async function analyzeAgentTraces({
   client: CodebuffClient
   traces: AgentTraceData[]
   spec: string
-}): Promise<AgentComparison> {
+}): Promise<{
+  overallAnalysis: string
+  agentFeedback: Array<{
+    agentId: string
+    strengths: string[]
+    weaknesses: string[]
+    relativePerformance: string
+  }>
+  recommendations: string[]
+}> {
   const truncatedTraces = traces.map((t) => ({
     agentId: t.agentId,
     trace: truncateTrace(t.trace),
@@ -247,10 +253,12 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
     agentDefinitions: [traceAnalyzerAgent],
   })
 
-  if (analyzerResult.output.type !== 'structuredOutput') {
+  const { output } = analyzerResult
+
+  if (output.type !== 'structuredOutput' || output.value === null) {
     console.error(
       'Error running trace analyzer - not structured output',
-      JSON.stringify(analyzerResult.output, null, 2),
+      JSON.stringify(output, null, 2),
     )
     return {
       overallAnalysis: 'Error running trace analyzer - not structured output',
@@ -259,5 +267,5 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
     }
   }
 
-  return analyzerResult.output.value as AgentComparison
+  return output.value as any
 }
