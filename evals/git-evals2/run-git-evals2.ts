@@ -20,9 +20,7 @@ export async function runGitEvals2(
 ): Promise<GitEvals2Result> {
   const { evalDataPath, agents, outputPath, limit, onProgress } = options
 
-  const evalData: EvalData = JSON.parse(
-    fs.readFileSync(evalDataPath, 'utf-8'),
-  )
+  const evalData: EvalData = JSON.parse(fs.readFileSync(evalDataPath, 'utf-8'))
   const commitsToRun = limit
     ? evalData.evalCommits.slice(0, limit)
     : evalData.evalCommits
@@ -35,6 +33,16 @@ export async function runGitEvals2(
 
   const startTime = Date.now()
   const results = new Map<string, AgentEvalResults>()
+
+  // Create logs directory with current date and time
+  const date = new Date().toISOString().replace(/:/g, '-').slice(0, 16) // YYYY-MM-DDTHH-MM
+  const outputDir = outputPath
+    ? path.dirname(outputPath)
+    : 'evals/git-evals2/results'
+  const logsDir = path.join(outputDir, 'logs', date)
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true })
+  }
 
   for (const agentId of agents) {
     results.set(agentId, {
@@ -84,6 +92,28 @@ export async function runGitEvals2(
           durationMs: agentResult.durationMs,
           error: agentResult.error,
         }
+
+        // Save trace to logs directory
+        const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
+        const safeCommitShort = commit.sha.slice(0, 7)
+        const traceFilename = `${safeAgentId}-${safeCommitShort}.json`
+        const tracePath = path.join(logsDir, traceFilename)
+
+        const traceData = {
+          agentId,
+          commitSha: commit.sha,
+          spec: commit.spec,
+          trace: agentResult.trace,
+          diff: agentResult.diff,
+          judgeResult,
+          cost: agentResult.cost,
+          durationMs: agentResult.durationMs,
+          error: agentResult.error,
+          timestamp: new Date().toISOString(),
+        }
+
+        fs.writeFileSync(tracePath, JSON.stringify(traceData, null, 2))
+        console.log(`Trace saved to ${tracePath}`)
 
         onProgress?.({
           type: 'agent_complete',
@@ -172,6 +202,7 @@ export async function runGitEvals2(
     console.log(`\nResults written to ${outputPath}`)
   }
 
+  console.log(`\nTraces saved to ${logsDir}`)
   console.log('\n=== Summary ===')
   for (const [agentId, data] of results) {
     console.log(`\n${agentId}:`)

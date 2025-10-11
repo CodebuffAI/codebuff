@@ -7,11 +7,18 @@ import { withTestRepo } from '../subagents/test-repo-utils'
 
 import type { EvalCommit } from './types'
 
+export interface AgentStep {
+  response: string
+  toolCalls: any[]
+  toolResults: any[]
+}
+
 export interface AgentRunResult {
   diff: string
   durationMs: number
   cost: number
   error?: string
+  trace: AgentStep[]
 }
 
 export async function runAgentOnCommit({
@@ -31,6 +38,7 @@ export async function runAgentOnCommit({
   let diff = ''
   let error: string | undefined
   let cost = 0
+  const trace: AgentStep[] = []
 
   try {
     await withTestRepo(
@@ -45,13 +53,44 @@ export async function runAgentOnCommit({
           await loadLocalAgents({ agentsPath }),
         )
 
+        let responseText = ''
+        let toolCalls: any[] = []
+        let toolResults: any[] = []
+        
+        function flushStep() {
+          if (responseText.length > 0 || toolCalls.length > 0 || toolResults.length > 0) {
+            trace.push({ response: responseText, toolCalls, toolResults })
+            responseText = ''
+            toolCalls = []
+            toolResults = []
+          }
+        }
+
         const result = await client.run({
           agent: agentId,
           prompt: commit.spec,
           agentDefinitions: localAgentDefinitions,
           cwd: repoDir,
+          handleEvent: (event) => {
+            if (event.type === 'text') {
+              if (toolResults.length > 0) {
+                flushStep()
+              }
+              responseText += event.text
+            } else if (event.type === 'tool_call') {
+              if (event.toolName === 'set_messages') {
+                return
+              }
+              toolCalls.push(event)
+            } else if (event.type === 'tool_result') {
+              toolResults.push(event)
+            } else if (event.type === 'finish') {
+              flushStep()
+            }
+          },
         })
 
+        flushStep()
         cost = result.sessionState.mainAgentState.creditsUsed / 100
 
         execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
@@ -72,5 +111,6 @@ export async function runAgentOnCommit({
     durationMs,
     cost,
     error,
+    trace,
   }
 }
