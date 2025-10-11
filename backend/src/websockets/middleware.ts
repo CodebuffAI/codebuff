@@ -60,27 +60,25 @@ export class WebSocketMiddleware {
   }
 
   use<T extends ClientAction['type']>(
-    callback: (
-      params: {
-        action: ClientAction<T>
-        clientSessionId: string
-        ws: WebSocket
-        userInfo: { id: string } | null
-      } & AgentRuntimeDeps,
-    ) => Promise<void | ServerAction>,
+    callback: (params: {
+      action: ClientAction<T>
+      clientSessionId: string
+      ws: WebSocket
+      userInfo: { id: string } | null
+      logger: Logger
+    }) => Promise<void | ServerAction>,
   ) {
     this.middlewares.push(callback as MiddlewareCallback)
   }
 
-  async execute(
-    params: {
-      action: ClientAction
-      clientSessionId: string
-      ws: WebSocket
-      silent?: boolean
-      getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
-    } & AgentRuntimeDeps,
-  ): Promise<boolean> {
+  async execute(params: {
+    action: ClientAction
+    clientSessionId: string
+    ws: WebSocket
+    silent?: boolean
+    getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
+    logger: Logger
+  }): Promise<boolean> {
     const { action, clientSessionId, ws, silent, logger } = params
 
     const userInfo =
@@ -175,13 +173,14 @@ export class WebSocketMiddleware {
 
 export const protec = new WebSocketMiddleware(BACKEND_AGENT_RUNTIME_IMPL)
 
-protec.use(async (params) => {
-  const { action } = params
-  return checkAuth({
-    ...params,
+protec.use(async ({ action, clientSessionId, logger }) =>
+  checkAuth({
+    fingerprintId: 'fingerprintId' in action ? action.fingerprintId : undefined,
     authToken: 'authToken' in action ? action.authToken : undefined,
-  })
-})
+    clientSessionId,
+    logger,
+  }),
+)
 
 // Organization repository coverage detection middleware
 protec.use(async ({ action, userInfo, logger }) => {

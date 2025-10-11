@@ -25,3 +25,9 @@ All environment variables are defined and validated in `env.ts`:
 - **Purpose**: Transactional emails (invitations, basic messages)
 - **Functions**: `sendOrganizationInvitationEmail`, `sendBasicEmail`, `sendSignupEventToLoops`
 - **Environment**: Requires `LOOPS_API_KEY`
+
+### Auth Utilities
+
+- **Purpose**: Admin user verification and session validation
+- **Functions**: `checkAuthToken`, `checkSessionIsAdmin`, `isCodebuffAdmin`
+- **Usage**: Used by admin routes and protected endpoints

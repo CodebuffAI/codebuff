@@ -2,7 +2,6 @@ import { getOrganizationUsageResponse } from '@codebuff/billing'
 import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
 import { z } from 'zod/v4'
 
-import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 import { checkAuth } from '../util/check-auth'
 import { logger } from '../util/logger'
 import { getUserInfoFromApiKey } from '../websockets/auth'
@@ -32,9 +31,10 @@ async function usageHandler(
     const clientSessionId = `api-${fingerprintId}-${Date.now()}`
 
     const authResult = await checkAuth({
-      ...BACKEND_AGENT_RUNTIME_IMPL,
+      fingerprintId,
       authToken,
       clientSessionId,
+      logger,
     })
     if (authResult) {
       const errorMessage =
