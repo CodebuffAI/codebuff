@@ -24,20 +24,6 @@ async function main() {
       }
     },
   })
-
-  console.log('\n=== Final Results ===')
-  console.log(`Total duration: ${(results.totalDuration / 1000).toFixed(1)}s\n`)
-
-  for (const [agentId, data] of results.agents) {
-    console.log(`${agentId}:`)
-    console.log(`  Score: ${data.averageScore.toFixed(2)}/10`)
-    console.log(`  Cost: $${data.averageCost.toFixed(4)}`)
-    console.log(`  Duration: ${(data.averageDuration / 1000).toFixed(1)}s`)
-    console.log(
-      `  Success: ${data.runs.filter((r) => !r.error).length}/${data.runs.length}`,
-    )
-    console.log()
-  }
 }
 
 if (import.meta.main) {

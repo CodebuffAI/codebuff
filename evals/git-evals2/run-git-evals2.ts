@@ -94,9 +94,13 @@ export async function runGitEvals2(
         }
 
         // Save trace to logs directory
+        const safeSpec = commit.spec
+          .split('\n')[0]
+          .replace(/[^a-zA-Z0-9]/g, '_')
+          .slice(0, 30)
         const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
         const safeCommitShort = commit.sha.slice(0, 7)
-        const traceFilename = `${safeAgentId}-${safeCommitShort}.json`
+        const traceFilename = `${safeSpec}-${safeAgentId}-${safeCommitShort}.json`
         const tracePath = path.join(logsDir, traceFilename)
 
         const traceData = {
@@ -206,13 +210,11 @@ export async function runGitEvals2(
   console.log('\n=== Summary ===')
   for (const [agentId, data] of results) {
     console.log(`\n${agentId}:`)
-    console.log(`  Average Score: ${data.averageScore.toFixed(2)}/10`)
-    console.log(`  Average Cost: $${data.averageCost.toFixed(4)}`)
+    console.log(`  Score: ${data.averageScore.toFixed(2)}/10`)
+    console.log(`  Cost: $${data.averageCost.toFixed(4)}`)
+    console.log(`  Duration: ${(data.averageDuration / 1000).toFixed(1)}s`)
     console.log(
-      `  Average Duration: ${(data.averageDuration / 1000).toFixed(1)}s`,
-    )
-    console.log(
-      `  Success Rate: ${data.runs.filter((r) => !r.error).length}/${data.runs.length}`,
+      `  Success: ${data.runs.filter((r) => !r.error).length}/${data.runs.length}`,
     )
   }
 

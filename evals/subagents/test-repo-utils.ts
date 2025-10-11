@@ -23,9 +23,6 @@ export const withTestRepo = async <T>(
   const repoDir = path.join(tempDir, 'repo')
 
   try {
-    console.log(
-      `Cloning repository ${repoUrl} at commit ${parentSha} to ${repoDir} (shallow)...`,
-    )
     execSync(`git clone --depth 1 ${repoUrl} ${repoDir}`, { stdio: 'ignore' })
 
     execSync(`git fetch --depth 1 origin ${parentSha}`, {
