@@ -1,4 +1,4 @@
-import type { CodebuffClient } from '../../sdk/src/client'
+import type { JudgingResult } from './judge'
 
 export interface FileState {
   path: string
@@ -25,8 +25,7 @@ export interface EvalRun {
   commitSha: string
   spec: string
   diff: string
-  judgeScore: number
-  judgeFeedback: string
+  judging: JudgingResult
   cost: number
   durationMs: number
   error?: string
@@ -58,18 +57,3 @@ export type ProgressEvent =
       commit: string
       error: string
     }
-
-export interface GitEvals2Options {
-  evalDataPath: string
-  agents: string[]
-  outputPath?: string
-  limit?: number
-  onProgress?: (event: ProgressEvent) => void
-  client?: CodebuffClient
-}
-
-export interface GitEvals2Result {
-  agents: Map<string, AgentEvalResults>
-  timestamp: string
-  totalDuration: number
-}

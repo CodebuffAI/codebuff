@@ -8,17 +8,20 @@ import { CodebuffClient } from '../../sdk/src/client'
 import { runAgentOnCommit } from './agent-runner'
 import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
+import { AgentEvalResults, EvalData, ProgressEvent } from './types'
 
-import type {
-  EvalData,
-  GitEvals2Options,
-  GitEvals2Result,
-  AgentEvalResults,
-} from './types'
-
-export async function runGitEvals2(
-  options: GitEvals2Options,
-): Promise<GitEvals2Result> {
+export async function runGitEvals2(options: {
+  evalDataPath: string
+  agents: string[]
+  outputPath?: string
+  limit?: number
+  onProgress?: (event: ProgressEvent) => void
+  client?: CodebuffClient
+}): Promise<{
+  agents: Record<string, AgentEvalResults>
+  timestamp: string
+  totalDuration: number
+}> {
   const { evalDataPath, agents, outputPath, limit, onProgress } = options
 
   const evalData: EvalData = JSON.parse(fs.readFileSync(evalDataPath, 'utf-8'))
@@ -33,7 +36,7 @@ export async function runGitEvals2(
     })
 
   const startTime = Date.now()
-  const results = new Map<string, AgentEvalResults>()
+  const results: Record<string, AgentEvalResults> = {}
 
   // Create logs directory with current date and time
   const date = new Date().toISOString().replace(/:/g, '-').slice(0, 16) // YYYY-MM-DDTHH-MM
@@ -46,13 +49,13 @@ export async function runGitEvals2(
   }
 
   for (const agentId of agents) {
-    results.set(agentId, {
+    results[agentId] = {
       agentId,
       runs: [],
       averageScore: 0,
       averageCost: 0,
       averageDuration: 0,
-    })
+    }
   }
 
   for (const commit of commitsToRun) {
@@ -90,8 +93,7 @@ export async function runGitEvals2(
           commitSha: commit.sha,
           spec: commit.spec,
           diff: agentResult.diff,
-          judgeScore: judgeResult.overallScore,
-          judgeFeedback: judgeResult.analysis,
+          judging: judgeResult,
           cost: agentResult.cost,
           durationMs: agentResult.durationMs,
           error: agentResult.error,
@@ -101,7 +103,7 @@ export async function runGitEvals2(
         const safeSpec = commit.spec
           .split('\n')[0]
           .replace(/[^a-zA-Z0-9]/g, '_')
-          .slice(0, 30)
+          .slice(0, 20)
         const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
         const safeCommitShort = commit.sha.slice(0, 7)
         const traceFilename = `${safeSpec}-${safeAgentId}-${safeCommitShort}.json`
@@ -151,8 +153,14 @@ export async function runGitEvals2(
             commitSha: commit.sha,
             spec: commit.spec,
             diff: '',
-            judgeScore: 0,
-            judgeFeedback: '',
+            judging: {
+              analysis: '',
+              strengths: [],
+              weaknesses: [],
+              completionScore: 0,
+              codeQualityScore: 0,
+              overallScore: 0,
+            },
             cost: 0,
             durationMs: 0,
             error: errorMessage,
@@ -164,8 +172,7 @@ export async function runGitEvals2(
     const agentResults = await Promise.all(agentPromises)
 
     for (const { agentId, evalRun } of agentResults) {
-      const agentData = results.get(agentId)!
-      agentData.runs.push(evalRun)
+      results[agentId].runs.push(evalRun)
     }
 
     // After all agents complete for this commit, run trace analysis
@@ -208,13 +215,13 @@ export async function runGitEvals2(
     }
   }
 
-  for (const [agentId, agentData] of results) {
+  for (const [agentId, agentData] of Object.entries(results)) {
     const successfulRuns = agentData.runs.filter((r) => !r.error)
     const totalRuns = agentData.runs.length
 
     agentData.averageScore =
       successfulRuns.length > 0
-        ? successfulRuns.reduce((sum, r) => sum + r.judgeScore, 0) /
+        ? successfulRuns.reduce((sum, r) => sum + r.judging.overallScore, 0) /
           successfulRuns.length
         : 0
 
@@ -229,7 +236,7 @@ export async function runGitEvals2(
         : 0
   }
 
-  const result: GitEvals2Result = {
+  const result = {
     agents: results,
     timestamp: new Date().toISOString(),
     totalDuration: Date.now() - startTime,
@@ -241,20 +248,13 @@ export async function runGitEvals2(
       fs.mkdirSync(outputDir, { recursive: true })
     }
 
-    const serializedResult = {
-      ...result,
-      agents: Array.from(result.agents.entries()).map(([id, data]) => ({
-        id,
-        ...data,
-      })),
-    }
-    fs.writeFileSync(outputPath, JSON.stringify(serializedResult, null, 2))
+    fs.writeFileSync(outputPath, JSON.stringify(result, null, 2))
     console.log(`\nResults written to ${outputPath}`)
   }
 
   console.log(`\nTraces saved to ${logsDir}`)
   console.log('\n=== Summary ===')
-  for (const [agentId, data] of results) {
+  for (const [agentId, data] of Object.entries(results)) {
     console.log(`\n${agentId}:`)
     console.log(`  Score: ${data.averageScore.toFixed(2)}/10`)
     console.log(`  Cost: $${data.averageCost.toFixed(4)}`)
