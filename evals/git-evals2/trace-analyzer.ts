@@ -161,32 +161,39 @@ const traceAnalyzerAgent: AgentDefinition = {
     },
     required: ['overallAnalysis', 'agentFeedback', 'recommendations'],
   },
-  systemPrompt: `You are an expert AI agent evaluator comparing multiple coding agents on the same task.
+  systemPrompt: `You are an expert AI agent evaluator analyzing how different coding agents approach problems and make decisions.
 
 ## Your Role
 
 You will receive:
-1. A task specification
-2. Full traces from each agent showing their approach and execution
-3. Results including:
-   - Judge results (completion score, code quality score, overall score, analysis, strengths, weaknesses)
-   - Cost efficiency
-   - Time efficiency
-   - Whether they produced valid diffs
-   - Any errors encountered
-   - Number of trace steps taken
+1. A task specification (for context only)
+2. Full traces from each agent showing their step-by-step process
+3. Performance metrics (scores, cost, time, errors)
 
-## Analysis Criteria
+## Focus on Agent Processes
+
+Your analysis should focus on how agents work, not what they accomplished:
+
+Key Analysis Areas:
+- Problem-Solving Approach: How did each agent break down and approach the problem?
+- Tool Usage Patterns: Which tools did they use, in what sequence, and why?
+- Decision-Making Strategy: What information did they gather before acting? How did they validate assumptions?
+- Workflow Efficiency: Did they follow a systematic process or jump around? Were steps logically ordered?
+- Context Gathering: How thoroughly did they explore the codebase before making changes?
+- Iterative Refinement: Did they test, verify, or refine their work? How?
+
+## Output Format
 
 Provide:
-- **Overall Analysis**: Compare how agents performed on this task, analyzing their different approaches
-- **Agent Feedback**: For each agent, list:
-  - Strengths: What this agent did well (specific actions from trace)
-  - Weaknesses: What this agent struggled with (specific issues from trace)
-  - Relative Performance: How this agent compared to others
-- **Recommendations**: Actionable suggestions for improving the agents based on observed behavior
+- Overall Analysis: Compare agent workflows, highlighting different process strategies
+- Agent Feedback: For each agent:
+  - Strengths: Process steps that worked well (e.g., thoroughly explored codebase before editing)
+  - Weaknesses: Process gaps or inefficiencies (e.g., made changes without reading related files)
+  - Relative Performance: How this agent's process compared to others
+- Recommendations: Generalizable improvements to agent workflows and decision-making processes
 
-Focus on comparative insights - how agents differ in their approaches, tool usage patterns, efficiency, and results.
+Important: Focus on the agent's process and methodology, not on the object-level content of the code changes. We want to understand how to improve the agent's approach to any problem.
+
 Note: read_files tool results show [TRUNCATED] for file contents to save space.`,
 }
 
@@ -208,24 +215,31 @@ export async function analyzeAgentTraces({
     error: t.error,
   }))
 
-  const prompt = `## Task Specification
+  const prompt = `## Task Specification (for context)
 ${spec}
 
 ## Agent Traces and Results
 ${JSON.stringify(truncatedTraces, null, 2)}
 
-Please compare these agents and provide:
-1. An overall analysis of how the agents performed, including differences in their approaches
-2. Specific feedback for each agent including strengths, weaknesses, and how they performed relative to others
-3. Recommendations for improving the agents
+Analyze how these agents approached the problem, focusing on their processes and workflows rather than the specific task:
 
-Focus on:
-- Judge results (completion score, code quality score, overall score, analysis, strengths, weaknesses)
-- Approach and tool usage patterns from the traces
-- Cost efficiency
-- Time efficiency
-- Whether they produced valid diffs
-- Any errors encountered`
+1. Overall Process Comparison: How did agents differ in their problem-solving approach?
+   - What was their overall strategy/workflow?
+   - How did they sequence their actions?
+   - What patterns emerged in how they gathered context vs. taking action?
+
+2. Per-Agent Process Analysis: For each agent, identify:
+   - Process strengths: What systematic steps or decisions worked well?
+   - Process weaknesses: Where did their workflow have gaps or inefficiencies?
+   - Key differences: How did this agent's process differ from others?
+
+3. Generalizable Recommendations: Suggest improvements to agent workflows that would help on any task:
+   - Better context-gathering strategies
+   - More effective tool usage patterns
+   - Improved decision-making processes
+   - Workflow optimizations
+
+Focus on the HOW, not the WHAT: We want to understand and improve how agents work, not evaluate their specific code output.`
 
   const analyzerResult = await client.run({
     agent: 'git-evals2-trace-analyzer',

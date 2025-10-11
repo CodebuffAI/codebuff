@@ -201,6 +201,13 @@ export async function runGitEvals2(options: {
           spec: commit.spec,
           timestamp: new Date().toISOString(),
           analysis,
+          results: commitTraces.map((t) => ({
+            agentId: t.agentId,
+            ...t.judgeResult,
+            cost: t.cost,
+            durationMs: t.durationMs,
+            error: t.error,
+          })),
         }
 
         fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
