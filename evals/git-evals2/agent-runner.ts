@@ -36,9 +36,8 @@ export async function runAgentOnCommit({
     await withTestRepo(
       {
         repoUrl,
-        commitSha: commit.sha,
+        parentSha: commit.parentSha,
         initCommand,
-        checkoutPrevious: true,
       },
       async (repoDir) => {
         const agentsPath = path.join(__dirname, '../../.agents')

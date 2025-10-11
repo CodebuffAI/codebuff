@@ -15,7 +15,7 @@ export const evalPlannerAgent = async (params: {
   agentDefinitions: Array<AgentDefinition>
   spec: string
   repoUrl: string
-  commitSha: string
+  parentSha: string
   initCommand?: string
   fileStates: Array<{
     path: string
@@ -29,13 +29,13 @@ export const evalPlannerAgent = async (params: {
     agentDefinitions,
     spec,
     repoUrl,
-    commitSha,
+    parentSha,
     initCommand,
     fileStates,
   } = params
   const plannerStartTime = Date.now()
   const result = await withTestRepo(
-    { repoUrl, commitSha, initCommand, checkoutPrevious: true },
+    { repoUrl, parentSha, initCommand },
     async (cwd) => {
       // Run the agent with the test repository as cwd
       console.log(`Running agent ${agentId} with prompt: ${spec}...`)
@@ -206,6 +206,7 @@ type EvalData = {
   initCommand?: string
   evalCommits: Array<{
     sha: string
+    parentSha: string
     spec: string
     fileStates: Array<{
       path: string
@@ -262,7 +263,7 @@ async function main() {
 
   // Loop through each eval task
   for (const evalCommit of evalCommits) {
-    const { sha, spec, fileStates } = evalCommit
+    const { sha, parentSha, spec, fileStates } = evalCommit
 
     console.log(`\n=== Running eval for commit ${sha} ===`)
     console.log(`Spec: ${spec.substring(0, 100)}...\n`)
@@ -274,7 +275,7 @@ async function main() {
         agentDefinitions: localAgentDefinitions,
         spec,
         repoUrl,
-        commitSha: sha,
+        parentSha,
         initCommand,
         fileStates,
       })
@@ -372,7 +373,8 @@ async function main() {
 
   if (stats.plannerLatencies.length > 0) {
     const avgPlannerLatency =
-      stats.plannerLatencies.reduce((a, b) => a + b, 0) / stats.plannerLatencies.length
+      stats.plannerLatencies.reduce((a, b) => a + b, 0) /
+      stats.plannerLatencies.length
     const minPlannerLatency = Math.min(...stats.plannerLatencies)
     const maxPlannerLatency = Math.max(...stats.plannerLatencies)
     const medianPlannerLatency = stats.plannerLatencies.sort((a, b) => a - b)[
