@@ -120,7 +120,7 @@ export async function runSingleEval(
       // Get next prompt from prompting agent with timeout
       let agentResponse: z.infer<typeof AgentDecisionSchema>
       try {
-        agentResponse = promptWithAgent
+        agentResponse = !promptWithAgent
           ? {
               decision: 'continue',
               reasoning: 'Using spec as sole prompt',
