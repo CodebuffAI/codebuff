@@ -7,6 +7,7 @@ import { CodebuffClient } from '../../sdk/src/client'
 
 import { runAgentOnCommit } from './agent-runner'
 import { judgeCommitResult } from './judge'
+import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 
 import type {
   EvalData,
@@ -57,6 +58,9 @@ export async function runGitEvals2(
   for (const commit of commitsToRun) {
     console.log(`\n=== Evaluating commit ${commit.sha.slice(0, 7)} ===`)
     console.log(`Spec: ${commit.spec.slice(0, 100)}...`)
+
+    // Store trace data for this commit to analyze later
+    const commitTraces: AgentTraceData[] = []
 
     const agentPromises = agents.map(async (agentId) => {
       onProgress?.({
@@ -119,6 +123,9 @@ export async function runGitEvals2(
         fs.writeFileSync(tracePath, JSON.stringify(traceData, null, 2))
         console.log(`Trace saved to ${tracePath}`)
 
+        // Store for later analysis
+        commitTraces.push(traceData)
+
         onProgress?.({
           type: 'agent_complete',
           agent: agentId,
@@ -159,6 +166,45 @@ export async function runGitEvals2(
     for (const { agentId, evalRun } of agentResults) {
       const agentData = results.get(agentId)!
       agentData.runs.push(evalRun)
+    }
+
+    // After all agents complete for this commit, run trace analysis
+    if (commitTraces.length > 1) {
+      console.log(
+        `\n=== Analyzing agent traces for commit ${commit.sha.slice(0, 7)} ===`,
+      )
+      try {
+        const analysis = await analyzeAgentTraces({
+          client,
+          traces: commitTraces,
+          spec: commit.spec,
+        })
+
+        // Save analysis to logs directory
+        const safeSpec = commit.spec
+          .split('\n')[0]
+          .replace(/[^a-zA-Z0-9]/g, '_')
+          .slice(0, 30)
+        const safeCommitShort = commit.sha.slice(0, 7)
+        const analysisFilename = `${safeSpec}-ANALYSIS-${safeCommitShort}.json`
+        const analysisPath = path.join(logsDir, analysisFilename)
+
+        const analysisData = {
+          commitSha: commit.sha,
+          spec: commit.spec,
+          timestamp: new Date().toISOString(),
+          analysis,
+        }
+
+        fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
+        console.log(`Analysis saved to ${analysisPath}`)
+        console.log(`\nOverall Analysis: ${analysis.overallAnalysis}`)
+      } catch (error) {
+        console.error(
+          `Failed to analyze traces for commit ${commit.sha}:`,
+          error,
+        )
+      }
     }
   }
 
