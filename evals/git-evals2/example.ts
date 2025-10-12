@@ -6,19 +6,10 @@ async function main() {
 
   const results = await runGitEvals2({
     evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
-    agents: ['base', 'base-lite'],
-    limit: 3,
+    agents: ['base', 'base2'],
     onProgress: (event) => {
-      if (event.type === 'agent_start') {
-        console.log(
-          `[${event.agent}] Starting on commit ${event.commit.slice(0, 7)}...`,
-        )
-      } else if (event.type === 'agent_complete') {
-        console.log(
-          `[${event.agent}] ✓ Completed with score ${event.score.toFixed(1)}/10`,
-        )
-      } else if (event.type === 'agent_error') {
-        console.log(`[${event.agent}] ✗ Error: ${event.error}`)
+      if (event.type === 'agent_error') {
+        console.log(`[${event.agent}] ✗ ${event.evalId} error: ${event.error}`)
       }
     },
   })

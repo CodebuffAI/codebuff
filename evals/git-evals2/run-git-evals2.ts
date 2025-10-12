@@ -45,7 +45,7 @@ export async function runGitEvals2(options: {
   const date = new Date().toISOString().replace(/:/g, '-').slice(0, 16) // YYYY-MM-DDTHH-MM
   const outputDir = outputPath
     ? path.dirname(outputPath)
-    : 'evals/git-evals2/results'
+    : path.join(__dirname, 'results')
   const logsDir = path.join(outputDir, 'logs', date)
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true })
@@ -62,8 +62,10 @@ export async function runGitEvals2(options: {
   }
 
   for (const commit of commitsToRun) {
-    console.log(`\n=== Evaluating ${commit.id} ===`)
-    console.log(`Prompt: ${commit.prompt.slice(0, 100)}...`)
+    console.log(
+      `\n=== Evaluating task: ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
+    )
+    console.log(`Prompt: ${commit.prompt}`)
 
     // Store trace data for this commit to analyze later
     const commitTraces: AgentTraceData[] = []
@@ -73,6 +75,7 @@ export async function runGitEvals2(options: {
         type: 'agent_start',
         agent: agentId,
         commit: commit.sha,
+        evalId: commit.id,
       })
 
       try {
@@ -92,6 +95,17 @@ export async function runGitEvals2(options: {
           agentDiff: agentResult.diff,
           error: agentResult.error,
         })
+
+        console.log(`\n[${agentId}] Judge Results:`)
+        console.log(`  Overall Score: ${judgeResult.overallScore}/10`)
+        console.log(`  Completion: ${judgeResult.completionScore}/10`)
+        console.log(`  Code Quality: ${judgeResult.codeQualityScore}/10`)
+        if (judgeResult.strengths.length > 0) {
+          console.log(`  Strengths: ${judgeResult.strengths.join(', ')}`)
+        }
+        if (judgeResult.weaknesses.length > 0) {
+          console.log(`  Weaknesses: ${judgeResult.weaknesses.join(', ')}`)
+        }
 
         const evalRun = {
           commitSha: commit.sha,
@@ -133,6 +147,7 @@ export async function runGitEvals2(options: {
           type: 'agent_complete',
           agent: agentId,
           commit: commit.sha,
+          evalId: commit.id,
           score: judgeResult.overallScore,
         })
 
@@ -145,6 +160,7 @@ export async function runGitEvals2(options: {
           type: 'agent_error',
           agent: agentId,
           commit: commit.sha,
+          evalId: commit.id,
           error: errorMessage,
         })
 
@@ -208,9 +224,30 @@ export async function runGitEvals2(options: {
           spec: commit.spec,
         }
 
+        const { overallAnalysis, agentFeedback, recommendations } = analysis
         fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
         console.log(`Analysis saved to ${analysisPath}`)
-        console.log(`\nOverall Analysis: ${analysis.overallAnalysis}`)
+        console.log(`\n=== Trace Analysis ===`)
+        console.log(overallAnalysis)
+        if (agentFeedback.length > 0) {
+          console.log(`\nAgent-Specific Feedback:`)
+          agentFeedback.forEach((feedback: any) => {
+            console.log(`\n  [${feedback.agentId}]`)
+            if (feedback.strengths.length > 0) {
+              console.log(`    Strengths: ${feedback.strengths.join(', ')}`)
+            }
+            if (feedback.weaknesses.length > 0) {
+              console.log(`    Weaknesses: ${feedback.weaknesses.join(', ')}`)
+            }
+            console.log(`    Performance: ${feedback.relativePerformance}`)
+          })
+        }
+        if (recommendations.length > 0) {
+          console.log(`\nRecommendations:`)
+          recommendations.forEach((r: string) =>
+            console.log(`  - ${r}`),
+          )
+        }
       } catch (error) {
         console.error(
           `Failed to analyze traces for commit ${commit.sha}:`,
@@ -282,9 +319,11 @@ export async function runGitEvals2(options: {
   console.log('\n=== Summary ===')
   for (const [agentId, data] of Object.entries(results)) {
     console.log(`\n${agentId}:`)
-    console.log(`  Score: ${data.averageScore.toFixed(2)}/10`)
-    console.log(`  Cost: $${data.averageCost.toFixed(4)}`)
-    console.log(`  Duration: ${(data.averageDuration / 1000).toFixed(1)}s`)
+    console.log(`  Average Score: ${data.averageScore.toFixed(2)}/10`)
+    console.log(`  Average Cost: $${data.averageCost.toFixed(4)}`)
+    console.log(
+      `  Average Duration: ${(data.averageDuration / 1000).toFixed(1)}s`,
+    )
     console.log(
       `  Success: ${data.runs.filter((r) => !r.error).length}/${data.runs.length}`,
     )
