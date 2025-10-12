@@ -5,7 +5,7 @@ async function main() {
   console.log('Comparing base and base-lite agents on first 3 commits\n')
 
   const results = await runGitEvals2({
-    evalDataPath: path.join(__dirname, '../git-evals/eval-codebuff2.json'),
+    evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
     agents: ['base', 'base-lite'],
     limit: 3,
     onProgress: (event) => {
