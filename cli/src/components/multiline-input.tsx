@@ -3,6 +3,39 @@ import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
 
 import { TextAttributes, type ScrollBoxRenderable } from '@opentui/core'
 
+const mixColors = (foreground: string, background: string, alpha = 0.4): string => {
+  const parseHex = (hex: string) => {
+    const normalized = hex.trim().replace('#', '')
+    const full = normalized.length === 3
+      ? normalized.split('').map((ch) => ch + ch).join('')
+      : normalized
+    const value = parseInt(full, 16)
+    return {
+      r: (value >> 16) & 0xff,
+      g: (value >> 8) & 0xff,
+      b: value & 0xff,
+    }
+  }
+
+  const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)))
+
+  try {
+    const fg = parseHex(foreground)
+    const bg = parseHex(background)
+
+    const blend = {
+      r: clamp(alpha * fg.r + (1 - alpha) * bg.r),
+      g: clamp(alpha * fg.g + (1 - alpha) * bg.g),
+      b: clamp(alpha * fg.b + (1 - alpha) * bg.b),
+    }
+
+    const toHex = (value: number) => value.toString(16).padStart(2, '0')
+    return `#${toHex(blend.r)}${toHex(blend.g)}${toHex(blend.b)}`
+  } catch {
+    return foreground
+  }
+}
+
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
@@ -53,7 +86,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
   return pos
 }
 
-const CURSOR_CHAR = '\u2009'
+const CURSOR_CHAR = '▏'
 
 interface MultilineInputProps {
   value: string
@@ -396,17 +429,20 @@ export function MultilineInput({
   // Calculate display with cursor
   const displayValue = value || placeholder
   const isPlaceholder = !value && placeholder
-  const showCursor = focused && !isPlaceholder
+  const showCursor = focused
   const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
   const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
-  const displayText = showCursor
-    ? `${beforeCursor}${CURSOR_CHAR}${afterCursor}`
-    : displayValue
+  const activeChar = afterCursor.charAt(0) || ' '
+  const highlightBg = mixColors(theme.cursor, isPlaceholder ? theme.inputBg : theme.inputFocusedBg, 0.4)
+  const shouldHighlight = showCursor && !isPlaceholder && cursorPosition > 0 && cursorPosition < displayValue.length
 
-  // Memoize height calculation to avoid expensive computation on every render
   const height = useMemo(() => {
     const maxCharsPerLine = Math.max(1, width - 4)
-    const contentForHeight = showCursor ? displayText : displayValue
+  const contentForHeight = showCursor
+    ? shouldHighlight
+      ? displayValue
+      : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}${displayValue.slice(cursorPosition)}`
+    : displayValue
     const lines = contentForHeight.split('\n')
     let totalLineCount = 0
     for (const line of lines) {
@@ -418,7 +454,7 @@ export function MultilineInput({
       }
     }
     return Math.max(1, Math.min(totalLineCount, maxHeight))
-  }, [displayValue, displayText, showCursor, width, maxHeight])
+  }, [displayValue, cursorPosition, showCursor, width, maxHeight])
 
   return (
     <scrollbox
@@ -460,17 +496,23 @@ export function MultilineInput({
         {showCursor ? (
           <>
             {beforeCursor}
-            <span
-              fg={theme.cursor}
-              bg={theme.cursor}
-              attributes={TextAttributes.BOLD}
-            >
-              {CURSOR_CHAR}
-            </span>
-            {afterCursor}
+            {shouldHighlight ? (
+              <span fg={theme.inputFocusedFg} bg={highlightBg}>
+                {activeChar === ' ' ? '\u00a0' : activeChar}
+              </span>
+            ) : (
+              <span fg={theme.cursor} attributes={TextAttributes.BOLD}>
+                {CURSOR_CHAR}
+              </span>
+            )}
+            {shouldHighlight
+              ? afterCursor.length > 0
+                ? afterCursor.slice(1)
+                : ''
+              : afterCursor || ' '}
           </>
         ) : (
-          displayText
+          displayValue
         )}
       </text>
     </scrollbox>
