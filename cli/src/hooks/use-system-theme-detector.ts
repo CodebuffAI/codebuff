@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { type ThemeName, detectSystemTheme } from '../utils/theme-system'
+import { logger } from '../utils/logger'
 import {
   spawnMacOSThemeListener,
   type ThemeListenerProcess,
@@ -24,8 +25,16 @@ export const useSystemThemeDetector = (): ThemeName => {
   const listenerRef = useRef<ThemeListenerProcess | null>(null)
 
   useEffect(() => {
+    logger.info(`[theme] initial theme ${themeName}`)
+
     const handleThemeChange = () => {
       const currentTheme = detectSystemTheme()
+
+      if (currentTheme !== lastThemeRef.current) {
+        logger.info(`[theme] theme changed ${lastThemeRef.current} -> ${currentTheme}`)
+      } else {
+        logger.info('[theme] theme change event with no delta')
+      }
 
       // Only update state if theme actually changed
       if (currentTheme !== lastThemeRef.current) {

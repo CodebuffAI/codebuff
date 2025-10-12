@@ -1,3 +1,7 @@
+import { existsSync, watch, type FSWatcher } from 'fs'
+
+import { getIDEThemeConfigPaths } from './theme-system'
+
 /**
  * macOS theme change listener using polling
  * Checks the system theme preference every 0.5 seconds
@@ -23,6 +27,65 @@ while true; do
   sleep 0.5
 done
 `
+
+const IDE_THEME_DEBOUNCE_MS = 200
+
+interface IDEWatcherHandle {
+  watchers: FSWatcher[]
+  dispose: () => void
+}
+
+const createIDEThemeWatchers = (
+  onThemeChange: () => void,
+): IDEWatcherHandle => {
+  const watchers: FSWatcher[] = []
+  const targets = new Set(getIDEThemeConfigPaths())
+
+  if (targets.size === 0) {
+    return {
+      watchers,
+      dispose: () => {},
+    }
+  }
+
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  const scheduleNotify = () => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+    }
+
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null
+      onThemeChange()
+    }, IDE_THEME_DEBOUNCE_MS)
+  }
+
+  for (const path of targets) {
+    try {
+      if (!existsSync(path)) {
+        continue
+      }
+
+      const watcher = watch(path, { persistent: false }, () => {
+        scheduleNotify()
+      })
+
+      watchers.push(watcher)
+    } catch {
+      // Ignore watcher failures (e.g., permissions)
+    }
+  }
+
+  return {
+    watchers,
+    dispose: () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+        debounceTimer = null
+      }
+    },
+  }
+}
 
 export interface ThemeListenerProcess {
   kill: () => void
@@ -55,6 +118,8 @@ export const spawnMacOSThemeListener = (
       stdout: 'pipe',
       stderr: 'pipe',
     })
+
+    const watcherHandle = createIDEThemeWatchers(onThemeChange)
 
     // Read stderr to prevent blocking
     const readStderr = async () => {
@@ -106,6 +171,16 @@ export const spawnMacOSThemeListener = (
         } catch {
           // Ignore errors when killing
         }
+
+        for (const watcher of watcherHandle.watchers) {
+          try {
+            watcher.close()
+          } catch {
+            // Ignore watcher closure errors
+          }
+        }
+
+        watcherHandle.dispose()
       },
     }
   } catch {

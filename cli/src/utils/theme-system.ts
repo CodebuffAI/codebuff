@@ -1,4 +1,454 @@
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
+import { join } from 'path'
+import { homedir } from 'os'
+
 import type { MarkdownPalette } from './markdown-renderer'
+
+const IDE_THEME_INFERENCE = {
+  dark: [
+    'dark',
+    'midnight',
+    'night',
+    'noir',
+    'black',
+    'charcoal',
+    'dim',
+    'dracula',
+    'darcula',
+    'moon',
+    'nebula',
+    'obsidian',
+    'shadow',
+    'storm',
+    'monokai',
+    'ayu mirage',
+    'material darker',
+    'tokyo',
+    'abyss',
+    'zed dark',
+  ],
+  light: [
+    'light',
+    'day',
+    'dawn',
+    'bright',
+    'paper',
+    'sun',
+    'snow',
+    'cloud',
+    'white',
+    'solarized light',
+    'pastel',
+    'cream',
+    'zed light',
+  ],
+} as const
+
+const VS_CODE_FAMILY_ENV_KEYS = [
+  'VSCODE_PID',
+  'VSCODE_CWD',
+  'VSCODE_IPC_HOOK_CLI',
+  'VSCODE_LOG_NATIVE',
+  'VSCODE_NLS_CONFIG',
+  'CURSOR_SESSION_ID',
+  'CURSOR',
+]
+
+const VS_CODE_PRODUCT_DIRS = [
+  'Code',
+  'Code - Insiders',
+  'Code - OSS',
+  'VSCodium',
+  'VSCodium - Insiders',
+  'Cursor',
+]
+
+const JETBRAINS_ENV_KEYS = [
+  'JB_PRODUCT_CODE',
+  'JB_SYSTEM_PATH',
+  'JB_INSTALLATION_HOME',
+  'IDEA_INITIAL_DIRECTORY',
+  'IDE_CONFIG_DIR',
+  'JB_IDE_CONFIG_DIR',
+]
+
+const normalizeThemeName = (themeName: string): string => themeName.trim().toLowerCase()
+
+const inferThemeFromName = (themeName: string): ThemeName | null => {
+  const normalized = normalizeThemeName(themeName)
+
+  for (const hint of IDE_THEME_INFERENCE.dark) {
+    if (normalized.includes(hint)) {
+      return 'dark'
+    }
+  }
+
+  for (const hint of IDE_THEME_INFERENCE.light) {
+    if (normalized.includes(hint)) {
+      return 'light'
+    }
+  }
+
+  return null
+}
+
+const stripJsonStyleComments = (raw: string): string =>
+  raw
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+
+const safeReadFile = (filePath: string): string | null => {
+  try {
+    return readFileSync(filePath, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+const collectExistingPaths = (candidates: string[]): string[] => {
+  const seen = new Set<string>()
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      if (existsSync(candidate)) {
+        seen.add(candidate)
+      }
+    } catch {
+      // Ignore filesystem errors when probing paths
+    }
+  }
+  return [...seen]
+}
+
+const resolveVSCodeSettingsPaths = (): string[] => {
+  const settings: string[] = []
+  const home = homedir()
+
+  if (process.platform === 'darwin') {
+    const base = join(home, 'Library', 'Application Support')
+    for (const product of VS_CODE_PRODUCT_DIRS) {
+      settings.push(join(base, product, 'User', 'settings.json'))
+    }
+  } else if (process.platform === 'win32') {
+    const appData = process.env.APPDATA
+    if (appData) {
+      for (const product of VS_CODE_PRODUCT_DIRS) {
+        settings.push(join(appData, product, 'User', 'settings.json'))
+      }
+    }
+  } else {
+    const configDir = process.env.XDG_CONFIG_HOME ?? join(home, '.config')
+    for (const product of VS_CODE_PRODUCT_DIRS) {
+      settings.push(join(configDir, product, 'User', 'settings.json'))
+    }
+  }
+
+  return settings
+}
+
+const resolveJetBrainsLafPaths = (): string[] => {
+  const candidates: string[] = []
+
+  for (const key of ['IDE_CONFIG_DIR', 'JB_IDE_CONFIG_DIR']) {
+    const raw = process.env[key]
+    if (raw) {
+      candidates.push(join(raw, 'options', 'laf.xml'))
+    }
+  }
+
+  const home = homedir()
+
+  const baseDirs: string[] = []
+  if (process.platform === 'darwin') {
+    baseDirs.push(join(home, 'Library', 'Application Support', 'JetBrains'))
+  } else if (process.platform === 'win32') {
+    const appData = process.env.APPDATA
+    if (appData) {
+      baseDirs.push(join(appData, 'JetBrains'))
+    }
+  } else {
+    baseDirs.push(join(home, '.config', 'JetBrains'))
+    baseDirs.push(join(home, '.local', 'share', 'JetBrains'))
+  }
+
+  for (const base of baseDirs) {
+    try {
+      if (!existsSync(base)) continue
+      const entries = readdirSync(base)
+      for (const entry of entries) {
+        const dirPath = join(base, entry)
+        try {
+          if (!statSync(dirPath).isDirectory()) continue
+        } catch {
+          continue
+        }
+
+        candidates.push(join(dirPath, 'options', 'laf.xml'))
+      }
+    } catch {
+      // Ignore unreadable directories
+    }
+  }
+
+  return candidates
+}
+
+const resolveZedSettingsPaths = (): string[] => {
+  const home = homedir()
+  const paths: string[] = []
+
+
+  const configDirs = new Set<string>()
+
+  const xdgConfig = process.env.XDG_CONFIG_HOME ?? join(home, '.config')
+  configDirs.add(join(xdgConfig, 'zed'))
+  configDirs.add(join(xdgConfig, 'dev.zed.Zed'))
+
+  if (process.platform === 'darwin') {
+    configDirs.add(join(home, 'Library', 'Application Support', 'Zed'))
+    configDirs.add(join(home, 'Library', 'Application Support', 'dev.zed.Zed'))
+  } else if (process.platform === 'win32') {
+    const appData = process.env.APPDATA
+    if (appData) {
+      configDirs.add(join(appData, 'Zed'))
+      configDirs.add(join(appData, 'dev.zed.Zed'))
+    }
+  } else {
+    configDirs.add(join(home, '.config', 'zed'))
+    configDirs.add(join(home, '.config', 'dev.zed.Zed'))
+    configDirs.add(join(home, '.local', 'share', 'zed'))
+    configDirs.add(join(home, '.local', 'share', 'dev.zed.Zed'))
+  }
+
+  const legacyConfig = join(home, '.zed')
+  configDirs.add(legacyConfig)
+
+  for (const dir of configDirs) {
+    paths.push(join(dir, 'settings.json'))
+  }
+
+  return paths
+}
+
+const extractVSCodeTheme = (content: string): ThemeName | null => {
+  const colorThemeMatch = content.match(/"workbench\.colorTheme"\s*:\s*"([^"]+)"/i)
+  if (colorThemeMatch) {
+    const inferred = inferThemeFromName(colorThemeMatch[1])
+    if (inferred) return inferred
+  }
+
+  const themeKindEnv = process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
+  if (themeKindEnv) {
+    const normalized = themeKindEnv.trim().toLowerCase()
+    if (normalized === 'dark' || normalized === 'hc') return 'dark'
+    if (normalized === 'light') return 'light'
+  }
+
+  return null
+}
+
+const extractJetBrainsTheme = (content: string): ThemeName | null => {
+  const normalized = content.toLowerCase()
+  if (normalized.includes('darcula') || normalized.includes('dark')) {
+    return 'dark'
+  }
+
+  if (normalized.includes('light')) {
+    return 'light'
+  }
+
+  return null
+}
+
+const isVSCodeFamilyTerminal = (): boolean => {
+  if (process.env.TERM_PROGRAM?.toLowerCase() === 'vscode') {
+    return true
+  }
+
+  for (const key of VS_CODE_FAMILY_ENV_KEYS) {
+    if (process.env[key]) {
+      return true
+    }
+  }
+
+  return false
+}
+
+const isJetBrainsTerminal = (): boolean => {
+  if (process.env.TERMINAL_EMULATOR?.toLowerCase().includes('jetbrains')) {
+    return true
+  }
+
+  for (const key of JETBRAINS_ENV_KEYS) {
+    if (process.env[key]) {
+      return true
+    }
+  }
+
+  return false
+}
+
+const detectVSCodeTheme = (): ThemeName | null => {
+  if (!isVSCodeFamilyTerminal()) {
+    return null
+  }
+
+  const settingsPaths = collectExistingPaths(resolveVSCodeSettingsPaths())
+
+  for (const settingsPath of settingsPaths) {
+    const content = safeReadFile(settingsPath)
+    if (!content) continue
+    const theme = extractVSCodeTheme(content)
+    if (theme) {
+      return theme
+    }
+  }
+
+  const themeKindEnv = process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
+  if (themeKindEnv) {
+    const normalized = themeKindEnv.trim().toLowerCase()
+    if (normalized === 'dark' || normalized === 'hc') return 'dark'
+    if (normalized === 'light') return 'light'
+  }
+
+  return null
+}
+
+const detectJetBrainsTheme = (): ThemeName | null => {
+  if (!isJetBrainsTerminal()) {
+    return null
+  }
+
+  const lafPaths = collectExistingPaths(resolveJetBrainsLafPaths())
+
+  for (const lafPath of lafPaths) {
+    const content = safeReadFile(lafPath)
+    if (!content) continue
+    const theme = extractJetBrainsTheme(content)
+    if (theme) {
+      return theme
+    }
+  }
+
+  return null
+}
+
+const extractZedTheme = (content: string): ThemeName | null => {
+  try {
+    const sanitized = stripJsonStyleComments(content)
+    const parsed = JSON.parse(sanitized) as Record<string, unknown>
+    const candidates: unknown[] = []
+
+    const themeSetting = parsed.theme
+    if (typeof themeSetting === 'string') {
+      candidates.push(themeSetting)
+    } else if (themeSetting && typeof themeSetting === 'object') {
+      const themeConfig = themeSetting as Record<string, unknown>
+      const modeRaw = themeConfig.mode
+      if (typeof modeRaw === 'string') {
+        const mode = modeRaw.toLowerCase()
+        if (mode === 'dark' || mode === 'light') {
+          candidates.push(mode)
+          const modeTheme = themeConfig[mode]
+          if (typeof modeTheme === 'string') {
+            candidates.push(modeTheme)
+          }
+        } else if (mode === 'system') {
+          const platformTheme = detectPlatformTheme()
+          candidates.push(platformTheme)
+          const platformThemeName = themeConfig[platformTheme]
+          if (typeof platformThemeName === 'string') {
+            candidates.push(platformThemeName)
+          }
+        }
+      }
+
+      const darkTheme = themeConfig.dark
+      if (typeof darkTheme === 'string') {
+        candidates.push(darkTheme)
+      }
+
+      const lightTheme = themeConfig.light
+      if (typeof lightTheme === 'string') {
+        candidates.push(lightTheme)
+      }
+    }
+
+    const appearance = parsed.appearance
+    if (appearance && typeof appearance === 'object') {
+      const appearanceTheme = (appearance as Record<string, unknown>).theme
+      if (typeof appearanceTheme === 'string') {
+        candidates.push(appearanceTheme)
+      }
+
+      const preference = (appearance as Record<string, unknown>).theme_preference
+      if (typeof preference === 'string') {
+        candidates.push(preference)
+      }
+    }
+
+    const ui = parsed.ui
+    if (ui && typeof ui === 'object') {
+      const uiTheme = (ui as Record<string, unknown>).theme
+      if (typeof uiTheme === 'string') {
+        candidates.push(uiTheme)
+      }
+    }
+
+    for (const candidate of candidates) {
+      if (typeof candidate !== 'string') continue
+
+      const inferred = inferThemeFromName(candidate)
+      if (inferred) {
+        return inferred
+      }
+    }
+  } catch {
+    // Ignore malformed or partially written files
+  }
+
+  return null
+}
+
+const detectZedTheme = (): ThemeName | null => {
+  const settingsPaths = collectExistingPaths(resolveZedSettingsPaths())
+  for (const settingsPath of settingsPaths) {
+    const content = safeReadFile(settingsPath)
+    if (!content) continue
+
+    const theme = extractZedTheme(content)
+    if (theme) {
+      return theme
+    }
+  }
+
+  return null
+}
+
+const detectIDETheme = (): ThemeName | null => {
+  const detectors = [detectVSCodeTheme, detectJetBrainsTheme, detectZedTheme]
+  for (const detector of detectors) {
+    const theme = detector()
+    if (theme) {
+      return theme
+    }
+  }
+  return null
+}
+
+export const getIDEThemeConfigPaths = (): string[] => {
+  const paths = new Set<string>()
+  for (const path of resolveVSCodeSettingsPaths()) {
+    paths.add(path)
+  }
+  for (const path of resolveJetBrainsLafPaths()) {
+    paths.add(path)
+  }
+  for (const path of resolveZedSettingsPaths()) {
+    paths.add(path)
+  }
+  return [...paths]
+}
 
 export type ThemeName = 'dark' | 'light'
 
@@ -205,7 +655,7 @@ const runSystemCommand = (command: string[]): string | null => {
   }
 }
 
-const detectPlatformTheme = (): ThemeName => {
+function detectPlatformTheme(): ThemeName {
   if (typeof Bun !== 'undefined') {
     if (process.platform === 'darwin') {
       const value = runSystemCommand([
@@ -252,13 +702,15 @@ export const detectSystemTheme = (): ThemeName => {
     return normalizedEnv
   }
 
+  const ideTheme = detectIDETheme()
   const platformTheme = detectPlatformTheme()
+  const preferredTheme = ideTheme ?? platformTheme
 
   if (normalizedEnv === 'opposite') {
-    return platformTheme === 'dark' ? 'light' : 'dark'
+    return preferredTheme === 'dark' ? 'light' : 'dark'
   }
 
-  return platformTheme
+  return preferredTheme
 }
 
 const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
