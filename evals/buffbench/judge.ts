@@ -177,6 +177,9 @@ ${error ? `\n## Error Encountered\n${error}` : ''}`
       else if (event.type === 'tool_call') {
         agentOutput.push(JSON.stringify(event, null, 2))
       }
+      else if (event.type === 'error') {
+        console.error('[Judge] Error event:', event.message)
+      }
     },
   })
 

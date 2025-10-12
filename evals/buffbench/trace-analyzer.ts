@@ -257,6 +257,8 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
         agentOutput.push(event.text)
       } else if (event.type === 'tool_call') {
         agentOutput.push(JSON.stringify(event, null, 2))
+      } else if (event.type === 'error') {
+        console.error('[Trace Analyzer] Error event:', event.message)
       }
     },
   })
