@@ -34,7 +34,13 @@ export const createBase2: (mode: 'normal' | 'max') => SecretAgentDefinition = (
     },
     outputMode: 'last_message',
     includeMessageHistory: true,
-    toolNames: ['spawn_agents', 'spawn_agent_inline', 'read_files'],
+    toolNames: [
+      'spawn_agents',
+      'spawn_agent_inline',
+      'read_files',
+      'str_replace',
+      'write_file',
+    ],
     spawnableAgents: buildArray(
       isMax && 'inline-file-explorer-max',
       'file-picker',
@@ -100,14 +106,15 @@ ${
 
 ## Spawning agents guidelines
 
-- **Sequence agents properly:** Keep in mind dependencies when spawning different agents:
+- **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
   - Spawn file explorers, find-all-referencer, and researchers before thinkers because then the thinkers can use the file/research results to come up with a better conclusions
-  - Spawn thinkers before editors so editors can use the insights from the thinkers.
+  - Spawn thinkers and code sketchers before editors so editors can use the insights from the thinkers and code sketchers.
+  - Spawn editors later. Only spawn editors after gathering all the context and creating a plan.
   - Reviewers should be spawned after editors.
 - **Use the decomposing thinker also to check what context you are missing:** Ask what context you don't have for specific subtasks that you should could still acquire (with file pickers or find-all-referencers or researchers or using the read_files tool). Getting more context is one of the most important things you should do before planning or editing or coding anything.
 - **Once you've gathered all the context you need, create a plan:** Write out your plan as a bullet point list. The user wants to see you write out your plan so they know you are on track.
-- **Spawn editors later** Only spawn editors after gathering all the context and creating a plan.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
+- **Don't spawn editors for trivial changes:** Prefer to use the str_replace or write_file tool to make trivial changes yourself.
 
 ## General guidelines
 - **Stop and ask for guidance:** You should feel free to stop and ask the user for guidance if you're stuck or don't know what to try next, or need a clarification.
