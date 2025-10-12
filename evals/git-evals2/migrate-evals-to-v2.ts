@@ -98,16 +98,19 @@ async function migrateCommit(
         agentDefinitions,
       })
 
+      console.log(`\n--- Generated Task Result ---`)
       console.log(`Task ID: ${taskResult.id}`)
-      console.log(
-        `Generated spec: ${taskResult.spec.substring(0, 100)}...`,
-      )
-      console.log(
-        `Generated prompt: ${taskResult.prompt.substring(0, 100)}...`,
-      )
-      console.log(
-        `Supplemental files: ${taskResult.supplementalFiles.length} files`,
-      )
+      console.log(`\nReasoning:`)
+      console.log(taskResult.reasoning)
+      console.log(`\nSpec:`)
+      console.log(taskResult.spec)
+      console.log(`\nPrompt:`)
+      console.log(taskResult.prompt)
+      console.log(`\nSupplemental Files (${taskResult.supplementalFiles.length}):`)  
+      taskResult.supplementalFiles.forEach((file, i) => {
+        console.log(`  ${i + 1}. ${file}`)
+      })
+      console.log(`--- End Task Result ---\n`)
 
       return {
         id: taskResult.id,
@@ -150,6 +153,9 @@ export async function migrateEvalFile({
   const migratedCommits: EvalCommitV2[] = []
   const failedCommits: Array<{ sha: string; error: string }> = []
 
+  const finalOutputPath = outputPath || inputPath.replace(/\.json$/, '-v2.json')
+  const partialOutputPath = finalOutputPath.replace(/\.json$/, '.partial.json')
+
   const processCommit = async (
     oldCommit: EvalCommit,
     index: number,
@@ -159,12 +165,28 @@ export async function migrateEvalFile({
     )
 
     try {
-      return await migrateCommit(
+      const result = await migrateCommit(
         oldCommit,
         oldEvalData.repoUrl,
         client,
         localAgentDefinitions,
       )
+
+      if (result) {
+        migratedCommits.push(result)
+
+        const partialData: EvalDataV2 = {
+          repoUrl: oldEvalData.repoUrl,
+          testRepoName: oldEvalData.testRepoName,
+          generationDate: new Date().toISOString(),
+          initCommand: oldEvalData.initCommand,
+          evalCommits: migratedCommits,
+        }
+        fs.writeFileSync(partialOutputPath, JSON.stringify(partialData, null, 2))
+        console.log(`✓ Saved partial results to ${partialOutputPath}`)
+      }
+
+      return result
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -180,7 +202,7 @@ export async function migrateEvalFile({
     }
   }
 
-  const results = await mapLimit(
+  await mapLimit(
     oldEvalData.evalCommits,
     batchSize,
     async (commit: EvalCommit) => {
@@ -188,8 +210,6 @@ export async function migrateEvalFile({
       return processCommit(commit, index)
     },
   )
-
-  migratedCommits.push(...(results.filter(Boolean) as EvalCommitV2[]))
 
   console.log(
     `\n✓ Successfully migrated ${migratedCommits.length}/${oldEvalData.evalCommits.length} commits`,
@@ -210,9 +230,12 @@ export async function migrateEvalFile({
     evalCommits: migratedCommits,
   }
 
-  const finalOutputPath = outputPath || inputPath.replace(/\.json$/, '-v2.json')
-
   fs.writeFileSync(finalOutputPath, JSON.stringify(newEvalData, null, 2))
+
+  if (fs.existsSync(partialOutputPath)) {
+    fs.unlinkSync(partialOutputPath)
+    console.log(`\n✓ Removed partial file: ${partialOutputPath}`)
+  }
 
   const oldSize = fs.statSync(inputPath).size
   const newSize = fs.statSync(finalOutputPath).size

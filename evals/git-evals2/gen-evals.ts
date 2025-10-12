@@ -104,6 +104,35 @@ function getCommitMessage(repoPath: string, commitSha: string): string {
   }).trim()
 }
 
+function printTaskResult(taskResult: {
+  id: string
+  reasoning: string
+  spec: string
+  prompt: string
+  supplementalFiles: string[]
+}) {
+  console.log('\n' + '='.repeat(80))
+  console.log('📋 GENERATED TASK')
+  console.log('='.repeat(80))
+  console.log(`\n🏷️  Task ID: ${taskResult.id}\n`)
+  console.log(`💭 Reasoning:\n${taskResult.reasoning}\n`)
+  console.log(`📝 Spec:\n${taskResult.spec}\n`)
+  console.log(`💬 Prompt:\n${taskResult.prompt}\n`)
+  console.log(`📁 Supplemental Files (${taskResult.supplementalFiles.length}):`)
+  taskResult.supplementalFiles.forEach((file, idx) => {
+    console.log(`   ${idx + 1}. ${file}`)
+  })
+  console.log('='.repeat(80) + '\n')
+}
+
+function savePartialResults(
+  partialPath: string,
+  evalData: EvalDataV2,
+): void {
+  fs.writeFileSync(partialPath, JSON.stringify(evalData, null, 2))
+  console.log(`💾 Saved partial results to ${partialPath}`)
+}
+
 export async function generateEvalFileV2({
   repoUrl,
   commitShas,
@@ -119,7 +148,13 @@ export async function generateEvalFileV2({
     apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
   })
 
+  const finalOutputPath =
+    outputPath || path.join(__dirname, `eval-${actualRepoName}-v2.json`)
+  const partialOutputPath = finalOutputPath.replace(/\.json$/, '.partial.json')
+
   console.log(`Processing ${commitShas.length} commits in parallel...`)
+  console.log(`Partial results will be saved to: ${partialOutputPath}`)
+  console.log(`Final results will be saved to: ${finalOutputPath}\n`)
 
   const BATCH_SIZE = 5
   const evalCommits: EvalCommitV2[] = []
@@ -159,16 +194,9 @@ export async function generateEvalFileV2({
           },
         })
 
-        console.log(`Task ID: ${taskResult.id}`)
-        console.log(`Generated spec: ${taskResult.spec.substring(0, 100)}...`)
-        console.log(
-          `Generated prompt: ${taskResult.prompt.substring(0, 100)}...`,
-        )
-        console.log(
-          `Supplemental files: ${taskResult.supplementalFiles.length} files`,
-        )
+        printTaskResult(taskResult)
 
-        return {
+        const evalCommit: EvalCommitV2 = {
           id: taskResult.id,
           sha: commitSha,
           parentSha,
@@ -177,12 +205,30 @@ export async function generateEvalFileV2({
           supplementalFiles: taskResult.supplementalFiles,
           fileDiffs,
         }
+
+        return evalCommit
       },
     )
   }
 
-  const batchResults = await mapLimit(commitShas, BATCH_SIZE, processCommit)
-  evalCommits.push(...(batchResults.filter(Boolean) as EvalCommitV2[]))
+  const batchResults = await mapLimit(
+    commitShas,
+    BATCH_SIZE,
+    async (commitSha: string) => {
+      const result = await processCommit(commitSha)
+      if (result) {
+        evalCommits.push(result)
+
+        const partialEvalData: EvalDataV2 = {
+          repoUrl,
+          generationDate: new Date().toISOString(),
+          evalCommits: [...evalCommits],
+        }
+        savePartialResults(partialOutputPath, partialEvalData)
+      }
+      return result
+    },
+  )
 
   const evalData: EvalDataV2 = {
     repoUrl,
@@ -190,11 +236,13 @@ export async function generateEvalFileV2({
     evalCommits,
   }
 
-  const generatedOutputPath =
-    outputPath || path.join(__dirname, `eval-${actualRepoName}-v2.json`)
+  fs.writeFileSync(finalOutputPath, JSON.stringify(evalData, null, 2))
+  console.log(`\n✅ Eval data written to ${finalOutputPath}`)
 
-  fs.writeFileSync(generatedOutputPath, JSON.stringify(evalData, null, 2))
-  console.log(`Eval data written to ${generatedOutputPath}`)
+  if (fs.existsSync(partialOutputPath)) {
+    fs.unlinkSync(partialOutputPath)
+    console.log(`🗑️  Removed partial file: ${partialOutputPath}`)
+  }
 }
 
 if (require.main === module) {
