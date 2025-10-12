@@ -20,6 +20,11 @@ const promptGeneratorAgentDef: AgentDefinition = {
   outputSchema: {
     type: 'object',
     properties: {
+      id: {
+        type: 'string',
+        description:
+          'Short 2-3 word hyphenated task identifier (e.g., "fix-auth-bug", "add-user-profile", "refactor-login-flow")',
+      },
       reasoning: {
         type: 'string',
         description: 'Your thoughts about what should be in the prompt',
@@ -38,7 +43,7 @@ const promptGeneratorAgentDef: AgentDefinition = {
         description: 'Confidence score 0-1 in the quality of the prompt',
       },
     },
-    required: ['prompt', 'supplementalFiles', 'reasoning', 'confidence'],
+    required: ['id', 'prompt', 'supplementalFiles', 'reasoning', 'confidence'],
   },
   systemPrompt: `You are an expert at analyzing git commits and generating high-level user prompts.
 
@@ -54,8 +59,15 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
   instructionsPrompt: `Your task:
 1. Analyze the git diff to understand what changed
 2. Use your tools (read_files, spawn_agents) to explore the codebase and understand context
-3. Identify supplemental files that would help a judge understand the change (exclude directly edited files)
-4. Generate a high-level user prompt that describes WHAT needs to be done (not HOW)
+3. Generate a short, descriptive task ID (2-3 hyphenated words like "fix-auth-bug" or "refactor-login-flow")
+4. Identify supplemental files that would help a judge understand the change (exclude directly edited files)
+5. Generate a high-level user prompt that describes WHAT needs to be done (not HOW)
+
+Key principles for the task ID:
+- 2-3 words maximum, hyphenated (e.g., "fix-memory-leak", "add-user-profile", "refactor-auth-flow")
+- Descriptive but concise
+- Use action verbs when appropriate (fix, add, remove, refactor, update, implement)
+- Lowercase with hyphens
 
 Key principles for the prompt:
 - Focus on the functional requirement, not implementation details
@@ -82,6 +94,7 @@ export async function generatePromptFromCommit({
   }
   agentDefinitions?: any[]
 }): Promise<{
+  id: string
   prompt: string
   supplementalFiles: string[]
   confidence: number
@@ -117,6 +130,7 @@ export async function generatePromptFromCommit({
   }
 
   return generatorResult.output.value as {
+    id: string
     prompt: string
     supplementalFiles: string[]
     reasoning: string

@@ -246,6 +246,7 @@ export async function generateEvalFileV2({
           sha: commitSha,
           parentSha,
           spec,
+          id: promptResult.id,
           prompt: promptResult.prompt,
           supplementalFiles: promptResult.supplementalFiles,
           fileDiffs,

@@ -104,8 +104,10 @@ async function migrateCommit(
       console.log(
         `Supplemental files: ${promptResult.supplementalFiles.length} files`,
       )
+      console.log(`Task ID: ${promptResult.id}`)
 
       return {
+        id: promptResult.id,
         sha: commitSha,
         parentSha,
         spec: oldCommit.spec,

@@ -29,6 +29,7 @@ export interface FileDiff {
 }
 
 export interface EvalCommitV2 {
+  id: string
   sha: string
   parentSha: string
   spec: string
