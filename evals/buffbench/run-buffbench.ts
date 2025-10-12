@@ -3,6 +3,7 @@ import path from 'path'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
+import pLimit from 'p-limit'
 
 import { runAgentOnCommit } from './agent-runner'
 import { judgeCommitResult } from './judge'
@@ -15,7 +16,7 @@ export async function runBuffBench(options: {
   evalDataPath: string
   agents: string[]
   outputPath?: string
-  limit?: number
+  commitConcurrency?: number
   onProgress?: (event: ProgressEvent) => void
   client?: CodebuffClient
 }): Promise<{
@@ -23,14 +24,18 @@ export async function runBuffBench(options: {
   timestamp: string
   totalDuration: number
 }> {
-  const { evalDataPath, agents, outputPath, limit, onProgress } = options
+  const {
+    evalDataPath,
+    agents,
+    outputPath,
+    commitConcurrency = 1,
+    onProgress,
+  } = options
 
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
   )
-  const commitsToRun = limit
-    ? evalData.evalCommits.slice(0, limit)
-    : evalData.evalCommits
+  const commitsToRun = evalData.evalCommits
 
   const client =
     options.client ??
@@ -59,197 +64,213 @@ export async function runBuffBench(options: {
     }
   }
 
-  for (const commit of commitsToRun) {
-    console.log(
-      `\n=== Evaluating task: ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
-    )
-    console.log(`Prompt: ${commit.prompt}`)
+  const commitLimit = pLimit(commitConcurrency)
 
-    // Store trace data for this commit to analyze later
-    const commitTraces: AgentTraceData[] = []
+  const commitPromises = commitsToRun.map((commit) =>
+    commitLimit(async () => {
+      console.log(
+        `\n=== Evaluating task: ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
+      )
+      console.log(`Prompt: ${commit.prompt}`)
 
-    const agentPromises = agents.map(async (agentId) => {
-      onProgress?.({
-        type: 'agent_start',
-        agent: agentId,
-        commit: commit.sha,
-        evalId: commit.id,
-      })
+      // Store trace data for this commit to analyze later
+      const commitTraces: AgentTraceData[] = []
 
-      try {
-        const agentResult = await runAgentOnCommit({
-          client,
-          agentId,
-          commit,
-          repoUrl: evalData.repoUrl,
-          initCommand: evalData.initCommand,
-        })
-
-        const judgeResult = await judgeCommitResult({
-          client,
-          prompt: commit.prompt,
-          groundTruthFileDiffs: commit.fileDiffs,
-          contextFiles: agentResult.contextFiles,
-          agentDiff: agentResult.diff,
-          error: agentResult.error,
-        })
-
-        console.log(`\n[${agentId}] Judge Results:`)
-        console.log(`  Overall Score: ${judgeResult.overallScore}/10`)
-        console.log(`  Completion: ${judgeResult.completionScore}/10`)
-        console.log(`  Code Quality: ${judgeResult.codeQualityScore}/10`)
-        if (judgeResult.strengths.length > 0) {
-          console.log(`  Strengths: ${judgeResult.strengths.join(', ')}`)
-        }
-        if (judgeResult.weaknesses.length > 0) {
-          console.log(`  Weaknesses: ${judgeResult.weaknesses.join(', ')}`)
-        }
-
-        const evalRun = {
-          commitSha: commit.sha,
-          spec: commit.spec,
-          diff: agentResult.diff,
-          judging: judgeResult,
-          cost: agentResult.cost,
-          durationMs: agentResult.durationMs,
-          error: agentResult.error,
-        }
-
-        // Save trace to logs directory
-        const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
-        const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
-        const safeCommitShort = commit.sha.slice(0, 7)
-        const traceFilename = `${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
-        const tracePath = path.join(logsDir, traceFilename)
-
-        const traceData = {
-          agentId,
-          commitSha: commit.sha,
-          spec: commit.spec,
-          trace: agentResult.trace,
-          diff: agentResult.diff,
-          judgeResult,
-          cost: agentResult.cost,
-          durationMs: agentResult.durationMs,
-          error: agentResult.error,
-          timestamp: new Date().toISOString(),
-        }
-
-        fs.writeFileSync(tracePath, JSON.stringify(traceData, null, 2))
-        console.log(`Trace saved to ${tracePath}`)
-
-        // Store for later analysis
-        commitTraces.push(traceData)
-
+      const agentPromises = agents.map(async (agentId) => {
         onProgress?.({
-          type: 'agent_complete',
+          type: 'agent_start',
           agent: agentId,
           commit: commit.sha,
           evalId: commit.id,
-          score: judgeResult.overallScore,
         })
 
-        return { agentId, evalRun }
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error)
+        try {
+          const agentResult = await runAgentOnCommit({
+            client,
+            agentId,
+            commit,
+            repoUrl: evalData.repoUrl,
+            initCommand: evalData.initCommand,
+          })
 
-        onProgress?.({
-          type: 'agent_error',
-          agent: agentId,
-          commit: commit.sha,
-          evalId: commit.id,
-          error: errorMessage,
-        })
+          const judgeResult = await judgeCommitResult({
+            client,
+            prompt: commit.prompt,
+            groundTruthFileDiffs: commit.fileDiffs,
+            contextFiles: agentResult.contextFiles,
+            agentDiff: agentResult.diff,
+            error: agentResult.error,
+          })
 
-        return {
-          agentId,
-          evalRun: {
+          console.log(`\n[${agentId}] Judge Results:`)
+          console.log(`  Overall Score: ${judgeResult.overallScore}/10`)
+          console.log(`  Completion: ${judgeResult.completionScore}/10`)
+          console.log(`  Code Quality: ${judgeResult.codeQualityScore}/10`)
+          console.log(`  Analysis: ${judgeResult.analysis}`)
+          if (judgeResult.strengths.length > 0) {
+            console.log(`  Strengths: ${judgeResult.strengths.join(', ')}`)
+          }
+          if (judgeResult.weaknesses.length > 0) {
+            console.log(`  Weaknesses: ${judgeResult.weaknesses.join(', ')}`)
+          }
+
+          const evalRun = {
             commitSha: commit.sha,
             spec: commit.spec,
-            diff: '',
-            judging: {
-              analysis: '',
-              strengths: [],
-              weaknesses: [],
-              completionScore: 0,
-              codeQualityScore: 0,
-              overallScore: 0,
-            },
-            cost: 0,
-            durationMs: 0,
-            error: errorMessage,
-          },
-        }
-      }
-    })
+            diff: agentResult.diff,
+            judging: judgeResult,
+            cost: agentResult.cost,
+            durationMs: agentResult.durationMs,
+            error: agentResult.error,
+          }
 
-    const agentResults = await Promise.all(agentPromises)
+          // Save trace to logs directory
+          const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
+          const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
+          const safeCommitShort = commit.sha.slice(0, 7)
+          const traceFilename = `${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
+          const tracePath = path.join(logsDir, traceFilename)
 
-    for (const { agentId, evalRun } of agentResults) {
-      results[agentId].runs.push(evalRun)
-    }
+          const traceData = {
+            agentId,
+            commitSha: commit.sha,
+            spec: commit.spec,
+            trace: agentResult.trace,
+            diff: agentResult.diff,
+            judgeResult,
+            cost: agentResult.cost,
+            durationMs: agentResult.durationMs,
+            error: agentResult.error,
+            timestamp: new Date().toISOString(),
+          }
 
-    // After all agents complete for this commit, run trace analysis
-    if (commitTraces.length > 1) {
-      console.log(
-        `\n=== Analyzing agent traces for ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
-      )
-      try {
-        const analysis = await analyzeAgentTraces({
-          client,
-          traces: commitTraces,
-          spec: commit.spec,
-        })
+          fs.writeFileSync(tracePath, JSON.stringify(traceData, null, 2))
+          console.log(`Trace saved to ${tracePath}`)
 
-        // Save analysis to logs directory
-        const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
-        const analysisCommitShort = commit.sha.slice(0, 7)
-        const analysisFilename = `${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
-        const analysisPath = path.join(logsDir, analysisFilename)
+          // Store for later analysis
+          commitTraces.push(traceData)
 
-        const analysisData = {
-          commitSha: commit.sha,
-          timestamp: new Date().toISOString(),
-          ...analysis,
-          results: commitTraces.map((t) => ({
-            agentId: t.agentId,
-            ...t.judgeResult,
-            cost: t.cost,
-            durationMs: t.durationMs,
-            error: t.error,
-          })),
-          spec: commit.spec,
-        }
-
-        const { overallAnalysis, agentFeedback, recommendations } = analysis
-        fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
-        console.log(`Analysis saved to ${analysisPath}`)
-        console.log(`\n=== Trace Analysis ===`)
-        console.log(overallAnalysis)
-        if (agentFeedback.length > 0) {
-          console.log(`\nAgent-Specific Feedback:`)
-          agentFeedback.forEach((feedback: any) => {
-            console.log(`\n  [${feedback.agentId}]`)
-            if (feedback.strengths.length > 0) {
-              console.log(`    Strengths: ${feedback.strengths.join(', ')}`)
-            }
-            if (feedback.weaknesses.length > 0) {
-              console.log(`    Weaknesses: ${feedback.weaknesses.join(', ')}`)
-            }
-            console.log(`    Performance: ${feedback.relativePerformance}`)
+          onProgress?.({
+            type: 'agent_complete',
+            agent: agentId,
+            commit: commit.sha,
+            evalId: commit.id,
+            score: judgeResult.overallScore,
           })
+
+          return { agentId, evalRun }
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error)
+
+          onProgress?.({
+            type: 'agent_error',
+            agent: agentId,
+            commit: commit.sha,
+            evalId: commit.id,
+            error: errorMessage,
+          })
+
+          return {
+            agentId,
+            evalRun: {
+              commitSha: commit.sha,
+              spec: commit.spec,
+              diff: '',
+              judging: {
+                analysis: '',
+                strengths: [],
+                weaknesses: [],
+                completionScore: 0,
+                codeQualityScore: 0,
+                overallScore: 0,
+              },
+              cost: 0,
+              durationMs: 0,
+              error: errorMessage,
+            },
+          }
         }
-        if (recommendations.length > 0) {
-          console.log(`\nRecommendations:`)
-          recommendations.forEach((r: string) => console.log(`  - ${r}`))
-        }
-      } catch (error) {
-        console.error(
-          `Failed to analyze traces for commit ${commit.sha}:`,
-          error,
+      })
+
+      const agentResults = await Promise.all(agentPromises)
+
+      // After all agents complete for this commit, run trace analysis
+      if (commitTraces.length > 1) {
+        console.log(
+          `\n=== Analyzing agent traces for ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
         )
+        try {
+          const analysis = await analyzeAgentTraces({
+            client,
+            traces: commitTraces,
+            spec: commit.spec,
+          })
+
+          // Save analysis to logs directory
+          const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
+          const analysisCommitShort = commit.sha.slice(0, 7)
+          const analysisFilename = `${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
+          const analysisPath = path.join(logsDir, analysisFilename)
+
+          const analysisData = {
+            commitSha: commit.sha,
+            timestamp: new Date().toISOString(),
+            ...analysis,
+            results: commitTraces.map((t) => ({
+              agentId: t.agentId,
+              ...t.judgeResult,
+              cost: t.cost,
+              durationMs: t.durationMs,
+              error: t.error,
+            })),
+            spec: commit.spec,
+          }
+
+          const { overallAnalysis, agentFeedback, recommendations } = analysis
+          fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
+          console.log(`Analysis saved to ${analysisPath}`)
+          console.log(`\n=== Trace Analysis ===`)
+          console.log(overallAnalysis)
+          if (agentFeedback.length > 0) {
+            console.log(`\nAgent-Specific Feedback:`)
+            agentFeedback.forEach((feedback: any) => {
+              console.log(`\n  [${feedback.agentId}]`)
+              if (feedback.strengths.length > 0) {
+                console.log(`    Strengths: ${feedback.strengths.join(', ')}`)
+              }
+              if (feedback.weaknesses.length > 0) {
+                console.log(`    Weaknesses: ${feedback.weaknesses.join(', ')}`)
+              }
+              console.log(`    Performance: ${feedback.relativePerformance}`)
+            })
+          }
+          if (recommendations.length > 0) {
+            console.log(`\nRecommendations:`)
+            recommendations.forEach((r: string) => console.log(`  - ${r}`))
+          }
+        } catch (error) {
+          console.error(
+            `Failed to analyze traces for commit ${commit.sha}:`,
+            error,
+          )
+        }
       }
+
+      return { commit, agentResults }
+    }),
+  )
+
+  const commitResults = await Promise.allSettled(commitPromises)
+
+  for (const result of commitResults) {
+    if (result.status === 'fulfilled') {
+      const { agentResults } = result.value
+      for (const { agentId, evalRun } of agentResults) {
+        results[agentId].runs.push(evalRun)
+      }
+    } else {
+      console.error('Commit processing failed:', result.reason)
     }
   }
 
