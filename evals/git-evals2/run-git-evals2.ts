@@ -43,9 +43,7 @@ export async function runGitEvals2(options: {
 
   // Create logs directory with current date and time
   const date = new Date().toISOString().replace(/:/g, '-').slice(0, 16) // YYYY-MM-DDTHH-MM
-  const outputDir = outputPath
-    ? path.dirname(outputPath)
-    : path.join(__dirname, 'results')
+  const outputDir = outputPath ? path.dirname(outputPath) : __dirname
   const logsDir = path.join(outputDir, 'logs', date)
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true })
@@ -244,9 +242,7 @@ export async function runGitEvals2(options: {
         }
         if (recommendations.length > 0) {
           console.log(`\nRecommendations:`)
-          recommendations.forEach((r: string) =>
-            console.log(`  - ${r}`),
-          )
+          recommendations.forEach((r: string) => console.log(`  - ${r}`))
         }
       } catch (error) {
         console.error(
