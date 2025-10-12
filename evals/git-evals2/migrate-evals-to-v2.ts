@@ -129,16 +129,50 @@ export async function migrateEvalFile({
   inputPath,
   outputPath,
   batchSize = 3,
+  resume = false,
 }: {
   inputPath: string
   outputPath?: string
   batchSize?: number
+  resume?: boolean
 }): Promise<void> {
   console.log(`\n=== Migrating ${inputPath} to V2 format ===\n`)
 
   const oldEvalData: EvalData = JSON.parse(fs.readFileSync(inputPath, 'utf-8'))
 
-  console.log(`Found ${oldEvalData.evalCommits.length} commits to migrate`)
+  const finalOutputPath = outputPath || inputPath.replace(/\.json$/, '-v2.json')
+  const failedCommitsPath = finalOutputPath.replace(/\.json$/, '-failed.json')
+
+  let existingCommits: EvalCommitV2[] = []
+  let failedShas: Set<string> = new Set()
+  let commitsToProcess = oldEvalData.evalCommits
+
+  if (resume) {
+    if (fs.existsSync(finalOutputPath)) {
+      const existingData: EvalDataV2 = JSON.parse(
+        fs.readFileSync(finalOutputPath, 'utf-8'),
+      )
+      existingCommits = existingData.evalCommits
+      console.log(`Found ${existingCommits.length} existing migrated commits`)
+    }
+
+    if (fs.existsSync(failedCommitsPath)) {
+      const failedCommits: Array<{ sha: string; error: string }> = JSON.parse(
+        fs.readFileSync(failedCommitsPath, 'utf-8'),
+      )
+      failedShas = new Set(failedCommits.map((fc) => fc.sha))
+      console.log(`Found ${failedShas.size} failed commits to retry`)
+
+      commitsToProcess = oldEvalData.evalCommits.filter((commit) =>
+        failedShas.has(commit.sha),
+      )
+    } else {
+      console.log('No failed commits file found, nothing to resume')
+      return
+    }
+  }
+
+  console.log(`Found ${commitsToProcess.length} commits to process`)
   console.log(`Repo URL: ${oldEvalData.repoUrl}`)
 
   const agentsPath = path.join(__dirname, '../../.agents')
@@ -150,10 +184,9 @@ export async function migrateEvalFile({
     apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
   })
 
-  const migratedCommits: EvalCommitV2[] = []
+  const newlyMigratedCommits: EvalCommitV2[] = []
   const failedCommits: Array<{ sha: string; error: string }> = []
 
-  const finalOutputPath = outputPath || inputPath.replace(/\.json$/, '-v2.json')
   const partialOutputPath = finalOutputPath.replace(/\.json$/, '.partial.json')
 
   const processCommit = async (
@@ -173,14 +206,18 @@ export async function migrateEvalFile({
       )
 
       if (result) {
-        migratedCommits.push(result)
+        newlyMigratedCommits.push(result)
+
+        const allCommits = resume
+          ? mergeCommits(existingCommits, newlyMigratedCommits, oldEvalData)
+          : newlyMigratedCommits
 
         const partialData: EvalDataV2 = {
           repoUrl: oldEvalData.repoUrl,
           testRepoName: oldEvalData.testRepoName,
           generationDate: new Date().toISOString(),
           initCommand: oldEvalData.initCommand,
-          evalCommits: migratedCommits,
+          evalCommits: allCommits,
         }
         fs.writeFileSync(partialOutputPath, JSON.stringify(partialData, null, 2))
         console.log(`✓ Saved partial results to ${partialOutputPath}`)
@@ -203,7 +240,7 @@ export async function migrateEvalFile({
   }
 
   await mapLimit(
-    oldEvalData.evalCommits,
+    commitsToProcess,
     batchSize,
     async (commit: EvalCommit) => {
       const index = oldEvalData.evalCommits.indexOf(commit)
@@ -211,9 +248,21 @@ export async function migrateEvalFile({
     },
   )
 
+  const allCommits = resume
+    ? mergeCommits(existingCommits, newlyMigratedCommits, oldEvalData)
+    : newlyMigratedCommits
+
+  const successfulRetries = resume ? newlyMigratedCommits.length : 0
+  const totalProcessed = resume
+    ? existingCommits.length + successfulRetries
+    : newlyMigratedCommits.length
+
   console.log(
-    `\n✓ Successfully migrated ${migratedCommits.length}/${oldEvalData.evalCommits.length} commits`,
+    `\n✓ Successfully migrated ${totalProcessed}/${oldEvalData.evalCommits.length} commits`,
   )
+  if (resume && successfulRetries > 0) {
+    console.log(`  - ${successfulRetries} previously failed commits now successful`)
+  }
 
   if (failedCommits.length > 0) {
     console.log(`\n⚠ Failed to migrate ${failedCommits.length} commits:`)
@@ -227,7 +276,7 @@ export async function migrateEvalFile({
     testRepoName: oldEvalData.testRepoName,
     generationDate: new Date().toISOString(),
     initCommand: oldEvalData.initCommand,
-    evalCommits: migratedCommits,
+    evalCommits: allCommits,
   }
 
   fs.writeFileSync(finalOutputPath, JSON.stringify(newEvalData, null, 2))
@@ -247,14 +296,41 @@ export async function migrateEvalFile({
   console.log(
     `Storage reduction: ${(((oldSize - newSize) / oldSize) * 100).toFixed(1)}%`,
   )
-  console.log(`Successful migrations: ${migratedCommits.length}`)
+  console.log(`Successful migrations: ${allCommits.length}`)
   console.log(`Failed migrations: ${failedCommits.length}`)
 
+  if (resume) {
+    console.log(`Previous successful: ${existingCommits.length}`)
+    console.log(`Newly successful: ${successfulRetries}`)
+  }
+
   if (failedCommits.length > 0) {
-    const failedCommitsPath = finalOutputPath.replace(/\.json$/, '-failed.json')
     fs.writeFileSync(failedCommitsPath, JSON.stringify(failedCommits, null, 2))
     console.log(`\nFailed commits logged to: ${failedCommitsPath}`)
+  } else if (fs.existsSync(failedCommitsPath)) {
+    fs.unlinkSync(failedCommitsPath)
+    console.log(`\n✓ All commits successful, removed failed commits file`)
   }
+}
+
+function mergeCommits(
+  existing: EvalCommitV2[],
+  newCommits: EvalCommitV2[],
+  originalData: EvalData,
+): EvalCommitV2[] {
+  const commitMap = new Map<string, EvalCommitV2>()
+
+  for (const commit of existing) {
+    commitMap.set(commit.sha, commit)
+  }
+
+  for (const commit of newCommits) {
+    commitMap.set(commit.sha, commit)
+  }
+
+  return originalData.evalCommits
+    .map((c) => commitMap.get(c.sha))
+    .filter((c): c is EvalCommitV2 => c !== undefined)
 }
 
 if (require.main === module) {
@@ -262,7 +338,7 @@ if (require.main === module) {
 
   if (args.length === 0) {
     console.log(
-      'Usage: bun run migrate-evals-to-v2.ts <input-file> [output-file]',
+      'Usage: bun run migrate-evals-to-v2.ts <input-file> [output-file] [--resume]',
     )
     console.log('')
     console.log('Examples:')
@@ -272,15 +348,23 @@ if (require.main === module) {
     console.log(
       '  bun run migrate-evals-to-v2.ts eval-manifold.json eval-manifold-v2.json',
     )
+    console.log(
+      '  bun run migrate-evals-to-v2.ts eval-codebuff.json --resume',
+    )
     console.log('')
     console.log(
       'Note: If output-file is not specified, it will append -v2 to the input filename',
     )
+    console.log(
+      'Use --resume flag to retry only failed commits from a previous run',
+    )
     process.exit(1)
   }
 
-  const inputPath = args[0]
-  const outputPath = args[1]
+  const resume = args.includes('--resume')
+  const nonFlagArgs = args.filter((arg) => arg !== '--resume')
+  const inputPath = nonFlagArgs[0]
+  const outputPath = nonFlagArgs[1]
 
   if (!fs.existsSync(inputPath)) {
     console.error(`Error: Input file not found: ${inputPath}`)
@@ -291,6 +375,7 @@ if (require.main === module) {
     inputPath,
     outputPath,
     batchSize: 3,
+    resume,
   })
     .then(() => {
       console.log('\n✓ Migration completed successfully!')
