@@ -397,7 +397,7 @@ export function MultilineInput({
   const displayText =
     focused && !isPlaceholder
       ? displayValue.slice(0, cursorPosition) +
-        '█' +
+        '│' +
         displayValue.slice(cursorPosition)
       : displayValue
 
