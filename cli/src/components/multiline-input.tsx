@@ -3,6 +3,8 @@ import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
 
 import { TextAttributes, type ScrollBoxRenderable } from '@opentui/core'
 
+import { logger } from '../utils/logger'
+
 const mixColors = (foreground: string, background: string, alpha = 0.4): string => {
   const parseHex = (hex: string) => {
     const normalized = hex.trim().replace('#', '')
@@ -197,20 +199,83 @@ export function MultilineInput({
               key.sequence[1] !== '['),
         )
 
-        // Enter (without shift) submits
-        if (key.name === 'return' && !key.shift) {
-          if ('preventDefault' in key) (key as any).preventDefault()
-          onSubmit()
-          return
+        const isEnterKey = key.name === 'return' || key.name === 'enter'
+        const hasEscapePrefix =
+          typeof key.sequence === 'string' &&
+          key.sequence.length > 0 &&
+          key.sequence.charCodeAt(0) === 0x1b
+        const isPlainEnter =
+          isEnterKey &&
+          !key.shift &&
+          !key.ctrl &&
+          !key.meta &&
+          !key.alt &&
+          !key.option &&
+          !isAltLikeModifier &&
+          !hasEscapePrefix &&
+          key.sequence === '\r'
+        const isShiftEnter =
+          isEnterKey &&
+          (Boolean(key.shift) || key.sequence === '\n')
+        const isOptionEnter = isEnterKey && (isAltLikeModifier || hasEscapePrefix)
+        const isCtrlJ =
+          key.ctrl &&
+          !key.meta &&
+          !key.option &&
+          !key.alt &&
+          (lowerKeyName === 'j' || isEnterKey)
+
+        if (isEnterKey || lowerKeyName === 'j') {
+          const snapshot: Record<string, unknown> = {
+            name: key.name,
+            sequence: key.sequence,
+            raw: (key as any).raw,
+            ctrl: Boolean(key.ctrl),
+            meta: Boolean(key.meta),
+            alt: Boolean(key.alt),
+            option: Boolean(key.option),
+            shift: Boolean(key.shift),
+            isEnterKey,
+            hasEscapePrefix,
+            code: (key as any).code,
+            charCode: key.sequence ? key.sequence.charCodeAt(0) : null,
+          }
+          try {
+            const ownProps = Object.getOwnPropertyNames(key)
+            for (const prop of ownProps) {
+              if (prop in snapshot) continue
+              const value = (key as any)[prop]
+              if (typeof value === 'function') continue
+              snapshot[prop] = value
+            }
+            for (const prop in key) {
+              if (prop in snapshot) continue
+              const value = (key as any)[prop]
+              if (typeof value === 'function') continue
+              snapshot[prop] = value
+            }
+          } catch {
+            // ignore property introspection errors
+          }
+          logger.info('[input-debug] keypress', {
+            ...snapshot,
+          })
         }
 
-        // Shift+Enter creates newline
-        if (key.name === 'return' && key.shift) {
+        const shouldInsertNewline = isShiftEnter || isOptionEnter || isCtrlJ
+
+        if (shouldInsertNewline) {
           if ('preventDefault' in key) (key as any).preventDefault()
           const newValue =
             value.slice(0, cursorPosition) + '\n' + value.slice(cursorPosition)
           onChange(newValue)
           setCursorPosition(cursorPosition + 1)
+          return
+        }
+
+        if (isPlainEnter) {
+          if ('preventDefault' in key) (key as any).preventDefault()
+          onSubmit()
           return
         }
 
