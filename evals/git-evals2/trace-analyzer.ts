@@ -247,10 +247,18 @@ Analyze how these agents approached the problem, focusing on their processes and
 
 Focus on the HOW, not the WHAT: We want to understand and improve how agents work, not evaluate their specific code output.`
 
+  const agentOutput: string[] = []
   const analyzerResult = await client.run({
     agent: 'git-evals2-trace-analyzer',
     prompt,
     agentDefinitions: [traceAnalyzerAgent],
+    handleEvent: (event) => {
+      if (event.type === 'text') {
+        agentOutput.push(event.text)
+      } else if (event.type === 'tool_call') {
+        agentOutput.push(JSON.stringify(event, null, 2))
+      }
+    },
   })
 
   const { output } = analyzerResult
@@ -260,6 +268,7 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
       'Error running trace analyzer - not structured output',
       JSON.stringify(output, null, 2),
     )
+    console.error('Trace analyzer output trace:', agentOutput.join(''))
     return {
       overallAnalysis: 'Error running trace analyzer - not structured output',
       agentFeedback: [],

@@ -165,16 +165,29 @@ ${agentDiff || '(No changes made)'}
 \`\`\`
 ${error ? `\n## Error Encountered\n${error}` : ''}`
 
+  const agentOutput: string[] = []
   const judgeResult = await client.run({
     agent: 'git-evals2-judge',
     prompt: judgePrompt,
     agentDefinitions: [judgeAgent],
+    handleEvent: (event) => {
+      if (event.type === 'text') {
+        agentOutput.push(event.text)
+      }
+      else if (event.type === 'tool_call') {
+        agentOutput.push(JSON.stringify(event, null, 2))
+      }
+    },
   })
 
   if (judgeResult.output.type !== 'structuredOutput') {
     console.error(
       'Error running judge agent - not structured output',
       JSON.stringify(judgeResult.output, null, 2),
+    )
+    console.error(
+      'Judge agent output trace:',
+      agentOutput.join(''),
     )
     return {
       analysis: 'Error running judge agent - not structured output',
