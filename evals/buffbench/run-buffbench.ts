@@ -227,7 +227,7 @@ export async function runBuffBench(options: {
             spec: commit.spec,
           }
 
-          const { overallAnalysis, agentFeedback, recommendations } = analysis
+          const { overallAnalysis, agentFeedback } = analysis
           fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
           console.log(`Analysis saved to ${analysisPath}`)
           console.log(`\n=== Trace Analysis ===`)
@@ -237,17 +237,21 @@ export async function runBuffBench(options: {
             agentFeedback.forEach((feedback: any) => {
               console.log(`\n  [${feedback.agentId}]`)
               if (feedback.strengths.length > 0) {
-                console.log(`    Strengths: ${feedback.strengths.join(', ')}`)
+                console.log(
+                  `    Strengths:\n${feedback.strengths.join('\n    - ')}}`,
+                )
               }
               if (feedback.weaknesses.length > 0) {
-                console.log(`    Weaknesses: ${feedback.weaknesses.join(', ')}`)
+                console.log(
+                  `    Weaknesses:\n${feedback.weaknesses.join('\n    - ')}`,
+                )
               }
-              console.log(`    Performance: ${feedback.relativePerformance}`)
+              if (feedback.recommendations.length > 0) {
+                console.log(
+                  `    Recommendations:\n${feedback.recommendations.join('\n    - ')}`,
+                )
+              }
             })
-          }
-          if (recommendations.length > 0) {
-            console.log(`\nRecommendations:`)
-            recommendations.forEach((r: string) => console.log(`  - ${r}`))
           }
         } catch (error) {
           console.error(

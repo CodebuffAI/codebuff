@@ -137,26 +137,17 @@ const traceAnalyzerAgent: AgentDefinition = {
               type: 'array',
               items: { type: 'string' },
             },
-            relativePerformance: {
-              type: 'string',
-              description: 'How this agent performed relative to others',
+            recommendations: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Recommendations for improving this agent',
             },
           },
-          required: [
-            'agentId',
-            'strengths',
-            'weaknesses',
-            'relativePerformance',
-          ],
+          required: ['agentId', 'strengths', 'weaknesses', 'recommendations'],
         },
       },
-      recommendations: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Recommendations for improving agents',
-      },
     },
-    required: ['overallAnalysis', 'agentFeedback', 'recommendations'],
+    required: ['overallAnalysis', 'agentFeedback'],
   },
   systemPrompt: `You are an expert AI agent evaluator analyzing how different coding agents approach problems and make decisions.
 
@@ -208,9 +199,8 @@ export async function analyzeAgentTraces({
     agentId: string
     strengths: string[]
     weaknesses: string[]
-    relativePerformance: string
+    recommendations: string[]
   }>
-  recommendations: string[]
 }> {
   const truncatedTraces = traces.map((t) => ({
     agentId: t.agentId,
@@ -258,7 +248,7 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
       } else if (event.type === 'tool_call') {
         agentOutput.push(JSON.stringify(event, null, 2))
       } else if (event.type === 'error') {
-        console.error('[Trace Analyzer] Error event:', event.message)
+        console.warn('[Trace Analyzer] Error event:', event.message)
       }
     },
   })
@@ -274,7 +264,6 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
     return {
       overallAnalysis: 'Error running trace analyzer - not structured output',
       agentFeedback: [],
-      recommendations: ['Trace analyzer failed to provide structured output'],
     }
   }
 
