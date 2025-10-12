@@ -1,7 +1,10 @@
 import { ToolCall } from 'types/agent-definition'
 import { publisher } from '../constants'
 
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import {
+  PLACEHOLDER,
+  type SecretAgentDefinition,
+} from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'file-picker',
@@ -21,7 +24,7 @@ const definition: SecretAgentDefinition = {
   toolNames: ['find_files'],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert at finding relevant files in a codebase.`,
+  systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
   instructionsPrompt: `
 Provide the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
 In your report, please give an extremely concise analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful.

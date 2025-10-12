@@ -1,7 +1,10 @@
-import { ToolCall } from 'types/agent-definition'
+import { ToolCall } from '../types/agent-definition'
 import { publisher } from '../constants'
 
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import {
+  PLACEHOLDER,
+  type SecretAgentDefinition,
+} from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'find-all-referencer',
@@ -33,6 +36,8 @@ Strategy:
 1. Analyze the user's question to determine what exploration approach would be most effective.
 2. Spawn agents to help you answer the user's question. You should spawn multiple agents in parallel to gather information faster.
 3. Synthesize all findings into a concise, but comprehensive answer.
+
+${PLACEHOLDER.FILE_TREE_PROMPT}
 `,
 
   instructionsPrompt: `Analyze the user's prompt and spawn appropriate exploration agents.
