@@ -92,12 +92,7 @@ export async function runAgentOnCommit({
             } else if (event.type === 'finish') {
               flushStep()
             } else if (event.type === 'error') {
-              console.error(
-                `[${agentId}] Error event:`,
-                event.message,
-                'trace:',
-                trace,
-              )
+              console.error(`[${agentId}] Error event:`, event.message)
             }
           },
         })
