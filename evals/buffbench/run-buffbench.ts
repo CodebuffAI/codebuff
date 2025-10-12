@@ -6,6 +6,7 @@ import { getUserCredentials } from '@codebuff/npm-app/credentials'
 import pLimit from 'p-limit'
 
 import { runAgentOnCommit } from './agent-runner'
+import { formatAgentResult, formatTraceAnalysis } from './format-output'
 import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { CodebuffClient } from '../../sdk/src/client'
@@ -102,18 +103,6 @@ export async function runBuffBench(options: {
             error: agentResult.error,
           })
 
-          console.log(`\n[${agentId}] Judge Results:`)
-          console.log(`  Overall Score: ${judgeResult.overallScore}/10`)
-          console.log(`  Completion: ${judgeResult.completionScore}/10`)
-          console.log(`  Code Quality: ${judgeResult.codeQualityScore}/10`)
-          console.log(`  Analysis: ${judgeResult.analysis}`)
-          if (judgeResult.strengths.length > 0) {
-            console.log(`  Strengths: ${judgeResult.strengths.join(', ')}`)
-          }
-          if (judgeResult.weaknesses.length > 0) {
-            console.log(`  Weaknesses: ${judgeResult.weaknesses.join(', ')}`)
-          }
-
           const evalRun = {
             commitSha: commit.sha,
             spec: commit.spec,
@@ -130,6 +119,17 @@ export async function runBuffBench(options: {
           const safeCommitShort = commit.sha.slice(0, 7)
           const traceFilename = `${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
           const tracePath = path.join(logsDir, traceFilename)
+
+          const formattedOutput = formatAgentResult({
+            agentId,
+            commit,
+            judging: judgeResult,
+            cost: agentResult.cost,
+            durationMs: agentResult.durationMs,
+            error: agentResult.error,
+            traceFilePath: tracePath,
+          })
+          console.log(formattedOutput)
 
           const traceData = {
             agentId,
@@ -229,30 +229,13 @@ export async function runBuffBench(options: {
 
           const { overallAnalysis, agentFeedback } = analysis
           fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
-          console.log(`Analysis saved to ${analysisPath}`)
-          console.log(`\n=== Trace Analysis ===`)
-          console.log(overallAnalysis)
-          if (agentFeedback.length > 0) {
-            console.log(`\nAgent-Specific Feedback:`)
-            agentFeedback.forEach((feedback: any) => {
-              console.log(`\n  [${feedback.agentId}]`)
-              if (feedback.strengths.length > 0) {
-                console.log(
-                  `    Strengths:\n${feedback.strengths.join('\n    - ')}}`,
-                )
-              }
-              if (feedback.weaknesses.length > 0) {
-                console.log(
-                  `    Weaknesses:\n${feedback.weaknesses.join('\n    - ')}`,
-                )
-              }
-              if (feedback.recommendations.length > 0) {
-                console.log(
-                  `    Recommendations:\n${feedback.recommendations.join('\n    - ')}`,
-                )
-              }
-            })
-          }
+
+          const formattedAnalysis = formatTraceAnalysis({
+            commit,
+            overallAnalysis,
+            agentFeedback,
+          })
+          console.log(formattedAnalysis)
         } catch (error) {
           console.error(
             `Failed to analyze traces for commit ${commit.sha}:`,
