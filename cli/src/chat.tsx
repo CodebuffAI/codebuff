@@ -25,10 +25,8 @@ import {
   type LocalAgentInfo,
 } from './utils/local-agent-registry'
 
-import {
-  chatThemes,
-  createMarkdownPalette,
-} from './utils/theme-system'
+import { chatThemes, createMarkdownPalette } from './utils/theme-system'
+import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { TextAttributes } from '@opentui/core'
 
 import type { ToolName } from '@codebuff/sdk'
@@ -150,7 +148,9 @@ const filterSlashCommands = (
 
   for (const command of commands) {
     const id = command.id.toLowerCase()
-    const aliasList = (command.aliases ?? []).map((alias) => alias.toLowerCase())
+    const aliasList = (command.aliases ?? []).map((alias) =>
+      alias.toLowerCase(),
+    )
 
     if (
       id.startsWith(normalized) ||
@@ -162,7 +162,9 @@ const filterSlashCommands = (
 
   for (const command of commands) {
     const id = command.id.toLowerCase()
-    const aliasList = (command.aliases ?? []).map((alias) => alias.toLowerCase())
+    const aliasList = (command.aliases ?? []).map((alias) =>
+      alias.toLowerCase(),
+    )
     const description = command.description.toLowerCase()
 
     if (
@@ -271,11 +273,20 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     }
   }, [])
 
-  const { scrollToAgent, scrollboxProps } = useChatScrollbox(
+  const { scrollToLatest, scrollToAgent, scrollboxProps } = useChatScrollbox(
     scrollRef,
     messages,
     agentRefsMap,
   )
+
+  const inertialScrollAcceleration = useMemo(
+    () => createChatScrollAcceleration(),
+    [],
+  )
+
+  const appliedScrollboxProps = inertialScrollAcceleration
+    ? { ...scrollboxProps, scrollAcceleration: inertialScrollAcceleration }
+    : scrollboxProps
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
 
@@ -334,10 +345,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   }, [slashContext.active, slashContext.query])
 
   useEffect(() => {
-    if (
-      slashMatches.length > 0 &&
-      slashSelectedIndex >= slashMatches.length
-    ) {
+    if (slashMatches.length > 0 && slashSelectedIndex >= slashMatches.length) {
       setSlashSelectedIndex(slashMatches.length - 1)
     }
     if (slashMatches.length === 0 && slashSelectedIndex !== 0) {
@@ -354,10 +362,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   }, [mentionContext.active, mentionContext.query])
 
   useEffect(() => {
-    if (
-      agentMatches.length > 0 &&
-      agentSelectedIndex >= agentMatches.length
-    ) {
+    if (agentMatches.length > 0 && agentSelectedIndex >= agentMatches.length) {
       setAgentSelectedIndex(agentMatches.length - 1)
     }
     if (agentMatches.length === 0 && agentSelectedIndex !== 0) {
@@ -379,9 +384,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
         return false
       }
 
-      const hasModifier = Boolean(
-        key.ctrl || key.meta || key.alt || key.option,
-      )
+      const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
 
       if (key.name === 'down' && !hasModifier) {
         setSlashSelectedIndex((prev) =>
@@ -408,8 +411,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       }
 
       if (key.name === 'return' && !key.shift && !hasModifier) {
-        const selected =
-          slashMatches[slashSelectedIndex] ?? slashMatches[0]
+        const selected = slashMatches[slashSelectedIndex] ?? slashMatches[0]
         if (!selected) {
           return true
         }
@@ -432,7 +434,13 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
 
       return false
     },
-    [slashContext.active, slashContext.startIndex, slashContext.query, slashMatches, slashSelectedIndex],
+    [
+      slashContext.active,
+      slashContext.startIndex,
+      slashContext.query,
+      slashMatches,
+      slashSelectedIndex,
+    ],
   )
 
   const handleAgentMenuKey = useCallback(
@@ -449,9 +457,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
         return false
       }
 
-      const hasModifier = Boolean(
-        key.ctrl || key.meta || key.alt || key.option,
-      )
+      const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
 
       if (key.name === 'down' && !hasModifier) {
         setAgentSelectedIndex((prev) =>
@@ -478,8 +484,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
       }
 
       if (key.name === 'return' && !key.shift && !hasModifier) {
-        const selected =
-          agentMatches[agentSelectedIndex] ?? agentMatches[0]
+        const selected = agentMatches[agentSelectedIndex] ?? agentMatches[0]
         if (!selected) {
           return true
         }
@@ -503,7 +508,13 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
 
       return false
     },
-    [mentionContext.active, mentionContext.startIndex, mentionContext.query, agentMatches, agentSelectedIndex],
+    [
+      mentionContext.active,
+      mentionContext.startIndex,
+      mentionContext.query,
+      agentMatches,
+      agentSelectedIndex,
+    ],
   )
 
   const handleSuggestionMenuKey = useCallback(
@@ -610,6 +621,10 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     }
 
     sendMessage(trimmed)
+
+    setTimeout(() => {
+      scrollToLatest()
+    }, 0)
   }, [
     inputValue,
     isStreaming,
@@ -618,6 +633,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     addToQueue,
     streamMessageIdRef,
     isChainInProgressRef,
+    scrollToLatest,
   ])
 
   useKeyboardHandlers({
@@ -678,7 +694,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
           stickyStart="bottom"
           scrollX={false}
           scrollbarOptions={{ visible: false }}
-          {...scrollboxProps}
+          {...appliedScrollboxProps}
           style={{
             flexGrow: 1,
             rootOptions: {
@@ -747,7 +763,8 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
             prefix="/"
           />
         ) : null}
-        {!slashContext.active && mentionContext.active &&
+        {!slashContext.active &&
+        mentionContext.active &&
         agentSuggestionItems.length > 0 ? (
           <SuggestionMenu
             items={agentSuggestionItems}
