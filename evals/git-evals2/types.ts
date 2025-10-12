@@ -21,6 +21,30 @@ export interface EvalData {
   evalCommits: EvalCommit[]
 }
 
+export interface FileDiff {
+  path: string
+  status: 'modified' | 'added' | 'deleted' | 'renamed'
+  oldPath?: string
+  diff: string
+}
+
+export interface EvalCommitV2 {
+  sha: string
+  parentSha: string
+  spec: string
+  prompt: string
+  supplementalFiles: string[]
+  fileDiffs: FileDiff[]
+}
+
+export interface EvalDataV2 {
+  repoUrl: string
+  testRepoName?: string
+  generationDate: string
+  initCommand?: string
+  evalCommits: EvalCommitV2[]
+}
+
 export interface EvalRun {
   commitSha: string
   spec: string
