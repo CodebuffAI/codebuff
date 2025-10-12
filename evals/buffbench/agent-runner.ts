@@ -13,15 +13,6 @@ export interface AgentStep {
   toolResults: any[]
 }
 
-export interface AgentRunResult {
-  diff: string
-  contextFiles: Record<string, string>
-  durationMs: number
-  cost: number
-  error?: string
-  trace: AgentStep[]
-}
-
 export async function runAgentOnCommit({
   client,
   agentId,
@@ -34,7 +25,14 @@ export async function runAgentOnCommit({
   commit: EvalCommitV2
   repoUrl: string
   initCommand?: string
-}): Promise<AgentRunResult> {
+}): Promise<{
+  diff: string
+  contextFiles: Record<string, string>
+  durationMs: number
+  cost: number
+  error?: string
+  trace: AgentStep[]
+}> {
   console.log(`[${commit.id}] Running agent ${agentId}...`)
   const startTime = Date.now()
   let diff = ''
@@ -94,7 +92,12 @@ export async function runAgentOnCommit({
             } else if (event.type === 'finish') {
               flushStep()
             } else if (event.type === 'error') {
-              console.error(`[${agentId}] Error event:`, event.message)
+              console.error(
+                `[${agentId}] Error event:`,
+                event.message,
+                'trace:',
+                trace,
+              )
             }
           },
         })
