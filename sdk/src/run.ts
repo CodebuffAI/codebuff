@@ -12,7 +12,7 @@ import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
 import { PromptResponseSchema } from '../../common/src/actions'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
-import { toolNames } from '../../common/src/tools/constants'
+import { toolNames, toolXmlName } from '../../common/src/tools/constants'
 import { clientToolCallSchema } from '../../common/src/tools/list'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -38,6 +38,89 @@ import {
   AgentOutputSchema,
   type SessionState,
 } from '../../common/src/types/session-state'
+
+type ToolXmlFilterState = {
+  buffer: string
+  inside: boolean
+}
+
+const TOOL_XML_OPEN = `<${toolXmlName}>`
+const TOOL_XML_CLOSE = `</${toolXmlName}>`
+const TOOL_XML_PREFIX = `<${toolXmlName}`
+const TOOL_XML_CLOSE_PREFIX = `</${toolXmlName}`
+
+const getPartialStartIndex = (value: string, pattern: string): number => {
+  const max = Math.min(pattern.length - 1, value.length)
+  for (let len = max; len > 0; len--) {
+    const slice = value.slice(value.length - len)
+    if (pattern.startsWith(slice)) {
+      return value.length - len
+    }
+  }
+  return -1
+}
+
+function filterToolXmlFromText(
+  state: ToolXmlFilterState,
+  incoming: string,
+  maxBuffer: number,
+): { text: string; removed: boolean } {
+  if (incoming) {
+    state.buffer += incoming
+  }
+
+  let sanitized = ''
+  let removed = false
+  while (state.buffer.length > 0) {
+    if (!state.inside) {
+      const openIndex = state.buffer.indexOf(TOOL_XML_OPEN)
+      if (openIndex === -1) {
+        const partialIndex = getPartialStartIndex(state.buffer, TOOL_XML_PREFIX)
+        if (partialIndex === -1) {
+          sanitized += state.buffer
+          state.buffer = ''
+        } else {
+          sanitized += state.buffer.slice(0, partialIndex)
+          state.buffer = state.buffer.slice(partialIndex)
+        }
+        break
+      }
+
+      sanitized += state.buffer.slice(0, openIndex)
+      state.buffer = state.buffer.slice(openIndex + TOOL_XML_OPEN.length)
+      state.inside = true
+      removed = true
+    } else {
+      const closeIndex = state.buffer.indexOf(TOOL_XML_CLOSE)
+      if (closeIndex === -1) {
+        const partialCloseIndex = getPartialStartIndex(
+          state.buffer,
+          TOOL_XML_CLOSE,
+        )
+        if (partialCloseIndex === -1) {
+          const keepIndex = Math.max(
+            0,
+            state.buffer.length - (TOOL_XML_CLOSE.length - 1),
+          )
+          state.buffer = state.buffer.slice(keepIndex)
+        } else {
+          state.buffer = state.buffer.slice(partialCloseIndex)
+        }
+        break
+      }
+
+      state.buffer = state.buffer.slice(closeIndex + TOOL_XML_CLOSE.length)
+      state.inside = false
+      removed = true
+    }
+  }
+
+  if (state.buffer.length > maxBuffer) {
+    state.buffer = state.buffer.slice(-maxBuffer)
+  }
+
+  return { text: sanitized, removed }
+}
 
 export type CodebuffClientOptions = {
   // Provide an API key or set the CODEBUFF_API_KEY environment variable.
@@ -124,15 +207,61 @@ export async function run({
     resolve = res
   })
 
-  // TODO: bad pattern, switch to using SSE and move off of websockets
-  let insideToolCall = false
-  let buffer = ''
   const BUFFER_SIZE = 100
+  const MAX_TOOL_XML_BUFFER = BUFFER_SIZE * 10
+  const ROOT_AGENT_KEY = '__root__'
+
+  const streamFilterState: ToolXmlFilterState = { buffer: '', inside: false }
+  const textFilterStates = new Map<string, ToolXmlFilterState>()
 
   const subagentBuffers = new Map<
     string,
     { buffer: string; insideToolCall: boolean }
   >()
+
+  const getTextFilterState = (agentKey: string): ToolXmlFilterState => {
+    let state = textFilterStates.get(agentKey)
+    if (!state) {
+      state = { buffer: '', inside: false }
+      textFilterStates.set(agentKey, state)
+    }
+    return state
+  }
+
+  const flushTextState = async (
+    agentKey: string,
+    eventAgentId?: string,
+  ): Promise<void> => {
+    const state = textFilterStates.get(agentKey)
+    if (!state) {
+      return
+    }
+
+    const { text: pendingText } = filterToolXmlFromText(
+      state,
+      '',
+      MAX_TOOL_XML_BUFFER,
+    )
+    let remainder = pendingText
+
+    if (!state.inside && state.buffer) {
+      if (!state.buffer.includes('<')) {
+        remainder += state.buffer
+      }
+    }
+    state.buffer = ''
+    state.inside = false
+
+    textFilterStates.delete(agentKey)
+
+    if (remainder) {
+      await handleEvent?.({
+        type: 'text',
+        text: remainder,
+        agentId: eventAgentId,
+      } as any)
+    }
+  }
 
   const websocketHandler = new WebSocketHandler({
     apiKey,
@@ -167,34 +296,71 @@ export async function run({
       checkAborted(signal)
       const { chunk } = action
       if (typeof chunk === 'string') {
-        buffer += chunk
+        const { text: sanitized } = filterToolXmlFromText(
+          streamFilterState,
+          chunk,
+          MAX_TOOL_XML_BUFFER,
+        )
 
-        if (!insideToolCall && buffer.includes('<codebuff_tool_call>')) {
-          const openTagIndex = buffer.indexOf('<codebuff_tool_call>')
-          const beforeTag = buffer.substring(0, openTagIndex)
-          if (beforeTag) {
-            await handleStreamChunk?.(beforeTag)
-          }
-          insideToolCall = true
-          buffer = buffer.substring(openTagIndex)
-        } else if (insideToolCall && buffer.includes('</codebuff_tool_call>')) {
-          const closeTagIndex = buffer.indexOf('</codebuff_tool_call>')
-          insideToolCall = false
-          buffer = buffer.substring(
-            closeTagIndex + '</codebuff_tool_call>'.length,
+        if (sanitized) {
+          await handleStreamChunk?.(sanitized)
+        }
+      } else if (chunk.type === 'text') {
+        const agentKey = chunk.agentId ?? ROOT_AGENT_KEY
+        const state = getTextFilterState(agentKey)
+        const { text: sanitized } = filterToolXmlFromText(
+          state,
+          chunk.text,
+          MAX_TOOL_XML_BUFFER,
+        )
+
+        if (sanitized) {
+          await handleEvent?.({
+            ...chunk,
+            text: sanitized,
+          })
+        }
+      } else {
+        const chunkType = chunk.type as string
+
+        if (chunkType === 'finish') {
+          const { text: streamTail } = filterToolXmlFromText(
+            streamFilterState,
+            '',
+            MAX_TOOL_XML_BUFFER,
           )
-        } else if (!insideToolCall) {
-          if (buffer.length > 50) {
-            const safeToOutput = buffer.substring(0, buffer.length - 50)
-            await handleStreamChunk?.(safeToOutput)
-            buffer = buffer.substring(buffer.length - 50)
+          let remainder = streamTail
+          if (
+            !streamFilterState.inside &&
+            streamFilterState.buffer &&
+            !streamFilterState.buffer.includes('<')
+          ) {
+            remainder += streamFilterState.buffer
+          }
+          streamFilterState.buffer = ''
+          streamFilterState.inside = false
+
+          if (remainder) {
+            await handleStreamChunk?.(remainder)
+          }
+
+          await flushTextState(ROOT_AGENT_KEY)
+
+          const finishAgentKey =
+            (chunk as typeof chunk & { agentId?: string }).agentId
+          if (finishAgentKey && finishAgentKey !== ROOT_AGENT_KEY) {
+            await flushTextState(finishAgentKey, finishAgentKey)
+          }
+        } else if (
+          chunkType === 'subagent_finish' ||
+          chunkType === 'subagent-finish'
+        ) {
+          const subagentId = (chunk as { agentId?: string }).agentId
+          if (subagentId) {
+            await flushTextState(subagentId, subagentId)
           }
         }
 
-        if (insideToolCall && buffer.length > BUFFER_SIZE * 10) {
-          buffer = buffer.slice(-BUFFER_SIZE * 10)
-        }
-      } else if (chunk.type !== 'tool_call') {
         await handleEvent?.(chunk)
       }
     },
@@ -214,9 +380,9 @@ export async function run({
 
       if (
         !bufferState.insideToolCall &&
-        bufferState.buffer.includes('<codebuff_tool_call>')
+        bufferState.buffer.includes(TOOL_XML_OPEN)
       ) {
-        const openTagIndex = bufferState.buffer.indexOf('<codebuff_tool_call>')
+        const openTagIndex = bufferState.buffer.indexOf(TOOL_XML_OPEN)
         const beforeTag = bufferState.buffer.substring(0, openTagIndex)
         if (beforeTag) {
           filteredChunk = beforeTag
@@ -225,14 +391,12 @@ export async function run({
         bufferState.buffer = bufferState.buffer.substring(openTagIndex)
       } else if (
         bufferState.insideToolCall &&
-        bufferState.buffer.includes('</codebuff_tool_call>')
+        bufferState.buffer.includes(TOOL_XML_CLOSE)
       ) {
-        const closeTagIndex = bufferState.buffer.indexOf(
-          '</codebuff_tool_call>',
-        )
+        const closeTagIndex = bufferState.buffer.indexOf(TOOL_XML_CLOSE)
         bufferState.insideToolCall = false
         bufferState.buffer = bufferState.buffer.substring(
-          closeTagIndex + '</codebuff_tool_call>'.length,
+          closeTagIndex + TOOL_XML_CLOSE.length,
         )
       } else if (!bufferState.insideToolCall) {
         if (bufferState.buffer.length > 50) {
@@ -249,12 +413,12 @@ export async function run({
 
       if (
         bufferState.insideToolCall &&
-        bufferState.buffer.length > BUFFER_SIZE * 10
+        bufferState.buffer.length > MAX_TOOL_XML_BUFFER
       ) {
-        bufferState.buffer = bufferState.buffer.slice(-BUFFER_SIZE * 10)
+        bufferState.buffer = bufferState.buffer.slice(-MAX_TOOL_XML_BUFFER)
       }
 
-      // Send filtered chunk to both handlers
+      // Send filtered chunk to handler
       if (filteredChunk && handleEvent) {
         await handleEvent({
           type: 'subagent-chunk',
@@ -262,10 +426,6 @@ export async function run({
           agentType,
           chunk: filteredChunk,
         } as any)
-      }
-
-      if (filteredChunk && handleStreamChunk) {
-        await handleStreamChunk(filteredChunk)
       }
     },
 

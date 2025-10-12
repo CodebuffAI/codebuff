@@ -157,6 +157,15 @@ export const useSendMessage = ({
           | { type: 'text'; content: string }
           | Extract<ContentBlock, { type: 'tool' }>,
       ) => {
+        const preview =
+          update.type === 'text'
+            ? update.content.slice(0, 120)
+            : JSON.stringify({ toolName: update.toolName }).slice(0, 120)
+        logger.info('updateAgentContent invoked', {
+          agentId,
+          updateType: update.type,
+          preview,
+        })
         setMessages((prev) =>
           prev.map((msg) => {
             if (msg.id === aiMessageId && msg.blocks) {
@@ -168,18 +177,48 @@ export const useSendMessage = ({
                   if (update.type === 'text' && update.content) {
                     const lastBlock = agentBlocks[agentBlocks.length - 1]
                     if (lastBlock && lastBlock.type === 'text') {
+                      if (update.content && lastBlock.content.endsWith(update.content)) {
+                        logger.info('Skipping duplicate agent text append', {
+                          agentId,
+                          preview,
+                        })
+                        return block
+                      }
                       const updatedLastBlock: ContentBlock = {
                         ...lastBlock,
                         content: lastBlock.content + update.content,
                       }
+                      const updatedContent =
+                        (block.content ?? '') + update.content
+                      logger.info('Agent block text appended', {
+                        agentId,
+                        appendedLength: update.content.length,
+                        totalLength: updatedContent.length,
+                      })
                       return {
                         ...block,
+                        content: updatedContent,
                         blocks: [...agentBlocks.slice(0, -1), updatedLastBlock],
                       }
                     } else {
-                      return { ...block, blocks: [...agentBlocks, update] }
+                      const updatedContent =
+                        (block.content ?? '') + update.content
+                      logger.info('Agent block text started', {
+                        agentId,
+                        appendedLength: update.content.length,
+                        totalLength: updatedContent.length,
+                      })
+                      return {
+                        ...block,
+                        content: updatedContent,
+                        blocks: [...agentBlocks, update],
+                      }
                     }
                   } else if (update.type === 'tool') {
+                    logger.info('Agent block tool appended', {
+                      agentId,
+                      toolName: update.toolName,
+                    })
                     return { ...block, blocks: [...agentBlocks, update] }
                   }
                 }
@@ -348,35 +387,29 @@ export const useSendMessage = ({
                 '',
               )
 
+              if (text.includes('<codebuff_tool_call>')) {
+                logger.warn('Tool XML detected in text event post-filter', {
+                  agentId: event.agentId ?? 'root',
+                  textPreview: text.slice(0, 80),
+                })
+              }
+
               if (!text) return
 
-              if (event.agentId) {
-                logger.info('setMessages: text event with agentId', {
-                  agentId: event.agentId,
-                  textPreview: text.slice(0, 100),
-                })
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === aiMessageId && msg.blocks) {
-                      const blocks = msg.blocks.map((block) => {
-                        if (
-                          block.type === 'agent' &&
-                          block.agentId === event.agentId
-                        ) {
-                          return { ...block, content: block.content + text }
-                        }
-                        return block
-                      })
-                      return { ...msg, blocks }
-                    }
-                    return msg
-                  }),
-                )
-                return
-              } else {
-                logger.info('setMessages: text event without agentId', {
-                  textPreview: text.slice(0, 100),
-                })
+            if (event.agentId) {
+              logger.info('setMessages: text event with agentId', {
+                agentId: event.agentId,
+                textPreview: text.slice(0, 100),
+              })
+              updateAgentContent(event.agentId, {
+                type: 'text',
+                content: text,
+              })
+              return
+            } else {
+              logger.info('setMessages: text event without agentId', {
+                textPreview: text.slice(0, 100),
+              })
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== aiMessageId) {

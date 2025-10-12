@@ -3,7 +3,6 @@ export type * from '../../common/src/types/messages/codebuff-message'
 export type * from '../../common/src/types/messages/data-content'
 export type * from '../../common/src/types/print-mode'
 export type * from './run'
-export { type ToolName } from '../../common/src/tools/constants'
 // Agent type exports
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 

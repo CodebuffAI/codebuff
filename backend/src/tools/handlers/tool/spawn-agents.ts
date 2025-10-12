@@ -147,20 +147,22 @@ export const handleSpawnAgents = ((
             isOnlyChild: agents.length === 1,
             parentSystemPrompt,
             onResponseChunk: (chunk: string | PrintModeEvent) => {
-              if (agents.length === 1) {
-                writeToClient(chunk)
-              }
-              if (typeof chunk !== 'string') {
+              if (typeof chunk === 'string') {
+                sendSubagentChunk({
+                  userInputId,
+                  agentId: subAgentState.agentId,
+                  agentType,
+                  chunk,
+                  prompt,
+                })
                 return
               }
-              // Send subagent streaming chunks to client
-              sendSubagentChunk({
-                userInputId,
+
+              const eventWithAgent = {
+                ...chunk,
                 agentId: subAgentState.agentId,
-                agentType,
-                chunk,
-                prompt,
-              })
+              }
+              writeToClient(eventWithAgent)
             },
           })
           return { ...result, agentType, agentName: agentTemplate.displayName }
