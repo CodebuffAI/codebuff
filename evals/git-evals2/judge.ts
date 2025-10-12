@@ -1,7 +1,6 @@
-import { createTwoFilesPatch } from 'diff'
 import { z } from 'zod/v4'
 
-import type { FileState } from './types'
+import type { FileDiff } from './types'
 import type { AgentDefinition } from '../../sdk/src'
 import type { CodebuffClient } from '../../sdk/src/client'
 
@@ -9,15 +8,15 @@ export const JudgingResultSchema = z.object({
   analysis: z
     .string()
     .describe('Detailed analysis comparing agent changes to ground truth'),
-  strengths: z.array(z.string()).describe('Key strengths of the implementation'),
-  weaknesses: z
+  strengths: z
     .array(z.string())
-    .describe('Key weaknesses or issues found'),
+    .describe('Key strengths of the implementation'),
+  weaknesses: z.array(z.string()).describe('Key weaknesses or issues found'),
   completionScore: z
     .number()
     .min(0)
     .max(10)
-    .describe('How completely the spec was implemented'),
+    .describe('How completely the prompt was addressed'),
   codeQualityScore: z
     .number()
     .min(0)
@@ -42,7 +41,8 @@ const judgeAgent: AgentDefinition = {
     properties: {
       analysis: {
         type: 'string',
-        description: 'Detailed analysis comparing agent changes to ground truth',
+        description:
+          'Detailed analysis comparing agent changes to ground truth',
       },
       strengths: {
         type: 'array',
@@ -58,7 +58,7 @@ const judgeAgent: AgentDefinition = {
         type: 'number',
         minimum: 0,
         maximum: 10,
-        description: 'How completely the spec was implemented',
+        description: 'How completely the prompt was addressed',
       },
       codeQualityScore: {
         type: 'number',
@@ -82,30 +82,46 @@ const judgeAgent: AgentDefinition = {
       'overallScore',
     ],
   },
-  systemPrompt: `You are an expert software engineer evaluating AI-generated code changes.
+  systemPrompt: `You are an expert software engineer evaluating AI-generated code changes with empathy for the task given.
 
 ## Your Role
 
 You will receive:
-1. A spec describing what changes should be made
-2. The ground truth changes (expected)
-3. The agent's actual changes
+1. The user prompt that the coding agent was given
+2. Context files from the codebase
+3. The ground truth changes (expected outcome)
+4. The agent's actual changes
+
+## Evaluation Philosophy
+
+**Judge based on what the agent was asked to do, not on perfection.**
+
+- If the prompt is vague or high-level (e.g., "add authentication"), be lenient and accept any reasonable implementation that achieves the goal
+- If the prompt is specific and detailed, expect the implementation to match those details more closely
+- Focus on whether the agent understood and addressed the user's intent
+- Consider that there are often multiple valid ways to implement the same feature
 
 ## Evaluation Criteria
 
-- **Completion** (0-10): How completely was the spec implemented?
+- **Completion** (0-10): How well did the agent address what was asked in the prompt? Consider the specificity of the prompt.
 - **Code Quality** (0-10): How well-structured and maintainable is the code?
-- **Overall** (0-10): Combined quality assessment
+- **Overall** (0-10): Combined assessment of whether the agent successfully completed the task as requested
 
-Focus on behavioral equivalence - the implementation doesn't need to be identical to ground truth, but should achieve the same outcome. Valid alternative approaches are acceptable.
+## Ground Truth
+
+The ground truth shows ONE valid implementation, but it's not the only correct answer. The agent's implementation should be judged on:
+- Does it achieve the same functional outcome?
+- Is it a reasonable approach given the prompt?
+- Does it maintain code quality?
 
 Provide detailed analysis, strengths, weaknesses, and numerical scores.`,
 }
 
 interface JudgeCommitResultInput {
   client: CodebuffClient
-  spec: string
-  groundTruthFileStates: FileState[]
+  prompt: string
+  groundTruthFileDiffs: FileDiff[]
+  contextFiles: Record<string, string>
   agentDiff: string
   error?: string
 }
@@ -113,29 +129,37 @@ interface JudgeCommitResultInput {
 export async function judgeCommitResult(
   input: JudgeCommitResultInput,
 ): Promise<JudgingResult> {
-  const { client, spec, groundTruthFileStates, agentDiff, error } = input
+  const {
+    client,
+    prompt,
+    groundTruthFileDiffs,
+    contextFiles,
+    agentDiff,
+    error,
+  } = input
 
-  const groundTruthDiffs = groundTruthFileStates
-    .map(({ path, preContent, postContent }) => {
-      const diff = createTwoFilesPatch(
-        path,
-        path,
-        preContent,
-        postContent,
-        'before',
-        'after',
-      )
+  const groundTruthDiffs = groundTruthFileDiffs
+    .map(({ path, diff }) => {
       return `### ${path}\n\`\`\`diff\n${diff}\n\`\`\``
     })
     .join('\n\n')
 
-  const judgePrompt = `## Task Specification
-${spec}
+  const contextFilesContent = Object.entries(contextFiles)
+    .map(([filePath, content]) => {
+      return `### ${filePath}\n\`\`\`\n${content}\n\`\`\``
+    })
+    .join('\n\n')
 
-## Ground Truth Changes (Expected)
+  const judgePrompt = `## User Prompt (What the agent was asked to do)
+${prompt}
+
+## Context Files (from parent commit)
+${contextFilesContent || '(No context files)'}
+
+## Ground Truth Changes (One valid implementation)
 ${groundTruthDiffs}
 
-## Agent's Changes (Actual)
+## Agent's Changes (What the agent actually did)
 \`\`\`diff
 ${agentDiff || '(No changes made)'}
 \`\`\`

@@ -1,3 +1,4 @@
+import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
@@ -8,7 +9,7 @@ import { CodebuffClient } from '../../sdk/src/client'
 import { runAgentOnCommit } from './agent-runner'
 import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
-import { AgentEvalResults, EvalData, ProgressEvent } from './types'
+import { AgentEvalResults, EvalDataV2, ProgressEvent } from './types'
 
 export async function runGitEvals2(options: {
   evalDataPath: string
@@ -24,7 +25,9 @@ export async function runGitEvals2(options: {
 }> {
   const { evalDataPath, agents, outputPath, limit, onProgress } = options
 
-  const evalData: EvalData = JSON.parse(fs.readFileSync(evalDataPath, 'utf-8'))
+  const evalData: EvalDataV2 = JSON.parse(
+    fs.readFileSync(evalDataPath, 'utf-8'),
+  )
   const commitsToRun = limit
     ? evalData.evalCommits.slice(0, limit)
     : evalData.evalCommits
@@ -59,8 +62,8 @@ export async function runGitEvals2(options: {
   }
 
   for (const commit of commitsToRun) {
-    console.log(`\n=== Evaluating commit ${commit.sha.slice(0, 7)} ===`)
-    console.log(`Spec: ${commit.spec.slice(0, 100)}...`)
+    console.log(`\n=== Evaluating ${commit.id} ===`)
+    console.log(`Prompt: ${commit.prompt.slice(0, 100)}...`)
 
     // Store trace data for this commit to analyze later
     const commitTraces: AgentTraceData[] = []
@@ -83,8 +86,9 @@ export async function runGitEvals2(options: {
 
         const judgeResult = await judgeCommitResult({
           client,
-          spec: commit.spec,
-          groundTruthFileStates: commit.fileStates,
+          prompt: commit.prompt,
+          groundTruthFileDiffs: commit.fileDiffs,
+          contextFiles: agentResult.contextFiles,
           agentDiff: agentResult.diff,
           error: agentResult.error,
         })
@@ -100,13 +104,10 @@ export async function runGitEvals2(options: {
         }
 
         // Save trace to logs directory
-        const safeSpec = commit.spec
-          .split('\n')[0]
-          .replace(/[^a-zA-Z0-9]/g, '_')
-          .slice(0, 20)
+        const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
         const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
         const safeCommitShort = commit.sha.slice(0, 7)
-        const traceFilename = `${safeSpec}-${safeAgentId}-${safeCommitShort}.json`
+        const traceFilename = `${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
         const tracePath = path.join(logsDir, traceFilename)
 
         const traceData = {
@@ -178,7 +179,7 @@ export async function runGitEvals2(options: {
     // After all agents complete for this commit, run trace analysis
     if (commitTraces.length > 1) {
       console.log(
-        `\n=== Analyzing agent traces for commit ${commit.sha.slice(0, 7)} ===`,
+        `\n=== Analyzing agent traces for ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
       )
       try {
         const analysis = await analyzeAgentTraces({
@@ -188,12 +189,9 @@ export async function runGitEvals2(options: {
         })
 
         // Save analysis to logs directory
-        const safeSpec = commit.spec
-          .split('\n')[0]
-          .replace(/[^a-zA-Z0-9]/g, '_')
-          .slice(0, 30)
-        const safeCommitShort = commit.sha.slice(0, 7)
-        const analysisFilename = `${safeSpec}-ANALYSIS-${safeCommitShort}.json`
+        const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
+        const analysisCommitShort = commit.sha.slice(0, 7)
+        const analysisFilename = `${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
         const analysisPath = path.join(logsDir, analysisFilename)
 
         const analysisData = {

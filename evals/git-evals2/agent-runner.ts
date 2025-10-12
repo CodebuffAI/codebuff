@@ -5,7 +5,7 @@ import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import { CodebuffClient } from '../../sdk/src/client'
 import { withTestRepo } from '../subagents/test-repo-utils'
 
-import type { EvalCommit } from './types'
+import type { EvalCommitV2 } from './types'
 
 export interface AgentStep {
   response: string
@@ -15,6 +15,7 @@ export interface AgentStep {
 
 export interface AgentRunResult {
   diff: string
+  contextFiles: Record<string, string>
   durationMs: number
   cost: number
   error?: string
@@ -30,12 +31,14 @@ export async function runAgentOnCommit({
 }: {
   client: CodebuffClient
   agentId: string
-  commit: EvalCommit
+  commit: EvalCommitV2
   repoUrl: string
   initCommand?: string
 }): Promise<AgentRunResult> {
+  console.log(`[${commit.id}] Running agent ${agentId}...`)
   const startTime = Date.now()
   let diff = ''
+  let contextFiles: Record<string, string> = {}
   let error: string | undefined
   let cost = 0
   const trace: AgentStep[] = []
@@ -56,9 +59,13 @@ export async function runAgentOnCommit({
         let responseText = ''
         let toolCalls: any[] = []
         let toolResults: any[] = []
-        
+
         function flushStep() {
-          if (responseText.length > 0 || toolCalls.length > 0 || toolResults.length > 0) {
+          if (
+            responseText.length > 0 ||
+            toolCalls.length > 0 ||
+            toolResults.length > 0
+          ) {
             trace.push({ response: responseText, toolCalls, toolResults })
             responseText = ''
             toolCalls = []
@@ -68,7 +75,7 @@ export async function runAgentOnCommit({
 
         const result = await client.run({
           agent: agentId,
-          prompt: commit.spec,
+          prompt: commit.prompt,
           agentDefinitions: localAgentDefinitions,
           cwd: repoDir,
           handleEvent: (event) => {
@@ -98,6 +105,27 @@ export async function runAgentOnCommit({
           cwd: repoDir,
           encoding: 'utf-8',
         })
+
+        const contextFilePaths = new Set<string>([
+          ...commit.supplementalFiles,
+          ...commit.fileDiffs.map((fd) => fd.path),
+        ])
+
+        for (const filePath of contextFilePaths) {
+          try {
+            const content = execSync(
+              `git show ${commit.parentSha}:${JSON.stringify(filePath)}`,
+              {
+                cwd: repoDir,
+                encoding: 'utf-8',
+                maxBuffer: 10 * 1024 * 1024,
+              },
+            )
+            contextFiles[filePath] = content
+          } catch (error) {
+            contextFiles[filePath] = ''
+          }
+        }
       },
     )
   } catch (e) {
@@ -108,6 +136,7 @@ export async function runAgentOnCommit({
 
   return {
     diff,
+    contextFiles,
     durationMs,
     cost,
     error,
