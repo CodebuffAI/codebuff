@@ -123,8 +123,6 @@ export const MessageBlock = ({
                 .split('\n')
                 .filter((line) => line.trim())
               const firstLine = lines[0] || ''
-              const lastLine = lines[lines.length - 1] || firstLine
-
               const streamingPreview = isStreaming
                 ? firstLine.replace(/[#*_`~\[\]()]/g, '').trim() + '...'
                 : ''
@@ -197,7 +195,6 @@ export const MessageBlock = ({
                 .split('\n')
                 .filter((line) => line.trim())
               const firstLine = lines[0] || ''
-              const lastLine = lines[lines.length - 1] || firstLine
 
               const streamingPreview = isStreaming
                 ? firstLine.replace(/[#*_`~\[\]()]/g, '').trim() + '...'

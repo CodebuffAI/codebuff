@@ -55,12 +55,8 @@ export const useSendMessage = ({
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
   >(new Map())
-  const toolCallToAgentIdsRef = useRef<Map<string, string[]>>(new Map())
   const subagentBuffersRef = useRef<
     Map<string, { buffer: string; insideToolCall: boolean }>
-  >(new Map())
-  const subagentToolCallsRef = useRef<
-    Map<string, { agentId: string; tempToolCallId: string }>
   >(new Map())
 
   const sendMessage = useCallback(
@@ -754,7 +750,7 @@ export const useSendMessage = ({
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id === aiMessageId && msg.blocks) {
-                      const blocks = msg.blocks.map((block, blockIndex) => {
+                      const blocks = msg.blocks.map((block) => {
                         if (
                           block.type === 'agent' &&
                           block.agentId.startsWith(toolCallId)

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { type ThemeName, detectSystemTheme } from '../utils/theme-system'
+
 import { logger } from '../utils/logger'
 import {
   spawnMacOSThemeListener,
   type ThemeListenerProcess,
 } from '../utils/theme-listener-macos'
+import { type ThemeName, detectSystemTheme } from '../utils/theme-system'
 
 const DEFAULT_POLL_INTERVAL_MS = 60000 // 60 seconds
 

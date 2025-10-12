@@ -3,11 +3,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { MultilineInput } from './components/multiline-input'
 import { Separator } from './components/separator'
+import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import {
   SuggestionMenu,
   type SuggestionItem,
 } from './components/suggestion-menu'
-import { StatusIndicator, useHasStatus } from './components/status-indicator'
+import { SLASH_COMMANDS, type SlashCommand } from './data/slash-commands'
 import { useClipboard } from './hooks/use-clipboard'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
@@ -16,18 +17,15 @@ import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
+import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatTimestamp, formatQueuedPreview } from './utils/helpers'
-import { logger } from './utils/logger'
-import { buildMessageTree } from './utils/message-tree-utils'
-import { SLASH_COMMANDS, type SlashCommand } from './data/slash-commands'
 import {
   loadLocalAgents,
   type LocalAgentInfo,
 } from './utils/local-agent-registry'
-
+import { logger } from './utils/logger'
+import { buildMessageTree } from './utils/message-tree-utils'
 import { chatThemes, createMarkdownPalette } from './utils/theme-system'
-import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
-import { TextAttributes } from '@opentui/core'
 
 import type { ToolName } from '@codebuff/sdk'
 import type { InputRenderable, ScrollBoxRenderable } from '@opentui/core'
