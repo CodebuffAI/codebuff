@@ -103,7 +103,7 @@ export async function runAgentOnCommit({
         cost = result.sessionState.mainAgentState.creditsUsed / 100
 
         execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
-        diff = execSync('git diff HEAD', {
+        diff = execSync(`git diff ${commit.parentSha}`, {
           cwd: repoDir,
           encoding: 'utf-8',
         })
