@@ -2,40 +2,17 @@ import { execSync } from 'child_process'
 import { createTwoFilesPatch } from 'diff'
 import fs from 'fs'
 import path from 'path'
+import { mapLimit } from 'async'
 
-import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
-import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
-import { models } from '@codebuff/common/old-constants'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
-import { mapLimit } from 'async'
 
 import { CodebuffClient } from '../../sdk/src/client'
 import { extractRepoNameFromUrl } from '../git-evals/setup-test-repo'
 import { withTestRepoAndParent } from '../subagents/test-repo-utils'
-import { generatePromptFromCommit } from './prompt-generator'
+import { generateEvalTask } from './eval-task-generator'
 
 import type { EvalDataV2, EvalCommitV2, FileDiff } from './types'
-
-const SPEC_GENERATION_PROMPT = `Given a set of file changes and an optional description, write a clear specification describing WHAT needs to be implemented.
-First, use <thinking> tags to analyze the changes and determine what should go into the spec.
-
-Then, generate the spec.
-
-The spec should:
-1. Focus on the observable behavior or structure that needs to be implemented
-2. Not include implementation details or specific code
-3. Not prescribe HOW to make the change
-4. Be clear enough that a skilled developer or AI could implement it from scratch
-5. Be phrased as what needs to be done, not what was already done
-6. Cover all the changes shown across multiple files
-
-The spec will be used to test an AI coding assistant's ability to implement the described functionality.
-
-Please wrap your final specification in <spec></spec> tags.`
-
-const fingerprintId = 'evals-v2'
-const userInputId = 'evals-v2'
 
 function getFileContentAtCommit(
   repoPath: string,
@@ -127,52 +104,6 @@ function getCommitMessage(repoPath: string, commitSha: string): string {
   }).trim()
 }
 
-async function generateSpecForFileDiffs(
-  fileDiffs: FileDiff[],
-  clientSessionId: string,
-): Promise<string> {
-  const fileContext = fileDiffs
-    .map(({ path, status, diff }) => {
-      let diffDescription = `File: ${path}\n`
-
-      if (status === 'added') {
-        diffDescription += `New file created\n${diff}\n`
-      } else if (status === 'deleted') {
-        diffDescription += `File deleted\n${diff}\n`
-      } else if (status === 'renamed') {
-        diffDescription += `File renamed\n${diff}\n`
-      } else {
-        diffDescription += `${diff}\n`
-      }
-
-      return diffDescription
-    })
-    .join('\n---\n')
-
-  const prompt = `${SPEC_GENERATION_PROMPT}\n\nFile Changes:\n${fileContext}`
-
-  try {
-    disableLiveUserInputCheck()
-    const response = await promptAiSdk({
-      messages: [{ role: 'user', content: prompt }],
-      model: models.openrouter_claude_sonnet_4,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId: undefined,
-      logger: console,
-    })
-
-    const specMatch = response.match(/<spec>(.*?)<\/spec>/s)
-    const spec = specMatch ? specMatch[1].trim() : response.trim()
-
-    return spec || 'Failed to generate specification'
-  } catch (error) {
-    console.error('Error generating spec:', error)
-    return 'Failed to generate specification due to error'
-  }
-}
-
 export async function generateEvalFileV2({
   repoUrl,
   commitShas,
@@ -187,8 +118,6 @@ export async function generateEvalFileV2({
   const client = new CodebuffClient({
     apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
   })
-
-  const clientSessionId = `gen-evals-v2-${Math.random().toString(36).substring(2)}`
 
   console.log(`Processing ${commitShas.length} commits in parallel...`)
 
@@ -212,18 +141,13 @@ export async function generateEvalFileV2({
           commitSha,
           parentSha,
         )
-        const spec = await generateSpecForFileDiffs(fileDiffs, clientSessionId)
-
-        console.log(
-          `Generated spec for ${commitSha.slice(0, 8)}: ${spec.substring(0, 100)}...`,
-        )
 
         const fullDiff = getFullDiff(repoPath, commitSha, parentSha)
         const commitMessage = getCommitMessage(repoPath, commitSha)
         const editedFilePaths = fileDiffs.map((f) => f.path)
 
-        console.log(`Generating prompt for ${commitSha.slice(0, 8)}...`)
-        const promptResult = await generatePromptFromCommit({
+        console.log(`Generating eval task for ${commitSha.slice(0, 8)}...`)
+        const taskResult = await generateEvalTask({
           client,
           input: {
             commitSha,
@@ -235,20 +159,22 @@ export async function generateEvalFileV2({
           },
         })
 
+        console.log(`Task ID: ${taskResult.id}`)
+        console.log(`Generated spec: ${taskResult.spec.substring(0, 100)}...`)
         console.log(
-          `Generated prompt: ${promptResult.prompt.substring(0, 100)}...`,
+          `Generated prompt: ${taskResult.prompt.substring(0, 100)}...`,
         )
         console.log(
-          `Supplemental files: ${promptResult.supplementalFiles.length} files`,
+          `Supplemental files: ${taskResult.supplementalFiles.length} files`,
         )
 
         return {
+          id: taskResult.id,
           sha: commitSha,
           parentSha,
-          spec,
-          id: promptResult.id,
-          prompt: promptResult.prompt,
-          supplementalFiles: promptResult.supplementalFiles,
+          spec: taskResult.spec,
+          prompt: taskResult.prompt,
+          supplementalFiles: taskResult.supplementalFiles,
           fileDiffs,
         }
       },

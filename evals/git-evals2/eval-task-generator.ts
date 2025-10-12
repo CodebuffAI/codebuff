@@ -4,16 +4,16 @@ import fileExplorerDef from '../../.agents/file-explorer/file-explorer'
 import findAllReferencerDef from '../../.agents/file-explorer/find-all-referencer'
 import { PLACEHOLDER } from '../../.agents/types/secret-agent-definition'
 
-const promptGeneratorAgentDef: AgentDefinition = {
-  id: 'git-evals2-prompt-generator',
-  displayName: 'Git Evals2 Prompt Generator',
+const evalTaskGeneratorAgentDef: AgentDefinition = {
+  id: 'git-evals2-eval-task-generator',
+  displayName: 'Git Evals2 Eval Task Generator',
   model: 'openai/gpt-5',
   toolNames: ['spawn_agents', 'read_files', 'set_output'],
   spawnableAgents: ['file-explorer', 'find-all-referencer'],
   inputSchema: {
     prompt: {
       type: 'string',
-      description: 'Instructions to generate the prompt',
+      description: 'Instructions to generate the task spec and prompt',
     },
   },
   outputMode: 'structured_output',
@@ -27,7 +27,12 @@ const promptGeneratorAgentDef: AgentDefinition = {
       },
       reasoning: {
         type: 'string',
-        description: 'Your thoughts about what should be in the prompt',
+        description: 'Your thoughts about the task, spec, and prompt',
+      },
+      spec: {
+        type: 'string',
+        description:
+          'Clear specification describing WHAT needs to be implemented (observable behavior/structure, not HOW)',
       },
       prompt: {
         type: 'string',
@@ -38,14 +43,10 @@ const promptGeneratorAgentDef: AgentDefinition = {
         items: { type: 'string' },
         description: 'List of supplemental file paths',
       },
-      confidence: {
-        type: 'number',
-        description: 'Confidence score 0-1 in the quality of the prompt',
-      },
     },
-    required: ['id', 'prompt', 'supplementalFiles', 'reasoning', 'confidence'],
+    required: ['id', 'reasoning', 'spec', 'prompt', 'supplementalFiles'],
   },
-  systemPrompt: `You are an expert at analyzing git commits and generating high-level user prompts.
+  systemPrompt: `You are an expert at analyzing git commits and generating evaluation tasks for AI coding assistants.
 
 You will receive:
 - A git diff showing the changes made
@@ -53,15 +54,20 @@ You will receive:
 - An optional commit message
 - The repository directory where you can explore the codebase
 
+You must generate both a specification (spec) and a user prompt for the task.
+
 ${PLACEHOLDER.FILE_TREE_PROMPT}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
   instructionsPrompt: `Your task:
 1. Analyze the git diff to understand what changed
-2. Use your tools (read_files, spawn_agents) to explore the codebase and understand context
-3. Generate a short, descriptive task ID (2-3 hyphenated words like "fix-auth-bug" or "refactor-login-flow")
-4. Identify supplemental files that would help a judge understand the change (exclude directly edited files)
-5. Generate a high-level user prompt that describes WHAT needs to be done (not HOW)
+2. Spawn the file-explorer and find-all-referencer to explore the codebase and understand context.
+3. Read as many files relevant to the changes as possible.
+4. Generate the output, including:
+- a short, descriptive task ID (2-3 hyphenated words like "fix-auth-bug" or "refactor-login-flow")
+- a clear specification describing exactly what needs to be implemented
+- a high-level user prompt that describes what needs to be done leaving out details that should be reconstructed by the agent
+- supplemental files that would help a judge understand the change (exclude directly edited files)
 
 Key principles for the task ID:
 - 2-3 words maximum, hyphenated (e.g., "fix-memory-leak", "add-user-profile", "refactor-auth-flow")
@@ -69,8 +75,16 @@ Key principles for the task ID:
 - Use action verbs when appropriate (fix, add, remove, refactor, update, implement)
 - Lowercase with hyphens
 
+Key principles for the spec:
+- Prescribe exactly how to make the change with references to the files that need to be changed
+- Not include code
+- Focus on the observable behavior or structure that needs to be implemented
+- Be clear enough that a skilled developer or AI could implement it from scratch
+- Be phrased as what needs to be done, not what was already done
+- Cover all the changes shown across multiple files
+
 Key principles for the prompt:
-- Focus on the functional requirement, not implementation details
+- Focus on the high-level functional requirements, not implementation details
 - Use natural language: "add user authentication" not "implement authenticateUser function"
 - Omit details that should be reconstructed by the agent
 - Be clear enough that a skilled developer could implement from scratch
@@ -78,7 +92,7 @@ Key principles for the prompt:
 `,
 }
 
-export async function generatePromptFromCommit({
+export async function generateEvalTask({
   client,
   input,
   agentDefinitions,
@@ -95,24 +109,24 @@ export async function generatePromptFromCommit({
   agentDefinitions?: any[]
 }): Promise<{
   id: string
+  reasoning: string
+  spec: string
   prompt: string
   supplementalFiles: string[]
-  confidence: number
-  reasoning: string
 }> {
   const { diff, editedFilePaths, commitMessage, repoPath } = input
 
   const allAgentDefinitions = [
-    promptGeneratorAgentDef,
+    evalTaskGeneratorAgentDef,
     fileExplorerDef,
     findAllReferencerDef,
     ...(agentDefinitions || []),
   ]
 
   const generatorResult = await client.run({
-    agent: 'git-evals2-prompt-generator',
+    agent: 'git-evals2-eval-task-generator',
     prompt:
-      'Generate a high-level user prompt based on the git diff and codebase exploration',
+      'Generate a task specification and user prompt based on the git diff and codebase exploration',
     params: {
       diff,
       editedFilePaths,
@@ -120,20 +134,29 @@ export async function generatePromptFromCommit({
     },
     cwd: repoPath,
     agentDefinitions: allAgentDefinitions,
+    handleEvent: (event) => {
+      if (event.type === 'subagent_start') {
+        console.log(`[Agent] Starting: ${event.displayName}`)
+      } else if (event.type === 'tool_call') {
+        console.log(`[Tool] ${event.toolName}`)
+      } else if (event.type === 'text') {
+        console.log(`[Text] ${event.text}...`)
+      }
+    },
   })
 
   if (
     generatorResult.output.type !== 'structuredOutput' ||
     !generatorResult.output.value
   ) {
-    throw new Error('Failed to generate structured prompt output')
+    throw new Error('Failed to generate structured task output')
   }
 
   return generatorResult.output.value as {
     id: string
+    reasoning: string
+    spec: string
     prompt: string
     supplementalFiles: string[]
-    reasoning: string
-    confidence: number
   }
 }

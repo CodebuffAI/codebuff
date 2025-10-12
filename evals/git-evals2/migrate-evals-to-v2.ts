@@ -82,10 +82,10 @@ async function migrateCommit(
         encoding: 'utf-8',
       }).trim()
 
-      console.log(`Generating prompt for ${commitSha.slice(0, 8)}...`)
+      console.log(`Generating task for ${commitSha.slice(0, 8)}...`)
 
-      const { generatePromptFromCommit } = await import('./prompt-generator')
-      const promptResult = await generatePromptFromCommit({
+      const { generateEvalTask } = await import('./eval-task-generator')
+      const taskResult = await generateEvalTask({
         client,
         input: {
           commitSha,
@@ -98,21 +98,24 @@ async function migrateCommit(
         agentDefinitions,
       })
 
+      console.log(`Task ID: ${taskResult.id}`)
       console.log(
-        `Generated prompt: ${promptResult.prompt.substring(0, 100)}...`,
+        `Generated spec: ${taskResult.spec.substring(0, 100)}...`,
       )
       console.log(
-        `Supplemental files: ${promptResult.supplementalFiles.length} files`,
+        `Generated prompt: ${taskResult.prompt.substring(0, 100)}...`,
       )
-      console.log(`Task ID: ${promptResult.id}`)
+      console.log(
+        `Supplemental files: ${taskResult.supplementalFiles.length} files`,
+      )
 
       return {
-        id: promptResult.id,
+        id: taskResult.id,
         sha: commitSha,
         parentSha,
-        spec: oldCommit.spec,
-        prompt: promptResult.prompt,
-        supplementalFiles: promptResult.supplementalFiles,
+        spec: taskResult.spec || oldCommit.spec,
+        prompt: taskResult.prompt,
+        supplementalFiles: taskResult.supplementalFiles,
         fileDiffs,
       }
     },
