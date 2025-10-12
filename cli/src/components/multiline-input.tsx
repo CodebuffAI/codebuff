@@ -438,11 +438,11 @@ export function MultilineInput({
 
   const height = useMemo(() => {
     const maxCharsPerLine = Math.max(1, width - 4)
-  const contentForHeight = showCursor
-    ? shouldHighlight
-      ? displayValue
-      : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}${displayValue.slice(cursorPosition)}`
-    : displayValue
+    const contentForHeight = showCursor
+      ? shouldHighlight
+        ? displayValue
+        : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}${displayValue.slice(cursorPosition)}`
+      : displayValue
     const lines = contentForHeight.split('\n')
     let totalLineCount = 0
     for (const line of lines) {
@@ -454,7 +454,7 @@ export function MultilineInput({
       }
     }
     return Math.max(1, Math.min(totalLineCount, maxHeight))
-  }, [displayValue, cursorPosition, showCursor, width, maxHeight])
+  }, [displayValue, cursorPosition, showCursor, shouldHighlight, width, maxHeight])
 
   return (
     <scrollbox

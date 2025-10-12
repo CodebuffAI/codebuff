@@ -26,6 +26,9 @@ export const BranchItem = ({
   theme,
   onToggle,
 }: BranchItemProps) => {
+  const indentPrefix = branchChar ? branchChar.replace(/./g, ' ') : ''
+  const cornerColor = theme.agentPrefix
+
   const isTextRenderable = (value: ReactNode): boolean => {
     if (
       value === null ||
@@ -114,9 +117,7 @@ export const BranchItem = ({
 
   return (
     <box style={{ flexDirection: 'row', flexShrink: 0 }}>
-      <text wrap={false}>
-        <span fg={theme.agentPrefix}>{branchChar}</span>
-      </text>
+      <text wrap={false}>{indentPrefix}</text>
       <box
         style={{
           flexDirection: 'column',
@@ -170,7 +171,60 @@ export const BranchItem = ({
               {finishedPreview}
             </text>
           )}
-          {!isCollapsed && content && renderExpandedContent(content)}
+          {!isCollapsed && content && (
+            <box style={{ flexDirection: 'column', gap: 0 }}>
+              <box
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <text wrap={false} fg={cornerColor}>
+                  ┌
+                </text>
+                <text wrap={false} fg={cornerColor}>
+                  ┐
+                </text>
+              </box>
+              <box
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'stretch',
+                }}
+              >
+                <text wrap={false} fg={cornerColor}>
+                  │
+                </text>
+                <box
+                  style={{
+                    flexDirection: 'column',
+                    gap: 0,
+                    flexGrow: 1,
+                    marginLeft: 1,
+                    marginRight: 1,
+                  }}
+                >
+                  {renderExpandedContent(content)}
+                </box>
+                <text wrap={false} fg={cornerColor}>
+                  │
+                </text>
+              </box>
+              <box
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <text wrap={false} fg={cornerColor}>
+                  └
+                </text>
+                <text wrap={false} fg={cornerColor}>
+                  ┘
+                </text>
+              </box>
+            </box>
+          )}
         </box>
       </box>
     </box>
