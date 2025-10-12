@@ -108,10 +108,13 @@ export async function runAgentOnCommit({
 
         const contextFilePaths = new Set<string>([
           ...commit.supplementalFiles,
-          ...commit.fileDiffs
-            .filter((fd) => fd.status !== 'added')
-            .map((fd) => fd.path),
+          ...commit.fileDiffs.map((fd) => fd.path),
         ])
+        for (const { status, path } of commit.fileDiffs) {
+          if (status === 'added') {
+            contextFilePaths.delete(path)
+          }
+        }
 
         for (const filePath of contextFilePaths) {
           try {
