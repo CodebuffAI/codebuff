@@ -1,8 +1,9 @@
 import path from 'path'
-import { runGitEvals2 } from './run-git-evals2'
+
+import { runBuffBench } from './run-buffbench'
 
 async function main() {
-  const results = await runGitEvals2({
+  const results = await runBuffBench({
     evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
     agents: ['base', 'base2'],
     onProgress: (event) => {

@@ -1,17 +1,17 @@
-import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
-import { CodebuffClient } from '../../sdk/src/client'
 
 import { runAgentOnCommit } from './agent-runner'
 import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
-import { AgentEvalResults, EvalDataV2, ProgressEvent } from './types'
+import { CodebuffClient } from '../../sdk/src/client'
 
-export async function runGitEvals2(options: {
+import type { AgentEvalResults, EvalDataV2, ProgressEvent } from './types'
+
+export async function runBuffBench(options: {
   evalDataPath: string
   agents: string[]
   outputPath?: string
