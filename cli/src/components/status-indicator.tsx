@@ -5,15 +5,6 @@ import { getCodebuffClient } from '../utils/codebuff-client'
 
 import type { ChatTheme } from '../utils/theme-system'
 
-const THINKING_SHIMMER_COLORS = [
-  '#9ca3af',
-  '#8b92a0',
-  '#7a8090',
-  '#6b7280',
-  '#5a6070',
-  '#4a5060',
-]
-
 export const StatusIndicator = ({
   isProcessing,
   theme,
@@ -63,7 +54,13 @@ export const StatusIndicator = ({
   }
 
   if (isProcessing) {
-    return <ShimmerText text="thinking..." colors={THINKING_SHIMMER_COLORS} />
+    return (
+      <ShimmerText
+        text="thinking..."
+        interval={160}
+        primaryColor={theme.statusSecondary}
+      />
+    )
   }
 
   return null
