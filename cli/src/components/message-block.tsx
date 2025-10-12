@@ -16,6 +16,9 @@ import type { ChatTheme } from '../utils/theme-system'
 const trimTrailingNewlines = (value: string): string =>
   value.replace(/[\r\n]+$/g, '')
 
+const sanitizePreview = (value: string): string =>
+  value.replace(/[#*_`~\[\]()]/g, '').trim()
+
 interface MessageBlockProps {
   messageId: string
   blocks?: ContentBlock[]
@@ -123,13 +126,23 @@ export const MessageBlock = ({
                 .split('\n')
                 .filter((line) => line.trim())
               const firstLine = lines[0] || ''
+              const lastLine = lines[lines.length - 1] || firstLine
+              const commandPreview =
+                block.toolName === 'run_terminal_command' &&
+                block.input &&
+                typeof (block.input as any).command === 'string'
+                  ? `$ ${(block.input as any).command.trim()}`
+                  : null
+
               const streamingPreview = isStreaming
-                ? firstLine.replace(/[#*_`~\[\]()]/g, '').trim() + '...'
+                ? commandPreview ?? `${sanitizePreview(firstLine)}...`
                 : ''
 
               let finishedPreview = ''
               if (!isStreaming && isCollapsed) {
-                if (block.toolName === 'run_terminal_command' && block.output) {
+                if (commandPreview) {
+                  finishedPreview = commandPreview
+                } else if (block.toolName === 'run_terminal_command' && block.output) {
                   const outputLines = block.output
                     .split('\n')
                     .filter((line) => line.trim())
@@ -139,9 +152,7 @@ export const MessageBlock = ({
                     ? '...\n' + lastThreeLines.join('\n')
                     : lastThreeLines.join('\n')
                 } else {
-                  finishedPreview = lastLine
-                    .replace(/[#*_`~\[\]()]/g, '')
-                    .trim()
+                  finishedPreview = sanitizePreview(lastLine)
                 }
               }
 
@@ -284,15 +295,22 @@ export const MessageBlock = ({
                         const lastNestedLine =
                           nestedLines[nestedLines.length - 1] || firstNestedLine
 
+                        const nestedCommandPreview =
+                          nestedBlock.toolName === 'run_terminal_command' &&
+                          nestedBlock.input &&
+                          typeof (nestedBlock.input as any).command === 'string'
+                            ? `$ ${(nestedBlock.input as any).command.trim()}`
+                            : null
+
                         const nestedStreamingPreview = isNestedStreaming
-                          ? firstNestedLine
-                              .replace(/[#*_`~\[\]()]/g, '')
-                              .trim() + '...'
+                          ? nestedCommandPreview ?? `${sanitizePreview(firstNestedLine)}...`
                           : ''
 
                         let nestedFinishedPreview = ''
                         if (!isNestedStreaming && isNestedCollapsed) {
-                          if (
+                          if (nestedCommandPreview) {
+                            nestedFinishedPreview = nestedCommandPreview
+                          } else if (
                             nestedBlock.toolName === 'run_terminal_command' &&
                             nestedBlock.output
                           ) {
@@ -305,9 +323,9 @@ export const MessageBlock = ({
                               ? '...\n' + lastThreeLines.join('\n')
                               : lastThreeLines.join('\n')
                           } else {
-                            nestedFinishedPreview = lastNestedLine
-                              .replace(/[#*_`~\[\]()]/g, '')
-                              .trim()
+                            nestedFinishedPreview = sanitizePreview(
+                              lastNestedLine,
+                            )
                           }
                         }
 

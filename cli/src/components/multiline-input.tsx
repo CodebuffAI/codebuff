@@ -1,7 +1,7 @@
 import { useKeyboard, usePaste } from '@opentui/react'
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
 
-import type { ScrollBoxRenderable } from '@opentui/core'
+import { TextAttributes, type ScrollBoxRenderable } from '@opentui/core'
 
 
 // Helper functions for text manipulation
@@ -52,6 +52,8 @@ function findNextWordBoundary(text: string, cursor: number): number {
 
   return pos
 }
+
+const CURSOR_CHAR = '\u2009'
 
 interface MultilineInputProps {
   value: string
@@ -394,30 +396,29 @@ export function MultilineInput({
   // Calculate display with cursor
   const displayValue = value || placeholder
   const isPlaceholder = !value && placeholder
-  const displayText =
-    focused && !isPlaceholder
-      ? displayValue.slice(0, cursorPosition) +
-        '│' +
-        displayValue.slice(cursorPosition)
-      : displayValue
+  const showCursor = focused && !isPlaceholder
+  const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
+  const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
+  const displayText = showCursor
+    ? `${beforeCursor}${CURSOR_CHAR}${afterCursor}`
+    : displayValue
 
   // Memoize height calculation to avoid expensive computation on every render
   const height = useMemo(() => {
     const maxCharsPerLine = Math.max(1, width - 4)
-    const lines = displayValue.split('\n')
+    const contentForHeight = showCursor ? displayText : displayValue
+    const lines = contentForHeight.split('\n')
     let totalLineCount = 0
     for (const line of lines) {
-      if (line.length === 0) {
+      const length = line.length
+      if (length === 0) {
         totalLineCount += 1
       } else {
-        // Account for cursor character which adds 1 to display length
-        const displayLength =
-          focused && !isPlaceholder ? line.length + 1 : line.length
-        totalLineCount += Math.ceil(displayLength / maxCharsPerLine)
+        totalLineCount += Math.ceil(length / maxCharsPerLine)
       }
     }
     return Math.max(1, Math.min(totalLineCount, maxHeight))
-  }, [displayValue, width, focused, isPlaceholder, maxHeight])
+  }, [displayValue, displayText, showCursor, width, maxHeight])
 
   return (
     <scrollbox
@@ -456,7 +457,21 @@ export function MultilineInput({
               : theme.inputFg,
         }}
       >
-        {displayText}
+        {showCursor ? (
+          <>
+            {beforeCursor}
+            <span
+              fg={theme.cursor}
+              bg={theme.cursor}
+              attributes={TextAttributes.BOLD}
+            >
+              {CURSOR_CHAR}
+            </span>
+            {afterCursor}
+          </>
+        ) : (
+          displayText
+        )}
       </text>
     </scrollbox>
   )
