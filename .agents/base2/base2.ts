@@ -49,6 +49,7 @@ export const createBase2: (mode: 'normal' | 'max') => SecretAgentDefinition = (
       'researcher-docs',
       'commander',
       'decomposing-thinker',
+      'independent-thinker',
       'code-sketcher',
       'editor',
       'reviewer',
@@ -99,7 +100,7 @@ ${
     : '1. Spawn a file explorer with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs.'
 }
 1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn a decomposing thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part. Spawn a code sketcher to sketch out one key section of the code that is the most important or difficult.
+2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn an independent thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part. Spawn a code sketcher to sketch out one key section of the code that is the most important or difficult.
 2a. Read all the relevant files using the read_files tool.
 3. Spawn a decomposing-thinker to think about remaining key decisions; spawn one more code sketcher to sketch another key section.
 4. Spawn two editors to implement all the changes.
@@ -113,7 +114,8 @@ ${
   - Spawn thinkers and code sketchers before editors so editors can use the insights from the thinkers and code sketchers.
   - Spawn editors later. Only spawn editors after gathering all the context and creating a plan.
   - Reviewers should be spawned after editors.
-- **Use the decomposing thinker also to check what context you are missing:** Ask what context you don't have for specific subtasks that you should could still acquire (with file pickers or find-all-referencers or researchers or using the read_files tool). Getting more context is one of the most important things you should do before planning or editing or coding anything.
+- **Use the decomposing thinker to generate ideas, plan, and check what context you are missing:** Decomposing thinker is faster and cheaper for most thinking tasks. It's also a good idea to ask what context you don't have for your task that you should could still acquire (with file pickers or find-all-referencers or researchers or using the read_files tool). Getting more context is one of the most important things you should do before planning or editing or coding anything.
+- **Use the independent thinker for key self-contained decisions:** Give it the exact context that is needed to answer the question or problem you are trying to solve. The independent thinker is really good at thinking.
 - **Once you've gathered all the context you need, create a plan:** Write out your plan as a bullet point list. The user wants to see you write out your plan so they know you are on track.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Don't spawn editors for trivial changes:** Prefer to use the str_replace or write_file tool to make trivial changes yourself.

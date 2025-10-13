@@ -46,12 +46,7 @@ When describing command output:
   instructionsPrompt: `The user has provided a command to run and specified what information they want from the output.
 
 Run the command and then describe the relevant information from the output, following the user's instructions about what to focus on.`,
-  handleSteps: function* ({
-    agentState,
-    prompt,
-    params,
-    logger,
-  }: AgentStepContext) {
+  handleSteps: function* ({ params }: AgentStepContext) {
     const command = params?.command as string | undefined
     if (!command) {
       return
