@@ -3,6 +3,7 @@ import type { JudgingResult } from './judge'
 import type { AgentDefinition } from '../../sdk/src'
 import type { CodebuffClient } from '../../sdk/src/client'
 import { withTimeout } from '@codebuff/common/util/promise'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 export interface AgentTraceData {
   agentId: string
@@ -156,7 +157,7 @@ const traceAnalyzerAgent: AgentDefinition = {
 ## Your Role
 
 You will receive:
-1. A task specification (for context only)
+1. A task prompt (for context only)
 2. Full traces from each agent showing their step-by-step process
 3. Performance metrics (scores, cost, time, errors)
 
@@ -190,11 +191,11 @@ Note: read_files tool results show [TRUNCATED] for file contents to save space.`
 export async function analyzeAgentTraces({
   client,
   traces,
-  spec,
+  codingAgentPrompt,
 }: {
   client: CodebuffClient
   traces: AgentTraceData[]
-  spec: string
+  codingAgentPrompt: string
 }): Promise<{
   overallAnalysis: string
   agentFeedback: Array<{
@@ -204,17 +205,18 @@ export async function analyzeAgentTraces({
     recommendations: string[]
   }>
 }> {
-  const truncatedTraces = traces.map((t) => ({
-    agentId: t.agentId,
-    trace: truncateTrace(t.trace),
-    judgeResult: t.judgeResult,
-    cost: t.cost,
-    durationMs: t.durationMs,
-    error: t.error,
-  }))
+  try {
+    const truncatedTraces = traces.map((t) => ({
+      agentId: t.agentId,
+      trace: truncateTrace(t.trace),
+      judgeResult: t.judgeResult,
+      cost: t.cost,
+      durationMs: t.durationMs,
+      error: t.error,
+    }))
 
-  const prompt = `## Task Specification (for context)
-${spec}
+    const prompt = `## Coding Agent Prompt (for context)
+${codingAgentPrompt}
 
 ## Agent Traces and Results
 ${JSON.stringify(truncatedTraces, null, 2)}
@@ -239,39 +241,46 @@ Analyze how these agents approached the problem, focusing on their processes and
 
 Focus on the HOW, not the WHAT: We want to understand and improve how agents work, not evaluate their specific code output.`
 
-  const agentOutput: string[] = []
-  const analyzerResult = await withTimeout(
-    client.run({
-      agent: 'git-evals2-trace-analyzer',
-      prompt,
-      agentDefinitions: [traceAnalyzerAgent],
-      handleEvent: (event) => {
-        if (event.type === 'text') {
-          agentOutput.push(event.text)
-        } else if (event.type === 'tool_call') {
-          agentOutput.push(JSON.stringify(event, null, 2))
-        } else if (event.type === 'error') {
-          console.warn('[Trace Analyzer] Error event:', event.message)
-        }
-      },
-    }),
-    10 * 60 * 1000,
-    'Trace analyzer agent timed out after 10 minutes',
-  )
-
-  const { output } = analyzerResult
-
-  if (output.type !== 'structuredOutput' || output.value === null) {
-    console.error(
-      'Error running trace analyzer - not structured output',
-      JSON.stringify(output, null, 2),
+    const agentOutput: string[] = []
+    const analyzerResult = await withTimeout(
+      client.run({
+        agent: 'git-evals2-trace-analyzer',
+        prompt,
+        agentDefinitions: [traceAnalyzerAgent],
+        handleEvent: (event) => {
+          if (event.type === 'text') {
+            agentOutput.push(event.text)
+          } else if (event.type === 'tool_call') {
+            agentOutput.push(JSON.stringify(event, null, 2))
+          } else if (event.type === 'error') {
+            console.warn('[Trace Analyzer] Error event:', event.message)
+          }
+        },
+      }),
+      10 * 60 * 1000,
+      'Trace analyzer agent timed out after 10 minutes',
     )
-    console.error('Trace analyzer output trace:', agentOutput.join(''))
+
+    const { output } = analyzerResult
+
+    if (output.type !== 'structuredOutput' || output.value === null) {
+      console.error(
+        'Error running trace analyzer - not structured output',
+        JSON.stringify(output, null, 2),
+      )
+      console.error('Trace analyzer output trace:', agentOutput.join(''))
+      return {
+        overallAnalysis: 'Error running trace analyzer - not structured output',
+        agentFeedback: [],
+      }
+    }
+
+    return output.value as any
+  } catch (error) {
+    console.error(`Failed to analyze traces:`, getErrorObject(error))
     return {
-      overallAnalysis: 'Error running trace analyzer - not structured output',
+      overallAnalysis: `Error running trace analyzer: ${getErrorObject(error).message}`,
       agentFeedback: [],
     }
   }
-
-  return output.value as any
 }

@@ -170,64 +170,54 @@ export async function runBuffBench(options: {
       })
 
       const agentResults = await Promise.all(agentPromises) // After all agents complete for this commit, run trace analysis
-      if (commitTraces.length > 1) {
-        try {
-          const analysis = await analyzeAgentTraces({
-            client,
-            traces: commitTraces,
-            spec: commit.spec,
-          })
 
-          // Save analysis to logs directory
-          const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
-          const analysisCommitShort = commit.sha.slice(0, 7)
-          const analysisFilename = `${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
-          const analysisPath = path.join(logsDir, analysisFilename)
+      const traceAnalysis = await analyzeAgentTraces({
+        client,
+        traces: commitTraces,
+        codingAgentPrompt: commit.prompt,
+      })
 
-          const analysisData = {
-            commitSha: commit.sha,
-            timestamp: new Date().toISOString(),
-            ...analysis,
-            results: commitTraces.map((t) => ({
-              agentId: t.agentId,
-              ...t.judgeResult,
-              cost: t.cost,
-              durationMs: t.durationMs,
-              error: t.error,
-            })),
-            spec: commit.spec,
-          }
-
-          const { overallAnalysis, agentFeedback } = analysis
-          fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
-
-          // Print all agent results with their judging, then trace analysis together
-          console.log(
-            formatTaskResults({
-              commit,
-              taskNumber: index + 1,
-              totalTasks: commitsToRun.length,
-              agentResults: commitTraces.map((trace) => ({
-                agentId: trace.agentId,
-                judging: trace.judgeResult,
-                cost: trace.cost,
-                durationMs: trace.durationMs,
-                error: trace.error,
-                traceFilePath: path.join(
-                  logsDir,
-                  `${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
-                ),
-              })),
-              traceAnalysis: { overallAnalysis, agentFeedback },
-            }),
-          )
-        } catch (error) {
-          console.error(
-            `Failed to analyze traces for commit ${commit.sha}:`,
-            error,
-          )
-        }
+      const analysisData = {
+        commitSha: commit.sha,
+        timestamp: new Date().toISOString(),
+        ...traceAnalysis,
+        results: commitTraces.map((t) => ({
+          agentId: t.agentId,
+          ...t.judgeResult,
+          cost: t.cost,
+          durationMs: t.durationMs,
+          error: t.error,
+        })),
+        prompt: commit.prompt,
       }
+
+      // Save analysis to logs directory
+      const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
+      const analysisCommitShort = commit.sha.slice(0, 7)
+      const analysisFilename = `${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
+      const analysisPath = path.join(logsDir, analysisFilename)
+      fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
+
+      // Print all agent results with their judging, then trace analysis together
+      console.log(
+        formatTaskResults({
+          commit,
+          taskNumber: index + 1,
+          totalTasks: commitsToRun.length,
+          agentResults: commitTraces.map((trace) => ({
+            agentId: trace.agentId,
+            judging: trace.judgeResult,
+            cost: trace.cost,
+            durationMs: trace.durationMs,
+            error: trace.error,
+            traceFilePath: path.join(
+              logsDir,
+              `${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
+            ),
+          })),
+          traceAnalysis,
+        }),
+      )
 
       return { commit, agentResults }
     }),
