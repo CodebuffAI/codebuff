@@ -24,12 +24,11 @@ const definition: SecretAgentDefinition = {
   toolNames: ['find_files'],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
-  instructionsPrompt: `
-Provide the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
-In your report, please give an extremely concise analysis that includes the full paths of files that are relevant and (very briefly) how they could be useful.
+  systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}`,
+  instructionsPrompt: `Instructions:
+Provide a short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
+In your report, please give a very concise analysis that includes the full paths of files that are relevant and (briefly) how they could be useful.
   `.trim(),
-  stepPrompt: `Do not use the find_files tool or any tools again. Just give your response.`,
 
   handleSteps: function* ({ agentState, prompt, params }) {
     yield {

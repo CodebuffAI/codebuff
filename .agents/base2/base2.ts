@@ -121,6 +121,8 @@ ${
 - **Don't spawn editors for trivial changes:** Prefer to use the str_replace or write_file tool to make trivial changes yourself.
 - **Prefer not to spawn multiple parallel editors:** It's cheaper and produces better results to just spawn one editor to do all the changes, unless you have multiple large independent changes.
 - **Don't spawn reviewers for trivial changes or simple follow-up tasks:** The reviewer is a bit slow, no need to spawn for little changes.
+
+Don't include any final summary in your response. Just let the user know that you have completed the task briefly.
 `,
 
     stepPrompt: isMax

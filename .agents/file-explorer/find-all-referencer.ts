@@ -21,7 +21,6 @@ const definition: SecretAgentDefinition = {
     'code-searcher',
     'directory-lister',
     'glob-matcher',
-    'file-q-and-a',
   ],
   inputSchema: {
     prompt: {
