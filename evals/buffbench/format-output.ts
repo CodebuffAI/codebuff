@@ -35,7 +35,7 @@ export function formatAgentResult(params: {
 
   lines.push('TASK:')
   lines.push(minorSeparator)
-  lines.push(commit.spec)
+  lines.push(commit.prompt)
   lines.push('')
 
   if (error) {

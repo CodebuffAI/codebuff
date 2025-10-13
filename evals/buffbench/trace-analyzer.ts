@@ -140,7 +140,7 @@ const traceAnalyzerAgent: AgentDefinition = {
             recommendations: {
               type: 'array',
               items: { type: 'string' },
-              description: 'Recommendations for improving this agent',
+              description: 'Recommendations for improving this agent and it\'s process. Note: do not include recommendations for improving the code in this task',
             },
           },
           required: ['agentId', 'strengths', 'weaknesses', 'recommendations'],
