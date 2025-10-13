@@ -9,20 +9,28 @@ export function formatAgentResult(params: {
   durationMs: number
   error?: string
   traceFilePath?: string
+  agentNumber: number
+  totalAgents: number
 }): string {
-  const { agentId, commit, judging, cost, durationMs, error, traceFilePath } =
-    params
+  const {
+    agentId,
+    commit,
+    judging,
+    cost,
+    durationMs,
+    error,
+    traceFilePath,
+    agentNumber,
+    totalAgents,
+  } = params
 
   const lines: string[] = []
-  const separator = '='.repeat(80)
   const minorSeparator = '-'.repeat(80)
 
   lines.push('')
-  lines.push(separator)
-  lines.push(
-    `AGENT RESULT: [${agentId}] - ${commit.id} (${commit.sha.slice(0, 7)})`,
-  )
-  lines.push(separator)
+  lines.push(minorSeparator)
+  lines.push(`AGENT ${agentNumber}/${totalAgents}: [${agentId}]`)
+  lines.push(minorSeparator)
   lines.push('')
 
   lines.push('TASK:')
@@ -76,9 +84,6 @@ export function formatAgentResult(params: {
     lines.push(`Trace saved to: ${traceFilePath}`)
     lines.push('')
   }
-
-  lines.push(separator)
-  lines.push('')
 
   return lines.join('\n')
 }
