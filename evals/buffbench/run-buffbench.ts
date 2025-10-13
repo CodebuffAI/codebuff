@@ -16,22 +16,11 @@ import type { AgentEvalResults, EvalDataV2, ProgressEvent } from './types'
 export async function runBuffBench(options: {
   evalDataPath: string
   agents: string[]
-  outputPath?: string
   commitConcurrency?: number
   onProgress?: (event: ProgressEvent) => void
   client?: CodebuffClient
-}): Promise<{
-  agents: Record<string, AgentEvalResults>
-  timestamp: string
-  totalDuration: number
-}> {
-  const {
-    evalDataPath,
-    agents,
-    outputPath,
-    commitConcurrency = 1,
-    onProgress,
-  } = options
+}) {
+  const { evalDataPath, agents, commitConcurrency = 1, onProgress } = options
 
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
@@ -49,8 +38,7 @@ export async function runBuffBench(options: {
 
   // Create logs directory with current date and time
   const date = new Date().toISOString().replace(/:/g, '-').slice(0, 16) // YYYY-MM-DDTHH-MM
-  const outputDir = outputPath ? path.dirname(outputPath) : __dirname
-  const logsDir = path.join(outputDir, 'logs', date)
+  const logsDir = path.join(__dirname, 'logs', date)
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true })
   }
@@ -272,7 +260,7 @@ export async function runBuffBench(options: {
     }
   }
 
-  for (const [agentId, agentData] of Object.entries(results)) {
+  for (const [_agentId, agentData] of Object.entries(results)) {
     const successfulRuns = agentData.runs.filter((r) => !r.error)
     const totalRuns = agentData.runs.length
 
@@ -293,38 +281,22 @@ export async function runBuffBench(options: {
         : 0
   }
 
-  const result = {
-    agents: results,
-    timestamp: new Date().toISOString(),
-    totalDuration: Date.now() - startTime,
-  }
-
-  if (outputPath) {
-    const outputDir = path.dirname(outputPath)
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true })
-    }
-
-    fs.writeFileSync(outputPath, JSON.stringify(result, null, 2))
-    console.log(`\nResults written to ${outputPath}`)
-  }
-
   const logFiles = fs.readdirSync(logsDir)
 
   const finalResults = {
     metadata: {
-      timestamp: result.timestamp,
+      timestamp: new Date().toISOString(),
       evalDataPath,
       agentsTested: agents,
       commitsEvaluated: commitsToRun.length,
       totalCommitsInEval: evalData.evalCommits.length,
       repoUrl: evalData.repoUrl,
       initCommand: evalData.initCommand,
-      totalDuration: result.totalDuration,
+      totalDuration: Date.now() - startTime,
       logsDirectory: logsDir,
       files: logFiles,
     },
-    ...result.agents,
+    ...results,
   }
 
   const finalResultsPath = path.join(logsDir, 'FINAL_RESULTS.json')
@@ -344,5 +316,5 @@ export async function runBuffBench(options: {
     )
   }
 
-  return result
+  return finalResults
 }

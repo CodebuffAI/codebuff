@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 
 import { runBuffBench } from './run-buffbench'
 
@@ -13,6 +14,10 @@ async function main() {
       }
     },
   })
+
+  const outputPath = path.join(__dirname, 'results.json')
+  fs.writeFileSync(outputPath, JSON.stringify(results, null, 2))
+  console.log(`\nResults written to ${outputPath}`)
 }
 
 if (import.meta.main) {
