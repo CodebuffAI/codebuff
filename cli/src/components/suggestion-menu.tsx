@@ -27,6 +27,12 @@ export const SuggestionMenu = ({
     return null
   }
 
+  const effectivePrefix = prefix ?? ''
+  const maxLabelLength = items.reduce((max, item) => {
+    const totalLength = effectivePrefix.length + item.label.length
+    return totalLength > max ? totalLength : max
+  }, 0)
+
   const clampedSelected = Math.min(
     Math.max(selectedIndex, 0),
     Math.max(items.length - 1, 0),
@@ -63,6 +69,13 @@ export const SuggestionMenu = ({
         {visibleItems.map((item, idx) => {
           const absoluteIndex = start + idx
           const isSelected = absoluteIndex === clampedSelected
+          const labelLength = effectivePrefix.length + item.label.length
+          const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
+          const padding = ' '.repeat(paddingLength)
+          const textColor = isSelected ? theme.agentContentText : theme.inputFg
+          const descriptionColor = isSelected
+            ? theme.agentContentText
+            : theme.timestampUser
           return (
             <box
               key={item.id}
@@ -74,7 +87,7 @@ export const SuggestionMenu = ({
                 paddingTop: 0,
                 paddingBottom: 0,
                 backgroundColor: isSelected
-                  ? theme.inputFocusedBg
+                  ? theme.agentFocusedBg
                   : theme.messageBg,
                 width: '100%',
               }}
@@ -82,23 +95,14 @@ export const SuggestionMenu = ({
               <text
                 wrap={false}
                 style={{
-                  fg: isSelected ? theme.inputFocusedFg : theme.inputFg,
+                  fg: textColor,
                   marginBottom: 0,
                 }}
               >
-                <span fg={theme.agentPrefix}>
-                  {prefix ?? '/'}
-                </span>
+                <span fg={theme.agentPrefix}>{effectivePrefix}</span>
                 <span>{item.label}</span>
-              </text>
-              <text
-                wrap={false}
-                style={{
-                  fg: isSelected ? theme.agentContentText : theme.timestampUser,
-                  marginBottom: 0,
-                }}
-              >
-                {item.description}
+                <span>{padding}</span>
+                <span fg={descriptionColor}>{item.description}</span>
               </text>
             </box>
           )
