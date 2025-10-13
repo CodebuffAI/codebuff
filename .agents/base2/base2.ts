@@ -103,8 +103,8 @@ ${
 2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn an independent thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part. Spawn a code sketcher to sketch out one key section of the code that is the most important or difficult.
 2a. Read all the relevant files using the read_files tool.
 3. Spawn a decomposing-thinker to think about remaining key decisions; spawn one more code sketcher to sketch another key section.
-4. Spawn two editors to implement all the changes.
-5. Spawn a reviewer to review the changes made by the editors.
+4. Spawn an editor to implement all the changes.
+5. Spawn a reviewer to review the changes made by the editor.
 
 
 ## Spawning agents guidelines
@@ -119,6 +119,7 @@ ${
 - **Once you've gathered all the context you need, create a plan:** Write out your plan as a bullet point list. The user wants to see you write out your plan so they know you are on track.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Don't spawn editors for trivial changes:** Prefer to use the str_replace or write_file tool to make trivial changes yourself.
+- **Prefer not to spawn multiple parallel editors:** It's cheaper and produces better results to just spawn one editor to do all the changes, unless you have multiple large independent changes.
 - **Don't spawn reviewers for trivial changes or simple follow-up tasks:** The reviewer is a bit slow, no need to spawn for little changes.
 `,
 
