@@ -72,7 +72,7 @@ export async function runAgentOnCommit({
           }
         }
 
-        const timeoutMs = 10 * 60 * 1000 // 10 minutes
+        const timeoutMs = 30 * 60 * 1000 // 30 minutes
         const result = await withTimeout(
           client.run({
             agent: agentId,
