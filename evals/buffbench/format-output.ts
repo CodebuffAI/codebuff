@@ -1,6 +1,77 @@
 import type { JudgingResult } from './judge'
 import type { EvalCommitV2 } from './types'
 
+interface AgentResultData {
+  agentId: string
+  judging: JudgingResult
+  cost: number
+  durationMs: number
+  error?: string
+  traceFilePath?: string
+}
+
+interface TraceAnalysisData {
+  overallAnalysis: string
+  agentFeedback: Array<{
+    agentId: string
+    strengths: string[]
+    weaknesses: string[]
+    recommendations: string[]
+  }>
+}
+
+export function formatTaskResults({
+  commit,
+  taskNumber,
+  totalTasks,
+  agentResults,
+  traceAnalysis,
+}: {
+  commit: EvalCommitV2
+  taskNumber: number
+  totalTasks: number
+  agentResults: AgentResultData[]
+  traceAnalysis?: TraceAnalysisData
+}): string {
+  const separator = '='.repeat(80)
+  const minorSeparator = '-'.repeat(80)
+  const lines: string[] = [
+    '',
+    separator,
+    `RESULTS FOR TASK ${taskNumber}/${totalTasks}: ${commit.id} (${commit.sha.slice(0, 7)})`,
+    separator,
+    '',
+    'TASK:',
+    minorSeparator,
+    commit.prompt,
+    '',
+  ]
+
+  // Print each agent's results
+  agentResults.forEach((result, index) => {
+    lines.push(
+      formatAgentResult({
+        ...result,
+        commit,
+        agentNumber: index + 1,
+        totalAgents: agentResults.length,
+      }),
+    )
+  })
+
+  // Add trace analysis if provided
+  if (traceAnalysis) {
+    lines.push(
+      formatTraceAnalysis({
+        commit,
+        ...traceAnalysis,
+      }),
+    )
+  }
+
+  return lines.join('\n')
+}
+
 export function formatAgentResult(params: {
   agentId: string
   commit: EvalCommitV2
@@ -31,11 +102,6 @@ export function formatAgentResult(params: {
   lines.push(minorSeparator)
   lines.push(`AGENT ${agentNumber}/${totalAgents}: [${agentId}]`)
   lines.push(minorSeparator)
-  lines.push('')
-
-  lines.push('TASK:')
-  lines.push(minorSeparator)
-  lines.push(commit.prompt)
   lines.push('')
 
   if (error) {

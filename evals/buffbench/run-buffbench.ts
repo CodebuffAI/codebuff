@@ -6,7 +6,7 @@ import { getUserCredentials } from '@codebuff/npm-app/credentials'
 import pLimit from 'p-limit'
 
 import { runAgentOnCommit } from './agent-runner'
-import { formatAgentResult, formatTraceAnalysis } from './format-output'
+import { formatTaskResults } from './format-output'
 import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { CodebuffClient } from '../../sdk/src/client'
@@ -170,9 +170,7 @@ export async function runBuffBench(options: {
         }
       })
 
-      const agentResults = await Promise.all(agentPromises)
-
-      // After all agents complete for this commit, run trace analysis
+      const agentResults = await Promise.all(agentPromises) // After all agents complete for this commit, run trace analysis
       if (commitTraces.length > 1) {
         try {
           const analysis = await analyzeAgentTraces({
@@ -205,36 +203,25 @@ export async function runBuffBench(options: {
           fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
 
           // Print all agent results with their judging, then trace analysis together
-          console.log('\n' + '='.repeat(80))
           console.log(
-            `RESULTS FOR TASK ${index + 1}/${commitsToRun.length}: ${commit.id} (${commit.sha.slice(0, 7)})`,
-          )
-          console.log('='.repeat(80))
-
-          commitTraces.forEach((trace, traceIndex) => {
-            const formattedOutput = formatAgentResult({
-              agentId: trace.agentId,
+            formatTaskResults({
               commit,
-              judging: trace.judgeResult,
-              cost: trace.cost,
-              durationMs: trace.durationMs,
-              error: trace.error,
-              traceFilePath: path.join(
-                logsDir,
-                `${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
-              ),
-              agentNumber: traceIndex + 1,
-              totalAgents: commitTraces.length,
-            })
-            console.log(formattedOutput)
-          })
-
-          const formattedAnalysis = formatTraceAnalysis({
-            commit,
-            overallAnalysis,
-            agentFeedback,
-          })
-          console.log(formattedAnalysis)
+              taskNumber: index + 1,
+              totalTasks: commitsToRun.length,
+              agentResults: commitTraces.map((trace) => ({
+                agentId: trace.agentId,
+                judging: trace.judgeResult,
+                cost: trace.cost,
+                durationMs: trace.durationMs,
+                error: trace.error,
+                traceFilePath: path.join(
+                  logsDir,
+                  `${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
+                ),
+              })),
+              traceAnalysis: { overallAnalysis, agentFeedback },
+            }),
+          )
         } catch (error) {
           console.error(
             `Failed to analyze traces for commit ${commit.sha}:`,
@@ -255,7 +242,7 @@ export async function runBuffBench(options: {
   for (const result of commitResults) {
     if (result.status === 'fulfilled') {
       const { commit, agentResults } = result.value
-      
+
       // Check if any agent had an error for this commit
       const hasAnyError = agentResults.some(({ evalRun }) => evalRun.error)
       if (hasAnyError) {
@@ -289,8 +276,7 @@ export async function runBuffBench(options: {
 
     agentData.averageDuration =
       validRuns.length > 0
-        ? validRuns.reduce((sum, r) => sum + r.durationMs, 0) /
-          validRuns.length
+        ? validRuns.reduce((sum, r) => sum + r.durationMs, 0) / validRuns.length
         : 0
   }
 
