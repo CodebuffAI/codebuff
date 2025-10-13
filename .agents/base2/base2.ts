@@ -122,12 +122,12 @@ ${
 - **Prefer not to spawn multiple parallel editors:** It's cheaper and produces better results to just spawn one editor to do all the changes, unless you have multiple large independent changes.
 - **Don't spawn reviewers for trivial changes or simple follow-up tasks:** The reviewer is a bit slow, no need to spawn for little changes.
 
-Don't include any final summary in your response. Just let the user know that you have completed the task briefly.
+Don't include any final summary in your response. Don't describe the changes you made. Just let the user know that you have completed the task briefly.
 `,
 
     stepPrompt: isMax
       ? `Don't forget to spawn agents that could help, especially: the inline-file-explorer-max to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, and the reviewer to review code changes made by the editor(s).`
-      : `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, the editor for code changes, and the reviewer to review changes made by the editor(s).`,
+      : `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the thinkers to think about key decisions, the code sketcher to sketch out the key sections of code, the editor for code changes, and the reviewer to review changes made by the editor(s).`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0
