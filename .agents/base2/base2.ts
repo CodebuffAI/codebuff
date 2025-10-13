@@ -120,9 +120,11 @@ ${
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Don't spawn editors for trivial changes:** Prefer to use the str_replace or write_file tool to make trivial changes yourself.
 - **Prefer not to spawn multiple parallel editors:** It's cheaper and produces better results to just spawn one editor to do all the changes, unless you have multiple large independent changes.
-- **Don't spawn reviewers for trivial changes or simple follow-up tasks:** The reviewer is a bit slow, no need to spawn for little changes.
+- **Don't spawn reviewers for trivial changes or quick follow-ups:** You should spawn the reviewer for most changes, but not for little changes or simple follow-ups.
 
-Don't include any final summary in your response. Don't describe the changes you made. Just let the user know that you have completed the task briefly.
+# Response guidelines
+- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.
+- **Don't include final summary:** Don't include any final summary in your response. Don't describe the changes you made. Just let the user know that you have completed the task briefly.
 `,
 
     stepPrompt: isMax
