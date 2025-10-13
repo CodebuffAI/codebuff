@@ -502,34 +502,27 @@ export const loopAgentSteps = async (
   })
 
   // Initialize message history with user prompt and instructions on first iteration
-  const hasPrompt = Boolean(
-    prompt || (spawnParams && Object.keys(spawnParams).length > 0),
-  )
-
-  // Get the instructions prompt if we have a prompt/params
-  const instructionsPrompt = hasPrompt
-    ? await getAgentPrompt({
-        ...params,
-        agentTemplate,
-        promptType: { type: 'instructionsPrompt' },
-        agentTemplates: localAgentTemplates,
-        additionalToolDefinitions: () => {
-          const additionalToolDefinitions = cloneDeep(
-            Object.fromEntries(
-              Object.entries(fileContext.customToolDefinitions).filter(
-                ([toolName]) => agentTemplate.toolNames.includes(toolName),
-              ),
-            ),
-          )
-          return getMCPToolData({
-            ws,
-            toolNames: agentTemplate.toolNames,
-            mcpServers: agentTemplate.mcpServers,
-            writeTo: additionalToolDefinitions,
-          })
-        },
+  const instructionsPrompt = await getAgentPrompt({
+    ...params,
+    agentTemplate,
+    promptType: { type: 'instructionsPrompt' },
+    agentTemplates: localAgentTemplates,
+    additionalToolDefinitions: () => {
+      const additionalToolDefinitions = cloneDeep(
+        Object.fromEntries(
+          Object.entries(fileContext.customToolDefinitions).filter(
+            ([toolName]) => agentTemplate.toolNames.includes(toolName),
+          ),
+        ),
+      )
+      return getMCPToolData({
+        ws,
+        toolNames: agentTemplate.toolNames,
+        mcpServers: agentTemplate.mcpServers,
+        writeTo: additionalToolDefinitions,
       })
-    : undefined
+    },
+  })
 
   // Build the initial message history with user prompt and instructions
   // Generate system prompt once, using parent's if inheritParentSystemPrompt is true
@@ -558,12 +551,16 @@ export const loopAgentSteps = async (
           },
         })) ?? ''
 
+  const hasUserMessage = Boolean(
+    prompt || (spawnParams && Object.keys(spawnParams).length > 0),
+  )
+
   const initialMessages = buildArray<Message>(
     ...agentState.messageHistory,
 
-    hasPrompt && [
+    hasUserMessage && [
       {
-        // Actual user prompt!
+        // Actual user message!
         role: 'user' as const,
         content: buildUserMessageContent(prompt, spawnParams, content),
         keepDuringTruncation: true,
