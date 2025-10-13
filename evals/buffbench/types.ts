@@ -63,25 +63,3 @@ export interface AgentEvalResults {
   averageCost: number
   averageDuration: number
 }
-
-export type ProgressEvent =
-  | {
-      type: 'agent_start'
-      agent: string
-      commit: string
-      evalId: string
-    }
-  | {
-      type: 'agent_complete'
-      agent: string
-      commit: string
-      evalId: string
-      score: number
-    }
-  | {
-      type: 'agent_error'
-      agent: string
-      commit: string
-      evalId: string
-      error: string
-    }

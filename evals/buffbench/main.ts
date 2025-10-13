@@ -8,11 +8,6 @@ async function main() {
     evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
     agents: ['base', 'base2'],
     commitConcurrency: 10,
-    onProgress: (event) => {
-      if (event.type === 'agent_error') {
-        console.log(`[${event.agent}] ✗ ${event.evalId} error: ${event.error}`)
-      }
-    },
   })
 
   const outputPath = path.join(__dirname, 'results.json')

@@ -11,16 +11,154 @@ import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { CodebuffClient } from '../../sdk/src/client'
 
-import type { AgentEvalResults, EvalDataV2, ProgressEvent } from './types'
+import type { AgentEvalResults, EvalDataV2 } from './types'
+
+async function runTask(options: {
+  client: CodebuffClient
+  commit: EvalDataV2['evalCommits'][0]
+  agents: string[]
+  repoUrl: string
+  initCommand?: string
+  logsDir: string
+  index: number
+  totalTasks: number
+}) {
+  const {
+    client,
+    commit,
+    agents,
+    repoUrl,
+    initCommand,
+    logsDir,
+    index,
+    totalTasks,
+  } = options
+
+  console.log(
+    `\n=== Task ${index + 1}/${totalTasks}: ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
+  )
+
+  // Store trace data for this commit to analyze later
+  const commitTraces: AgentTraceData[] = []
+
+  const agentPromises = agents.map(async (agentId) => {
+    const agentResult = await runAgentOnCommit({
+      client,
+      agentId,
+      commit,
+      repoUrl,
+      initCommand,
+    })
+
+    const judgeResult = await judgeCommitResult({
+      client,
+      prompt: commit.prompt,
+      groundTruthFileDiffs: commit.fileDiffs,
+      contextFiles: agentResult.contextFiles,
+      agentDiff: agentResult.diff,
+      error: agentResult.error,
+    })
+
+    const evalRun = {
+      commitSha: commit.sha,
+      prompt: commit.prompt,
+      diff: agentResult.diff,
+      judging: judgeResult,
+      cost: agentResult.cost,
+      durationMs: agentResult.durationMs,
+      error: agentResult.error,
+    }
+
+    // Save trace to logs directory
+    const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
+    const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
+    const safeCommitShort = commit.sha.slice(0, 7)
+    const traceFilename = `${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
+    const tracePath = path.join(logsDir, traceFilename)
+
+    // Store judging result and trace for combined output later
+    commitTraces.push({
+      agentId,
+      commitSha: commit.sha,
+      prompt: commit.prompt,
+      trace: agentResult.trace,
+      diff: agentResult.diff,
+      judgeResult,
+      cost: agentResult.cost,
+      durationMs: agentResult.durationMs,
+      error: agentResult.error,
+      timestamp: new Date().toISOString(),
+    })
+
+    fs.writeFileSync(
+      tracePath,
+      JSON.stringify(commitTraces[commitTraces.length - 1], null, 2),
+    )
+
+    return { agentId, evalRun }
+  })
+
+  const agentResults = await Promise.all(agentPromises)
+
+  // After all agents complete for this commit, run trace analysis
+  const traceAnalysis = await analyzeAgentTraces({
+    client,
+    traces: commitTraces,
+    codingAgentPrompt: commit.prompt,
+  })
+
+  const analysisData = {
+    commitSha: commit.sha,
+    timestamp: new Date().toISOString(),
+    ...traceAnalysis,
+    results: commitTraces.map((t) => ({
+      agentId: t.agentId,
+      ...t.judgeResult,
+      cost: t.cost,
+      durationMs: t.durationMs,
+      error: t.error,
+    })),
+    prompt: commit.prompt,
+  }
+
+  // Save analysis to logs directory
+  const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
+  const analysisCommitShort = commit.sha.slice(0, 7)
+  const analysisFilename = `${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
+  const analysisPath = path.join(logsDir, analysisFilename)
+  fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
+
+  // Print all agent results with their judging, then trace analysis together
+  console.log(
+    formatTaskResults({
+      commit,
+      taskNumber: index + 1,
+      totalTasks,
+      agentResults: commitTraces.map((trace) => ({
+        agentId: trace.agentId,
+        judging: trace.judgeResult,
+        cost: trace.cost,
+        durationMs: trace.durationMs,
+        error: trace.error,
+        traceFilePath: path.join(
+          logsDir,
+          `${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
+        ),
+      })),
+      traceAnalysis,
+    }),
+  )
+
+  return { commit, agentResults, commitTraces }
+}
 
 export async function runBuffBench(options: {
   evalDataPath: string
   agents: string[]
   commitConcurrency?: number
-  onProgress?: (event: ProgressEvent) => void
   client?: CodebuffClient
 }) {
-  const { evalDataPath, agents, commitConcurrency = 1, onProgress } = options
+  const { evalDataPath, agents, commitConcurrency = 1 } = options
 
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
@@ -56,171 +194,18 @@ export async function runBuffBench(options: {
   const commitLimit = pLimit(commitConcurrency)
 
   const commitPromises = commitsToRun.map((commit, index) =>
-    commitLimit(async () => {
-      console.log(
-        `\n=== Task ${index + 1}/${commitsToRun.length}: ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
-      )
-
-      // Store trace data for this commit to analyze later
-      const commitTraces: AgentTraceData[] = []
-
-      const agentPromises = agents.map(async (agentId) => {
-        onProgress?.({
-          type: 'agent_start',
-          agent: agentId,
-          commit: commit.sha,
-          evalId: commit.id,
-        })
-
-        try {
-          const agentResult = await runAgentOnCommit({
-            client,
-            agentId,
-            commit,
-            repoUrl: evalData.repoUrl,
-            initCommand: evalData.initCommand,
-          })
-
-          const judgeResult = await judgeCommitResult({
-            client,
-            prompt: commit.prompt,
-            groundTruthFileDiffs: commit.fileDiffs,
-            contextFiles: agentResult.contextFiles,
-            agentDiff: agentResult.diff,
-            error: agentResult.error,
-          })
-
-          const evalRun = {
-            commitSha: commit.sha,
-            prompt: commit.prompt,
-            diff: agentResult.diff,
-            judging: judgeResult,
-            cost: agentResult.cost,
-            durationMs: agentResult.durationMs,
-            error: agentResult.error,
-          }
-
-          // Save trace to logs directory
-          const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
-          const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
-          const safeCommitShort = commit.sha.slice(0, 7)
-          const traceFilename = `${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
-          const tracePath = path.join(logsDir, traceFilename)
-
-          // Store judging result and trace for combined output later
-          commitTraces.push({
-            agentId,
-            commitSha: commit.sha,
-            prompt: commit.prompt,
-            trace: agentResult.trace,
-            diff: agentResult.diff,
-            judgeResult,
-            cost: agentResult.cost,
-            durationMs: agentResult.durationMs,
-            error: agentResult.error,
-            timestamp: new Date().toISOString(),
-          })
-
-          fs.writeFileSync(
-            tracePath,
-            JSON.stringify(commitTraces[commitTraces.length - 1], null, 2),
-          )
-
-          onProgress?.({
-            type: 'agent_complete',
-            agent: agentId,
-            commit: commit.sha,
-            evalId: commit.id,
-            score: judgeResult.overallScore,
-          })
-
-          return { agentId, evalRun }
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error)
-
-          onProgress?.({
-            type: 'agent_error',
-            agent: agentId,
-            commit: commit.sha,
-            evalId: commit.id,
-            error: errorMessage,
-          })
-
-          return {
-            agentId,
-            evalRun: {
-              commitSha: commit.sha,
-              prompt: commit.prompt,
-              diff: '',
-              judging: {
-                analysis: '',
-                strengths: [],
-                weaknesses: [],
-                completionScore: 0,
-                codeQualityScore: 0,
-                overallScore: 0,
-              },
-              cost: 0,
-              durationMs: 0,
-              error: errorMessage,
-            },
-          }
-        }
-      })
-
-      const agentResults = await Promise.all(agentPromises) // After all agents complete for this commit, run trace analysis
-
-      const traceAnalysis = await analyzeAgentTraces({
+    commitLimit(() =>
+      runTask({
         client,
-        traces: commitTraces,
-        codingAgentPrompt: commit.prompt,
-      })
-
-      const analysisData = {
-        commitSha: commit.sha,
-        timestamp: new Date().toISOString(),
-        ...traceAnalysis,
-        results: commitTraces.map((t) => ({
-          agentId: t.agentId,
-          ...t.judgeResult,
-          cost: t.cost,
-          durationMs: t.durationMs,
-          error: t.error,
-        })),
-        prompt: commit.prompt,
-      }
-
-      // Save analysis to logs directory
-      const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
-      const analysisCommitShort = commit.sha.slice(0, 7)
-      const analysisFilename = `${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
-      const analysisPath = path.join(logsDir, analysisFilename)
-      fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
-
-      // Print all agent results with their judging, then trace analysis together
-      console.log(
-        formatTaskResults({
-          commit,
-          taskNumber: index + 1,
-          totalTasks: commitsToRun.length,
-          agentResults: commitTraces.map((trace) => ({
-            agentId: trace.agentId,
-            judging: trace.judgeResult,
-            cost: trace.cost,
-            durationMs: trace.durationMs,
-            error: trace.error,
-            traceFilePath: path.join(
-              logsDir,
-              `${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
-            ),
-          })),
-          traceAnalysis,
-        }),
-      )
-
-      return { commit, agentResults }
-    }),
+        commit,
+        agents,
+        repoUrl: evalData.repoUrl,
+        initCommand: evalData.initCommand,
+        logsDir,
+        index,
+        totalTasks: commitsToRun.length,
+      }),
+    ),
   )
 
   const commitResults = await Promise.allSettled(commitPromises)
