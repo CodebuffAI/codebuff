@@ -104,9 +104,11 @@ export const MessageBlock = ({
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
     const codeBlockLang =
       toolBlock.toolName === 'run_terminal_command' ? '' : 'yaml'
-    const resultContent = toolBlock.output
-      ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${toolBlock.output}\n\`\`\``
-      : ''
+    const shouldRenderResult = toolBlock.toolName !== 'end_turn'
+    const resultContent =
+      shouldRenderResult && toolBlock.output
+        ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${toolBlock.output}\n\`\`\``
+        : ''
     const fullContent = inputContent + resultContent
 
     const lines = fullContent

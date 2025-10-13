@@ -50,8 +50,7 @@ export const BranchItem = ({
   const toggleTextColor =
     (isStreaming ? theme.agentToggleHeaderText : theme.agentToggleText) ??
     theme.agentToggleText
-  const statusSymbol = isStreaming ? '●' : ' '
-  const toggleLabel = `${isCollapsed ? '▸' : '▾'} ${statusSymbol} `
+  const toggleLabel = `${isCollapsed ? '▸' : '▾'} `
 
   const isTextRenderable = (value: ReactNode): boolean => {
     if (
@@ -193,22 +192,43 @@ export const BranchItem = ({
               {finishedPreview}
             </text>
           )}
-          {!isCollapsed && content && (
-            <box
-              border
-              borderStyle="single"
-              borderColor={cornerColor}
-              customBorderChars={borderCharsWithoutVertical}
-              style={{
-                flexDirection: 'column',
-                gap: 0,
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-              }}
-            >
-              {renderExpandedContent(content)}
+          {!isCollapsed && (
+            <box style={{ flexDirection: 'column', gap: 1 }}>
+              {content && (
+                <box
+                  border
+                  borderStyle="single"
+                  borderColor={cornerColor}
+                  customBorderChars={borderCharsWithoutVertical}
+                  style={{
+                    flexDirection: 'column',
+                    gap: 0,
+                    paddingLeft: 1,
+                    paddingRight: 1,
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                  }}
+                >
+                  {renderExpandedContent(content)}
+                </box>
+              )}
+              <box
+                style={{
+                  alignSelf: 'flex-end',
+                  backgroundColor: theme.agentFocusedBg,
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                }}
+                onMouseDown={onToggle}
+              >
+                <text wrap={false}>
+                  <span fg={toggleTextColor} attributes={TextAttributes.BOLD}>
+                    Collapse
+                  </span>
+                </text>
+              </box>
             </box>
           )}
         </box>
