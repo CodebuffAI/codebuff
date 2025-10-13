@@ -1,6 +1,7 @@
 import { execSync } from 'child_process'
 import path from 'path'
 
+import { withTimeout } from '@codebuff/common/util/promise'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import { CodebuffClient } from '../../sdk/src/client'
 import { withTestRepo } from '../subagents/test-repo-utils'
@@ -71,31 +72,36 @@ export async function runAgentOnCommit({
           }
         }
 
-        const result = await client.run({
-          agent: agentId,
-          prompt: commit.prompt,
-          agentDefinitions: localAgentDefinitions,
-          cwd: repoDir,
-          handleEvent: (event) => {
-            if (event.type === 'text') {
-              if (toolResults.length > 0) {
+        const timeoutMs = 10 * 60 * 1000 // 10 minutes
+        const result = await withTimeout(
+          client.run({
+            agent: agentId,
+            prompt: commit.prompt,
+            agentDefinitions: localAgentDefinitions,
+            cwd: repoDir,
+            handleEvent: (event) => {
+              if (event.type === 'text') {
+                if (toolResults.length > 0) {
+                  flushStep()
+                }
+                responseText += event.text
+              } else if (event.type === 'tool_call') {
+                if (event.toolName === 'set_messages') {
+                  return
+                }
+                toolCalls.push(event)
+              } else if (event.type === 'tool_result') {
+                toolResults.push(event)
+              } else if (event.type === 'finish') {
                 flushStep()
+              } else if (event.type === 'error') {
+                console.error(`[${agentId}] Error event:`, event.message)
               }
-              responseText += event.text
-            } else if (event.type === 'tool_call') {
-              if (event.toolName === 'set_messages') {
-                return
-              }
-              toolCalls.push(event)
-            } else if (event.type === 'tool_result') {
-              toolResults.push(event)
-            } else if (event.type === 'finish') {
-              flushStep()
-            } else if (event.type === 'error') {
-              console.error(`[${agentId}] Error event:`, event.message)
-            }
-          },
-        })
+            },
+          }),
+          timeoutMs,
+          `Agent ${agentId} timed out after ${timeoutMs / 1000} seconds`,
+        )
 
         flushStep()
         cost = result.sessionState.mainAgentState.creditsUsed / 100
