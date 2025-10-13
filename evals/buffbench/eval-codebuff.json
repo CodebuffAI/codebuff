@@ -3074,8 +3074,6 @@
         "backend/src/__tests__/main-prompt.test.ts",
         "backend/src/__tests__/tool-call-schema.test.ts",
         "backend/src/__tests__/run-agent-step-tools.test.ts",
-        "common/src/util/parse-tool-call-xml.ts",
-        "common/src/util/__tests__/parse-tool-call-xml.test.ts",
         "common/src/templates/agent-validation.ts",
         "common/src/types/dynamic-agent-template.ts",
         "npm-app/src/cli-handlers/agents.ts"

@@ -249,9 +249,19 @@ export async function runBuffBench(options: {
 
   const commitResults = await Promise.allSettled(commitPromises)
 
+  // Track which commits had any agent errors
+  const commitShasWithErrors = new Set<string>()
+
   for (const result of commitResults) {
     if (result.status === 'fulfilled') {
-      const { agentResults } = result.value
+      const { commit, agentResults } = result.value
+      
+      // Check if any agent had an error for this commit
+      const hasAnyError = agentResults.some(({ evalRun }) => evalRun.error)
+      if (hasAnyError) {
+        commitShasWithErrors.add(commit.sha)
+      }
+
       for (const { agentId, evalRun } of agentResults) {
         results[agentId].runs.push(evalRun)
       }
@@ -261,23 +271,26 @@ export async function runBuffBench(options: {
   }
 
   for (const [_agentId, agentData] of Object.entries(results)) {
-    const successfulRuns = agentData.runs.filter((r) => !r.error)
-    const totalRuns = agentData.runs.length
+    // Filter out runs from commits where ANY agent had an error
+    const validRuns = agentData.runs.filter(
+      (r) => !commitShasWithErrors.has(r.commitSha),
+    )
 
     agentData.averageScore =
-      successfulRuns.length > 0
-        ? successfulRuns.reduce((sum, r) => sum + r.judging.overallScore, 0) /
-          successfulRuns.length
+      validRuns.length > 0
+        ? validRuns.reduce((sum, r) => sum + r.judging.overallScore, 0) /
+          validRuns.length
         : 0
 
     agentData.averageCost =
-      totalRuns > 0
-        ? agentData.runs.reduce((sum, r) => sum + r.cost, 0) / totalRuns
+      validRuns.length > 0
+        ? validRuns.reduce((sum, r) => sum + r.cost, 0) / validRuns.length
         : 0
 
     agentData.averageDuration =
-      totalRuns > 0
-        ? agentData.runs.reduce((sum, r) => sum + r.durationMs, 0) / totalRuns
+      validRuns.length > 0
+        ? validRuns.reduce((sum, r) => sum + r.durationMs, 0) /
+          validRuns.length
         : 0
   }
 
@@ -303,16 +316,24 @@ export async function runBuffBench(options: {
   fs.writeFileSync(finalResultsPath, JSON.stringify(finalResults, null, 2))
 
   console.log(`Traces saved to ${logsDir}`)
+  if (commitShasWithErrors.size > 0) {
+    console.log(
+      `\nNote: ${commitShasWithErrors.size} commit(s) had agent errors and were excluded from averages`,
+    )
+  }
   console.log('\n=== Summary ===')
   for (const [agentId, data] of Object.entries(results)) {
+    const validRuns = data.runs.filter(
+      (r) => !commitShasWithErrors.has(r.commitSha),
+    )
     console.log(`\n${agentId}:`)
     console.log(`  Average Score: ${data.averageScore.toFixed(2)}/10`)
-    console.log(`  Average Cost: $${data.averageCost.toFixed(4)}`)
+    console.log(`  Average Cost: ${data.averageCost.toFixed(4)}`)
     console.log(
       `  Average Duration: ${(data.averageDuration / 1000).toFixed(1)}s`,
     )
     console.log(
-      `  Success: ${data.runs.filter((r) => !r.error).length}/${data.runs.length}`,
+      `  Valid runs: ${validRuns.length}/${data.runs.length} (excluding ${commitShasWithErrors.size} commit(s) with errors)`,
     )
   }
 
