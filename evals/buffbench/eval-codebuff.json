@@ -437,7 +437,6 @@
         "web/src/components/docs/toc.tsx",
         "web/src/components/docs/mdx/markdown-table.tsx",
         "web/src/components/docs/mdx/custom-link.tsx",
-        "web/src/hooks/use-mobile.ts",
         "web/src/lib/docs.ts"
       ],
       "fileDiffs": [
