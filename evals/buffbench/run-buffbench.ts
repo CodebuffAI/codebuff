@@ -60,7 +60,6 @@ export async function runBuffBench(options: {
       console.log(
         `\n=== Task ${index + 1}/${commitsToRun.length}: ${commit.id} (${commit.sha.slice(0, 7)}) ===`,
       )
-      console.log(`Prompt: ${commit.prompt}`)
 
       // Store trace data for this commit to analyze later
       const commitTraces: AgentTraceData[] = []

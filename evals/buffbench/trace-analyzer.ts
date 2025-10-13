@@ -2,6 +2,7 @@ import type { AgentStep } from './agent-runner'
 import type { JudgingResult } from './judge'
 import type { AgentDefinition } from '../../sdk/src'
 import type { CodebuffClient } from '../../sdk/src/client'
+import { withTimeout } from '@codebuff/common/util/promise'
 
 export interface AgentTraceData {
   agentId: string
@@ -140,7 +141,8 @@ const traceAnalyzerAgent: AgentDefinition = {
             recommendations: {
               type: 'array',
               items: { type: 'string' },
-              description: 'Recommendations for improving this agent and it\'s process. Note: do not include recommendations for improving the code in this task',
+              description:
+                "Recommendations for improving this agent and it's process. Note: do not include recommendations for improving the code in this task",
             },
           },
           required: ['agentId', 'strengths', 'weaknesses', 'recommendations'],
@@ -238,20 +240,24 @@ Analyze how these agents approached the problem, focusing on their processes and
 Focus on the HOW, not the WHAT: We want to understand and improve how agents work, not evaluate their specific code output.`
 
   const agentOutput: string[] = []
-  const analyzerResult = await client.run({
-    agent: 'git-evals2-trace-analyzer',
-    prompt,
-    agentDefinitions: [traceAnalyzerAgent],
-    handleEvent: (event) => {
-      if (event.type === 'text') {
-        agentOutput.push(event.text)
-      } else if (event.type === 'tool_call') {
-        agentOutput.push(JSON.stringify(event, null, 2))
-      } else if (event.type === 'error') {
-        console.warn('[Trace Analyzer] Error event:', event.message)
-      }
-    },
-  })
+  const analyzerResult = await withTimeout(
+    client.run({
+      agent: 'git-evals2-trace-analyzer',
+      prompt,
+      agentDefinitions: [traceAnalyzerAgent],
+      handleEvent: (event) => {
+        if (event.type === 'text') {
+          agentOutput.push(event.text)
+        } else if (event.type === 'tool_call') {
+          agentOutput.push(JSON.stringify(event, null, 2))
+        } else if (event.type === 'error') {
+          console.warn('[Trace Analyzer] Error event:', event.message)
+        }
+      },
+    }),
+    10 * 60 * 1000,
+    'Trace analyzer agent timed out after 10 minutes',
+  )
 
   const { output } = analyzerResult
 
