@@ -105,7 +105,7 @@ export async function runBuffBench(options: {
 
           const evalRun = {
             commitSha: commit.sha,
-            spec: commit.spec,
+            prompt: commit.prompt,
             diff: agentResult.diff,
             judging: judgeResult,
             cost: agentResult.cost,
@@ -124,7 +124,7 @@ export async function runBuffBench(options: {
           commitTraces.push({
             agentId,
             commitSha: commit.sha,
-            spec: commit.spec,
+            prompt: commit.prompt,
             trace: agentResult.trace,
             diff: agentResult.diff,
             judgeResult,
@@ -164,7 +164,7 @@ export async function runBuffBench(options: {
             agentId,
             evalRun: {
               commitSha: commit.sha,
-              spec: commit.spec,
+              prompt: commit.prompt,
               diff: '',
               judging: {
                 analysis: '',

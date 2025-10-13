@@ -6,7 +6,7 @@ import type { CodebuffClient } from '../../sdk/src/client'
 export interface AgentTraceData {
   agentId: string
   commitSha: string
-  spec: string
+  prompt: string
   trace: AgentStep[]
   diff: string
   judgeResult: JudgingResult

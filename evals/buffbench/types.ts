@@ -48,7 +48,7 @@ export interface EvalDataV2 {
 
 export interface EvalRun {
   commitSha: string
-  spec: string
+  prompt: string
   diff: string
   judging: JudgingResult
   cost: number
