@@ -97,6 +97,10 @@ export const MessageBlock = ({
     isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode => {
+    if (toolBlock.toolName === 'end_turn') {
+      return null
+    }
+
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
     const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
     const isStreaming = streamingAgents.has(toolBlock.toolCallId)
@@ -104,11 +108,9 @@ export const MessageBlock = ({
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
     const codeBlockLang =
       toolBlock.toolName === 'run_terminal_command' ? '' : 'yaml'
-    const shouldRenderResult = toolBlock.toolName !== 'end_turn'
-    const resultContent =
-      shouldRenderResult && toolBlock.output
-        ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${toolBlock.output}\n\`\`\``
-        : ''
+    const resultContent = toolBlock.output
+      ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${toolBlock.output}\n\`\`\``
+      : ''
     const fullContent = inputContent + resultContent
 
     const lines = fullContent
