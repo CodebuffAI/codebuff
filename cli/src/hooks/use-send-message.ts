@@ -18,6 +18,12 @@ const completionMessages = [
   'Done! All updates have been applied.',
 ]
 
+const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
+  'spawn_agent_inline',
+  'end_turn',
+  'spawn_agents',
+])
+
 interface UseSendMessageOptions {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   setFocusedAgentId: (id: string | null) => void
@@ -648,12 +654,7 @@ export const useSendMessage = ({
                 return
               }
 
-              const hiddenTools: ToolName[] = [
-                'spawn_agent_inline',
-                'end_turn',
-                'spawn_agents',
-              ]
-              if (hiddenTools.includes(toolName)) {
+              if (hiddenToolNames.has(toolName)) {
                 return
               }
 

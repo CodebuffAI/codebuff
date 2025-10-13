@@ -1,5 +1,19 @@
-import { TextAttributes } from '@opentui/core'
+import { TextAttributes, type BorderCharacters } from '@opentui/core'
 import React, { type ReactNode } from 'react'
+
+const borderCharsWithoutVertical: BorderCharacters = {
+  topLeft: '┌',
+  topRight: '┐',
+  bottomLeft: '└',
+  bottomRight: '┘',
+  horizontal: '─',
+  vertical: ' ',
+  topT: ' ',
+  bottomT: ' ',
+  leftT: ' ',
+  rightT: ' ',
+  cross: ' ',
+}
 
 import type { ChatTheme } from '../utils/theme-system'
 
@@ -26,8 +40,18 @@ export const BranchItem = ({
   theme,
   onToggle,
 }: BranchItemProps) => {
-  const indentPrefix = branchChar ? branchChar.replace(/./g, ' ') : ''
   const cornerColor = theme.agentPrefix
+
+  const toggleBackground = isStreaming
+    ? theme.agentToggleHeaderBg
+    : isCollapsed
+      ? theme.agentResponseCount
+      : theme.agentPrefix
+  const toggleTextColor =
+    (isStreaming ? theme.agentToggleHeaderText : theme.agentToggleText) ??
+    theme.agentToggleText
+  const statusSymbol = isStreaming ? '●' : ' '
+  const toggleLabel = `${isCollapsed ? '▸' : '▾'} ${statusSymbol} `
 
   const isTextRenderable = (value: ReactNode): boolean => {
     if (
@@ -116,34 +140,32 @@ export const BranchItem = ({
   }
 
   return (
-    <box style={{ flexDirection: 'row', flexShrink: 0 }}>
-      <text wrap={false}>{indentPrefix}</text>
-      <box
-        style={{
-          flexDirection: 'column',
-          gap: 0,
-          flexShrink: 1,
-          flexGrow: 1,
-        }}
-      >
+    <box
+      style={{
+        flexDirection: 'column',
+        gap: 0,
+        flexShrink: 0,
+        marginTop: 1,
+        marginBottom: 1,
+      }}
+    >
+      <box style={{ flexDirection: 'column', gap: 0 }}>
         <box
           style={{
             flexDirection: 'row',
             alignSelf: 'flex-start',
-            backgroundColor: isCollapsed
-              ? theme.agentResponseCount
-              : theme.agentPrefix,
+            backgroundColor: toggleBackground,
             paddingLeft: 1,
             paddingRight: 1,
           }}
           onMouseDown={onToggle}
         >
           <text wrap>
-            <span fg={theme.agentToggleText}>
-              {isCollapsed ? '▸ ' : '▾ '}
+            <span fg={toggleTextColor}>
+              {toggleLabel}
             </span>
             <span
-              fg={theme.agentToggleText}
+              fg={toggleTextColor}
               attributes={TextAttributes.BOLD}
             >
               {name}
@@ -172,57 +194,21 @@ export const BranchItem = ({
             </text>
           )}
           {!isCollapsed && content && (
-            <box style={{ flexDirection: 'column', gap: 0 }}>
-              <box
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <text wrap={false} fg={cornerColor}>
-                  ┌
-                </text>
-                <text wrap={false} fg={cornerColor}>
-                  ┐
-                </text>
-              </box>
-              <box
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'stretch',
-                }}
-              >
-                <text wrap={false} fg={cornerColor}>
-                  │
-                </text>
-                <box
-                  style={{
-                    flexDirection: 'column',
-                    gap: 0,
-                    flexGrow: 1,
-                    marginLeft: 1,
-                    marginRight: 1,
-                  }}
-                >
-                  {renderExpandedContent(content)}
-                </box>
-                <text wrap={false} fg={cornerColor}>
-                  │
-                </text>
-              </box>
-              <box
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <text wrap={false} fg={cornerColor}>
-                  └
-                </text>
-                <text wrap={false} fg={cornerColor}>
-                  ┘
-                </text>
-              </box>
+            <box
+              border
+              borderStyle="single"
+              borderColor={cornerColor}
+              customBorderChars={borderCharsWithoutVertical}
+              style={{
+                flexDirection: 'column',
+                gap: 0,
+                paddingLeft: 1,
+                paddingRight: 1,
+                paddingTop: 0,
+                paddingBottom: 0,
+              }}
+            >
+              {renderExpandedContent(content)}
             </box>
           )}
         </box>

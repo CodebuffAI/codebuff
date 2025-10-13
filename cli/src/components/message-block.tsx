@@ -64,6 +64,246 @@ export const MessageBlock = ({
   onToggleCollapsed,
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
+  const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>
+    `${'  '.repeat(indentLevel)}${isLastBranch ? '└─ ' : '├─ '}`
+
+  const hasBranchAfter = (
+    sourceBlocks: ContentBlock[] | undefined,
+    currentIndex: number,
+  ): boolean =>
+    !!sourceBlocks?.slice(currentIndex + 1).some(
+      (candidate) => candidate.type === 'tool' || candidate.type === 'agent',
+    )
+
+  const getAgentMarkdownOptions = (indentLevel: number) => {
+    const indentationOffset = indentLevel * 2
+
+    return {
+      codeBlockWidth: Math.max(
+        10,
+        availableWidth - 12 - indentationOffset,
+      ),
+      palette: {
+        ...markdownPalette,
+        inlineCodeFg: theme.agentText,
+        codeTextFg: theme.agentText,
+      },
+    }
+  }
+
+  const renderToolBranch = (
+    toolBlock: Extract<ContentBlock, { type: 'tool' }>,
+    indentLevel: number,
+    isLastBranch: boolean,
+    keyPrefix: string,
+  ): React.ReactNode => {
+    const displayInfo = getToolDisplayInfo(toolBlock.toolName)
+    const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
+    const isStreaming = streamingAgents.has(toolBlock.toolCallId)
+
+    const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
+    const codeBlockLang =
+      toolBlock.toolName === 'run_terminal_command' ? '' : 'yaml'
+    const resultContent = toolBlock.output
+      ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${toolBlock.output}\n\`\`\``
+      : ''
+    const fullContent = inputContent + resultContent
+
+    const lines = fullContent
+      .split('\n')
+      .filter((line) => line.trim())
+    const firstLine = lines[0] || ''
+    const lastLine = lines[lines.length - 1] || firstLine
+    const commandPreview =
+      toolBlock.toolName === 'run_terminal_command' &&
+      toolBlock.input &&
+      typeof (toolBlock.input as any).command === 'string'
+        ? `$ ${(toolBlock.input as any).command.trim()}`
+        : null
+
+    const streamingPreview = isStreaming
+      ? commandPreview ?? `${sanitizePreview(firstLine)}...`
+      : ''
+
+    let finishedPreview = ''
+    if (!isStreaming && isCollapsed) {
+      if (commandPreview) {
+        finishedPreview = commandPreview
+      } else if (
+        toolBlock.toolName === 'run_terminal_command' &&
+        toolBlock.output
+      ) {
+        const outputLines = toolBlock.output
+          .split('\n')
+          .filter((line) => line.trim())
+        const lastThreeLines = outputLines.slice(-3)
+        const hasMoreLines = outputLines.length > 3
+        finishedPreview = hasMoreLines
+          ? '...\n' + lastThreeLines.join('\n')
+          : lastThreeLines.join('\n')
+      } else {
+        finishedPreview = sanitizePreview(lastLine)
+      }
+    }
+
+    const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
+    const displayContent = hasMarkdown(fullContent)
+      ? renderMarkdown(fullContent, agentMarkdownOptions)
+      : fullContent
+
+    const branchChar = computeBranchChar(indentLevel, isLastBranch)
+
+    return (
+      <box
+        key={keyPrefix}
+        ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
+      >
+        <BranchItem
+          name={displayInfo.name}
+          content={displayContent}
+          isCollapsed={isCollapsed}
+          isStreaming={isStreaming}
+          branchChar={branchChar}
+          streamingPreview={streamingPreview}
+          finishedPreview={finishedPreview}
+          theme={theme}
+          onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
+        />
+      </box>
+    )
+  }
+
+  function renderAgentBranch(
+    agentBlock: Extract<ContentBlock, { type: 'agent' }>,
+    indentLevel: number,
+    isLastBranch: boolean,
+    keyPrefix: string,
+  ): React.ReactNode {
+    const isCollapsed = collapsedAgents.has(agentBlock.agentId)
+    const isStreaming =
+      agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
+
+    const allTextContent =
+      agentBlock.blocks
+        ?.filter((nested) => nested.type === 'text')
+        .map((nested) => (nested as any).content)
+        .join('') || ''
+    const lines = allTextContent
+      .split('\n')
+      .filter((line) => line.trim())
+    const firstLine = lines[0] || ''
+
+    const streamingPreview = isStreaming
+      ? `${sanitizePreview(firstLine)}...`
+      : ''
+
+    const finishedPreview =
+      !isStreaming && isCollapsed && agentBlock.initialPrompt
+        ? sanitizePreview(agentBlock.initialPrompt)
+        : ''
+
+    const branchChar = computeBranchChar(indentLevel, isLastBranch)
+    const childNodes = renderAgentBody(
+      agentBlock,
+      indentLevel + 1,
+      keyPrefix,
+      isStreaming,
+    )
+
+    const displayContent =
+      childNodes.length > 0 ? (
+        <box style={{ flexDirection: 'column', gap: 0 }}>{childNodes}</box>
+      ) : null
+
+    return (
+      <box
+        key={keyPrefix}
+        ref={(el: any) => registerAgentRef(agentBlock.agentId, el)}
+        style={{ flexDirection: 'column', gap: 0 }}
+      >
+        <BranchItem
+          name={agentBlock.agentName}
+          content={displayContent}
+          isCollapsed={isCollapsed}
+          isStreaming={isStreaming}
+          branchChar={branchChar}
+          streamingPreview={streamingPreview}
+          finishedPreview={finishedPreview}
+          theme={theme}
+          onToggle={() => onToggleCollapsed(agentBlock.agentId)}
+        />
+      </box>
+    )
+  }
+
+  function renderAgentBody(
+    agentBlock: Extract<ContentBlock, { type: 'agent' }>,
+    indentLevel: number,
+    keyPrefix: string,
+    parentIsStreaming: boolean,
+  ): React.ReactNode[] {
+    const nestedBlocks = agentBlock.blocks ?? []
+    const nodes: React.ReactNode[] = []
+
+    nestedBlocks.forEach((nestedBlock, nestedIdx) => {
+      if (nestedBlock.type === 'text') {
+        const nestedStatus =
+          typeof (nestedBlock as any).status === 'string'
+            ? (nestedBlock as any).status
+            : undefined
+        const isNestedStreamingText =
+          parentIsStreaming || nestedStatus === 'running'
+        const rawNestedContent = isNestedStreamingText
+          ? trimTrailingNewlines(nestedBlock.content)
+          : nestedBlock.content.trim()
+        const renderKey = `${keyPrefix}-text-${nestedIdx}-${rawNestedContent.length}-${isNestedStreamingText ? 'stream' : 'final'}`
+        const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
+        const renderedContent = hasMarkdown(rawNestedContent)
+          ? isNestedStreamingText
+            ? renderStreamingMarkdown(
+                rawNestedContent,
+                markdownOptionsForLevel,
+              )
+            : renderMarkdown(rawNestedContent, markdownOptionsForLevel)
+          : rawNestedContent
+        nodes.push(
+          <text
+            key={renderKey}
+            wrap
+            style={{
+              fg: theme.agentText,
+              marginLeft: Math.max(0, indentLevel * 2),
+            }}
+          >
+            {renderedContent}
+          </text>,
+        )
+      } else if (nestedBlock.type === 'tool') {
+        const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
+        nodes.push(
+          renderToolBranch(
+            nestedBlock,
+            indentLevel,
+            isLastBranch,
+            `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
+          ),
+        )
+      } else if (nestedBlock.type === 'agent') {
+        const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
+        nodes.push(
+          renderAgentBranch(
+            nestedBlock,
+            indentLevel,
+            isLastBranch,
+            `${keyPrefix}-agent-${nestedIdx}`,
+          ),
+        )
+      }
+    })
+
+    return nodes
+  }
+
   return (
     <>
       {isUser && (
@@ -110,290 +350,20 @@ export const MessageBlock = ({
                 </text>
               )
             } else if (block.type === 'tool') {
-              const displayInfo = getToolDisplayInfo(block.toolName)
-              const isCollapsed = collapsedAgents.has(block.toolCallId)
-              const isStreaming = streamingAgents.has(block.toolCallId)
-
-              const inputContent = `\`\`\`json\n${JSON.stringify(block.input, null, 2)}\n\`\`\``
-              const codeBlockLang =
-                block.toolName === 'run_terminal_command' ? '' : 'yaml'
-              const resultContent = block.output
-                ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${block.output}\n\`\`\``
-                : ''
-              const fullContent = inputContent + resultContent
-
-              const lines = fullContent
-                .split('\n')
-                .filter((line) => line.trim())
-              const firstLine = lines[0] || ''
-              const lastLine = lines[lines.length - 1] || firstLine
-              const commandPreview =
-                block.toolName === 'run_terminal_command' &&
-                block.input &&
-                typeof (block.input as any).command === 'string'
-                  ? `$ ${(block.input as any).command.trim()}`
-                  : null
-
-              const streamingPreview = isStreaming
-                ? commandPreview ?? `${sanitizePreview(firstLine)}...`
-                : ''
-
-              let finishedPreview = ''
-              if (!isStreaming && isCollapsed) {
-                if (commandPreview) {
-                  finishedPreview = commandPreview
-                } else if (block.toolName === 'run_terminal_command' && block.output) {
-                  const outputLines = block.output
-                    .split('\n')
-                    .filter((line) => line.trim())
-                  const lastThreeLines = outputLines.slice(-3)
-                  const hasMoreLines = outputLines.length > 3
-                  finishedPreview = hasMoreLines
-                    ? '...\n' + lastThreeLines.join('\n')
-                    : lastThreeLines.join('\n')
-                } else {
-                  finishedPreview = sanitizePreview(lastLine)
-                }
-              }
-
-              const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
-              const agentPalette: MarkdownPalette = {
-                ...markdownPalette,
-                inlineCodeFg: theme.agentText,
-                codeTextFg: theme.agentText,
-              }
-              const agentMarkdownOptions = {
-                codeBlockWidth: agentCodeBlockWidth,
-                palette: agentPalette,
-              }
-              const displayContent = hasMarkdown(fullContent)
-                ? renderMarkdown(fullContent, agentMarkdownOptions)
-                : fullContent
-
-              const nextBlock = blocks[idx + 1]
-              const isLastBranch = !nextBlock || nextBlock.type === 'text'
-              const branchChar = isLastBranch ? '└─ ' : '├─ '
-
-              return (
-                <box
-                  key={`${messageId}-tool-${block.toolCallId}`}
-                  ref={(el: any) => registerAgentRef(block.toolCallId, el)}
-                >
-                  <BranchItem
-                    name={displayInfo.name}
-                    content={displayContent}
-                    isCollapsed={isCollapsed}
-                    isStreaming={isStreaming}
-                    branchChar={branchChar}
-                    streamingPreview={streamingPreview}
-                    finishedPreview={finishedPreview}
-                    theme={theme}
-                    onToggle={() => onToggleCollapsed(block.toolCallId)}
-                  />
-                </box>
+              const isLastBranch = !hasBranchAfter(blocks, idx)
+              return renderToolBranch(
+                block,
+                0,
+                isLastBranch,
+                `${messageId}-tool-${block.toolCallId}`,
               )
             } else if (block.type === 'agent') {
-              const isCollapsed = collapsedAgents.has(block.agentId)
-              const isStreaming =
-                block.status === 'running' || streamingAgents.has(block.agentId)
-
-              const allTextContent =
-                block.blocks
-                  ?.filter((b) => b.type === 'text')
-                  .map((b) => (b as any).content)
-                  .join('') || ''
-              const lines = allTextContent
-                .split('\n')
-                .filter((line) => line.trim())
-              const firstLine = lines[0] || ''
-
-              const streamingPreview = isStreaming
-                ? firstLine.replace(/[#*_`~\[\]()]/g, '').trim() + '...'
-                : ''
-
-              const finishedPreview =
-                !isStreaming && isCollapsed && block.initialPrompt
-                  ? block.initialPrompt.replace(/[#*_`~\[\]()]/g, '').trim()
-                  : ''
-
-              const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
-              const agentPalette: MarkdownPalette = {
-                ...markdownPalette,
-                inlineCodeFg: theme.agentText,
-                codeTextFg: theme.agentText,
-              }
-              const agentMarkdownOptions = {
-                codeBlockWidth: agentCodeBlockWidth,
-                palette: agentPalette,
-              }
-
-              const displayContent = (
-                <box style={{ flexDirection: 'column', gap: 0 }}>
-                  {block.blocks?.map((nestedBlock, nestedIdx) => {
-                    if (nestedBlock.type === 'text') {
-                      const nestedStatus =
-                        typeof (nestedBlock as any).status === 'string'
-                          ? (nestedBlock as any).status
-                          : undefined
-                      const isNestedStreamingText =
-                        isStreaming || nestedStatus === 'running'
-                      const rawNestedContent = isNestedStreamingText
-                        ? trimTrailingNewlines(nestedBlock.content)
-                        : nestedBlock.content.trim()
-                      const renderKey = `${messageId}-agent-${block.agentId}-text-${nestedIdx}-${rawNestedContent.length}-${isNestedStreamingText ? 'stream' : 'final'}`
-                      const renderedContent = hasMarkdown(rawNestedContent)
-                        ? isNestedStreamingText
-                          ? renderStreamingMarkdown(
-                              rawNestedContent,
-                              agentMarkdownOptions,
-                            )
-                          : renderMarkdown(rawNestedContent, agentMarkdownOptions)
-                        : rawNestedContent
-                      return (
-                        <text
-                          key={renderKey}
-                          wrap
-                          style={{ fg: theme.agentText, marginLeft: 2 }}
-                        >
-                          {renderedContent}
-                        </text>
-                      )
-                    }
-                    return null
-                  })}
-                </box>
-              )
-
-              const nestedToolBlocks =
-                block.blocks && block.blocks.length > 0 && !isCollapsed
-                  ? block.blocks.map((nestedBlock, nestedIdx) => {
-                      if (nestedBlock.type === 'tool') {
-                        const displayInfo = getToolDisplayInfo(
-                          nestedBlock.toolName,
-                        )
-                        const isNestedCollapsed = collapsedAgents.has(
-                          nestedBlock.toolCallId,
-                        )
-                        const isNestedStreaming = streamingAgents.has(
-                          nestedBlock.toolCallId,
-                        )
-
-                        const inputContent = `\`\`\`json\n${JSON.stringify(nestedBlock.input, null, 2)}\n\`\`\``
-                        const codeBlockLang =
-                          nestedBlock.toolName === 'run_terminal_command'
-                            ? ''
-                            : 'yaml'
-                        const resultContent = nestedBlock.output
-                          ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${nestedBlock.output}\n\`\`\``
-                          : ''
-                        const fullNestedContent = inputContent + resultContent
-
-                        const nestedLines = fullNestedContent
-                          .split('\n')
-                          .filter((line) => line.trim())
-                        const firstNestedLine = nestedLines[0] || ''
-                        const lastNestedLine =
-                          nestedLines[nestedLines.length - 1] || firstNestedLine
-
-                        const nestedCommandPreview =
-                          nestedBlock.toolName === 'run_terminal_command' &&
-                          nestedBlock.input &&
-                          typeof (nestedBlock.input as any).command === 'string'
-                            ? `$ ${(nestedBlock.input as any).command.trim()}`
-                            : null
-
-                        const nestedStreamingPreview = isNestedStreaming
-                          ? nestedCommandPreview ?? `${sanitizePreview(firstNestedLine)}...`
-                          : ''
-
-                        let nestedFinishedPreview = ''
-                        if (!isNestedStreaming && isNestedCollapsed) {
-                          if (nestedCommandPreview) {
-                            nestedFinishedPreview = nestedCommandPreview
-                          } else if (
-                            nestedBlock.toolName === 'run_terminal_command' &&
-                            nestedBlock.output
-                          ) {
-                            const outputLines = nestedBlock.output
-                              .split('\n')
-                              .filter((line) => line.trim())
-                            const lastThreeLines = outputLines.slice(-3)
-                            const hasMoreLines = outputLines.length > 3
-                            nestedFinishedPreview = hasMoreLines
-                              ? '...\n' + lastThreeLines.join('\n')
-                              : lastThreeLines.join('\n')
-                          } else {
-                            nestedFinishedPreview = sanitizePreview(
-                              lastNestedLine,
-                            )
-                          }
-                        }
-
-                        const nestedDisplayContent = hasMarkdown(
-                          fullNestedContent,
-                        )
-                          ? renderMarkdown(
-                              fullNestedContent,
-                              agentMarkdownOptions,
-                            )
-                          : fullNestedContent
-
-                        const nextNestedBlock = block.blocks![nestedIdx + 1]
-                        const isLastNestedBranch = !nextNestedBlock
-                        const nestedBranchChar = isLastNestedBranch
-                          ? '  └─ '
-                          : '  ├─ '
-
-                        return (
-                          <box
-                            key={`${messageId}-agent-${block.agentId}-tool-${nestedBlock.toolCallId}`}
-                            ref={(el: any) =>
-                              registerAgentRef(nestedBlock.toolCallId, el)
-                            }
-                          >
-                            <BranchItem
-                              name={displayInfo.name}
-                              content={nestedDisplayContent}
-                              isCollapsed={isNestedCollapsed}
-                              isStreaming={isNestedStreaming}
-                              branchChar={nestedBranchChar}
-                              streamingPreview={nestedStreamingPreview}
-                              finishedPreview={nestedFinishedPreview}
-                              theme={theme}
-                              onToggle={() =>
-                                onToggleCollapsed(nestedBlock.toolCallId)
-                              }
-                            />
-                          </box>
-                        )
-                      }
-                      return null
-                    })
-                  : null
-
-              const nextBlock = blocks[idx + 1]
-              const isLastBranch = !nextBlock || nextBlock.type === 'text'
-              const branchChar = isLastBranch ? '└─ ' : '├─ '
-
-              return (
-                <box
-                  key={`${messageId}-agent-${block.agentId}`}
-                  ref={(el: any) => registerAgentRef(block.agentId, el)}
-                  style={{ flexDirection: 'column', gap: 0 }}
-                >
-                  <BranchItem
-                    name={block.agentName}
-                    content={displayContent}
-                    isCollapsed={isCollapsed}
-                    isStreaming={isStreaming}
-                    branchChar={branchChar}
-                    streamingPreview={streamingPreview}
-                    finishedPreview={finishedPreview}
-                    theme={theme}
-                    onToggle={() => onToggleCollapsed(block.agentId)}
-                  />
-                  {isCollapsed ? null : nestedToolBlocks}
-                </box>
+              const isLastBranch = !hasBranchAfter(blocks, idx)
+              return renderAgentBranch(
+                block,
+                0,
+                isLastBranch,
+                `${messageId}-agent-${block.agentId}`,
               )
             }
             return null
