@@ -10,7 +10,6 @@
     "npm-app",
     "web",
     "packages/*",
-    "packages/opentui/packages/*",
     "scripts",
     "evals",
     "sdk",
@@ -18,7 +17,7 @@
     "cli"
   ],
   "scripts": {
-    "postinstall": "git submodule update --init --recursive packages/opentui",
+    "postinstall": "bun scripts/setup-cli-symlinks.ts",
     "dev": "bash scripts/dev.sh",
     "start-db": "bun --cwd common db:start",
     "start-bin": "bun --cwd npm-app start-bin",

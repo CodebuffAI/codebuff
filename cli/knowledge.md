@@ -20,6 +20,22 @@
 
 OpenTUI expects plain text content or the `content` prop - it does not handle JSX expressions within text elements.
 
+## Screen Mode and TODO List Positioning
+
+The CLI chat interface adapts its layout based on terminal dimensions:
+
+### Screen Modes
+- **Full-screen**: width ≥ 70 AND height ≥ 30
+- **Wide-screen**: width ≥ 70 AND height < 30
+- **Tall-screen**: width < 70 AND height ≥ 30
+- **Small-screen**: width < 70 AND height < 30
+
+### TODO List Positioning
+- **Right side**: Full-screen and wide-screen modes (when there's sufficient horizontal space)
+- **Top**: Tall-screen and small-screen modes (when terminal is narrow)
+
+The TODO list automatically repositions based on available space to ensure optimal visibility and usability.
+
 ### Text Styling Components Must Be Wrapped in `<text>`
 
 All text styling components (`<strong>`, `<em>`, `<span>`, etc.) **MUST** be nested inside a `<text>` component. They cannot be returned directly from render functions.
@@ -70,7 +86,7 @@ function renderMarkdown(content: string) {
 **Text Modifiers** (must be inside `<text>`):
 - `<span>` - Generic inline styling
 - `<strong>` and `<b>` - Bold text
-- `<em>` and `<i>` - Italic text  
+- `<em>` and `<i>` - Italic text
 - `<u>` - Underlined text
 - `<br>` - Line break
 
@@ -309,7 +325,7 @@ const ShimmerText = ({ text }) => {
 3. Can cause reconciliation errors when the component updates
 4. Goes against React's composition principles
 
-**Best practice:** 
+**Best practice:**
 - Child components that render styled text should return Fragments with `<span>` elements
 - Parent components are responsible for providing the `<text>` wrapper
 - This follows React's pattern of "dumb" presentational components
@@ -399,3 +415,22 @@ The bug occurred when tool toggles were rendered. Agent toggles worked fine, but
 ```
 
 **Key lesson:** Any component that receives content from `renderMarkdown()` or `renderStreamingMarkdown()` MUST wrap it in a `<text>` element, even if the content might be ReactNode. The Fragment can contain raw strings that need the text wrapper to be valid.
+
+## Monorepo Setup: OpenTUI Dependencies
+
+The CLI workspace depends on `@opentui/core` and `@opentui/react` from GitHub. These packages are not automatically built when running `bun install` in the CLI workspace.
+
+**Solution**: A cross-platform TypeScript postinstall script creates symlinks from `cli/node_modules/@opentui/*` to the built packages.
+
+- Script location: `scripts/setup-cli-symlinks.ts`
+- Language: TypeScript (runs with Bun, works on Windows/Mac/Linux)
+- Runs automatically after `bun install` at the root level
+- Automatically builds OpenTUI packages if not already built
+- Creates symlinks within OpenTUI monorepo so packages can find each other
+- Creates symlinks in CLI workspace for: `@opentui/core`, `@opentui/react`, `@opentui/core-darwin-arm64`
+
+**Benefits over bash:**
+- Cross-platform (Windows, Mac, Linux)
+- Better error handling with TypeScript
+- Uses Node.js 'junction' symlinks which work universally
+- Automatically cleans up existing symlinks before creating new ones

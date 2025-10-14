@@ -11,7 +11,8 @@
     "declaration": true,
     "declarationMap": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "preserveSymlinks": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
