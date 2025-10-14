@@ -158,6 +158,18 @@ export const handleSpawnAgents = ((
                 return
               }
 
+              // Don't overwrite agentId for events that already have the correct agent ID
+              // (subagent_start/finish, tool_call, tool_result from nested agents)
+              if (
+                chunk.type === 'subagent_start' ||
+                chunk.type === 'subagent_finish' ||
+                chunk.type === 'tool_call' ||
+                chunk.type === 'tool_result'
+              ) {
+                writeToClient(chunk)
+                return
+              }
+
               const eventWithAgent = {
                 ...chunk,
                 agentId: subAgentState.agentId,

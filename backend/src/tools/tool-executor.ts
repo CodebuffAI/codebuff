@@ -193,6 +193,7 @@ export function executeToolCall<T extends ToolName>(
     toolCallId: toolCall.toolCallId,
     toolName,
     input: toolCall.input,
+    agentId: state.agentState?.agentId,
   })
 
   toolCalls.push(toolCall)
@@ -429,6 +430,7 @@ export async function executeCustomToolCall(
     toolCallId: toolCall.toolCallId,
     toolName,
     input: toolCall.input,
+    agentId: state.agentState?.agentId,
   })
 
   toolCalls.push(toolCall)

@@ -338,6 +338,7 @@ export async function executeSubagent(
     agentType: agentTemplate.id,
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
+    parentAgentId: parentAgentState.agentId,
   })
 
   // Import loopAgentSteps dynamically to avoid circular dependency
@@ -354,6 +355,7 @@ export async function executeSubagent(
     agentType: agentTemplate.id,
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
+    parentAgentId: parentAgentState.agentId,
   })
 
   if (result.agentState.runId) {

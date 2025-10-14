@@ -24,6 +24,26 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agents',
 ])
 
+// Helper function to recursively update blocks
+const updateBlocksRecursively = (
+  blocks: ContentBlock[],
+  targetAgentId: string,
+  updateFn: (block: ContentBlock) => ContentBlock,
+): ContentBlock[] => {
+  return blocks.map((block) => {
+    if (block.type === 'agent' && block.agentId === targetAgentId) {
+      return updateFn(block)
+    }
+    if (block.type === 'agent' && block.blocks) {
+      return {
+        ...block,
+        blocks: updateBlocksRecursively(block.blocks, targetAgentId, updateFn),
+      }
+    }
+    return block
+  })
+}
+
 interface UseSendMessageOptions {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   setFocusedAgentId: (id: string | null) => void
@@ -171,8 +191,11 @@ export const useSendMessage = ({
         setMessages((prev) =>
           prev.map((msg) => {
             if (msg.id === aiMessageId && msg.blocks) {
-              const newBlocks = msg.blocks.map((block) => {
-                if (block.type === 'agent' && block.agentId === agentId) {
+              // Use recursive update to handle nested agents
+              const newBlocks = updateBlocksRecursively(
+                msg.blocks,
+                agentId,
+                (block) => {
                   const agentBlocks: ContentBlock[] = block.blocks
                     ? [...block.blocks]
                     : []
@@ -223,9 +246,9 @@ export const useSendMessage = ({
                     })
                     return { ...block, blocks: [...agentBlocks, update] }
                   }
-                }
-                return block
-              })
+                  return block
+                },
+              )
               return { ...msg, blocks: newBlocks }
             }
             return msg
@@ -467,6 +490,8 @@ export const useSendMessage = ({
                 logger.info('subagent_start event', {
                   agentId: event.agentId,
                   agentType: event.agentType,
+                  parentAgentId: event.parentAgentId || 'ROOT',
+                  hasParentAgentId: !!event.parentAgentId,
                 })
                 activeSubagentsRef.current.add(event.agentId)
 
@@ -529,6 +554,7 @@ export const useSendMessage = ({
                     {
                       agentId: event.agentId,
                       agentType: event.agentType,
+                      parentAgentId: event.parentAgentId || 'ROOT',
                     },
                   )
                   setMessages((prev) =>
@@ -551,6 +577,27 @@ export const useSendMessage = ({
                         initialPrompt: '',
                       }
 
+                      // If parentAgentId exists, nest inside parent agent
+                      if (event.parentAgentId) {
+                        logger.info('Nesting agent inside parent', {
+                          childId: event.agentId,
+                          parentId: event.parentAgentId,
+                        })
+                        const updatedBlocks = updateBlocksRecursively(
+                          blocks,
+                          event.parentAgentId,
+                          (parentBlock) => ({
+                            ...parentBlock,
+                            blocks: [
+                              ...(parentBlock.blocks || []),
+                              newAgentBlock,
+                            ],
+                          }),
+                        )
+                        return { ...msg, blocks: updatedBlocks }
+                      }
+
+                      // No parent - add to top level
                       return {
                         ...msg,
                         blocks: [...blocks, newAgentBlock],
@@ -572,15 +619,12 @@ export const useSendMessage = ({
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id === aiMessageId && msg.blocks) {
-                      const blocks = msg.blocks.map((block) => {
-                        if (
-                          block.type === 'agent' &&
-                          block.agentId === event.agentId
-                        ) {
-                          return { ...block, status: 'complete' as const }
-                        }
-                        return block
-                      })
+                      // Use recursive update to handle nested agents
+                      const blocks = updateBlocksRecursively(
+                        msg.blocks,
+                        event.agentId,
+                        (block) => ({ ...block, status: 'complete' as const }),
+                      )
                       return { ...msg, blocks }
                     }
                     return msg
@@ -597,6 +641,12 @@ export const useSendMessage = ({
 
             if (event.type === 'tool_call' && event.toolCallId) {
               const { toolCallId, toolName, input, agentId } = event
+              logger.info('tool_call event received', {
+                toolCallId,
+                toolName,
+                agentId: agentId || 'ROOT',
+                hasAgentId: !!agentId,
+              })
 
               if (toolName === 'spawn_agents' && input?.agents) {
                 const agents = Array.isArray(input.agents) ? input.agents : []
@@ -678,12 +728,11 @@ export const useSendMessage = ({
                       return msg
                     }
 
-                    const updatedBlocks: ContentBlock[] = msg.blocks.map(
+                    // Use recursive update to handle nested agents
+                    const updatedBlocks = updateBlocksRecursively(
+                      msg.blocks,
+                      agentId,
                       (block) => {
-                        if (block.type !== 'agent' || block.agentId !== agentId) {
-                          return block
-                        }
-
                         const agentBlocks: ContentBlock[] = block.blocks
                           ? [...block.blocks]
                           : []

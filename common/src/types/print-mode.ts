@@ -29,6 +29,7 @@ export const printModeToolCallSchema = z.object({
   toolCallId: z.string(),
   toolName: z.string(),
   input: z.record(z.string(), z.any()),
+  agentId: z.string().optional(),
 })
 export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
 
@@ -59,6 +60,7 @@ export const printModeSubagentStartSchema = z.object({
   agentType: z.string(),
   displayName: z.string(),
   onlyChild: z.boolean(),
+  parentAgentId: z.string().optional(),
 })
 export type PrintModeSubagentStart = z.infer<
   typeof printModeSubagentStartSchema
@@ -70,6 +72,7 @@ export const printModeSubagentFinishSchema = z.object({
   agentType: z.string(),
   displayName: z.string(),
   onlyChild: z.boolean(),
+  parentAgentId: z.string().optional(),
 })
 export type PrintModeSubagentFinish = z.infer<
   typeof printModeSubagentFinishSchema
