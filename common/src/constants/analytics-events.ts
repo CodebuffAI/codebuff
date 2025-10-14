@@ -36,7 +36,6 @@ export enum AnalyticsEvent {
 
   // Web
   SIGNUP = 'web.signup',
-  SSE_ENDPOINT_REQUEST = 'web.sse_endpoint_request',
 
   // Web - Authentication
   AUTH_LOGIN_STARTED = 'auth.login_started',
@@ -83,6 +82,9 @@ export enum AnalyticsEvent {
   // Web - UI Components
   TOAST_SHOWN = 'toast.shown',
   REFERRAL_BANNER_CLICKED = 'referral_banner.clicked',
+
+  // Web - API
+  SSE_ENDPOINT_REQUEST = 'api.sse_endpoint_request',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
