@@ -2,7 +2,6 @@ import { withRetry, withTimeout } from '@codebuff/common/util/promise'
 import { env } from '@codebuff/internal/env'
 import { Benchify } from 'benchify'
 
-import { requestFiles } from '../websockets/websocket-action'
 import { handleStrReplace } from './handlers/tool/str-replace'
 import { getFileProcessingValues } from './handlers/tool/write-file'
 
@@ -10,7 +9,10 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
+import type {
+  RequestFilesFn,
+  RequestToolCallFn,
+} from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
@@ -90,31 +92,20 @@ type BatchContext = {
 export async function executeBatchStrReplaces(
   params: {
     deferredStrReplaces: DeferredStrReplace[]
-    toolCalls: (CodebuffToolCall | any)[]
-    toolResults: ToolResultPart[]
-    ws: WebSocket
     agentStepId: string
-    userInputId: string
-    onResponseChunk: (chunk: string | PrintModeEvent) => void
-    state: Record<string, any>
     logger: Logger
   } & ParamsExcluding<
     typeof applyBenchifyIfNeeded,
     'originalContents' | 'editedFiles' | 'intendedChanges' | 'toolCalls'
   > &
-    ParamsOf<typeof createRequestClientToolCall>,
+    ParamsOf<typeof createRequestClientToolCall> &
+    ParamsExcluding<typeof preloadOriginalContent, 'operationsByPath'> &
+    ParamsExcluding<
+      typeof processPathOperations,
+      'operations' | 'editedFiles' | 'requestClientToolCall'
+    >,
 ) {
-  const {
-    deferredStrReplaces,
-    toolCalls,
-    toolResults,
-    ws,
-    agentStepId,
-    userInputId,
-    onResponseChunk,
-    state,
-    logger,
-  } = params
+  const { deferredStrReplaces, agentStepId, logger } = params
 
   if (deferredStrReplaces.length === 0) {
     return
@@ -132,9 +123,8 @@ export async function executeBatchStrReplaces(
 
   // Pre-load original content for all paths that support benchify
   const originalContents = await preloadOriginalContent({
+    ...params,
     operationsByPath,
-    ws,
-    logger,
   })
 
   // Extract intended changes for benchify (before execution)
@@ -155,16 +145,10 @@ export async function executeBatchStrReplaces(
 
   for (const [path, operations] of Object.entries(operationsByPath)) {
     pathPromises[path] = processPathOperations({
+      ...params,
       operations,
-      toolCalls,
-      toolResults,
-      agentStepId,
-      userInputId,
-      onResponseChunk,
-      state,
       editedFiles,
       requestClientToolCall,
-      logger,
     })
   }
 
@@ -188,10 +172,11 @@ export async function executeBatchStrReplaces(
  */
 async function preloadOriginalContent(params: {
   operationsByPath: Record<string, DeferredStrReplace[]>
-  ws: WebSocket
+  requestFiles: RequestFilesFn
   logger: Logger
 }): Promise<Record<string, string>> {
-  const { operationsByPath, ws, logger } = params
+  const { operationsByPath, requestFiles, logger } = params
+
   const pathsToLoad = Object.keys(operationsByPath).filter(
     benchifyCanFixLanguage,
   )
@@ -202,7 +187,7 @@ async function preloadOriginalContent(params: {
 
   try {
     // Request all files from the client in one batch
-    const fileContents = await requestFiles({ ws, filePaths: pathsToLoad })
+    const fileContents = await requestFiles({ filePaths: pathsToLoad })
 
     // Filter out null values and return only successfully loaded files
     const loadedContents: Record<string, string> = {}
@@ -299,22 +284,27 @@ async function processPathOperations(
 /**
  * Executes a single str_replace operation with proper error handling
  */
-async function executeSingleStrReplace(params: {
-  toolCall: CodebuffToolCall<'str_replace'>
-  operationIndex: number
-  totalOperations: number
-  toolCalls: (CodebuffToolCall | any)[]
-  toolResults: ToolResultPart[]
-  agentStepId: string
-  userInputId: string
-  onResponseChunk: (chunk: string | PrintModeEvent) => void
-  state: Record<string, any>
-  editedFiles: Record<string, string>
-  requestClientToolCall: (
-    clientToolCall: any,
-  ) => Promise<CodebuffToolOutput<'str_replace'>>
-  logger: Logger
-}) {
+async function executeSingleStrReplace(
+  params: {
+    toolCall: CodebuffToolCall<'str_replace'>
+    operationIndex: number
+    totalOperations: number
+    toolCalls: (CodebuffToolCall | any)[]
+    toolResults: ToolResultPart[]
+    agentStepId: string
+    userInputId: string
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    state: Record<string, any>
+    editedFiles: Record<string, string>
+    requestClientToolCall: (
+      clientToolCall: any,
+    ) => Promise<CodebuffToolOutput<'str_replace'>>
+    logger: Logger
+  } & ParamsExcluding<
+    typeof handleStrReplace,
+    'previousToolCallFinished' | 'writeToClient' | 'getLatestState' | 'state'
+  >,
+) {
   const {
     toolCall,
     operationIndex,
@@ -326,7 +316,6 @@ async function executeSingleStrReplace(params: {
     toolCalls,
     toolResults,
     agentStepId,
-    requestClientToolCall,
     logger,
   } = params
 
@@ -342,11 +331,9 @@ async function executeSingleStrReplace(params: {
     }
 
     const { result } = handleStrReplace({
+      ...params,
       previousToolCallFinished: Promise.resolve(),
-      toolCall,
-      requestClientToolCall,
       writeToClient: onResponseChunk,
-      logger,
       getLatestState: () => getFileProcessingValues(isolatedState),
       state: isolatedState,
     })

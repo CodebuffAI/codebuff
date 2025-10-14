@@ -20,3 +20,11 @@ export type RequestMcpToolDataFn = (params: {
     inputSchema: unknown
   }[]
 >
+
+export type RequestFilesFn = (params: {
+  filePaths: string[]
+}) => Promise<Record<string, string | null>>
+
+export type RequestOptionalFileFn = (params: {
+  filePath: string
+}) => Promise<string | null>

@@ -27,7 +27,6 @@ import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import * as liveUserInputs from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
@@ -117,28 +116,24 @@ describe('mainPrompt', () => {
     mockAgentStream('Test response')
 
     // Mock websocket actions
-    spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (params: { ws: any; filePaths: string[] }) => {
-        const results: Record<string, string | null> = {}
-        params.filePaths.forEach((p) => {
-          if (p === 'test.txt') {
-            results[p] = 'mock content for test.txt'
-          } else {
-            results[p] = null
-          }
-        })
-        return results
-      },
-    )
-
-    spyOn(websocketAction, 'requestFile').mockImplementation(
-      async (params: { ws: any; filePath: string }) => {
-        if (params.filePath === 'test.txt') {
-          return 'mock content for test.txt'
+    agentRuntimeScopedImpl.requestFiles = async ({ filePaths }) => {
+      const results: Record<string, string | null> = {}
+      filePaths.forEach((p) => {
+        if (p === 'test.txt') {
+          results[p] = 'mock content for test.txt'
+        } else {
+          results[p] = null
         }
-        return null
-      },
-    )
+      })
+      return results
+    }
+
+    agentRuntimeScopedImpl.requestOptionalFile = async ({ filePath }) => {
+      if (filePath === 'test.txt') {
+        return 'mock content for test.txt'
+      }
+      return null
+    }
 
     agentRuntimeScopedImpl.requestToolCall = mock(
       async ({

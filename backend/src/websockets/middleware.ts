@@ -15,7 +15,12 @@ import { eq } from 'drizzle-orm'
 import { getUserInfoFromApiKey } from './auth'
 import { updateRequestContext } from './request-context'
 import { sendAction } from './websocket-action'
-import { requestMcpToolDataWs, requestToolCallWs } from '../client-wrapper'
+import {
+  requestFilesWs,
+  requestMcpToolDataWs,
+  requestOptionalFileWs,
+  requestToolCallWs,
+} from '../client-wrapper'
 import { withAppContext } from '../context/app-context'
 import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 import { checkAuth } from '../util/check-auth'
@@ -150,6 +155,9 @@ export class WebSocketMiddleware {
       const scopedDeps: AgentRuntimeScopedDeps = {
         requestToolCall: (params) => requestToolCallWs({ ...params, ws }),
         requestMcpToolData: (params) => requestMcpToolDataWs({ ...params, ws }),
+        requestFiles: (params) => requestFilesWs({ ...params, ws }),
+        requestOptionalFile: (params) =>
+          requestOptionalFileWs({ ...params, ws }),
       }
 
       // Use the new combined context - much cleaner!

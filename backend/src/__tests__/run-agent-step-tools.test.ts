@@ -24,18 +24,24 @@ import * as liveUserInputs from '../live-user-inputs'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { asUserMessage } from '../util/messages'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 describe('runAgentStep - set_output tool', () => {
   let testAgent: AgentTemplate
-  let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
+  let agentRuntimeImpl: AgentRuntimeDeps
+  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(async () => {
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
+
     // Create a test agent that supports set_output
     testAgent = {
       id: 'test-set-output-agent',
@@ -78,32 +84,27 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(liveUserInputs, 'startUserInput').mockImplementation(() => {})
     spyOn(liveUserInputs, 'setSessionConnected').mockImplementation(() => {})
 
-    spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (params: { ws: any; filePaths: string[] }) => {
-        const results: Record<string, string | null> = {}
-        params.filePaths.forEach((p) => {
-          if (p === 'src/auth.ts') {
-            results[p] = 'export function authenticate() { return true; }'
-          } else if (p === 'src/user.ts') {
-            results[p] = 'export interface User { id: string; name: string; }'
-          } else {
-            results[p] = null
-          }
-        })
-        return results
-      },
-    )
-
-    spyOn(websocketAction, 'requestFile').mockImplementation(
-      async (params: { ws: any; filePath: string }) => {
-        if (params.filePath === 'src/auth.ts') {
-          return 'export function authenticate() { return true; }'
-        } else if (params.filePath === 'src/user.ts') {
-          return 'export interface User { id: string; name: string; }'
+    agentRuntimeScopedImpl.requestFiles = async ({ filePaths }) => {
+      const results: Record<string, string | null> = {}
+      filePaths.forEach((p) => {
+        if (p === 'src/auth.ts') {
+          results[p] = 'export function authenticate() { return true; }'
+        } else if (p === 'src/user.ts') {
+          results[p] = 'export interface User { id: string; name: string; }'
+        } else {
+          results[p] = null
         }
-        return null
-      },
-    )
+      })
+      return results
+    }
+    agentRuntimeScopedImpl.requestOptionalFile = async ({ filePath }) => {
+      if (filePath === 'src/auth.ts') {
+        return 'export function authenticate() { return true; }'
+      } else if (filePath === 'src/user.ts') {
+        return 'export interface User { id: string; name: string; }'
+      }
+      return null
+    }
 
     // Don't mock requestToolCall for integration test - let real tool execution happen
 
@@ -116,7 +117,6 @@ describe('runAgentStep - set_output tool', () => {
 
   afterEach(() => {
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   afterAll(() => {
@@ -363,19 +363,17 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock requestFiles to return test file content
-    spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (params: { ws: any; filePaths: string[] }) => {
-        const results: Record<string, string | null> = {}
-        params.filePaths.forEach((p) => {
-          if (p === 'src/test.ts') {
-            results[p] = 'export function testFunction() { return "test"; }'
-          } else {
-            results[p] = null
-          }
-        })
-        return results
-      },
-    )
+    agentRuntimeScopedImpl.requestFiles = async ({ filePaths }) => {
+      const results: Record<string, string | null> = {}
+      filePaths.forEach((p) => {
+        if (p === 'src/test.ts') {
+          results[p] = 'export function testFunction() { return "test"; }'
+        } else {
+          results[p] = null
+        }
+      })
+      return results
+    }
 
     // Mock the LLM stream to return a response that doesn't end the turn
     agentRuntimeImpl.promptAiSdkStream = async function* ({}) {

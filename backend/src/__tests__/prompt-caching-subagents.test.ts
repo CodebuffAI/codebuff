@@ -15,7 +15,6 @@ import {
 } from 'bun:test'
 
 import { loopAgentSteps } from '../run-agent-step'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
 import type {
@@ -126,15 +125,13 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     // Mock file operations
-    spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (params: { ws: any; filePaths: string[] }) => {
-        const results: Record<string, string | null> = {}
-        params.filePaths.forEach((path) => {
-          results[path] = null
-        })
-        return results
-      },
-    )
+    agentRuntimeScopedImpl.requestFiles = async ({ filePaths }) => {
+      const results: Record<string, string | null> = {}
+      filePaths.forEach((path) => {
+        results[path] = null
+      })
+      return results
+    }
 
     agentRuntimeScopedImpl.requestToolCall = async () => ({
       output: [

@@ -28,7 +28,6 @@ import { MockWebSocket, mockFileContext } from './test-utils'
 import * as linkupApi from '../llm-apis/linkup-api'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type {
   AgentRuntimeDeps,
@@ -64,8 +63,8 @@ describe('web_search tool with researcher agent', () => {
     )
 
     // Mock websocket actions
-    spyOn(websocketAction, 'requestFiles').mockImplementation(async () => ({}))
-    spyOn(websocketAction, 'requestFile').mockImplementation(async () => null)
+    agentRuntimeScopedImpl.requestFiles = async () => ({})
+    agentRuntimeScopedImpl.requestOptionalFile = async () => null
     agentRuntimeScopedImpl.requestToolCall = async () => ({
       output: [
         {

@@ -1,9 +1,7 @@
 import { getFileProcessingValues, postStreamProcessing } from './write-file'
 import { processStrReplace } from '../../../process-str-replace'
-import { requestOptionalFile } from '../../../websockets/websocket-action'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   FileProcessingState,
   OptionalFileProcessingState,
@@ -13,22 +11,28 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { WebSocket } from 'ws'
 
-export const handleStrReplace = ((params: {
-  previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'str_replace'>
-  requestClientToolCall: (
-    toolCall: ClientToolCall<'str_replace'>,
-  ) => Promise<CodebuffToolOutput<'str_replace'>>
-  writeToClient: (chunk: string) => void
-  logger: Logger
+export const handleStrReplace = ((
+  params: {
+    previousToolCallFinished: Promise<void>
+    toolCall: CodebuffToolCall<'str_replace'>
+    requestClientToolCall: (
+      toolCall: ClientToolCall<'str_replace'>,
+    ) => Promise<CodebuffToolOutput<'str_replace'>>
+    writeToClient: (chunk: string) => void
+    logger: Logger
 
-  getLatestState: () => FileProcessingState
-  state: {
-    ws?: WebSocket
-  } & OptionalFileProcessingState
-}): {
+    getLatestState: () => FileProcessingState
+    state: {
+      ws?: WebSocket
+    } & OptionalFileProcessingState
+    requestOptionalFile: RequestOptionalFileFn
+  } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
+): {
   result: Promise<CodebuffToolOutput<'str_replace'>>
   state: FileProcessingState
 } => {
@@ -39,6 +43,7 @@ export const handleStrReplace = ((params: {
     writeToClient,
     logger,
     getLatestState,
+    requestOptionalFile,
     state,
   } = params
   const { path, replacements } = toolCall.input
@@ -61,9 +66,9 @@ export const handleStrReplace = ((params: {
     ? previousEdit.then((maybeResult) =>
         maybeResult && 'content' in maybeResult
           ? maybeResult.content
-          : requestOptionalFile({ ws, filePath: path }),
+          : requestOptionalFile({ ...params, filePath: path }),
       )
-    : requestOptionalFile({ ws, filePath: path })
+    : requestOptionalFile({ ...params, filePath: path })
 
   const newPromise = processStrReplace({
     path,

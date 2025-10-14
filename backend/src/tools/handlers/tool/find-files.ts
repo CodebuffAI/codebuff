@@ -8,7 +8,6 @@ import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 import { countTokens, countTokensJson } from '../../../util/token-counter'
-import { requestFiles } from '../../../websockets/websocket-action'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
@@ -16,6 +15,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { RequestFilesFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
@@ -65,7 +65,8 @@ export const handleFindFiles = ((
       | 'fingerprintId'
       | 'userId'
       | 'repoId'
-    >,
+    > &
+    ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
   const {
     previousToolCallFinished,
@@ -120,7 +121,10 @@ export const handleFindFiles = ((
     })
 
     if (requestedFiles && requestedFiles.length > 0) {
-      const addedFiles = await getFileReadingUpdates(ws, requestedFiles)
+      const addedFiles = await getFileReadingUpdates({
+        ...params,
+        requestedFiles,
+      })
 
       if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
         uploadExpandedFileContextForTraining({
@@ -188,6 +192,7 @@ async function uploadExpandedFileContextForTraining(
     fingerprintId: string
     userInputId: string
     userId: string | undefined
+    requestFiles: RequestFilesFn
     logger: Logger
   } & ParamsOf<typeof requestRelevantFilesForTraining>,
 ) {
@@ -198,11 +203,12 @@ async function uploadExpandedFileContextForTraining(
     fingerprintId,
     userInputId,
     userId,
+    requestFiles,
     logger,
   } = params
   const files = await requestRelevantFilesForTraining(params)
 
-  const loadedFiles = await requestFiles({ ws, filePaths: files })
+  const loadedFiles = await requestFiles({ filePaths: files })
 
   // Upload a map of:
   // {file_path: {content, token_count}}

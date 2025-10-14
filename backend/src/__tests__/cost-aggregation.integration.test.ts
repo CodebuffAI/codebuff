@@ -213,15 +213,15 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Mock file reading
-    spyOn(websocketAction, 'requestFiles').mockImplementation(
-      async (params: { ws: any; filePaths: string[] }) => {
-        const results: Record<string, string | null> = {}
-        params.filePaths.forEach((path) => {
-          results[path] = path === 'hello.txt' ? 'Hello, World!' : null
-        })
-        return results
-      },
-    )
+    agentRuntimeScopedImpl.requestFiles = async (params: {
+      filePaths: string[]
+    }) => {
+      const results: Record<string, string | null> = {}
+      params.filePaths.forEach((path) => {
+        results[path] = path === 'hello.txt' ? 'Hello, World!' : null
+      })
+      return results
+    }
 
     // Mock live user input checking
     const liveUserInputs = await import('../live-user-inputs')

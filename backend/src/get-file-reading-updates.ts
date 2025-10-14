@@ -1,19 +1,20 @@
 import { uniq } from 'lodash'
-import type { WebSocket } from 'ws'
 
-import { requestFiles } from './websockets/websocket-action'
+import type { RequestFilesFn } from '@codebuff/common/types/contracts/client'
 
-export async function getFileReadingUpdates(
-  ws: WebSocket,
-  requestedFiles: string[],
-): Promise<
+export async function getFileReadingUpdates(params: {
+  requestFiles: RequestFilesFn
+  requestedFiles: string[]
+}): Promise<
   {
     path: string
     content: string
   }[]
 > {
+  const { requestFiles, requestedFiles } = params
+
   const allFilePaths = uniq(requestedFiles)
-  const loadedFiles = await requestFiles({ ws, filePaths: allFilePaths })
+  const loadedFiles = await requestFiles({ filePaths: allFilePaths })
 
   const addedFiles = allFilePaths
     .filter(

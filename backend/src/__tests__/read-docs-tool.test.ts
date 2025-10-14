@@ -90,24 +90,8 @@ describe('read_docs tool with researcher agent', () => {
     mockedFunctions.push({ name: 'bigquery.insertTrace', spy: insertTraceSpy })
 
     // Mock websocket actions
-    const requestFilesSpy = spyOn(
-      websocketAction,
-      'requestFiles',
-    ).mockImplementation(async () => ({}))
-    mockedFunctions.push({
-      name: 'websocketAction.requestFiles',
-      spy: requestFilesSpy,
-    })
-
-    const requestFileSpy = spyOn(
-      websocketAction,
-      'requestFile',
-    ).mockImplementation(async () => null)
-    mockedFunctions.push({
-      name: 'websocketAction.requestFile',
-      spy: requestFileSpy,
-    })
-
+    agentRuntimeScopedImpl.requestFiles = async () => ({})
+    agentRuntimeScopedImpl.requestOptionalFile = async () => null
     agentRuntimeScopedImpl.requestToolCall = async () => ({
       output: [
         {

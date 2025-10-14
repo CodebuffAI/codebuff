@@ -20,7 +20,6 @@ import {
 
 import { MockWebSocket, mockFileContext } from './test-utils'
 import { processStreamWithTools } from '../tools/stream-parser'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
 import type {
@@ -72,8 +71,8 @@ describe('malformed tool call error handling', () => {
     )
 
     // Mock websocket actions
-    spyOn(websocketAction, 'requestFiles').mockImplementation(async () => ({}))
-    spyOn(websocketAction, 'requestFile').mockImplementation(async () => null)
+    agentRuntimeScopedImpl.requestFiles = async () => ({})
+    agentRuntimeScopedImpl.requestOptionalFile = async () => null
     agentRuntimeScopedImpl.requestToolCall = async () => ({
       output: [
         {

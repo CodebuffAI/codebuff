@@ -28,7 +28,7 @@ import type {
   SDKAssistantMessage,
   SDKUserMessage,
 } from '@anthropic-ai/claude-code'
-import type { requestFiles as originalRequestFiles } from '@codebuff/backend/websockets/websocket-action'
+import type { requestFilesWs as originalRequestFiles } from '@codebuff/backend/websockets/websocket-action'
 import type { ClientToolCall } from '@codebuff/common/tools/list'
 import type { AgentRuntimeScopedDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type {

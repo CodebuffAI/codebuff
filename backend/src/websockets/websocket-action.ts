@@ -3,10 +3,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
-import { toOptionalFile } from '@codebuff/common/old-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
-import { ensureEndsWithNewline } from '@codebuff/common/util/file'
-import { generateCompactId } from '@codebuff/common/util/string'
 import { eq } from 'drizzle-orm'
 
 import {
@@ -404,54 +401,3 @@ subscribeToAction(
   'cancel-user-input',
   protec.run({ baseAction: onCancelUserInput }),
 )
-
-/**
- * Requests multiple files from the client
- * @param ws - The WebSocket connection
- * @param filePaths - Array of file paths to request
- * @returns Promise resolving to an object mapping file paths to their contents
- */
-export async function requestFiles(params: {
-  ws: WebSocket
-  filePaths: string[]
-}) {
-  const { ws, filePaths } = params
-  return new Promise<Record<string, string | null>>((resolve) => {
-    const requestId = generateCompactId()
-    const unsubscribe = subscribeToAction('read-files-response', (action) => {
-      for (const [filename, contents] of Object.entries(action.files)) {
-        action.files[filename] = ensureEndsWithNewline(contents)
-      }
-      if (action.requestId === requestId) {
-        unsubscribe()
-        resolve(action.files)
-      }
-    })
-    sendAction(ws, {
-      type: 'read-files',
-      filePaths,
-      requestId,
-    })
-  })
-}
-
-/**
- * Requests a single file from the client
- * @param ws - The WebSocket connection
- * @param filePath - The path of the file to request
- * @returns Promise resolving to the file contents or null if not found
- */
-export async function requestFile(params: { ws: WebSocket; filePath: string }) {
-  const { ws, filePath } = params
-  const files = await requestFiles({ ws, filePaths: [filePath] })
-  return files[filePath] ?? null
-}
-
-export async function requestOptionalFile(params: {
-  ws: WebSocket
-  filePath: string
-}) {
-  const { ws, filePath } = params
-  const file = await requestFile({ ws, filePath })
-  return toOptionalFile(file)
-}

@@ -1,9 +1,15 @@
+import { toOptionalFile } from '@codebuff/common/old-constants'
+import { ensureEndsWithNewline } from '@codebuff/common/util/file'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { subscribeToAction } from './websockets/websocket-action'
 
 import type { ServerAction } from '@codebuff/common/actions'
-import type { RequestMcpToolDataFn } from '@codebuff/common/types/contracts/client'
+import type {
+  RequestFilesFn,
+  RequestMcpToolDataFn,
+  RequestOptionalFileFn,
+} from '@codebuff/common/types/contracts/client'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
@@ -140,4 +146,45 @@ export async function requestMcpToolDataWs(
       ...(toolNames && { toolNames }),
     })
   })
+}
+
+/**
+ * Requests multiple files from the client
+ * @param ws - The WebSocket connection
+ * @param filePaths - Array of file paths to request
+ * @returns Promise resolving to an object mapping file paths to their contents
+ */
+export async function requestFilesWs(
+  params: {
+    ws: WebSocket
+  } & ParamsOf<RequestFilesFn>,
+): ReturnType<RequestFilesFn> {
+  const { ws, filePaths } = params
+  return new Promise<Record<string, string | null>>((resolve) => {
+    const requestId = generateCompactId()
+    const unsubscribe = subscribeToAction('read-files-response', (action) => {
+      for (const [filename, contents] of Object.entries(action.files)) {
+        action.files[filename] = ensureEndsWithNewline(contents)
+      }
+      if (action.requestId === requestId) {
+        unsubscribe()
+        resolve(action.files)
+      }
+    })
+    sendAction(ws, {
+      type: 'read-files',
+      filePaths,
+      requestId,
+    })
+  })
+}
+
+export async function requestOptionalFileWs(
+  params: {
+    ws: WebSocket
+  } & ParamsOf<RequestOptionalFileFn>,
+): ReturnType<RequestOptionalFileFn> {
+  const { ws, filePath } = params
+  const files = await requestFilesWs({ ws, filePaths: [filePath] })
+  return toOptionalFile(files[filePath] ?? null)
 }
