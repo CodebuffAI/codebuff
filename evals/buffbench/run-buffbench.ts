@@ -73,7 +73,7 @@ async function runTask(options: {
     const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
     const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
     const safeCommitShort = commit.sha.slice(0, 7)
-    const traceFilename = `${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
+    const traceFilename = `${index + 1}-${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
     const tracePath = path.join(logsDir, traceFilename)
 
     // Store judging result and trace for combined output later
@@ -124,7 +124,7 @@ async function runTask(options: {
   // Save analysis to logs directory
   const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
   const analysisCommitShort = commit.sha.slice(0, 7)
-  const analysisFilename = `${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
+  const analysisFilename = `${index + 1}-${safeTaskId}-ANALYSIS-${analysisCommitShort}.json`
   const analysisPath = path.join(logsDir, analysisFilename)
   fs.writeFileSync(analysisPath, JSON.stringify(analysisData, null, 2))
 
@@ -142,7 +142,7 @@ async function runTask(options: {
         error: trace.error,
         traceFilePath: path.join(
           logsDir,
-          `${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
+          `${index + 1}-${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
         ),
       })),
       traceAnalysis,
