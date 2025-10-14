@@ -1,8 +1,13 @@
 import { publisher } from '../constants'
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import {
+  PLACEHOLDER,
+  type SecretAgentDefinition,
+} from '../types/secret-agent-definition'
 import type { Model } from '@codebuff/common/old-constants'
 
-export const createReviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> => ({
+export const createReviewer = (
+  model: Model,
+): Omit<SecretAgentDefinition, 'id'> => ({
   model,
   displayName: 'Nit Pick Nick',
   spawnerPrompt:
@@ -20,7 +25,12 @@ export const createReviewer = (model: Model): Omit<SecretAgentDefinition, 'id'> 
   inheritParentSystemPrompt: true,
   includeMessageHistory: true,
 
-  instructionsPrompt: `Your task is to provide helpful feedback on the last file changes made by the assistant.
+  instructionsPrompt: `For reference, here is the original user request:
+<user_message>
+${PLACEHOLDER.USER_INPUT_PROMPT}
+</user_message>
+
+Your task is to provide helpful feedback on the last file changes made by the assistant.
 
 IMPORTANT: Before analyzing the file changes, you should first:
 1. Run file change hooks to validate the changes using the run_file_change_hooks tool
@@ -33,6 +43,7 @@ NOTE: You cannot make any changes directly! You can only suggest changes.
 Next, you should critique the code changes made recently in the above conversation. Provide specific feedback on the file changes made by the assistant, file-by-file.
 
 - Focus on getting to a complete and correct solution as the top priority.
+- Make sure all the requirements in the user's message are addressed. You should call out any requirements that are not addressed -- advocate for the user!
 - Try to keep any changes to the codebase as minimal as possible.
 - Simplify any logic that can be simplified.
 - Where a function can be reused, reuse it and do not create a new one.
