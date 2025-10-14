@@ -36,6 +36,7 @@ export enum AnalyticsEvent {
 
   // Web
   SIGNUP = 'web.signup',
+  SSE_ENDPOINT_REQUEST = 'web.sse_endpoint_request',
 
   // Web - Authentication
   AUTH_LOGIN_STARTED = 'auth.login_started',
