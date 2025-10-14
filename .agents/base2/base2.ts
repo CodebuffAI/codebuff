@@ -6,12 +6,11 @@ import {
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
 
-export const createBase2: (mode: 'normal' | 'max') => SecretAgentDefinition = (
-  mode,
-) => {
+export const createBase2: (
+  mode: 'normal' | 'max',
+) => Omit<SecretAgentDefinition, 'id'> = (mode) => {
   const isMax = mode === 'max'
   return {
-    id: 'base2',
     publisher,
     model: 'anthropic/claude-sonnet-4.5',
     displayName: 'Buffy the Orchestrator',
@@ -139,5 +138,5 @@ The user asks you to implement a new feature. You respond in multiple steps:
   }
 }
 
-const definition = createBase2('normal')
+const definition = { ...createBase2('normal'), id: 'base2' }
 export default definition
