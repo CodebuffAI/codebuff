@@ -24,24 +24,6 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agents',
 ])
 
-// Helper function to check if an agent block exists
-const findAgentBlock = (
-  blocks: ContentBlock[],
-  targetAgentId: string,
-): boolean => {
-  for (const block of blocks) {
-    if (block.type === 'agent' && block.agentId === targetAgentId) {
-      return true
-    }
-    if (block.type === 'agent' && block.blocks) {
-      if (findAgentBlock(block.blocks, targetAgentId)) {
-        return true
-      }
-    }
-  }
-  return false
-}
-
 // Helper function to recursively update blocks
 const updateBlocksRecursively = (
   blocks: ContentBlock[],
@@ -532,15 +514,12 @@ export const useSendMessage = ({
                     setMessages((prev) =>
                       prev.map((msg) => {
                         if (msg.id === aiMessageId && msg.blocks) {
-                          const blocks = msg.blocks.map((block) => {
-                            if (
-                              block.type === 'agent' &&
-                              block.agentId === tempId
-                            ) {
-                              return { ...block, agentId: event.agentId }
-                            }
-                            return block
-                          })
+                          // Use recursive update to rename nested agents too
+                          const blocks = updateBlocksRecursively(
+                            msg.blocks,
+                            tempId,
+                            (block) => ({ ...block, agentId: event.agentId }),
+                          )
                           return { ...msg, blocks }
                         }
                         return msg
@@ -732,22 +711,8 @@ export const useSendMessage = ({
                 agentId: agentId || 'none',
               })
 
-              // Check if this tool call should be nested in a subagent
-              // Only nest if the agent block actually exists
-              const shouldNestInAgent = agentId && setMessages.length > 0
-              let agentBlockExists = false
-
-              if (shouldNestInAgent) {
-                setMessages((prev) => {
-                  const msg = prev.find((m) => m.id === aiMessageId)
-                  if (msg?.blocks) {
-                    agentBlockExists = findAgentBlock(msg.blocks, agentId)
-                  }
-                  return prev
-                })
-              }
-
-              if (agentBlockExists) {
+              // If this tool call belongs to a subagent, add it to that agent's blocks
+              if (agentId) {
                 logger.info('setMessages: tool_call for subagent', {
                   agentId,
                   toolName,

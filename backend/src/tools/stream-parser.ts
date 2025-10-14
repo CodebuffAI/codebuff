@@ -160,7 +160,8 @@ export async function processStreamWithTools(
             toolCallId,
             toolName,
             input,
-            agentId: agentState.agentId,
+            // Only include agentId for subagents (agents with a parent)
+            ...(agentState.parentId && { agentId: agentState.agentId }),
           })
         } else {
           // First non-str_replace tool marks end of str_replace phase
