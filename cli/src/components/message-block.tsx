@@ -198,7 +198,9 @@ export const MessageBlock = ({
     const firstLine = lines[0] || ''
 
     const streamingPreview = isStreaming
-      ? `${sanitizePreview(firstLine)}...`
+      ? agentBlock.initialPrompt
+        ? sanitizePreview(agentBlock.initialPrompt)
+        : `${sanitizePreview(firstLine)}...`
       : ''
 
     const finishedPreview =

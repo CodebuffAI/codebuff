@@ -621,22 +621,22 @@ export const useSendMessage = ({
                       return msg
                     }
 
-                    const existingBlocks: ContentBlock[] = msg.blocks
-                      ? [...msg.blocks]
-                      : []
+                const existingBlocks: ContentBlock[] = msg.blocks
+                  ? [...msg.blocks]
+                  : []
 
-                    const newAgentBlocks: ContentBlock[] = agents.map(
-                      (agent: any, index: number) => ({
-                        type: 'agent',
-                        agentId: `${toolCallId}-${index}`,
-                        agentName: agent.agent_type || 'Agent',
-                        agentType: agent.agent_type || 'unknown',
-                        content: agent.prompt || '',
-                        status: 'running' as const,
-                        blocks: [] as ContentBlock[],
-                        initialPrompt: agent.prompt || '',
-                      }),
-                    )
+                const newAgentBlocks: ContentBlock[] = agents.map(
+                  (agent: any, index: number) => ({
+                    type: 'agent',
+                    agentId: `${toolCallId}-${index}`,
+                    agentName: agent.agent_type || 'Agent',
+                    agentType: agent.agent_type || 'unknown',
+                    content: '',
+                    status: 'running' as const,
+                    blocks: [] as ContentBlock[],
+                    initialPrompt: agent.prompt || '',
+                  }),
+                )
 
                     return {
                       ...msg,
