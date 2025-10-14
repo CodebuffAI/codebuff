@@ -1,4 +1,5 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
+import type { SetStateAction } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import { formatTimestamp } from '../utils/helpers'
@@ -53,6 +54,8 @@ interface UseSendMessageOptions {
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   activeSubagentsRef: React.MutableRefObject<Set<string>>
   isChainInProgressRef: React.MutableRefObject<boolean>
+  setActiveSubagents: React.Dispatch<React.SetStateAction<Set<string>>>
+  setIsChainInProgress: (value: boolean) => void
   setIsWaitingForResponse: (waiting: boolean) => void
   startStreaming: () => void
   stopStreaming: () => void
@@ -70,6 +73,8 @@ export const useSendMessage = ({
   setCollapsedAgents,
   activeSubagentsRef,
   isChainInProgressRef,
+  setActiveSubagents,
+  setIsChainInProgress,
   setIsWaitingForResponse,
   startStreaming,
   stopStreaming,
@@ -85,6 +90,121 @@ export const useSendMessage = ({
     Map<string, { buffer: string; insideToolCall: boolean }>
   >(new Map())
 
+  const updateChainInProgress = useCallback(
+    (value: boolean) => {
+      isChainInProgressRef.current = value
+      setIsChainInProgress(value)
+    },
+    [setIsChainInProgress, isChainInProgressRef],
+  )
+
+  const updateActiveSubagents = useCallback(
+    (mutate: (next: Set<string>) => void) => {
+      setActiveSubagents((prev) => {
+        const next = new Set(prev)
+        mutate(next)
+
+        if (next.size === prev.size) {
+          let changed = false
+          for (const candidate of prev) {
+            if (!next.has(candidate)) {
+              changed = true
+              break
+            }
+          }
+          if (!changed) {
+            activeSubagentsRef.current = prev
+            return prev
+          }
+        }
+
+        activeSubagentsRef.current = next
+        return next
+      })
+    },
+    [setActiveSubagents, activeSubagentsRef],
+  )
+
+  const addActiveSubagent = useCallback(
+    (agentId: string) => {
+      updateActiveSubagents((next) => next.add(agentId))
+    },
+    [updateActiveSubagents],
+  )
+
+  const removeActiveSubagent = useCallback(
+    (agentId: string) => {
+      updateActiveSubagents((next) => {
+        if (next.has(agentId)) {
+          next.delete(agentId)
+        }
+      })
+    },
+    [updateActiveSubagents],
+  )
+
+  const pendingMessageUpdatesRef = useRef<
+    ((messages: ChatMessage[]) => ChatMessage[])[]
+  >([])
+  const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const flushPendingUpdates = useCallback(() => {
+    if (flushTimeoutRef.current) {
+      clearTimeout(flushTimeoutRef.current)
+      flushTimeoutRef.current = null
+    }
+    if (pendingMessageUpdatesRef.current.length === 0) {
+      return
+    }
+
+    const queuedUpdates = pendingMessageUpdatesRef.current.slice()
+    pendingMessageUpdatesRef.current = []
+
+    setMessages((prev) => {
+      let next = prev
+      for (const updater of queuedUpdates) {
+        next = updater(next)
+      }
+      return next
+    })
+  }, [setMessages])
+
+  const scheduleFlush = useCallback(() => {
+    if (flushTimeoutRef.current) {
+      return
+    }
+    flushTimeoutRef.current = setTimeout(() => {
+      flushTimeoutRef.current = null
+      flushPendingUpdates()
+    }, 48)
+  }, [flushPendingUpdates])
+
+  const queueMessageUpdate = useCallback(
+    (updater: (messages: ChatMessage[]) => ChatMessage[]) => {
+      pendingMessageUpdatesRef.current.push(updater)
+      scheduleFlush()
+    },
+    [scheduleFlush],
+  )
+
+  const applyMessageUpdate = useCallback(
+    (update: SetStateAction<ChatMessage[]>) => {
+      flushPendingUpdates()
+      setMessages(update)
+    },
+    [flushPendingUpdates, setMessages],
+  )
+
+  useEffect(() => {
+    return () => {
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current)
+        flushTimeoutRef.current = null
+      }
+      flushPendingUpdates()
+    }
+  }, [flushPendingUpdates])
+
   const sendMessage = useCallback(
     async (content: string) => {
       const timestamp = formatTimestamp()
@@ -95,7 +215,7 @@ export const useSendMessage = ({
         timestamp,
       }
 
-      setMessages((prev) => {
+      applyMessageUpdate((prev) => {
         const newMessages = [...prev, userMessage]
         if (newMessages.length > 100) {
           return newMessages.slice(-100)
@@ -118,7 +238,7 @@ export const useSendMessage = ({
           timestamp: formatTimestamp(),
         }
 
-        setMessages((prev) => [...prev, aiMessage])
+        applyMessageUpdate((prev) => [...prev, aiMessage])
 
         const fullResponse = `I've reviewed your message. Let me help with that.\n\n## Analysis\n\nBased on your request, here are the key points:\n\n1. **Architecture**: The current structure is well-organized\n2. **Performance**: Consider adding memoization for expensive calculations\n3. **Testing**: Add unit tests using \`bun:test\`\n\n### Code Example\n\n\`\`\`typescript\n// Add this optimization\nconst memoized = useMemo(() => {\n  return expensiveCalculation(data)\n}, [data])\n\`\`\`\n\nThis approach will improve _performance_ while maintaining **code clarity**.`
 
@@ -141,14 +261,14 @@ export const useSendMessage = ({
               isCompletion: true,
               credits: Math.floor(Math.random() * (230 - 18 + 1)) + 18,
             }
-            setMessages((prev) => [...prev, completionMessage])
+            applyMessageUpdate((prev) => [...prev, completionMessage])
             return
           }
 
           const nextChunk = tokens[index]
           index++
 
-          setMessages((prev) =>
+          queueMessageUpdate((prev) =>
             prev.map((msg) =>
               msg.id === aiMessageId
                 ? { ...msg, content: msg.content + nextChunk }
@@ -188,7 +308,7 @@ export const useSendMessage = ({
           updateType: update.type,
           preview,
         })
-        setMessages((prev) =>
+        queueMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id === aiMessageId && msg.blocks) {
               // Use recursive update to handle nested agents
@@ -196,6 +316,9 @@ export const useSendMessage = ({
                 msg.blocks,
                 agentId,
                 (block) => {
+                  if (block.type !== 'agent') {
+                    return block
+                  }
                   const agentBlocks: ContentBlock[] = block.blocks
                     ? [...block.blocks]
                     : []
@@ -258,10 +381,10 @@ export const useSendMessage = ({
 
       logger.info('Initiating SDK client.run()')
       setIsWaitingForResponse(true)
-      setMessages((prev) => [...prev, aiMessage])
+      applyMessageUpdate((prev) => [...prev, aiMessage])
       setIsStreaming(true)
       setCanProcessQueue(false)
-      isChainInProgressRef.current = true
+      updateChainInProgress(true)
 
       const startTime = Date.now()
       let hasReceivedContent = false
@@ -298,7 +421,7 @@ export const useSendMessage = ({
             logger.info('setMessages: handleStreamChunk (main agent text)', {
               text,
             })
-            setMessages((prev) =>
+            queueMessageUpdate((prev) =>
               prev.map((msg) => {
                 if (msg.id !== aiMessageId) {
                   return msg
@@ -435,44 +558,44 @@ export const useSendMessage = ({
               logger.info('setMessages: text event without agentId', {
                 textPreview: text.slice(0, 100),
               })
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== aiMessageId) {
-                      return msg
-                    }
+              queueMessageUpdate((prev) =>
+                prev.map((msg) => {
+                  if (msg.id !== aiMessageId) {
+                    return msg
+                  }
 
-                    const blocks: ContentBlock[] = msg.blocks
-                      ? [...msg.blocks]
-                      : []
-                    const lastBlock = blocks[blocks.length - 1]
+                  const blocks: ContentBlock[] = msg.blocks
+                    ? [...msg.blocks]
+                    : []
+                  const lastBlock = blocks[blocks.length - 1]
 
-                    if (lastBlock && lastBlock.type === 'text') {
-                      const updatedTextBlock: ContentBlock = {
-                        type: 'text',
-                        content: lastBlock.content + text,
-                      }
-                      return {
-                        ...msg,
-                        blocks: [
-                          ...blocks.slice(0, -1),
-                          updatedTextBlock,
-                        ],
-                      }
-                    }
-
-                    const newTextBlock: ContentBlock = {
+                  if (lastBlock && lastBlock.type === 'text') {
+                    const updatedTextBlock: ContentBlock = {
                       type: 'text',
-                      content: text,
+                      content: lastBlock.content + text,
                     }
                     return {
                       ...msg,
-                      blocks: [...blocks, newTextBlock],
+                      blocks: [
+                        ...blocks.slice(0, -1),
+                        updatedTextBlock,
+                      ],
                     }
-                  }),
-                )
-                return
-              }
+                  }
+
+                  const newTextBlock: ContentBlock = {
+                    type: 'text',
+                    content: text,
+                  }
+                  return {
+                    ...msg,
+                    blocks: [...blocks, newTextBlock],
+                  }
+                }),
+              )
+              return
             }
+          }
 
             if (event.type === 'finish' && event.totalCost !== undefined) {
               actualCredits = event.totalCost
@@ -493,7 +616,7 @@ export const useSendMessage = ({
                   parentAgentId: event.parentAgentId || 'ROOT',
                   hasParentAgentId: !!event.parentAgentId,
                 })
-                activeSubagentsRef.current.add(event.agentId)
+                addActiveSubagent(event.agentId)
 
                 let foundExistingBlock = false
                 for (const [
@@ -511,7 +634,7 @@ export const useSendMessage = ({
                         agentType: eventType,
                       },
                     )
-                    setMessages((prev) =>
+                    applyMessageUpdate((prev) =>
                       prev.map((msg) => {
                         if (msg.id === aiMessageId && msg.blocks) {
                           // Use recursive update to rename nested agents too
@@ -554,7 +677,7 @@ export const useSendMessage = ({
                       parentAgentId: event.parentAgentId || 'ROOT',
                     },
                   )
-                  setMessages((prev) =>
+                  applyMessageUpdate((prev) =>
                     prev.map((msg) => {
                       if (msg.id !== aiMessageId) {
                         return msg
@@ -583,13 +706,18 @@ export const useSendMessage = ({
                         const updatedBlocks = updateBlocksRecursively(
                           blocks,
                           event.parentAgentId,
-                          (parentBlock) => ({
-                            ...parentBlock,
-                            blocks: [
-                              ...(parentBlock.blocks || []),
-                              newAgentBlock,
-                            ],
-                          }),
+                          (parentBlock) => {
+                            if (parentBlock.type !== 'agent') {
+                              return parentBlock
+                            }
+                            return {
+                              ...parentBlock,
+                              blocks: [
+                                ...(parentBlock.blocks || []),
+                                newAgentBlock,
+                              ],
+                            }
+                          },
                         )
                         return { ...msg, blocks: updatedBlocks }
                       }
@@ -611,9 +739,9 @@ export const useSendMessage = ({
               event.type === 'subagent-finish'
             ) {
               if (event.agentId) {
-                activeSubagentsRef.current.delete(event.agentId)
+                removeActiveSubagent(event.agentId)
 
-                setMessages((prev) =>
+                applyMessageUpdate((prev) =>
                   prev.map((msg) => {
                     if (msg.id === aiMessageId && msg.blocks) {
                       // Use recursive update to handle nested agents
@@ -662,7 +790,7 @@ export const useSendMessage = ({
                   agentTypes: agents.map((a: any) => a.agent_type),
                 })
 
-                setMessages((prev) =>
+                applyMessageUpdate((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== aiMessageId) {
                       return msg
@@ -719,7 +847,7 @@ export const useSendMessage = ({
                   toolCallId,
                 })
 
-                setMessages((prev) =>
+                applyMessageUpdate((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== aiMessageId || !msg.blocks) {
                       return msg
@@ -730,6 +858,9 @@ export const useSendMessage = ({
                       msg.blocks,
                       agentId,
                       (block) => {
+                        if (block.type !== 'agent') {
+                          return block
+                        }
                         const agentBlocks: ContentBlock[] = block.blocks
                           ? [...block.blocks]
                           : []
@@ -752,7 +883,7 @@ export const useSendMessage = ({
                 )
               } else {
                 // Top-level tool call (or agent block doesn't exist yet)
-                setMessages((prev) =>
+                applyMessageUpdate((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== aiMessageId) {
                       return msg
@@ -794,7 +925,7 @@ export const useSendMessage = ({
               })
 
               if (isSpawnAgentsResult && Array.isArray(firstOutputValue)) {
-                setMessages((prev) =>
+                applyMessageUpdate((prev) =>
                   prev.map((msg) => {
                     if (msg.id === aiMessageId && msg.blocks) {
                       const blocks = msg.blocks.map((block) => {
@@ -886,7 +1017,7 @@ export const useSendMessage = ({
                 })
               }
 
-              setMessages((prev) =>
+              applyMessageUpdate((prev) =>
                 prev.map((msg) => {
                   if (msg.id === aiMessageId && msg.blocks) {
                     return { ...msg, blocks: updateToolBlock(msg.blocks) }
@@ -909,7 +1040,7 @@ export const useSendMessage = ({
         })
         setIsStreaming(false)
         setCanProcessQueue(true)
-        isChainInProgressRef.current = false
+        updateChainInProgress(false)
         setIsWaitingForResponse(false)
 
         if ((result as any)?.credits !== undefined) {
@@ -918,7 +1049,7 @@ export const useSendMessage = ({
 
         const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1)
 
-        setMessages((prev) =>
+        applyMessageUpdate((prev) =>
           prev.map((msg) =>
             msg.id === aiMessageId
               ? {
@@ -940,11 +1071,11 @@ export const useSendMessage = ({
         logger.error('SDK client.run() failed', error)
         setIsStreaming(false)
         setCanProcessQueue(true)
-        isChainInProgressRef.current = false
+        updateChainInProgress(false)
         setIsWaitingForResponse(false)
 
         if (isAborted) {
-          setMessages((prev) =>
+          applyMessageUpdate((prev) =>
             prev.map((msg) => {
               if (msg.id !== aiMessageId) {
                 return msg
@@ -981,7 +1112,7 @@ export const useSendMessage = ({
         } else {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error occurred'
-          setMessages((prev) =>
+          applyMessageUpdate((prev) =>
             prev.map((msg) =>
               msg.id === aiMessageId
                 ? {
@@ -992,7 +1123,7 @@ export const useSendMessage = ({
             ),
           )
 
-          setMessages((prev) =>
+          applyMessageUpdate((prev) =>
             prev.map((msg) =>
               msg.id === aiMessageId ? { ...msg, isComplete: true } : msg,
             ),
@@ -1001,7 +1132,8 @@ export const useSendMessage = ({
       }
     },
     [
-      setMessages,
+      applyMessageUpdate,
+      queueMessageUpdate,
       setFocusedAgentId,
       setInputFocused,
       inputRef,
@@ -1015,6 +1147,9 @@ export const useSendMessage = ({
       setIsStreaming,
       setCanProcessQueue,
       abortControllerRef,
+      updateChainInProgress,
+      addActiveSubagent,
+      removeActiveSubagent,
     ],
   )
 

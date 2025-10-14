@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { ScrollBoxRenderable } from '@opentui/core'
 
@@ -14,6 +14,7 @@ export const useChatScrollbox = (
   const autoScrollEnabledRef = useRef<boolean>(true)
   const programmaticScrollRef = useRef<boolean>(false)
   const animationFrameRef = useRef<number | null>(null)
+  const [isAtBottom, setIsAtBottom] = useState<boolean>(true)
 
   const cancelAnimation = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -129,11 +130,13 @@ export const useChatScrollbox = (
       if (programmaticScrollRef.current) {
         programmaticScrollRef.current = false
         autoScrollEnabledRef.current = true
+        setIsAtBottom(true)
         return
       }
 
       cancelAnimation()
       autoScrollEnabledRef.current = isNearBottom
+      setIsAtBottom((prev) => (prev === isNearBottom ? prev : isNearBottom))
     }
 
     scrollbox.verticalScrollBar.on('change', handleScrollChange)
@@ -176,5 +179,6 @@ export const useChatScrollbox = (
     scrollToLatest,
     scrollToAgent,
     scrollboxProps: {},
+    isAtBottom,
   }
 }

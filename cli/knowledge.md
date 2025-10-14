@@ -20,22 +20,6 @@
 
 OpenTUI expects plain text content or the `content` prop - it does not handle JSX expressions within text elements.
 
-## Screen Mode and TODO List Positioning
-
-The CLI chat interface adapts its layout based on terminal dimensions:
-
-### Screen Modes
-- **Full-screen**: width ≥ 70 AND height ≥ 30
-- **Wide-screen**: width ≥ 70 AND height < 30
-- **Tall-screen**: width < 70 AND height ≥ 30
-- **Small-screen**: width < 70 AND height < 30
-
-### TODO List Positioning
-- **Right side**: Full-screen and wide-screen modes (when there's sufficient horizontal space)
-- **Top**: Tall-screen and small-screen modes (when terminal is narrow)
-
-The TODO list automatically repositions based on available space to ensure optimal visibility and usability.
-
 ### Text Styling Components Must Be Wrapped in `<text>`
 
 All text styling components (`<strong>`, `<em>`, `<span>`, etc.) **MUST** be nested inside a `<text>` component. They cannot be returned directly from render functions.

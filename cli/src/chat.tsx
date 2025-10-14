@@ -4,10 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MultilineInput } from './components/multiline-input'
 import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
-import {
-  SuggestionMenu,
-  type SuggestionItem,
-} from './components/suggestion-menu'
+import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS, type SlashCommand } from './data/slash-commands'
 import { useClipboard } from './hooks/use-clipboard'
 import { useInputHistory } from './hooks/use-input-history'
@@ -16,9 +13,10 @@ import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
+import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
-import { formatTimestamp, formatQueuedPreview } from './utils/helpers'
+import { formatQueuedPreview } from './utils/helpers'
 import {
   loadLocalAgents,
   type LocalAgentInfo,
@@ -26,11 +24,15 @@ import {
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { chatThemes, createMarkdownPalette } from './utils/theme-system'
+import { useChatStore } from './state/chat-store'
 
 import type { ToolName } from '@codebuff/sdk'
 import type { InputRenderable, ScrollBoxRenderable } from '@opentui/core'
 
 type ChatVariant = 'ai' | 'user' | 'agent'
+
+const MAX_VIRTUALIZED_TOP_LEVEL = 60
+const VIRTUAL_OVERSCAN = 12
 
 type AgentMessage = {
   agentName: string
@@ -73,153 +75,6 @@ export type ChatMessage = {
   isComplete?: boolean
 }
 
-interface TriggerContext {
-  active: boolean
-  query: string
-  startIndex: number
-}
-
-const parseSlashContext = (input: string): TriggerContext => {
-  if (!input) {
-    return { active: false, query: '', startIndex: -1 }
-  }
-
-  const lastNewline = input.lastIndexOf('\n')
-  const lineStart = lastNewline === -1 ? 0 : lastNewline + 1
-  const line = input.slice(lineStart)
-
-  const match = line.match(/^(\s*)\/([^\s]*)$/)
-  if (!match) {
-    return { active: false, query: '', startIndex: -1 }
-  }
-
-  const [, leadingWhitespace, commandSegment] = match
-  const startIndex = lineStart + leadingWhitespace.length
-
-  return { active: true, query: commandSegment, startIndex }
-}
-
-const parseMentionContext = (input: string): TriggerContext => {
-  if (!input) {
-    return { active: false, query: '', startIndex: -1 }
-  }
-
-  const lastNewline = input.lastIndexOf('\n')
-  const lineStart = lastNewline === -1 ? 0 : lastNewline + 1
-  const line = input.slice(lineStart)
-
-  const atIndex = line.lastIndexOf('@')
-  if (atIndex === -1) {
-    return { active: false, query: '', startIndex: -1 }
-  }
-
-  const beforeChar = atIndex > 0 ? line[atIndex - 1] : ''
-  if (beforeChar && !/\s/.test(beforeChar)) {
-    return { active: false, query: '', startIndex: -1 }
-  }
-
-  const query = line.slice(atIndex + 1)
-  if (query.includes(' ') || query.includes('\t')) {
-    return { active: false, query: '', startIndex: -1 }
-  }
-
-  const startIndex = lineStart + atIndex
-
-  return { active: true, query, startIndex }
-}
-
-const filterSlashCommands = (
-  commands: SlashCommand[],
-  query: string,
-): SlashCommand[] => {
-  if (!query) {
-    return commands
-  }
-
-  const normalized = query.toLowerCase()
-  const result: SlashCommand[] = []
-  const pushUnique = (command: SlashCommand) => {
-    if (!result.some((entry) => entry.id === command.id)) {
-      result.push(command)
-    }
-  }
-
-  for (const command of commands) {
-    const id = command.id.toLowerCase()
-    const aliasList = (command.aliases ?? []).map((alias) =>
-      alias.toLowerCase(),
-    )
-
-    if (
-      id.startsWith(normalized) ||
-      aliasList.some((alias) => alias.startsWith(normalized))
-    ) {
-      pushUnique(command)
-    }
-  }
-
-  for (const command of commands) {
-    const id = command.id.toLowerCase()
-    const aliasList = (command.aliases ?? []).map((alias) =>
-      alias.toLowerCase(),
-    )
-    const description = command.description.toLowerCase()
-
-    if (
-      id.includes(normalized) ||
-      description.includes(normalized) ||
-      aliasList.some((alias) => alias.includes(normalized))
-    ) {
-      pushUnique(command)
-    }
-  }
-
-  return result
-}
-
-const filterAgentMatches = (
-  agents: LocalAgentInfo[],
-  query: string,
-): LocalAgentInfo[] => {
-  if (!query) {
-    return agents
-  }
-
-  const normalized = query.toLowerCase()
-  const startsWith: LocalAgentInfo[] = []
-  const contains: LocalAgentInfo[] = []
-  const seen = new Set<string>()
-
-  const pushUnique = (target: LocalAgentInfo[], agent: LocalAgentInfo) => {
-    if (!seen.has(agent.id)) {
-      target.push(agent)
-      seen.add(agent.id)
-    }
-  }
-
-  for (const agent of agents) {
-    const name = agent.displayName.toLowerCase()
-    const id = agent.id.toLowerCase()
-
-    if (name.startsWith(normalized) || id.startsWith(normalized)) {
-      pushUnique(startsWith, agent)
-      continue
-    }
-  }
-
-  for (const agent of agents) {
-    if (seen.has(agent.id)) continue
-    const name = agent.displayName.toLowerCase()
-    const id = agent.id.toLowerCase()
-
-    if (name.includes(normalized) || id.includes(normalized)) {
-      pushUnique(contains, agent)
-    }
-  }
-
-  return startsWith.concat(contains)
-}
-
 export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const renderer = useRenderer()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -229,33 +84,52 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const theme = chatThemes[themeName]
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
-  const [inputValue, setInputValue] = useState<string>('')
-  const [inputFocused, setInputFocused] = useState<boolean>(true)
+  const inputValue = useChatStore((store) => store.inputValue)
+  const setInputValue = useChatStore((store) => store.setInputValue)
+  const inputFocused = useChatStore((store) => store.inputFocused)
+  const setInputFocused = useChatStore((store) => store.setInputFocused)
   const [slashSelectedIndex, setSlashSelectedIndex] = useState<number>(0)
   const [agentSelectedIndex, setAgentSelectedIndex] = useState<number>(0)
 
   const activeAgentStreamsRef = useRef<number>(0)
-  const isChainInProgressRef = useRef<boolean>(false)
+  const isChainInProgress = useChatStore((store) => store.isChainInProgress)
+  const setIsChainInProgress = useChatStore(
+    (store) => store.setIsChainInProgress,
+  )
+  const isChainInProgressRef = useRef<boolean>(isChainInProgress)
 
   const { clipboardMessage } = useClipboard()
 
-  const [collapsedAgents, setCollapsedAgents] = useState<Set<string>>(new Set())
-  const [streamingAgents, setStreamingAgents] = useState<Set<string>>(new Set())
-  const [focusedAgentId, setFocusedAgentId] = useState<string | null>(null)
+  const collapsedAgents = useChatStore((store) => store.collapsedAgents)
+  const setCollapsedAgents = useChatStore(
+    (store) => store.setCollapsedAgents,
+  )
+  const streamingAgents = useChatStore((store) => store.streamingAgents)
+  const setStreamingAgents = useChatStore(
+    (store) => store.setStreamingAgents,
+  )
+  const focusedAgentId = useChatStore((store) => store.focusedAgentId)
+  const setFocusedAgentId = useChatStore(
+    (store) => store.setFocusedAgentId,
+  )
   const agentRefsMap = useRef<Map<string, any>>(new Map())
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'ai-seed-1',
-      variant: 'ai',
-      content:
-        "Hey there! Welcome to the demo — feel free to ask anything or just say hello when you're ready.",
-      timestamp: formatTimestamp(),
-    },
-  ])
-
+  const messages = useChatStore((store) => store.messages)
+  const setMessages = useChatStore((store) => store.setMessages)
   const hasAutoSubmittedRef = useRef(false)
-  const activeSubagentsRef = useRef<Set<string>>(new Set())
+  const activeSubagents = useChatStore((store) => store.activeSubagents)
+  const setActiveSubagents = useChatStore(
+    (store) => store.setActiveSubagents,
+  )
+  const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
+
+  useEffect(() => {
+    isChainInProgressRef.current = isChainInProgress
+  }, [isChainInProgress])
+
+  useEffect(() => {
+    activeSubagentsRef.current = activeSubagents
+  }, [activeSubagents])
 
   useEffect(() => {
     renderer?.setBackgroundColor(theme.background)
@@ -271,11 +145,8 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     }
   }, [])
 
-  const { scrollToLatest, scrollToAgent, scrollboxProps } = useChatScrollbox(
-    scrollRef,
-    messages,
-    agentRefsMap,
-  )
+  const { scrollToLatest, scrollToAgent, scrollboxProps, isAtBottom } =
+    useChatScrollbox(scrollRef, messages, agentRefsMap)
 
   const inertialScrollAcceleration = useMemo(
     () => createChatScrollAcceleration(),
@@ -288,51 +159,18 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
 
-  const slashContext = useMemo(
-    () => parseSlashContext(inputValue),
-    [inputValue],
-  )
-
-  const slashMatches = useMemo(
-    () =>
-      slashContext.active
-        ? filterSlashCommands(SLASH_COMMANDS, slashContext.query)
-        : [],
-    [slashContext.active, slashContext.query],
-  )
-
-  const mentionContext = useMemo(
-    () => parseMentionContext(inputValue),
-    [inputValue],
-  )
-
-  const agentMatches = useMemo(
-    () =>
-      mentionContext.active
-        ? filterAgentMatches(localAgents, mentionContext.query)
-        : [],
-    [mentionContext.active, mentionContext.query, localAgents],
-  )
-
-  const slashSuggestionItems = useMemo<SuggestionItem[]>(
-    () =>
-      slashMatches.map((command) => ({
-        id: command.id,
-        label: command.label,
-        description: command.description,
-      })),
-    [slashMatches],
-  )
-
-  const agentSuggestionItems = useMemo<SuggestionItem[]>(
-    () =>
-      agentMatches.map((agent) => ({
-        id: agent.id,
-        label: agent.displayName,
-        description: agent.id,
-      })),
-    [agentMatches],
-  )
+  const {
+    slashContext,
+    mentionContext,
+    slashMatches,
+    agentMatches,
+    slashSuggestionItems,
+    agentSuggestionItems,
+  } = useSuggestionEngine({
+    inputValue,
+    slashCommands: SLASH_COMMANDS,
+    localAgents,
+  })
 
   useEffect(() => {
     if (!slashContext.active) {
@@ -572,6 +410,8 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     setCollapsedAgents,
     activeSubagentsRef,
     isChainInProgressRef,
+    setActiveSubagents,
+    setIsChainInProgress,
     setIsWaitingForResponse,
     startStreaming,
     stopStreaming,
@@ -647,12 +487,32 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     navigateDown,
   })
 
-  const { tree: messageTree, topLevelMessages } = buildMessageTree(messages)
+  const { tree: messageTree, topLevelMessages } = useMemo(
+    () => buildMessageTree(messages),
+    [messages],
+  )
+
+  const shouldVirtualize =
+    isAtBottom && topLevelMessages.length > MAX_VIRTUALIZED_TOP_LEVEL
+
+  const virtualTopLevelMessages = useMemo(() => {
+    if (!shouldVirtualize) {
+      return topLevelMessages
+    }
+    const windowSize = MAX_VIRTUALIZED_TOP_LEVEL + VIRTUAL_OVERSCAN
+    const sliceStart = Math.max(0, topLevelMessages.length - windowSize)
+    return topLevelMessages.slice(sliceStart)
+  }, [shouldVirtualize, topLevelMessages])
+
+  const hiddenTopLevelCount = Math.max(
+    0,
+    topLevelMessages.length - virtualTopLevelMessages.length,
+  )
 
   const messageItems = useMessageRenderer({
     messages,
     messageTree,
-    topLevelMessages,
+    topLevelMessages: virtualTopLevelMessages,
     availableWidth: renderer?.width ?? 80,
     theme,
     markdownPalette,
@@ -664,6 +524,16 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     registerAgentRef,
     scrollToAgent,
   })
+
+  const virtualizationNotice =
+    shouldVirtualize && hiddenTopLevelCount > 0 ? (
+      <text key="virtualization-notice" wrap={false} style={{ width: '100%' }}>
+        <span fg={theme.statusSecondary}>
+          Showing latest {virtualTopLevelMessages.length} of{' '}
+          {topLevelMessages.length} messages. Scroll up to load more.
+        </span>
+      </text>
+    ) : null
 
   return (
     <box
@@ -718,6 +588,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
             },
           }}
         >
+          {virtualizationNotice}
           {messageItems}
         </scrollbox>
       </box>
