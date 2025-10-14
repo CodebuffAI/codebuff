@@ -65,7 +65,12 @@ describe('context-pruner handleSteps', () => {
   })
 
   const runHandleSteps = (messages: Message[]) => {
-    mockAgentState.messageHistory = messages
+    // Add instructions prompt that will be removed by context-pruner
+    const messagesWithInstructions = [
+      ...messages,
+      createMessage('user', 'Instructions prompt'),
+    ]
+    mockAgentState.messageHistory = messagesWithInstructions
     const mockLogger = {
       debug: () => {},
       info: () => {},
@@ -332,7 +337,12 @@ describe('context-pruner edge cases', () => {
   })
 
   const runHandleSteps = (messages: Message[]) => {
-    mockAgentState.messageHistory = messages
+    // Add instructions prompt that will be removed by context-pruner
+    const messagesWithInstructions = [
+      ...messages,
+      createMessage('user', 'Instructions prompt'),
+    ]
+    mockAgentState.messageHistory = messagesWithInstructions
     const mockLogger = {
       debug: () => {},
       info: () => {},
@@ -502,15 +512,15 @@ describe('context-pruner edge cases', () => {
       },
       {
         content: 'spawn_agent_inline call for "context-pruner" with quotes',
-        shouldRemove: true, // Has context-pruner and 3 total messages
+        shouldRemove: true, // Has context-pruner and 3 total messages before instructions
       },
       {
         content: 'spawn_agent_inline\n  "agent_type": "context-pruner"',
-        shouldRemove: true, // Has context-pruner and 3 total messages
+        shouldRemove: true, // Has context-pruner and 3 total messages before instructions
       },
       {
         content: 'Multiple spawn_agent_inline calls, one for context-pruner',
-        shouldRemove: true, // Has context-pruner and 3 total messages
+        shouldRemove: true, // Has context-pruner and 3 total messages before instructions
       },
     ]
 
@@ -531,7 +541,7 @@ describe('context-pruner edge cases', () => {
           createMessage('user', 'Hello'),
         )
       } else {
-        // Should preserve all messages
+        // Should preserve all messages (4 original messages)
         expect((results[0] as any).input.messages).toHaveLength(4)
       }
     })
