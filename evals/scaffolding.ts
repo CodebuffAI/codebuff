@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
 
+import { requestToolCallWs } from '@codebuff/backend/client-wrapper'
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
 import { assembleLocalAgentTemplates } from '@codebuff/backend/templates/agent-registry'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
@@ -24,11 +25,9 @@ import type {
   SDKAssistantMessage,
   SDKUserMessage,
 } from '@anthropic-ai/claude-code'
-import type {
-  requestFiles as originalRequestFiles,
-  requestToolCall as originalRequestToolCall,
-} from '@codebuff/backend/websockets/websocket-action'
+import type { requestFiles as originalRequestFiles } from '@codebuff/backend/websockets/websocket-action'
 import type { ClientToolCall } from '@codebuff/common/tools/list'
+import type { AgentRuntimeScopedDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -79,12 +78,13 @@ export function createFileReadingMock(projectRoot: string) {
       }
       return Promise.resolve(files)
     }) satisfies typeof originalRequestFiles,
-    requestToolCall: (async (
-      ws: WebSocket,
-      userInputId: string,
-      toolName: string,
-      input: Record<string, any>,
-    ): ReturnType<typeof originalRequestToolCall> => {
+    requestToolCall: (async (params: {
+      ws: WebSocket
+      userInputId: string
+      toolName: string
+      input: Record<string, any>
+    }): ReturnType<typeof requestToolCallWs> => {
+      const { toolName, input } = params
       // Execute the tool call using existing tool handlers
       const toolCall = {
         toolCallId: generateCompactId(),
@@ -123,7 +123,7 @@ export function createFileReadingMock(projectRoot: string) {
         })
         return { output }
       }
-    }) satisfies typeof originalRequestToolCall,
+    }) satisfies typeof requestToolCallWs,
   }))
 }
 
@@ -181,8 +181,12 @@ export async function runAgentStepScaffolding(
     logger: console,
   })
 
+  const agentRuntimeScopedImpl: AgentRuntimeScopedDeps = {
+    requestToolCall: (params) => requestToolCallWs({ ...params, ws: mockWs }),
+  }
   const result = await runAgentStep({
     ...EVALS_AGENT_RUNTIME_IMPL,
+    ...agentRuntimeScopedImpl,
     ws: mockWs,
     userId: TEST_USER_ID,
     userInputId: generateCompactId(),

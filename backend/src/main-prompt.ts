@@ -6,11 +6,11 @@ import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
 import { getAgentTemplate } from './templates/agent-registry'
 import { expireMessages } from './util/messages'
-import { requestToolCall } from './websockets/websocket-action'
 
 import type { AgentTemplate } from './templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/old-constants'
+import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -29,6 +29,7 @@ export const mainPrompt = async (
     onResponseChunk: (chunk: string | PrintModeEvent) => void
     localAgentTemplates: Record<string, AgentTemplate>
 
+    requestToolCall: RequestToolCallFn
     logger: Logger
   } & ParamsExcluding<
     typeof loopAgentSteps,
@@ -50,7 +51,7 @@ export const mainPrompt = async (
   sessionState: SessionState
   output: AgentOutput
 }> => {
-  const { ws, action, localAgentTemplates, logger } = params
+  const { ws, action, localAgentTemplates, requestToolCall, logger } = params
 
   const {
     prompt,
@@ -172,17 +173,16 @@ export const mainPrompt = async (
         `Detected terminal command in ${duration}ms, executing directly: ${prompt}`,
       )
 
-      const { output } = await requestToolCall(
-        ws,
-        promptId,
-        'run_terminal_command',
-        {
+      const { output } = await requestToolCall({
+        userInputId: promptId,
+        toolName: 'run_terminal_command',
+        input: {
           command: terminalCommand,
           mode: 'user',
           process_type: 'SYNC',
           timeout_seconds: -1,
         },
-      )
+      })
 
       mainAgentState.messageHistory.push({
         role: 'tool',

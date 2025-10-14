@@ -1,4 +1,7 @@
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const testLogger: Logger = {
@@ -34,3 +37,11 @@ export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   // Other
   logger: testLogger,
 })
+
+export const TEST_AGENT_RUNTIME_SCOPED_IMPL: AgentRuntimeScopedDeps =
+  Object.freeze({
+    // Database
+    requestToolCall: () => {
+      throw new Error('requestToolCall not implemented in test runtime')
+    },
+  })

@@ -2,7 +2,10 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -174,6 +177,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -216,6 +220,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -264,6 +269,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -303,6 +309,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -399,6 +406,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -559,6 +567,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       ws: new MockWebSocket() as unknown as WebSocket,
       userId: TEST_USER_ID,
       userInputId: 'test-input',

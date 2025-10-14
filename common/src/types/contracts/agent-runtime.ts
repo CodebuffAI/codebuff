@@ -1,3 +1,4 @@
+import type { RequestToolCallFn } from './client'
 import type {
   AddAgentStepFn,
   FetchAgentFromDatabaseFn,
@@ -27,4 +28,9 @@ export type AgentRuntimeDeps = {
 
   // Other
   logger: Logger
+}
+
+export type AgentRuntimeScopedDeps = {
+  // Client (WebSocket)
+  requestToolCall: RequestToolCallFn
 }

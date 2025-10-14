@@ -1,7 +1,10 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 
 // Mock imports needed for setup within the test
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -18,14 +21,17 @@ import * as checkTerminalCommandModule from '../check-terminal-command'
 import { mainPrompt } from '../main-prompt'
 import * as websocketAction from '../websockets/websocket-action'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
+import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 // --- Shared Mocks & Helpers ---
-
-let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
 class MockWebSocket {
   send(msg: string) {}
@@ -63,8 +69,13 @@ const mockFileContext: ProjectFileContext = {
 // --- Integration Test with Real LLM Call ---
 describe.skip('mainPrompt (Integration)', () => {
   let mockLocalAgentTemplates: Record<string, any>
+  let agentRuntimeImpl: AgentRuntimeDeps
+  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(() => {
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
+
     // Setup common mock agent templates
     mockLocalAgentTemplates = {
       base: {
@@ -84,28 +95,23 @@ describe.skip('mainPrompt (Integration)', () => {
       },
     }
 
-    spyOn(websocketAction, 'requestToolCall').mockImplementation(
-      async (
-        ws: WebSocket,
-        userInputId: string,
-        toolName: string,
-        input: Record<string, any>,
-      ) => {
-        return {
-          output: [
-            {
-              type: 'json',
-              value: `Tool call success: ${{ toolName, input }}`,
-            },
-          ],
-        }
-      },
+    agentRuntimeScopedImpl.requestToolCall = mock(
+      async ({
+        toolName,
+        input,
+      }: ParamsOf<RequestToolCallFn>): ReturnType<RequestToolCallFn> => ({
+        output: [
+          {
+            type: 'json',
+            value: `Tool call success: ${{ toolName, input }}`,
+          },
+        ],
+      }),
     )
   })
 
   afterEach(() => {
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   it('should delete a specified function while preserving other code', async () => {
@@ -383,6 +389,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 
     const { output, sessionState: finalSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -395,7 +402,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         process.stdout.write(chunk)
       },
     })
-    const requestToolCallSpy = websocketAction.requestToolCall as any
+    const requestToolCallSpy = agentRuntimeScopedImpl.requestToolCall as any
 
     // Find the write_file tool call
     const writeFileCall = requestToolCallSpy.mock.calls.find(
@@ -467,6 +474,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 
       await mainPrompt({
         ...agentRuntimeImpl,
+        ...agentRuntimeScopedImpl,
         ws: new MockWebSocket() as unknown as WebSocket,
         action,
         userId: TEST_USER_ID,
@@ -497,7 +505,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         },
       })
 
-      const requestToolCallSpy = websocketAction.requestToolCall as any
+      const requestToolCallSpy = agentRuntimeScopedImpl.requestToolCall as any
 
       // Find the write_file tool call
       const writeFileCall = requestToolCallSpy.mock.calls.find(

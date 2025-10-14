@@ -6,7 +6,6 @@ import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { checkLiveUserInput } from '../live-user-inputs'
-import { requestToolCall } from '../websockets/websocket-action'
 import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
 import { getMCPToolData } from '../mcp/util'
@@ -20,6 +19,10 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   ToolResultOutput,
@@ -30,7 +33,6 @@ import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { WebSocket } from 'ws'
 
 export type CustomToolCall = {
@@ -131,7 +133,8 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   userId: string | undefined
   autoInsertEndStepParam?: boolean
   excludeToolFromMessageHistory?: boolean
-} & AgentRuntimeDeps
+} & AgentRuntimeDeps &
+  AgentRuntimeScopedDeps
 
 export function executeToolCall<T extends ToolName>(
   params: ExecuteToolCallParams<T>,
@@ -155,6 +158,7 @@ export function executeToolCall<T extends ToolName>(
     userId,
     autoInsertEndStepParam = false,
     excludeToolFromMessageHistory = false,
+    requestToolCall,
     logger,
   } = params
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
@@ -235,12 +239,11 @@ export function executeToolCall<T extends ToolName>(
         return []
       }
 
-      const clientToolResult = await requestToolCall(
-        ws,
+      const clientToolResult = await requestToolCall({
         userInputId,
-        clientToolCall.toolName,
-        clientToolCall.input,
-      )
+        toolName: clientToolCall.toolName,
+        input: clientToolCall.input,
+      })
       return clientToolResult.output as CodebuffToolOutput<T>
     },
     toolCall,
@@ -378,13 +381,12 @@ export async function executeCustomToolCall(
     ws,
     agentTemplate,
     fileContext,
-    clientSessionId,
     userInputId,
     onResponseChunk,
     state,
-    userId,
     autoInsertEndStepParam = false,
     excludeToolFromMessageHistory = false,
+    requestToolCall,
     logger,
   } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
@@ -468,15 +470,14 @@ export async function executeCustomToolCall(
       const toolName = toolCall.toolName.includes('/')
         ? toolCall.toolName.split('/').slice(1).join('/')
         : toolCall.toolName
-      const clientToolResult = await requestToolCall(
-        ws,
+      const clientToolResult = await requestToolCall({
         userInputId,
         toolName,
-        toolCall.input,
-        toolCall.toolName.includes('/')
+        input: toolCall.input,
+        mcpConfig: toolCall.toolName.includes('/')
           ? agentTemplate.mcpServers[toolCall.toolName.split('/')[0]]
           : undefined,
-      )
+      })
       return clientToolResult.output satisfies ToolResultOutput[]
     })
     .then((result) => {

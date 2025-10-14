@@ -1,5 +1,8 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
@@ -15,7 +18,10 @@ import { loopAgentSteps } from '../run-agent-step'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
@@ -56,9 +62,13 @@ class MockWebSocket {
 describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
   let mockLocalAgentTemplates: Record<string, AgentTemplate>
   let capturedMessages: Message[] = []
-  let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
+  let agentRuntimeImpl: AgentRuntimeDeps
+  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(() => {
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
+
     capturedMessages = []
 
     // Setup mock agent templates
@@ -126,18 +136,14 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       },
     )
 
-    spyOn(websocketAction, 'requestToolCall').mockImplementation(
-      async (ws, userInputId, toolName, input) => {
-        return {
-          output: [
-            {
-              type: 'json',
-              value: { message: 'Success' },
-            },
-          ],
-        }
-      },
-    )
+    agentRuntimeScopedImpl.requestToolCall = async () => ({
+      output: [
+        {
+          type: 'json',
+          value: 'Tool call success',
+        },
+      ],
+    })
 
     // Mock live user input
     const liveUserInputs = require('../live-user-inputs')
@@ -146,7 +152,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
   afterEach(() => {
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   it('should inherit parent system prompt when inheritParentSystemPrompt is true', async () => {
@@ -156,6 +161,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     // Run parent agent first to establish system prompt
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -190,6 +196,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -239,6 +246,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     // Run parent agent first
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -267,6 +275,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -317,6 +326,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     // Run parent agent first
     await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -348,6 +358,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -424,6 +435,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     // Run parent agent
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -452,6 +464,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',
@@ -506,6 +519,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     // Run parent agent first with some message history
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
@@ -543,6 +557,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     await loopAgentSteps({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws,
       userInputId: 'test-child',
       prompt: 'Child task',

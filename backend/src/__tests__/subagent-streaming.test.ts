@@ -1,5 +1,8 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
@@ -147,6 +150,7 @@ describe('Subagent Streaming', () => {
 
     const { result } = handleSpawnAgents({
       ...TEST_AGENT_RUNTIME_IMPL,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext: mockFileContext,
@@ -225,6 +229,7 @@ describe('Subagent Streaming', () => {
 
     const { result } = handleSpawnAgents({
       ...TEST_AGENT_RUNTIME_IMPL,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext: mockFileContext,

@@ -29,7 +29,6 @@ import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/d
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { MCPConfig } from '@codebuff/common/types/mcp'
-import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
 
@@ -456,75 +455,6 @@ export async function requestOptionalFile(params: {
   const { ws, filePath } = params
   const file = await requestFile({ ws, filePath })
   return toOptionalFile(file)
-}
-
-/**
- * Requests a tool call execution from the client with timeout support
- * @param ws - The WebSocket connection
- * @param toolName - Name of the tool to execute
- * @param input - Arguments for the tool (can include timeout)
- * @returns Promise resolving to the tool execution result
- */
-export async function requestToolCall(
-  ws: WebSocket,
-  userInputId: string,
-  toolName: string,
-  input: Record<string, any> & { timeout_seconds?: number },
-  mcpConfig?: MCPConfig,
-): Promise<{
-  output: ToolResultOutput[]
-}> {
-  return new Promise((resolve) => {
-    const requestId = generateCompactId()
-    const timeoutInSeconds =
-      (input.timeout_seconds || 30) < 0
-        ? undefined
-        : input.timeout_seconds || 30
-
-    // Set up timeout
-    const timeoutHandle =
-      timeoutInSeconds === undefined
-        ? undefined
-        : setTimeout(
-            () => {
-              unsubscribe()
-              resolve({
-                output: [
-                  {
-                    type: 'json',
-                    value: {
-                      errorMessage: `Tool call '${toolName}' timed out after ${timeoutInSeconds}s`,
-                    },
-                  },
-                ],
-              })
-            },
-            timeoutInSeconds * 1000 + 5000, // Convert to ms and add a small buffer
-          )
-
-    // Subscribe to response
-    const unsubscribe = subscribeToAction('tool-call-response', (action) => {
-      if (action.requestId === requestId) {
-        clearTimeout(timeoutHandle)
-        unsubscribe()
-        resolve({
-          output: action.output,
-        })
-      }
-    })
-
-    // Send the request
-    sendAction(ws, {
-      type: 'tool-call-request',
-      requestId,
-      userInputId,
-      toolName,
-      input,
-      timeout:
-        timeoutInSeconds === undefined ? undefined : timeoutInSeconds * 1000, // Send timeout in milliseconds
-      mcpConfig,
-    })
-  })
 }
 
 /**

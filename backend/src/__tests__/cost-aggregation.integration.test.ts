@@ -1,5 +1,8 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
@@ -17,7 +20,10 @@ import * as agentRegistry from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
@@ -100,9 +106,11 @@ describe('Cost Aggregation Integration Tests', () => {
   let mockLocalAgentTemplates: Record<string, any>
   let mockWebSocket: MockWebSocket
   let agentRuntimeImpl: AgentRuntimeDeps
+  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(async () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
     mockWebSocket = new MockWebSocket()
 
     // Setup mock agent templates
@@ -179,32 +187,30 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Mock tool call execution
-    spyOn(websocketAction, 'requestToolCall').mockImplementation(
-      async (ws, userInputId, toolName, input) => {
-        if (toolName === 'write_file') {
-          return {
-            output: [
-              {
-                type: 'json',
-                value: {
-                  message: `File ${input.path} created successfully`,
-                },
-              },
-            ],
-          }
-        }
+    agentRuntimeScopedImpl.requestToolCall = async ({ toolName, input }) => {
+      if (toolName === 'write_file') {
         return {
           output: [
             {
               type: 'json',
               value: {
-                message: 'Tool executed successfully',
+                message: `File ${input.path} created successfully`,
               },
             },
           ],
         }
-      },
-    )
+      }
+      return {
+        output: [
+          {
+            type: 'json',
+            value: {
+              message: 'Tool executed successfully',
+            },
+          },
+        ],
+      }
+    }
 
     // Mock file reading
     spyOn(websocketAction, 'requestFiles').mockImplementation(
@@ -251,6 +257,7 @@ describe('Cost Aggregation Integration Tests', () => {
 
     const result = await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -286,6 +293,7 @@ describe('Cost Aggregation Integration Tests', () => {
     // Call through websocket action handler to test full integration
     await websocketAction.callMainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -354,6 +362,7 @@ describe('Cost Aggregation Integration Tests', () => {
 
     const result = await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -410,6 +419,7 @@ describe('Cost Aggregation Integration Tests', () => {
     try {
       result = await mainPrompt({
         ...agentRuntimeImpl,
+        ...agentRuntimeScopedImpl,
         ws: mockWebSocket as unknown as WebSocket,
         action,
         userId: TEST_USER_ID,
@@ -459,6 +469,7 @@ describe('Cost Aggregation Integration Tests', () => {
 
     await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -499,6 +510,7 @@ describe('Cost Aggregation Integration Tests', () => {
     // Call through websocket action to test server-side reset
     await websocketAction.callMainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,

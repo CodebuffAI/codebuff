@@ -1,7 +1,10 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   AgentTemplateTypes,
@@ -27,11 +30,17 @@ import * as processFileBlockModule from '../process-file-block'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
+import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 let agentRuntimeImpl: AgentRuntimeDeps
+let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
 const mockAgentStream = (streamOutput: string) => {
   agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
@@ -45,6 +54,7 @@ describe('mainPrompt', () => {
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
 
     // Setup common mock agent templates
     mockLocalAgentTemplates = {
@@ -130,22 +140,18 @@ describe('mainPrompt', () => {
       },
     )
 
-    spyOn(websocketAction, 'requestToolCall').mockImplementation(
-      async (
-        ws: WebSocket,
-        userInputId: string,
-        toolName: string,
-        input: Record<string, any>,
-      ) => {
-        return {
-          output: [
-            {
-              type: 'json',
-              value: `Tool call success: ${{ toolName, input }}`,
-            },
-          ],
-        }
-      },
+    agentRuntimeScopedImpl.requestToolCall = mock(
+      async ({
+        toolName,
+        input,
+      }: ParamsOf<RequestToolCallFn>): ReturnType<RequestToolCallFn> => ({
+        output: [
+          {
+            type: 'json',
+            value: `Tool call success: ${{ toolName, input }}`,
+          },
+        ],
+      }),
     )
 
     spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
@@ -224,6 +230,7 @@ describe('mainPrompt', () => {
 
     const { sessionState: newSessionState, output } = await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -233,19 +240,18 @@ describe('mainPrompt', () => {
     })
 
     // Verify that requestToolCall was called with the terminal command
-    const requestToolCallSpy = websocketAction.requestToolCall as any
+    const requestToolCallSpy = agentRuntimeScopedImpl.requestToolCall
     expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
-    expect(requestToolCallSpy).toHaveBeenCalledWith(
-      expect.any(Object), // WebSocket
-      expect.any(String), // userInputId
-      'run_terminal_command',
-      expect.objectContaining({
+    expect(requestToolCallSpy).toHaveBeenCalledWith({
+      userInputId: expect.any(String), // userInputId
+      toolName: 'run_terminal_command',
+      input: expect.objectContaining({
         command: 'ls -la',
         mode: 'user',
         process_type: 'SYNC',
         timeout_seconds: -1,
       }),
-    )
+    })
 
     // Verify that the output contains the expected structure
     expect(output.type).toBeDefined()
@@ -270,7 +276,7 @@ describe('mainPrompt', () => {
     mockAgentStream(mockResponse)
 
     // Get reference to the spy so we can check if it was called
-    const requestToolCallSpy = websocketAction.requestToolCall as any
+    const requestToolCallSpy = agentRuntimeScopedImpl.requestToolCall
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -285,6 +291,7 @@ describe('mainPrompt', () => {
 
     await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -330,16 +337,15 @@ describe('mainPrompt', () => {
     expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
 
     // Verify the write_file call was made with the correct arguments
-    expect(requestToolCallSpy).toHaveBeenCalledWith(
-      expect.any(Object), // WebSocket
-      expect.any(String), // userInputId
-      'write_file',
-      expect.objectContaining({
+    expect(requestToolCallSpy).toHaveBeenCalledWith({
+      userInputId: expect.any(String), // userInputId
+      toolName: 'write_file',
+      input: expect.objectContaining({
         type: 'file',
         path: 'new-file.txt',
         content: 'Hello, world!',
       }),
-    )
+    })
   })
 
   it('should force end of response after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {
@@ -364,6 +370,7 @@ describe('mainPrompt', () => {
 
     const { output } = await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -391,6 +398,7 @@ describe('mainPrompt', () => {
 
     const { sessionState: newSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -422,6 +430,7 @@ describe('mainPrompt', () => {
 
     const { sessionState: newSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -451,6 +460,7 @@ describe('mainPrompt', () => {
 
     const { output } = await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -477,7 +487,7 @@ describe('mainPrompt', () => {
     mockAgentStream(mockResponse)
 
     // Get reference to the spy so we can check if it was called
-    const requestToolCallSpy = websocketAction.requestToolCall as any
+    const requestToolCallSpy = agentRuntimeScopedImpl.requestToolCall
 
     const action = {
       type: 'prompt' as const,
@@ -491,6 +501,7 @@ describe('mainPrompt', () => {
 
     await mainPrompt({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
@@ -503,15 +514,14 @@ describe('mainPrompt', () => {
     expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
 
     // Verify the run_terminal_command call was made with the correct arguments
-    expect(requestToolCallSpy).toHaveBeenCalledWith(
-      expect.any(Object), // WebSocket
-      expect.any(String), // userInputId
-      'run_terminal_command',
-      expect.objectContaining({
+    expect(requestToolCallSpy).toHaveBeenCalledWith({
+      userInputId: expect.any(String), // userInputId
+      toolName: 'run_terminal_command',
+      input: expect.objectContaining({
         command: expectedCommand,
         process_type: 'SYNC',
         mode: 'assistant',
       }),
-    )
+    })
   })
 })
