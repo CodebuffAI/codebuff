@@ -41,13 +41,34 @@ import {
 
 type ToolXmlFilterState = {
   buffer: string
-  inside: boolean
+  activeTag: 'tool_call' | 'tool_result' | null
 }
 
 const TOOL_XML_OPEN = `<${toolXmlName}>`
 const TOOL_XML_CLOSE = `</${toolXmlName}>`
 const TOOL_XML_PREFIX = `<${toolXmlName}`
-const TOOL_XML_CLOSE_PREFIX = `</${toolXmlName}`
+const TOOL_RESULT_OPEN = '<tool_result>'
+const TOOL_RESULT_CLOSE = '</tool_result>'
+const TOOL_RESULT_PREFIX = '<tool_result'
+
+const TAG_DEFINITIONS = [
+  {
+    type: 'tool_call' as const,
+    open: TOOL_XML_OPEN,
+    close: TOOL_XML_CLOSE,
+    prefix: TOOL_XML_PREFIX,
+  },
+  {
+    type: 'tool_result' as const,
+    open: TOOL_RESULT_OPEN,
+    close: TOOL_RESULT_CLOSE,
+    prefix: TOOL_RESULT_PREFIX,
+  },
+]
+
+const TAG_INFO_BY_TYPE = Object.fromEntries(
+  TAG_DEFINITIONS.map((tag) => [tag.type, tag]),
+)
 
 const getPartialStartIndex = (value: string, pattern: string): number => {
   const max = Math.min(pattern.length - 1, value.length)
@@ -64,18 +85,38 @@ function filterToolXmlFromText(
   state: ToolXmlFilterState,
   incoming: string,
   maxBuffer: number,
-): { text: string; removed: boolean } {
+): { text: string } {
   if (incoming) {
     state.buffer += incoming
   }
 
   let sanitized = ''
-  let removed = false
+
   while (state.buffer.length > 0) {
-    if (!state.inside) {
-      const openIndex = state.buffer.indexOf(TOOL_XML_OPEN)
-      if (openIndex === -1) {
-        const partialIndex = getPartialStartIndex(state.buffer, TOOL_XML_PREFIX)
+    if (state.activeTag == null) {
+      let nextTag: {
+        index: number
+        definition: (typeof TAG_DEFINITIONS)[number]
+      } | null = null
+
+      for (const definition of TAG_DEFINITIONS) {
+        const index = state.buffer.indexOf(definition.open)
+        if (index !== -1) {
+          if (nextTag == null || index < nextTag.index) {
+            nextTag = { index, definition }
+          }
+        }
+      }
+
+      if (!nextTag) {
+        let partialIndex = -1
+        for (const definition of TAG_DEFINITIONS) {
+          const idx = getPartialStartIndex(state.buffer, definition.prefix)
+          if (idx !== -1 && (partialIndex === -1 || idx < partialIndex)) {
+            partialIndex = idx
+          }
+        }
+
         if (partialIndex === -1) {
           sanitized += state.buffer
           state.buffer = ''
@@ -86,32 +127,41 @@ function filterToolXmlFromText(
         break
       }
 
-      sanitized += state.buffer.slice(0, openIndex)
-      state.buffer = state.buffer.slice(openIndex + TOOL_XML_OPEN.length)
-      state.inside = true
-      removed = true
+      sanitized += state.buffer.slice(0, nextTag.index)
+      state.buffer = state.buffer.slice(
+        nextTag.index + nextTag.definition.open.length,
+      )
+      state.activeTag = nextTag.definition.type
     } else {
-      const closeIndex = state.buffer.indexOf(TOOL_XML_CLOSE)
+      const definition = TAG_INFO_BY_TYPE[state.activeTag]
+      const closeIndex = state.buffer.indexOf(definition.close)
+
       if (closeIndex === -1) {
         const partialCloseIndex = getPartialStartIndex(
           state.buffer,
-          TOOL_XML_CLOSE,
+          definition.close,
         )
         if (partialCloseIndex === -1) {
-          const keepIndex = Math.max(
-            0,
-            state.buffer.length - (TOOL_XML_CLOSE.length - 1),
-          )
-          state.buffer = state.buffer.slice(keepIndex)
+          const keepLength = definition.close.length - 1
+          if (state.buffer.length > keepLength) {
+            state.buffer = state.buffer.slice(
+              state.buffer.length - keepLength,
+            )
+          }
         } else {
           state.buffer = state.buffer.slice(partialCloseIndex)
+        }
+
+        if (state.buffer.length > maxBuffer) {
+          state.buffer = state.buffer.slice(-maxBuffer)
         }
         break
       }
 
-      state.buffer = state.buffer.slice(closeIndex + TOOL_XML_CLOSE.length)
-      state.inside = false
-      removed = true
+      state.buffer = state.buffer.slice(
+        closeIndex + definition.close.length,
+      )
+      state.activeTag = null
     }
   }
 
@@ -119,7 +169,7 @@ function filterToolXmlFromText(
     state.buffer = state.buffer.slice(-maxBuffer)
   }
 
-  return { text: sanitized, removed }
+  return { text: sanitized }
 }
 
 export type CodebuffClientOptions = {
@@ -211,19 +261,25 @@ export async function run({
   const MAX_TOOL_XML_BUFFER = BUFFER_SIZE * 10
   const ROOT_AGENT_KEY = '__root__'
 
-  const streamFilterState: ToolXmlFilterState = { buffer: '', inside: false }
+  const streamFilterState: ToolXmlFilterState = { buffer: '', activeTag: null }
   const textFilterStates = new Map<string, ToolXmlFilterState>()
 
-  const subagentBuffers = new Map<
-    string,
-    { buffer: string; insideToolCall: boolean }
-  >()
+  const subagentFilterStates = new Map<string, ToolXmlFilterState>()
 
   const getTextFilterState = (agentKey: string): ToolXmlFilterState => {
     let state = textFilterStates.get(agentKey)
     if (!state) {
-      state = { buffer: '', inside: false }
+      state = { buffer: '', activeTag: null }
       textFilterStates.set(agentKey, state)
+    }
+    return state
+  }
+
+  const getSubagentFilterState = (agentId: string): ToolXmlFilterState => {
+    let state = subagentFilterStates.get(agentId)
+    if (!state) {
+      state = { buffer: '', activeTag: null }
+      subagentFilterStates.set(agentId, state)
     }
     return state
   }
@@ -244,13 +300,11 @@ export async function run({
     )
     let remainder = pendingText
 
-    if (!state.inside && state.buffer) {
-      if (!state.buffer.includes('<')) {
-        remainder += state.buffer
-      }
+    if (state.buffer && !state.buffer.includes('<')) {
+      remainder += state.buffer
     }
     state.buffer = ''
-    state.inside = false
+    state.activeTag = null
 
     textFilterStates.delete(agentKey)
 
@@ -259,6 +313,36 @@ export async function run({
         type: 'text',
         text: remainder,
         agentId: eventAgentId,
+      } as any)
+    }
+  }
+
+  const flushSubagentState = async (
+    agentId: string,
+    agentType?: string,
+  ): Promise<void> => {
+    const state = subagentFilterStates.get(agentId)
+    if (!state) {
+      return
+    }
+
+    const { text: pendingText } = filterToolXmlFromText(
+      state,
+      '',
+      MAX_TOOL_XML_BUFFER,
+    )
+
+    subagentFilterStates.delete(agentId)
+    state.buffer = ''
+    state.activeTag = null
+
+    const trimmed = pendingText.trim()
+    if (trimmed) {
+      await handleEvent?.({
+        type: 'subagent-chunk',
+        agentId,
+        agentType,
+        chunk: pendingText,
       } as any)
     }
   }
@@ -330,15 +414,12 @@ export async function run({
             MAX_TOOL_XML_BUFFER,
           )
           let remainder = streamTail
-          if (
-            !streamFilterState.inside &&
-            streamFilterState.buffer &&
-            !streamFilterState.buffer.includes('<')
-          ) {
+
+          if (streamFilterState.buffer && !streamFilterState.buffer.includes('<')) {
             remainder += streamFilterState.buffer
           }
           streamFilterState.buffer = ''
-          streamFilterState.inside = false
+          streamFilterState.activeTag = null
 
           if (remainder) {
             await handleStreamChunk?.(remainder)
@@ -350,6 +431,10 @@ export async function run({
             (chunk as typeof chunk & { agentId?: string }).agentId
           if (finishAgentKey && finishAgentKey !== ROOT_AGENT_KEY) {
             await flushTextState(finishAgentKey, finishAgentKey)
+            await flushSubagentState(
+              finishAgentKey,
+              (chunk as { agentType?: string }).agentType,
+            )
           }
         } else if (
           chunkType === 'subagent_finish' ||
@@ -358,6 +443,10 @@ export async function run({
           const subagentId = (chunk as { agentId?: string }).agentId
           if (subagentId) {
             await flushTextState(subagentId, subagentId)
+            await flushSubagentState(
+              subagentId,
+              (chunk as { agentType?: string }).agentType,
+            )
           }
         }
 
@@ -368,63 +457,19 @@ export async function run({
       checkAborted(signal)
       const { agentId, agentType, chunk } = action
 
-      // Filter out tool call XML from subagent chunks
-      let bufferState = subagentBuffers.get(agentId)
-      if (!bufferState) {
-        bufferState = { buffer: '', insideToolCall: false }
-        subagentBuffers.set(agentId, bufferState)
-      }
+      const state = getSubagentFilterState(agentId)
+      const { text: sanitized } = filterToolXmlFromText(
+        state,
+        chunk,
+        MAX_TOOL_XML_BUFFER,
+      )
 
-      bufferState.buffer += chunk
-      let filteredChunk = ''
-
-      if (
-        !bufferState.insideToolCall &&
-        bufferState.buffer.includes(TOOL_XML_OPEN)
-      ) {
-        const openTagIndex = bufferState.buffer.indexOf(TOOL_XML_OPEN)
-        const beforeTag = bufferState.buffer.substring(0, openTagIndex)
-        if (beforeTag) {
-          filteredChunk = beforeTag
-        }
-        bufferState.insideToolCall = true
-        bufferState.buffer = bufferState.buffer.substring(openTagIndex)
-      } else if (
-        bufferState.insideToolCall &&
-        bufferState.buffer.includes(TOOL_XML_CLOSE)
-      ) {
-        const closeTagIndex = bufferState.buffer.indexOf(TOOL_XML_CLOSE)
-        bufferState.insideToolCall = false
-        bufferState.buffer = bufferState.buffer.substring(
-          closeTagIndex + TOOL_XML_CLOSE.length,
-        )
-      } else if (!bufferState.insideToolCall) {
-        if (bufferState.buffer.length > 50) {
-          const safeToOutput = bufferState.buffer.substring(
-            0,
-            bufferState.buffer.length - 50,
-          )
-          filteredChunk = safeToOutput
-          bufferState.buffer = bufferState.buffer.substring(
-            bufferState.buffer.length - 50,
-          )
-        }
-      }
-
-      if (
-        bufferState.insideToolCall &&
-        bufferState.buffer.length > MAX_TOOL_XML_BUFFER
-      ) {
-        bufferState.buffer = bufferState.buffer.slice(-MAX_TOOL_XML_BUFFER)
-      }
-
-      // Send filtered chunk to handler
-      if (filteredChunk && handleEvent) {
+      if (sanitized && handleEvent) {
         await handleEvent({
           type: 'subagent-chunk',
           agentId,
           agentType,
-          chunk: filteredChunk,
+          chunk: sanitized,
         } as any)
       }
     },
