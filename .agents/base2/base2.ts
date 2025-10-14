@@ -48,10 +48,7 @@ export const createBase2: (mode: 'normal' | 'max') => SecretAgentDefinition = (
       'researcher-web',
       'researcher-docs',
       'commander',
-      'decomposing-thinker',
-      'independent-thinker',
-      'code-sketcher',
-      'editor',
+      'generate-plan',
       'reviewer',
       'context-pruner',
     ),
@@ -84,7 +81,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
     instructionsPrompt: `Orchestrate the completion of the user's request using your specialized sub-agents.
 
-You spawn agents in "layers". Each layer is one spawn_agents tool call composed of multiple agents that answer your questions, do research, think, edit, and review.
+You spawn agents in "layers". Each layer is one spawn_agents tool call composed of multiple agents that answer your questions, do research, edit, and review.
 
 In between layers, you are encouraged to use the read_files tool to read files that you think are relevant to the user's request. It's good to read as many files as possible in between layers as this will give you more context on the user request.
 
@@ -94,42 +91,32 @@ Continue to spawn layers of agents until have completed the user's request or re
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-${
-  isMax
-    ? '1. Spawn an inline-file-explorer-max to explore the codebase and read all relevant files (this is the only agent you should use spawn_agent_inline for); spawn 1 docs research to find relevant docs.'
-    : '1. Spawn a file explorer with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs.'
-}
+1. Spawn a ${isMax ? 'inline-file-explorer-max' : 'file-picker'} with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs.'
 1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file explorer and one more find-all-referencer with different prompts to find relevant files; spawn an independent thinker with questions on a key decision; spawn a decomposing thinker to plan out the feature part-by-part. Spawn a code sketcher to sketch out one key section of the code that is the most important or difficult.
+2. Spawn one more file picker and one more find-all-referencer with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
-3. Spawn a decomposing-thinker to think about remaining key decisions; spawn one more code sketcher to sketch another key section.
-4. Spawn an editor to implement all the changes.
-5. Spawn a reviewer to review the changes made by the editor.
+3. Spawn a generate-plan agent to generate a plan for the changes.
+4. Use the str_replace or write_file tool to make the changes.
+5. Spawn a reviewer to review the changes.
 
 
 ## Spawning agents guidelines
 
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
-  - Spawn file explorers, find-all-referencer, and researchers before thinkers because then the thinkers can use the file/research results to come up with a better conclusions
-  - Spawn thinkers and code sketchers before editors so editors can use the insights from the thinkers and code sketchers.
-  - Spawn editors later. Only spawn editors after gathering all the context and creating a plan.
-  - Reviewers should be spawned after editors.
-- **Use the decomposing thinker to generate ideas, plan, and check what context you are missing:** Decomposing thinker is faster and cheaper for most thinking tasks. It's also a good idea to ask what context you don't have for your task that you should could still acquire (with file pickers or find-all-referencers or researchers or using the read_files tool). Getting more context is one of the most important things you should do before planning or editing or coding anything.
-- **Use the independent thinker for key self-contained decisions:** Give it the exact context that is needed to answer the question or problem you are trying to solve. The independent thinker is really good at thinking.
-- **Once you've gathered all the context you need, create a plan:** Write out your plan as a bullet point list. The user wants to see you write out your plan so they know you are on track.
+  - Spawn file pickers, find-all-referencer, and researchers before making edits.
+  - Only spawn generate-plan agent after you have gathered all the context you need.
+  - Only make edits generating a plan.
+  - Reviewers should be spawned after you have made your edits.
+- **Once you've gathered all the context you need, create a plan:** Spawn the generate-plan agent to generate a plan for the changes.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
-- **Don't spawn editors for trivial changes:** Prefer to use the str_replace or write_file tool to make trivial changes yourself.
-- **Prefer not to spawn multiple parallel editors:** It's cheaper and produces better results to just spawn one editor to do all the changes, unless you have multiple large independent changes.
 - **Don't spawn reviewers for trivial changes or quick follow-ups:** You should spawn the reviewer for most changes, but not for little changes or simple follow-ups.
 
-# Response guidelines
+## Response guidelines
 - **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.
 - **Don't include final summary:** Don't include any final summary in your response. Don't describe the changes you made. Just let the user know that you have completed the task briefly.
 `,
 
-    stepPrompt: isMax
-      ? `Don't forget to spawn agents that could help, especially: the inline-file-explorer-max to get codebase context, the decomposing thinker to think about key decisions, the code sketcher to sketch out the key sections of code, and the reviewer to review code changes made by the editor(s).`
-      : `Don't forget to spawn agents that could help, especially: the file-explorer and find-all-referencer to get codebase context, the thinkers to think about key decisions, the code sketcher to sketch out the key sections of code, the editor for code changes, and the reviewer to review changes made by the editor(s).`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the ${isMax ? 'inline-file-explorer-max' : 'file-picker'} and find-all-referencer to get codebase context, the generate-plan agent to generate a plan for the changes, and the reviewer to review changes.`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0
