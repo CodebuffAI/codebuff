@@ -20,6 +20,7 @@ import type { ChatTheme } from '../utils/theme-system'
 interface BranchItemProps {
   name: string
   content: ReactNode
+  prompt?: string
   isCollapsed: boolean
   isStreaming: boolean
   branchChar: string
@@ -32,6 +33,7 @@ interface BranchItemProps {
 export const BranchItem = ({
   name,
   content,
+  prompt,
   isCollapsed,
   isStreaming,
   branchChar,
@@ -194,6 +196,29 @@ export const BranchItem = ({
           )}
           {!isCollapsed && (
             <box style={{ flexDirection: 'column', gap: 1 }}>
+              {prompt && (
+                <box
+                  border
+                  borderStyle="single"
+                  customBorderChars={borderCharsWithoutVertical}
+                  style={{
+                    flexDirection: 'column',
+                    gap: 0,
+                    paddingLeft: 1,
+                    paddingRight: 1,
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                    marginBottom: content ? 1 : 0,
+                  }}
+                >
+                  <text wrap fg={theme.agentToggleHeaderText}>
+                    Prompt
+                  </text>
+                  <text wrap fg={theme.agentText}>
+                    {prompt}
+                  </text>
+                </box>
+              )}
               {content && (
                 <box
                   border

@@ -230,6 +230,7 @@ export const MessageBlock = ({
         <BranchItem
           name={agentBlock.agentName}
           content={displayContent}
+          prompt={agentBlock.initialPrompt}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
           branchChar={branchChar}
