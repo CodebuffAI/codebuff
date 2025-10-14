@@ -12,7 +12,7 @@ const definition: SecretAgentDefinition = {
     'find-all-referencer',
     'researcher-web-sonnet',
     'researcher-docs-sonnet',
-    'decomposing-planner',
+    'generate-plan',
     'decomposing-thinker',
     'reviewer',
     'context-pruner',
