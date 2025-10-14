@@ -3,7 +3,10 @@ import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
 
-import { requestToolCallWs } from '@codebuff/backend/client-wrapper'
+import {
+  requestMcpToolDataWs,
+  requestToolCallWs,
+} from '@codebuff/backend/client-wrapper'
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
 import { assembleLocalAgentTemplates } from '@codebuff/backend/templates/agent-registry'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
@@ -183,6 +186,8 @@ export async function runAgentStepScaffolding(
 
   const agentRuntimeScopedImpl: AgentRuntimeScopedDeps = {
     requestToolCall: (params) => requestToolCallWs({ ...params, ws: mockWs }),
+    requestMcpToolData: (params) =>
+      requestMcpToolDataWs({ ...params, ws: mockWs }),
   }
   const result = await runAgentStep({
     ...EVALS_AGENT_RUNTIME_IMPL,

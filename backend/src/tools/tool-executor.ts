@@ -33,7 +33,6 @@ import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
 export type CustomToolCall = {
   toolName: string
@@ -121,7 +120,6 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   toolResults: ToolResultPart[]
   toolResultsToAddAfterStream: ToolResultPart[]
   previousToolCallFinished: Promise<void>
-  ws: WebSocket
   agentTemplate: AgentTemplate
   fileContext: ProjectFileContext
   agentStepId: string
@@ -146,7 +144,6 @@ export function executeToolCall<T extends ToolName>(
     toolResults,
     toolResultsToAddAfterStream,
     previousToolCallFinished,
-    ws,
     agentTemplate,
     fileContext,
     agentStepId,
@@ -159,6 +156,7 @@ export function executeToolCall<T extends ToolName>(
     autoInsertEndStepParam = false,
     excludeToolFromMessageHistory = false,
     requestToolCall,
+    requestMcpToolData,
     logger,
   } = params
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
@@ -378,7 +376,6 @@ export async function executeCustomToolCall(
     toolResults,
     toolResultsToAddAfterStream,
     previousToolCallFinished,
-    ws,
     agentTemplate,
     fileContext,
     userInputId,
@@ -391,7 +388,7 @@ export async function executeCustomToolCall(
   } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
     customToolDefs: await getMCPToolData({
-      ws,
+      ...params,
       toolNames: agentTemplate.toolNames,
       mcpServers: agentTemplate.mcpServers,
       writeTo: cloneDeep(fileContext.customToolDefinitions),

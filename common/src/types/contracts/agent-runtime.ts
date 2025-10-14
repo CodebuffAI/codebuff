@@ -1,4 +1,4 @@
-import type { RequestToolCallFn } from './client'
+import type { RequestMcpToolDataFn, RequestToolCallFn } from './client'
 import type {
   AddAgentStepFn,
   FetchAgentFromDatabaseFn,
@@ -33,4 +33,5 @@ export type AgentRuntimeDeps = {
 export type AgentRuntimeScopedDeps = {
   // Client (WebSocket)
   requestToolCall: RequestToolCallFn
+  requestMcpToolData: RequestMcpToolDataFn
 }

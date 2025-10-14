@@ -28,7 +28,6 @@ import type {
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
 
@@ -455,57 +454,4 @@ export async function requestOptionalFile(params: {
   const { ws, filePath } = params
   const file = await requestFile({ ws, filePath })
   return toOptionalFile(file)
-}
-
-/**
- * Requests a tool call execution from the client with timeout support
- * @param ws - The WebSocket connection
- * @param mcpConfig - The configuration for the MCP server
- * @param input - Arguments for the tool (can include timeout)
- * @returns Promise resolving to the tool execution result
- */
-export async function requestMcpToolData({
-  ws,
-  mcpConfig,
-  toolNames,
-}: {
-  ws: WebSocket
-  mcpConfig: MCPConfig
-  toolNames: string[] | null
-}): Promise<
-  {
-    name: string
-    description?: string
-    inputSchema: unknown
-  }[]
-> {
-  return new Promise((resolve) => {
-    const requestId = generateCompactId()
-
-    // Set up timeout
-    const timeoutHandle = setTimeout(
-      () => {
-        unsubscribe()
-        resolve([])
-      },
-      45_000 + 5000, // Convert to ms and add a small buffer
-    )
-
-    // Subscribe to response
-    const unsubscribe = subscribeToAction('mcp-tool-data', (action) => {
-      if (action.requestId === requestId) {
-        clearTimeout(timeoutHandle)
-        unsubscribe()
-        resolve(action.tools)
-      }
-    })
-
-    // Send the request
-    sendAction(ws, {
-      type: 'request-mcp-tool-data',
-      mcpConfig,
-      requestId,
-      ...(toolNames && { toolNames }),
-    })
-  })
 }

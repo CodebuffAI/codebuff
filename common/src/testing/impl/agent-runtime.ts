@@ -44,4 +44,7 @@ export const TEST_AGENT_RUNTIME_SCOPED_IMPL: AgentRuntimeScopedDeps =
     requestToolCall: () => {
       throw new Error('requestToolCall not implemented in test runtime')
     },
+    requestMcpToolData: () => {
+      throw new Error('requestMcpToolData not implemented in test runtime')
+    },
   })

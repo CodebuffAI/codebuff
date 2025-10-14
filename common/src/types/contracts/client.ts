@@ -9,3 +9,14 @@ export type RequestToolCallFn = (params: {
 }) => Promise<{
   output: ToolResultOutput[]
 }>
+
+export type RequestMcpToolDataFn = (params: {
+  mcpConfig: MCPConfig
+  toolNames: string[] | null
+}) => Promise<
+  {
+    name: string
+    description?: string
+    inputSchema: unknown
+  }[]
+>
