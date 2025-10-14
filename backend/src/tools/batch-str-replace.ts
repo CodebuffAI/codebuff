@@ -20,7 +20,6 @@ import type {
 } from '@codebuff/common/types/function-params'
 import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { WebSocket } from 'ws'
 
 export type DeferredStrReplace = {
   toolCall: CodebuffToolCall<'str_replace'>
@@ -80,7 +79,6 @@ export function getBenchifyClient(params: { logger: Logger }): Benchify | null {
 }
 
 type BatchContext = {
-  ws: WebSocket
   userInputId: string
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   state: Record<string, any>
@@ -380,11 +378,10 @@ async function executeSingleStrReplace(
  * Creates a typed requestClientToolCall function for batch mode
  */
 function createRequestClientToolCall(params: {
-  ws: WebSocket
   requestToolCall: RequestToolCallFn
   userInputId: string
 }) {
-  const { ws, requestToolCall, userInputId } = params
+  const { requestToolCall, userInputId } = params
   return async (
     clientToolCall: any,
   ): Promise<CodebuffToolOutput<'str_replace'>> => {
@@ -776,7 +773,6 @@ async function applyBenchifyResultsGracefully(
 async function applyBenchifyResultSafely(params: {
   benchifyFile: { path: string; contents: string }
   benchifyDiff: string
-  ws: WebSocket
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   state: Record<string, any>
   toolResults: ToolResultPart[]

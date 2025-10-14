@@ -58,7 +58,6 @@ export const handleFindFiles = ((
   > &
     ParamsExcluding<
       typeof uploadExpandedFileContextForTraining,
-      | 'ws'
       | 'messages'
       | 'system'
       | 'assistantPrompt'
@@ -79,11 +78,8 @@ export const handleFindFiles = ((
     state,
   } = params
   const { prompt } = toolCall.input
-  const { ws, fingerprintId, userId, repoId, messages } = state
+  const { fingerprintId, userId, repoId, messages } = state
 
-  if (!ws) {
-    throw new Error('Internal error for find_files: Missing WebSocket in state')
-  }
   if (!messages) {
     throw new Error('Internal error for find_files: Missing messages in state')
   }
@@ -129,7 +125,6 @@ export const handleFindFiles = ((
       if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
         uploadExpandedFileContextForTraining({
           ...params,
-          ws,
           messages,
           system,
           assistantPrompt: prompt,
@@ -186,7 +181,6 @@ export const handleFindFiles = ((
 
 async function uploadExpandedFileContextForTraining(
   params: {
-    ws: WebSocket
     agentStepId: string
     clientSessionId: string
     fingerprintId: string
@@ -197,7 +191,6 @@ async function uploadExpandedFileContextForTraining(
   } & ParamsOf<typeof requestRelevantFilesForTraining>,
 ) {
   const {
-    ws,
     agentStepId,
     clientSessionId,
     fingerprintId,

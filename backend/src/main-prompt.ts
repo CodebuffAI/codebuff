@@ -19,11 +19,9 @@ import type {
   AgentTemplateType,
   AgentOutput,
 } from '@codebuff/common/types/session-state'
-import type { WebSocket } from 'ws'
 
 export const mainPrompt = async (
   params: {
-    ws: WebSocket
     action: ClientAction<'prompt'>
 
     onResponseChunk: (chunk: string | PrintModeEvent) => void
@@ -51,7 +49,7 @@ export const mainPrompt = async (
   sessionState: SessionState
   output: AgentOutput
 }> => {
-  const { ws, action, localAgentTemplates, requestToolCall, logger } = params
+  const { action, localAgentTemplates, requestToolCall, logger } = params
 
   const {
     prompt,
