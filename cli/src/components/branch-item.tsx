@@ -219,6 +219,7 @@ export const BranchItem = ({
                       <text wrap fg={theme.agentText}>
                         {prompt}
                       </text>
+                      <text> </text>
                       <text wrap fg={theme.agentToggleHeaderText}>
                         Response
                       </text>
