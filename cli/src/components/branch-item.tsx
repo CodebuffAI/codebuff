@@ -196,29 +196,6 @@ export const BranchItem = ({
           )}
           {!isCollapsed && (
             <box style={{ flexDirection: 'column', gap: 1 }}>
-              {prompt && (
-                <box
-                  border
-                  borderStyle="single"
-                  customBorderChars={borderCharsWithoutVertical}
-                  style={{
-                    flexDirection: 'column',
-                    gap: 0,
-                    paddingLeft: 1,
-                    paddingRight: 1,
-                    paddingTop: 0,
-                    paddingBottom: 0,
-                    marginBottom: content ? 1 : 0,
-                  }}
-                >
-                  <text wrap fg={theme.agentToggleHeaderText}>
-                    Prompt
-                  </text>
-                  <text wrap fg={theme.agentText}>
-                    {prompt}
-                  </text>
-                </box>
-              )}
               {content && (
                 <box
                   border
@@ -234,6 +211,19 @@ export const BranchItem = ({
                     paddingBottom: 0,
                   }}
                 >
+                  {prompt && (
+                    <box style={{ flexDirection: 'column', gap: 0 }}>
+                      <text wrap fg={theme.agentToggleHeaderText}>
+                        Prompt
+                      </text>
+                      <text wrap fg={theme.agentText}>
+                        {prompt}
+                      </text>
+                      <text wrap fg={theme.agentToggleHeaderText}>
+                        Response
+                      </text>
+                    </box>
+                  )}
                   {renderExpandedContent(content)}
                 </box>
               )}
