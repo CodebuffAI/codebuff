@@ -23,7 +23,7 @@ const researcherGrok4FastExampleContent = readFileSync(
   'utf8',
 )
 const implementationPlannerExampleContent = readFileSync(
-  join(__dirname, 'planners', 'implementation-planner.ts'),
+  join(__dirname, 'planners', 'generate-plan.ts'),
   'utf8',
 )
 const planSelectorExampleContent = readFileSync(
@@ -31,7 +31,7 @@ const planSelectorExampleContent = readFileSync(
   'utf8',
 )
 const implementationPlannerMaxExampleContent = readFileSync(
-  join(__dirname, 'planners', 'implementation-planner-max.ts'),
+  join(__dirname, 'planners', 'generate-plan-max.ts'),
   'utf8',
 )
 const examplesAgentsContent = [
