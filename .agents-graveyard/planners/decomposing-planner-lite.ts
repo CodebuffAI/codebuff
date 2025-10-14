@@ -1,5 +1,5 @@
-import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 import decomposingPlanner from './decomposing-planner'
+import { type SecretAgentDefinition } from '../../.agents/types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   ...decomposingPlanner,

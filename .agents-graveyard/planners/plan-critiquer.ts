@@ -1,6 +1,7 @@
-import { publisher } from '../constants'
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { ToolMessage } from '../types/util-types'
+import { publisher } from '../../.agents/constants'
+
+import type { SecretAgentDefinition } from '../../.agents/types/secret-agent-definition'
+import type { ToolMessage } from '../../.agents/types/util-types'
 
 const definition: SecretAgentDefinition = {
   id: 'plan-critiquer',

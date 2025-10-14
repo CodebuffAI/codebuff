@@ -1,6 +1,6 @@
-import { publisher } from './constants'
+import { publisher } from '../.agents/constants'
 
-import type { AgentDefinition } from './types/agent-definition'
+import type { AgentDefinition } from '../.agents/types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'brainstormer',

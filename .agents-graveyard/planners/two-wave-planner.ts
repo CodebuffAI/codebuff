@@ -1,5 +1,5 @@
-import { publisher } from '../constants'
-import { type SecretAgentDefinition } from '../types/secret-agent-definition'
+import { publisher } from '../../.agents/constants'
+import { type SecretAgentDefinition } from '../../.agents/types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'two-wave-planner',
@@ -15,7 +15,8 @@ const definition: SecretAgentDefinition = {
         requirements: {
           type: 'array',
           items: { type: 'string' },
-          description: 'A list of explicit requirements to plan for, in the order they should be implemented',
+          description:
+            'A list of explicit requirements to plan for, in the order they should be implemented',
         },
       },
       required: ['requirements'],
