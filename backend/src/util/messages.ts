@@ -17,6 +17,10 @@ import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  TextPart,
+  ImagePart,
+} from '@codebuff/common/types/messages/content-part'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export function messagesWithSystem(params: {
@@ -39,6 +43,31 @@ export function messagesWithSystem(params: {
 export function asUserMessage(str: string): string {
   return `<user_message>${str}${closeXml('user_message')}`
 }
+
+/**
+ * Combines prompt, params, and content into a unified message content structure
+ */
+export function buildUserMessageContent(
+  prompt: string | undefined,
+  params: Record<string, any> | undefined,
+  content?: Array<TextPart | ImagePart>,
+): string | Array<TextPart | ImagePart> {
+  // If we have content, return it as-is (client should have already combined prompt + content)
+  if (content && content.length > 0) {
+    if (content.length === 1 && content[0].type === 'text') {
+      return asUserMessage(content[0].text)
+    }
+    return content
+  }
+
+  // Only prompt/params, combine and return as simple text
+  const textParts = buildArray([
+    prompt,
+    params && JSON.stringify(params, null, 2),
+  ])
+  return asUserMessage(textParts.join('\n\n'))
+}
+
 export function parseUserMessage(str: string): string | undefined {
   const match = str.match(/<user_message>(.*?)<\/user_message>/s)
   return match ? match[1] : undefined

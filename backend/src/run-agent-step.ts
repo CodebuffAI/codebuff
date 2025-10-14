@@ -15,10 +15,11 @@ import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
+import { getAgentOutput } from './util/agent-output'
 import {
   asSystemInstruction,
   asSystemMessage,
-  asUserMessage,
+  buildUserMessageContent,
   messagesWithSystem,
   expireMessages,
 } from './util/messages'
@@ -52,29 +53,7 @@ import type {
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
-/**
- * Combines prompt, params, and content into a unified message content structure
- */
-function buildUserMessageContent(
-  prompt: string | undefined,
-  params: Record<string, any> | undefined,
-  content?: Array<TextPart | ImagePart>,
-): string | Array<TextPart | ImagePart> {
-  // If we have content, return it as-is (client should have already combined prompt + content)
-  if (content && content.length > 0) {
-    if (content.length === 1 && content[0].type === 'text') {
-      return asUserMessage(content[0].text)
-    }
-    return content
-  }
 
-  // Only prompt/params, combine and return as simple text
-  const textParts = buildArray([
-    prompt,
-    params && JSON.stringify(params, null, 2),
-  ])
-  return asUserMessage(textParts.join('\n\n'))
-}
 
 export const runAgentStep = async (
   params: {
@@ -789,42 +768,4 @@ export const loopAgentSteps = async (
   }
 }
 
-function getAgentOutput(
-  agentState: AgentState,
-  agentTemplate: AgentTemplate,
-): AgentOutput {
-  if (agentTemplate.outputMode === 'structured_output') {
-    return {
-      type: 'structuredOutput',
-      value: agentState.output ?? null,
-    }
-  }
-  if (agentTemplate.outputMode === 'last_message') {
-    const assistantMessages = agentState.messageHistory.filter(
-      (message): message is AssistantMessage => message.role === 'assistant',
-    )
-    const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
-    if (!lastAssistantMessage) {
-      return {
-        type: 'error',
-        message: 'No response from agent',
-      }
-    }
-    return {
-      type: 'lastMessage',
-      value: lastAssistantMessage.content,
-    }
-  }
-  if (agentTemplate.outputMode === 'all_messages') {
-    // Remove the first message, which includes the previous conversation history.
-    const agentMessages = agentState.messageHistory.slice(1)
-    return {
-      type: 'allMessages',
-      value: agentMessages,
-    }
-  }
-  agentTemplate.outputMode satisfies never
-  throw new Error(
-    `Unknown output mode: ${'outputMode' in agentTemplate ? agentTemplate.outputMode : 'undefined'}`,
-  )
-}
+
