@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'bun:test'
 
-import type { WebSocket } from 'ws'
-
 describe('Backend Tool Call Schema', () => {
   it('should validate tool call request structure', () => {
     const toolCallRequest = {
@@ -266,7 +264,6 @@ src/utils.ts:2:import { readFileSync } from 'fs'`,
  * Generates mock analysis of file contents for testing
  */
 export async function generateMockFileContentAnalysis(
-  ws: WebSocket,
   filePaths: string[],
 ): Promise<string> {
   try {
