@@ -21,6 +21,8 @@
     "run-single-eval": "bun run git-evals/run-single-eval.ts --eval-file git-evals/eval-manifold.json --commit-sha ebabf7796a92ce8ece8e2452b0f3f896a513ba0e",
     "run-git-evals": "bun run git-evals/run-git-evals.ts",
     "run-eval-set": "bun run git-evals/run-eval-set.ts",
+    "run-buffbench": "bun run buffbench/main.ts",
+    "run-buffbench-nightly": "bun run buffbench/main-nightly.ts",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "sideEffects": false,
