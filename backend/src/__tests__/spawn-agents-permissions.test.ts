@@ -739,12 +739,12 @@ describe('Spawn Agents Permissions', () => {
           writeToClient: () => {},
           getLatestState: () => ({ messages: [] }),
           state: {
-            // Missing required fields like ws, fingerprintId, etc.
+            // Missing required fields like fingerprintId, messages, etc.
             agentTemplate: parentAgent,
             localAgentTemplates: {},
           },
         })
-      }).toThrow('Missing WebSocket in state')
+      }).toThrow('Missing fingerprintId in state')
       expect(mockLoopAgentSteps).not.toHaveBeenCalled()
     })
   })

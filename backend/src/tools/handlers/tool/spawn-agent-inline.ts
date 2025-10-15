@@ -19,7 +19,6 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { WebSocket } from 'ws'
 
 type ToolName = 'spawn_agent_inline'
 export const handleSpawnAgentInline = ((
@@ -33,7 +32,6 @@ export const handleSpawnAgentInline = ((
 
     getLatestState: () => { messages: Message[] }
     state: {
-      ws?: WebSocket
       fingerprintId?: string
       userId?: string
       agentTemplate?: AgentTemplate
@@ -56,7 +54,6 @@ export const handleSpawnAgentInline = ((
     | 'parentSystemPrompt'
     | 'onResponseChunk'
     | 'clearUserPromptMessagesAfterResponse'
-    | 'ws'
     | 'fingerprintId'
   >,
 ): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
@@ -74,7 +71,6 @@ export const handleSpawnAgentInline = ((
     params: spawnParams,
   } = toolCall.input
   const {
-    ws,
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
@@ -115,7 +111,6 @@ export const handleSpawnAgentInline = ((
 
     const result = await executeSubagent({
       ...params,
-      ws,
       userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
       prompt: prompt || '',
       spawnParams,

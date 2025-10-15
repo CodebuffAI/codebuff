@@ -8,14 +8,13 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import { mockFileContext, MockWebSocket } from './test-utils'
+import { mockFileContext } from './test-utils'
 import * as agentRun from '../agent-run'
 import * as requestContext from '../websockets/request-context'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { WebSocket } from 'ws'
+import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'
 
 const logger: Logger = {
   debug: () => {},
@@ -28,6 +27,7 @@ describe('QuickJS Sandbox Generator', () => {
   let mockAgentState: AgentState
   let mockParams: any
   let mockTemplate: AgentTemplate
+  let sendSubagentChunk: SendSubagentChunkFn
 
   beforeEach(() => {
     clearAgentGeneratorCache({ logger })
@@ -39,11 +39,11 @@ describe('QuickJS Sandbox Generator', () => {
     spyOn(requestContext, 'getRequestContext').mockImplementation(() => ({
       processedRepoId: 'test-repo-id',
     }))
-    spyOn(websocketAction, 'sendAction').mockImplementation(() => {})
     spyOn(crypto, 'randomUUID').mockImplementation(
       () =>
         'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`,
     )
+    sendSubagentChunk = () => {}
 
     // Reuse common test data structure
     mockAgentState = {
@@ -91,10 +91,10 @@ describe('QuickJS Sandbox Generator', () => {
       fileContext: mockFileContext,
       assistantMessage: undefined,
       assistantPrefix: undefined,
-      ws: new MockWebSocket() as unknown as WebSocket,
       localAgentTemplates: {},
       stepsComplete: false,
       stepNumber: 1,
+      sendSubagentChunk,
       logger,
     }
   })
