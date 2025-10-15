@@ -63,7 +63,7 @@ export function getFileProcessingValues(
   return fileProcessingValues
 }
 
-export const handleWriteFile = ((
+export function handleWriteFile(
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'write_file'>
@@ -103,7 +103,7 @@ export const handleWriteFile = ((
 ): {
   result: Promise<CodebuffToolOutput<'write_file'>>
   state: FileProcessingState
-} => {
+} {
   const {
     previousToolCallFinished,
     toolCall,
@@ -201,7 +201,8 @@ export const handleWriteFile = ((
     })(),
     state: fileProcessingState,
   }
-}) satisfies CodebuffToolHandlerFunction<'write_file'>
+}
+handleWriteFile satisfies CodebuffToolHandlerFunction<'write_file'>
 
 export async function postStreamProcessing<T extends FileProcessingTools>(
   toolCall: FileProcessing<T>,
