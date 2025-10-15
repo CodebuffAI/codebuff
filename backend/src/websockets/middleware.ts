@@ -20,6 +20,7 @@ import {
   requestMcpToolDataWs,
   requestOptionalFileWs,
   requestToolCallWs,
+  sendSubagentChunkWs,
 } from '../client-wrapper'
 import { withAppContext } from '../context/app-context'
 import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
@@ -158,6 +159,7 @@ export class WebSocketMiddleware {
         requestFiles: (params) => requestFilesWs({ ...params, ws }),
         requestOptionalFile: (params) =>
           requestOptionalFileWs({ ...params, ws }),
+        sendSubagentChunk: (params) => sendSubagentChunkWs({ ...params, ws }),
       }
 
       // Use the new combined context - much cleaner!

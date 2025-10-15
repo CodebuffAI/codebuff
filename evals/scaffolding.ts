@@ -4,8 +4,11 @@ import fs from 'fs'
 import path from 'path'
 
 import {
+  requestFilesWs,
   requestMcpToolDataWs,
+  requestOptionalFileWs,
   requestToolCallWs,
+  sendSubagentChunkWs,
 } from '@codebuff/backend/client-wrapper'
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
 import { assembleLocalAgentTemplates } from '@codebuff/backend/templates/agent-registry'
@@ -28,7 +31,6 @@ import type {
   SDKAssistantMessage,
   SDKUserMessage,
 } from '@anthropic-ai/claude-code'
-import type { requestFilesWs as originalRequestFiles } from '@codebuff/backend/websockets/websocket-action'
 import type { ClientToolCall } from '@codebuff/common/tools/list'
 import type { AgentRuntimeScopedDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type {
@@ -80,7 +82,7 @@ export function createFileReadingMock(projectRoot: string) {
         files[filePath] = readMockFile(projectRoot, filePath)
       }
       return Promise.resolve(files)
-    }) satisfies typeof originalRequestFiles,
+    }) satisfies typeof requestFilesWs,
     requestToolCall: (async (params: {
       ws: WebSocket
       userInputId: string
@@ -188,6 +190,11 @@ export async function runAgentStepScaffolding(
     requestToolCall: (params) => requestToolCallWs({ ...params, ws: mockWs }),
     requestMcpToolData: (params) =>
       requestMcpToolDataWs({ ...params, ws: mockWs }),
+    requestFiles: (params) => requestFilesWs({ ...params, ws: mockWs }),
+    requestOptionalFile: (params) =>
+      requestOptionalFileWs({ ...params, ws: mockWs }),
+    sendSubagentChunk: (params) =>
+      sendSubagentChunkWs({ ...params, ws: mockWs }),
   }
   const result = await runAgentStep({
     ...EVALS_AGENT_RUNTIME_IMPL,

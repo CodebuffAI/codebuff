@@ -10,7 +10,6 @@ import { cloneDeep } from 'lodash'
 
 import { executeBatchStrReplaces } from './batch-str-replace'
 import { expireMessages } from '../util/messages'
-import { sendAction } from '../websockets/websocket-action'
 import { processStreamWithTags } from '../xml-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 
@@ -19,6 +18,7 @@ import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
@@ -58,6 +58,7 @@ export async function processStreamWithTools(
     agentContext: Record<string, Subgoal>
     onResponseChunk: (chunk: string | PrintModeEvent) => void
     fullResponse: string
+    sendSubagentChunk: SendSubagentChunkFn
     logger: Logger
   } & Omit<
     ExecuteToolCallParams<any>,
@@ -90,6 +91,7 @@ export async function processStreamWithTools(
     system,
     agentState,
     onResponseChunk,
+    sendSubagentChunk,
     logger,
   } = params
   const fullResponseChunks: string[] = [params.fullResponse]
@@ -118,19 +120,7 @@ export async function processStreamWithTools(
     repoId,
     agentTemplate,
     localAgentTemplates,
-    sendSubagentChunk: (data: {
-      userInputId: string
-      agentId: string
-      agentType: string
-      chunk: string
-      prompt?: string
-    }) => {
-      sendAction(ws, {
-        type: 'subagent-response-chunk',
-        ...data,
-      })
-    },
-
+    sendSubagentChunk,
     agentState,
     agentContext,
     messages,

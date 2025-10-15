@@ -9,6 +9,7 @@ import type {
   RequestFilesFn,
   RequestMcpToolDataFn,
   RequestOptionalFileFn,
+  SendSubagentChunkFn,
 } from '@codebuff/common/types/contracts/client'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { MCPConfig } from '@codebuff/common/types/mcp'
@@ -187,4 +188,21 @@ export async function requestOptionalFileWs(
   const { ws, filePath } = params
   const files = await requestFilesWs({ ws, filePaths: [filePath] })
   return toOptionalFile(files[filePath] ?? null)
+}
+
+export function sendSubagentChunkWs(
+  params: {
+    ws: WebSocket
+  } & ParamsOf<SendSubagentChunkFn>,
+): ReturnType<SendSubagentChunkFn> {
+  const { ws, userInputId, agentId, agentType, chunk, prompt } = params
+  return sendAction(ws, {
+    ...params,
+    type: 'subagent-response-chunk',
+    userInputId,
+    agentId,
+    agentType,
+    chunk,
+    prompt,
+  })
 }

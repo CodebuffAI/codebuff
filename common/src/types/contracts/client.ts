@@ -28,3 +28,11 @@ export type RequestFilesFn = (params: {
 export type RequestOptionalFileFn = (params: {
   filePath: string
 }) => Promise<string | null>
+
+export type SendSubagentChunkFn = (params: {
+  userInputId: string
+  agentId: string
+  agentType: string
+  chunk: string
+  prompt?: string | undefined
+}) => void
