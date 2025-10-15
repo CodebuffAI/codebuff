@@ -132,7 +132,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
     instructionsPrompt: `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.`,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, the generate-plan agent to generate a plan for the changes, and the reviewer to review changes.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, the generate-plan agent to create a plan, and the reviewer to review changes. No need to provide any final summary.`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0
