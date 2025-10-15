@@ -36,3 +36,11 @@ export type SendSubagentChunkFn = (params: {
   chunk: string
   prompt?: string | undefined
 }) => void
+
+export type HandleStepsLogChunkFn = (params: {
+  userInputId: string
+  runId: string
+  level: 'debug' | 'info' | 'warn' | 'error'
+  data: unknown
+  message?: string
+}) => void

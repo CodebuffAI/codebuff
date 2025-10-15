@@ -41,6 +41,9 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
 export const TEST_AGENT_RUNTIME_SCOPED_IMPL =
   Object.freeze<AgentRuntimeScopedDeps>({
     // Database
+    handleStepsLogChunk: () => {
+      throw new Error('handleStepsLogChunk not implemented in test runtime')
+    },
     requestToolCall: () => {
       throw new Error('requestToolCall not implemented in test runtime')
     },

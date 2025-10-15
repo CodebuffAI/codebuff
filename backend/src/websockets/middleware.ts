@@ -16,6 +16,7 @@ import { getUserInfoFromApiKey } from './auth'
 import { updateRequestContext } from './request-context'
 import { sendAction } from './websocket-action'
 import {
+  handleStepsLogChunkWs,
   requestFilesWs,
   requestMcpToolDataWs,
   requestOptionalFileWs,
@@ -154,6 +155,8 @@ export class WebSocketMiddleware {
           : undefined
 
       const scopedDeps: AgentRuntimeScopedDeps = {
+        handleStepsLogChunk: (params) =>
+          handleStepsLogChunkWs({ ...params, ws }),
         requestToolCall: (params) => requestToolCallWs({ ...params, ws }),
         requestMcpToolData: (params) => requestMcpToolDataWs({ ...params, ws }),
         requestFiles: (params) => requestFilesWs({ ...params, ws }),

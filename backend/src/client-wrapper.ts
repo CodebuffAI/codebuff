@@ -6,6 +6,7 @@ import { subscribeToAction } from './websockets/websocket-action'
 
 import type { ServerAction } from '@codebuff/common/actions'
 import type {
+  HandleStepsLogChunkFn,
   RequestFilesFn,
   RequestMcpToolDataFn,
   RequestOptionalFileFn,
@@ -197,12 +198,27 @@ export function sendSubagentChunkWs(
 ): ReturnType<SendSubagentChunkFn> {
   const { ws, userInputId, agentId, agentType, chunk, prompt } = params
   return sendAction(ws, {
-    ...params,
     type: 'subagent-response-chunk',
     userInputId,
     agentId,
     agentType,
     chunk,
     prompt,
+  })
+}
+
+export function handleStepsLogChunkWs(
+  params: {
+    ws: WebSocket
+  } & ParamsOf<HandleStepsLogChunkFn>,
+): ReturnType<HandleStepsLogChunkFn> {
+  const { ws, userInputId, runId, level, data, message } = params
+  return sendAction(ws, {
+    type: 'handlesteps-log-chunk',
+    userInputId,
+    agentId: runId,
+    level,
+    data,
+    message,
   })
 }

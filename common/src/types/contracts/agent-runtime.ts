@@ -1,4 +1,5 @@
 import type {
+  HandleStepsLogChunkFn,
   RequestFilesFn,
   RequestMcpToolDataFn,
   RequestOptionalFileFn,
@@ -38,6 +39,7 @@ export type AgentRuntimeDeps = {
 
 export type AgentRuntimeScopedDeps = {
   // Client (WebSocket)
+  handleStepsLogChunk: HandleStepsLogChunkFn
   requestToolCall: RequestToolCallFn
   requestMcpToolData: RequestMcpToolDataFn
   requestFiles: RequestFilesFn
