@@ -433,4 +433,48 @@ The CLI workspace depends on `@opentui/core` and `@opentui/react` from GitHub. T
 - Cross-platform (Windows, Mac, Linux)
 - Better error handling with TypeScript
 - Uses Node.js 'junction' symlinks which work universally
-- Automatically cleans up existing symlinks before creating new ones
+- Automatically cleans up existing symlinks before creating new ones## Toggle Branch Rendering
+
+Agent and tool toggles in the TUI render inside `<text>` components. Expanded content must resolve to plain strings or StyledText-compatible fragments (`<span>`, `<strong>`, `<em>`).
+
+### TextNodeRenderable Constraint
+
+**Problem**: Markdown-rendered content that returned arbitrary React elements (e.g., nested `<box>` containers) under `<text>` caused errors when toggling branches:
+```
+Error: TextNodeRenderable only accepts strings, TextNodeRenderable instances, or StyledText instances
+```
+
+**Solution**: `cli/src/components/branch-item.tsx` inspects expanded content:
+- If text-renderable → stays inside `<text>`
+- Otherwise → renders the raw element tree directly
+
+This prevents invalid children from reaching `TextNodeRenderable` while preserving formatted markdown.
+
+**Related**: `cli/src/hooks/use-message-renderer.tsx` ensures toggle headers render within a single `<text>` block for StyledText compatibility.
+
+### Scroll Behavior
+
+Toggling any agent/tool branch calls `scrollToAgent`, with each branch registering its container via `registerAgentRef`. This anchors the toggled item in the top third of the scrollbox for better navigation in long sessions.
+
+## Command Menus
+
+### Slash Commands (`/`)
+
+Typing `/` opens a five-item slash menu above the input, mirroring npm-app commands.
+
+**Navigation**:
+- Arrow keys or Tab/Shift+Tab to move highlight
+- Enter to insert selected command
+- List scrolls when moving beyond first five items
+
+### Agent Mentions (`@`)
+
+Typing `@` scans the local `.agents` directory and surfaces agent `displayName`s (e.g., `@Codebase Commands Explorer`).
+
+**Navigation**:
+- Same as slash menu (arrows/Tab to navigate, Enter to insert)
+- Both menus cap visible list at five entries
+
+## Streaming Markdown Optimization
+
+Streaming markdown renders as plain text until the message or agent finishes. This prevents scroll jitter that occurred when partial formatting changed line heights mid-stream.
