@@ -309,47 +309,62 @@ export async function runProgrammaticStep(
           // Only add parentAgentId if this programmatic agent has a parent (i.e., it's nested)
           // This ensures we don't add parentAgentId to top-level spawns
           if (state.agentState.parentId) {
-            // Add parentAgentId to nested agent events for proper nesting in UI
-            if (
-              chunk.type === 'subagent_start' ||
-              chunk.type === 'subagent_finish'
-            ) {
-              // Only add parentAgentId if it's not already set (e.g., by spawn_agents)
-              if (!(chunk as any).parentAgentId) {
-                logger.debug(
-                  {
-                    eventType: chunk.type,
-                    agentId: chunk.agentId,
-                    parentId: state.agentState.agentId,
-                  },
-                  `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
-                )
-                onResponseChunk({
-                  ...chunk,
-                  parentAgentId: state.agentState.agentId,
-                })
-                return
-              }
-            }
+            const parentAgentId = state.agentState.agentId
 
-            // Add parentAgentId to tool calls and results from nested agents
-            if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
-              // Only add parentAgentId if it's not already set
-              if (!(chunk as any).parentAgentId) {
-                logger.debug(
-                  {
-                    eventType: chunk.type,
-                    agentId: (chunk as any).agentId,
-                    parentId: state.agentState.agentId,
-                  },
-                  `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
-                )
-                onResponseChunk({
-                  ...chunk,
-                  parentAgentId: state.agentState.agentId,
-                })
-                return
-              }
+            switch (chunk.type) {
+              case 'subagent_start':
+              case 'subagent_finish':
+                if (!chunk.parentAgentId) {
+                  logger.debug(
+                    {
+                      eventType: chunk.type,
+                      agentId: chunk.agentId,
+                      parentId: parentAgentId,
+                    },
+                    `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
+                  )
+                  onResponseChunk({
+                    ...chunk,
+                    parentAgentId,
+                  })
+                  return
+                }
+                break
+              case 'tool_call':
+                if (!chunk.parentAgentId) {
+                  logger.debug(
+                    {
+                      eventType: chunk.type,
+                      agentId: chunk.agentId,
+                      parentId: parentAgentId,
+                    },
+                    `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
+                  )
+                  onResponseChunk({
+                    ...chunk,
+                    parentAgentId,
+                  })
+                  return
+                }
+                break
+              case 'tool_result':
+                if (!chunk.parentAgentId) {
+                  logger.debug(
+                    {
+                      eventType: chunk.type,
+                      parentId: parentAgentId,
+                    },
+                    `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
+                  )
+                  onResponseChunk({
+                    ...chunk,
+                    parentAgentId,
+                  })
+                  return
+                }
+                break
+              default:
+                break
             }
           }
 
