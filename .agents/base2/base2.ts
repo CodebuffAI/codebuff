@@ -33,15 +33,8 @@ export const createBase2: (
     },
     outputMode: 'last_message',
     includeMessageHistory: true,
-    toolNames: [
-      'spawn_agents',
-      'spawn_agent_inline',
-      'read_files',
-      'str_replace',
-      'write_file',
-    ],
+    toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
     spawnableAgents: buildArray(
-      isMax && 'inline-file-explorer-max',
       'file-picker',
       'find-all-referencer',
       'researcher-web',
@@ -58,7 +51,7 @@ export const createBase2: (
 # Core Mandates
 
 - **Tone:** Adopt a professional, direct, and concise tone suitable for a CLI environment.
-- **Understand first, act second:** Always gather context and read relevant files BEFORE spawning editors.
+- **Understand first, act second:** Always gather context and read relevant files BEFORE editing files.
 - **Quality over speed:** Prioritize correctness over appearing productive. Fewer, well-informed agents are better than many rushed ones.
 - **Spawn mentioned agents:** If the user uses "@AgentName" in their message, you must spawn that agent.
 - **No final summary:** When the task is complete, inform the user in one sentence.
@@ -113,7 +106,7 @@ Continue to spawn layers of agents until have completed the user's request or re
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn a ${isMax ? 'inline-file-explorer-max' : 'file-picker'} with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs research to find relevant docs.'
+1. Spawn file-pickers with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file picker and one more find-all-referencer with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
@@ -125,20 +118,20 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
   - Spawn file pickers, find-all-referencer, and researchers before making edits.
-  - Only spawn generate-plan agent after you have gathered all the context you need.
-  - Only make edits generating a plan.
+  - Spawn generate-plan agent after you have gathered all the context you need (and not before!).
+  - Only make edits after generating a plan.
   - Reviewers should be spawned after you have made your edits.
-- **Once you've gathered all the context you need, create a plan:** Spawn the generate-plan agent to generate a plan for the changes.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Don't spawn reviewers for trivial changes or quick follow-ups:** You should spawn the reviewer for most changes, but not for little changes or simple follow-ups.
 - **Don't spawn editors unless asked to parallelize or use multiple agents:** The editor performs worse at editing and is not to be used most of the time.
 
 ## Response guidelines
+
 - **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.
 - **Don't include final summary:** Don't include any final summary in your response. Don't describe the changes you made. Just let the user know that you have completed the task briefly.
 `,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the ${isMax ? 'inline-file-explorer-max' : 'file-picker'} and find-all-referencer to get codebase context, the generate-plan agent to generate a plan for the changes, and the reviewer to review changes.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, the generate-plan agent to generate a plan for the changes, and the reviewer to review changes.`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0
