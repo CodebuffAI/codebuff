@@ -89,10 +89,16 @@ export class WebSocketMiddleware {
       clientSessionId: string
       ws: WebSocket
       silent?: boolean
-      getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
     } & AgentRuntimeDeps,
   ): Promise<boolean> {
-    const { action, clientSessionId, ws, silent, logger } = params
+    const {
+      action,
+      clientSessionId,
+      ws,
+      silent,
+      getUserInfoFromApiKey,
+      logger,
+    } = params
 
     const userInfo =
       'authToken' in action && action.authToken

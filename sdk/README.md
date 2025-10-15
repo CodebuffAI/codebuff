@@ -166,6 +166,10 @@ Runs a Codebuff agent with the specified options.
 
 Returns a Promise that resolves to a `RunState` object which can be passed into subsequent runs via the `previousRun` parameter to resume the conversation.
 
+The `RunState` object contains:
+- `sessionState`: Internal state to be passed to the next run
+- `output`: The agent's output (text, error, or other types)
+
 ## License
 
 MIT

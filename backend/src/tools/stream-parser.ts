@@ -146,6 +146,8 @@ export async function processStreamWithTools(
             toolCallId,
             toolName,
             input,
+            // Only include agentId for subagents (agents with a parent)
+            ...(agentState.parentId && { agentId: agentState.agentId }),
           })
         } else {
           // First non-str_replace tool marks end of str_replace phase
@@ -260,7 +262,7 @@ export async function processStreamWithTools(
         reasoning = false
         onResponseChunk(`"\n}${endToolTag}\n\n`)
       }
-      onResponseChunk(chunk.text)
+      onResponseChunk(chunk)
       fullResponseChunks.push(chunk.text)
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)

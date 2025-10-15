@@ -1,0 +1,49 @@
+{
+  "name": "@codebuff/cli",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "codebuff-tui": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/index.tsx",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "bun run src/index.tsx",
+    "prebuild": "bun run build:sdk && bun run build:opentui",
+    "build": "bun build src/index.tsx --outdir dist --target node --format esm",
+    "build:sdk": "cd ../sdk && bun run build",
+    "build:opentui": "cd ../packages/opentui && bun run build",
+    "start": "bun run dist/index.js",
+    "pretypecheck": "bun run build:sdk",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": ">=1.2.11"
+  },
+  "dependencies": {
+    "@codebuff/sdk": "workspace:*",
+    "@opentui/core": "github:CodebuffAI/opentui#codebuff/custom",
+    "@opentui/react": "github:CodebuffAI/opentui#codebuff/custom",
+    "immer": "^10.1.3",
+    "react": "^19.0.0",
+    "react-reconciler": "^0.32.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.0",
+    "yoga-layout": "^3.2.1",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.11",
+    "@types/node": "22",
+    "@types/react": "^18.3.12",
+    "@types/react-reconciler": "^0.32.0"
+  }
+}

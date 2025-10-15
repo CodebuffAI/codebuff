@@ -197,6 +197,8 @@ export function executeToolCall<T extends ToolName>(
     toolCallId: toolCall.toolCallId,
     toolName,
     input: toolCall.input,
+    // Only include agentId for subagents (agents with a parent)
+    ...(state.agentState?.parentId && { agentId: state.agentState.agentId }),
   })
 
   toolCalls.push(toolCall)
@@ -434,6 +436,8 @@ export async function executeCustomToolCall(
     toolCallId: toolCall.toolCallId,
     toolName,
     input: toolCall.input,
+    // Only include agentId for subagents (agents with a parent)
+    ...(state.agentState?.parentId && { agentId: state.agentState.agentId }),
   })
 
   toolCalls.push(toolCall)

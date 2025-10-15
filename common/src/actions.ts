@@ -143,6 +143,7 @@ export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
     agentType: z.string(),
     chunk: z.string(),
     prompt: z.string().optional(),
+    forwardToPrompt: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('handlesteps-log-chunk'),

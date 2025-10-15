@@ -192,6 +192,7 @@ export async function runProgrammaticStep(
       agentType: string
       chunk: string
       prompt?: string
+      forwardToPrompt?: boolean
     }) => {
       sendAction({
         action: {
@@ -275,15 +276,18 @@ export async function runProgrammaticStep(
           role: 'assistant' as const,
           content: toolCallString,
         })
-        state.sendSubagentChunk({
+        // Optional call handles both top-level and nested agents
+        state.sendSubagentChunk?.({
           userInputId,
           agentId: state.agentState.agentId,
           agentType: state.agentState.agentType!,
           chunk: toolCallString,
+          forwardToPrompt: !state.agentState.parentId,
         })
       }
 
       // Execute the tool synchronously and get the result immediately
+      // Wrap onResponseChunk to add parentAgentId to nested agent events
       await executeToolCall({
         ...params,
         toolName: toolCall.toolName,
@@ -299,6 +303,70 @@ export async function runProgrammaticStep(
         autoInsertEndStepParam: true,
         excludeToolFromMessageHistory,
         fromHandleSteps: true,
+        onResponseChunk: (chunk: string | PrintModeEvent) => {
+          if (typeof chunk === 'string') {
+            onResponseChunk(chunk)
+            return
+          }
+
+          // Only add parentAgentId if this programmatic agent has a parent (i.e., it's nested)
+          // This ensures we don't add parentAgentId to top-level spawns
+          if (state.agentState.parentId) {
+            const parentAgentId = state.agentState.agentId
+
+            switch (chunk.type) {
+              case 'subagent_start':
+              case 'subagent_finish':
+                if (!chunk.parentAgentId) {
+                  logger.debug(
+                    {
+                      eventType: chunk.type,
+                      agentId: chunk.agentId,
+                      parentId: parentAgentId,
+                    },
+                    `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
+                  )
+                  onResponseChunk({
+                    ...chunk,
+                    parentAgentId,
+                  })
+                  return
+                }
+                break
+              case 'tool_call':
+              case 'tool_result': {
+                if (!chunk.parentAgentId) {
+                  const debugPayload =
+                    chunk.type === 'tool_call'
+                      ? {
+                          eventType: chunk.type,
+                          agentId: chunk.agentId,
+                          parentId: parentAgentId,
+                        }
+                      : {
+                          eventType: chunk.type,
+                          parentId: parentAgentId,
+                        }
+                  logger.debug(
+                    debugPayload,
+                    `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
+                  )
+                  onResponseChunk({
+                    ...chunk,
+                    parentAgentId,
+                  })
+                  return
+                }
+                break
+              }
+              default:
+                break
+            }
+          }
+
+          // For other events or top-level spawns, send as-is
+          onResponseChunk(chunk)
+        },
       })
 
       // TODO: Remove messages from state and always use agentState.messageHistory.

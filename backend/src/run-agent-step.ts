@@ -33,6 +33,7 @@ import type {
   FinishAgentRunFn,
   StartAgentRunFn,
 } from '@codebuff/common/types/contracts/database'
+import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -56,6 +57,7 @@ export const runAgentStep = async (
     clientSessionId: string
     fingerprintId: string
     onResponseChunk: (chunk: string | PrintModeEvent) => void
+    sendAction: SendActionFn
 
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
@@ -105,6 +107,7 @@ export const runAgentStep = async (
     fingerprintId,
     clientSessionId,
     onResponseChunk,
+    sendAction,
     fileContext,
     agentType,
     localAgentTemplates,
@@ -112,6 +115,7 @@ export const runAgentStep = async (
     spawnParams,
     system,
     logger,
+    promptAiSdkStream,
   } = params
   let agentState = params.agentState
 
@@ -234,8 +238,11 @@ export const runAgentStep = async (
   const { model } = agentTemplate
 
   const { getStream } = getAgentStreamFromTemplate({
-    ...params,
-    agentId: agentState.agentId,
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    agentId: agentState.parentId ? agentState.agentId : undefined,
     template: agentTemplate,
     onCostCalculated: async (credits: number) => {
       try {
@@ -254,6 +261,9 @@ export const runAgentStep = async (
         )
       }
     },
+    sendAction,
+    promptAiSdkStream,
+    logger,
     includeCacheControl: supportsCacheControl(agentTemplate.model),
   })
 

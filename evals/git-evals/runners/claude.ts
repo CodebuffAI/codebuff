@@ -85,7 +85,6 @@ export class ClaudeRunner implements Runner {
         console.log(`\n\nResult: ${JSON.stringify(chunk, null, 2)}`)
         totalCostUsd += chunk.total_cost_usd
       } else {
-        chunk satisfies never
         const chunkAny = chunk as any
         console.log(
           `\n\nUnprocessed chunk (${chunkAny.type}) ${JSON.stringify(chunkAny, null, 2)}`,

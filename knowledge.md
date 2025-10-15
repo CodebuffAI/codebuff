@@ -50,11 +50,6 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 - Generator functions execute in secure QuickJS sandbox for safety
 - Both types integrate seamlessly through the same tool execution system
 
-## CLI Interface Features
-
-- ESC key to toggle menu or stop AI response
-- CTRL+C to exit the application
-
 ### Shell Shims (Direct Commands)
 
 Codebuff supports shell shims for direct command invocation without the `codebuff` prefix.

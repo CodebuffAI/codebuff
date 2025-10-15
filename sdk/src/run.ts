@@ -12,7 +12,7 @@ import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
 import { PromptResponseSchema } from '../../common/src/actions'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
-import { toolNames } from '../../common/src/tools/constants'
+import { toolNames, toolXmlName } from '../../common/src/tools/constants'
 import { clientToolCallSchema } from '../../common/src/tools/list'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -38,6 +38,139 @@ import {
   AgentOutputSchema,
   type SessionState,
 } from '../../common/src/types/session-state'
+
+type ToolXmlFilterState = {
+  buffer: string
+  activeTag: 'tool_call' | 'tool_result' | null
+}
+
+const TOOL_XML_OPEN = `<${toolXmlName}>`
+const TOOL_XML_CLOSE = `</${toolXmlName}>`
+const TOOL_XML_PREFIX = `<${toolXmlName}`
+const TOOL_RESULT_OPEN = '<tool_result>'
+const TOOL_RESULT_CLOSE = '</tool_result>'
+const TOOL_RESULT_PREFIX = '<tool_result'
+
+const TAG_DEFINITIONS = [
+  {
+    type: 'tool_call' as const,
+    open: TOOL_XML_OPEN,
+    close: TOOL_XML_CLOSE,
+    prefix: TOOL_XML_PREFIX,
+  },
+  {
+    type: 'tool_result' as const,
+    open: TOOL_RESULT_OPEN,
+    close: TOOL_RESULT_CLOSE,
+    prefix: TOOL_RESULT_PREFIX,
+  },
+]
+
+const TAG_INFO_BY_TYPE = Object.fromEntries(
+  TAG_DEFINITIONS.map((tag) => [tag.type, tag]),
+)
+
+const getPartialStartIndex = (value: string, pattern: string): number => {
+  const max = Math.min(pattern.length - 1, value.length)
+  for (let len = max; len > 0; len--) {
+    const slice = value.slice(value.length - len)
+    if (pattern.startsWith(slice)) {
+      return value.length - len
+    }
+  }
+  return -1
+}
+
+function filterToolXmlFromText(
+  state: ToolXmlFilterState,
+  incoming: string,
+  maxBuffer: number,
+): { text: string } {
+  if (incoming) {
+    state.buffer += incoming
+  }
+
+  let sanitized = ''
+
+  while (state.buffer.length > 0) {
+    if (state.activeTag == null) {
+      let nextTag: {
+        index: number
+        definition: (typeof TAG_DEFINITIONS)[number]
+      } | null = null
+
+      for (const definition of TAG_DEFINITIONS) {
+        const index = state.buffer.indexOf(definition.open)
+        if (index !== -1) {
+          if (nextTag == null || index < nextTag.index) {
+            nextTag = { index, definition }
+          }
+        }
+      }
+
+      if (!nextTag) {
+        let partialIndex = -1
+        for (const definition of TAG_DEFINITIONS) {
+          const idx = getPartialStartIndex(state.buffer, definition.prefix)
+          if (idx !== -1 && (partialIndex === -1 || idx < partialIndex)) {
+            partialIndex = idx
+          }
+        }
+
+        if (partialIndex === -1) {
+          sanitized += state.buffer
+          state.buffer = ''
+        } else {
+          sanitized += state.buffer.slice(0, partialIndex)
+          state.buffer = state.buffer.slice(partialIndex)
+        }
+        break
+      }
+
+      sanitized += state.buffer.slice(0, nextTag.index)
+      state.buffer = state.buffer.slice(
+        nextTag.index + nextTag.definition.open.length,
+      )
+      state.activeTag = nextTag.definition.type
+    } else {
+      const definition = TAG_INFO_BY_TYPE[state.activeTag]
+      const closeIndex = state.buffer.indexOf(definition.close)
+
+      if (closeIndex === -1) {
+        const partialCloseIndex = getPartialStartIndex(
+          state.buffer,
+          definition.close,
+        )
+        if (partialCloseIndex === -1) {
+          const keepLength = definition.close.length - 1
+          if (state.buffer.length > keepLength) {
+            state.buffer = state.buffer.slice(
+              state.buffer.length - keepLength,
+            )
+          }
+        } else {
+          state.buffer = state.buffer.slice(partialCloseIndex)
+        }
+
+        if (state.buffer.length > maxBuffer) {
+          state.buffer = state.buffer.slice(-maxBuffer)
+        }
+        break
+      }
+
+      state.buffer = state.buffer.slice(
+        closeIndex + definition.close.length,
+      )
+      state.activeTag = null
+    }
+  }
+
+  if (state.buffer.length > maxBuffer) {
+    state.buffer = state.buffer.slice(-maxBuffer)
+  }
+
+  return { text: sanitized }
+}
 
 export type CodebuffClientOptions = {
   // Provide an API key or set the CODEBUFF_API_KEY environment variable.
@@ -73,6 +206,7 @@ export type RunOptions = {
   params?: Record<string, any>
   previousRun?: RunState
   extraToolResults?: ToolResultPart[]
+  signal?: AbortSignal
 }
 
 type RunReturnType = Awaited<ReturnType<typeof run>>
@@ -97,14 +231,24 @@ export async function run({
   params,
   previousRun,
   extraToolResults,
+  signal,
 }: RunOptions &
   CodebuffClientOptions & {
     apiKey: string
     fingerprintId: string
   }): Promise<RunState> {
+  checkAborted(signal)
   async function onError(error: { message: string }) {
     if (handleEvent) {
       await handleEvent({ type: 'error', message: error.message })
+    }
+  }
+
+  function checkAborted(signal?: AbortSignal) {
+    if (signal?.aborted) {
+      const error = new Error('Run cancelled by user')
+      error.name = 'AbortError'
+      throw error
     }
   }
 
@@ -113,7 +257,96 @@ export async function run({
     resolve = res
   })
 
-  // TODO: bad pattern, switch to using SSE and move off of websockets
+  const BUFFER_SIZE = 100
+  const MAX_TOOL_XML_BUFFER = BUFFER_SIZE * 10
+  const ROOT_AGENT_KEY = '__root__'
+
+  const streamFilterState: ToolXmlFilterState = { buffer: '', activeTag: null }
+  const textFilterStates = new Map<string, ToolXmlFilterState>()
+
+  const subagentFilterStates = new Map<string, ToolXmlFilterState>()
+
+  const getTextFilterState = (agentKey: string): ToolXmlFilterState => {
+    let state = textFilterStates.get(agentKey)
+    if (!state) {
+      state = { buffer: '', activeTag: null }
+      textFilterStates.set(agentKey, state)
+    }
+    return state
+  }
+
+  const getSubagentFilterState = (agentId: string): ToolXmlFilterState => {
+    let state = subagentFilterStates.get(agentId)
+    if (!state) {
+      state = { buffer: '', activeTag: null }
+      subagentFilterStates.set(agentId, state)
+    }
+    return state
+  }
+
+  const flushTextState = async (
+    agentKey: string,
+    eventAgentId?: string,
+  ): Promise<void> => {
+    const state = textFilterStates.get(agentKey)
+    if (!state) {
+      return
+    }
+
+    const { text: pendingText } = filterToolXmlFromText(
+      state,
+      '',
+      MAX_TOOL_XML_BUFFER,
+    )
+    let remainder = pendingText
+
+    if (state.buffer && !state.buffer.includes('<')) {
+      remainder += state.buffer
+    }
+    state.buffer = ''
+    state.activeTag = null
+
+    textFilterStates.delete(agentKey)
+
+    if (remainder) {
+      await handleEvent?.({
+        type: 'text',
+        text: remainder,
+        agentId: eventAgentId,
+      } as any)
+    }
+  }
+
+  const flushSubagentState = async (
+    agentId: string,
+    agentType?: string,
+  ): Promise<void> => {
+    const state = subagentFilterStates.get(agentId)
+    if (!state) {
+      return
+    }
+
+    const { text: pendingText } = filterToolXmlFromText(
+      state,
+      '',
+      MAX_TOOL_XML_BUFFER,
+    )
+
+    subagentFilterStates.delete(agentId)
+    state.buffer = ''
+    state.activeTag = null
+
+    const trimmed = pendingText.trim()
+    if (trimmed) {
+      await handleEvent?.({
+        type: 'subagent-chunk',
+        agentId,
+        agentType,
+        chunk: pendingText,
+      } as any)
+    }
+  }
+
   const websocketHandler = new WebSocketHandler({
     apiKey,
     onWebsocketError: (error) => {
@@ -144,14 +377,102 @@ export async function run({
     onCostResponse: async () => {},
 
     onResponseChunk: async (action) => {
-      const { userInputId, chunk } = action
+      checkAborted(signal)
+      const { chunk } = action
       if (typeof chunk === 'string') {
-        await handleStreamChunk?.(chunk)
+        const { text: sanitized } = filterToolXmlFromText(
+          streamFilterState,
+          chunk,
+          MAX_TOOL_XML_BUFFER,
+        )
+
+        if (sanitized) {
+          await handleStreamChunk?.(sanitized)
+        }
+      } else if (chunk.type === 'text') {
+        const agentKey = chunk.agentId ?? ROOT_AGENT_KEY
+        const state = getTextFilterState(agentKey)
+        const { text: sanitized } = filterToolXmlFromText(
+          state,
+          chunk.text,
+          MAX_TOOL_XML_BUFFER,
+        )
+
+        if (sanitized) {
+          await handleEvent?.({
+            ...chunk,
+            text: sanitized,
+          })
+        }
       } else {
+        const chunkType = chunk.type as string
+
+        if (chunkType === 'finish') {
+          const { text: streamTail } = filterToolXmlFromText(
+            streamFilterState,
+            '',
+            MAX_TOOL_XML_BUFFER,
+          )
+          let remainder = streamTail
+
+          if (streamFilterState.buffer && !streamFilterState.buffer.includes('<')) {
+            remainder += streamFilterState.buffer
+          }
+          streamFilterState.buffer = ''
+          streamFilterState.activeTag = null
+
+          if (remainder) {
+            await handleStreamChunk?.(remainder)
+          }
+
+          await flushTextState(ROOT_AGENT_KEY)
+
+          const finishAgentKey =
+            (chunk as typeof chunk & { agentId?: string }).agentId
+          if (finishAgentKey && finishAgentKey !== ROOT_AGENT_KEY) {
+            await flushTextState(finishAgentKey, finishAgentKey)
+            await flushSubagentState(
+              finishAgentKey,
+              (chunk as { agentType?: string }).agentType,
+            )
+          }
+        } else if (
+          chunkType === 'subagent_finish' ||
+          chunkType === 'subagent-finish'
+        ) {
+          const subagentId = (chunk as { agentId?: string }).agentId
+          if (subagentId) {
+            await flushTextState(subagentId, subagentId)
+            await flushSubagentState(
+              subagentId,
+              (chunk as { agentType?: string }).agentType,
+            )
+          }
+        }
+
         await handleEvent?.(chunk)
       }
     },
-    onSubagentResponseChunk: async () => {},
+    onSubagentResponseChunk: async (action) => {
+      checkAborted(signal)
+      const { agentId, agentType, chunk } = action
+
+      const state = getSubagentFilterState(agentId)
+      const { text: sanitized } = filterToolXmlFromText(
+        state,
+        chunk,
+        MAX_TOOL_XML_BUFFER,
+      )
+
+      if (sanitized && handleEvent) {
+        await handleEvent({
+          type: 'subagent-chunk',
+          agentId,
+          agentType,
+          chunk: sanitized,
+        } as any)
+      }
+    },
 
     onPromptResponse: (action) =>
       handlePromptResponse({
@@ -205,6 +526,7 @@ export async function run({
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
+  checkAborted(signal)
   await websocketHandler.connect()
 
   websocketHandler.sendInput({
@@ -391,6 +713,7 @@ async function handlePromptResponse({
       return
     }
     const { sessionState, output } = action
+
     const state: RunState = {
       sessionState,
       output: output ?? {

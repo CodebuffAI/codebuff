@@ -36,6 +36,7 @@ export type SendSubagentChunkFn = (params: {
   agentType: string
   chunk: string
   prompt?: string | undefined
+  forwardToPrompt?: boolean
 }) => void
 
 export type HandleStepsLogChunkFn = (params: {

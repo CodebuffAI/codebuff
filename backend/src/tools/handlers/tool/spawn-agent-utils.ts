@@ -323,12 +323,15 @@ export async function executeSubagent(
   const { onResponseChunk, agentTemplate, parentAgentState, isOnlyChild } =
     withDefaults
 
-  onResponseChunk({
-    type: 'subagent_start',
-    agentId: agentTemplate.id,
+  const startEvent = {
+    type: 'subagent_start' as const,
+    agentId: withDefaults.agentState.agentId,
+    agentType: agentTemplate.id,
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
-  })
+    parentAgentId: parentAgentState.agentId,
+  }
+  onResponseChunk(startEvent)
 
   // Import loopAgentSteps dynamically to avoid circular dependency
   const { loopAgentSteps } = await import('../../../run-agent-step')
@@ -340,9 +343,11 @@ export async function executeSubagent(
 
   onResponseChunk({
     type: 'subagent_finish',
-    agentId: agentTemplate.id,
+    agentId: result.agentState.agentId,
+    agentType: agentTemplate.id,
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
+    parentAgentId: parentAgentState.agentId,
   })
 
   if (result.agentState.runId) {

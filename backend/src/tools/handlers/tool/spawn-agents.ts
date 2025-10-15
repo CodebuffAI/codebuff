@@ -25,6 +25,7 @@ export type SendSubagentChunk = (data: {
   agentType: string
   chunk: string
   prompt?: string
+  forwardToPrompt?: boolean
 }) => void
 
 type ToolName = 'spawn_agents'
@@ -142,20 +143,68 @@ export const handleSpawnAgents = ((
             isOnlyChild: agents.length === 1,
             parentSystemPrompt,
             onResponseChunk: (chunk: string | PrintModeEvent) => {
-              if (agents.length === 1) {
-                writeToClient(chunk)
-              }
-              if (typeof chunk !== 'string') {
+              if (typeof chunk === 'string') {
+                sendSubagentChunk({
+                  userInputId,
+                  agentId: subAgentState.agentId,
+                  agentType,
+                  chunk,
+                  prompt,
+                })
                 return
               }
-              // Send subagent streaming chunks to client
-              sendSubagentChunk({
-                userInputId,
+
+              if (chunk.type === 'text') {
+                if (chunk.text) {
+                  sendSubagentChunk({
+                    userInputId,
+                    agentId: subAgentState.agentId,
+                    agentType,
+                    chunk: chunk.text,
+                    prompt,
+                  })
+                }
+                return
+              }
+
+              // Add parentAgentId for proper nesting in UI
+              const ensureParentAgentId = () => {
+                if (
+                  chunk.type === 'subagent_start' ||
+                  chunk.type === 'subagent_finish'
+                ) {
+                  return (
+                    chunk.parentAgentId ??
+                    subAgentState.parentId ??
+                    parentAgentState?.agentId
+                  )
+                }
+                if (
+                  chunk.type === 'tool_call' ||
+                  chunk.type === 'tool_result'
+                ) {
+                  return (chunk as any).parentAgentId ?? subAgentState.agentId
+                }
+                return undefined
+              }
+
+              const parentAgentId = ensureParentAgentId()
+              if (
+                parentAgentId !== undefined &&
+                (chunk.type === 'subagent_start' ||
+                  chunk.type === 'subagent_finish' ||
+                  chunk.type === 'tool_call' ||
+                  chunk.type === 'tool_result')
+              ) {
+                writeToClient({ ...chunk, parentAgentId })
+                return
+              }
+
+              const eventWithAgent = {
+                ...chunk,
                 agentId: subAgentState.agentId,
-                agentType,
-                chunk,
-                prompt,
-              })
+              }
+              writeToClient(eventWithAgent)
             },
           })
           return { ...result, agentType, agentName: agentTemplate.displayName }

@@ -5,7 +5,7 @@ export type * from '../../common/src/types/print-mode'
 export type * from './run'
 // Agent type exports
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-export type { ToolName } from '../../common/src/templates/initial-agents-dir/types/tools'
+export type { ToolName } from '../../common/src/tools/constants'
 
 // Re-export code analysis functionality
 export * from '../../packages/code-map/src/index'
@@ -21,3 +21,5 @@ export * from './native/ripgrep'
 export * from './run-state'
 export { ToolHelpers } from './tools'
 export * from './websocket-client'
+export { formatState } from '../../common/src/websockets/websocket-client'
+export type { ReadyState } from '../../common/src/websockets/websocket-client'
