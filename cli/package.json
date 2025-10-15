@@ -21,6 +21,7 @@
     "build:sdk": "cd ../sdk && bun run build",
     "build:opentui": "cd ../packages/opentui && bun run build",
     "start": "bun run dist/index.js",
+    "pretypecheck": "bun run build:sdk",
     "typecheck": "tsc --noEmit -p ."
   },
   "sideEffects": false,
