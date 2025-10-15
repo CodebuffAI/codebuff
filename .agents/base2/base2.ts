@@ -42,7 +42,6 @@ export const createBase2: (
       'commander',
       'generate-plan',
       'reviewer',
-      'editor',
       'context-pruner',
     ),
 
@@ -56,18 +55,6 @@ In between layers, you are encouraged to use the read_files tool to read files t
 
 Continue to spawn layers of agents until have completed the user's request or require more information from the user.
 
-## Example layers
-
-The user asks you to implement a new feature. You respond in multiple steps:
-
-1. Spawn file-pickers with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
-1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file picker and one more find-all-referencer with different prompts to find relevant files.
-2a. Read all the relevant files using the read_files tool.
-3. Spawn a generate-plan agent to generate a plan for the changes.
-4. Use the str_replace or write_file tool to make the changes.
-5. Spawn a reviewer to review the changes.
-
 ## Spawning agents guidelines
 
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
@@ -77,7 +64,6 @@ The user asks you to implement a new feature. You respond in multiple steps:
   - Reviewers should be spawned after you have made your edits.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Don't spawn reviewers for trivial changes or quick follow-ups:** You should spawn the reviewer for most changes, but not for little changes or simple follow-ups.
-- **Don't spawn editors unless asked to parallelize or use multiple agents:** The editor performs worse at editing and is not to be used most of the time.
 
 # Core Mandates
 
@@ -130,9 +116,23 @@ The following is the state of the git repository at the start of the conversatio
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 `,
 
-    instructionsPrompt: `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.`,
+    instructionsPrompt: `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.
+    
+## Example response
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, the generate-plan agent to create a plan, and the reviewer to review changes. No need to provide any final summary.`,
+The user asks you to implement a new feature. You respond in multiple steps:
+
+1. Spawn file-pickers with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+1a. Read all the relevant files using the read_files tool.
+2. Spawn one more file picker and one more find-all-referencer with different prompts to find relevant files.
+2a. Read all the relevant files using the read_files tool.
+3. Spawn a generate-plan agent to generate a plan for the changes.
+4. Use the str_replace or write_file tool to make the changes.
+5. Spawn a reviewer to review the changes.
+6. Fix any issues raised by the reviewer.
+7. Inform the user that you have completed the task in one sentence without a final summary.`,
+
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, the generate-plan agent to create a plan, and the reviewer to review changes.`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0
