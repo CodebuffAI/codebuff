@@ -30,6 +30,7 @@ export const printModeToolCallSchema = z.object({
   toolName: z.string(),
   input: z.record(z.string(), z.any()),
   agentId: z.string().optional(),
+  parentAgentId: z.string().optional(),
 })
 export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
 
@@ -37,6 +38,7 @@ export const printModeToolResultSchema = z.object({
   type: z.literal('tool_result'),
   toolCallId: z.string(),
   output: toolResultOutputSchema.array(),
+  parentAgentId: z.string().optional(),
 })
 export type PrintModeToolResult = z.infer<typeof printModeToolResultSchema>
 

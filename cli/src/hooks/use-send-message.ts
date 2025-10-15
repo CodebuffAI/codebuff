@@ -325,7 +325,10 @@ export const useSendMessage = ({
                   if (update.type === 'text' && update.content) {
                     const lastBlock = agentBlocks[agentBlocks.length - 1]
                     if (lastBlock && lastBlock.type === 'text') {
-                      if (update.content && lastBlock.content.endsWith(update.content)) {
+                      if (
+                        update.content &&
+                        lastBlock.content.endsWith(update.content)
+                      ) {
                         logger.info('Skipping duplicate agent text append', {
                           agentId,
                           preview,
@@ -427,9 +430,7 @@ export const useSendMessage = ({
                   return msg
                 }
 
-                const blocks: ContentBlock[] = msg.blocks
-                  ? [...msg.blocks]
-                  : []
+                const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
                 const lastBlock = blocks[blocks.length - 1]
 
                 if (lastBlock && lastBlock.type === 'text') {
@@ -440,10 +441,7 @@ export const useSendMessage = ({
                   }
                   return {
                     ...msg,
-                    blocks: [
-                      ...blocks.slice(0, -1),
-                      updatedTextBlock,
-                    ],
+                    blocks: [...blocks.slice(0, -1), updatedTextBlock],
                   }
                 }
 
@@ -544,58 +542,55 @@ export const useSendMessage = ({
 
               if (!text) return
 
-            if (event.agentId) {
-              logger.info('setMessages: text event with agentId', {
-                agentId: event.agentId,
-                textPreview: text.slice(0, 100),
-              })
-              updateAgentContent(event.agentId, {
-                type: 'text',
-                content: text,
-              })
-              return
-            } else {
-              logger.info('setMessages: text event without agentId', {
-                textPreview: text.slice(0, 100),
-              })
-              queueMessageUpdate((prev) =>
-                prev.map((msg) => {
-                  if (msg.id !== aiMessageId) {
-                    return msg
-                  }
+              if (event.agentId) {
+                logger.info('setMessages: text event with agentId', {
+                  agentId: event.agentId,
+                  textPreview: text.slice(0, 100),
+                })
+                updateAgentContent(event.agentId, {
+                  type: 'text',
+                  content: text,
+                })
+                return
+              } else {
+                logger.info('setMessages: text event without agentId', {
+                  textPreview: text.slice(0, 100),
+                })
+                queueMessageUpdate((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== aiMessageId) {
+                      return msg
+                    }
 
-                  const blocks: ContentBlock[] = msg.blocks
-                    ? [...msg.blocks]
-                    : []
-                  const lastBlock = blocks[blocks.length - 1]
+                    const blocks: ContentBlock[] = msg.blocks
+                      ? [...msg.blocks]
+                      : []
+                    const lastBlock = blocks[blocks.length - 1]
 
-                  if (lastBlock && lastBlock.type === 'text') {
-                    const updatedTextBlock: ContentBlock = {
+                    if (lastBlock && lastBlock.type === 'text') {
+                      const updatedTextBlock: ContentBlock = {
+                        type: 'text',
+                        content: lastBlock.content + text,
+                      }
+                      return {
+                        ...msg,
+                        blocks: [...blocks.slice(0, -1), updatedTextBlock],
+                      }
+                    }
+
+                    const newTextBlock: ContentBlock = {
                       type: 'text',
-                      content: lastBlock.content + text,
+                      content: text,
                     }
                     return {
                       ...msg,
-                      blocks: [
-                        ...blocks.slice(0, -1),
-                        updatedTextBlock,
-                      ],
+                      blocks: [...blocks, newTextBlock],
                     }
-                  }
-
-                  const newTextBlock: ContentBlock = {
-                    type: 'text',
-                    content: text,
-                  }
-                  return {
-                    ...msg,
-                    blocks: [...blocks, newTextBlock],
-                  }
-                }),
-              )
-              return
+                  }),
+                )
+                return
+              }
             }
-          }
 
             if (event.type === 'finish' && event.totalCost !== undefined) {
               actualCredits = event.totalCost
@@ -610,11 +605,12 @@ export const useSendMessage = ({
               event.type === 'subagent-start'
             ) {
               if (event.agentId) {
-                logger.info('subagent_start event', {
+                logger.info('CLI: subagent_start event received', {
                   agentId: event.agentId,
                   agentType: event.agentType,
                   parentAgentId: event.parentAgentId || 'ROOT',
                   hasParentAgentId: !!event.parentAgentId,
+                  eventKeys: Object.keys(event),
                 })
                 addActiveSubagent(event.agentId)
 
@@ -625,24 +621,116 @@ export const useSendMessage = ({
                 ] of spawnAgentsMapRef.current.entries()) {
                   const eventType = event.agentType || ''
                   const storedType = info.agentType || ''
-                  if (eventType === storedType) {
+                  // Match if exact match, or if eventType ends with storedType (e.g., 'codebuff/file-picker@0.0.2' matches 'file-picker')
+                  const isMatch =
+                    eventType === storedType ||
+                    (eventType.includes('/') &&
+                      eventType.split('/')[1]?.split('@')[0] === storedType)
+                  if (isMatch) {
                     logger.info(
                       'setMessages: matching spawn_agents block found',
                       {
                         tempId,
                         realAgentId: event.agentId,
                         agentType: eventType,
+                        hasParentAgentId: !!event.parentAgentId,
+                        parentAgentId: event.parentAgentId || 'none',
                       },
                     )
                     applyMessageUpdate((prev) =>
                       prev.map((msg) => {
                         if (msg.id === aiMessageId && msg.blocks) {
-                          // Use recursive update to rename nested agents too
-                          const blocks = updateBlocksRecursively(
-                            msg.blocks,
-                            tempId,
-                            (block) => ({ ...block, agentId: event.agentId }),
-                          )
+                          // Find and extract the block with tempId
+                          let blockToMove: ContentBlock | null = null
+                          const extractBlock = (
+                            blocks: ContentBlock[],
+                          ): ContentBlock[] => {
+                            const result: ContentBlock[] = []
+                            for (const block of blocks) {
+                              if (
+                                block.type === 'agent' &&
+                                block.agentId === tempId
+                              ) {
+                                blockToMove = {
+                                  ...block,
+                                  agentId: event.agentId,
+                                }
+                                // Don't add to result - we're extracting it
+                              } else if (block.type === 'agent' && block.blocks) {
+                                // Recursively process nested blocks
+                                result.push({
+                                  ...block,
+                                  blocks: extractBlock(block.blocks),
+                                })
+                              } else {
+                                result.push(block)
+                              }
+                            }
+                            return result
+                          }
+
+                          let blocks = extractBlock(msg.blocks)
+
+                          if (!blockToMove) {
+                            // Fallback: just rename if we couldn't find it
+                            blocks = updateBlocksRecursively(
+                              msg.blocks,
+                              tempId,
+                              (block) => ({ ...block, agentId: event.agentId }),
+                            )
+                            return { ...msg, blocks }
+                          }
+
+                          // If parentAgentId exists, nest under parent
+                          if (event.parentAgentId) {
+                            logger.info(
+                              'setMessages: moving spawn_agents block to nest under parent',
+                              {
+                                tempId,
+                                realAgentId: event.agentId,
+                                parentAgentId: event.parentAgentId,
+                              },
+                            )
+
+                            // Try to find parent and nest
+                            let parentFound = false
+                            const updatedBlocks = updateBlocksRecursively(
+                              blocks,
+                              event.parentAgentId,
+                              (parentBlock) => {
+                                if (parentBlock.type !== 'agent') {
+                                  return parentBlock
+                                }
+                                parentFound = true
+                                return {
+                                  ...parentBlock,
+                                  blocks: [
+                                    ...(parentBlock.blocks || []),
+                                    blockToMove!,
+                                  ],
+                                }
+                              },
+                            )
+
+                            // If parent found, use updated blocks; otherwise add to top level
+                            if (parentFound) {
+                              blocks = updatedBlocks
+                            } else {
+                              logger.info(
+                                'setMessages: spawn_agents parent not found, adding to top level',
+                                {
+                                  tempId,
+                                  realAgentId: event.agentId,
+                                  parentAgentId: event.parentAgentId,
+                                },
+                              )
+                              blocks = [...blocks, blockToMove]
+                            }
+                          } else {
+                            // No parent - add back at top level with new ID
+                            blocks = [...blocks, blockToMove]
+                          }
+
                           return { ...msg, blocks }
                         }
                         return msg
@@ -703,6 +791,9 @@ export const useSendMessage = ({
                           childId: event.agentId,
                           parentId: event.parentAgentId,
                         })
+
+                        // Try to find and update parent
+                        let parentFound = false
                         const updatedBlocks = updateBlocksRecursively(
                           blocks,
                           event.parentAgentId,
@@ -710,6 +801,7 @@ export const useSendMessage = ({
                             if (parentBlock.type !== 'agent') {
                               return parentBlock
                             }
+                            parentFound = true
                             return {
                               ...parentBlock,
                               blocks: [
@@ -719,7 +811,24 @@ export const useSendMessage = ({
                             }
                           },
                         )
-                        return { ...msg, blocks: updatedBlocks }
+
+                        // If parent was found, use updated blocks; otherwise add to top level
+                        if (parentFound) {
+                          return { ...msg, blocks: updatedBlocks }
+                        } else {
+                          logger.info(
+                            'Parent agent not found, adding to top level',
+                            {
+                              childId: event.agentId,
+                              parentId: event.parentAgentId,
+                            },
+                          )
+                          // Parent doesn't exist - add at top level as fallback
+                          return {
+                            ...msg,
+                            blocks: [...blocks, newAgentBlock],
+                          }
+                        }
                       }
 
                       // No parent - add to top level
@@ -796,22 +905,22 @@ export const useSendMessage = ({
                       return msg
                     }
 
-                const existingBlocks: ContentBlock[] = msg.blocks
-                  ? [...msg.blocks]
-                  : []
+                    const existingBlocks: ContentBlock[] = msg.blocks
+                      ? [...msg.blocks]
+                      : []
 
-                const newAgentBlocks: ContentBlock[] = agents.map(
-                  (agent: any, index: number) => ({
-                    type: 'agent',
-                    agentId: `${toolCallId}-${index}`,
-                    agentName: agent.agent_type || 'Agent',
-                    agentType: agent.agent_type || 'unknown',
-                    content: '',
-                    status: 'running' as const,
-                    blocks: [] as ContentBlock[],
-                    initialPrompt: agent.prompt || '',
-                  }),
-                )
+                    const newAgentBlocks: ContentBlock[] = agents.map(
+                      (agent: any, index: number) => ({
+                        type: 'agent',
+                        agentId: `${toolCallId}-${index}`,
+                        agentName: agent.agent_type || 'Agent',
+                        agentType: agent.agent_type || 'unknown',
+                        content: '',
+                        status: 'running' as const,
+                        blocks: [] as ContentBlock[],
+                        initialPrompt: agent.prompt || '',
+                      }),
+                    )
 
                     return {
                       ...msg,
@@ -869,6 +978,7 @@ export const useSendMessage = ({
                           toolCallId,
                           toolName,
                           input,
+                          agentId,
                         }
 
                         return {
@@ -897,6 +1007,7 @@ export const useSendMessage = ({
                       toolCallId,
                       toolName,
                       input,
+                      agentId,
                     }
 
                     return {
@@ -915,7 +1026,8 @@ export const useSendMessage = ({
               // Check if this is a spawn_agents result
               // The structure is: output[0].value = [{ agentName, agentType, value }]
               const firstOutputValue = event.output?.[0]?.value
-              const isSpawnAgentsResult = Array.isArray(firstOutputValue) &&
+              const isSpawnAgentsResult =
+                Array.isArray(firstOutputValue) &&
                 firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
 
               logger.info('setMessages: tool_result event', {
@@ -943,7 +1055,10 @@ export const useSendMessage = ({
                             let content: string
                             if (typeof result.value === 'string') {
                               content = result.value
-                            } else if (result.value.value && typeof result.value.value === 'string') {
+                            } else if (
+                              result.value.value &&
+                              typeof result.value.value === 'string'
+                            ) {
                               // Handle nested value structure like { type: "lastMessage", value: "..." }
                               content = result.value.value
                             } else if (result.value.message) {
@@ -952,11 +1067,14 @@ export const useSendMessage = ({
                               content = formatToolOutput([result])
                             }
 
-                            logger.info('setMessages: spawn_agents result processed', {
-                              agentId: block.agentId,
-                              contentLength: content.length,
-                              contentPreview: content.substring(0, 100),
-                            })
+                            logger.info(
+                              'setMessages: spawn_agents result processed',
+                              {
+                                agentId: block.agentId,
+                                contentLength: content.length,
+                                contentPreview: content.substring(0, 100),
+                              },
+                            )
 
                             const resultTextBlock: ContentBlock = {
                               type: 'text',
@@ -1081,9 +1199,7 @@ export const useSendMessage = ({
                 return msg
               }
 
-              const blocks: ContentBlock[] = msg.blocks
-                ? [...msg.blocks]
-                : []
+              const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
               const lastBlock = blocks[blocks.length - 1]
 
               if (lastBlock && lastBlock.type === 'text') {

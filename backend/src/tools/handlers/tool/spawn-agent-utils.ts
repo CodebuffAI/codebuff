@@ -332,14 +332,22 @@ export async function executeSubagent(
   const { onResponseChunk, agentTemplate, parentAgentState, isOnlyChild } =
     withDefaults
 
-  onResponseChunk({
-    type: 'subagent_start',
+  const startEvent = {
+    type: 'subagent_start' as const,
     agentId: withDefaults.agentState.agentId,
     agentType: agentTemplate.id,
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
     parentAgentId: parentAgentState.agentId,
-  })
+  }
+  withDefaults.logger.debug(
+    {
+      ...startEvent,
+      parentAgentId: parentAgentState.agentId,
+    },
+    'executeSubagent: Sending subagent_start event',
+  )
+  onResponseChunk(startEvent)
 
   // Import loopAgentSteps dynamically to avoid circular dependency
   const { loopAgentSteps } = await import('../../../run-agent-step')

@@ -20,7 +20,10 @@ import type {
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { ParamsExcluding, ParamsOf } from '@codebuff/common/types/function-params'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
@@ -271,6 +274,7 @@ export async function runProgrammaticStep(
       }
 
       // Execute the tool synchronously and get the result immediately
+      // Wrap onResponseChunk to add parentAgentId to nested agent events
       await executeToolCall({
         ...params,
         toolName: toolCall.toolName,
@@ -284,7 +288,65 @@ export async function runProgrammaticStep(
         fullResponse: '',
         state,
         autoInsertEndStepParam: true,
-        excludeToolFromMessageHistory,
+        excludeToolFromMessageHistory,        onResponseChunk: (chunk: string | PrintModeEvent) => {
+          if (typeof chunk === 'string') {
+            onResponseChunk(chunk)
+            return
+          }
+
+          // Only add parentAgentId if this programmatic agent has a parent (i.e., it's nested)
+          // This ensures we don't add parentAgentId to top-level spawns
+          if (state.agentState.parentId) {
+            // Add parentAgentId to nested agent events for proper nesting in UI
+            if (
+              chunk.type === 'subagent_start' ||
+              chunk.type === 'subagent_finish'
+            ) {
+              // Only add parentAgentId if it's not already set (e.g., by spawn_agents)
+              if (!(chunk as any).parentAgentId) {
+                logger.debug(
+                  {
+                    eventType: chunk.type,
+                    agentId: chunk.agentId,
+                    parentId: state.agentState.agentId,
+                  },
+                  `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
+                )
+                onResponseChunk({
+                  ...chunk,
+                  parentAgentId: state.agentState.agentId,
+                })
+                return
+              }
+            }
+
+            // Add parentAgentId to tool calls and results from nested agents
+            if (
+              chunk.type === 'tool_call' ||
+              chunk.type === 'tool_result'
+            ) {
+              // Only add parentAgentId if it's not already set
+              if (!(chunk as any).parentAgentId) {
+                logger.debug(
+                  {
+                    eventType: chunk.type,
+                    agentId: (chunk as any).agentId,
+                    parentId: state.agentState.agentId,
+                  },
+                  `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
+                )
+                onResponseChunk({
+                  ...chunk,
+                  parentAgentId: state.agentState.agentId,
+                })
+                return
+              }
+            }
+          }
+
+          // For other events or top-level spawns, send as-is
+          onResponseChunk(chunk)
+        },
       })
 
       // TODO: Remove messages from state and always use agentState.messageHistory.

@@ -49,6 +49,7 @@ export type ContentBlock =
       toolName: ToolName
       input: any
       output?: string
+      agentId?: string
     }
   | {
       type: 'agent'

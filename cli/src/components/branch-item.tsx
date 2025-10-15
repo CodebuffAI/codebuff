@@ -21,6 +21,7 @@ interface BranchItemProps {
   name: string
   content: ReactNode
   prompt?: string
+  agentId?: string
   isCollapsed: boolean
   isStreaming: boolean
   branchChar: string
@@ -34,6 +35,7 @@ export const BranchItem = ({
   name,
   content,
   prompt,
+  agentId,
   isCollapsed,
   isStreaming,
   branchChar,

@@ -165,6 +165,7 @@ export const MessageBlock = ({
         <BranchItem
           name={displayInfo.name}
           content={displayContent}
+          agentId={toolBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
           branchChar={branchChar}
@@ -231,6 +232,7 @@ export const MessageBlock = ({
           name={agentBlock.agentName}
           content={displayContent}
           prompt={agentBlock.initialPrompt}
+          agentId={agentBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
           branchChar={branchChar}

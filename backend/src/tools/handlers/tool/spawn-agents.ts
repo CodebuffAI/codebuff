@@ -158,15 +158,42 @@ export const handleSpawnAgents = ((
                 return
               }
 
-              // Don't overwrite agentId for events that already have the correct agent ID
-              // (subagent_start/finish, tool_call, tool_result from nested agents)
+              // For nested agent events, add parentAgentId to enable proper nesting in UI
               if (
                 chunk.type === 'subagent_start' ||
-                chunk.type === 'subagent_finish' ||
-                chunk.type === 'tool_call' ||
-                chunk.type === 'tool_result'
+                chunk.type === 'subagent_finish'
               ) {
-                writeToClient(chunk)
+                logger.debug(
+                  {
+                    eventType: chunk.type,
+                    agentId: chunk.agentId,
+                    parentId: subAgentState.agentId,
+                    parentAgentId: subAgentState.agentId,
+                  },
+                  `spawn-agents: Adding parentAgentId to ${chunk.type} event`,
+                )
+                writeToClient({
+                  ...chunk,
+                  parentAgentId: subAgentState.agentId,
+                })
+                return
+              }
+
+              // For tool calls and results from nested agents, preserve the agentId but add parentAgentId
+              if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
+                logger.debug(
+                  {
+                    eventType: chunk.type,
+                    agentId: (chunk as any).agentId,
+                    parentId: subAgentState.agentId,
+                    parentAgentId: subAgentState.agentId,
+                  },
+                  `spawn-agents: Adding parentAgentId to ${chunk.type} event`,
+                )
+                writeToClient({
+                  ...chunk,
+                  parentAgentId: subAgentState.agentId,
+                })
                 return
               }
 
