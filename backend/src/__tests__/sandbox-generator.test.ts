@@ -1,4 +1,8 @@
 import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
+import {
   getInitialAgentState,
   type AgentState,
 } from '@codebuff/common/types/session-state'
@@ -8,29 +12,32 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import { mockFileContext, MockWebSocket } from './test-utils'
+import { mockFileContext } from './test-utils'
 import * as agentRun from '../agent-run'
 import * as requestContext from '../websockets/request-context'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { WebSocket } from 'ws'
-
-const logger: Logger = {
-  debug: () => {},
-  error: () => {},
-  info: () => {},
-  warn: () => {},
-}
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 
 describe('QuickJS Sandbox Generator', () => {
   let mockAgentState: AgentState
-  let mockParams: any
+  let mockParams: ParamsOf<typeof runProgrammaticStep>
   let mockTemplate: AgentTemplate
+  let agentRuntimeImpl: AgentRuntimeDeps
+  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(() => {
-    clearAgentGeneratorCache({ logger })
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeScopedImpl = {
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+      sendAction: () => {},
+    }
+
+    clearAgentGeneratorCache(agentRuntimeImpl)
 
     // Mock dependencies
     spyOn(agentRun, 'addAgentStep').mockImplementation(
@@ -39,7 +46,6 @@ describe('QuickJS Sandbox Generator', () => {
     spyOn(requestContext, 'getRequestContext').mockImplementation(() => ({
       processedRepoId: 'test-repo-id',
     }))
-    spyOn(websocketAction, 'sendAction').mockImplementation(() => {})
     spyOn(crypto, 'randomUUID').mockImplementation(
       () =>
         'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`,
@@ -78,29 +84,27 @@ describe('QuickJS Sandbox Generator', () => {
 
     // Common params structure
     mockParams = {
+      ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
+      system: undefined,
       agentState: mockAgentState,
       template: mockTemplate,
       prompt: 'Test prompt',
-      params: { testParam: 'value' },
+      toolCallParams: { testParam: 'value' },
       userId: 'test-user',
       userInputId: 'test-input',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
-      agentType: 'test-vm-agent',
       fileContext: mockFileContext,
-      assistantMessage: undefined,
-      assistantPrefix: undefined,
-      ws: new MockWebSocket() as unknown as WebSocket,
       localAgentTemplates: {},
       stepsComplete: false,
       stepNumber: 1,
-      logger,
     }
   })
 
   afterEach(() => {
-    clearAgentGeneratorCache({ logger })
+    clearAgentGeneratorCache(agentRuntimeImpl)
   })
 
   test('should execute string-based generator in QuickJS sandbox', async () => {
@@ -146,7 +150,7 @@ describe('QuickJS Sandbox Generator', () => {
     mockAgentState.agentType = 'test-vm-agent-error'
 
     mockParams.template = mockTemplate
-    mockParams.params = {}
+    mockParams.toolCallParams = {}
     mockParams.localAgentTemplates = { 'test-vm-agent-error': mockTemplate }
 
     const result = await runProgrammaticStep(mockParams)

@@ -31,7 +31,6 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
 describe('runAgentStep - set_output tool', () => {
   let testAgent: AgentTemplate
@@ -40,7 +39,10 @@ describe('runAgentStep - set_output tool', () => {
 
   beforeEach(async () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
+    agentRuntimeScopedImpl = {
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+      sendAction: () => {},
+    }
 
     // Create a test agent that supports set_output
     testAgent = {
@@ -123,13 +125,6 @@ describe('runAgentStep - set_output tool', () => {
     clearAgentGeneratorCache(agentRuntimeImpl)
   })
 
-  class MockWebSocket {
-    send(msg: string) {}
-    close() {}
-    on(event: string, listener: (...args: any[]) => void) {}
-    removeListener(event: string, listener: (...args: any[]) => void) {}
-  }
-
   const mockFileContext: ProjectFileContext = {
     projectRoot: '/test',
     cwd: '/test',
@@ -177,8 +172,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      ws: new MockWebSocket() as unknown as WebSocket,
+      ...agentRuntimeScopedImpl,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       clientSessionId: 'test-session',
@@ -220,8 +214,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      ws: new MockWebSocket() as unknown as WebSocket,
+      ...agentRuntimeScopedImpl,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       clientSessionId: 'test-session',
@@ -269,8 +262,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      ws: new MockWebSocket() as unknown as WebSocket,
+      ...agentRuntimeScopedImpl,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       clientSessionId: 'test-session',
@@ -309,8 +301,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      ws: new MockWebSocket() as unknown as WebSocket,
+      ...agentRuntimeScopedImpl,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       clientSessionId: 'test-session',
@@ -404,8 +395,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      ws: new MockWebSocket() as unknown as WebSocket,
+      ...agentRuntimeScopedImpl,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       clientSessionId: 'test-session',
@@ -565,8 +555,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      ws: new MockWebSocket() as unknown as WebSocket,
+      ...agentRuntimeScopedImpl,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       clientSessionId: 'test-session',

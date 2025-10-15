@@ -377,20 +377,22 @@ async function getRelevantFiles(
   return { files, duration, requestType, response }
 }
 
-async function getRelevantFilesForTraining(params: {
-  messages: Message[]
-  system: string | Array<TextBlock>
-  userPrompt: string
-  requestType: string
-  agentStepId: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  repoId: string | undefined
-  promptAiSdk: PromptAiSdkFn
-  logger: Logger
-}) {
+async function getRelevantFilesForTraining(
+  params: {
+    messages: Message[]
+    system: string | Array<TextBlock>
+    userPrompt: string
+    requestType: string
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    repoId: string | undefined
+    promptAiSdk: PromptAiSdkFn
+    logger: Logger
+  } & ParamsExcluding<PromptAiSdkFn, 'messages' | 'model' | 'chargeUser'>,
+) {
   const {
     messages,
     system,
@@ -419,14 +421,10 @@ async function getRelevantFilesForTraining(params: {
   })
   const start = performance.now()
   let response = await promptAiSdk({
+    ...params,
     messages: messagesWithSystem({ messages: messagesWithPrompt, system }),
-    clientSessionId,
-    fingerprintId,
-    userInputId,
     model: models.openrouter_claude_sonnet_4,
-    userId,
     chargeUser: false,
-    logger,
   })
 
   const end = performance.now()

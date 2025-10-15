@@ -45,5 +45,5 @@ const response = streamText({
   },
 })
 for await (const chunk of response.fullStream) {
-  console.log('asdf', { chunk })
+  console.log({ chunk })
 }

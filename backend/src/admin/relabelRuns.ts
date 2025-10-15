@@ -131,11 +131,22 @@ const modelsToRelabel = [
   finetunedVertexModels.ft_filepicker_topk_002,
 ] as const
 
-export async function relabelForUserHandler(params: {
-  req: Request
-  res: Response
-  logger: Logger
-}) {
+export async function relabelForUserHandler(
+  params: {
+    req: Request
+    res: Response
+    logger: Logger
+  } & ParamsExcluding<
+    PromptAiSdkFn,
+    | 'messages'
+    | 'model'
+    | 'clientSessionId'
+    | 'fingerprintId'
+    | 'userInputId'
+    | 'userId'
+  > &
+    ParamsExcluding<typeof relabelUsingFullFilesForUser, 'userId' | 'limit'>,
+) {
   const { req, res, logger } = params
   try {
     // Extract userId from the URL query params
@@ -153,10 +164,10 @@ export async function relabelForUserHandler(params: {
     const allResults = []
 
     const relaceResults = relabelUsingFullFilesForUser({
+      ...params,
       userId,
       limit,
       promptAiSdk,
-      logger,
     })
 
     // Process each model
@@ -186,6 +197,7 @@ export async function relabelForUserHandler(params: {
             const system = payload.system
 
             output = await promptAiSdk({
+              ...params,
               messages: messagesWithSystem({
                 messages: messages as Message[],
                 system: system as System,
@@ -195,7 +207,6 @@ export async function relabelForUserHandler(params: {
               fingerprintId: 'relabel-trace-api',
               userInputId: 'relabel-trace-api',
               userId: TEST_USER_ID,
-              logger,
             })
 
             // Create relabel record
@@ -276,7 +287,8 @@ async function relabelUsingFullFilesForUser(
   } & ParamsExcluding<
     typeof relabelWithClaudeWithFullFileContext,
     'trace' | 'fileBlobs' | 'model'
-  >,
+  > &
+    ParamsExcluding<typeof relabelWithRelace, 'trace' | 'fileBlobs'>,
 ) {
   const { userId, limit, logger } = params
   // TODO: We need to figure out changing _everything_ to use `getTracesAndAllDataForUser`
@@ -302,7 +314,7 @@ async function relabelUsingFullFilesForUser(
     }
 
     if (!traceBundle.relabels.some((r) => r.model === 'relace-ranker')) {
-      relabelPromises.push(relabelWithRelace({ trace, fileBlobs, logger }))
+      relabelPromises.push(relabelWithRelace({ ...params, trace, fileBlobs }))
       didRelabel = true
     }
     for (const model of [
@@ -341,11 +353,22 @@ async function relabelUsingFullFilesForUser(
   return relabeled
 }
 
-async function relabelWithRelace(params: {
-  trace: GetRelevantFilesTrace
-  fileBlobs: GetExpandedFileContextForTrainingBlobTrace
-  logger: Logger
-}) {
+async function relabelWithRelace(
+  params: {
+    trace: GetRelevantFilesTrace
+    fileBlobs: GetExpandedFileContextForTrainingBlobTrace
+    logger: Logger
+  } & ParamsExcluding<
+    typeof rerank,
+    | 'files'
+    | 'prompt'
+    | 'clientSessionId'
+    | 'fingerprintId'
+    | 'userInputId'
+    | 'userId'
+    | 'messageId'
+  >,
+) {
   const { trace, fileBlobs, logger } = params
   logger.info(`Relabeling ${trace.id} with Relace`)
   const messages = trace.payload.messages || []
@@ -366,6 +389,7 @@ async function relabelWithRelace(params: {
   )
 
   const relaced = await rerank({
+    ...params,
     files: filesWithPath,
     prompt: query,
     clientSessionId: trace.payload.client_session_id,
@@ -373,7 +397,6 @@ async function relabelWithRelace(params: {
     userInputId: trace.payload.user_input_id,
     userId: 'test-user-id', // Make sure we don't bill em for it!!
     messageId: trace.id,
-    logger,
   })
 
   const relabel = {
@@ -395,14 +418,25 @@ async function relabelWithRelace(params: {
   return relaced
 }
 
-export async function relabelWithClaudeWithFullFileContext(params: {
-  trace: GetRelevantFilesTrace
-  fileBlobs: GetExpandedFileContextForTrainingBlobTrace
-  model: string
-  dataset?: string
-  promptAiSdk: PromptAiSdkFn
-  logger: Logger
-}) {
+export async function relabelWithClaudeWithFullFileContext(
+  params: {
+    trace: GetRelevantFilesTrace
+    fileBlobs: GetExpandedFileContextForTrainingBlobTrace
+    model: string
+    dataset?: string
+    promptAiSdk: PromptAiSdkFn
+    logger: Logger
+  } & ParamsExcluding<
+    PromptAiSdkFn,
+    | 'messages'
+    | 'model'
+    | 'clientSessionId'
+    | 'fingerprintId'
+    | 'userInputId'
+    | 'userId'
+    | 'maxOutputTokens'
+  >,
+) {
   const { trace, fileBlobs, model, dataset, promptAiSdk, logger } = params
   if (dataset) {
     await setupBigQuery({ dataset, logger })
@@ -436,6 +470,7 @@ export async function relabelWithClaudeWithFullFileContext(params: {
   }
 
   const output = await promptAiSdk({
+    ...params,
     messages: messagesWithSystem({
       messages: trace.payload.messages as Message[],
       system,
@@ -446,7 +481,6 @@ export async function relabelWithClaudeWithFullFileContext(params: {
     userInputId: 'relabel-trace-api',
     userId: TEST_USER_ID,
     maxOutputTokens: 1000,
-    logger,
   })
 
   const relabel = {

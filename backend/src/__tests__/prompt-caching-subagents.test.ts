@@ -23,7 +23,6 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
 const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
@@ -51,13 +50,6 @@ const mockFileContext: ProjectFileContext = {
   },
 }
 
-class MockWebSocket {
-  send(msg: string) {}
-  close() {}
-  on(event: string, listener: (...args: any[]) => void) {}
-  removeListener(event: string, listener: (...args: any[]) => void) {}
-}
-
 describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
   let mockLocalAgentTemplates: Record<string, AgentTemplate>
   let capturedMessages: Message[] = []
@@ -66,7 +58,10 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
+    agentRuntimeScopedImpl = {
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+      sendAction: () => {},
+    }
 
     capturedMessages = []
 
@@ -153,13 +148,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
   it('should inherit parent system prompt when inheritParentSystemPrompt is true', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
-    const ws = new MockWebSocket() as unknown as WebSocket
 
     // Run parent agent first to establish system prompt
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -194,7 +187,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
@@ -218,7 +210,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
   it('should generate own system prompt when inheritParentSystemPrompt is false', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
-    const ws = new MockWebSocket() as unknown as WebSocket
 
     // Create a child agent that does NOT inherit parent system prompt
     const standaloneChild: AgentTemplate = {
@@ -244,7 +235,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -273,7 +263,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
@@ -298,7 +287,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
   it('should work independently: includeMessageHistory without inheritParentSystemPrompt', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
-    const ws = new MockWebSocket() as unknown as WebSocket
 
     // Create a child that includes message history but uses its own system prompt
     const messageHistoryChild: AgentTemplate = {
@@ -324,7 +312,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -356,7 +343,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
@@ -427,13 +413,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
   it('should enable prompt caching with matching system prompt prefix', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
-    const ws = new MockWebSocket() as unknown as WebSocket
 
     // Run parent agent
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -462,7 +446,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
@@ -491,7 +474,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
   it('should support both inheritParentSystemPrompt and includeMessageHistory together', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
-    const ws = new MockWebSocket() as unknown as WebSocket
 
     // Create a child that inherits system prompt AND includes message history
     const fullInheritChild: AgentTemplate = {
@@ -517,7 +499,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -555,7 +536,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,

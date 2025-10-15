@@ -9,6 +9,7 @@ import {
   requestMcpToolDataWs,
   requestOptionalFileWs,
   requestToolCallWs,
+  sendActionWs,
   sendSubagentChunkWs,
 } from '@codebuff/backend/client-wrapper'
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
@@ -198,11 +199,11 @@ export async function runAgentStepScaffolding(
       requestOptionalFileWs({ ...params, ws: mockWs }),
     sendSubagentChunk: (params) =>
       sendSubagentChunkWs({ ...params, ws: mockWs }),
+    sendAction: (params) => sendActionWs({ ...params, ws: mockWs }),
   }
   const result = await runAgentStep({
     ...EVALS_AGENT_RUNTIME_IMPL,
     ...agentRuntimeScopedImpl,
-    ws: mockWs,
     userId: TEST_USER_ID,
     userInputId: generateCompactId(),
     clientSessionId: sessionId,

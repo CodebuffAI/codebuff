@@ -4,6 +4,7 @@ import { closeXml } from '@codebuff/common/util/xml'
 import type { Relabel, GetRelevantFilesTrace } from '@codebuff/bigquery'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 const PROMPT = `
 You are an evaluator system, measuring how well various models perform at selecting the most relevant files for a given user request.
@@ -96,12 +97,22 @@ function extractResponse(response: string): {
   }
 }
 
-export async function gradeRun(params: {
-  trace: GetRelevantFilesTrace
-  relabels: Relabel[]
-  promptAiSdk: PromptAiSdkFn
-  logger: Logger
-}) {
+export async function gradeRun(
+  params: {
+    trace: GetRelevantFilesTrace
+    relabels: Relabel[]
+    promptAiSdk: PromptAiSdkFn
+    logger: Logger
+  } & ParamsExcluding<
+    PromptAiSdkFn,
+    | 'messages'
+    | 'model'
+    | 'clientSessionId'
+    | 'fingerprintId'
+    | 'userInputId'
+    | 'userId'
+  >,
+) {
   const { trace, relabels, promptAiSdk, logger } = params
   const messages = trace.payload.messages
 
@@ -133,6 +144,7 @@ export async function gradeRun(params: {
 
   const stringified = JSON.stringify(messages)
   const response = await promptAiSdk({
+    ...params,
     messages: [
       { role: 'system', content: PROMPT },
       {
@@ -154,7 +166,6 @@ export async function gradeRun(params: {
     //     type: 'enabled',
     //     budget_tokens: 10000,
     //   },
-    logger,
   })
 
   const { scores } = extractResponse(response)

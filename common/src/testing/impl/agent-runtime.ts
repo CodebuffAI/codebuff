@@ -59,4 +59,7 @@ export const TEST_AGENT_RUNTIME_SCOPED_IMPL =
     sendSubagentChunk: () => {
       throw new Error('sendSubagentChunk not implemented in test runtime')
     },
+    sendAction: () => {
+      throw new Error('sendAction not implemented in test runtime')
+    },
   })

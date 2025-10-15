@@ -227,29 +227,16 @@ export async function handleLargeFile(
   params: {
     oldContent: string
     editSnippet: string
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
     filePath: string
     logger: Logger
     promptAiSdk: PromptAiSdkFn
   } & ParamsExcluding<
     typeof retryDiffBlocksPrompt,
     'oldContent' | 'diffBlocksThatDidntMatch'
-  >,
+  > &
+    ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
 ): Promise<string | null> {
-  const {
-    oldContent,
-    editSnippet,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    filePath,
-    promptAiSdk,
-    logger,
-  } = params
+  const { oldContent, editSnippet, filePath, promptAiSdk, logger } = params
   const startTime = Date.now()
 
   // If the whole file is rewritten, we can just return the new content.
@@ -288,13 +275,9 @@ Please output just the SEARCH/REPLACE blocks like this:
 >>>>>>> REPLACE`
 
   const response = await promptAiSdk({
+    ...params,
     messages: [{ role: 'user', content: prompt }],
     model: models.o4mini,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    logger,
   })
 
   const { diffBlocks, diffBlocksThatDidntMatch } =

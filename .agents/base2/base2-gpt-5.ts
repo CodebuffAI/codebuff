@@ -15,7 +15,6 @@ const definition: SecretAgentDefinition = {
     'researcher-docs',
     'commander',
     'reviewer-gpt-5',
-    'editor-gpt-5',
     'context-pruner',
   ),
 }

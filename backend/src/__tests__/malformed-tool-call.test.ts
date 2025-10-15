@@ -18,7 +18,7 @@ import {
   test,
 } from 'bun:test'
 
-import { MockWebSocket, mockFileContext } from './test-utils'
+import { mockFileContext } from './test-utils'
 import { processStreamWithTools } from '../tools/stream-parser'
 
 import type { AgentTemplate } from '../templates/types'
@@ -30,18 +30,15 @@ import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
-import type { WebSocket } from 'ws'
 
 let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
 describe('malformed tool call error handling', () => {
   let testAgent: AgentTemplate
-  let mockWs: MockWebSocket
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
   let agentRuntimeImpl: AgentRuntimeDeps
 
   beforeEach(() => {
-    mockWs = new MockWebSocket()
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
     agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
 
@@ -123,7 +120,6 @@ describe('malformed tool call error handling', () => {
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       stream,
-      ws: mockWs as unknown as WebSocket,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
@@ -181,7 +177,6 @@ describe('malformed tool call error handling', () => {
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       stream,
-      ws: mockWs as unknown as WebSocket,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
@@ -229,7 +224,6 @@ describe('malformed tool call error handling', () => {
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       stream,
-      ws: mockWs as unknown as WebSocket,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
@@ -281,7 +275,6 @@ describe('malformed tool call error handling', () => {
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       stream,
-      ws: mockWs as unknown as WebSocket,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
@@ -335,7 +328,6 @@ describe('malformed tool call error handling', () => {
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       stream,
-      ws: mockWs as unknown as WebSocket,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
@@ -391,7 +383,6 @@ describe('malformed tool call error handling', () => {
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       stream,
-      ws: mockWs as unknown as WebSocket,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',

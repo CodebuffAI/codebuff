@@ -169,6 +169,7 @@ File Changes:\n${fileContext}`
       fingerprintId,
       userInputId,
       userId: undefined,
+      sendAction: () => {},
       logger: console,
     })
 

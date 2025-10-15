@@ -1,8 +1,6 @@
 import { models } from '@codebuff/common/old-constants'
-import {
-  createMarkdownFileBlock,
-  parseMarkdownCodeBlock,
-} from '@codebuff/common/util/file'
+import { buildArray } from '@codebuff/common/util/array'
+import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { env } from '@codebuff/internal'
 
 import { saveMessage } from '../llm-apis/message-cost-tracker'
@@ -10,94 +8,43 @@ import { countTokens } from '../util/token-counter'
 
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Relace API request timed out')), ms),
   )
 
-export async function promptRelaceAI(params: {
-  initialCode: string
-  editSnippet: string
-  instructions: string | undefined
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  messageId: string
-  userMessage?: string
-  promptAiSdk: PromptAiSdkFn
-  logger: Logger
-}) {
-  const {
-    initialCode,
-    editSnippet,
-    instructions,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    userMessage,
-    messageId,
-    promptAiSdk,
-    logger,
-  } = params
-  const startTime = Date.now()
+export async function promptRelaceAI(
+  params: {
+    initialCode: string
+    editSnippet: string
+    instructions: string | undefined
+    promptAiSdk: PromptAiSdkFn
+    logger: Logger
+  } & ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
+) {
+  const { initialCode, editSnippet, instructions, promptAiSdk, logger } = params
 
   try {
     // const model = 'relace-apply-2.5-lite'
-    const response = (await Promise.race([
-      fetch('https://instantapply.endpoint.relace.run/v1/code/apply', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${env.RELACE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          // model,
-          initialCode,
-          editSnippet,
-          ...(instructions ? { instructions } : {}),
-          stream: false,
-          'relace-metadata': {
-            'codebuff-id': messageId,
-            'codebuff-user-prompt': userMessage,
-          },
-        }),
-      }),
-      timeoutPromise(100_000),
-    ])) as Response
-
-    if (!response.ok) {
-      throw new Error(
-        `Relace API error: ${response.status} ${response.statusText}`,
-      )
-    }
-
-    const data = (await response.json()) as { mergedCode: string }
-    const content = data.mergedCode
-
-    const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
-    saveMessage({
-      messageId,
-      userId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      model: 'relace-fast-apply',
-      request: [
+    const content = await promptAiSdk({
+      ...params,
+      model: 'relace/relace-apply-3',
+      messages: [
         {
           role: 'user',
-          content: fakeRequestContent,
+          content: buildArray(
+            instructions && `<instruction>${instructions}</instruction>`,
+            `<code>${initialCode}</code>`,
+            `<update>${editSnippet}</update>`,
+          ).join('\n'),
         },
       ],
-      response: content,
-      inputTokens: countTokens(initialCode + editSnippet),
-      outputTokens: countTokens(content),
-      finishedAt: new Date(),
-      latencyMs: Date.now() - startTime,
-      logger,
+      system: undefined,
+      includeCacheControl: false,
     })
+
     return content + '\n'
   } catch (error) {
     logger.error(
@@ -132,16 +79,12 @@ Important:
 Please output just the complete updated file content with no other text.`
 
     const content = await promptAiSdk({
+      ...params,
       messages: [
         { role: 'user', content: prompt },
         { role: 'assistant', content: '```\n' },
       ],
-      clientSessionId,
-      fingerprintId,
-      userInputId,
       model: models.o3mini,
-      userId,
-      logger,
     })
 
     return parseMarkdownCodeBlock(content) + '\n'
@@ -158,26 +101,24 @@ export type FileWithPath = {
   content: string
 }
 
-export async function rerank(params: {
-  files: FileWithPath[]
-  prompt: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  messageId: string
-  logger: Logger
-}) {
-  const {
-    files,
-    prompt,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    messageId,
-    logger,
-  } = params
+export async function rerank(
+  params: {
+    files: FileWithPath[]
+    prompt: string
+    messageId: string
+    logger: Logger
+  } & ParamsExcluding<
+    typeof saveMessage,
+    | 'model'
+    | 'request'
+    | 'response'
+    | 'inputTokens'
+    | 'outputTokens'
+    | 'finishedAt'
+    | 'latencyMs'
+  >,
+) {
+  const { files, prompt, messageId, logger } = params
   const startTime = Date.now()
 
   if (!prompt || !files.length) {
@@ -225,11 +166,7 @@ export async function rerank(params: {
 
     const fakeRequestContent = `Query: ${prompt}\n\nFiles:\n${files.map((f) => `${f.path}:\n${f.content}`).join('\n\n')}`
     saveMessage({
-      messageId,
-      userId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
+      ...params,
       model: 'relace-ranker',
       request: [
         {
@@ -242,7 +179,6 @@ export async function rerank(params: {
       outputTokens: countTokens(JSON.stringify(rankings)),
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
-      logger,
     })
 
     return rankings

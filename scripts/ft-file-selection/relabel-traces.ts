@@ -67,6 +67,7 @@ async function runTraces() {
                   fingerprintId: 'relabel-trace-run',
                   userInputId: 'relabel-trace-run',
                   userId: TEST_USER_ID,
+                  sendAction: () => {},
                   logger: console,
                 })
               } else {
@@ -82,6 +83,7 @@ async function runTraces() {
                   userInputId: 'relabel-trace-run',
                   userId: 'relabel-trace-run',
                   logger: console,
+                  sendAction: () => {},
                   promptAiSdk,
                 })
               }

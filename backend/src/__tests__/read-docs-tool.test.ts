@@ -21,20 +21,17 @@ import researcherAgent from '../../../.agents/researcher/researcher'
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as liveUserInputs from '../live-user-inputs'
-import { MockWebSocket, mockFileContext } from './test-utils'
+import { mockFileContext } from './test-utils'
 import * as context7Api from '../llm-apis/context7-api'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
-import type { WebSocket } from 'ws'
 
 let agentRuntimeImpl: AgentRuntimeDeps
-let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
 function mockAgentStream(content: string | string[]) {
   agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
@@ -51,10 +48,14 @@ function mockAgentStream(content: string | string[]) {
 describe('read_docs tool with researcher agent', () => {
   // Track all mocked functions to verify they're being used
   const mockedFunctions: Array<{ name: string; spy: any }> = []
+  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
+    agentRuntimeScopedImpl = {
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+      sendAction: () => {},
+    }
 
     // Clear tracked mocks
     mockedFunctions.length = 0
@@ -99,15 +100,6 @@ describe('read_docs tool with researcher agent', () => {
           value: 'Tool call success',
         },
       ],
-    })
-
-    const sendActionSpy = spyOn(
-      websocketAction,
-      'sendAction',
-    ).mockImplementation(async () => {})
-    mockedFunctions.push({
-      name: 'websocketAction.sendAction',
-      spy: sendActionSpy,
     })
 
     // Mock other required modules
@@ -254,7 +246,6 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -328,7 +319,6 @@ describe('read_docs tool with researcher agent', () => {
     await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -379,7 +369,6 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -447,7 +436,6 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -514,7 +502,6 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -582,7 +569,6 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',

@@ -8,7 +8,6 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
-import { generateCompactId } from '@codebuff/common/util/string'
 import { APICallError, generateObject, generateText, streamText } from 'ai'
 
 import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
@@ -219,12 +218,8 @@ export async function* promptAiSdkStream(
 
   const messageId = (await response.response).id
   const creditsUsedPromise = saveMessage({
+    ...params,
     messageId,
-    userId: params.userId,
-    clientSessionId: params.clientSessionId,
-    fingerprintId: params.fingerprintId,
-    userInputId: params.userInputId,
-    model: params.model,
     request: params.messages,
     response: content,
     inputTokens,
@@ -235,8 +230,6 @@ export async function* promptAiSdkStream(
     latencyMs: Date.now() - startTime,
     chargeUser: params.chargeUser ?? true,
     costOverrideDollars,
-    agentId: params.agentId,
-    logger,
   })
 
   // Call the cost callback if provided
@@ -276,25 +269,52 @@ export async function promptAiSdk(
     messages: convertCbToModelMessages(params),
   })
   const content = response.text
-  const inputTokens = response.usage.inputTokens || 0
-  const outputTokens = response.usage.inputTokens || 0
+
+  const messageId = response.response.id
+  const providerMetadata = response.providerMetadata ?? {}
+  const usage = response.usage
+  let inputTokens = usage.inputTokens || 0
+  const outputTokens = usage.outputTokens || 0
+  let cacheReadInputTokens: number = 0
+  let cacheCreationInputTokens: number = 0
+  let costOverrideDollars: number | undefined
+  if (providerMetadata.anthropic) {
+    cacheReadInputTokens =
+      typeof providerMetadata.anthropic.cacheReadInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheReadInputTokens
+        : 0
+    cacheCreationInputTokens =
+      typeof providerMetadata.anthropic.cacheCreationInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheCreationInputTokens
+        : 0
+  }
+  if (providerMetadata.openrouter) {
+    if (providerMetadata.openrouter.usage) {
+      const openrouterUsage = providerMetadata.openrouter
+        .usage as OpenRouterUsageAccounting
+      cacheReadInputTokens =
+        openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
+      inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
+
+      costOverrideDollars =
+        (openrouterUsage.cost ?? 0) +
+        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+    }
+  }
 
   const creditsUsedPromise = saveMessage({
-    messageId: generateCompactId(),
-    userId: params.userId,
-    clientSessionId: params.clientSessionId,
-    fingerprintId: params.fingerprintId,
-    userInputId: params.userInputId,
-    model: params.model,
+    ...params,
+    messageId,
     request: params.messages,
     response: content,
     inputTokens,
     outputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: params.chargeUser ?? true,
-    agentId: params.agentId,
-    logger,
+    costOverrideDollars,
   })
 
   // Call the cost callback if provided
@@ -338,25 +358,52 @@ export async function promptAiSdkStructured<T>(
     ? responsePromise
     : withTimeout(responsePromise, params.timeout))
   const content = response.object
-  const inputTokens = response.usage.inputTokens || 0
-  const outputTokens = response.usage.inputTokens || 0
+
+  const messageId = response.response.id
+  const providerMetadata = response.providerMetadata ?? {}
+  const usage = response.usage
+  let inputTokens = usage.inputTokens || 0
+  const outputTokens = usage.outputTokens || 0
+  let cacheReadInputTokens: number = 0
+  let cacheCreationInputTokens: number = 0
+  let costOverrideDollars: number | undefined
+  if (providerMetadata.anthropic) {
+    cacheReadInputTokens =
+      typeof providerMetadata.anthropic.cacheReadInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheReadInputTokens
+        : 0
+    cacheCreationInputTokens =
+      typeof providerMetadata.anthropic.cacheCreationInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheCreationInputTokens
+        : 0
+  }
+  if (providerMetadata.openrouter) {
+    if (providerMetadata.openrouter.usage) {
+      const openrouterUsage = providerMetadata.openrouter
+        .usage as OpenRouterUsageAccounting
+      cacheReadInputTokens =
+        openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
+      inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
+
+      costOverrideDollars =
+        (openrouterUsage.cost ?? 0) +
+        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+    }
+  }
 
   const creditsUsedPromise = saveMessage({
-    messageId: generateCompactId(),
-    userId: params.userId,
-    clientSessionId: params.clientSessionId,
-    fingerprintId: params.fingerprintId,
-    userInputId: params.userInputId,
-    model: params.model,
+    ...params,
+    messageId,
     request: params.messages,
     response: JSON.stringify(content),
     inputTokens,
     outputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: params.chargeUser ?? true,
-    agentId: params.agentId,
-    logger,
+    costOverrideDollars,
   })
 
   // Call the cost callback if provided

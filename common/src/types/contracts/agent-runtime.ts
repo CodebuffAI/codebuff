@@ -4,6 +4,7 @@ import type {
   RequestMcpToolDataFn,
   RequestOptionalFileFn,
   RequestToolCallFn,
+  SendActionFn,
   SendSubagentChunkFn,
 } from './client'
 import type {
@@ -44,5 +45,6 @@ export type AgentRuntimeScopedDeps = {
   requestMcpToolData: RequestMcpToolDataFn
   requestFiles: RequestFilesFn
   requestOptionalFile: RequestOptionalFileFn
+  sendAction: SendActionFn
   sendSubagentChunk: SendSubagentChunkFn
 }

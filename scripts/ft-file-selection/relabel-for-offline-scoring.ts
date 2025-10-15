@@ -191,6 +191,7 @@ async function relabelTraceForModel(
     userInputId: 'relabel-offline-scoring',
     userId: TEST_USER_ID,
     maxOutputTokens: 1000,
+    sendAction: () => {},
     logger: console,
   })
 

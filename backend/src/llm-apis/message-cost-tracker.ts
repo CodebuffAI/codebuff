@@ -19,10 +19,11 @@ import { getRequestContext } from '../context/app-context'
 import { withLoggerContext } from '../util/logger'
 import { stripNullCharsFromObject } from '../util/object'
 import { SWITCHBOARD } from '../websockets/server'
-import { sendAction } from '../websockets/websocket-action'
 
 import type { ClientState } from '../websockets/switchboard'
+import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 // Pricing details:
@@ -427,9 +428,17 @@ async function sendCostResponseToClient(params: {
   userInputId: string
   creditsUsed: number
   agentId?: string
+  sendAction: SendActionFn
   logger: Logger
 }): Promise<void> {
-  const { clientSessionId, userInputId, creditsUsed, agentId, logger } = params
+  const {
+    clientSessionId,
+    userInputId,
+    creditsUsed,
+    agentId,
+    sendAction,
+    logger,
+  } = params
   try {
     const clientEntry = Array.from(SWITCHBOARD.clients.entries()).find(
       ([_, state]: [WebSocket, ClientState]) =>
@@ -439,11 +448,13 @@ async function sendCostResponseToClient(params: {
     if (clientEntry) {
       const [ws] = clientEntry
       if (ws.readyState === WebSocket.OPEN) {
-        sendAction(ws, {
-          type: 'message-cost-response',
-          promptId: userInputId,
-          credits: creditsUsed,
-          agentId,
+        sendAction({
+          action: {
+            type: 'message-cost-response',
+            promptId: userInputId,
+            credits: creditsUsed,
+            agentId,
+          },
         })
       } else {
         logger.warn(
@@ -583,70 +594,72 @@ async function updateUserCycleUsage(params: {
   }
 }
 
-export async function saveMessage(value: {
-  messageId: string
-  userId: string | undefined
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  model: string
-  request: Message[]
-  response: string
-  inputTokens: number
-  outputTokens: number
-  cacheCreationInputTokens?: number
-  cacheReadInputTokens?: number
-  finishedAt: Date
-  latencyMs: number
-  usesUserApiKey?: boolean
-  chargeUser?: boolean
-  costOverrideDollars?: number
-  agentId?: string
-  logger: Logger
-}): Promise<number> {
+export async function saveMessage(
+  params: {
+    messageId: string
+    userId: string | undefined
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    model: string
+    request: Message[]
+    response: string
+    inputTokens: number
+    outputTokens: number
+    cacheCreationInputTokens?: number
+    cacheReadInputTokens?: number
+    finishedAt: Date
+    latencyMs: number
+    usesUserApiKey?: boolean
+    chargeUser?: boolean
+    costOverrideDollars?: number
+    agentId?: string
+    logger: Logger
+  } & ParamsExcluding<typeof sendCostResponseToClient, 'creditsUsed'>,
+): Promise<number> {
   return withLoggerContext(
     {
-      messageId: value.messageId,
-      userId: value.userId,
-      fingerprintId: value.fingerprintId,
+      messageId: params.messageId,
+      userId: params.userId,
+      fingerprintId: params.fingerprintId,
     },
     async () => {
-      const { logger } = value
+      const { logger } = params
       const cost =
-        value.costOverrideDollars ??
+        params.costOverrideDollars ??
         calcCost(
-          value.model,
-          value.inputTokens,
-          value.outputTokens,
-          value.cacheCreationInputTokens ?? 0,
-          value.cacheReadInputTokens ?? 0,
+          params.model,
+          params.inputTokens,
+          params.outputTokens,
+          params.cacheCreationInputTokens ?? 0,
+          params.cacheReadInputTokens ?? 0,
         )
 
       // Default to 1 cent per credit
       const centsPerCredit = 1
 
       const costInCents =
-        value.chargeUser ?? true // default to true
+        params.chargeUser ?? true // default to true
           ? Math.max(
               0,
               Math.round(
                 cost *
                   100 *
-                  (value.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN),
+                  (params.usesUserApiKey ? PROFIT_MARGIN : 1 + PROFIT_MARGIN),
               ),
             )
           : 0
 
       const creditsUsed = Math.max(0, costInCents)
 
-      if (value.userId === TEST_USER_ID) {
+      if (params.userId === TEST_USER_ID) {
         logger.info(
           {
             costUSD: cost,
             costInCents,
             creditsUsed,
             centsPerCredit,
-            value: { ...value, request: 'Omitted', response: 'Omitted' },
+            value: { ...params, request: 'Omitted', response: 'Omitted' },
           },
           `Credits used by test user (${creditsUsed})`,
         )
@@ -656,7 +669,7 @@ export async function saveMessage(value: {
       if (VERBOSE) {
         logger.debug(
           {
-            messageId: value.messageId,
+            messageId: params.messageId,
             costUSD: cost,
             costInCents,
             creditsUsed,
@@ -667,32 +680,29 @@ export async function saveMessage(value: {
       }
 
       sendCostResponseToClient({
-        clientSessionId: value.clientSessionId,
-        userInputId: value.userInputId,
+        ...params,
         creditsUsed,
-        agentId: value.agentId,
-        logger,
       })
 
       await insertMessageRecordWithRetries({
         messageParams: {
-          ...value,
+          ...params,
           cost,
           creditsUsed,
         },
         logger,
       })
 
-      if (!value.userId) {
+      if (!params.userId) {
         logger.debug(
-          { messageId: value.messageId, userId: value.userId },
+          { messageId: params.messageId, userId: params.userId },
           'Skipping further processing (no user ID or failed to save message).',
         )
         return 0
       }
 
       const consumptionResult = await updateUserCycleUsageWithRetries({
-        userId: value.userId,
+        userId: params.userId,
         creditsUsed,
         logger,
       })
@@ -703,20 +713,20 @@ export async function saveMessage(value: {
           (costInCents * consumptionResult.fromPurchased) / creditsUsed,
         )
         syncMessageToStripe({
-          messageId: value.messageId,
-          userId: value.userId,
+          messageId: params.messageId,
+          userId: params.userId,
           costInCents: purchasedCostInCents,
-          finishedAt: value.finishedAt,
+          finishedAt: params.finishedAt,
           logger,
         }).catch((syncError) => {
           logger.error(
-            { messageId: value.messageId, error: syncError },
+            { messageId: params.messageId, error: syncError },
             'Background Stripe sync failed.',
           )
         })
       } else if (VERBOSE) {
         logger.debug(
-          { messageId: value.messageId },
+          { messageId: params.messageId },
           'Skipping Stripe sync (no purchased credits used)',
         )
       }
