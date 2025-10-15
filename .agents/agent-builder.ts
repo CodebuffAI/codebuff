@@ -22,24 +22,19 @@ const researcherGrok4FastExampleContent = readFileSync(
   join(__dirname, 'researcher', 'researcher-grok-4-fast.ts'),
   'utf8',
 )
-const implementationPlannerExampleContent = readFileSync(
+const generatePlanExampleContent = readFileSync(
   join(__dirname, 'planners', 'generate-plan.ts'),
   'utf8',
 )
-const planSelectorExampleContent = readFileSync(
-  join(__dirname, 'planners', 'plan-selector.ts'),
-  'utf8',
-)
-const implementationPlannerMaxExampleContent = readFileSync(
-  join(__dirname, 'planners', 'generate-plan-max.ts'),
+const reviewerExampleContent = readFileSync(
+  join(__dirname, 'reviewer', 'reviewer.ts'),
   'utf8',
 )
 const examplesAgentsContent = [
   researcherDocExampleContent,
   researcherGrok4FastExampleContent,
-  implementationPlannerExampleContent,
-  planSelectorExampleContent,
-  implementationPlannerMaxExampleContent,
+  generatePlanExampleContent,
+  reviewerExampleContent,
 ]
 
 const definition: AgentDefinition = {
