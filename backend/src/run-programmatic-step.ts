@@ -273,11 +273,13 @@ export async function runProgrammaticStep(
           role: 'assistant' as const,
           content: toolCallString,
         })
-        state.sendSubagentChunk({
+        // Optional call handles both top-level and nested agents
+        state.sendSubagentChunk?.({
           userInputId,
           agentId: state.agentState.agentId,
           agentType: state.agentState.agentType!,
           chunk: toolCallString,
+          forwardToPrompt: !state.agentState.parentId,
         })
       }
 
@@ -331,10 +333,7 @@ export async function runProgrammaticStep(
             }
 
             // Add parentAgentId to tool calls and results from nested agents
-            if (
-              chunk.type === 'tool_call' ||
-              chunk.type === 'tool_result'
-            ) {
+            if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
               // Only add parentAgentId if it's not already set
               if (!(chunk as any).parentAgentId) {
                 logger.debug(

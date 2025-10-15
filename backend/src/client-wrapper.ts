@@ -196,7 +196,15 @@ export function sendSubagentChunkWs(
     ws: WebSocket
   } & ParamsOf<SendSubagentChunkFn>,
 ): ReturnType<SendSubagentChunkFn> {
-  const { ws, userInputId, agentId, agentType, chunk, prompt } = params
+  const {
+    ws,
+    userInputId,
+    agentId,
+    agentType,
+    chunk,
+    prompt,
+    forwardToPrompt = true,
+  } = params
   return sendAction(ws, {
     type: 'subagent-response-chunk',
     userInputId,
@@ -204,6 +212,7 @@ export function sendSubagentChunkWs(
     agentType,
     chunk,
     prompt,
+    forwardToPrompt,
   })
 }
 

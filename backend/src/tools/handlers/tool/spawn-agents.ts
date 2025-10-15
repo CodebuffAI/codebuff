@@ -26,6 +26,7 @@ export type SendSubagentChunk = (data: {
   agentType: string
   chunk: string
   prompt?: string
+  forwardToPrompt?: boolean
 }) => void
 
 type ToolName = 'spawn_agents'
@@ -158,42 +159,49 @@ export const handleSpawnAgents = ((
                 return
               }
 
-              // For nested agent events, add parentAgentId to enable proper nesting in UI
-              if (
-                chunk.type === 'subagent_start' ||
-                chunk.type === 'subagent_finish'
-              ) {
-                logger.debug(
-                  {
-                    eventType: chunk.type,
-                    agentId: chunk.agentId,
-                    parentId: subAgentState.agentId,
-                    parentAgentId: subAgentState.agentId,
-                  },
-                  `spawn-agents: Adding parentAgentId to ${chunk.type} event`,
-                )
-                writeToClient({
-                  ...chunk,
-                  parentAgentId: subAgentState.agentId,
-                })
+              if (chunk.type === 'text') {
+                if (chunk.text) {
+                  sendSubagentChunk({
+                    userInputId,
+                    agentId: subAgentState.agentId,
+                    agentType,
+                    chunk: chunk.text,
+                    prompt,
+                  })
+                }
                 return
               }
 
-              // For tool calls and results from nested agents, preserve the agentId but add parentAgentId
-              if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
-                logger.debug(
-                  {
-                    eventType: chunk.type,
-                    agentId: (chunk as any).agentId,
-                    parentId: subAgentState.agentId,
-                    parentAgentId: subAgentState.agentId,
-                  },
-                  `spawn-agents: Adding parentAgentId to ${chunk.type} event`,
-                )
-                writeToClient({
-                  ...chunk,
-                  parentAgentId: subAgentState.agentId,
-                })
+              // Add parentAgentId for proper nesting in UI
+              const ensureParentAgentId = () => {
+                if (
+                  chunk.type === 'subagent_start' ||
+                  chunk.type === 'subagent_finish'
+                ) {
+                  return (
+                    chunk.parentAgentId ??
+                    subAgentState.parentId ??
+                    parentAgentState?.agentId
+                  )
+                }
+                if (
+                  chunk.type === 'tool_call' ||
+                  chunk.type === 'tool_result'
+                ) {
+                  return (chunk as any).parentAgentId ?? subAgentState.agentId
+                }
+                return undefined
+              }
+
+              const parentAgentId = ensureParentAgentId()
+              if (
+                parentAgentId !== undefined &&
+                (chunk.type === 'subagent_start' ||
+                  chunk.type === 'subagent_finish' ||
+                  chunk.type === 'tool_call' ||
+                  chunk.type === 'tool_result')
+              ) {
+                writeToClient({ ...chunk, parentAgentId })
                 return
               }
 
