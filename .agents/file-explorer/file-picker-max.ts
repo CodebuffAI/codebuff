@@ -7,7 +7,7 @@ import {
 } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
-  id: 'file-picker',
+  id: 'file-picker-max',
   displayName: 'Fletcher the File Fetcher',
   publisher,
   model: 'anthropic/claude-haiku-4.5',
