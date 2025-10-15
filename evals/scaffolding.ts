@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 
 import {
+  handleStepsLogChunkWs,
   requestFilesWs,
   requestMcpToolDataWs,
   requestOptionalFileWs,
@@ -187,6 +188,8 @@ export async function runAgentStepScaffolding(
   })
 
   const agentRuntimeScopedImpl: AgentRuntimeScopedDeps = {
+    handleStepsLogChunk: (params) =>
+      handleStepsLogChunkWs({ ...params, ws: mockWs }),
     requestToolCall: (params) => requestToolCallWs({ ...params, ws: mockWs }),
     requestMcpToolData: (params) =>
       requestMcpToolDataWs({ ...params, ws: mockWs }),
