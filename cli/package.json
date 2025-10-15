@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "dev": "bun run --watch src/index.tsx",
+    "dev": "bun run src/index.tsx",
     "prebuild": "bun run build:sdk && bun run build:opentui",
     "build": "bun build src/index.tsx --outdir dist --target node --format esm",
     "build:sdk": "cd ../sdk && bun run build",
