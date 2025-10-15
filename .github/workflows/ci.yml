@@ -19,8 +19,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -95,8 +93,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -164,8 +160,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
