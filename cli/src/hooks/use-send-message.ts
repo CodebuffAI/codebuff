@@ -45,6 +45,56 @@ const updateBlocksRecursively = (
   })
 }
 
+// Helper function to process buffered text and filter out tool calls
+const processToolCallBuffer = (
+  bufferState: { buffer: string; insideToolCall: boolean },
+  onTextOutput: (text: string) => void,
+) => {
+  let processed = false
+
+  if (
+    !bufferState.insideToolCall &&
+    bufferState.buffer.includes('<codebuff_tool_call>')
+  ) {
+    const openTagIndex = bufferState.buffer.indexOf('<codebuff_tool_call>')
+    const text = bufferState.buffer.substring(0, openTagIndex)
+    if (text) {
+      onTextOutput(text)
+    }
+    bufferState.insideToolCall = true
+    bufferState.buffer = bufferState.buffer.substring(
+      openTagIndex + '<codebuff_tool_call>'.length,
+    )
+    processed = true
+  } else if (
+    bufferState.insideToolCall &&
+    bufferState.buffer.includes('</codebuff_tool_call>')
+  ) {
+    const closeTagIndex = bufferState.buffer.indexOf('</codebuff_tool_call>')
+    bufferState.insideToolCall = false
+    bufferState.buffer = bufferState.buffer.substring(
+      closeTagIndex + '</codebuff_tool_call>'.length,
+    )
+    processed = true
+  } else if (!bufferState.insideToolCall && bufferState.buffer.length > 25) {
+    // Output safe text, keeping last 25 chars in buffer (enough to buffer <codebuff_tool_call>)
+    const safeToOutput = bufferState.buffer.substring(
+      0,
+      bufferState.buffer.length - 25,
+    )
+    if (safeToOutput) {
+      onTextOutput(safeToOutput)
+    }
+    bufferState.buffer = bufferState.buffer.substring(
+      bufferState.buffer.length - 25,
+    )
+  }
+
+  if (processed) {
+    processToolCallBuffer(bufferState, onTextOutput)
+  }
+}
+
 interface UseSendMessageOptions {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   setFocusedAgentId: (id: string | null) => void
@@ -404,57 +454,8 @@ export const useSendMessage = ({
           signal: abortController.signal,
 
           handleStreamChunk: (chunk: any) => {
-            const keys = Object.keys(chunk)
-              .filter((k) => !isNaN(Number(k)))
-              .sort((a, b) => Number(a) - Number(b))
-            let text = keys.map((k) => chunk[k]).join('')
-
-            text = text.replace(
-              /<codebuff_tool_call>[\s\S]*?<\/codebuff_tool_call>/g,
-              '',
-            )
-
-            if (!text) return
-
-            if (!hasReceivedContent) {
-              hasReceivedContent = true
-              setIsWaitingForResponse(false)
-            }
-
-            logger.info('setMessages: handleStreamChunk (main agent text)', {
-              text,
-            })
-            queueMessageUpdate((prev) =>
-              prev.map((msg) => {
-                if (msg.id !== aiMessageId) {
-                  return msg
-                }
-
-                const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
-                const lastBlock = blocks[blocks.length - 1]
-
-                if (lastBlock && lastBlock.type === 'text') {
-                  const newContent = lastBlock.content + text
-                  const updatedTextBlock: ContentBlock = {
-                    type: 'text',
-                    content: newContent,
-                  }
-                  return {
-                    ...msg,
-                    blocks: [...blocks.slice(0, -1), updatedTextBlock],
-                  }
-                }
-
-                const newTextBlock: ContentBlock = {
-                  type: 'text',
-                  content: text,
-                }
-                return {
-                  ...msg,
-                  blocks: [...blocks, newTextBlock],
-                }
-              }),
-            )
+            // Streaming chunks are also sent via text events, so we ignore them here to avoid duplication
+            // Text events have better handling for tool call filtering
           },
 
           handleEvent: (event: any) => {
@@ -471,59 +472,9 @@ export const useSendMessage = ({
 
               bufferState.buffer += chunk
 
-              const processBuffer = () => {
-                let processed = false
-                if (
-                  !bufferState.insideToolCall &&
-                  bufferState.buffer.includes('<codebuff_tool_call>')
-                ) {
-                  const openTagIndex = bufferState.buffer.indexOf(
-                    '<codebuff_tool_call>',
-                  )
-                  const text = bufferState.buffer.substring(0, openTagIndex)
-                  if (text) {
-                    updateAgentContent(agentId, { type: 'text', content: text })
-                  }
-                  bufferState.insideToolCall = true
-                  bufferState.buffer = bufferState.buffer.substring(
-                    openTagIndex + '<codebuff_tool_call>'.length,
-                  )
-                  processed = true
-                } else if (
-                  bufferState.insideToolCall &&
-                  bufferState.buffer.includes('</codebuff_tool_call>')
-                ) {
-                  const closeTagIndex = bufferState.buffer.indexOf(
-                    '</codebuff_tool_call>',
-                  )
-                  // Skip the tool call content - we'll handle it via tool_call event
-                  bufferState.insideToolCall = false
-                  bufferState.buffer = bufferState.buffer.substring(
-                    closeTagIndex + '</codebuff_tool_call>'.length,
-                  )
-                  processed = true
-                } else if (
-                  !bufferState.insideToolCall &&
-                  bufferState.buffer.length > 50
-                ) {
-                  const safeToOutput = bufferState.buffer.substring(
-                    0,
-                    bufferState.buffer.length - 50,
-                  )
-                  updateAgentContent(agentId, {
-                    type: 'text',
-                    content: safeToOutput,
-                  })
-                  bufferState.buffer = bufferState.buffer.substring(
-                    bufferState.buffer.length - 50,
-                  )
-                }
-
-                if (processed) {
-                  processBuffer()
-                }
-              }
-              processBuffer()
+              processToolCallBuffer(bufferState, (text) => {
+                updateAgentContent(agentId, { type: 'text', content: text })
+              })
               return
             }
 
@@ -533,14 +484,12 @@ export const useSendMessage = ({
                 '',
               )
 
-              if (text.includes('<codebuff_tool_call>')) {
-                logger.warn('Tool XML detected in text event post-filter', {
-                  agentId: event.agentId ?? 'root',
-                  textPreview: text.slice(0, 80),
-                })
-              }
-
               if (!text) return
+
+              if (!hasReceivedContent) {
+                hasReceivedContent = true
+                setIsWaitingForResponse(false)
+              }
 
               if (event.agentId) {
                 logger.info('setMessages: text event with agentId', {
@@ -551,7 +500,6 @@ export const useSendMessage = ({
                   type: 'text',
                   content: text,
                 })
-                return
               } else {
                 logger.info('setMessages: text event without agentId', {
                   textPreview: text.slice(0, 100),
@@ -567,7 +515,14 @@ export const useSendMessage = ({
                       : []
                     const lastBlock = blocks[blocks.length - 1]
 
+                    // Deduplicate: if the new text is already at the end of the last block, skip it
                     if (lastBlock && lastBlock.type === 'text') {
+                      if (lastBlock.content.endsWith(text)) {
+                        logger.info('Skipping duplicate main agent text', {
+                          textPreview: text.slice(0, 100),
+                        })
+                        return msg
+                      }
                       const updatedTextBlock: ContentBlock = {
                         type: 'text',
                         content: lastBlock.content + text,
@@ -588,8 +543,8 @@ export const useSendMessage = ({
                     }
                   }),
                 )
-                return
               }
+              return
             }
 
             if (event.type === 'finish' && event.totalCost !== undefined) {
