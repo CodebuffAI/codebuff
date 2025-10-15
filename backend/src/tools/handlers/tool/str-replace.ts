@@ -16,7 +16,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { WebSocket } from 'ws'
 
-export const handleStrReplace = ((
+export function handleStrReplace(
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'str_replace'>
@@ -35,7 +35,7 @@ export const handleStrReplace = ((
 ): {
   result: Promise<CodebuffToolOutput<'str_replace'>>
   state: FileProcessingState
-} => {
+} {
   const {
     previousToolCallFinished,
     toolCall,
@@ -103,4 +103,5 @@ export const handleStrReplace = ((
     }),
     state: fileProcessingState,
   }
-}) satisfies CodebuffToolHandlerFunction<'str_replace'>
+}
+handleStrReplace satisfies CodebuffToolHandlerFunction<'str_replace'>
