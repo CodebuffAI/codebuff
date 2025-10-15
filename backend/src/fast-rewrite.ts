@@ -22,7 +22,7 @@ export async function fastRewrite(
     filePath: string
     userMessage: string | undefined
     logger: Logger
-  } & ParamsExcluding<typeof promptRelaceAI, 'initialCode' | 'messageId'> &
+  } & ParamsExcluding<typeof promptRelaceAI, 'initialCode'> &
     ParamsExcluding<typeof rewriteWithOpenAI, 'oldContent'>,
 ) {
   const { initialContent, editSnippet, filePath, userMessage, logger } = params
@@ -31,7 +31,6 @@ export async function fastRewrite(
   let response = await promptRelaceAI({
     ...params,
     initialCode: initialContent,
-    messageId,
   })
   const relaceDuration = Date.now() - relaceStartTime
 
