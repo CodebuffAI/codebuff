@@ -610,9 +610,7 @@ export const loopAgentSteps = async (
         currentAgentState = programmaticAgentState
         totalSteps = stepNumber
 
-        if (endTurn) {
-          shouldEndTurn = true
-        }
+        shouldEndTurn = endTurn
       }
 
       // Check if output is required but missing
