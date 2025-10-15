@@ -83,6 +83,9 @@ export enum AnalyticsEvent {
   TOAST_SHOWN = 'toast.shown',
   REFERRAL_BANNER_CLICKED = 'referral_banner.clicked',
 
+  // Web - API
+  SSE_ENDPOINT_REQUEST = 'api.sse_endpoint_request',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 }

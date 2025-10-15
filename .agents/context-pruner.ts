@@ -40,6 +40,8 @@ const definition: AgentDefinition = {
     const numTerminalCommandsToKeep = 5
 
     let currentMessages = [...messages]
+    // Remove injected instructions prompt
+    currentMessages.pop()
 
     // Initial check - if already under limit, return
     const initialTokens = countTokensJson(currentMessages)

@@ -6,9 +6,12 @@ import type {
   CodebuffToolOutput,
   CodebuffToolResult,
 } from '@codebuff/common/tools/list'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
@@ -36,7 +39,8 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
       toolCall: ClientToolCall<T extends ClientToolName ? T : never>,
     ) => Promise<CodebuffToolOutput<T extends ClientToolName ? T : never>>
   > &
-    AgentRuntimeDeps,
+    AgentRuntimeDeps &
+    AgentRuntimeScopedDeps,
 ) => {
   result: Promise<CodebuffToolResult<T>['output']>
   state?: Record<string, any>

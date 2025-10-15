@@ -1,4 +1,12 @@
 import type {
+  HandleStepsLogChunkFn,
+  RequestFilesFn,
+  RequestMcpToolDataFn,
+  RequestOptionalFileFn,
+  RequestToolCallFn,
+  SendSubagentChunkFn,
+} from './client'
+import type {
   AddAgentStepFn,
   FetchAgentFromDatabaseFn,
   FinishAgentRunFn,
@@ -27,4 +35,14 @@ export type AgentRuntimeDeps = {
 
   // Other
   logger: Logger
+}
+
+export type AgentRuntimeScopedDeps = {
+  // Client (WebSocket)
+  handleStepsLogChunk: HandleStepsLogChunkFn
+  requestToolCall: RequestToolCallFn
+  requestMcpToolData: RequestMcpToolDataFn
+  requestFiles: RequestFilesFn
+  requestOptionalFile: RequestOptionalFileFn
+  sendSubagentChunk: SendSubagentChunkFn
 }

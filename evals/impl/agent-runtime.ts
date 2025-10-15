@@ -1,6 +1,6 @@
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
-export const EVALS_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
+export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   // Database
   getUserInfoFromApiKey: async () => ({
     id: 'test-user-id',

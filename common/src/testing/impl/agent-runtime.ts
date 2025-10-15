@@ -1,4 +1,7 @@
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const testLogger: Logger = {
@@ -8,7 +11,7 @@ export const testLogger: Logger = {
   warn: () => {},
 }
 
-export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
+export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   // Database
   getUserInfoFromApiKey: async () => ({
     id: 'test-user-id',
@@ -34,3 +37,26 @@ export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   // Other
   logger: testLogger,
 })
+
+export const TEST_AGENT_RUNTIME_SCOPED_IMPL =
+  Object.freeze<AgentRuntimeScopedDeps>({
+    // Database
+    handleStepsLogChunk: () => {
+      throw new Error('handleStepsLogChunk not implemented in test runtime')
+    },
+    requestToolCall: () => {
+      throw new Error('requestToolCall not implemented in test runtime')
+    },
+    requestMcpToolData: () => {
+      throw new Error('requestMcpToolData not implemented in test runtime')
+    },
+    requestFiles: () => {
+      throw new Error('requestFiles not implemented in test runtime')
+    },
+    requestOptionalFile: () => {
+      throw new Error('requestOptionalFile not implemented in test runtime')
+    },
+    sendSubagentChunk: () => {
+      throw new Error('sendSubagentChunk not implemented in test runtime')
+    },
+  })

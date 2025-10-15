@@ -1,4 +1,6 @@
 import { getUserUsageData } from '@codebuff/billing/usage-service'
+import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { NextResponse } from 'next/server'
 
@@ -29,6 +31,16 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = userInfo.id
+
+    trackEvent({
+      event: AnalyticsEvent.SSE_ENDPOINT_REQUEST,
+      properties: {
+        body,
+      },
+      userId,
+      logger,
+    })
+
     const {
       balance: { totalRemaining },
       nextQuotaReset,

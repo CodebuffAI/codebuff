@@ -155,10 +155,10 @@ async function runTask(options: {
 export async function runBuffBench(options: {
   evalDataPath: string
   agents: string[]
-  commitConcurrency?: number
+  taskConcurrency?: number
   client?: CodebuffClient
 }) {
-  const { evalDataPath, agents, commitConcurrency = 1 } = options
+  const { evalDataPath, agents, taskConcurrency = 1 } = options
 
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
@@ -191,7 +191,7 @@ export async function runBuffBench(options: {
     }
   }
 
-  const commitLimit = pLimit(commitConcurrency)
+  const commitLimit = pLimit(taskConcurrency)
 
   const commitPromises = commitsToRun.map((commit, index) =>
     commitLimit(() =>

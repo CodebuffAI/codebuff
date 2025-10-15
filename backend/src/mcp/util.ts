@@ -1,20 +1,22 @@
-import { requestMcpToolData } from '../websockets/websocket-action'
-
 import type { AgentTemplate } from '../templates/types'
+import type { RequestMcpToolDataFn } from '@codebuff/common/types/contracts/client'
+import type { OptionalFields } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
-export async function getMCPToolData({
-  ws,
-  toolNames,
-  mcpServers,
-  writeTo,
-}: {
-  ws: WebSocket
-  toolNames: AgentTemplate['toolNames']
-  mcpServers: AgentTemplate['mcpServers']
-  writeTo: ProjectFileContext['customToolDefinitions']
-}): Promise<ProjectFileContext['customToolDefinitions']> {
+export async function getMCPToolData(
+  params: OptionalFields<
+    {
+      toolNames: AgentTemplate['toolNames']
+      mcpServers: AgentTemplate['mcpServers']
+      writeTo: ProjectFileContext['customToolDefinitions']
+      requestMcpToolData: RequestMcpToolDataFn
+    },
+    'writeTo'
+  >,
+): Promise<ProjectFileContext['customToolDefinitions']> {
+  const withDefaults = { writeTo: {}, ...params }
+  const { toolNames, mcpServers, writeTo, requestMcpToolData } = withDefaults
+
   const requestedToolsByMcp: Record<string, string[] | undefined> = {}
   for (const t of toolNames) {
     if (!t.includes('/')) {
@@ -28,13 +30,11 @@ export async function getMCPToolData({
     requestedToolsByMcp[mcpName].push(toolName)
   }
 
-  writeTo ??= {}
   const promises: Promise<any>[] = []
   for (const [mcpName, mcpConfig] of Object.entries(mcpServers)) {
     promises.push(
       (async () => {
         const mcpData = await requestMcpToolData({
-          ws,
           mcpConfig,
           toolNames: requestedToolsByMcp[mcpName] ?? null,
         })

@@ -1,5 +1,8 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   describe,
@@ -236,6 +239,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -270,6 +274,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -306,6 +311,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -344,6 +350,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -378,6 +385,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -415,6 +423,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -463,6 +472,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -518,6 +528,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -550,6 +561,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -583,6 +595,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -615,6 +628,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -647,6 +661,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -682,6 +697,7 @@ describe('Spawn Agents Permissions', () => {
 
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -714,6 +730,7 @@ describe('Spawn Agents Permissions', () => {
       expect(() => {
         handleSpawnAgentInline({
           ...TEST_AGENT_RUNTIME_IMPL,
+          ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
           previousToolCallFinished: Promise.resolve(),
           toolCall,
           fileContext: mockFileContext,

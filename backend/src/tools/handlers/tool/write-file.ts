@@ -1,7 +1,6 @@
 import { partition } from 'lodash'
 
 import { processFileBlock } from '../../../process-file-block'
-import { requestOptionalFile } from '../../../websockets/websocket-action'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -9,6 +8,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -63,7 +63,7 @@ export function getFileProcessingValues(
   return fileProcessingValues
 }
 
-export const handleWriteFile = ((
+export function handleWriteFile(
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'write_file'>
@@ -85,6 +85,7 @@ export const handleWriteFile = ((
       prompt?: string
       messages?: Message[]
     } & OptionalFileProcessingState
+    requestOptionalFile: RequestOptionalFileFn
     logger: Logger
   } & ParamsExcluding<
     typeof processFileBlock,
@@ -97,11 +98,12 @@ export const handleWriteFile = ((
     | 'messages'
     | 'fullResponse'
     | 'lastUserPrompt'
-  >,
+  > &
+    ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
 ): {
   result: Promise<CodebuffToolOutput<'write_file'>>
   state: FileProcessingState
-} => {
+} {
   const {
     previousToolCallFinished,
     toolCall,
@@ -114,6 +116,7 @@ export const handleWriteFile = ((
 
     getLatestState,
     state,
+    requestOptionalFile,
     logger,
   } = params
   const { path, instructions, content } = toolCall.input
@@ -146,9 +149,9 @@ export const handleWriteFile = ((
     ? previousEdit.then((maybeResult) =>
         maybeResult && 'content' in maybeResult
           ? maybeResult.content
-          : requestOptionalFile({ ws, filePath: path }),
+          : requestOptionalFile({ ...params, filePath: path }),
       )
-    : requestOptionalFile({ ws, filePath: path })
+    : requestOptionalFile({ ...params, filePath: path })
 
   const fileContentWithoutStartNewline = content.startsWith('\n')
     ? content.slice(1)
@@ -198,7 +201,8 @@ export const handleWriteFile = ((
     })(),
     state: fileProcessingState,
   }
-}) satisfies CodebuffToolHandlerFunction<'write_file'>
+}
+handleWriteFile satisfies CodebuffToolHandlerFunction<'write_file'>
 
 export async function postStreamProcessing<T extends FileProcessingTools>(
   toolCall: FileProcessing<T>,

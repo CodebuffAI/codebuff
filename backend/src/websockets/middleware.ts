@@ -15,12 +15,23 @@ import { eq } from 'drizzle-orm'
 import { getUserInfoFromApiKey } from './auth'
 import { updateRequestContext } from './request-context'
 import { sendAction } from './websocket-action'
+import {
+  handleStepsLogChunkWs,
+  requestFilesWs,
+  requestMcpToolDataWs,
+  requestOptionalFileWs,
+  requestToolCallWs,
+  sendSubagentChunkWs,
+} from '../client-wrapper'
 import { withAppContext } from '../context/app-context'
 import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 import { checkAuth } from '../util/check-auth'
 
 import type { ClientAction, ServerAction } from '@codebuff/common/actions'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
@@ -129,7 +140,8 @@ export class WebSocketMiddleware {
         action: ClientAction<T>
         clientSessionId: string
         ws: WebSocket
-      } & AgentRuntimeDeps,
+      } & AgentRuntimeDeps &
+        AgentRuntimeScopedDeps,
     ) => void
     silent?: boolean
   }) {
@@ -147,6 +159,17 @@ export class WebSocketMiddleware {
               fields: ['id', 'email', 'discord_id'],
             })
           : undefined
+
+      const scopedDeps: AgentRuntimeScopedDeps = {
+        handleStepsLogChunk: (params) =>
+          handleStepsLogChunkWs({ ...params, ws }),
+        requestToolCall: (params) => requestToolCallWs({ ...params, ws }),
+        requestMcpToolData: (params) => requestMcpToolDataWs({ ...params, ws }),
+        requestFiles: (params) => requestFilesWs({ ...params, ws }),
+        requestOptionalFile: (params) =>
+          requestOptionalFileWs({ ...params, ws }),
+        sendSubagentChunk: (params) => sendSubagentChunkWs({ ...params, ws }),
+      }
 
       // Use the new combined context - much cleaner!
       return withAppContext(
@@ -171,6 +194,7 @@ export class WebSocketMiddleware {
               clientSessionId,
               ws,
               ...this.impl,
+              ...scopedDeps,
             })
           }
         },

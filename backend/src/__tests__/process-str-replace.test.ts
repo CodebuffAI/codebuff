@@ -1,3 +1,4 @@
+import { TEST_AGENT_RUNTIME_SCOPED_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { describe, expect, it, mock } from 'bun:test'
 import { applyPatch } from 'diff'
 
@@ -531,6 +532,7 @@ describe('Benchify resilience', () => {
 
     try {
       const result = await executeBatchStrReplaces({
+        ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
         deferredStrReplaces: [
           {
             toolCall: {
@@ -547,7 +549,6 @@ describe('Benchify resilience', () => {
         ],
         toolCalls: [],
         toolResults: [],
-        ws: {} as any,
         agentStepId: 'test-step',
         clientSessionId: 'test-session',
         userInputId: 'test-input',
@@ -572,10 +573,10 @@ describe('Benchify resilience', () => {
       // Simple test that doesn't require complex mocking
       expect(
         executeBatchStrReplaces({
+          ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
           deferredStrReplaces: [],
           toolCalls: [],
           toolResults: [],
-          ws: {} as any,
           agentStepId: 'test-step',
           clientSessionId: 'test-session',
           userInputId: 'test-input',
@@ -610,10 +611,10 @@ describe('Benchify resilience', () => {
   it('should handle executeBatchStrReplaces with empty list', async () => {
     // Simple test that doesn't require complex mocking
     const result = await executeBatchStrReplaces({
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       deferredStrReplaces: [],
       toolCalls: [],
       toolResults: [],
-      ws: {} as any,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       userInputId: 'test-input',

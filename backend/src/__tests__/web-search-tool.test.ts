@@ -4,7 +4,10 @@ process.env.LINKUP_API_KEY = 'test-api-key'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -25,9 +28,11 @@ import { MockWebSocket, mockFileContext } from './test-utils'
 import * as linkupApi from '../llm-apis/linkup-api'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
-import * as websocketAction from '../websockets/websocket-action'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { WebSocket } from 'ws'
 
 let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
@@ -43,8 +48,12 @@ function mockAgentStream(content: string | string[]) {
   }
 }
 
+let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+
 describe('web_search tool with researcher agent', () => {
   beforeEach(() => {
+    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
+
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     analytics.initAnalytics(agentRuntimeImpl)
@@ -54,16 +63,16 @@ describe('web_search tool with researcher agent', () => {
     )
 
     // Mock websocket actions
-    spyOn(websocketAction, 'requestFiles').mockImplementation(async () => ({}))
-    spyOn(websocketAction, 'requestFile').mockImplementation(async () => null)
-    spyOn(websocketAction, 'requestToolCall').mockImplementation(async () => ({
+    agentRuntimeScopedImpl.requestFiles = async () => ({})
+    agentRuntimeScopedImpl.requestOptionalFile = async () => null
+    agentRuntimeScopedImpl.requestToolCall = async () => ({
       output: [
         {
           type: 'json',
           value: 'Tool call success',
         },
       ],
-    }))
+    })
 
     // Mock LLM APIs
     agentRuntimeImpl.promptAiSdk = async function () {
@@ -122,6 +131,7 @@ describe('web_search tool with researcher agent', () => {
 
     await runAgentStep({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -172,6 +182,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -231,6 +242,7 @@ describe('web_search tool with researcher agent', () => {
 
     await runAgentStep({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -275,6 +287,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -333,6 +346,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -390,6 +404,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -437,6 +452,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
@@ -496,6 +512,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       ws: new MockWebSocket() as unknown as WebSocket,
       system: 'Test system prompt',
       userId: TEST_USER_ID,

@@ -14,17 +14,18 @@ import type {
   StepGenerator,
   PublicAgentState,
 } from '@codebuff/common/types/agent-template'
+import type { HandleStepsLogChunkFn } from '@codebuff/common/types/contracts/client'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 import type {
   ToolResultOutput,
   ToolResultPart,
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { WebSocket } from 'ws'
 
 // Global sandbox manager for QuickJS contexts
@@ -62,6 +63,7 @@ export async function runProgrammaticStep(
     localAgentTemplates: Record<string, AgentTemplate>
     stepsComplete: boolean
     stepNumber: number
+    handleStepsLogChunk: HandleStepsLogChunkFn
     logger: Logger
   } & ParamsExcluding<
     typeof executeToolCall,
@@ -92,6 +94,7 @@ export async function runProgrammaticStep(
     ws,
     localAgentTemplates,
     stepsComplete,
+    handleStepsLogChunk,
     logger,
   } = params
   let { stepNumber } = params
@@ -114,10 +117,9 @@ export async function runProgrammaticStep(
       (level: 'debug' | 'info' | 'warn' | 'error') =>
       (data: any, msg?: string) => {
         logger[level](data, msg) // Log to backend
-        sendAction(ws, {
-          type: 'handlesteps-log-chunk',
+        handleStepsLogChunk({
           userInputId,
-          agentId: agentState.agentId,
+          runId: agentState.runId ?? 'undefined',
           level,
           data,
           message: msg,
@@ -271,6 +273,12 @@ export async function runProgrammaticStep(
           role: 'assistant' as const,
           content: toolCallString,
         })
+        state.sendSubagentChunk({
+          userInputId,
+          agentId: state.agentState.agentId,
+          agentType: state.agentState.agentType!,
+          chunk: toolCallString,
+        })
       }
 
       // Execute the tool synchronously and get the result immediately
@@ -288,7 +296,9 @@ export async function runProgrammaticStep(
         fullResponse: '',
         state,
         autoInsertEndStepParam: true,
-        excludeToolFromMessageHistory,        onResponseChunk: (chunk: string | PrintModeEvent) => {
+        excludeToolFromMessageHistory,
+        fromHandleSteps: true,
+        onResponseChunk: (chunk: string | PrintModeEvent) => {
           if (typeof chunk === 'string') {
             onResponseChunk(chunk)
             return

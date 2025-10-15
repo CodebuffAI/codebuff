@@ -35,10 +35,7 @@ import type {
 } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type {
-  AssistantMessage,
-  Message,
-} from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   ToolResultPart,
   TextPart,
@@ -51,13 +48,9 @@ import type {
   AgentOutput,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
-
-
 
 export const runAgentStep = async (
   params: {
-    ws: WebSocket
     userId: string | undefined
     userInputId: string
     clientSessionId: string
@@ -95,6 +88,10 @@ export const runAgentStep = async (
       | 'agentState'
       | 'agentTemplates'
       | 'additionalToolDefinitions'
+    > &
+    ParamsExcluding<
+      typeof getMCPToolData,
+      'toolNames' | 'mcpServers' | 'writeTo'
     >,
 ): Promise<{
   agentState: AgentState
@@ -103,7 +100,6 @@ export const runAgentStep = async (
   messageId: string | null
 }> => {
   const {
-    ws,
     userId,
     userInputId,
     fingerprintId,
@@ -205,7 +201,7 @@ export const runAgentStep = async (
         ),
       )
       return getMCPToolData({
-        ws,
+        ...params,
         toolNames: agentTemplate.toolNames,
         mcpServers: agentTemplate.mcpServers,
         writeTo: additionalToolDefinitions,
@@ -403,7 +399,6 @@ export const runAgentStep = async (
 
 export const loopAgentSteps = async (
   params: {
-    ws: WebSocket
     userInputId: string
     agentType: AgentTemplateType
     agentState: AgentState
@@ -441,13 +436,16 @@ export const loopAgentSteps = async (
       | 'promptType'
       | 'agentTemplates'
       | 'additionalToolDefinitions'
+    > &
+    ParamsExcluding<
+      typeof getMCPToolData,
+      'toolNames' | 'mcpServers' | 'writeTo'
     >,
 ): Promise<{
   agentState: AgentState
   output: AgentOutput
 }> => {
   const {
-    ws,
     userInputId,
     agentType,
     agentState,
@@ -501,7 +499,7 @@ export const loopAgentSteps = async (
         ),
       )
       return getMCPToolData({
-        ws,
+        ...params,
         toolNames: agentTemplate.toolNames,
         mcpServers: agentTemplate.mcpServers,
         writeTo: additionalToolDefinitions,
@@ -528,7 +526,7 @@ export const loopAgentSteps = async (
               ),
             )
             return getMCPToolData({
-              ws,
+              ...params,
               toolNames: agentTemplate.toolNames,
               mcpServers: agentTemplate.mcpServers,
               writeTo: additionalToolDefinitions,
@@ -607,7 +605,6 @@ export const loopAgentSteps = async (
         } = await runProgrammaticStep({
           ...params,
           agentState: currentAgentState,
-          ws,
           template: agentTemplate,
           localAgentTemplates,
           prompt: currentPrompt,
@@ -672,7 +669,6 @@ export const loopAgentSteps = async (
         messageId,
       } = await runAgentStep({
         ...params,
-        ws,
         userId,
         userInputId,
         clientSessionId,
@@ -773,5 +769,3 @@ export const loopAgentSteps = async (
     }
   }
 }
-
-
