@@ -1,5 +1,3 @@
-import type { ToolName as ToolNameType } from '../../common/src/tools/constants'
-
 export type * from '../../common/src/types/json'
 export type * from '../../common/src/types/messages/codebuff-message'
 export type * from '../../common/src/types/messages/data-content'
@@ -7,7 +5,7 @@ export type * from '../../common/src/types/print-mode'
 export type * from './run'
 // Agent type exports
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-export type ToolName = ToolNameType
+export type { ToolName } from '../../common/src/tools/constants'
 
 // Re-export code analysis functionality
 export * from '../../packages/code-map/src/index'
