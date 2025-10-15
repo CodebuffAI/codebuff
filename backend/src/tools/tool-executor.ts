@@ -131,6 +131,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   userId: string | undefined
   autoInsertEndStepParam?: boolean
   excludeToolFromMessageHistory?: boolean
+  fromHandleSteps?: boolean
 } & AgentRuntimeDeps &
   AgentRuntimeScopedDeps
 
@@ -158,6 +159,7 @@ export function executeToolCall<T extends ToolName>(
     requestToolCall,
     requestMcpToolData,
     logger,
+    fromHandleSteps = false,
   } = params
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
@@ -200,7 +202,10 @@ export function executeToolCall<T extends ToolName>(
   toolCalls.push(toolCall)
 
   // Filter out restricted tools in ask mode unless exporting summary
-  if (!agentTemplate.toolNames.includes(toolCall.toolName)) {
+  if (
+    !agentTemplate.toolNames.includes(toolCall.toolName) &&
+    !fromHandleSteps
+  ) {
     const toolResult: ToolResultPart = {
       type: 'tool-result',
       toolName,
@@ -385,6 +390,7 @@ export async function executeCustomToolCall(
     excludeToolFromMessageHistory = false,
     requestToolCall,
     logger,
+    fromHandleSteps = false,
   } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
     customToolDefs: await getMCPToolData({
@@ -435,6 +441,7 @@ export async function executeCustomToolCall(
   // Filter out restricted tools in ask mode unless exporting summary
   if (
     !(agentTemplate.toolNames as string[]).includes(toolCall.toolName) &&
+    !fromHandleSteps &&
     !(
       toolCall.toolName.includes('/') &&
       toolCall.toolName.split('/')[0] in agentTemplate.mcpServers
