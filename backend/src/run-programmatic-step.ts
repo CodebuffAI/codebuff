@@ -334,13 +334,21 @@ export async function runProgrammaticStep(
                 }
                 break
               case 'tool_call':
+              case 'tool_result': {
                 if (!chunk.parentAgentId) {
+                  const debugPayload =
+                    chunk.type === 'tool_call'
+                      ? {
+                          eventType: chunk.type,
+                          agentId: chunk.agentId,
+                          parentId: parentAgentId,
+                        }
+                      : {
+                          eventType: chunk.type,
+                          parentId: parentAgentId,
+                        }
                   logger.debug(
-                    {
-                      eventType: chunk.type,
-                      agentId: chunk.agentId,
-                      parentId: parentAgentId,
-                    },
+                    debugPayload,
                     `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
                   )
                   onResponseChunk({
@@ -350,22 +358,7 @@ export async function runProgrammaticStep(
                   return
                 }
                 break
-              case 'tool_result':
-                if (!chunk.parentAgentId) {
-                  logger.debug(
-                    {
-                      eventType: chunk.type,
-                      parentId: parentAgentId,
-                    },
-                    `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
-                  )
-                  onResponseChunk({
-                    ...chunk,
-                    parentAgentId,
-                  })
-                  return
-                }
-                break
+              }
               default:
                 break
             }
