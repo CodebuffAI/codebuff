@@ -2,7 +2,7 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
-## [0.4.0] - 2025-01-20
+## [0.4.2] 
 
 ### Added
 
