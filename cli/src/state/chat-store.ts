@@ -1,12 +1,8 @@
-import { useCallback, useRef, useSyncExternalStore } from 'react'
+import { create } from 'zustand'
 
 import { formatTimestamp } from '../utils/helpers'
 
 import type { ChatMessage } from '../chat'
-
-type Listener = () => void
-
-type StateSetter<T> = (value: T | ((prev: T) => T)) => void
 
 export type ChatStoreState = {
   messages: ChatMessage[]
@@ -20,16 +16,18 @@ export type ChatStoreState = {
 }
 
 type ChatStoreActions = {
-  setMessages: StateSetter<ChatMessage[]>
-  setStreamingAgents: StateSetter<Set<string>>
-  setCollapsedAgents: StateSetter<Set<string>>
-  setFocusedAgentId: StateSetter<string | null>
-  setInputValue: StateSetter<string>
+  setMessages: (value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void
+  setStreamingAgents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void
+  setCollapsedAgents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void
+  setFocusedAgentId: (value: string | null | ((prev: string | null) => string | null)) => void
+  setInputValue: (value: string | ((prev: string) => string)) => void
   setInputFocused: (focused: boolean) => void
-  setActiveSubagents: StateSetter<Set<string>>
+  setActiveSubagents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void
   setIsChainInProgress: (active: boolean) => void
   reset: () => void
 }
+
+type ChatStore = ChatStoreState & ChatStoreActions
 
 const initialState: ChatStoreState = {
   messages: [
@@ -50,113 +48,49 @@ const initialState: ChatStoreState = {
   isChainInProgress: false,
 }
 
-let state: ChatStoreState = initialState
-const listeners = new Set<Listener>()
+export const useChatStore = create<ChatStore>((set) => ({
+  ...initialState,
 
-const notify = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
+  setMessages: (value) =>
+    set((state) => ({
+      messages: typeof value === 'function' ? value(state.messages) : value,
+    })),
 
-const resolveState = <T>(
-  update: T | ((prev: T) => T),
-  prev: T,
-): T => {
-  if (typeof update === 'function') {
-    return (update as (value: T) => T)(prev)
-  }
-  return update
-}
+  setStreamingAgents: (value) =>
+    set((state) => ({
+      streamingAgents:
+        typeof value === 'function' ? value(state.streamingAgents) : value,
+    })),
 
-const assignState = (next: ChatStoreState): void => {
-  state = next
-  notify()
-}
+  setCollapsedAgents: (value) =>
+    set((state) => ({
+      collapsedAgents:
+        typeof value === 'function' ? value(state.collapsedAgents) : value,
+    })),
 
-const setPartialState = (
-  updater: (current: ChatStoreState) => ChatStoreState,
-): void => {
-  const next = updater(state)
-  if (next === state) {
-    return
-  }
-  assignState(next)
-}
+  setFocusedAgentId: (value) =>
+    set((state) => ({
+      focusedAgentId:
+        typeof value === 'function' ? value(state.focusedAgentId) : value,
+    })),
 
-const actions: ChatStoreActions = {
-  setMessages: (update) => {
-    setPartialState((current) => {
-      const nextMessages = resolveState(update, current.messages)
-      if (nextMessages === current.messages) {
-        return current
-      }
-      return { ...current, messages: nextMessages }
-    })
-  },
-  setStreamingAgents: (update) => {
-    setPartialState((current) => {
-      const nextAgents = resolveState(update, current.streamingAgents)
-      if (nextAgents === current.streamingAgents) {
-        return current
-      }
-      return { ...current, streamingAgents: nextAgents }
-    })
-  },
-  setCollapsedAgents: (update) => {
-    setPartialState((current) => {
-      const nextCollapsed = resolveState(update, current.collapsedAgents)
-      if (nextCollapsed === current.collapsedAgents) {
-        return current
-      }
-      return { ...current, collapsedAgents: nextCollapsed }
-    })
-  },
-  setFocusedAgentId: (update) => {
-    setPartialState((current) => {
-      const nextFocused = resolveState(update, current.focusedAgentId)
-      if (current.focusedAgentId === nextFocused) {
-        return current
-      }
-      return { ...current, focusedAgentId: nextFocused }
-    })
-  },
-  setInputValue: (update) => {
-    setPartialState((current) => {
-      const nextValue = resolveState(update, current.inputValue)
-      if (nextValue === current.inputValue) {
-        return current
-      }
-      return { ...current, inputValue: nextValue }
-    })
-  },
-  setInputFocused: (focused) => {
-    setPartialState((current) => {
-      if (current.inputFocused === focused) {
-        return current
-      }
-      return { ...current, inputFocused: focused }
-    })
-  },
-  setActiveSubagents: (update) => {
-    setPartialState((current) => {
-      const nextSubagents = resolveState(update, current.activeSubagents)
-      if (nextSubagents === current.activeSubagents) {
-        return current
-      }
-      return { ...current, activeSubagents: nextSubagents }
-    })
-  },
-  setIsChainInProgress: (active) => {
-    setPartialState((current) => {
-      if (current.isChainInProgress === active) {
-        return current
-      }
-      return { ...current, isChainInProgress: active }
-    })
-  },
-  reset: () => {
-    assignState({
+  setInputValue: (value) =>
+    set((state) => ({
+      inputValue: typeof value === 'function' ? value(state.inputValue) : value,
+    })),
+
+  setInputFocused: (focused) => set({ inputFocused: focused }),
+
+  setActiveSubagents: (value) =>
+    set((state) => ({
+      activeSubagents:
+        typeof value === 'function' ? value(state.activeSubagents) : value,
+    })),
+
+  setIsChainInProgress: (active) => set({ isChainInProgress: active }),
+
+  reset: () =>
+    set({
       messages: initialState.messages.slice(),
       streamingAgents: new Set(initialState.streamingAgents),
       collapsedAgents: new Set(initialState.collapsedAgents),
@@ -165,52 +99,27 @@ const actions: ChatStoreActions = {
       inputFocused: initialState.inputFocused,
       activeSubagents: new Set(initialState.activeSubagents),
       isChainInProgress: initialState.isChainInProgress,
-    })
-  },
-}
+    }),
+}))
 
+// For backwards compatibility with non-hook usage
 export const chatStore = {
-  subscribe(listener: Listener): (() => void) {
-    listeners.add(listener)
-    return () => {
-      listeners.delete(listener)
-    }
-  },
-  getState(): ChatStoreState {
-    return state
-  },
-  ...actions,
-}
-
-type ChatStoreSnapshot = ChatStoreState & ChatStoreActions
-
-const getSnapshot = (): ChatStoreSnapshot => ({
-  ...state,
-  ...actions,
-})
-
-export const useChatStore = <T>(
-  selector: (snapshot: ChatStoreSnapshot) => T,
-  isEqual: (a: T, b: T) => boolean = Object.is,
-): T => {
-  const selectorRef = useRef(selector)
-  selectorRef.current = selector
-
-  const lastSelectionRef = useRef<T>()
-
-  const getSelectedSnapshot = useCallback(() => {
-    const selection = selectorRef.current(getSnapshot())
-    const last = lastSelectionRef.current
-    if (last !== undefined && isEqual(selection, last)) {
-      return last
-    }
-    lastSelectionRef.current = selection
-    return selection
-  }, [isEqual])
-
-  return useSyncExternalStore(
-    chatStore.subscribe,
-    getSelectedSnapshot,
-    getSelectedSnapshot,
-  )
+  subscribe: useChatStore.subscribe,
+  getState: useChatStore.getState,
+  setMessages: (value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) =>
+    useChatStore.getState().setMessages(value),
+  setStreamingAgents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) =>
+    useChatStore.getState().setStreamingAgents(value),
+  setCollapsedAgents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) =>
+    useChatStore.getState().setCollapsedAgents(value),
+  setFocusedAgentId: (value: string | null | ((prev: string | null) => string | null)) =>
+    useChatStore.getState().setFocusedAgentId(value),
+  setInputValue: (value: string | ((prev: string) => string)) =>
+    useChatStore.getState().setInputValue(value),
+  setInputFocused: (focused: boolean) => useChatStore.getState().setInputFocused(focused),
+  setActiveSubagents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) =>
+    useChatStore.getState().setActiveSubagents(value),
+  setIsChainInProgress: (active: boolean) =>
+    useChatStore.getState().setIsChainInProgress(active),
+  reset: () => useChatStore.getState().reset(),
 }

@@ -94,6 +94,7 @@
         "remark-parse": "^11.0.0",
         "unified": "^11.0.0",
         "yoga-layout": "^3.2.1",
+        "zustand": "^5.0.8",
       },
       "devDependencies": {
         "@types/bun": "^1.2.11",
