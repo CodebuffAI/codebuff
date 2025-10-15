@@ -1,3 +1,4 @@
+import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
@@ -33,6 +34,8 @@ type ChatStoreActions = {
 }
 
 type ChatStore = ChatStoreState & ChatStoreActions
+
+enableMapSet()
 
 const initialState: ChatStoreState = {
   messages: [
