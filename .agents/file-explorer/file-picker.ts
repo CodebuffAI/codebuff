@@ -10,7 +10,7 @@ const definition: SecretAgentDefinition = {
   id: 'file-picker',
   displayName: 'Fletcher the File Fetcher',
   publisher,
-  model: 'x-ai/grok-4-fast',
+  model: 'google/gemini-2.5-flash',
   spawnerPrompt:
     'Spawn to find relevant files in a codebase related to the prompt. Cannot do string searches on the codebase.',
   inputSchema: {
@@ -25,6 +25,7 @@ const definition: SecretAgentDefinition = {
   spawnableAgents: [],
 
   systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}`,
+
   instructionsPrompt: `Instructions:
 Provide a short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
 In your report, please give a very concise analysis that includes the full paths of files that are relevant and (briefly) how they could be useful.

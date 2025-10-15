@@ -21,21 +21,43 @@ const definition: SecretAgentDefinition = {
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: [],
-  spawnableAgents: [],
+  toolNames: ['spawn_agents'],
+  spawnableAgents: ['file-lister'],
 
   systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}`,
   instructionsPrompt: `Instructions:
 - Don't use any tools.
-- Provide a short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
+- Provide a short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt. Leave out irrelevant locations.
 In your report, please give a very concise analysis that includes the full paths of files that are relevant and (briefly) how they could be useful.
   `.trim(),
 
-  handleSteps: function* ({ agentState, prompt, params }) {
-    yield {
-      toolName: 'find_files',
-      input: { prompt: prompt ?? '' },
+  handleSteps: function* ({ prompt, logger }) {
+    const { toolResult: fileListerResults } = yield {
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'file-lister',
+            prompt: prompt ?? '',
+          },
+        ],
+      },
     } satisfies ToolCall
+
+    const fileListerResult = fileListerResults?.[0]
+    const filesStr =
+      fileListerResult && fileListerResult.type === 'json'
+        ? ((fileListerResult.value as any)?.[0]?.value?.value as string)
+        : ''
+    const files = filesStr.split('\n').filter(Boolean)
+
+    yield {
+      toolName: 'read_files',
+      input: {
+        paths: files,
+      },
+    }
+
     yield 'STEP_ALL'
   },
 }
