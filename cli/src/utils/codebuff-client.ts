@@ -1,5 +1,6 @@
 import { CodebuffClient } from '@codebuff/sdk'
 
+import { findGitRoot } from './git'
 import { logger } from './logger'
 
 let clientInstance: CodebuffClient | null = null
@@ -14,11 +15,12 @@ export function getCodebuffClient(): CodebuffClient | null {
       return null
     }
 
-    logger.info('Initializing CodebuffClient with API key')
+    const gitRoot = findGitRoot()
+    logger.info('Initializing CodebuffClient with API key', { cwd: gitRoot })
     try {
       clientInstance = new CodebuffClient({
         apiKey,
-        cwd: process.cwd(),
+        cwd: gitRoot,
       })
       logger.info('CodebuffClient initialized successfully')
     } catch (error) {

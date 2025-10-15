@@ -1,18 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
-import { join, dirname } from 'path'
+import { join } from 'path'
 
-function findGitRoot(): string {
-  let currentDir = process.cwd()
-  
-  while (currentDir !== dirname(currentDir)) {
-    if (existsSync(join(currentDir, '.git'))) {
-      return currentDir
-    }
-    currentDir = dirname(currentDir)
-  }
-  
-  return process.cwd()
-}
+import { findGitRoot } from './git'
 
 const PROJECT_ROOT = findGitRoot()
 const LOG_DIR = join(PROJECT_ROOT, 'debug')
