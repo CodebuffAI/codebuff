@@ -41,6 +41,7 @@
   "devDependencies": {
     "@types/bun": "^1.2.11",
     "@types/node": "22",
-    "@types/react": "^18.3.12"
+    "@types/react": "^18.3.12",
+    "@types/react-reconciler": "^0.32.0"
   }
 }
