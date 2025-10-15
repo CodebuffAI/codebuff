@@ -15,10 +15,11 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import { mockFileContext } from './test-utils'
+import { mockFileContext, MockWebSocket } from './test-utils'
 import * as agentRun from '../agent-run'
 import * as toolExecutor from '../tools/tool-executor'
 import * as requestContext from '../websockets/request-context'
+import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
 import type { PublicAgentState } from '@codebuff/common/types/agent-template'
@@ -28,7 +29,7 @@ import type {
 } from '@codebuff/common/types/messages/content-part'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'
+import type { WebSocket } from 'ws'
 
 const logger: Logger = {
   debug: () => {},
@@ -44,8 +45,7 @@ describe('runProgrammaticStep', () => {
   let executeToolCallSpy: any
   let getRequestContextSpy: any
   let addAgentStepSpy: any
-  let sendSubagentChunk: SendSubagentChunkFn
-  let sentSubagentChunks: Parameters<SendSubagentChunkFn>[0][]
+  let sendActionSpy: any
 
   beforeEach(() => {
     // Mock analytics
@@ -72,10 +72,10 @@ describe('runProgrammaticStep', () => {
       async () => 'test-step-id',
     )
 
-    sentSubagentChunks = []
-    sendSubagentChunk = (data) => {
-      sentSubagentChunks.push(data)
-    }
+    // Mock sendAction
+    sendActionSpy = spyOn(websocketAction, 'sendAction').mockImplementation(
+      () => {},
+    )
 
     // Mock crypto.randomUUID
     spyOn(crypto, 'randomUUID').mockImplementation(
@@ -132,10 +132,10 @@ describe('runProgrammaticStep', () => {
       fileContext: mockFileContext,
       assistantMessage: undefined,
       assistantPrefix: undefined,
+      ws: new MockWebSocket() as unknown as WebSocket,
       localAgentTemplates: {},
       stepsComplete: false,
       stepNumber: 1,
-      sendSubagentChunk,
       logger,
     }
   })
@@ -226,6 +226,14 @@ describe('runProgrammaticStep', () => {
       mockTemplate.handleSteps = () => mockGenerator
       mockTemplate.toolNames = ['add_message', 'read_files', 'end_turn']
 
+      // Track chunks sent via sendSubagentChunk
+      const sentChunks: string[] = []
+      sendActionSpy.mockImplementation((ws: any, action: any) => {
+        if (action.type === 'subagent-response-chunk') {
+          sentChunks.push(action.chunk)
+        }
+      })
+
       const result = await runProgrammaticStep(mockParams)
 
       // Verify add_message tool was executed
@@ -245,16 +253,15 @@ describe('runProgrammaticStep', () => {
       )
 
       // Check that no tool call chunk was sent for add_message
-      const addMessageToolCallChunk = sentSubagentChunks.find(
-        ({ chunk }) =>
+      const addMessageToolCallChunk = sentChunks.find(
+        (chunk) =>
           chunk.includes('add_message') && chunk.includes('Hello world'),
       )
       expect(addMessageToolCallChunk).toBeUndefined()
 
       // Check that tool call chunk WAS sent for read_files (normal behavior)
-      const readFilesToolCallChunk = sentSubagentChunks.find(
-        ({ chunk }) =>
-          chunk.includes('read_files') && chunk.includes('test.txt'),
+      const readFilesToolCallChunk = sentChunks.find(
+        (chunk) => chunk.includes('read_files') && chunk.includes('test.txt'),
       )
       expect(readFilesToolCallChunk).toBeDefined()
 

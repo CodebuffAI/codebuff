@@ -9,6 +9,8 @@ import type {
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { WebSocket } from 'ws'
+
 type ToolName = 'read_files'
 export const handleReadFiles = ((
   params: {
@@ -19,6 +21,7 @@ export const handleReadFiles = ((
     fileContext: ProjectFileContext
 
     state: {
+      ws?: WebSocket
       userId?: string
       fingerprintId?: string
       repoId?: string
@@ -36,8 +39,11 @@ export const handleReadFiles = ((
     fileContext,
     state,
   } = params
-  const { fingerprintId, userId, repoId, messages } = state
+  const { ws, fingerprintId, userId, repoId, messages } = state
   const { paths } = toolCall.input
+  if (!ws) {
+    throw new Error('Internal error for read_files: Missing WebSocket in state')
+  }
   if (!messages) {
     throw new Error('Internal error for read_files: Missing messages in state')
   }
