@@ -11,7 +11,7 @@ export const testLogger: Logger = {
   warn: () => {},
 }
 
-export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
+export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   // Database
   getUserInfoFromApiKey: async () => ({
     id: 'test-user-id',
@@ -38,8 +38,8 @@ export const TEST_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   logger: testLogger,
 })
 
-export const TEST_AGENT_RUNTIME_SCOPED_IMPL: AgentRuntimeScopedDeps =
-  Object.freeze({
+export const TEST_AGENT_RUNTIME_SCOPED_IMPL =
+  Object.freeze<AgentRuntimeScopedDeps>({
     // Database
     requestToolCall: () => {
       throw new Error('requestToolCall not implemented in test runtime')
@@ -52,5 +52,8 @@ export const TEST_AGENT_RUNTIME_SCOPED_IMPL: AgentRuntimeScopedDeps =
     },
     requestOptionalFile: () => {
       throw new Error('requestOptionalFile not implemented in test runtime')
+    },
+    sendSubagentChunk: () => {
+      throw new Error('sendSubagentChunk not implemented in test runtime')
     },
   })
