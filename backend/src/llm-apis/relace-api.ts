@@ -10,33 +10,38 @@ import { countTokens } from '../util/token-counter'
 
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 const timeoutPromise = (ms: number) =>
   new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Relace API request timed out')), ms),
   )
 
-export async function promptRelaceAI(params: {
-  initialCode: string
-  editSnippet: string
-  instructions: string | undefined
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  messageId: string
-  userMessage?: string
-  promptAiSdk: PromptAiSdkFn
-  logger: Logger
-}) {
+export async function promptRelaceAI(
+  params: {
+    initialCode: string
+    editSnippet: string
+    instructions: string | undefined
+    messageId: string
+    userMessage?: string
+    promptAiSdk: PromptAiSdkFn
+    logger: Logger
+  } & ParamsExcluding<
+    typeof saveMessage,
+    | 'model'
+    | 'request'
+    | 'response'
+    | 'inputTokens'
+    | 'outputTokens'
+    | 'finishedAt'
+    | 'latencyMs'
+  > &
+    ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
+) {
   const {
     initialCode,
     editSnippet,
     instructions,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
     userMessage,
     messageId,
     promptAiSdk,
@@ -79,11 +84,7 @@ export async function promptRelaceAI(params: {
 
     const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
     saveMessage({
-      messageId,
-      userId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
+      ...params,
       model: 'relace-fast-apply',
       request: [
         {
@@ -96,7 +97,6 @@ export async function promptRelaceAI(params: {
       outputTokens: countTokens(content),
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
-      logger,
     })
     return content + '\n'
   } catch (error) {
@@ -132,16 +132,12 @@ Important:
 Please output just the complete updated file content with no other text.`
 
     const content = await promptAiSdk({
+      ...params,
       messages: [
         { role: 'user', content: prompt },
         { role: 'assistant', content: '```\n' },
       ],
-      clientSessionId,
-      fingerprintId,
-      userInputId,
       model: models.o3mini,
-      userId,
-      logger,
     })
 
     return parseMarkdownCodeBlock(content) + '\n'
@@ -158,26 +154,24 @@ export type FileWithPath = {
   content: string
 }
 
-export async function rerank(params: {
-  files: FileWithPath[]
-  prompt: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  messageId: string
-  logger: Logger
-}) {
-  const {
-    files,
-    prompt,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    messageId,
-    logger,
-  } = params
+export async function rerank(
+  params: {
+    files: FileWithPath[]
+    prompt: string
+    messageId: string
+    logger: Logger
+  } & ParamsExcluding<
+    typeof saveMessage,
+    | 'model'
+    | 'request'
+    | 'response'
+    | 'inputTokens'
+    | 'outputTokens'
+    | 'finishedAt'
+    | 'latencyMs'
+  >,
+) {
+  const { files, prompt, messageId, logger } = params
   const startTime = Date.now()
 
   if (!prompt || !files.length) {
@@ -225,11 +219,7 @@ export async function rerank(params: {
 
     const fakeRequestContent = `Query: ${prompt}\n\nFiles:\n${files.map((f) => `${f.path}:\n${f.content}`).join('\n\n')}`
     saveMessage({
-      messageId,
-      userId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
+      ...params,
       model: 'relace-ranker',
       request: [
         {
@@ -242,7 +232,6 @@ export async function rerank(params: {
       outputTokens: countTokens(JSON.stringify(rankings)),
       finishedAt: new Date(),
       latencyMs: Date.now() - startTime,
-      logger,
     })
 
     return rankings

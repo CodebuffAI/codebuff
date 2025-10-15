@@ -31,7 +31,6 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
-import type { WebSocket } from 'ws'
 
 export type ToolCallError = {
   toolName?: string
@@ -42,7 +41,6 @@ export type ToolCallError = {
 export async function processStreamWithTools(
   params: {
     stream: AsyncGenerator<StreamChunk>
-    ws: WebSocket
     agentStepId: string
     clientSessionId: string
     fingerprintId: string
@@ -78,7 +76,6 @@ export async function processStreamWithTools(
 ) {
   const {
     stream,
-    ws,
     agentStepId,
     fingerprintId,
     userInputId,
@@ -114,7 +111,6 @@ export async function processStreamWithTools(
   }
 
   const state: Record<string, any> = {
-    ws,
     fingerprintId,
     userId,
     repoId,

@@ -18,7 +18,6 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { WebSocket } from 'ws'
 
 export type SendSubagentChunk = (data: {
   userInputId: string
@@ -39,7 +38,6 @@ export const handleSpawnAgents = ((
 
     getLatestState: () => { messages: Message[] }
     state: {
-      ws?: WebSocket
       fingerprintId?: string
       userId?: string
       agentTemplate?: AgentTemplate
@@ -56,7 +54,6 @@ export const handleSpawnAgents = ((
   > &
     ParamsExcluding<
       typeof executeSubagent,
-      | 'ws'
       | 'userInputId'
       | 'prompt'
       | 'spawnParams'
@@ -92,7 +89,6 @@ export const handleSpawnAgents = ((
   }
 
   const {
-    ws,
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
@@ -134,7 +130,6 @@ export const handleSpawnAgents = ((
 
           const result = await executeSubagent({
             ...params,
-            ws,
             userInputId: `${userInputId}-${agentType}${subAgentState.agentId}`,
             prompt: prompt || '',
             spawnParams,

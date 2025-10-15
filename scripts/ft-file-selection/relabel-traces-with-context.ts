@@ -97,6 +97,7 @@ async function runTraces() {
                 model: MODEL_TO_TEST,
                 dataset: DATASET,
                 promptAiSdk,
+                sendAction: () => {},
                 logger: console,
               })
               console.log(`Successfully stored relabel for trace ${trace.id}`)

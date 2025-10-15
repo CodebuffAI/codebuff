@@ -14,7 +14,6 @@ import type {
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { WebSocket } from 'ws'
 
 export function handleStrReplace(
   params: {
@@ -27,9 +26,7 @@ export function handleStrReplace(
     logger: Logger
 
     getLatestState: () => FileProcessingState
-    state: {
-      ws?: WebSocket
-    } & OptionalFileProcessingState
+    state: OptionalFileProcessingState
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
 ): {
@@ -47,12 +44,6 @@ export function handleStrReplace(
     state,
   } = params
   const { path, replacements } = toolCall.input
-  const { ws } = state
-  if (ws === undefined) {
-    throw new Error(
-      'Internal error for str_replace: Missing WebSocket in state',
-    )
-  }
   const fileProcessingState = getFileProcessingValues(state)
 
   if (!fileProcessingState.promisesByPath[path]) {

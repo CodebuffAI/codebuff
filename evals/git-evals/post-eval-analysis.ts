@@ -188,6 +188,7 @@ export async function analyzeEvalResults(
     userInputId: generateCompactId(),
     userId: undefined,
     timeout: 10 * 60 * 1000, // 10 minute timeout
+    sendAction: () => {},
     logger: console,
   })
 }

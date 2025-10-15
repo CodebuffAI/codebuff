@@ -1,5 +1,8 @@
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
@@ -108,6 +111,7 @@ describe('requestRelevantFiles', () => {
   it('should use default file counts and maxFiles when no custom config', async () => {
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -133,6 +137,7 @@ describe('requestRelevantFiles', () => {
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -157,6 +162,7 @@ describe('requestRelevantFiles', () => {
 
     const result = await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -181,6 +187,7 @@ describe('requestRelevantFiles', () => {
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -208,6 +215,7 @@ describe('requestRelevantFiles', () => {
 
     await OriginalRequestFilesPromptModule.requestRelevantFiles({
       ...agentRuntimeImpl,
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,

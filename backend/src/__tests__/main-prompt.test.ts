@@ -36,7 +36,6 @@ import type {
 import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
 let agentRuntimeImpl: AgentRuntimeDeps
 let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
@@ -226,7 +225,6 @@ describe('mainPrompt', () => {
     const { sessionState: newSessionState, output } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -287,7 +285,6 @@ describe('mainPrompt', () => {
     await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -366,7 +363,6 @@ describe('mainPrompt', () => {
     const { output } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -394,7 +390,6 @@ describe('mainPrompt', () => {
     const { sessionState: newSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -426,7 +421,6 @@ describe('mainPrompt', () => {
     const { sessionState: newSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -456,7 +450,6 @@ describe('mainPrompt', () => {
     const { output } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -497,7 +490,6 @@ describe('mainPrompt', () => {
     await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',

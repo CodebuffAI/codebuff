@@ -1,5 +1,8 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
@@ -10,9 +13,15 @@ import { applyPatch } from 'diff'
 
 import { processFileBlock } from '../process-file-block'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 
-let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
+const agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
+const agentRuntimeScopedImpl: AgentRuntimeScopedDeps = {
+  ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+}
 
 describe('processFileBlockModule', () => {
   beforeAll(() => {
@@ -71,6 +80,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        ...agentRuntimeScopedImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(null),
@@ -108,6 +118,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        ...agentRuntimeScopedImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -141,6 +152,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        ...agentRuntimeScopedImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -167,6 +179,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        ...agentRuntimeScopedImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -214,6 +227,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        ...agentRuntimeScopedImpl,
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(null),

@@ -20,12 +20,14 @@ import * as agentRegistry from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '../templates/types'
+import type { ServerAction } from '@codebuff/common/actions'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
+import type { Mock } from 'bun:test'
 
 const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
@@ -84,34 +86,17 @@ const mockFileContext: ProjectFileContext = {
   },
 }
 
-class MockWebSocket {
-  sentActions: any[] = []
-
-  send(msg: string) {
-    // Capture sent messages for verification
-    try {
-      const parsed = JSON.parse(msg)
-      if (parsed.type === 'action') {
-        this.sentActions.push(parsed.data)
-      }
-    } catch {}
-  }
-
-  close() {}
-  on(event: string, listener: (...args: any[]) => void) {}
-  removeListener(event: string, listener: (...args: any[]) => void) {}
-}
-
 describe('Cost Aggregation Integration Tests', () => {
   let mockLocalAgentTemplates: Record<string, any>
-  let mockWebSocket: MockWebSocket
   let agentRuntimeImpl: AgentRuntimeDeps
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(async () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
-    mockWebSocket = new MockWebSocket()
+    agentRuntimeScopedImpl = {
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+      sendAction: mock(() => {}),
+    }
 
     // Setup mock agent templates
     mockLocalAgentTemplates = {
@@ -258,7 +243,6 @@ describe('Cost Aggregation Integration Tests', () => {
     const result = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -294,7 +278,6 @@ describe('Cost Aggregation Integration Tests', () => {
     await websocketAction.callMainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       promptId: 'test-prompt',
@@ -302,9 +285,11 @@ describe('Cost Aggregation Integration Tests', () => {
     })
 
     // Verify final cost is included in prompt response
-    const promptResponse = mockWebSocket.sentActions.find(
-      (action) => action.type === 'prompt-response',
-    )
+    const promptResponse = (
+      agentRuntimeScopedImpl.sendAction as Mock<SendActionFn>
+    ).mock.calls
+      .map((call) => call[0].action)
+      .find((action: ServerAction) => action.type === 'prompt-response') as any
 
     expect(promptResponse).toBeDefined()
     expect(promptResponse.promptId).toBe('test-prompt')
@@ -363,7 +348,6 @@ describe('Cost Aggregation Integration Tests', () => {
     const result = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -420,7 +404,6 @@ describe('Cost Aggregation Integration Tests', () => {
       result = await mainPrompt({
         ...agentRuntimeImpl,
         ...agentRuntimeScopedImpl,
-        ws: mockWebSocket as unknown as WebSocket,
         action,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -470,7 +453,6 @@ describe('Cost Aggregation Integration Tests', () => {
     await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -511,7 +493,6 @@ describe('Cost Aggregation Integration Tests', () => {
     await websocketAction.callMainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: mockWebSocket as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       promptId: 'test-prompt',
@@ -519,9 +500,11 @@ describe('Cost Aggregation Integration Tests', () => {
     })
 
     // Server should have reset the malicious value and calculated correct cost
-    const promptResponse = mockWebSocket.sentActions.find(
-      (action) => action.type === 'prompt-response',
-    )
+    const promptResponse = (
+      agentRuntimeScopedImpl.sendAction as Mock<SendActionFn>
+    ).mock.calls
+      .map((call) => call[0].action)
+      .find((action) => action.type === 'prompt-response') as any
 
     expect(promptResponse).toBeDefined()
     expect(promptResponse.sessionState.mainAgentState.creditsUsed).toBeLessThan(

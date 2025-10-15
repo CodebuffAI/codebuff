@@ -23,7 +23,6 @@ import type {
 } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
 // TODO: We might want to be able to turn this on on a per-repo basis.
@@ -41,7 +40,6 @@ export const handleFindFiles = ((
     userInputId: string
 
     state: {
-      ws?: WebSocket
       fingerprintId?: string
       userId?: string
       repoId?: string

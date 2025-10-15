@@ -1,7 +1,10 @@
 import path from 'path'
 
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
@@ -11,11 +14,15 @@ import { createPatch } from 'diff'
 
 import { rewriteWithOpenAI } from '../fast-rewrite'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
-
-let agentRuntimeImpl: AgentRuntimeDeps
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 
 describe.skip('rewriteWithOpenAI', () => {
+  let agentRuntimeImpl: AgentRuntimeDeps
+  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+
   beforeAll(() => {
     // Mock database interactions
     mockModule('pg-pool', () => ({
@@ -40,6 +47,7 @@ describe.skip('rewriteWithOpenAI', () => {
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
   })
 
   afterAll(() => {
@@ -54,6 +62,7 @@ describe.skip('rewriteWithOpenAI', () => {
 
     const result = await rewriteWithOpenAI({
       ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
       oldContent: originalContent,
       editSnippet,
       clientSessionId: 'clientSessionId',

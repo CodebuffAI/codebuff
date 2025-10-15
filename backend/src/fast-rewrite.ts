@@ -68,26 +68,14 @@ export async function fastRewrite(
 }
 
 // Gemini flash can only output 8k tokens, openai models can do at least 16k tokens.
-export async function rewriteWithOpenAI(params: {
-  oldContent: string
-  editSnippet: string
-  clientSessionId: string
-  fingerprintId: string
-  userInputId: string
-  userId: string | undefined
-  promptAiSdk: PromptAiSdkFn
-  logger: Logger
-}): Promise<string> {
-  const {
-    oldContent,
-    editSnippet,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    promptAiSdk,
-    logger,
-  } = params
+export async function rewriteWithOpenAI(
+  params: {
+    oldContent: string
+    editSnippet: string
+    promptAiSdk: PromptAiSdkFn
+  } & ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
+): Promise<string> {
+  const { oldContent, editSnippet, promptAiSdk } = params
   const prompt = `You are an expert programmer tasked with implementing changes to a file. Please rewrite the file to implement the changes shown in the edit snippet, while preserving the original formatting and behavior of unchanged parts.
 
 Old file content:
@@ -110,16 +98,12 @@ Important:
 Please output just the complete updated file content with the edit applied and no additional text.`
 
   const response = await promptAiSdk({
+    ...params,
     messages: [
       { role: 'user', content: prompt },
       { role: 'assistant', content: '```\n' },
     ],
     model: openaiModels.o3mini,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    logger,
   })
 
   return parseMarkdownCodeBlock(response) + '\n'

@@ -14,13 +14,13 @@ import { eq } from 'drizzle-orm'
 
 import { getUserInfoFromApiKey } from './auth'
 import { updateRequestContext } from './request-context'
-import { sendAction } from './websocket-action'
 import {
   handleStepsLogChunkWs,
   requestFilesWs,
   requestMcpToolDataWs,
   requestOptionalFileWs,
   requestToolCallWs,
+  sendActionWs,
   sendSubagentChunkWs,
 } from '../client-wrapper'
 import { withAppContext } from '../context/app-context'
@@ -120,7 +120,7 @@ export class WebSocketMiddleware {
           'Middleware execution halted.',
         )
         if (!silent) {
-          sendAction(ws, actionOrContinue)
+          sendActionWs({ ws, action: actionOrContinue })
         }
         return false
       }
@@ -163,6 +163,7 @@ export class WebSocketMiddleware {
         requestOptionalFile: (params) =>
           requestOptionalFileWs({ ...params, ws }),
         sendSubagentChunk: (params) => sendSubagentChunkWs({ ...params, ws }),
+        sendAction: (params) => sendActionWs({ ...params, ws }),
       }
 
       // Use the new combined context - much cleaner!
@@ -428,13 +429,16 @@ protec.use(async ({ action, clientSessionId, ws, userInfo, logger }) => {
   }
 
   // Send initial usage info if we have sufficient credits
-  sendAction(ws, {
-    type: 'usage-response',
-    usage: usageThisCycle,
-    remainingBalance: balance.totalRemaining,
-    balanceBreakdown: balance.breakdown,
-    next_quota_reset: user?.next_quota_reset ?? null,
-    autoTopupAdded, // Include the amount added by auto top-up (if any)
+  sendActionWs({
+    ws,
+    action: {
+      type: 'usage-response',
+      usage: usageThisCycle,
+      remainingBalance: balance.totalRemaining,
+      balanceBreakdown: balance.breakdown,
+      next_quota_reset: user?.next_quota_reset ?? null,
+      autoTopupAdded, // Include the amount added by auto top-up (if any)
+    },
   })
 
   return undefined

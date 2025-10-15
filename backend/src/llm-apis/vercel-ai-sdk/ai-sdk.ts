@@ -201,12 +201,8 @@ export async function* promptAiSdkStream(
 
   const messageId = (await response.response).id
   const creditsUsedPromise = saveMessage({
+    ...params,
     messageId,
-    userId: params.userId,
-    clientSessionId: params.clientSessionId,
-    fingerprintId: params.fingerprintId,
-    userInputId: params.userInputId,
-    model: params.model,
     request: params.messages,
     response: content,
     inputTokens,
@@ -217,8 +213,6 @@ export async function* promptAiSdkStream(
     latencyMs: Date.now() - startTime,
     chargeUser: params.chargeUser ?? true,
     costOverrideDollars,
-    agentId: params.agentId,
-    logger,
   })
 
   // Call the cost callback if provided
@@ -262,12 +256,8 @@ export async function promptAiSdk(
   const outputTokens = response.usage.inputTokens || 0
 
   const creditsUsedPromise = saveMessage({
+    ...params,
     messageId: generateCompactId(),
-    userId: params.userId,
-    clientSessionId: params.clientSessionId,
-    fingerprintId: params.fingerprintId,
-    userInputId: params.userInputId,
-    model: params.model,
     request: params.messages,
     response: content,
     inputTokens,
@@ -275,8 +265,6 @@ export async function promptAiSdk(
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: params.chargeUser ?? true,
-    agentId: params.agentId,
-    logger,
   })
 
   // Call the cost callback if provided
@@ -324,12 +312,8 @@ export async function promptAiSdkStructured<T>(
   const outputTokens = response.usage.inputTokens || 0
 
   const creditsUsedPromise = saveMessage({
+    ...params,
     messageId: generateCompactId(),
-    userId: params.userId,
-    clientSessionId: params.clientSessionId,
-    fingerprintId: params.fingerprintId,
-    userInputId: params.userInputId,
-    model: params.model,
     request: params.messages,
     response: JSON.stringify(content),
     inputTokens,
@@ -337,7 +321,6 @@ export async function promptAiSdkStructured<T>(
     finishedAt: new Date(),
     latencyMs: Date.now() - startTime,
     chargeUser: params.chargeUser ?? true,
-    agentId: params.agentId,
     logger,
   })
 

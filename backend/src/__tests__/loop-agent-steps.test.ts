@@ -27,7 +27,7 @@ import { z } from 'zod/v4'
 import { withAppContext } from '../context/app-context'
 import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
-import { mockFileContext, MockWebSocket } from './test-utils'
+import { mockFileContext } from './test-utils'
 
 import type { getAgentTemplate } from '../templates/agent-registry'
 import type { AgentTemplate } from '../templates/types'
@@ -38,7 +38,6 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { WebSocket } from 'ws'
 
 describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => {
   let mockTemplate: AgentTemplate
@@ -103,7 +102,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
+    agentRuntimeScopedImpl = {
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+      sendAction: () => {},
+    }
 
     llmCallCount = 0
 
@@ -210,7 +212,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -257,7 +258,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -306,7 +306,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -354,7 +353,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -395,7 +393,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -428,7 +425,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -463,7 +459,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -515,7 +510,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -565,7 +559,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -653,7 +646,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -727,7 +719,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -774,7 +765,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -843,7 +833,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,

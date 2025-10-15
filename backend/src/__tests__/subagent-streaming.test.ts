@@ -16,7 +16,7 @@ import {
 } from 'bun:test'
 
 import * as runAgentStep from '../run-agent-step'
-import { mockFileContext, MockWebSocket } from './test-utils'
+import { mockFileContext } from './test-utils'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import * as loggerModule from '../util/logger'
@@ -25,7 +25,6 @@ import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Mock } from 'bun:test'
-import type { WebSocket } from 'ws'
 
 describe('Subagent Streaming', () => {
   let mockSendSubagentChunk: Mock<SendSubagentChunk>
@@ -125,7 +124,6 @@ describe('Subagent Streaming', () => {
   })
 
   it('should send subagent-response-chunk messages during agent execution', async () => {
-    const ws = new MockWebSocket() as unknown as WebSocket
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
 
@@ -159,7 +157,6 @@ describe('Subagent Streaming', () => {
       writeToClient: mockWriteToClient,
       getLatestState: () => ({ messages: [] }),
       state: {
-        ws,
         fingerprintId: 'test-fingerprint',
         userId: TEST_USER_ID,
         agentTemplate: parentTemplate,
@@ -205,7 +202,6 @@ describe('Subagent Streaming', () => {
   })
 
   it('should include correct agentId and agentType in streaming messages', async () => {
-    const ws = new MockWebSocket() as unknown as WebSocket
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
 
@@ -238,7 +234,6 @@ describe('Subagent Streaming', () => {
       writeToClient: () => {},
       getLatestState: () => ({ messages: [] }),
       state: {
-        ws,
         fingerprintId: 'test-fingerprint',
         userId: TEST_USER_ID,
         agentTemplate: parentTemplate,

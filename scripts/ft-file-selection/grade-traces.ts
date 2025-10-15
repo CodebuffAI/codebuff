@@ -10,7 +10,9 @@ const isProd = process.argv.includes('--prod')
 const DATASET = isProd ? 'codebuff_data' : 'codebuff_data_dev'
 const MAX_PARALLEL = 1 // Maximum number of traces to process in parallel
 
-async function gradeTraces({ logger }: { logger: Logger }) {
+async function gradeTraces(params: { logger: Logger }) {
+  const { logger } = params
+
   try {
     // Initialize BigQuery
     await setupBigQuery({ dataset: DATASET, logger: console })
@@ -50,6 +52,7 @@ async function gradeTraces({ logger }: { logger: Logger }) {
             const result = await gradeRun({
               ...traceAndRelabels,
               promptAiSdk,
+              sendAction: () => {},
               logger,
             })
             return {

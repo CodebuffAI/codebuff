@@ -1,3 +1,4 @@
+import type { ServerAction } from '../../actions'
 import type { MCPConfig } from '../mcp'
 import type { ToolResultOutput } from '../messages/content-part'
 
@@ -44,3 +45,5 @@ export type HandleStepsLogChunkFn = (params: {
   data: unknown
   message?: string
 }) => void
+
+export type SendActionFn = (params: { action: ServerAction }) => void

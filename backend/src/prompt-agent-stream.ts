@@ -3,6 +3,7 @@ import { providerModelNames } from '@codebuff/common/old-constants'
 import { globalStopSequence } from './tools/constants'
 
 import type { AgentTemplate } from './templates/types'
+import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { PromptAiSdkStreamFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
@@ -20,6 +21,7 @@ export const getAgentStreamFromTemplate = (params: {
 
   template: AgentTemplate
   logger: Logger
+  sendAction: SendActionFn
   promptAiSdkStream: PromptAiSdkStreamFn
 }) => {
   const {
@@ -32,6 +34,7 @@ export const getAgentStreamFromTemplate = (params: {
     includeCacheControl,
     template,
     logger,
+    sendAction,
     promptAiSdkStream,
   } = params
 
@@ -55,6 +58,7 @@ export const getAgentStreamFromTemplate = (params: {
       includeCacheControl,
       agentId,
       maxRetries: 3,
+      sendAction,
       logger,
     }
 

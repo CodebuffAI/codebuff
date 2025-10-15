@@ -14,7 +14,7 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { mockFileContext, MockWebSocket } from './test-utils'
+import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
 import { getMatchingSpawn } from '../tools/handlers/tool/spawn-agent-utils'
@@ -22,7 +22,6 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { WebSocket } from 'ws'
 
 describe('Spawn Agents Permissions', () => {
   let mockSendSubagentChunk: any
@@ -233,7 +232,6 @@ describe('Spawn Agents Permissions', () => {
     it('should allow spawning when agent is in spawnableAgents list', async () => {
       const parentAgent = createMockAgent('parent', ['thinker', 'reviewer'])
       const childAgent = createMockAgent('thinker')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createSpawnToolCall('thinker')
 
@@ -248,7 +246,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -268,7 +265,6 @@ describe('Spawn Agents Permissions', () => {
     it('should reject spawning when agent is not in spawnableAgents list', async () => {
       const parentAgent = createMockAgent('parent', ['thinker']) // Only allows thinker
       const childAgent = createMockAgent('reviewer')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createSpawnToolCall('reviewer') // Try to spawn reviewer
 
@@ -283,7 +279,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -305,7 +300,6 @@ describe('Spawn Agents Permissions', () => {
 
     it('should reject spawning when agent template is not found', async () => {
       const parentAgent = createMockAgent('parent', ['nonexistent'])
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createSpawnToolCall('nonexistent')
 
@@ -320,7 +314,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -344,7 +337,6 @@ describe('Spawn Agents Permissions', () => {
     it('should handle versioned agent permissions correctly', async () => {
       const parentAgent = createMockAgent('parent', ['codebuff/thinker@1.0.0'])
       const childAgent = createMockAgent('codebuff/thinker@1.0.0')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createSpawnToolCall('codebuff/thinker@1.0.0')
 
@@ -359,7 +351,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -379,7 +370,6 @@ describe('Spawn Agents Permissions', () => {
     it('should allow spawning simple agent name when parent allows versioned agent', async () => {
       const parentAgent = createMockAgent('parent', ['codebuff/thinker@1.0.0'])
       const childAgent = createMockAgent('codebuff/thinker@1.0.0')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createSpawnToolCall('thinker') // Simple name
 
@@ -394,7 +384,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -417,7 +406,6 @@ describe('Spawn Agents Permissions', () => {
     it('should reject when version mismatch exists', async () => {
       const parentAgent = createMockAgent('parent', ['codebuff/thinker@1.0.0'])
       const childAgent = createMockAgent('codebuff/thinker@2.0.0')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createSpawnToolCall('codebuff/thinker@2.0.0')
 
@@ -432,7 +420,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -456,7 +443,6 @@ describe('Spawn Agents Permissions', () => {
       const parentAgent = createMockAgent('parent', ['thinker']) // Only allows thinker
       const thinkerAgent = createMockAgent('thinker')
       const reviewerAgent = createMockAgent('reviewer')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
 
       const toolCall: CodebuffToolCall<'spawn_agents'> = {
@@ -481,7 +467,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -522,7 +507,6 @@ describe('Spawn Agents Permissions', () => {
     it('should allow spawning inline agent when agent is in spawnableAgents list', async () => {
       const parentAgent = createMockAgent('parent', ['thinker', 'reviewer'])
       const childAgent = createMockAgent('thinker')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createInlineSpawnToolCall('thinker')
 
@@ -537,7 +521,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -555,7 +538,6 @@ describe('Spawn Agents Permissions', () => {
     it('should reject spawning inline agent when agent is not in spawnableAgents list', async () => {
       const parentAgent = createMockAgent('parent', ['thinker']) // Only allows thinker
       const childAgent = createMockAgent('reviewer')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createInlineSpawnToolCall('reviewer') // Try to spawn reviewer
 
@@ -570,7 +552,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -589,7 +570,6 @@ describe('Spawn Agents Permissions', () => {
 
     it('should reject spawning inline agent when agent template is not found', async () => {
       const parentAgent = createMockAgent('parent', ['nonexistent'])
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createInlineSpawnToolCall('nonexistent')
 
@@ -604,7 +584,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -622,7 +601,6 @@ describe('Spawn Agents Permissions', () => {
     it('should handle versioned inline agent permissions correctly', async () => {
       const parentAgent = createMockAgent('parent', ['codebuff/thinker@1.0.0'])
       const childAgent = createMockAgent('codebuff/thinker@1.0.0')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createInlineSpawnToolCall('codebuff/thinker@1.0.0')
 
@@ -637,7 +615,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -655,7 +632,6 @@ describe('Spawn Agents Permissions', () => {
     it('should allow spawning simple agent name inline when parent allows versioned agent', async () => {
       const parentAgent = createMockAgent('parent', ['codebuff/thinker@1.0.0'])
       const childAgent = createMockAgent('codebuff/thinker@1.0.0')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createInlineSpawnToolCall('thinker') // Simple name
 
@@ -670,7 +646,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -691,7 +666,6 @@ describe('Spawn Agents Permissions', () => {
     it('should reject inline spawn when version mismatch exists', async () => {
       const parentAgent = createMockAgent('parent', ['codebuff/thinker@1.0.0'])
       const childAgent = createMockAgent('codebuff/thinker@2.0.0')
-      const ws = new MockWebSocket() as unknown as WebSocket
       const sessionState = getInitialSessionState(mockFileContext)
       const toolCall = createInlineSpawnToolCall('codebuff/thinker@2.0.0')
 
@@ -706,7 +680,6 @@ describe('Spawn Agents Permissions', () => {
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
-          ws,
           fingerprintId: 'test-fingerprint',
           userId: TEST_USER_ID,
           agentTemplate: parentAgent,
@@ -744,7 +717,9 @@ describe('Spawn Agents Permissions', () => {
             localAgentTemplates: {},
           },
         })
-      }).toThrow('Missing WebSocket in state')
+      }).toThrow(
+        'Internal error for spawn_agent_inline: Missing fingerprintId in state',
+      )
       expect(mockLoopAgentSteps).not.toHaveBeenCalled()
     })
   })

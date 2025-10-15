@@ -1,3 +1,4 @@
+import type { SendActionFn } from './client'
 import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'
@@ -30,6 +31,7 @@ export type PromptAiSdkStreamFn = (
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
+    sendAction: SendActionFn
     logger: Logger
   } & ParamsExcluding<typeof streamText, 'model' | 'messages'>,
 ) => AsyncGenerator<StreamChunk, string | null>
@@ -47,6 +49,7 @@ export type PromptAiSdkFn = (
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
     maxRetries?: number
+    sendAction: SendActionFn
     logger: Logger
   } & ParamsExcluding<typeof generateText, 'model' | 'messages'>,
 ) => Promise<string>
@@ -67,6 +70,7 @@ export type PromptAiSdkStructuredInput<T> = {
   onCostCalculated?: (credits: number) => Promise<void>
   includeCacheControl?: boolean
   maxRetries?: number
+  sendAction: SendActionFn
   logger: Logger
 }
 export type PromptAiSdkStructuredOutput<T> = Promise<T>

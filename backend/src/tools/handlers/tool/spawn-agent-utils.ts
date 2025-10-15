@@ -19,7 +19,6 @@ import type {
   Subgoal,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
 export interface SpawnAgentParams {
   agent_type: string
@@ -28,7 +27,6 @@ export interface SpawnAgentParams {
 }
 
 export interface BaseSpawnState {
-  ws?: WebSocket
   fingerprintId?: string
   userId?: string
   agentTemplate?: AgentTemplate
@@ -53,7 +51,6 @@ export function validateSpawnState(
   toolName: string,
 ): Omit<Required<BaseSpawnState>, 'userId'> & { userId: string | undefined } {
   const {
-    ws,
     fingerprintId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
@@ -63,11 +60,6 @@ export function validateSpawnState(
     system,
   } = state
 
-  if (!ws) {
-    throw new Error(
-      `Internal error for ${toolName}: Missing WebSocket in state`,
-    )
-  }
   if (!fingerprintId) {
     throw new Error(
       `Internal error for ${toolName}: Missing fingerprintId in state`,
@@ -96,7 +88,6 @@ export function validateSpawnState(
   }
 
   return {
-    ws,
     fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,

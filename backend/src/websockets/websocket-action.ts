@@ -13,32 +13,17 @@ import {
 } from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
-import { sendMessage } from './server'
+import { sendActionWs } from '../client-wrapper'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { withLoggerContext } from '../util/logger'
 
-import type {
-  ClientAction,
-  ServerAction,
-  UsageResponse,
-} from '@codebuff/common/actions'
+import type { ClientAction, UsageResponse } from '@codebuff/common/actions'
+import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
-
-/**
- * Sends an action to the client via WebSocket
- * @param ws - The WebSocket connection to send the action to
- * @param action - The server action to send
- */
-export const sendAction = (ws: WebSocket, action: ServerAction) => {
-  sendMessage(ws, {
-    type: 'action',
-    data: action,
-  })
-}
 
 /**
  * Generates a usage response object for the client
@@ -158,10 +143,13 @@ const onPrompt = async (
         let response =
           e && typeof e === 'object' && 'message' in e ? `${e.message}` : `${e}`
 
-        sendAction(ws, {
-          type: 'prompt-error',
-          userInputId: promptId,
-          message: response,
+        sendActionWs({
+          ws,
+          action: {
+            type: 'prompt-error',
+            userInputId: promptId,
+            message: response,
+          },
         })
       } finally {
         cancelUserInput({ userId, userInputId: promptId, logger })
@@ -170,7 +158,7 @@ const onPrompt = async (
           userId,
           logger,
         })
-        sendAction(ws, usageResponse)
+        sendActionWs({ ws, action: usageResponse })
       }
     },
   )
@@ -178,18 +166,19 @@ const onPrompt = async (
 
 export const callMainPrompt = async (
   params: {
-    ws: WebSocket
     action: ClientAction<'prompt'>
     userId: string
     promptId: string
     clientSessionId: string
+    sendAction: SendActionFn
     logger: Logger
   } & ParamsExcluding<
     typeof mainPrompt,
     'localAgentTemplates' | 'onResponseChunk'
   >,
 ) => {
-  const { ws, action, userId, promptId, clientSessionId, logger } = params
+  const { action, userId, promptId, clientSessionId, sendAction, logger } =
+    params
   const { fileContext } = action.sessionState
 
   // Enforce server-side state authority: reset creditsUsed to 0
@@ -202,21 +191,25 @@ export const callMainPrompt = async (
     assembleLocalAgentTemplates({ fileContext, logger })
 
   if (validationErrors.length > 0) {
-    sendAction(ws, {
-      type: 'prompt-error',
-      message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
-      userInputId: promptId,
+    sendAction({
+      action: {
+        type: 'prompt-error',
+        message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
+        userInputId: promptId,
+      },
     })
   }
 
-  sendAction(ws, {
-    type: 'response-chunk',
-    userInputId: promptId,
-    chunk: {
-      type: 'start',
-      agentId: action.sessionState.mainAgentState.agentType ?? undefined,
-      messageHistoryLength:
-        action.sessionState.mainAgentState.messageHistory.length,
+  sendAction({
+    action: {
+      type: 'response-chunk',
+      userInputId: promptId,
+      chunk: {
+        type: 'start',
+        agentId: action.sessionState.mainAgentState.agentType ?? undefined,
+        messageHistoryLength:
+          action.sessionState.mainAgentState.messageHistory.length,
+      },
     },
   })
 
@@ -227,10 +220,12 @@ export const callMainPrompt = async (
       if (
         checkLiveUserInput({ userId, userInputId: promptId, clientSessionId })
       ) {
-        sendAction(ws, {
-          type: 'response-chunk',
-          userInputId: promptId,
-          chunk,
+        sendAction({
+          action: {
+            type: 'response-chunk',
+            userInputId: promptId,
+            chunk,
+          },
         })
       }
     },
@@ -238,24 +233,28 @@ export const callMainPrompt = async (
 
   const { sessionState, output } = result
 
-  sendAction(ws, {
-    type: 'response-chunk',
-    userInputId: promptId,
-    chunk: {
-      type: 'finish',
-      agentId: sessionState.mainAgentState.agentType ?? undefined,
-      totalCost: sessionState.mainAgentState.creditsUsed,
+  sendAction({
+    action: {
+      type: 'response-chunk',
+      userInputId: promptId,
+      chunk: {
+        type: 'finish',
+        agentId: sessionState.mainAgentState.agentType ?? undefined,
+        totalCost: sessionState.mainAgentState.creditsUsed,
+      },
     },
   })
 
   // Send prompt data back
-  sendAction(ws, {
-    type: 'prompt-response',
-    promptId,
-    sessionState,
-    toolCalls: [],
-    toolResults: [],
-    output,
+  sendAction({
+    action: {
+      type: 'prompt-response',
+      promptId,
+      sessionState,
+      toolCalls: [],
+      toolResults: [],
+      output,
+    },
   })
 
   return result
@@ -285,11 +284,14 @@ const onInit = async (params: {
       : undefined
 
     if (!userId) {
-      sendAction(ws, {
-        usage: 0,
-        remainingBalance: 0,
-        next_quota_reset: null,
-        type: 'init-response',
+      sendActionWs({
+        ws,
+        action: {
+          usage: 0,
+          remainingBalance: 0,
+          next_quota_reset: null,
+          type: 'init-response',
+        },
       })
       return
     }
@@ -301,9 +303,12 @@ const onInit = async (params: {
       clientSessionId,
       logger,
     })
-    sendAction(ws, {
-      ...usageResponse,
-      type: 'init-response',
+    sendActionWs({
+      ws,
+      action: {
+        ...usageResponse,
+        type: 'init-response',
+      },
     })
   })
 }

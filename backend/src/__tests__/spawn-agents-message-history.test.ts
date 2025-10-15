@@ -14,14 +14,13 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { mockFileContext, MockWebSocket } from './test-utils'
+import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { WebSocket } from 'ws'
 
 describe('Spawn Agents Message History', () => {
   let mockSendSubagentChunk: any
@@ -94,7 +93,6 @@ describe('Spawn Agents Message History', () => {
   it('should include all messages from conversation history when includeMessageHistory is true', async () => {
     const parentAgent = createMockAgent('parent', true)
     const childAgent = createMockAgent('child-agent', true)
-    const ws = new MockWebSocket() as unknown as WebSocket
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
@@ -120,7 +118,6 @@ describe('Spawn Agents Message History', () => {
       writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        ws,
         fingerprintId: 'test-fingerprint',
         userId: TEST_USER_ID,
         agentTemplate: parentAgent,
@@ -172,7 +169,6 @@ describe('Spawn Agents Message History', () => {
   it('should not include conversation history when includeMessageHistory is false', async () => {
     const parentAgent = createMockAgent('parent', true)
     const childAgent = createMockAgent('child-agent', false) // includeMessageHistory = false
-    const ws = new MockWebSocket() as unknown as WebSocket
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
@@ -193,7 +189,6 @@ describe('Spawn Agents Message History', () => {
       writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        ws,
         fingerprintId: 'test-fingerprint',
         userId: TEST_USER_ID,
         agentTemplate: parentAgent,
@@ -214,7 +209,6 @@ describe('Spawn Agents Message History', () => {
   it('should handle empty message history gracefully', async () => {
     const parentAgent = createMockAgent('parent', true)
     const childAgent = createMockAgent('child-agent', true)
-    const ws = new MockWebSocket() as unknown as WebSocket
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
@@ -231,7 +225,6 @@ describe('Spawn Agents Message History', () => {
       writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        ws,
         fingerprintId: 'test-fingerprint',
         userId: TEST_USER_ID,
         agentTemplate: parentAgent,
@@ -252,7 +245,6 @@ describe('Spawn Agents Message History', () => {
   it('should handle message history with only system messages', async () => {
     const parentAgent = createMockAgent('parent', true)
     const childAgent = createMockAgent('child-agent', true)
-    const ws = new MockWebSocket() as unknown as WebSocket
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
@@ -272,7 +264,6 @@ describe('Spawn Agents Message History', () => {
       writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        ws,
         fingerprintId: 'test-fingerprint',
         userId: TEST_USER_ID,
         agentTemplate: parentAgent,

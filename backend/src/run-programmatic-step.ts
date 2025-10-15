@@ -6,7 +6,6 @@ import { addAgentStep } from './agent-run'
 import { executeToolCall } from './tools/tool-executor'
 import { SandboxManager } from './util/quickjs-sandbox'
 import { getRequestContext } from './websockets/request-context'
-import { sendAction } from './websockets/websocket-action'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
@@ -14,7 +13,10 @@ import type {
   StepGenerator,
   PublicAgentState,
 } from '@codebuff/common/types/agent-template'
-import type { HandleStepsLogChunkFn } from '@codebuff/common/types/contracts/client'
+import type {
+  HandleStepsLogChunkFn,
+  SendActionFn,
+} from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
@@ -26,7 +28,6 @@ import type {
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { WebSocket } from 'ws'
 
 // Global sandbox manager for QuickJS contexts
 const sandboxManager = new SandboxManager()
@@ -59,11 +60,11 @@ export async function runProgrammaticStep(
     userInputId: string
     fingerprintId: string
     onResponseChunk: (chunk: string | PrintModeEvent) => void
-    ws: WebSocket
     localAgentTemplates: Record<string, AgentTemplate>
     stepsComplete: boolean
     stepNumber: number
     handleStepsLogChunk: HandleStepsLogChunkFn
+    sendAction: SendActionFn
     logger: Logger
   } & ParamsExcluding<
     typeof executeToolCall,
@@ -91,10 +92,10 @@ export async function runProgrammaticStep(
     userInputId,
     fingerprintId,
     onResponseChunk,
-    ws,
     localAgentTemplates,
     stepsComplete,
     handleStepsLogChunk,
+    sendAction,
     logger,
   } = params
   let { stepNumber } = params
@@ -179,7 +180,6 @@ export async function runProgrammaticStep(
   const toolCalls: CodebuffToolCall[] = []
   const toolResults: ToolResultPart[] = []
   const state = {
-    ws,
     fingerprintId,
     userId,
     repoId,
@@ -193,9 +193,11 @@ export async function runProgrammaticStep(
       chunk: string
       prompt?: string
     }) => {
-      sendAction(ws, {
-        type: 'subagent-response-chunk',
-        ...data,
+      sendAction({
+        action: {
+          type: 'subagent-response-chunk',
+          ...data,
+        },
       })
     },
     agentState: cloneDeep({
@@ -296,7 +298,6 @@ export async function runProgrammaticStep(
         state,
         autoInsertEndStepParam: true,
         excludeToolFromMessageHistory,
-        fromHandleSteps: true,
       })
 
       // TODO: Remove messages from state and always use agentState.messageHistory.

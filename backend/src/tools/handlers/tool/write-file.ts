@@ -12,7 +12,6 @@ import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/cli
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { WebSocket } from 'ws'
 
 type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'
 export type FileProcessing<
@@ -78,7 +77,6 @@ export function handleWriteFile(
 
     getLatestState: () => FileProcessingState
     state: {
-      ws?: WebSocket
       fingerprintId?: string
       userId?: string
       fullResponse?: string
@@ -120,10 +118,7 @@ export function handleWriteFile(
     logger,
   } = params
   const { path, instructions, content } = toolCall.input
-  const { ws, fingerprintId, userId, fullResponse, prompt } = state
-  if (!ws) {
-    throw new Error('Internal error for write_file: Missing WebSocket in state')
-  }
+  const { fingerprintId, userId, fullResponse, prompt } = state
   if (!fingerprintId) {
     throw new Error(
       'Internal error for write_file: Missing fingerprintId in state',

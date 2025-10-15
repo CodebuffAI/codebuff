@@ -1,5 +1,6 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { TEST_AGENT_RUNTIME_SCOPED_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
@@ -15,21 +16,20 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import { mockFileContext, MockWebSocket } from './test-utils'
-import * as agentRun from '../agent-run'
+import { mockFileContext } from './test-utils'
 import * as toolExecutor from '../tools/tool-executor'
 import * as requestContext from '../websockets/request-context'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
 import type { PublicAgentState } from '@codebuff/common/types/agent-template'
+import type { AgentRuntimeScopedDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type { SendActionFn } from '@codebuff/common/types/contracts/client'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ToolResultOutput,
   ToolResultPart,
 } from '@codebuff/common/types/messages/content-part'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { WebSocket } from 'ws'
 
 const logger: Logger = {
   debug: () => {},
@@ -44,10 +44,14 @@ describe('runProgrammaticStep', () => {
   let mockParams: any
   let executeToolCallSpy: any
   let getRequestContextSpy: any
-  let addAgentStepSpy: any
-  let sendActionSpy: any
+  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(() => {
+    agentRuntimeScopedImpl = {
+      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+      sendAction: () => {},
+    }
+
     // Mock analytics
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     analytics.initAnalytics({ logger })
@@ -66,16 +70,6 @@ describe('runProgrammaticStep', () => {
     ).mockImplementation(() => ({
       processedRepoId: 'test-repo-id',
     }))
-
-    // Mock addAgentStep
-    addAgentStepSpy = spyOn(agentRun, 'addAgentStep').mockImplementation(
-      async () => 'test-step-id',
-    )
-
-    // Mock sendAction
-    sendActionSpy = spyOn(websocketAction, 'sendAction').mockImplementation(
-      () => {},
-    )
 
     // Mock crypto.randomUUID
     spyOn(crypto, 'randomUUID').mockImplementation(
@@ -120,6 +114,7 @@ describe('runProgrammaticStep', () => {
 
     // Create mock params
     mockParams = {
+      ...agentRuntimeScopedImpl,
       agentState: mockAgentState,
       template: mockTemplate,
       prompt: 'Test prompt',
@@ -132,7 +127,6 @@ describe('runProgrammaticStep', () => {
       fileContext: mockFileContext,
       assistantMessage: undefined,
       assistantPrefix: undefined,
-      ws: new MockWebSocket() as unknown as WebSocket,
       localAgentTemplates: {},
       stepsComplete: false,
       stepNumber: 1,
@@ -228,13 +222,16 @@ describe('runProgrammaticStep', () => {
 
       // Track chunks sent via sendSubagentChunk
       const sentChunks: string[] = []
-      sendActionSpy.mockImplementation((ws: any, action: any) => {
+      const sendActionMock = mock<SendActionFn>(({ action }) => {
         if (action.type === 'subagent-response-chunk') {
           sentChunks.push(action.chunk)
         }
       })
 
-      const result = await runProgrammaticStep(mockParams)
+      const result = await runProgrammaticStep({
+        ...mockParams,
+        sendAction: sendActionMock,
+      })
 
       // Verify add_message tool was executed
       expect(executeToolCallSpy).toHaveBeenCalledWith(

@@ -379,6 +379,7 @@ async function screenCommitsWithGpt5(
         fingerprintId,
         userInputId,
         userId: undefined,
+        sendAction: () => {},
         logger: console,
       })
 

@@ -193,6 +193,7 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       userInputId: generateCompactId(),
       userId: undefined,
       timeout: 10 * 60 * 1000, // 10 minute timeout
+      sendAction: () => {},
       logger: console,
     }).catch((error) => {
       console.warn(`Judge ${index + 1} failed:`, error)

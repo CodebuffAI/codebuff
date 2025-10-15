@@ -1,12 +1,5 @@
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-export class MockWebSocket {
-  send(msg: string) {}
-  close() {}
-  on(event: string, listener: (...args: any[]) => void) {}
-  removeListener(event: string, listener: (...args: any[]) => void) {}
-}
-
 export const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
   cwd: '/test',

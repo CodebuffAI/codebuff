@@ -28,16 +28,8 @@ import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { WebSocket } from 'ws'
 
 // --- Shared Mocks & Helpers ---
-
-class MockWebSocket {
-  send(msg: string) {}
-  close() {}
-  on(event: string, listener: (...args: any[]) => void) {}
-  removeListener(event: string, listener: (...args: any[]) => void) {}
-}
 
 const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
@@ -388,7 +380,6 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     const { output, sessionState: finalSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
-      ws: new MockWebSocket() as unknown as WebSocket,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session-delete-function-integration',
@@ -471,7 +462,6 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       await mainPrompt({
         ...agentRuntimeImpl,
         ...agentRuntimeScopedImpl,
-        ws: new MockWebSocket() as unknown as WebSocket,
         action,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session-delete-function-integration',

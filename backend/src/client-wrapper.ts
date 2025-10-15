@@ -27,7 +27,9 @@ function sendMessage(ws: WebSocket, server: ServerMessage) {
  * @param ws - The WebSocket connection to send the action to
  * @param action - The server action to send
  */
-function sendAction(ws: WebSocket, action: ServerAction) {
+export function sendActionWs(params: { ws: WebSocket; action: ServerAction }) {
+  const { ws, action } = params
+
   sendMessage(ws, {
     type: 'action',
     data: action,
@@ -92,15 +94,18 @@ export async function requestToolCallWs(params: {
     })
 
     // Send the request
-    sendAction(ws, {
-      type: 'tool-call-request',
-      requestId,
-      userInputId,
-      toolName,
-      input,
-      timeout:
-        timeoutInSeconds === undefined ? undefined : timeoutInSeconds * 1000, // Send timeout in milliseconds
-      mcpConfig,
+    sendActionWs({
+      ws,
+      action: {
+        type: 'tool-call-request',
+        requestId,
+        userInputId,
+        toolName,
+        input,
+        timeout:
+          timeoutInSeconds === undefined ? undefined : timeoutInSeconds * 1000, // Send timeout in milliseconds
+        mcpConfig,
+      },
     })
   })
 }
@@ -141,11 +146,14 @@ export async function requestMcpToolDataWs(
     })
 
     // Send the request
-    sendAction(ws, {
-      type: 'request-mcp-tool-data',
-      mcpConfig,
-      requestId,
-      ...(toolNames && { toolNames }),
+    sendActionWs({
+      ws,
+      action: {
+        type: 'request-mcp-tool-data',
+        mcpConfig,
+        requestId,
+        ...(toolNames && { toolNames }),
+      },
     })
   })
 }
@@ -173,10 +181,13 @@ export async function requestFilesWs(
         resolve(action.files)
       }
     })
-    sendAction(ws, {
-      type: 'read-files',
-      filePaths,
-      requestId,
+    sendActionWs({
+      ws,
+      action: {
+        type: 'read-files',
+        filePaths,
+        requestId,
+      },
     })
   })
 }
@@ -197,13 +208,16 @@ export function sendSubagentChunkWs(
   } & ParamsOf<SendSubagentChunkFn>,
 ): ReturnType<SendSubagentChunkFn> {
   const { ws, userInputId, agentId, agentType, chunk, prompt } = params
-  return sendAction(ws, {
-    type: 'subagent-response-chunk',
-    userInputId,
-    agentId,
-    agentType,
-    chunk,
-    prompt,
+  return sendActionWs({
+    ws,
+    action: {
+      type: 'subagent-response-chunk',
+      userInputId,
+      agentId,
+      agentType,
+      chunk,
+      prompt,
+    },
   })
 }
 
@@ -213,12 +227,15 @@ export function handleStepsLogChunkWs(
   } & ParamsOf<HandleStepsLogChunkFn>,
 ): ReturnType<HandleStepsLogChunkFn> {
   const { ws, userInputId, runId, level, data, message } = params
-  return sendAction(ws, {
-    type: 'handlesteps-log-chunk',
-    userInputId,
-    agentId: runId,
-    level,
-    data,
-    message,
+  return sendActionWs({
+    ws,
+    action: {
+      type: 'handlesteps-log-chunk',
+      userInputId,
+      agentId: runId,
+      level,
+      data,
+      message,
+    },
   })
 }
