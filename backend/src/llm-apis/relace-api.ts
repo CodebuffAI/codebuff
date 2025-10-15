@@ -1,8 +1,6 @@
 import { models } from '@codebuff/common/old-constants'
-import {
-  createMarkdownFileBlock,
-  parseMarkdownCodeBlock,
-} from '@codebuff/common/util/file'
+import { buildArray } from '@codebuff/common/util/array'
+import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { env } from '@codebuff/internal'
 
 import { saveMessage } from '../llm-apis/message-cost-tracker'
@@ -22,82 +20,31 @@ export async function promptRelaceAI(
     initialCode: string
     editSnippet: string
     instructions: string | undefined
-    messageId: string
-    userMessage?: string
     promptAiSdk: PromptAiSdkFn
     logger: Logger
-  } & ParamsExcluding<
-    typeof saveMessage,
-    | 'model'
-    | 'request'
-    | 'response'
-    | 'inputTokens'
-    | 'outputTokens'
-    | 'finishedAt'
-    | 'latencyMs'
-  > &
-    ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
+  } & ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
 ) {
-  const {
-    initialCode,
-    editSnippet,
-    instructions,
-    userMessage,
-    messageId,
-    promptAiSdk,
-    logger,
-  } = params
-  const startTime = Date.now()
+  const { initialCode, editSnippet, instructions, promptAiSdk, logger } = params
 
   try {
     // const model = 'relace-apply-2.5-lite'
-    const response = (await Promise.race([
-      fetch('https://instantapply.endpoint.relace.run/v1/code/apply', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${env.RELACE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          // model,
-          initialCode,
-          editSnippet,
-          ...(instructions ? { instructions } : {}),
-          stream: false,
-          'relace-metadata': {
-            'codebuff-id': messageId,
-            'codebuff-user-prompt': userMessage,
-          },
-        }),
-      }),
-      timeoutPromise(100_000),
-    ])) as Response
-
-    if (!response.ok) {
-      throw new Error(
-        `Relace API error: ${response.status} ${response.statusText}`,
-      )
-    }
-
-    const data = (await response.json()) as { mergedCode: string }
-    const content = data.mergedCode
-
-    const fakeRequestContent = `Initial code:${createMarkdownFileBlock('', initialCode)}\n\nEdit snippet${createMarkdownFileBlock('', editSnippet)}`
-    saveMessage({
+    const content = await promptAiSdk({
       ...params,
-      model: 'relace-fast-apply',
-      request: [
+      model: 'relace/relace-apply-3',
+      messages: [
         {
           role: 'user',
-          content: fakeRequestContent,
+          content: buildArray(
+            instructions && `<instruction>${instructions}</instruction>`,
+            `<code>${initialCode}</code>`,
+            `<update>${editSnippet}</update>`,
+          ).join('\n'),
         },
       ],
-      response: content,
-      inputTokens: countTokens(initialCode + editSnippet),
-      outputTokens: countTokens(content),
-      finishedAt: new Date(),
-      latencyMs: Date.now() - startTime,
+      system: undefined,
+      includeCacheControl: false,
     })
+
     return content + '\n'
   } catch (error) {
     logger.error(
