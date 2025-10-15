@@ -1,19 +1,8 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect } from 'bun:test'
 
 import type { WebSocket } from 'ws'
 
 describe('Backend Tool Call Schema', () => {
-  let mockWs: any
-
-  beforeEach(() => {
-    // Create a simple mock WebSocket
-    mockWs = {
-      send: () => {},
-      on: () => {},
-      close: () => {},
-    }
-  })
-
   it('should validate tool call request structure', () => {
     const toolCallRequest = {
       type: 'tool-call-request' as const,
@@ -109,7 +98,7 @@ describe('Backend Tool Call Schema', () => {
   })
 
   it('should generate mock project structure analysis', async () => {
-    const analysis = await generateMockProjectStructureAnalysis(mockWs)
+    const analysis = await generateMockProjectStructureAnalysis()
 
     expect(analysis).toContain('## Project Analysis')
     expect(analysis).toContain('TypeScript/JavaScript/JSON files')
@@ -117,7 +106,7 @@ describe('Backend Tool Call Schema', () => {
   })
 
   it('should generate mock dependency analysis', async () => {
-    const analysis = await generateMockDependencyAnalysis(mockWs)
+    const analysis = await generateMockDependencyAnalysis()
 
     expect(analysis).toContain('## Dependency Analysis')
     expect(analysis).toContain('Declared Dependencies')
@@ -125,10 +114,7 @@ describe('Backend Tool Call Schema', () => {
   })
 
   it('should handle error scenarios in mock generators', async () => {
-    const errorAnalysis = await generateMockProjectStructureAnalysis(
-      mockWs,
-      true,
-    )
+    const errorAnalysis = await generateMockProjectStructureAnalysis(true)
 
     expect(errorAnalysis).toContain('Project analysis failed')
     expect(typeof errorAnalysis).toBe('string')
@@ -141,7 +127,6 @@ describe('Backend Tool Call Schema', () => {
  * based on the current context or user request
  */
 export async function generateMockProjectStructureAnalysis(
-  ws: WebSocket,
   simulateError: boolean = false,
 ): Promise<string> {
   try {
@@ -228,7 +213,6 @@ export async function generateMockProjectStructureAnalysis(
  * Dynamically searches for imports and analyzes dependencies
  */
 export async function generateMockDependencyAnalysis(
-  ws: WebSocket,
   searchPattern?: string,
 ): Promise<string> {
   try {
