@@ -192,6 +192,7 @@ export async function runProgrammaticStep(
       agentType: string
       chunk: string
       prompt?: string
+      forwardToPrompt?: boolean
     }) => {
       sendAction({
         action: {
