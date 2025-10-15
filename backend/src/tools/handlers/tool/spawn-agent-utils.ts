@@ -340,13 +340,6 @@ export async function executeSubagent(
     onlyChild: isOnlyChild,
     parentAgentId: parentAgentState.agentId,
   }
-  withDefaults.logger.debug(
-    {
-      ...startEvent,
-      parentAgentId: parentAgentState.agentId,
-    },
-    'executeSubagent: Sending subagent_start event',
-  )
   onResponseChunk(startEvent)
 
   // Import loopAgentSteps dynamically to avoid circular dependency
