@@ -25,6 +25,7 @@ import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { chatThemes, createMarkdownPalette } from './utils/theme-system'
 import { useChatStore } from './state/chat-store'
+import { useShallow } from 'zustand/react/shallow'
 
 import type { ToolName } from '@codebuff/sdk'
 import type { InputRenderable, ScrollBoxRenderable } from '@opentui/core'
@@ -85,43 +86,59 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
   const theme = chatThemes[themeName]
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
-  const inputValue = useChatStore((store) => store.inputValue)
-  const setInputValue = useChatStore((store) => store.setInputValue)
-  const inputFocused = useChatStore((store) => store.inputFocused)
-  const setInputFocused = useChatStore((store) => store.setInputFocused)
-  const [slashSelectedIndex, setSlashSelectedIndex] = useState<number>(0)
-  const [agentSelectedIndex, setAgentSelectedIndex] = useState<number>(0)
+  const {
+    inputValue,
+    setInputValue,
+    inputFocused,
+    setInputFocused,
+    slashSelectedIndex,
+    setSlashSelectedIndex,
+    agentSelectedIndex,
+    setAgentSelectedIndex,
+    collapsedAgents,
+    setCollapsedAgents,
+    streamingAgents,
+    setStreamingAgents,
+    focusedAgentId,
+    setFocusedAgentId,
+    messages,
+    setMessages,
+    activeSubagents,
+    setActiveSubagents,
+    isChainInProgress,
+    setIsChainInProgress,
+  } = useChatStore(
+    useShallow((store) => ({
+      inputValue: store.inputValue,
+      setInputValue: store.setInputValue,
+      inputFocused: store.inputFocused,
+      setInputFocused: store.setInputFocused,
+      slashSelectedIndex: store.slashSelectedIndex,
+      setSlashSelectedIndex: store.setSlashSelectedIndex,
+      agentSelectedIndex: store.agentSelectedIndex,
+      setAgentSelectedIndex: store.setAgentSelectedIndex,
+      collapsedAgents: store.collapsedAgents,
+      setCollapsedAgents: store.setCollapsedAgents,
+      streamingAgents: store.streamingAgents,
+      setStreamingAgents: store.setStreamingAgents,
+      focusedAgentId: store.focusedAgentId,
+      setFocusedAgentId: store.setFocusedAgentId,
+      messages: store.messages,
+      setMessages: store.setMessages,
+      activeSubagents: store.activeSubagents,
+      setActiveSubagents: store.setActiveSubagents,
+      isChainInProgress: store.isChainInProgress,
+      setIsChainInProgress: store.setIsChainInProgress,
+    })),
+  )
 
   const activeAgentStreamsRef = useRef<number>(0)
-  const isChainInProgress = useChatStore((store) => store.isChainInProgress)
-  const setIsChainInProgress = useChatStore(
-    (store) => store.setIsChainInProgress,
-  )
   const isChainInProgressRef = useRef<boolean>(isChainInProgress)
 
   const { clipboardMessage } = useClipboard()
 
-  const collapsedAgents = useChatStore((store) => store.collapsedAgents)
-  const setCollapsedAgents = useChatStore(
-    (store) => store.setCollapsedAgents,
-  )
-  const streamingAgents = useChatStore((store) => store.streamingAgents)
-  const setStreamingAgents = useChatStore(
-    (store) => store.setStreamingAgents,
-  )
-  const focusedAgentId = useChatStore((store) => store.focusedAgentId)
-  const setFocusedAgentId = useChatStore(
-    (store) => store.setFocusedAgentId,
-  )
   const agentRefsMap = useRef<Map<string, any>>(new Map())
-
-  const messages = useChatStore((store) => store.messages)
-  const setMessages = useChatStore((store) => store.setMessages)
   const hasAutoSubmittedRef = useRef(false)
-  const activeSubagents = useChatStore((store) => store.activeSubagents)
-  const setActiveSubagents = useChatStore(
-    (store) => store.setActiveSubagents,
-  )
   const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { immer } from 'zustand/middleware/immer'
 
 import { formatTimestamp } from '../utils/helpers'
 
@@ -13,6 +14,8 @@ export type ChatStoreState = {
   inputFocused: boolean
   activeSubagents: Set<string>
   isChainInProgress: boolean
+  slashSelectedIndex: number
+  agentSelectedIndex: number
 }
 
 type ChatStoreActions = {
@@ -24,6 +27,8 @@ type ChatStoreActions = {
   setInputFocused: (focused: boolean) => void
   setActiveSubagents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void
   setIsChainInProgress: (active: boolean) => void
+  setSlashSelectedIndex: (value: number | ((prev: number) => number)) => void
+  setAgentSelectedIndex: (value: number | ((prev: number) => number)) => void
   reset: () => void
 }
 
@@ -46,80 +51,74 @@ const initialState: ChatStoreState = {
   inputFocused: true,
   activeSubagents: new Set<string>(),
   isChainInProgress: false,
+  slashSelectedIndex: 0,
+  agentSelectedIndex: 0,
 }
 
-export const useChatStore = create<ChatStore>((set) => ({
+export const useChatStore = create<ChatStore>()(immer((set) => ({
   ...initialState,
 
   setMessages: (value) =>
-    set((state) => ({
-      messages: typeof value === 'function' ? value(state.messages) : value,
-    })),
+    set((state) => {
+      state.messages = typeof value === 'function' ? value(state.messages) : value
+    }),
 
   setStreamingAgents: (value) =>
-    set((state) => ({
-      streamingAgents:
-        typeof value === 'function' ? value(state.streamingAgents) : value,
-    })),
+    set((state) => {
+      state.streamingAgents = typeof value === 'function' ? value(state.streamingAgents) : value
+    }),
 
   setCollapsedAgents: (value) =>
-    set((state) => ({
-      collapsedAgents:
-        typeof value === 'function' ? value(state.collapsedAgents) : value,
-    })),
+    set((state) => {
+      state.collapsedAgents = typeof value === 'function' ? value(state.collapsedAgents) : value
+    }),
 
   setFocusedAgentId: (value) =>
-    set((state) => ({
-      focusedAgentId:
-        typeof value === 'function' ? value(state.focusedAgentId) : value,
-    })),
+    set((state) => {
+      state.focusedAgentId = typeof value === 'function' ? value(state.focusedAgentId) : value
+    }),
 
   setInputValue: (value) =>
-    set((state) => ({
-      inputValue: typeof value === 'function' ? value(state.inputValue) : value,
-    })),
+    set((state) => {
+      state.inputValue = typeof value === 'function' ? value(state.inputValue) : value
+    }),
 
-  setInputFocused: (focused) => set({ inputFocused: focused }),
+  setInputFocused: (focused) =>
+    set((state) => {
+      state.inputFocused = focused
+    }),
 
   setActiveSubagents: (value) =>
-    set((state) => ({
-      activeSubagents:
-        typeof value === 'function' ? value(state.activeSubagents) : value,
-    })),
+    set((state) => {
+      state.activeSubagents = typeof value === 'function' ? value(state.activeSubagents) : value
+    }),
 
-  setIsChainInProgress: (active) => set({ isChainInProgress: active }),
+  setIsChainInProgress: (active) =>
+    set((state) => {
+      state.isChainInProgress = active
+    }),
+
+  setSlashSelectedIndex: (value) =>
+    set((state) => {
+      state.slashSelectedIndex = typeof value === 'function' ? value(state.slashSelectedIndex) : value
+    }),
+
+  setAgentSelectedIndex: (value) =>
+    set((state) => {
+      state.agentSelectedIndex = typeof value === 'function' ? value(state.agentSelectedIndex) : value
+    }),
 
   reset: () =>
-    set({
-      messages: initialState.messages.slice(),
-      streamingAgents: new Set(initialState.streamingAgents),
-      collapsedAgents: new Set(initialState.collapsedAgents),
-      focusedAgentId: initialState.focusedAgentId,
-      inputValue: initialState.inputValue,
-      inputFocused: initialState.inputFocused,
-      activeSubagents: new Set(initialState.activeSubagents),
-      isChainInProgress: initialState.isChainInProgress,
+    set((state) => {
+      state.messages = initialState.messages.slice()
+      state.streamingAgents = new Set(initialState.streamingAgents)
+      state.collapsedAgents = new Set(initialState.collapsedAgents)
+      state.focusedAgentId = initialState.focusedAgentId
+      state.inputValue = initialState.inputValue
+      state.inputFocused = initialState.inputFocused
+      state.activeSubagents = new Set(initialState.activeSubagents)
+      state.isChainInProgress = initialState.isChainInProgress
+      state.slashSelectedIndex = initialState.slashSelectedIndex
+      state.agentSelectedIndex = initialState.agentSelectedIndex
     }),
-}))
-
-// For backwards compatibility with non-hook usage
-export const chatStore = {
-  subscribe: useChatStore.subscribe,
-  getState: useChatStore.getState,
-  setMessages: (value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) =>
-    useChatStore.getState().setMessages(value),
-  setStreamingAgents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) =>
-    useChatStore.getState().setStreamingAgents(value),
-  setCollapsedAgents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) =>
-    useChatStore.getState().setCollapsedAgents(value),
-  setFocusedAgentId: (value: string | null | ((prev: string | null) => string | null)) =>
-    useChatStore.getState().setFocusedAgentId(value),
-  setInputValue: (value: string | ((prev: string) => string)) =>
-    useChatStore.getState().setInputValue(value),
-  setInputFocused: (focused: boolean) => useChatStore.getState().setInputFocused(focused),
-  setActiveSubagents: (value: Set<string> | ((prev: Set<string>) => Set<string>)) =>
-    useChatStore.getState().setActiveSubagents(value),
-  setIsChainInProgress: (active: boolean) =>
-    useChatStore.getState().setIsChainInProgress(active),
-  reset: () => useChatStore.getState().reset(),
-}
+})))
