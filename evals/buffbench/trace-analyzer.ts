@@ -157,21 +157,25 @@ const traceAnalyzerAgent: AgentDefinition = {
 ## Your Role
 
 You will receive:
-1. A task prompt (for context only)
-2. Full traces from each agent showing their step-by-step process
-3. Performance metrics (scores, cost, time, errors)
+1. Complete agent definitions showing their configuration, tools, prompts, and capabilities
+2. Agent type definitions explaining the available options and structure
+3. A task prompt (for context only)
+4. Full traces from each agent showing their step-by-step process
+5. Performance metrics (scores, cost, time, errors)
 
 ## Focus on Agent Processes
 
 Your analysis should focus on how agents work, not what they accomplished:
 
 Key Analysis Areas:
+- Agent Configuration: How did the agent's configuration (tools, model, prompts, etc.) influence their behavior?
 - Problem-Solving Approach: How did each agent break down and approach the problem?
-- Tool Usage Patterns: Which tools did they use, in what sequence, and why?
+- Tool Usage Patterns: Which tools did they use, in what sequence, and why? Compare to available tools in their config.
 - Decision-Making Strategy: What information did they gather before acting? How did they validate assumptions?
 - Workflow Efficiency: Did they follow a systematic process or jump around? Were steps logically ordered?
 - Context Gathering: How thoroughly did they explore the codebase before making changes?
 - Iterative Refinement: Did they test, verify, or refine their work? How?
+- Prompt Engineering: How well did the agent's system/instructions/step prompts guide their behavior?
 
 ## Output Format
 
@@ -192,10 +196,16 @@ export async function analyzeAgentTraces({
   client,
   traces,
   codingAgentPrompt,
+  analyzerContext,
 }: {
   client: CodebuffClient
   traces: AgentTraceData[]
   codingAgentPrompt: string
+  analyzerContext: {
+    agentDefinitions: any[]
+    agentTypeDefinition: string
+    testedAgentIds: string[]
+  }
 }): Promise<{
   overallAnalysis: string
   agentFeedback: Array<{
@@ -215,7 +225,26 @@ export async function analyzeAgentTraces({
       error: t.error,
     }))
 
-    const prompt = `## Coding Agent Prompt (for context)
+    // Filter agent definitions to only include tested agents
+    const filteredAgentDefinitions = analyzerContext.agentDefinitions.filter(
+      (def) => analyzerContext.testedAgentIds.includes(def.id),
+    )
+
+    const prompt = `## Agent Definitions Being Evaluated
+
+Below are the complete agent definitions for the agents being tested. Use this to understand their configuration, tools, prompts, and capabilities.
+
+${JSON.stringify(filteredAgentDefinitions, null, 2)}
+
+## Agent Type Definition Reference
+
+For reference, here is the TypeScript type definition that agents use:
+
+\`\`\`typescript
+${analyzerContext.agentTypeDefinition}
+\`\`\`
+
+## Coding Agent Prompt (for context)
 ${codingAgentPrompt}
 
 ## Agent Traces and Results

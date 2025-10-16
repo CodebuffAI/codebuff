@@ -1,8 +1,6 @@
 import { execSync } from 'child_process'
-import path from 'path'
 
 import { withTimeout } from '@codebuff/common/util/promise'
-import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import { CodebuffClient } from '../../sdk/src/client'
 import { withTestRepo } from '../subagents/test-repo-utils'
 
@@ -20,12 +18,14 @@ export async function runAgentOnCommit({
   commit,
   repoUrl,
   initCommand,
+  localAgentDefinitions,
 }: {
   client: CodebuffClient
   agentId: string
   commit: EvalCommitV2
   repoUrl: string
   initCommand?: string
+  localAgentDefinitions: any[]
 }): Promise<{
   diff: string
   contextFiles: Record<string, string>
@@ -50,11 +50,6 @@ export async function runAgentOnCommit({
         initCommand,
       },
       async (repoDir) => {
-        const agentsPath = path.join(__dirname, '../../.agents')
-        const localAgentDefinitions = Object.values(
-          await loadLocalAgents({ agentsPath }),
-        )
-
         let responseText = ''
         let toolCalls: any[] = []
         let toolResults: any[] = []

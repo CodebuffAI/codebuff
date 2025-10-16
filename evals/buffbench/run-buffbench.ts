@@ -3,6 +3,7 @@ import path from 'path'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
+import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import pLimit from 'p-limit'
 
 import { runAgentOnCommit } from './agent-runner'
@@ -12,6 +13,7 @@ import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { CodebuffClient } from '../../sdk/src/client'
 
 import type { AgentEvalResults, EvalDataV2 } from './types'
+import { analyzeAllTasks } from './meta-analyzer'
 
 async function runTask(options: {
   client: CodebuffClient
@@ -22,6 +24,12 @@ async function runTask(options: {
   logsDir: string
   index: number
   totalTasks: number
+  analyzerContext: {
+    agentDefinitions: any[]
+    agentTypeDefinition: string
+    testedAgentIds: string[]
+  }
+  localAgentDefinitions: any[]
 }) {
   const {
     client,
@@ -32,6 +40,8 @@ async function runTask(options: {
     logsDir,
     index,
     totalTasks,
+    analyzerContext,
+    localAgentDefinitions,
   } = options
 
   console.log(
@@ -48,6 +58,7 @@ async function runTask(options: {
       commit,
       repoUrl,
       initCommand,
+      localAgentDefinitions,
     })
 
     const judgeResult = await judgeCommitResult({
@@ -105,6 +116,7 @@ async function runTask(options: {
     client,
     traces: commitTraces,
     codingAgentPrompt: commit.prompt,
+    analyzerContext,
   })
 
   const analysisData = {
@@ -171,6 +183,24 @@ export async function runBuffBench(options: {
       apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
     })
 
+  // Load local agent definitions and type definition file for analyzers
+  const agentsPath = path.join(__dirname, '../../.agents')
+  const loadedAgents = await loadLocalAgents({ agentsPath })
+  const agentTypeDefinitionPath = path.join(
+    agentsPath,
+    'types',
+    'agent-definition.ts',
+  )
+  const agentTypeDefinition = fs.existsSync(agentTypeDefinitionPath)
+    ? fs.readFileSync(agentTypeDefinitionPath, 'utf-8')
+    : ''
+
+  const analyzerContext = {
+    agentDefinitions: Object.values(loadedAgents),
+    agentTypeDefinition,
+    testedAgentIds: agents,
+  }
+
   const startTime = Date.now()
   const results: Record<string, AgentEvalResults> = {}
 
@@ -204,6 +234,8 @@ export async function runBuffBench(options: {
         logsDir,
         index,
         totalTasks: commitsToRun.length,
+        analyzerContext,
+        localAgentDefinitions: analyzerContext.agentDefinitions,
       }),
     ),
   )
@@ -255,6 +287,39 @@ export async function runBuffBench(options: {
   }
 
   const logFiles = fs.readdirSync(logsDir)
+
+  console.log('\n=== Running Meta-Analysis ===')
+  const metaAnalysis = await analyzeAllTasks({
+    client,
+    logsDir,
+    agents,
+    analyzerContext,
+  })
+
+  // Print meta-analysis results
+  console.log('\n=== Meta-Analysis Results ===')
+  console.log('\nOverall Comparison:')
+  console.log(metaAnalysis.overallComparison)
+
+  if (metaAnalysis.agentInsights.length > 0) {
+    console.log('\nAgent-Specific Insights:')
+    for (const insight of metaAnalysis.agentInsights) {
+      console.log(`\n[${insight.agentId}]`)
+      if (insight.consistentStrengths.length > 0) {
+        console.log('  Strengths:', insight.consistentStrengths.join(', '))
+      }
+      if (insight.consistentWeaknesses.length > 0) {
+        console.log('  Weaknesses:', insight.consistentWeaknesses.join(', '))
+      }
+    }
+  }
+
+  if (metaAnalysis.keyFindings.length > 0) {
+    console.log('\nKey Findings:')
+    metaAnalysis.keyFindings.forEach((finding, i) => {
+      console.log(`  ${i + 1}. ${finding}`)
+    })
+  }
 
   const finalResults = {
     metadata: {
