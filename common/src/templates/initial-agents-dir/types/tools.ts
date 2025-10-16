@@ -59,7 +59,7 @@ export interface AddMessageParams {
 export interface CodeSearchParams {
   /** The pattern to search for. */
   pattern: string
-  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not test" to exclude test files). */
+  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not py" to exclude Python files). */
   flags?: string
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
