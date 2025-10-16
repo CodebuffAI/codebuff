@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { meGet } from '../../../app/api/v1/me/route'
 import { VALID_USER_INFO_FIELDS } from '../../../db/user'
+import { meGet } from '../me'
 
 import type {
   GetUserInfoFromApiKeyFn,
