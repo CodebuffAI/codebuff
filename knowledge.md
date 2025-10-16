@@ -35,15 +35,15 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 
 ## Tool Handling System
 
-- Tools are defined in `backend/src/tools.ts` and implemented in `npm-app/src/tool-handlers.ts`
+- Tools are defined in `backend/src/tools/definitions/list.ts` and implemented in `npm-app/src/tool-handlers.ts`
 - Available tools: read_files, write_file, str_replace, run_terminal_command, code_search, browser_logs, spawn_agents, web_search, read_docs, run_file_change_hooks, and others
 - Backend uses tool calls to request additional information or perform actions
 - Client-side handles tool calls and sends results back to server
 
 ## Agent System
 
-- **LLM-based Agents**: Traditional agents defined in `backend/src/templates/` using prompts and LLM models
-- **Programmatic Agents**: Custom agents using JavaScript/TypeScript generator functions in `.agents/templates/`
+- **LLM-based Agents**: Traditional agents defined in `.agents/` subdirectories using prompts and LLM models
+- **Programmatic Agents**: Custom agents using JavaScript/TypeScript generator functions in `.agents/`
 - **Dynamic Agent Templates**: User-defined agents in TypeScript files with `handleSteps` generator functions
 - Agent templates define available tools, spawnable sub-agents, and execution behavior
 - Programmatic agents allow complex orchestration logic, conditional flows, and iterative refinement
@@ -90,7 +90,6 @@ base-lite "fix this bug"             # Works right away!
 
 ## Error Handling and Debugging
 
-- The `debug.ts` file provides logging functionality for debugging
 - Error messages are logged to console and debug log files
 - WebSocket errors are caught and logged in server and client code
 
@@ -101,165 +100,156 @@ base-lite "fix this bug"             # Works right away!
 - User input is validated and sanitized before processing
 - File operations are restricted to project directory
 
-## Testing Guidelines
+## API Endpoint Architecture
 
-- Prefer specific imports over import \* to make dependencies explicit
-- Exception: When mocking modules with many internal dependencies (like isomorphic-git), use import \* to avoid listing every internal function
+### Dependency Injection Pattern
 
-### Bun Testing Best Practices
+All API endpoints in `web/src/app/api/v1/` follow a consistent dependency injection pattern for improved testability and maintainability.
 
-**Always use `spyOn()` instead of `mock.module()` for function and method mocking.**
+**Structure:**
 
-- When mocking modules is required (for the purposes of overriding constants instead of functions), use the wrapper functions found in `@codebuff/common/testing/mock-modules.ts`.
-  - `mockModule` is a drop-in replacement for `mock.module`, but the module should be the absolute module path (e.g., `@codebuff/common/db` instead of `../db`).
-  - Make sure to call `clearMockedModules()` in `afterAll` to restore the original module implementations.
+1. **Implementation file** (`web/src/api/v1/<endpoint>.ts`) - Contains business logic with injected dependencies
+2. **Route handler** (`web/src/app/api/v1/<endpoint>/route.ts`) - Minimal wrapper that injects dependencies
+3. **Contract types** (`common/src/types/contracts/<domain>.ts`) - Type definitions for injected functions
+4. **Unit tests** (`web/src/api/v1/__tests__/<endpoint>.test.ts`) - Comprehensive tests with mocked dependencies
 
-**Preferred approach:**
-
-```typescript
-// ✅ Good: Use spyOn for clear, explicit mocking
-import { spyOn, beforeEach, afterEach } from 'bun:test'
-import * as analytics from '../analytics'
-
-beforeEach(() => {
-  // Spy on module functions
-  spyOn(analytics, 'trackEvent').mockImplementation(() => {})
-  spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-
-  // Spy on global functions like Date.now and setTimeout
-  spyOn(Date, 'now').mockImplementation(() => 1234567890)
-  spyOn(global, 'setTimeout').mockImplementation((callback, delay) => {
-    // Custom timeout logic for tests
-    return 123 as any
-  })
-})
-
-afterEach(() => {
-  // Restore all mocks
-  mock.restore()
-})
-```
-
-**Real examples from our codebase:**
+**Example:**
 
 ```typescript
-// From main-prompt.test.ts - Mocking LLM APIs
-agentRuntimeImpl.promptAiSdk = async function () {
-  return 'Test response'
-}
-agentRuntimeImpl.promptAiSdkStream = async function* () {
-  yield { type: 'text' as const, text: 'Test response' }
-  return 'mock-message-id'
+// Implementation file - Contains business logic
+export async function myEndpoint(params: {
+  req: NextRequest
+  getDependency: GetDependencyFn
+  logger: Logger
+  anotherDep: AnotherDepFn
+}) {
+  // Business logic here
 }
 
-// From rage-detector.test.ts - Mocking Date
-spyOn(Date, 'now').mockImplementation(() => currentTime)
+// Route handler - Minimal wrapper
+export async function GET(req: NextRequest) {
+  return myEndpointGet({ req, getDependency, logger, anotherDep })
+}
 
-// From run-agent-step-tools.test.ts - Mocking imported modules
-spyOn(websocketAction, 'requestFiles').mockImplementation(
-  async (ws: any, paths: string[]) => {
-    const results: Record<string, string | null> = {}
-    paths.forEach((p) => {
-      if (p === 'src/auth.ts') {
-        results[p] = 'export function authenticate() { return true; }'
-      } else {
-        results[p] = null
-      }
-    })
-    return results
-  },
-)
-```
-
-**Use `mock.module()` only for entire module replacement:**
-
-```typescript
-// ✅ Good: Use mock.module for replacing entire modules
-mock.module('../util/logger', () => ({
-  logger: {
-    debug: () => {},
-    error: () => {},
-    info: () => {},
-    warn: () => {},
-  },
-  withLoggerContext: async (context: any, fn: () => Promise<any>) => fn(),
-}))
-
-// ✅ Good: Mock entire module with multiple exports using anonymous function
-mock.module('../services/api-client', () => ({
-  fetchUserData: jest.fn().mockResolvedValue({ id: 1, name: 'Test User' }),
-  updateUserProfile: jest.fn().mockResolvedValue({ success: true }),
-  deleteUser: jest.fn().mockResolvedValue(true),
-  ApiError: class MockApiError extends Error {
-    constructor(
-      message: string,
-      public status: number,
-    ) {
-      super(message)
-    }
-  },
-  API_ENDPOINTS: {
-    USERS: '/api/users',
-    PROFILES: '/api/profiles',
-  },
-}))
-```
-
-**Benefits of spyOn:**
-
-- Easier to restore original functionality with `mock.restore()`
-- Clearer test isolation
-- Doesn't interfere with global state (mock.module carries over from test file to test file, which is super bad and unintuitive.)
-- Simpler debugging when mocks fail
-
-### Test Setup Patterns
-
-**Extract duplicative mock state to `beforeEach` for cleaner tests:**
-
-```typescript
-// ✅ Good: Extract common mock objects to beforeEach
-describe('My Tests', () => {
-  let mockFileContext: ProjectFileContext
-  let mockAgentTemplate: DynamicAgentTemplate
-
-  beforeEach(() => {
-    // Setup common mock data
-    mockFileContext = {
-      projectRoot: '/test',
-      cwd: '/test',
-      // ... other properties
-    }
-
-    mockAgentTemplate = {
-      id: 'test-agent',
-      version: '1.0.0',
-      // ... other properties
-    }
-  })
-
-  test('should work with mock data', () => {
-    const agentTemplate = {
-      'test-agent': {
-        ...mockAgentTemplate,
-        handleSteps: 'custom function',
-      } as any, // Use type assertion when needed
-    }
-
-    const fileContext = {
-      ...mockFileContext,
-      agentTemplates: agentTemplate,
-    }
-    // ... test logic
-  })
-})
+// Contract type (in common/src/types/contracts/)
+export type GetDependencyFn = (params: SomeParams) => Promise<SomeResult>
 ```
 
 **Benefits:**
 
-- Reduces code duplication across tests
-- Makes tests more maintainable
-- Ensures consistent mock data structure
-- Easier to update mock data in one place
+- Easy to mock dependencies in unit tests
+- Type-safe function contracts shared across the codebase
+- Clear separation between routing and business logic
+- Consistent pattern across all endpoints
+
+**Contract Types Location:**
+All contract types live in `common/src/types/contracts/`.
+
+**Contract Type Pattern:**
+For generic function types, use separate Input/Output types:
+
+```typescript
+// Define input type
+export type MyFunctionInput<T> = {
+  param1: string
+  param2: T
+}
+
+// Define output type
+export type MyFunctionOutput<T> = Promise<SomeResult<T>>
+
+// Define function type using Input/Output
+export type MyFunctionFn = <T>(
+  params: MyFunctionInput<T>,
+) => MyFunctionOutput<T>
+```
+
+## Testing Guidelines
+
+### Dependency Injection (Primary Approach)
+
+**Prefer dependency injection over mocking.** Design functions to accept dependencies as parameters with contract types defined in `common/src/types/contracts/`.
+
+```typescript
+// ✅ Good: Dependency injection with contract types
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+export async function myFunction(params: {
+  trackEvent: TrackEventFn
+  logger: Logger
+  getData: GetDataFn
+}) {
+  const { trackEvent, logger, getData } = params
+  // Use injected dependencies
+}
+
+// Test with simple mock implementations
+const mockTrackEvent: TrackEventFn = mock(() => {})
+const mockLogger: Logger = {
+  error: mock(() => {}),
+  // ... other methods
+}
+```
+
+**Benefits:**
+
+- No need for `spyOn()` or `mock.module()`
+- Clear, type-safe dependencies
+- Easy to test with simple mock objects
+- Better code architecture and maintainability
+
+### When to Use spyOn (Secondary Approach)
+
+Use `spyOn()` only when dependency injection is impractical:
+
+- Mocking global functions (Date.now, setTimeout)
+- Testing legacy code without DI
+- Overriding internal module behavior temporarily
+
+```typescript
+// Use spyOn for globals
+spyOn(Date, 'now').mockImplementation(() => 1234567890)
+```
+
+### Avoid mock.module()
+
+**Never use `mock.module()` for functions.** It pollutes global state and carries over between test files.
+
+Only use for overriding module constants when absolutely necessary:
+
+- Use wrapper functions in `@codebuff/common/testing/mock-modules.ts`
+- Call `clearMockedModules()` in `afterAll`
+
+### Test Setup Patterns
+
+Extract duplicative mock state to `beforeEach`:
+
+```typescript
+describe('My Tests', () => {
+  let mockLogger: Logger
+  let mockTrackEvent: TrackEventFn
+
+  beforeEach(() => {
+    mockLogger = {
+      error: mock(() => {}),
+      warn: mock(() => {}),
+      info: mock(() => {}),
+      debug: mock(() => {}),
+    }
+    mockTrackEvent = mock(() => {})
+  })
+
+  afterEach(() => {
+    mock.restore()
+  })
+
+  test('works with injected dependencies', async () => {
+    await myFunction({ logger: mockLogger, trackEvent: mockTrackEvent })
+    expect(mockTrackEvent).toHaveBeenCalled()
+  })
+})
+```
 
 ## Constants and Configuration
 

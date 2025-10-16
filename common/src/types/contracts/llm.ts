@@ -78,3 +78,9 @@ export type PromptAiSdkStructuredOutput<T> = Promise<T>
 export type PromptAiSdkStructuredFn = <T>(
   params: PromptAiSdkStructuredInput<T>,
 ) => PromptAiSdkStructuredOutput<T>
+
+export type HandleOpenRouterStreamFn = (params: {
+  body: any
+  userId: string
+  agentId: string
+}) => Promise<ReadableStream>

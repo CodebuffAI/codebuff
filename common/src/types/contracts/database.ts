@@ -21,6 +21,26 @@ export type GetUserInfoFromApiKeyFn = <T extends UserColumn>(
   params: GetUserInfoFromApiKeyInput<T>,
 ) => GetUserInfoFromApiKeyOutput<T>
 
+type AgentRun = {
+  agent_id: string
+  status: 'running' | 'completed' | 'failed' | 'cancelled'
+}
+export type AgentRunColumn = keyof AgentRun
+export type GetAgentRunFromIdInput<T extends AgentRunColumn> = {
+  agentRunId: string
+  userId: string
+  fields: readonly T[]
+}
+export type GetAgentRunFromIdOutput<T extends AgentRunColumn> = Promise<
+  | {
+      [K in T]: AgentRun[K]
+    }
+  | undefined
+>
+export type GetAgentRunFromIdFn = <T extends AgentRunColumn>(
+  params: GetAgentRunFromIdInput<T>,
+) => GetAgentRunFromIdOutput<T>
+
 /**
  * Fetch and validate an agent from the database by `publisher/agent-id[@version]` format
  */
