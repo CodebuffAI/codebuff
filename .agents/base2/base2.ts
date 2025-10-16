@@ -124,7 +124,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn file-picker-maxs with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+1. Spawn a couple different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
