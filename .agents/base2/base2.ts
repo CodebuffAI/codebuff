@@ -36,7 +36,9 @@ export const createBase2: (
     toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
     spawnableAgents: buildArray(
       'file-picker-max',
-      'find-all-referencer',
+      'code-searcher',
+      'directory-lister',
+      'glob-matcher',
       'researcher-web',
       'researcher-docs',
       'commander',
@@ -58,7 +60,7 @@ Continue to spawn layers of agents until have completed the user's request or re
 ## Spawning agents guidelines
 
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
-  - Spawn file pickers, find-all-referencer, and researchers before making edits.
+  - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers before making edits.
   - Spawn generate-plan agent after you have gathered all the context you need (and not before!).
   - Only make edits after generating a plan.
   - Reviewers should be spawned after you have made your edits.
@@ -122,9 +124,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn file-picker-maxs with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+1. Spawn file-picker-maxs with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file picker and one more find-all-referencer with different prompts to find relevant files.
+2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
 3. Spawn a generate-plan agent to generate a plan for the changes.
 4. Use the str_replace or write_file tool to make the changes.

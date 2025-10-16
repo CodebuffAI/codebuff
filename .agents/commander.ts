@@ -7,7 +7,7 @@ import type {
 const commander: AgentDefinition = {
   id: 'commander',
   publisher,
-  model: 'x-ai/grok-4-fast',
+  model: 'anthropic/claude-haiku-4.5',
   displayName: 'Commander',
   spawnerPrompt:
     'Runs a single terminal command and describes its output based on what information is requested.',
