@@ -88,6 +88,16 @@ base-lite "fix this bug"             # Works right away!
 - Always clean build state when encountering persistent type errors or infinite loops
 - The monorepo structure with project references can sometimes create dependency cycles
 
+## Error Handling Philosophy
+
+**Prefer `ErrorOr<T>` return types over throwing errors.**
+
+- Return type `ErrorOr<T>` for operations that fail
+- Return `success(value)` or `failure(error)` from `common/src/util/error.ts`
+  - e.g. `return failure(new Error('File not found'))`
+- Allows callers to handle errors explicitly without try-catch
+- Makes error cases visible in function signatures
+
 ## Error Handling and Debugging
 
 - Error messages are logged to console and debug log files
