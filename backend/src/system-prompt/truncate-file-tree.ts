@@ -29,7 +29,10 @@ export const truncateFileTreeBasedOnTokenBudget = (params: {
   const startTime = performance.now()
   const { fileTree, fileTokenScores } = fileContext
 
-  const treeWithTokens = printFileTreeWithTokens(fileTree, fileTokenScores)
+  // NOTE: We are always filtering out files with "unimportant" extensions.
+  const filteredTree = removeUnimportantFiles(fileTree)
+
+  const treeWithTokens = printFileTreeWithTokens(filteredTree, fileTokenScores)
   const treeWithTokensCount = countTokensJson(treeWithTokens)
 
   if (treeWithTokensCount <= tokenBudget) {
@@ -40,8 +43,6 @@ export const truncateFileTreeBasedOnTokenBudget = (params: {
     }
   }
 
-  // If it doesn't fit, remove unimportant files
-  const filteredTree = removeUnimportantFiles(fileTree)
   const printedFilteredTree = printFileTree(filteredTree)
   const filteredTreeNoTokensCount = countTokensJson(printedFilteredTree)
 

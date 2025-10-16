@@ -94,6 +94,13 @@ export async function formatPrompt(
         mode: 'agent',
         logger,
       }),
+    [PLACEHOLDER.FILE_TREE_PROMPT_LARGE]: () =>
+      getProjectFileTreePrompt({
+        fileContext,
+        fileTreeTokenBudget: 190_000,
+        mode: 'search',
+        logger,
+      }),
     [PLACEHOLDER.GIT_CHANGES_PROMPT]: () => getGitChangesPrompt(fileContext),
     [PLACEHOLDER.REMAINING_STEPS]: () => `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: () => fileContext.projectRoot,

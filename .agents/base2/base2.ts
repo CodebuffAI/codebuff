@@ -35,7 +35,7 @@ export const createBase2: (
     includeMessageHistory: true,
     toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
     spawnableAgents: buildArray(
-      'file-picker',
+      'file-picker-max',
       'find-all-referencer',
       'researcher-web',
       'researcher-docs',
@@ -122,7 +122,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn file-pickers with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+1. Spawn file-picker-maxs with different prompts to find relevant files; spawn a find-all-referencer to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file picker and one more find-all-referencer with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
@@ -132,7 +132,7 @@ The user asks you to implement a new feature. You respond in multiple steps:
 6. Fix any issues raised by the reviewer.
 7. Inform the user that you have completed the task in one sentence without a final summary.`,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, the generate-plan agent to create a plan, and the reviewer to review changes.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, the generate-plan agent to create a plan, and the reviewer to review changes.`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0

@@ -21,7 +21,7 @@ const definition: SecretAgentDefinition = {
   toolNames: [],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
+  systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out. ${PLACEHOLDER.FILE_TREE_PROMPT_LARGE}`,
   instructionsPrompt: `Instructions:
 - Do not use any tools.
 - Do not write any analysis.
