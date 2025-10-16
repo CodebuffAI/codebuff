@@ -8,8 +8,7 @@ import {
 
 export const createBase2: (
   mode: 'normal' | 'max',
-) => Omit<SecretAgentDefinition, 'id'> = (mode) => {
-  const isMax = mode === 'max'
+) => Omit<SecretAgentDefinition, 'id'> = () => {
   return {
     publisher,
     model: 'anthropic/claude-sonnet-4.5',
@@ -43,7 +42,8 @@ export const createBase2: (
       'researcher-docs',
       'commander',
       'generate-plan',
-      'reviewer',
+      'code-reviewer',
+      'validator',
       'context-pruner',
     ),
 
@@ -63,9 +63,9 @@ Continue to spawn layers of agents until have completed the user's request or re
   - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers before making edits.
   - Spawn generate-plan agent after you have gathered all the context you need (and not before!).
   - Only make edits after generating a plan.
-  - Reviewers should be spawned after you have made your edits.
+  - Code reviewers/validators should be spawned after you have made your edits.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
-- **Don't spawn reviewers for trivial changes or quick follow-ups:** You should spawn the reviewer for most changes, but not for little changes or simple follow-ups.
+- **Don't spawn code reviewers/validators for trivial changes or quick follow-ups:** You should spawn the code reviewer/validator for most changes, but not for little changes or simple follow-ups.
 
 # Core Mandates
 
@@ -130,8 +130,8 @@ The user asks you to implement a new feature. You respond in multiple steps:
 2a. Read all the relevant files using the read_files tool.
 3. Spawn a generate-plan agent to generate a plan for the changes.
 4. Use the str_replace or write_file tool to make the changes.
-5. Spawn a reviewer to review the changes.
-6. Fix any issues raised by the reviewer.
+5. Spawn a code-reviewer to review the changes. Consider making changes suggested by the code-reviewer.
+6. Spawn a validator to run validation commands (tests, typechecks, etc.) to ensure the changes are correct.
 7. Inform the user that you have completed the task in one sentence without a final summary.`,
 
     stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, the generate-plan agent to create a plan, and the reviewer to review changes.`,
