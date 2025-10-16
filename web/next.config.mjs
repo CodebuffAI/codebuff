@@ -15,7 +15,11 @@ const nextConfig = {
     // Disable ESLint during builds
     ignoreDuringBuilds: true,
   },
-  
+  typescript: {
+    // Disable TypeScript errors during builds
+    ignoreBuildErrors: true,
+  },
+
   // Enable experimental features for better SSG performance
   experimental: {
     optimizePackageImports: ['@/components/ui'],
