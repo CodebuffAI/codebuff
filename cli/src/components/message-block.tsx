@@ -265,7 +265,7 @@ export const MessageBlock = ({
         const rawNestedContent = isNestedStreamingText
           ? trimTrailingNewlines(nestedBlock.content)
           : nestedBlock.content.trim()
-        const renderKey = `${keyPrefix}-text-${nestedIdx}-${rawNestedContent.length}-${isNestedStreamingText ? 'stream' : 'final'}`
+        const renderKey = `${keyPrefix}-text-${nestedIdx}`
         const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
         const renderedContent = hasMarkdown(rawNestedContent)
           ? isNestedStreamingText
@@ -337,7 +337,7 @@ export const MessageBlock = ({
               const rawContent = isStreamingText
                 ? trimTrailingNewlines(block.content)
                 : block.content.trim()
-              const renderKey = `${messageId}-text-${idx}-${rawContent.length}-${isStreamingText ? 'stream' : 'final'}`
+              const renderKey = `${messageId}-text-${idx}`
               const renderedContent = hasMarkdown(rawContent)
                 ? isStreamingText
                   ? renderStreamingMarkdown(rawContent, markdownOptions)
@@ -391,7 +391,7 @@ export const MessageBlock = ({
             : normalizedContent
           return (
             <text
-              key={`message-content-${messageId}-${normalizedContent.length}-${isStreamingMessage ? 'stream' : 'final'}`}
+              key={`message-content-${messageId}`}
               wrap
               style={{ fg: textColor }}
             >

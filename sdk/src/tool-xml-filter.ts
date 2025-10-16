@@ -5,9 +5,9 @@ export type ToolXmlFilterState = {
   activeTag: 'tool_call' | 'tool_result' | null
 }
 
-const TOOL_XML_OPEN = `<${toolXmlName}>`
-const TOOL_XML_CLOSE = `</${toolXmlName}>`
-const TOOL_XML_PREFIX = `<${toolXmlName}`
+export const TOOL_XML_OPEN = `<${toolXmlName}>`
+export const TOOL_XML_CLOSE = `</${toolXmlName}>`
+export const TOOL_XML_PREFIX = `<${toolXmlName}`
 const TOOL_RESULT_OPEN = '<tool_result>'
 const TOOL_RESULT_CLOSE = '</tool_result>'
 const TOOL_RESULT_PREFIX = '<tool_result'

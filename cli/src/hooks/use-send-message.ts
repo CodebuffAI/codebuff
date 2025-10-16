@@ -50,56 +50,6 @@ const updateBlocksRecursively = (
   })
 }
 
-// Helper function to process buffered text and filter out tool calls
-const processToolCallBuffer = (
-  bufferState: { buffer: string; insideToolCall: boolean },
-  onTextOutput: (text: string) => void,
-) => {
-  let processed = false
-
-  if (
-    !bufferState.insideToolCall &&
-    bufferState.buffer.includes('<codebuff_tool_call>')
-  ) {
-    const openTagIndex = bufferState.buffer.indexOf('<codebuff_tool_call>')
-    const text = bufferState.buffer.substring(0, openTagIndex)
-    if (text) {
-      onTextOutput(text)
-    }
-    bufferState.insideToolCall = true
-    bufferState.buffer = bufferState.buffer.substring(
-      openTagIndex + '<codebuff_tool_call>'.length,
-    )
-    processed = true
-  } else if (
-    bufferState.insideToolCall &&
-    bufferState.buffer.includes('</codebuff_tool_call>')
-  ) {
-    const closeTagIndex = bufferState.buffer.indexOf('</codebuff_tool_call>')
-    bufferState.insideToolCall = false
-    bufferState.buffer = bufferState.buffer.substring(
-      closeTagIndex + '</codebuff_tool_call>'.length,
-    )
-    processed = true
-  } else if (!bufferState.insideToolCall && bufferState.buffer.length > 25) {
-    // Output safe text, keeping last 25 chars in buffer (enough to buffer <codebuff_tool_call>)
-    const safeToOutput = bufferState.buffer.substring(
-      0,
-      bufferState.buffer.length - 25,
-    )
-    if (safeToOutput) {
-      onTextOutput(safeToOutput)
-    }
-    bufferState.buffer = bufferState.buffer.substring(
-      bufferState.buffer.length - 25,
-    )
-  }
-
-  if (processed) {
-    processToolCallBuffer(bufferState, onTextOutput)
-  }
-}
-
 const mergeTextSegments = (
   previous: string,
   incoming: string,
@@ -178,9 +128,6 @@ export const useSendMessage = ({
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
-  >(new Map())
-  const subagentBuffersRef = useRef<
-    Map<string, { buffer: string; insideToolCall: boolean }>
   >(new Map())
   const rootStreamBufferRef = useRef('')
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
@@ -394,10 +341,6 @@ export const useSendMessage = ({
       rootStreamBufferRef.current = ''
       rootStreamSeenRef.current = false
       agentStreamAccumulatorsRef.current = new Map<string, string>()
-      subagentBuffersRef.current = new Map<
-        string,
-        { buffer: string; insideToolCall: boolean }
-      >()
 
       const updateAgentContent = (
         agentId: string,
@@ -625,34 +568,18 @@ export const useSendMessage = ({
             if (event.type === 'subagent-chunk') {
               const { agentId, chunk } = event
 
-              const bufferState = subagentBuffersRef.current.get(agentId) || {
-                buffer: '',
-                insideToolCall: false,
+              const previous =
+                agentStreamAccumulatorsRef.current.get(agentId) ?? ''
+              const { next, delta } = mergeTextSegments(previous, chunk)
+              if (!delta && next === previous) {
+                return
               }
-              subagentBuffersRef.current.set(agentId, bufferState)
+              agentStreamAccumulatorsRef.current.set(agentId, next)
 
-              bufferState.buffer += chunk
-
-              processToolCallBuffer(bufferState, (text) => {
-                if (!text) {
-                  return
-                }
-                const previous =
-                  agentStreamAccumulatorsRef.current.get(agentId) ?? ''
-                const { next, delta } = mergeTextSegments(previous, text)
-                if (!delta && next === previous) {
-                  return
-                }
-                agentStreamAccumulatorsRef.current.set(agentId, next)
-                if (delta) {
-                  updateAgentContent(agentId, { type: 'text', content: delta })
-                } else {
-                  updateAgentContent(agentId, {
-                    type: 'text',
-                    content: next,
-                    replace: true,
-                  })
-                }
+              updateAgentContent(agentId, {
+                type: 'text',
+                content: delta || next,
+                ...(delta ? {} : { replace: true }),
               })
               return
             }
@@ -674,7 +601,10 @@ export const useSendMessage = ({
                 })
                 const previous =
                   agentStreamAccumulatorsRef.current.get(event.agentId) ?? ''
-                const { next, delta } = mergeTextSegments(previous, text)
+                const { next, delta } = mergeTextSegments(
+                  previous,
+                  text,
+                )
                 if (!delta && next === previous) {
                   return
                 }
@@ -701,7 +631,10 @@ export const useSendMessage = ({
                   return
                 }
                 const previous = rootStreamBufferRef.current ?? ''
-                const { next, delta } = mergeTextSegments(previous, text)
+                const { next, delta } = mergeTextSegments(
+                  previous,
+                  text,
+                )
                 if (!delta && next === previous) {
                   return
                 }

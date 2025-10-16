@@ -2,7 +2,15 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
-## [0.4.2] 
+## [0.4.3]
+
+### Added
+
+- Exported `processToolCallBuffer` and state helpers so SDK consumers can strip `<codebuff_tool_call>` segments mid-stream.
+- CLI now consumes the shared helper to avoid leaking XML when responses arrive without token streaming.
+- Extra regression tests covering multi-chunk tool-call payloads based on the CLI log case ("I'll help you commit").
+
+## [0.4.2]
 
 ### Added
 

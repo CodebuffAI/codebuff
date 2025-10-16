@@ -15,6 +15,7 @@ import {
   filterToolXmlFromText,
   type ToolXmlFilterState,
 } from './tool-xml-filter'
+import { stripToolCallPayloads } from './tool-xml-buffer'
 import { PromptResponseSchema } from '../../common/src/actions'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { toolNames } from '../../common/src/tools/constants'
@@ -194,8 +195,10 @@ export async function run({
       next = previous + incoming
     }
 
-    textAccumulator.set(agentKey, next)
-    return next
+    const sanitizedNext = stripToolCallPayloads(next)
+
+    textAccumulator.set(agentKey, sanitizedNext)
+    return sanitizedNext
   }
 
   const emitStreamDelta = async (
@@ -276,7 +279,7 @@ export async function run({
               agentId: eventAgentId,
             } as PrintModeEvent)
 
-      if (eventAgentId && eventPayload.agentId == null) {
+      if (eventAgentId && 'agentId' in eventPayload && eventPayload.agentId == null) {
         eventPayload.agentId = eventAgentId
       }
 
@@ -398,7 +401,7 @@ export async function run({
           await flushTextState(ROOT_AGENT_KEY)
 
           const finishAgentKey =
-            (chunk as typeof chunk & { agentId?: string }).agentId
+            'agentId' in chunk ? chunk.agentId : undefined
           if (finishAgentKey && finishAgentKey !== ROOT_AGENT_KEY) {
             await flushTextState(finishAgentKey, finishAgentKey)
             await flushSubagentState(
@@ -410,7 +413,7 @@ export async function run({
           chunkType === 'subagent_finish' ||
           chunkType === 'subagent-finish'
         ) {
-          const subagentId = (chunk as { agentId?: string }).agentId
+          const subagentId = 'agentId' in chunk ? chunk.agentId : undefined
           if (subagentId) {
             await flushTextState(subagentId, subagentId)
             await flushSubagentState(
