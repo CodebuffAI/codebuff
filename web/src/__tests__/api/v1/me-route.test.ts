@@ -12,8 +12,10 @@ import type {
 describe('/api/v1/me route', () => {
   const mockUserData: Record<
     string,
-    Awaited<
-      GetUserInfoFromApiKeyOutput<(typeof VALID_USER_INFO_FIELDS)[number]>
+    NonNullable<
+      Awaited<
+        GetUserInfoFromApiKeyOutput<(typeof VALID_USER_INFO_FIELDS)[number]>
+      >
     >
   > = {
     'test-api-key-123': {
