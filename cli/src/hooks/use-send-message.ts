@@ -100,6 +100,44 @@ const processToolCallBuffer = (
   }
 }
 
+const mergeTextSegments = (
+  previous: string,
+  incoming: string,
+): { next: string; delta: string } => {
+  if (!incoming) {
+    return { next: previous, delta: '' }
+  }
+  if (!previous) {
+    return { next: incoming, delta: incoming }
+  }
+
+  if (incoming.startsWith(previous)) {
+    return { next: incoming, delta: incoming.slice(previous.length) }
+  }
+
+  if (previous.includes(incoming)) {
+    return { next: previous, delta: '' }
+  }
+
+  const maxOverlap = Math.min(previous.length, incoming.length)
+  for (let overlap = maxOverlap; overlap > 0; overlap--) {
+    if (
+      previous.slice(previous.length - overlap) === incoming.slice(0, overlap)
+    ) {
+      const delta = incoming.slice(overlap)
+      return {
+        next: previous + delta,
+        delta,
+      }
+    }
+  }
+
+  return {
+    next: previous + incoming,
+    delta: incoming,
+  }
+}
+
 interface UseSendMessageOptions {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   setFocusedAgentId: (id: string | null) => void
@@ -144,6 +182,9 @@ export const useSendMessage = ({
   const subagentBuffersRef = useRef<
     Map<string, { buffer: string; insideToolCall: boolean }>
   >(new Map())
+  const rootStreamBufferRef = useRef('')
+  const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
+  const rootStreamSeenRef = useRef(false)
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -350,10 +391,18 @@ export const useSendMessage = ({
         timestamp: formatTimestamp(),
       }
 
+      rootStreamBufferRef.current = ''
+      rootStreamSeenRef.current = false
+      agentStreamAccumulatorsRef.current = new Map<string, string>()
+      subagentBuffersRef.current = new Map<
+        string,
+        { buffer: string; insideToolCall: boolean }
+      >()
+
       const updateAgentContent = (
         agentId: string,
         update:
-          | { type: 'text'; content: string }
+          | { type: 'text'; content: string; replace?: boolean }
           | Extract<ContentBlock, { type: 'tool' }>,
       ) => {
         const preview =
@@ -379,13 +428,52 @@ export const useSendMessage = ({
                   const agentBlocks: ContentBlock[] = block.blocks
                     ? [...block.blocks]
                     : []
-                  if (update.type === 'text' && update.content) {
+                  if (update.type === 'text') {
+                    const text = update.content ?? ''
+                    const replace = update.replace ?? false
+
+                    if (replace) {
+                      const updatedBlocks = [...agentBlocks]
+                      let replaced = false
+
+                      for (let i = updatedBlocks.length - 1; i >= 0; i--) {
+                        const entry = updatedBlocks[i]
+                        if (entry.type === 'text') {
+                          replaced = true
+                          if (entry.content === text && block.content === text) {
+                            logger.info('Agent block text replacement skipped', {
+                              agentId,
+                              preview,
+                            })
+                            return block
+                          }
+                          updatedBlocks[i] = { ...entry, content: text }
+                          break
+                        }
+                      }
+
+                      if (!replaced) {
+                        updatedBlocks.push({ type: 'text', content: text })
+                      }
+
+                      logger.info('Agent block text replaced', {
+                        agentId,
+                        length: text.length,
+                      })
+                      return {
+                        ...block,
+                        content: text,
+                        blocks: updatedBlocks,
+                      }
+                    }
+
+                    if (!text) {
+                      return block
+                    }
+
                     const lastBlock = agentBlocks[agentBlocks.length - 1]
                     if (lastBlock && lastBlock.type === 'text') {
-                      if (
-                        update.content &&
-                        lastBlock.content.endsWith(update.content)
-                      ) {
+                      if (lastBlock.content.endsWith(text)) {
                         logger.info('Skipping duplicate agent text append', {
                           agentId,
                           preview,
@@ -394,13 +482,13 @@ export const useSendMessage = ({
                       }
                       const updatedLastBlock: ContentBlock = {
                         ...lastBlock,
-                        content: lastBlock.content + update.content,
+                        content: lastBlock.content + text,
                       }
                       const updatedContent =
-                        (block.content ?? '') + update.content
+                        (block.content ?? '') + text
                       logger.info('Agent block text appended', {
                         agentId,
-                        appendedLength: update.content.length,
+                        appendedLength: text.length,
                         totalLength: updatedContent.length,
                       })
                       return {
@@ -410,16 +498,19 @@ export const useSendMessage = ({
                       }
                     } else {
                       const updatedContent =
-                        (block.content ?? '') + update.content
+                        (block.content ?? '') + text
                       logger.info('Agent block text started', {
                         agentId,
-                        appendedLength: update.content.length,
+                        appendedLength: text.length,
                         totalLength: updatedContent.length,
                       })
                       return {
                         ...block,
                         content: updatedContent,
-                        blocks: [...agentBlocks, update],
+                        blocks: [
+                          ...agentBlocks,
+                          { type: 'text', content: text },
+                        ],
                       }
                     }
                   } else if (update.type === 'tool') {
@@ -432,9 +523,49 @@ export const useSendMessage = ({
                   return block
                 },
               )
-              return { ...msg, blocks: newBlocks }
+            return { ...msg, blocks: newBlocks }
+          }
+          return msg
+        }),
+      )
+    }
+
+      const appendRootTextChunk = (delta: string) => {
+        if (!delta) {
+          return
+        }
+
+        const fullText = rootStreamBufferRef.current ?? ''
+        logger.info('appendRootTextChunk invoked', {
+          chunkLength: delta.length,
+          fullLength: fullText.length,
+          preview: delta.slice(0, 100),
+        })
+
+        queueMessageUpdate((prev) =>
+          prev.map((msg) => {
+            if (msg.id !== aiMessageId) {
+              return msg
             }
-            return msg
+
+            const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
+            const lastBlock = blocks[blocks.length - 1]
+
+            if (lastBlock && lastBlock.type === 'text') {
+              const updatedBlock: ContentBlock = {
+                ...lastBlock,
+                content: lastBlock.content + delta,
+              }
+              return {
+                ...msg,
+                blocks: [...blocks.slice(0, -1), updatedBlock],
+              }
+            }
+
+            return {
+              ...msg,
+              blocks: [...blocks, { type: 'text', content: delta }],
+            }
           }),
         )
       }
@@ -461,8 +592,31 @@ export const useSendMessage = ({
           signal: abortController.signal,
 
           handleStreamChunk: (chunk: any) => {
-            // Streaming chunks are also sent via text events, so we ignore them here to avoid duplication
-            // Text events have better handling for tool call filtering
+            if (typeof chunk !== 'string' || !chunk) {
+              return
+            }
+
+            if (!hasReceivedContent) {
+              hasReceivedContent = true
+              setIsWaitingForResponse(false)
+            }
+
+            const previous = rootStreamBufferRef.current ?? ''
+            const { next, delta } = mergeTextSegments(previous, chunk)
+            if (!delta && next === previous) {
+              return
+            }
+            logger.info('handleStreamChunk root delta', {
+              chunkLength: chunk.length,
+              previousLength: previous.length,
+              nextLength: next.length,
+              preview: chunk.slice(0, 100),
+            })
+            rootStreamBufferRef.current = next
+            rootStreamSeenRef.current = true
+            if (delta) {
+              appendRootTextChunk(delta)
+            }
           },
 
           handleEvent: (event: any) => {
@@ -480,18 +634,33 @@ export const useSendMessage = ({
               bufferState.buffer += chunk
 
               processToolCallBuffer(bufferState, (text) => {
-                updateAgentContent(agentId, { type: 'text', content: text })
+                if (!text) {
+                  return
+                }
+                const previous =
+                  agentStreamAccumulatorsRef.current.get(agentId) ?? ''
+                const { next, delta } = mergeTextSegments(previous, text)
+                if (!delta && next === previous) {
+                  return
+                }
+                agentStreamAccumulatorsRef.current.set(agentId, next)
+                if (delta) {
+                  updateAgentContent(agentId, { type: 'text', content: delta })
+                } else {
+                  updateAgentContent(agentId, {
+                    type: 'text',
+                    content: next,
+                    replace: true,
+                  })
+                }
               })
               return
             }
 
             if (event.type === 'text') {
-              let text = event.text.replace(
-                /<codebuff_tool_call>[\s\S]*?<\/codebuff_tool_call>/g,
-                '',
-              )
+              const text = event.text
 
-              if (!text) return
+              if (typeof text !== 'string' || !text) return
 
               if (!hasReceivedContent) {
                 hasReceivedContent = true
@@ -503,53 +672,50 @@ export const useSendMessage = ({
                   agentId: event.agentId,
                   textPreview: text.slice(0, 100),
                 })
-                updateAgentContent(event.agentId, {
-                  type: 'text',
-                  content: text,
-                })
+                const previous =
+                  agentStreamAccumulatorsRef.current.get(event.agentId) ?? ''
+                const { next, delta } = mergeTextSegments(previous, text)
+                if (!delta && next === previous) {
+                  return
+                }
+                agentStreamAccumulatorsRef.current.set(event.agentId, next)
+
+                if (delta) {
+                  updateAgentContent(event.agentId, {
+                    type: 'text',
+                    content: delta,
+                  })
+                } else {
+                  updateAgentContent(event.agentId, {
+                    type: 'text',
+                    content: next,
+                    replace: true,
+                  })
+                }
               } else {
+                if (rootStreamSeenRef.current) {
+                  logger.info('Skipping root text event (stream already handled)', {
+                    textPreview: text.slice(0, 100),
+                    textLength: text.length,
+                  })
+                  return
+                }
+                const previous = rootStreamBufferRef.current ?? ''
+                const { next, delta } = mergeTextSegments(previous, text)
+                if (!delta && next === previous) {
+                  return
+                }
                 logger.info('setMessages: text event without agentId', {
                   textPreview: text.slice(0, 100),
+                  previousLength: previous.length,
+                  textLength: text.length,
+                  appendedLength: delta.length,
                 })
-                queueMessageUpdate((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== aiMessageId) {
-                      return msg
-                    }
+                rootStreamBufferRef.current = next
 
-                    const blocks: ContentBlock[] = msg.blocks
-                      ? [...msg.blocks]
-                      : []
-                    const lastBlock = blocks[blocks.length - 1]
-
-                    // Deduplicate: if the new text is already at the end of the last block, skip it
-                    if (lastBlock && lastBlock.type === 'text') {
-                      if (lastBlock.content.endsWith(text)) {
-                        logger.info('Skipping duplicate main agent text', {
-                          textPreview: text.slice(0, 100),
-                        })
-                        return msg
-                      }
-                      const updatedTextBlock: ContentBlock = {
-                        type: 'text',
-                        content: lastBlock.content + text,
-                      }
-                      return {
-                        ...msg,
-                        blocks: [...blocks.slice(0, -1), updatedTextBlock],
-                      }
-                    }
-
-                    const newTextBlock: ContentBlock = {
-                      type: 'text',
-                      content: text,
-                    }
-                    return {
-                      ...msg,
-                      blocks: [...blocks, newTextBlock],
-                    }
-                  }),
-                )
+                if (delta) {
+                  appendRootTextChunk(delta)
+                }
               }
               return
             }
@@ -810,6 +976,7 @@ export const useSendMessage = ({
               event.type === 'subagent-finish'
             ) {
               if (event.agentId) {
+                agentStreamAccumulatorsRef.current.delete(event.agentId)
                 removeActiveSubagent(event.agentId)
 
                 applyMessageUpdate((prev) =>

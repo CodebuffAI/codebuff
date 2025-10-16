@@ -10,9 +10,14 @@ import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
+import {
+  createToolXmlFilterState,
+  filterToolXmlFromText,
+  type ToolXmlFilterState,
+} from './tool-xml-filter'
 import { PromptResponseSchema } from '../../common/src/actions'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
-import { toolNames, toolXmlName } from '../../common/src/tools/constants'
+import { toolNames } from '../../common/src/tools/constants'
 import { clientToolCallSchema } from '../../common/src/tools/list'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -39,138 +44,6 @@ import {
   type SessionState,
 } from '../../common/src/types/session-state'
 
-type ToolXmlFilterState = {
-  buffer: string
-  activeTag: 'tool_call' | 'tool_result' | null
-}
-
-const TOOL_XML_OPEN = `<${toolXmlName}>`
-const TOOL_XML_CLOSE = `</${toolXmlName}>`
-const TOOL_XML_PREFIX = `<${toolXmlName}`
-const TOOL_RESULT_OPEN = '<tool_result>'
-const TOOL_RESULT_CLOSE = '</tool_result>'
-const TOOL_RESULT_PREFIX = '<tool_result'
-
-const TAG_DEFINITIONS = [
-  {
-    type: 'tool_call' as const,
-    open: TOOL_XML_OPEN,
-    close: TOOL_XML_CLOSE,
-    prefix: TOOL_XML_PREFIX,
-  },
-  {
-    type: 'tool_result' as const,
-    open: TOOL_RESULT_OPEN,
-    close: TOOL_RESULT_CLOSE,
-    prefix: TOOL_RESULT_PREFIX,
-  },
-]
-
-const TAG_INFO_BY_TYPE = Object.fromEntries(
-  TAG_DEFINITIONS.map((tag) => [tag.type, tag]),
-)
-
-const getPartialStartIndex = (value: string, pattern: string): number => {
-  const max = Math.min(pattern.length - 1, value.length)
-  for (let len = max; len > 0; len--) {
-    const slice = value.slice(value.length - len)
-    if (pattern.startsWith(slice)) {
-      return value.length - len
-    }
-  }
-  return -1
-}
-
-function filterToolXmlFromText(
-  state: ToolXmlFilterState,
-  incoming: string,
-  maxBuffer: number,
-): { text: string } {
-  if (incoming) {
-    state.buffer += incoming
-  }
-
-  let sanitized = ''
-
-  while (state.buffer.length > 0) {
-    if (state.activeTag == null) {
-      let nextTag: {
-        index: number
-        definition: (typeof TAG_DEFINITIONS)[number]
-      } | null = null
-
-      for (const definition of TAG_DEFINITIONS) {
-        const index = state.buffer.indexOf(definition.open)
-        if (index !== -1) {
-          if (nextTag == null || index < nextTag.index) {
-            nextTag = { index, definition }
-          }
-        }
-      }
-
-      if (!nextTag) {
-        let partialIndex = -1
-        for (const definition of TAG_DEFINITIONS) {
-          const idx = getPartialStartIndex(state.buffer, definition.prefix)
-          if (idx !== -1 && (partialIndex === -1 || idx < partialIndex)) {
-            partialIndex = idx
-          }
-        }
-
-        if (partialIndex === -1) {
-          sanitized += state.buffer
-          state.buffer = ''
-        } else {
-          sanitized += state.buffer.slice(0, partialIndex)
-          state.buffer = state.buffer.slice(partialIndex)
-        }
-        break
-      }
-
-      sanitized += state.buffer.slice(0, nextTag.index)
-      state.buffer = state.buffer.slice(
-        nextTag.index + nextTag.definition.open.length,
-      )
-      state.activeTag = nextTag.definition.type
-    } else {
-      const definition = TAG_INFO_BY_TYPE[state.activeTag]
-      const closeIndex = state.buffer.indexOf(definition.close)
-
-      if (closeIndex === -1) {
-        const partialCloseIndex = getPartialStartIndex(
-          state.buffer,
-          definition.close,
-        )
-        if (partialCloseIndex === -1) {
-          const keepLength = definition.close.length - 1
-          if (state.buffer.length > keepLength) {
-            state.buffer = state.buffer.slice(
-              state.buffer.length - keepLength,
-            )
-          }
-        } else {
-          state.buffer = state.buffer.slice(partialCloseIndex)
-        }
-
-        if (state.buffer.length > maxBuffer) {
-          state.buffer = state.buffer.slice(-maxBuffer)
-        }
-        break
-      }
-
-      state.buffer = state.buffer.slice(
-        closeIndex + definition.close.length,
-      )
-      state.activeTag = null
-    }
-  }
-
-  if (state.buffer.length > maxBuffer) {
-    state.buffer = state.buffer.slice(-maxBuffer)
-  }
-
-  return { text: sanitized }
-}
 
 export type CodebuffClientOptions = {
   // Provide an API key or set the CODEBUFF_API_KEY environment variable.
@@ -261,15 +134,18 @@ export async function run({
   const MAX_TOOL_XML_BUFFER = BUFFER_SIZE * 10
   const ROOT_AGENT_KEY = '__root__'
 
-  const streamFilterState: ToolXmlFilterState = { buffer: '', activeTag: null }
+  const streamFilterState = createToolXmlFilterState()
   const textFilterStates = new Map<string, ToolXmlFilterState>()
+  const textAccumulator = new Map<string, string>()
+  const lastStreamedTextByAgent = new Map<string, string>()
+  const lastTextEventByAgent = new Map<string, PrintModeEvent>()
 
   const subagentFilterStates = new Map<string, ToolXmlFilterState>()
 
   const getTextFilterState = (agentKey: string): ToolXmlFilterState => {
     let state = textFilterStates.get(agentKey)
     if (!state) {
-      state = { buffer: '', activeTag: null }
+      state = createToolXmlFilterState()
       textFilterStates.set(agentKey, state)
     }
     return state
@@ -278,10 +154,76 @@ export async function run({
   const getSubagentFilterState = (agentId: string): ToolXmlFilterState => {
     let state = subagentFilterStates.get(agentId)
     if (!state) {
-      state = { buffer: '', activeTag: null }
+      state = createToolXmlFilterState()
       subagentFilterStates.set(agentId, state)
     }
     return state
+  }
+
+  const getCommonPrefixLength = (a: string, b: string): number => {
+    const max = Math.min(a.length, b.length)
+    let index = 0
+    while (index < max && a[index] === b[index]) {
+      index++
+    }
+    return index
+  }
+
+  const accumulateText = (agentKey: string, incoming: string): string => {
+    if (!incoming) {
+      return textAccumulator.get(agentKey) ?? ''
+    }
+
+    const previous = textAccumulator.get(agentKey) ?? ''
+    let next: string
+
+    if (!previous) {
+      next = incoming
+    } else if (incoming.startsWith(previous)) {
+      next = incoming
+    } else if (previous.startsWith(incoming)) {
+      next = incoming
+    } else if (
+      incoming.length >= previous.length &&
+      incoming.includes(previous)
+    ) {
+      next = incoming
+    } else if (incoming.length < previous.length && !previous.includes(incoming)) {
+      next = incoming
+    } else {
+      next = previous + incoming
+    }
+
+    textAccumulator.set(agentKey, next)
+    return next
+  }
+
+  const emitStreamDelta = async (
+    agentKey: string,
+    nextFullText: string,
+  ): Promise<void> => {
+    const previous = lastStreamedTextByAgent.get(agentKey) ?? ''
+
+    if (nextFullText === previous) {
+      return
+    }
+
+    let delta = ''
+
+    if (nextFullText.startsWith(previous)) {
+      delta = nextFullText.slice(previous.length)
+    } else if (previous.startsWith(nextFullText)) {
+      delta = ''
+    } else {
+      const prefixLength = getCommonPrefixLength(previous, nextFullText)
+      delta = nextFullText.slice(prefixLength)
+    }
+
+    if (delta) {
+      await handleStreamChunk?.(delta)
+    }
+
+    lastStreamedTextByAgent.set(agentKey, nextFullText)
   }
 
   const flushTextState = async (
@@ -298,22 +240,47 @@ export async function run({
       '',
       MAX_TOOL_XML_BUFFER,
     )
-    let remainder = pendingText
+    let pending = pendingText
 
     if (state.buffer && !state.buffer.includes('<')) {
-      remainder += state.buffer
+      pending += state.buffer
     }
+
     state.buffer = ''
     state.activeTag = null
 
     textFilterStates.delete(agentKey)
 
-    if (remainder) {
-      await handleEvent?.({
-        type: 'text',
-        text: remainder,
-        agentId: eventAgentId,
-      } as any)
+    let nextFullText = textAccumulator.get(agentKey) ?? ''
+
+    if (pending) {
+      nextFullText = accumulateText(agentKey, pending)
+      if (agentKey === ROOT_AGENT_KEY) {
+        await emitStreamDelta(agentKey, nextFullText)
+      }
+    }
+
+    const aggregatedText = textAccumulator.get(agentKey) ?? ''
+    textAccumulator.delete(agentKey)
+    lastStreamedTextByAgent.delete(agentKey)
+    const lastChunk = lastTextEventByAgent.get(agentKey)
+    lastTextEventByAgent.delete(agentKey)
+
+    if (aggregatedText) {
+      const eventPayload =
+        lastChunk != null
+          ? { ...lastChunk, text: aggregatedText }
+          : ({
+              type: 'text',
+              text: aggregatedText,
+              agentId: eventAgentId,
+            } as PrintModeEvent)
+
+      if (eventAgentId && eventPayload.agentId == null) {
+        eventPayload.agentId = eventAgentId
+      }
+
+      await handleEvent?.(eventPayload)
     }
   }
 
@@ -387,11 +354,13 @@ export async function run({
         )
 
         if (sanitized) {
-          await handleStreamChunk?.(sanitized)
+          const nextFullText = accumulateText(ROOT_AGENT_KEY, sanitized)
+          await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
         }
       } else if (chunk.type === 'text') {
         const agentKey = chunk.agentId ?? ROOT_AGENT_KEY
         const state = getTextFilterState(agentKey)
+        lastTextEventByAgent.set(agentKey, { ...chunk })
         const { text: sanitized } = filterToolXmlFromText(
           state,
           chunk.text,
@@ -399,10 +368,10 @@ export async function run({
         )
 
         if (sanitized) {
-          await handleEvent?.({
-            ...chunk,
-            text: sanitized,
-          })
+          const nextFullText = accumulateText(agentKey, sanitized)
+          if (agentKey === ROOT_AGENT_KEY) {
+            await emitStreamDelta(agentKey, nextFullText)
+          }
         }
       } else {
         const chunkType = chunk.type as string
@@ -422,7 +391,8 @@ export async function run({
           streamFilterState.activeTag = null
 
           if (remainder) {
-            await handleStreamChunk?.(remainder)
+            const nextFullText = accumulateText(ROOT_AGENT_KEY, remainder)
+            await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
           }
 
           await flushTextState(ROOT_AGENT_KEY)
