@@ -4,7 +4,9 @@ import postgres from 'postgres'
 
 import * as schema from './schema'
 
+import type { CodebuffPgDatabase } from './types'
+
 const client = postgres(env.DATABASE_URL)
 
-export const db = drizzle(client, { schema })
+export const db: CodebuffPgDatabase = drizzle(client, { schema })
 export default db

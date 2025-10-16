@@ -1,10 +1,12 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { getErrorObject } from '@codebuff/common/util/error'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
+import type { CodebuffPgDatabase } from '@codebuff/common/db/types'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -18,18 +20,159 @@ const agentRunsStartSchema = z.object({
   ancestorRunIds: z.array(z.string()).optional(),
 })
 
+const agentRunsFinishSchema = z.object({
+  action: z.literal('FINISH'),
+  runId: z.string(),
+  status: z.enum(['completed', 'failed', 'cancelled']),
+  totalSteps: z.number().int().nonnegative(),
+  directCredits: z.number().nonnegative(),
+  totalCredits: z.number().nonnegative(),
+  errorMessage: z.string().optional(),
+})
+
 const agentRunsPostBodySchema = z.discriminatedUnion('action', [
   agentRunsStartSchema,
-  // agentRunsFinishSchema,
+  agentRunsFinishSchema,
 ])
+
+async function handleStartAction(params: {
+  data: z.infer<typeof agentRunsStartSchema>
+  userId: string
+  logger: Logger
+  trackEvent: TrackEventFn
+  db: CodebuffPgDatabase
+}) {
+  const { data, userId, logger, trackEvent, db } = params
+  const { agentId, ancestorRunIds } = data
+  const validatedAncestorRunIds = ancestorRunIds || []
+
+  // Generate runId (never accept from input)
+  const runId = crypto.randomUUID()
+
+  try {
+    await db.insert(schema.agentRun).values({
+      id: runId,
+      user_id: userId,
+      agent_id: agentId,
+      ancestor_run_ids: validatedAncestorRunIds,
+      status: 'running',
+      created_at: new Date(),
+    })
+
+    trackEvent({
+      event: AnalyticsEvent.AGENT_RUN_CREATED,
+      userId,
+      properties: {
+        agentId,
+        ancestorRunIds: validatedAncestorRunIds,
+      },
+      logger,
+    })
+
+    return NextResponse.json({ runId })
+  } catch (error) {
+    logger.error(
+      {
+        error,
+        runId,
+        userId,
+        agentId,
+        ancestorRunIds: validatedAncestorRunIds,
+      },
+      'Failed to start agent run'
+    )
+    trackEvent({
+      event: AnalyticsEvent.AGENT_RUN_CREATION_ERROR,
+      userId,
+      properties: {
+        agentId,
+        errorMessage: getErrorObject(error),
+      },
+      logger,
+    })
+    return NextResponse.json(
+      { error: 'Failed to create agent run' },
+      { status: 500 }
+    )
+  }
+}
+
+async function handleFinishAction(params: {
+  data: z.infer<typeof agentRunsFinishSchema>
+  userId: string
+  logger: Logger
+  trackEvent: TrackEventFn
+  db: CodebuffPgDatabase
+}) {
+  const { data, userId, logger, trackEvent, db } = params
+  const {
+    runId,
+    status,
+    totalSteps,
+    directCredits,
+    totalCredits,
+    errorMessage,
+  } = data
+
+  // Skip database update for test user
+  if (userId === TEST_USER_ID) {
+    return NextResponse.json({ success: true })
+  }
+
+  try {
+    await db
+      .update(schema.agentRun)
+      .set({
+        status,
+        completed_at: new Date(),
+        total_steps: totalSteps,
+        direct_credits: directCredits.toString(),
+        total_credits: totalCredits.toString(),
+        error_message: errorMessage,
+      })
+      .where(eq(schema.agentRun.id, runId))
+
+    trackEvent({
+      event: AnalyticsEvent.AGENT_RUN_COMPLETED,
+      userId,
+      properties: {
+        runId,
+        status,
+        totalSteps,
+        directCredits,
+        totalCredits,
+        hasError: !!errorMessage,
+      },
+      logger,
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    logger.error({ error, runId, status }, 'Failed to finish agent run')
+    trackEvent({
+      event: AnalyticsEvent.AGENT_RUN_COMPLETION_ERROR,
+      userId,
+      properties: {
+        runId,
+        errorMessage: getErrorObject(error),
+      },
+      logger,
+    })
+    return NextResponse.json(
+      { error: 'Failed to finish agent run' },
+      { status: 500 }
+    )
+  }
+}
 
 export async function agentRunsPost(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
   trackEvent: TrackEventFn
+  db: CodebuffPgDatabase
 }) {
-  const { req, getUserInfoFromApiKey, logger, trackEvent } = params
+  const { req, getUserInfoFromApiKey, logger, trackEvent, db } = params
 
   const apiKey = extractApiKeyFromHeader(req)
 
@@ -84,63 +227,29 @@ export async function agentRunsPost(params: {
     )
   }
 
-  const { agentId, ancestorRunIds } = parseResult.data
-  const validatedAncestorRunIds = ancestorRunIds || []
+  const data = parseResult.data
 
-  // Generate runId (never accept from input)
-  const runId = crypto.randomUUID()
-
-  // Skip database insertion for test user
-  if (userInfo.id === TEST_USER_ID) {
-    return NextResponse.json({ runId: 'test-run-id' })
+  // Route to appropriate handler
+  if (data.action === 'START') {
+    return handleStartAction({
+      data,
+      userId: userInfo.id,
+      logger,
+      trackEvent,
+      db,
+    })
   }
 
-  try {
-    await db.insert(schema.agentRun).values({
-      id: runId,
-      user_id: userInfo.id,
-      agent_id: agentId,
-      ancestor_run_ids:
-        validatedAncestorRunIds.length > 0 ? validatedAncestorRunIds : null,
-      status: 'running',
-      created_at: new Date(),
-    })
-
-    trackEvent({
-      event: AnalyticsEvent.AGENT_RUN_CREATED,
+  if (data.action === 'FINISH') {
+    return handleFinishAction({
+      data,
       userId: userInfo.id,
-      properties: {
-        agentId,
-        hasAncestors: validatedAncestorRunIds.length > 0,
-        ancestorCount: validatedAncestorRunIds.length,
-      },
       logger,
+      trackEvent,
+      db,
     })
-
-    return NextResponse.json({ runId })
-  } catch (error) {
-    logger.error(
-      {
-        error,
-        runId,
-        userId: userInfo.id,
-        agentId,
-        ancestorRunIds: validatedAncestorRunIds,
-      },
-      'Failed to start agent run'
-    )
-    trackEvent({
-      event: AnalyticsEvent.AGENT_RUN_CREATION_ERROR,
-      userId: userInfo.id,
-      properties: {
-        agentId,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      },
-      logger,
-    })
-    return NextResponse.json(
-      { error: 'Failed to create agent run' },
-      { status: 500 }
-    )
   }
+
+  // Unreachable due to discriminated union
+  return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 }

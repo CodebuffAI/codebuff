@@ -85,7 +85,7 @@ export async function finishAgentRun(
  * Adds a completed step to the agent_step table
  */
 export async function addAgentStep(
-  params: Parameters<AddAgentStepFn>[0],
+  params: ParamsOf<AddAgentStepFn>,
 ): ReturnType<AddAgentStepFn> {
   const {
     userId,
