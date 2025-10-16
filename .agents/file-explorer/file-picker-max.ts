@@ -10,7 +10,12 @@ const definition: SecretAgentDefinition = {
   id: 'file-picker-max',
   displayName: 'Fletcher the File Fetcher',
   publisher,
-  model: 'anthropic/claude-haiku-4.5',
+  model: 'google/gemini-2.0-flash-001',
+  reasoningOptions: {
+    enabled: false,
+    effort: 'low',
+    exclude: false,
+  },
   spawnerPrompt:
     'Spawn to find relevant files in a codebase related to the prompt. Cannot do string searches on the codebase.',
   inputSchema: {
@@ -24,11 +29,10 @@ const definition: SecretAgentDefinition = {
   toolNames: ['spawn_agents'],
   spawnableAgents: ['file-lister'],
 
-  systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}`,
+  systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
   instructionsPrompt: `Instructions:
-- Don't use any tools.
-- Provide a short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt. Leave out irrelevant locations.
-In your report, please give a very concise analysis that includes the full paths of files that are relevant and (briefly) how they could be useful.
+Provide an extremely short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt. Leave out irrelevant locations.
+In your report, please give a very concise analysis that includes the full paths of files that are relevant and (extremely briefly) how they could be useful.
   `.trim(),
 
   handleSteps: function* ({ prompt, logger }) {
