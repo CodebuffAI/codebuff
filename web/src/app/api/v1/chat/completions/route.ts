@@ -1,8 +1,9 @@
 import { getUserUsageData } from '@codebuff/billing/usage-service'
 import { trackEvent } from '@codebuff/common/analytics'
+
 import type { NextRequest } from 'next/server'
 
-import { chatCompletionsPost } from '@/api/v1/chat-completions'
+import { chatCompletionsPost } from '@/api/v1/chat/completions'
 import { getAgentRunFromId } from '@/db/agent-run'
 import { getUserInfoFromApiKey } from '@/db/user'
 import { handleOpenRouterStream } from '@/llm-api/openrouter'

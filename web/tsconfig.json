@@ -32,7 +32,7 @@
     "**/*.mjs",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".contentlayer", "**/__tests__/**"],
+  "exclude": ["node_modules", ".contentlayer"],
   "ts-node": {
     "require": ["tsconfig-paths/register"]
   }
