@@ -1,16 +1,25 @@
-import { useKeyboard, /* usePaste */ } from '@opentui/react'
+import { TextAttributes } from '@opentui/core'
+import { useKeyboard } from '@opentui/react'
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
 
-import { TextAttributes, type ScrollBoxRenderable } from '@opentui/core'
+import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 
-import { logger } from '../utils/logger'
+import type { PasteEvent, ScrollBoxRenderable } from '@opentui/core'
 
-const mixColors = (foreground: string, background: string, alpha = 0.4): string => {
+const mixColors = (
+  foreground: string,
+  background: string,
+  alpha = 0.4,
+): string => {
   const parseHex = (hex: string) => {
     const normalized = hex.trim().replace('#', '')
-    const full = normalized.length === 3
-      ? normalized.split('').map((ch) => ch + ch).join('')
-      : normalized
+    const full =
+      normalized.length === 3
+        ? normalized
+            .split('')
+            .map((ch) => ch + ch)
+            .join('')
+        : normalized
     const value = parseInt(full, 16)
     return {
       r: (value >> 16) & 0xff,
@@ -37,7 +46,6 @@ const mixColors = (foreground: string, background: string, alpha = 0.4): string 
     return foreground
   }
 }
-
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
@@ -138,13 +146,14 @@ export function MultilineInput({
     }
   }, [value.length, cursorPosition])
 
-  /*
-  usePaste(
+  useOpentuiPaste(
     useCallback(
-      (event) => {
+      (event: PasteEvent) => {
         if (!focused) return
-        
-        const text = event.text
+
+        const text = event.text ?? ''
+        if (!text) return
+
         const newValue =
           value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
         onChange(newValue)
@@ -153,7 +162,6 @@ export function MultilineInput({
       [focused, value, cursorPosition, onChange],
     ),
   )
-  */
 
   // Auto-scroll to bottom when content changes
   useEffect(() => {
@@ -217,9 +225,9 @@ export function MultilineInput({
           !hasEscapePrefix &&
           key.sequence === '\r'
         const isShiftEnter =
-          isEnterKey &&
-          (Boolean(key.shift) || key.sequence === '\n')
-        const isOptionEnter = isEnterKey && (isAltLikeModifier || hasEscapePrefix)
+          isEnterKey && (Boolean(key.shift) || key.sequence === '\n')
+        const isOptionEnter =
+          isEnterKey && (isAltLikeModifier || hasEscapePrefix)
         const isCtrlJ =
           key.ctrl &&
           !key.meta &&
@@ -259,9 +267,6 @@ export function MultilineInput({
           } catch {
             // ignore property introspection errors
           }
-          logger.info('[input-debug] keypress', {
-            ...snapshot,
-          })
         }
 
         const shouldInsertNewline = isShiftEnter || isOptionEnter || isCtrlJ
@@ -292,10 +297,34 @@ export function MultilineInput({
         // Ctrl+U: Delete to line start (also triggered by Cmd+Delete on macOS)
         if (key.ctrl && lowerKeyName === 'u' && !key.meta && !key.option) {
           if ('preventDefault' in key) (key as any).preventDefault()
-          const newValue =
-            value.slice(0, lineStart) + value.slice(cursorPosition)
+
+          const originalValue = value
+          let newValue = originalValue
+          let nextCursor = cursorPosition
+
+          if (cursorPosition > lineStart) {
+            newValue = value.slice(0, lineStart) + value.slice(cursorPosition)
+            nextCursor = lineStart
+          } else if (
+            cursorPosition === lineStart &&
+            cursorPosition > 0 &&
+            value[cursorPosition - 1] === '\n'
+          ) {
+            newValue =
+              value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
+            nextCursor = cursorPosition - 1
+          } else if (cursorPosition > 0) {
+            newValue =
+              value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
+            nextCursor = cursorPosition - 1
+          }
+
+          if (newValue === originalValue) {
+            return
+          }
+
           onChange(newValue)
-          setCursorPosition(lineStart)
+          setCursorPosition(Math.max(0, nextCursor))
           return
         }
 
@@ -310,12 +339,40 @@ export function MultilineInput({
           onChange(newValue)
           setCursorPosition(wordStart)
           return
-        } // Cmd+Delete: Delete everything before cursor
+        } // Cmd+Delete: Delete to line start; fallback to single delete if nothing changes
         if (key.name === 'delete' && key.meta && !isAltLikeModifier) {
           if ('preventDefault' in key) (key as any).preventDefault()
-          const newValue = value.slice(cursorPosition)
+
+          const originalValue = value
+          let newValue = originalValue
+          let nextCursor = cursorPosition
+
+          if (cursorPosition > 0) {
+            if (
+              cursorPosition === lineStart &&
+              value[cursorPosition - 1] === '\n'
+            ) {
+              newValue =
+                value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
+              nextCursor = cursorPosition - 1
+            } else {
+              newValue = value.slice(0, lineStart) + value.slice(cursorPosition)
+              nextCursor = lineStart
+            }
+          }
+
+          if (newValue === originalValue && cursorPosition > 0) {
+            newValue =
+              value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
+            nextCursor = cursorPosition - 1
+          }
+
+          if (newValue === originalValue) {
+            return
+          }
+
           onChange(newValue)
-          setCursorPosition(0)
+          setCursorPosition(Math.max(0, nextCursor))
           return
         } // Alt+Delete: Delete word forward
         if (key.name === 'delete' && isAltLikeModifier) {
@@ -500,8 +557,16 @@ export function MultilineInput({
   const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
   const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
   const activeChar = afterCursor.charAt(0) || ' '
-  const highlightBg = mixColors(theme.cursor, isPlaceholder ? theme.inputBg : theme.inputFocusedBg, 0.4)
-  const shouldHighlight = showCursor && !isPlaceholder && cursorPosition > 0 && cursorPosition < displayValue.length
+  const highlightBg = mixColors(
+    theme.cursor,
+    isPlaceholder ? theme.inputBg : theme.inputFocusedBg,
+    0.4,
+  )
+  const shouldHighlight =
+    showCursor &&
+    !isPlaceholder &&
+    cursorPosition > 0 &&
+    cursorPosition < displayValue.length
 
   const height = useMemo(() => {
     const maxCharsPerLine = Math.max(1, width - 4)
@@ -521,7 +586,14 @@ export function MultilineInput({
       }
     }
     return Math.max(1, Math.min(totalLineCount, maxHeight))
-  }, [displayValue, cursorPosition, showCursor, shouldHighlight, width, maxHeight])
+  }, [
+    displayValue,
+    cursorPosition,
+    showCursor,
+    shouldHighlight,
+    width,
+    maxHeight,
+  ])
 
   return (
     <scrollbox

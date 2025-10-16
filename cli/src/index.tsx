@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import './polyfills/bun-strip-ansi'
 import { render } from '@opentui/react'
 import React from 'react'
 

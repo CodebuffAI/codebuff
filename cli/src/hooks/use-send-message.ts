@@ -25,6 +25,11 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agents',
 ])
 
+const yieldToEventLoop = () =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, 0)
+  })
+
 // Helper function to recursively update blocks
 const updateBlocksRecursively = (
   blocks: ContentBlock[],
@@ -272,6 +277,8 @@ export const useSendMessage = ({
         }
         return newMessages
       })
+      await yieldToEventLoop()
+
       setFocusedAgentId(null)
       setInputFocused(true)
       inputRef.current?.focus()
