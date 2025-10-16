@@ -9,6 +9,7 @@ import { runAgentOnCommit } from './agent-runner'
 import { formatTaskResults } from './format-output'
 import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
+import { analyzeAllTasks } from './meta-analyzer'
 import { CodebuffClient } from '../../sdk/src/client'
 
 import type { AgentEvalResults, EvalDataV2 } from './types'
@@ -256,6 +257,39 @@ export async function runBuffBench(options: {
 
   const logFiles = fs.readdirSync(logsDir)
 
+  // Run meta-analysis across all tasks
+  console.log('\n=== Running Meta-Analysis ===')
+  const metaAnalysis = await analyzeAllTasks({
+    client,
+    logsDir,
+    agents,
+  })
+
+  // Print meta-analysis results
+  console.log('\n=== Meta-Analysis Results ===')
+  console.log('\nOverall Comparison:')
+  console.log(metaAnalysis.overallComparison)
+
+  if (metaAnalysis.agentInsights.length > 0) {
+    console.log('\nAgent-Specific Insights:')
+    for (const insight of metaAnalysis.agentInsights) {
+      console.log(`\n[${insight.agentId}]`)
+      if (insight.consistentStrengths.length > 0) {
+        console.log('  Strengths:', insight.consistentStrengths.join(', '))
+      }
+      if (insight.consistentWeaknesses.length > 0) {
+        console.log('  Weaknesses:', insight.consistentWeaknesses.join(', '))
+      }
+    }
+  }
+
+  if (metaAnalysis.keyFindings.length > 0) {
+    console.log('\nKey Findings:')
+    metaAnalysis.keyFindings.forEach((finding, i) => {
+      console.log(`  ${i + 1}. ${finding}`)
+    })
+  }
+
   const finalResults = {
     metadata: {
       timestamp: new Date().toISOString(),
@@ -269,6 +303,7 @@ export async function runBuffBench(options: {
       logsDirectory: logsDir,
       files: logFiles,
     },
+    metaAnalysis,
     ...results,
   }
 

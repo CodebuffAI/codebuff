@@ -257,8 +257,8 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
           }
         },
       }),
-      10 * 60 * 1000,
-      'Trace analyzer agent timed out after 10 minutes',
+      20 * 60 * 1000,
+      'Trace analyzer agent timed out after 20 minutes',
     )
 
     const { output } = analyzerResult
