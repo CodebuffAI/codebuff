@@ -1,5 +1,18 @@
 # CLI Package Knowledge
 
+## Migration from Custom OpenTUI Fork
+
+**October 2024**: Migrated from custom `CodebuffAI/opentui#codebuff/custom` fork to official `@opentui/react@^0.1.27` and `@opentui/core@^0.1.27` packages.
+
+**Lost Features from Custom Fork:**
+
+- `usePaste` hook - Direct paste event handling is no longer available. Terminal paste (Ctrl+V/Cmd+V) now appears as regular key input events.
+
+**Impact:**
+
+- Paste functionality still works through the terminal's native paste mechanism, but we can no longer intercept paste events separately from typing.
+- If custom paste handling is needed in the future, it must be reimplemented using `useKeyboard` hook or by checking the official OpenTUI for updates.
+
 ## OpenTUI Text Rendering Constraints
 
 **CRITICAL**: OpenTUI has strict requirements for text rendering that must be followed:
@@ -25,12 +38,14 @@ OpenTUI expects plain text content or the `content` prop - it does not handle JS
 The CLI chat interface adapts its layout based on terminal dimensions:
 
 ### Screen Modes
+
 - **Full-screen**: width ≥ 70 AND height ≥ 30
 - **Wide-screen**: width ≥ 70 AND height < 30
 - **Tall-screen**: width < 70 AND height ≥ 30
 - **Small-screen**: width < 70 AND height < 30
 
 ### TODO List Positioning
+
 - **Right side**: Full-screen and wide-screen modes (when there's sufficient horizontal space)
 - **Top**: Tall-screen and small-screen modes (when terminal is narrow)
 
@@ -41,6 +56,7 @@ The TODO list automatically repositions based on available space to ensure optim
 All text styling components (`<strong>`, `<em>`, `<span>`, etc.) **MUST** be nested inside a `<text>` component. They cannot be returned directly from render functions.
 
 **INCORRECT** ❌:
+
 ```tsx
 // This will cause a black screen!
 function renderMarkdown(content: string) {
@@ -54,6 +70,7 @@ function renderMarkdown(content: string) {
 ```
 
 **CORRECT** ✅:
+
 ```tsx
 // All styling must be inside <text>
 function renderMarkdown(content: string) {
@@ -75,6 +92,7 @@ function renderMarkdown(content: string) {
 ### Available OpenTUI Components
 
 **Core Components**:
+
 - `<text>` - The fundamental component for displaying all text content
 - `<box>` - Container for layout and grouping
 - `<input>` - Text input field
@@ -84,6 +102,7 @@ function renderMarkdown(content: string) {
 - `<ascii-font>` - ASCII art text rendering
 
 **Text Modifiers** (must be inside `<text>`):
+
 - `<span>` - Generic inline styling
 - `<strong>` and `<b>` - Bold text
 - `<em>` and `<i>` - Italic text
@@ -104,15 +123,13 @@ export function renderMarkdown(markdown: string): ReactNode {
   const inlineElements = [
     <strong>Bold text</strong>,
     ' and ',
-    <em>italic text</em>
+    <em>italic text</em>,
   ]
   return <>{inlineElements}</>
 }
 
 // In chat.tsx:
-<text wrap>
-  {renderMarkdown(message.content)}
-</text>
+;<text wrap>{renderMarkdown(message.content)}</text>
 ```
 
 **Incorrect Pattern** (causes black screen):
@@ -129,6 +146,7 @@ export function renderMarkdown(markdown: string): ReactNode {
 ```
 
 The implementation uses:
+
 - `markdownToInline()`: Converts markdown AST to array of inline JSX elements
 - `renderInlineContent()`: Renders inline styling (`<strong>`, `<em>`, `<span>`)
 - Returns a fragment `<>{inlineElements}</>` that can be safely placed inside parent `<text>`
@@ -148,6 +166,7 @@ Error: Child not found in children
 ### Root Cause
 
 OpenTUI's reconciler struggles when:
+
 1. **Conditionally rendering elements at the same level** using `{condition && <element>}`
 2. **The parent `<text>` element switches between different child structures**
 3. Components that dynamically create/remove `<span>` elements (like ShimmerText)
@@ -174,6 +193,7 @@ In React, spaces and other text are represented as text nodes in the virtual DOM
 ### ❌ PROBLEMATIC PATTERNS
 
 **Pattern 1: Shared parent with conditional children**
+
 ```tsx
 // This causes reconciliation errors!
 <text wrap={false}>
@@ -189,17 +209,17 @@ In React, spaces and other text are represented as text nodes in the virtual DOM
 ```
 
 **Pattern 2: Conditionally rendering entire span elements**
+
 ```tsx
 // Also problematic!
 <text wrap={false}>
   <span>■ </span>
-  {showText && (
-    <span>connected</span>
-  )}
+  {showText && <span>connected</span>}
 </text>
 ```
 
 **Pattern 3: Conditionally rendering text nodes (spaces, strings, etc.)**
+
 ```tsx
 // Triggers reconciliation errors!
 <span>■{showText ? ' ' : ''}</span>
@@ -212,16 +232,18 @@ In React, spaces and other text are represented as text nodes in the virtual DOM
 
 ```tsx
 // This works reliably!
-{isConnected ? (
-  <text wrap={false}>
-    <span>{showText ? '■ ' : '■'}</span>
-    {showText && <span>connected</span>}
-  </text>
-) : (
-  <text wrap={false}>
-    <ShimmerText text="connecting..." />
-  </text>
-)}
+{
+  isConnected ? (
+    <text wrap={false}>
+      <span>{showText ? '■ ' : '■'}</span>
+      {showText && <span>connected</span>}
+    </text>
+  ) : (
+    <text wrap={false}>
+      <ShimmerText text="connecting..." />
+    </text>
+  )
+}
 ```
 
 **Key principle:** Each major UI state (connected vs disconnected) should have its own `<text>` element. The `<text>` element itself should not change during state transitions within that UI state.
@@ -229,7 +251,7 @@ In React, spaces and other text are represented as text nodes in the virtual DOM
 ### Why This Works
 
 - The `<text>` element for each state remains **stable**
-- Only the *children* inside each `<text>` change
+- Only the _children_ inside each `<text>` change
 - React never tries to reconcile between the connected and disconnected `<text>` elements
 - The reconciler doesn't get confused trying to match up old and new children
 
@@ -259,19 +281,22 @@ But this approach is less flexible and harder to read than using separate `<text
 The cleanest solution is to use a direct ternary with separate `<text>` elements:
 
 ```tsx
-{isConnected ? (
-  <text wrap={false}>
-    <span>{showText ? '■ ' : '■'}</span>
-    {showText && <span>connected</span>}
-  </text>
-) : (
-  <text wrap={false}>
-    <ShimmerText text="connecting..." />
-  </text>
-)}
+{
+  isConnected ? (
+    <text wrap={false}>
+      <span>{showText ? '■ ' : '■'}</span>
+      {showText && <span>connected</span>}
+    </text>
+  ) : (
+    <text wrap={false}>
+      <ShimmerText text="connecting..." />
+    </text>
+  )
+}
 ```
 
 **Why this is the best approach:**
+
 - Clear and explicit about the two states
 - Minimal abstraction - easy to understand at a glance
 - Each state's `<text>` wrapper is clearly visible
@@ -282,6 +307,7 @@ The cleanest solution is to use a direct ternary with separate `<text>` elements
 ### The "Text Must Be Created Inside of a Text Node" Error
 
 **Error message:**
+
 ```
 Error: Text must be created inside of a text node
   at createTextInstance (/path/to/host-config.ts:108:17)
@@ -290,20 +316,21 @@ Error: Text must be created inside of a text node
 **Root cause:** This error occurs when a component returns Fragment with `<span>` elements containing text, but the parent doesn't wrap it in a `<text>` element.
 
 **What triggers it:**
+
 ```tsx
 // Component returns Fragment with spans
 const ShimmerText = ({ text }) => {
   return (
     <>
-      {text.split('').map(char => (
-        <span>{char}</span>  // Text nodes created here!
+      {text.split('').map((char) => (
+        <span>{char}</span> // Text nodes created here!
       ))}
     </>
   )
 }
 
 // ❌ INCORRECT: Using component without <text> wrapper
-<box>
+;<box>
   <ShimmerText text="hello" />
 </box>
 ```
@@ -320,17 +347,20 @@ const ShimmerText = ({ text }) => {
 ```
 
 **Why components shouldn't self-wrap in `<text>`:**
+
 1. Creates composition issues - you can't combine multiple components in one `<text>` element
 2. Prevents flexibility in how the component is used
 3. Can cause reconciliation errors when the component updates
 4. Goes against React's composition principles
 
 **Best practice:**
+
 - Child components that render styled text should return Fragments with `<span>` elements
 - Parent components are responsible for providing the `<text>` wrapper
 - This follows React's pattern of "dumb" presentational components
 
 **Component design pattern:**
+
 ```tsx
 // Child component - returns Fragment
 export const StyledText = ({ text, color }) => {
@@ -359,6 +389,7 @@ This pattern allows multiple styled components to be composed together within a 
 **CRITICAL**: When `renderMarkdown()` returns a Fragment, it contains a **mix of JSX elements AND raw text strings** (newlines, text content, etc.). These raw strings become text nodes that violate OpenTUI's reconciler rules if not wrapped properly.
 
 **The problem:**
+
 ```tsx
 // renderMarkdown() returns something like:
 <>
@@ -375,6 +406,7 @@ This pattern allows multiple styled components to be composed together within a 
 ```
 
 **The solution:**
+
 ```tsx
 // ✅ CORRECT: Always wrap markdown output in <text>
 <box>
@@ -389,6 +421,7 @@ This pattern allows multiple styled components to be composed together within a 
 The bug occurred when tool toggles were rendered. Agent toggles worked fine, but tool toggles crashed.
 
 **Why agents worked:**
+
 ```tsx
 // Agent content always wrapped in <text>
 <text wrap style={{ fg: theme.agentText }}>
@@ -397,54 +430,39 @@ The bug occurred when tool toggles were rendered. Agent toggles worked fine, but
 ```
 
 **Why tools failed before fix:**
+
 ```tsx
 // Tool content passed directly to <box> - raw strings violated reconciler rules!
-<box>
-  {displayContent}  // Could be renderMarkdown() output with raw strings
-</box>
+<box>{displayContent} // Could be renderMarkdown() output with raw strings</box>
 ```
 
 **The fix:**
+
 ```tsx
 // Always wrap ALL content in <text>, whether string or ReactNode
 <box>
   <text wrap fg={theme.agentText}>
-    {content}  // Safe for both strings and markdown Fragments
+    {content} // Safe for both strings and markdown Fragments
   </text>
 </box>
 ```
 
 **Key lesson:** Any component that receives content from `renderMarkdown()` or `renderStreamingMarkdown()` MUST wrap it in a `<text>` element, even if the content might be ReactNode. The Fragment can contain raw strings that need the text wrapper to be valid.
 
-## Monorepo Setup: OpenTUI Dependencies
-
-The CLI workspace depends on `@opentui/core` and `@opentui/react` from GitHub. These packages are not automatically built when running `bun install` in the CLI workspace.
-
-**Solution**: A cross-platform TypeScript postinstall script creates symlinks from `cli/node_modules/@opentui/*` to the built packages.
-
-- Script location: `scripts/setup-cli-symlinks.ts`
-- Language: TypeScript (runs with Bun, works on Windows/Mac/Linux)
-- Runs automatically after `bun install` at the root level
-- Automatically builds OpenTUI packages if not already built
-- Creates symlinks within OpenTUI monorepo so packages can find each other
-- Creates symlinks in CLI workspace for: `@opentui/core`, `@opentui/react`, `@opentui/core-darwin-arm64`
-
-**Benefits over bash:**
-- Cross-platform (Windows, Mac, Linux)
-- Better error handling with TypeScript
-- Uses Node.js 'junction' symlinks which work universally
-- Automatically cleans up existing symlinks before creating new ones## Toggle Branch Rendering
+## Toggle Branch Rendering
 
 Agent and tool toggles in the TUI render inside `<text>` components. Expanded content must resolve to plain strings or StyledText-compatible fragments (`<span>`, `<strong>`, `<em>`).
 
 ### TextNodeRenderable Constraint
 
 **Problem**: Markdown-rendered content that returned arbitrary React elements (e.g., nested `<box>` containers) under `<text>` caused errors when toggling branches:
+
 ```
 Error: TextNodeRenderable only accepts strings, TextNodeRenderable instances, or StyledText instances
 ```
 
 **Solution**: `cli/src/components/branch-item.tsx` inspects expanded content:
+
 - If text-renderable → stays inside `<text>`
 - Otherwise → renders the raw element tree directly
 
@@ -463,6 +481,7 @@ Toggling any agent/tool branch calls `scrollToAgent`, with each branch registeri
 Typing `/` opens a five-item slash menu above the input, mirroring npm-app commands.
 
 **Navigation**:
+
 - Arrow keys or Tab/Shift+Tab to move highlight
 - Enter to insert selected command
 - List scrolls when moving beyond first five items
@@ -472,6 +491,7 @@ Typing `/` opens a five-item slash menu above the input, mirroring npm-app comma
 Typing `@` scans the local `.agents` directory and surfaces agent `displayName`s (e.g., `@Codebase Commands Explorer`).
 
 **Navigation**:
+
 - Same as slash menu (arrows/Tab to navigate, Enter to insert)
 - Both menus cap visible list at five entries
 

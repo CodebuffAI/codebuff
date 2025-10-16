@@ -17,7 +17,6 @@
     "cli"
   ],
   "scripts": {
-    "postinstall": "bun cli/scripts/setup-cli-symlinks.ts",
     "dev": "bash scripts/dev.sh",
     "start-db": "bun --cwd common db:start",
     "start-bin": "bun --cwd npm-app start-bin",
