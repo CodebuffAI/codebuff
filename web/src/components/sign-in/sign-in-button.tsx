@@ -25,7 +25,7 @@ export const SignInButton = ({
 }) => {
   const [isPending, startTransition] = useTransition()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
 
   const handleSignIn = () => {
     onClick?.()

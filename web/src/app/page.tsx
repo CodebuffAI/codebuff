@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils'
 import { ReferralRedirect } from '@/components/referral-redirect'
 
 function SearchParamsHandler() {
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
   const isMobile = useIsMobile()
   const { data: session } = useSession()
 

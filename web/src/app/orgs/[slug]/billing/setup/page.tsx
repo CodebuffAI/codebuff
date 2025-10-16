@@ -26,9 +26,9 @@ interface OrganizationDetails {
 
 export default function BillingSetupPage() {
   const { data: session, status } = useSession()
-  const params = useParams()
+  const params = useParams() ?? {}
   const router = useRouter()
-  const orgSlug = params.slug as string
+  const orgSlug = (params.slug as string) ?? ''
 
   const [settingUp, setSettingUp] = useState(false)
 

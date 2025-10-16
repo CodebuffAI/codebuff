@@ -14,7 +14,7 @@ import { useAutoTopup } from '@/hooks/use-auto-topup'
 import { trackUpgrade } from '@/lib/trackConversions'
 
 function PaymentSuccessContent() {
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
   const credits = searchParams.get('amt')
   const router = useRouter()
   const success = searchParams.get('success')

@@ -36,10 +36,10 @@ import { useOrganizationData } from '@/hooks/use-organization-data'
 
 export default function OrganizationPage() {
   const { data: session, status } = useSession()
-  const params = useParams()
+  const params = useParams() ?? {}
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const orgSlug = params.slug as string
+  const searchParams = useSearchParams() ?? new URLSearchParams()
+  const orgSlug = (params.slug as string) ?? ''
   const isMobile = useIsMobile()
 
   const [settingUpBilling, setSettingUpBilling] = useState(false)

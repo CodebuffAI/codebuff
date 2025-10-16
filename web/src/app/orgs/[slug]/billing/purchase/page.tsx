@@ -24,10 +24,10 @@ import { useOrganizationData } from '@/hooks/use-organization-data'
 
 export default function OrganizationBillingPurchasePage() {
   const { data: session, status } = useSession()
-  const params = useParams()
+  const params = useParams() ?? {}
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const orgSlug = params.slug as string
+  const searchParams = useSearchParams() ?? new URLSearchParams()
+  const orgSlug = (params.slug ?? '') as string
 
   const [purchasing, setPurchasing] = useState(false)
   const [settingUpBilling, setSettingUpBilling] = useState(false)

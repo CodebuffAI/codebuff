@@ -114,7 +114,7 @@ export function TeamManagement({
   const canManageTeam = userRole === 'owner' || userRole === 'admin'
   const isMobile = useIsMobile()
   const hasMountedRef = useRef(false)
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
 
   // Auto-open invite dialog if invite=true query param is present
   useEffect(() => {

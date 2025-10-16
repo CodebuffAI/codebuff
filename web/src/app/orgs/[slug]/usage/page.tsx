@@ -42,9 +42,9 @@ interface UsageData {
 
 export default function UsagePage() {
   const { data: session, status } = useSession()
-  const params = useParams()
+  const params = useParams() ?? {}
   const router = useRouter()
-  const orgSlug = params.slug as string
+  const orgSlug = (params.slug as string) ?? ''
 
   const [usageData, setUsageData] = useState<UsageData | null>(null)
   const [usageLoading, setUsageLoading] = useState(true)

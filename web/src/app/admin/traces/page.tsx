@@ -21,7 +21,7 @@ import { toast } from '@/components/ui/use-toast'
 
 export default function TraceDashboardPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
   const [searchType, setSearchType] = useState<'request' | 'client'>('request')
   const [searchValue, setSearchValue] = useState('')
   const [clientRequestId, setClientRequestId] = useState<string | null>(null)

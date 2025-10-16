@@ -44,7 +44,7 @@ const publicPaths = [
   .filter((href) => !href.startsWith('http'))
 
 export const Footer = () => {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? '/'
   const isPublicPage = publicPaths.includes(pathname)
 
   if (!isPublicPage) {

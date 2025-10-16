@@ -11,9 +11,9 @@ import { useOrganizationData } from '@/hooks/use-organization-data'
 
 export default function RepositoriesPage() {
   const { data: session, status } = useSession()
-  const params = useParams()
+  const params = useParams() ?? {}
   const router = useRouter()
-  const orgSlug = params.slug as string
+  const orgSlug = (params.slug as string) ?? ''
 
   // Use the custom hook for organization data
   const { organization, isLoading, error } = useOrganizationData(orgSlug)

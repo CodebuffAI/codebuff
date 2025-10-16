@@ -15,7 +15,7 @@ import { useUserProfile } from '@/hooks/use-user-profile'
 
 function BannerContent() {
   const [isVisible, setIsVisible] = useState(true)
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
   const referrer = searchParams.get('referrer')
   const { data: session } = useSession()
 

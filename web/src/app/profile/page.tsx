@@ -79,7 +79,7 @@ function ProfileSidebar({
 
 function ProfilePageContent() {
   const { status } = useSession()
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
   const [activeSection, setActiveSection] = useState('usage')
   const [open, setOpen] = useState(false)
 

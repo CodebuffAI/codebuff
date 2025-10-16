@@ -20,9 +20,9 @@ import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
 export default function OrganizationSettingsPage() {
   const { data: session, status } = useSession()
-  const params = useParams()
+  const params = useParams() ?? {}
   const router = useRouter()
-  const orgSlug = params.slug as string
+  const orgSlug = (params.slug as string) ?? ''
 
   const [updateForm, setUpdateForm] = useState({
     name: '',

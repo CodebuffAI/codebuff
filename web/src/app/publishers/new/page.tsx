@@ -74,7 +74,7 @@ const buildSubmitPayload = (
 const CreatePublisherPageContent = () => {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1)

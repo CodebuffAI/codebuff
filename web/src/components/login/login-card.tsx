@@ -18,7 +18,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 
 export function LoginCard({ authCode }: { authCode?: string | null }) {
   const { data: session } = useSession()
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() ?? new URLSearchParams()
 
   const handleContinueAsUser = () => {
     const referralCode = searchParams.get('referral_code')
