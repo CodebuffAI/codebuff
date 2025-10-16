@@ -527,6 +527,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(llmCallCount).toBe(1) // LLM called once after STEP
     expect(result.agentState).toBeDefined()
   })
+
   it('should pass shouldEndTurn: true as stepsComplete when end_turn tool is called', async () => {
     // Test that when LLM calls end_turn, shouldEndTurn is correctly passed to runProgrammaticStep
 
@@ -538,11 +539,17 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       () => ({
         runProgrammaticStep: async (params: any) => {
           runProgrammaticStepCalls.push(params)
-          // Return default behavior
-          return { agentState: params.agentState, endTurn: false }
+          // First call: return endTurn false to continue
+          // Second call: return endTurn true to end the loop
+          const shouldEnd = runProgrammaticStepCalls.length >= 2
+          return {
+            agentState: params.agentState,
+            endTurn: shouldEnd,
+            stepNumber: params.stepNumber,
+          }
         },
         clearAgentGeneratorCache: () => {},
-        agentIdToStepAll: new Set(),
+        runIdToStepAll: new Set(),
       }),
     )
 
@@ -584,6 +591,72 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
     // Second call should have stepsComplete: true (after end_turn tool was called)
     expect(runProgrammaticStepCalls[1].stepsComplete).toBe(true)
+  })
+
+  it('should continue loop when handleSteps returns endTurn: false even if LLM calls end_turn', async () => {
+    // Test that handleSteps endTurn: false takes precedence over LLM end_turn tool call
+
+    let programmaticStepCount = 0
+    let llmStepCount = 0
+
+    const mockGeneratorFunction = function* () {
+      // First iteration: return endTurn: false
+      programmaticStepCount++
+      yield 'STEP'
+
+      // Second iteration: also return endTurn: false
+      programmaticStepCount++
+      yield 'STEP'
+
+      // Third iteration: finally return endTurn: true to end the loop
+      programmaticStepCount++
+      yield { toolName: 'end_turn', input: {} }
+    } as () => StepGenerator
+
+    mockTemplate.handleSteps = mockGeneratorFunction
+
+    const localAgentTemplates = {
+      'test-agent': mockTemplate,
+    }
+
+    // Mock LLM to always call end_turn, but handleSteps should override it
+    let promptCallCount = 0
+    agentRuntimeImpl.promptAiSdkStream = async function* () {
+      promptCallCount++
+      llmStepCount++
+
+      // LLM always tries to end turn
+      yield {
+        type: 'text' as const,
+        text: `LLM response\n\n${getToolCallString('end_turn', {})}`,
+      }
+      return `mock-message-id-${promptCallCount}`
+    }
+
+    await runLoopAgentStepsWithContext({
+      ...agentRuntimeImpl,
+      ...agentRuntimeScopedImpl,
+      userInputId: 'test-user-input',
+      agentType: 'test-agent',
+      agentState: mockAgentState,
+      prompt: 'Test handleSteps endTurn override',
+      spawnParams: undefined,
+      fingerprintId: 'test-fingerprint',
+      fileContext: mockFileContext,
+      localAgentTemplates,
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+    })
+
+    // Verify handleSteps ran 3 times (yielded STEP twice, then end_turn)
+    expect(programmaticStepCount).toBe(3)
+
+    // Verify LLM was called 2 times (once per STEP yield)
+    expect(llmStepCount).toBe(2)
+
+    // This confirms that even though LLM called end_turn every time,
+    // the loop continued because handleSteps kept yielding STEP before finally ending
   })
 
   it('should restart loop when agent finishes without setting required output', async () => {
