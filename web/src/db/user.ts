@@ -2,30 +2,23 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 
-import type { InferSelectModel } from 'drizzle-orm'
+import type {
+  GetUserInfoFromApiKeyInput,
+  GetUserInfoFromApiKeyOutput,
+} from '@codebuff/common/types/contracts/database'
 
-type UserTable = typeof schema.user
-type UserColumn = UserTable['_']['columns']
-type User = InferSelectModel<UserTable>
+export const VALID_USER_INFO_FIELDS = ['id', 'email', 'discord_id'] as const
 
 export async function getUserInfoFromApiKey<
-  T extends readonly (keyof UserColumn)[],
+  T extends (typeof VALID_USER_INFO_FIELDS)[number],
 >({
   apiKey,
   fields,
-}: {
-  apiKey: string
-  fields: T
-}): Promise<
-  | {
-      [K in T[number]]: User[K]
-    }
-  | undefined
-> {
+}: GetUserInfoFromApiKeyInput<T>): GetUserInfoFromApiKeyOutput<T> {
   // Build a typed selection object for user columns
   const userSelection = Object.fromEntries(
     fields.map((field) => [field, schema.user[field]])
-  ) as { [K in T[number]]: UserColumn[K] }
+  ) as { [K in T]: (typeof schema.user)[K] }
 
   const rows = await db
     .select({ user: userSelection }) // <-- important: nest under 'user'
