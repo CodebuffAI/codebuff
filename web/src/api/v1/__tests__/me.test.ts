@@ -4,10 +4,12 @@ import { NextRequest } from 'next/server'
 import { VALID_USER_INFO_FIELDS } from '../../../db/user'
 import { meGet } from '../me'
 
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   GetUserInfoFromApiKeyFn,
   GetUserInfoFromApiKeyOutput,
 } from '@codebuff/common/types/contracts/database'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('/api/v1/me route', () => {
   const mockUserData: Record<
@@ -43,12 +45,23 @@ describe('/api/v1/me route', () => {
     ) as any
   }
 
+  const mockLogger: Logger = {
+    error: () => {},
+    warn: () => {},
+    info: () => {},
+    debug: () => {},
+  }
+
+  const mockTrackEvent: TrackEventFn = () => {}
+
   describe('Authentication', () => {
     test('returns 401 when Authorization header is missing', async () => {
       const req = new NextRequest('http://localhost:3000/api/v1/me')
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
 
       expect(response.status).toBe(401)
@@ -63,6 +76,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
 
       expect(response.status).toBe(401)
@@ -79,6 +94,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -94,6 +111,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -108,6 +127,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(404)
       const body = await response.json()
@@ -124,6 +145,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -141,6 +164,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -158,6 +183,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -179,6 +206,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -200,6 +229,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -220,6 +251,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -237,6 +270,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
     })
@@ -251,6 +286,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -268,6 +305,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -285,6 +324,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -306,6 +347,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -322,6 +365,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -339,6 +384,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
     })
@@ -354,6 +401,8 @@ describe('/api/v1/me route', () => {
       const response = await meGet({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()

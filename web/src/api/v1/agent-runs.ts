@@ -1,9 +1,11 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
@@ -25,8 +27,9 @@ export async function agentRunsPost(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
+  trackEvent: TrackEventFn
 }) {
-  const { req, getUserInfoFromApiKey, logger } = params
+  const { req, getUserInfoFromApiKey, logger, trackEvent } = params
 
   const apiKey = extractApiKeyFromHeader(req)
 
@@ -47,6 +50,13 @@ export async function agentRunsPost(params: {
     )
   }
 
+  // Track API request
+  trackEvent({
+    event: AnalyticsEvent.AGENT_RUN_API_REQUEST,
+    userId: userInfo.id,
+    logger,
+  })
+
   // Parse and validate request body
   let body: unknown
   try {
@@ -60,6 +70,14 @@ export async function agentRunsPost(params: {
 
   const parseResult = agentRunsPostBodySchema.safeParse(body)
   if (!parseResult.success) {
+    trackEvent({
+      event: AnalyticsEvent.AGENT_RUN_VALIDATION_ERROR,
+      userId: userInfo.id,
+      properties: {
+        errors: parseResult.error.format(),
+      },
+      logger,
+    })
     return NextResponse.json(
       { error: 'Invalid request body', details: parseResult.error.format() },
       { status: 400 }
@@ -88,6 +106,17 @@ export async function agentRunsPost(params: {
       created_at: new Date(),
     })
 
+    trackEvent({
+      event: AnalyticsEvent.AGENT_RUN_CREATED,
+      userId: userInfo.id,
+      properties: {
+        agentId,
+        hasAncestors: validatedAncestorRunIds.length > 0,
+        ancestorCount: validatedAncestorRunIds.length,
+      },
+      logger,
+    })
+
     return NextResponse.json({ runId })
   } catch (error) {
     logger.error(
@@ -100,6 +129,15 @@ export async function agentRunsPost(params: {
       },
       'Failed to start agent run'
     )
+    trackEvent({
+      event: AnalyticsEvent.AGENT_RUN_CREATION_ERROR,
+      userId: userInfo.id,
+      properties: {
+        agentId,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      },
+      logger,
+    })
     return NextResponse.json(
       { error: 'Failed to create agent run' },
       { status: 500 }

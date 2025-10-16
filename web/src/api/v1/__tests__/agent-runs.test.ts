@@ -12,6 +12,7 @@ import { NextRequest } from 'next/server'
 
 import { agentRunsPost } from '../agent-runs'
 
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   GetUserInfoFromApiKeyFn,
   GetUserInfoFromApiKeyOutput,
@@ -51,6 +52,8 @@ describe('/api/v1/agent-runs POST endpoint', () => {
     debug: () => {},
   }
 
+  const mockTrackEvent: TrackEventFn = () => {}
+
   let mockDbInsert: any
 
   beforeEach(async () => {
@@ -84,6 +87,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
 
       expect(response.status).toBe(401)
@@ -101,6 +105,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
 
       expect(response.status).toBe(401)
@@ -120,6 +125,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -138,6 +144,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -155,6 +162,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(404)
       const body = await response.json()
@@ -174,6 +182,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -191,6 +200,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -209,6 +219,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -227,6 +238,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -249,6 +261,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -269,6 +282,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -293,6 +307,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -314,6 +329,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -335,6 +351,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -353,6 +370,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -384,6 +402,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        trackEvent: mockTrackEvent,
       })
 
       expect(response.status).toBe(500)

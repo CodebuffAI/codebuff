@@ -85,6 +85,12 @@ export enum AnalyticsEvent {
 
   // Web - API
   SSE_ENDPOINT_REQUEST = 'api.sse_endpoint_request',
+  AGENT_RUN_API_REQUEST = 'api.agent_run_request',
+  AGENT_RUN_CREATED = 'api.agent_run_created',
+  AGENT_RUN_VALIDATION_ERROR = 'api.agent_run_validation_error',
+  AGENT_RUN_CREATION_ERROR = 'api.agent_run_creation_error',
+  ME_API_REQUEST = 'api.me_request',
+  ME_VALIDATION_ERROR = 'api.me_validation_error',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',

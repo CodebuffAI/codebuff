@@ -1,6 +1,9 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { NextResponse } from 'next/server'
 
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
 import { VALID_USER_INFO_FIELDS } from '@/db/user'
@@ -11,8 +14,10 @@ type ValidField = (typeof VALID_USER_INFO_FIELDS)[number]
 export async function meGet(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
+  logger: Logger
+  trackEvent: TrackEventFn
 }) {
-  const { req, getUserInfoFromApiKey } = params
+  const { req, getUserInfoFromApiKey, logger, trackEvent } = params
 
   const apiKey = extractApiKeyFromHeader(req)
 
@@ -47,6 +52,15 @@ export async function meGet(params: {
       (f) => !VALID_USER_INFO_FIELDS.includes(f as ValidField)
     )
     if (invalidFields.length > 0) {
+      trackEvent({
+        event: AnalyticsEvent.ME_VALIDATION_ERROR,
+        userId: 'unknown',
+        properties: {
+          invalidFields,
+          requestedFields,
+        },
+        logger,
+      })
       return NextResponse.json(
         {
           error: `Invalid fields: ${invalidFields.join(', ')}. Valid fields are: ${VALID_USER_INFO_FIELDS.join(', ')}`,
@@ -69,6 +83,16 @@ export async function meGet(params: {
       { status: 404 }
     )
   }
+
+  // Track successful API request
+  trackEvent({
+    event: AnalyticsEvent.ME_API_REQUEST,
+    userId: userInfo.id,
+    properties: {
+      requestedFields: fields,
+    },
+    logger,
+  })
 
   return NextResponse.json(userInfo)
 }
