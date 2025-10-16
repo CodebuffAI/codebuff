@@ -98,6 +98,54 @@ export function getProjectFileTree(
   return root.children
 }
 
+function rebaseGitignorePattern(
+  rawPattern: string,
+  relativeDirPath: string,
+): string {
+  // Preserve negation and directory-only flags
+  const isNegated = rawPattern.startsWith('!')
+  let pattern = isNegated ? rawPattern.slice(1) : rawPattern
+
+  const dirOnly = pattern.endsWith('/')
+  // Strip the trailing slash for slash-detection only
+  const core = dirOnly ? pattern.slice(0, -1) : pattern
+
+  const anchored = core.startsWith('/') // anchored to .gitignore dir
+  // Detect if the "meaningful" part (minus optional leading '/' and trailing '/')
+  // contains a slash. If not, git treats it as recursive.
+  const coreNoLead = anchored ? core.slice(1) : core
+  const hasSlash = coreNoLead.includes('/')
+
+  // Build the base (where this .gitignore lives relative to projectRoot)
+  const base = relativeDirPath.replace(/\\/g, '/') // normalize
+
+  let rebased: string
+  if (anchored) {
+    // "/foo" from evals/.gitignore -> "evals/foo"
+    rebased = base ? `${base}/${coreNoLead}` : coreNoLead
+  } else if (!hasSlash) {
+    // "logs" or "logs/" should recurse from evals/: "evals/**/logs[/]"
+    if (base) {
+      rebased = `${base}/**/${coreNoLead}`
+    } else {
+      // At project root already; "logs" stays "logs" to keep recursive semantics
+      rebased = coreNoLead
+    }
+  } else {
+    // "foo/bar" relative to evals/: "evals/foo/bar"
+    rebased = base ? `${base}/${coreNoLead}` : coreNoLead
+  }
+
+  if (dirOnly && !rebased.endsWith('/')) {
+    rebased += '/'
+  }
+
+  // Normalize to forward slashes
+  rebased = rebased.replace(/\\/g, '/')
+
+  return isNegated ? `!${rebased}` : rebased
+}
+
 export function parseGitignore(
   fullDirPath: string,
   projectRoot: string,
@@ -111,48 +159,17 @@ export function parseGitignore(
   ]
 
   for (const ignoreFilePath of ignoreFiles) {
-    if (fs.existsSync(ignoreFilePath)) {
-      const ignoreContent = fs.readFileSync(ignoreFilePath, 'utf8')
-      const lines = ignoreContent.split('\n')
-      for (let line of lines) {
-        line = line.trim()
-        if (line === '' || line.startsWith('#')) {
-          continue
-        }
+    if (!fs.existsSync(ignoreFilePath)) continue
 
-        let isNegated = false
-        let pattern = line
-        if (pattern.startsWith('!')) {
-          isNegated = true
-          pattern = pattern.slice(1)
-        }
+    const ignoreContent = fs.readFileSync(ignoreFilePath, 'utf8')
+    const lines = ignoreContent.split('\n')
+    for (let line of lines) {
+      line = line.trim()
+      if (line === '' || line.startsWith('#')) continue
 
-        let finalPattern = pattern
-        // All patterns added to the ignore instance should be relative to the projectRoot.
-        if (pattern.startsWith('/')) {
-          // A pattern starting with '/' is relative to the .gitignore file's directory.
-          // Remove the leading '/' and prepend the relativeDirPath to make it relative to projectRoot.
-          finalPattern = pattern.slice(1)
-          if (relativeDirPath !== '') {
-            finalPattern = path.join(relativeDirPath, finalPattern)
-          }
-        } else {
-          // A pattern not starting with '/' is also relative to the .gitignore file's directory.
-          // Prepend relativeDirPath (if it exists) to make it relative to projectRoot.
-          // If relativeDirPath is empty, the pattern is already relative to projectRoot.
-          if (relativeDirPath !== '') {
-            finalPattern = path.join(relativeDirPath, pattern)
-          }
-          // else: pattern is already relative to projectRoot, so finalPattern remains pattern
-        }
-        finalPattern = finalPattern.replace(/\\/g, '/')
+      const finalPattern = rebaseGitignorePattern(line, relativeDirPath)
 
-        if (isNegated) {
-          ig.add(`!${finalPattern}`)
-        } else {
-          ig.add(finalPattern)
-        }
-      }
+      ig.add(finalPattern)
     }
   }
 
