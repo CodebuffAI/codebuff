@@ -32,7 +32,7 @@ The pattern supports regular expressions and will search recursively through all
 Advanced ripgrep flags (use the flags parameter):
 
 - Case sensitivity: "-i" for case-insensitive search
-- File type filtering: "-t ts" (TypeScript), "-t js" (JavaScript), "-t py" (Python), etc.
+- File type filtering: "-t ts -t js" (TypeScript and JavaScript), "-t py" (Python), etc.
 - Exclude file types: "--type-not py" to exclude Python files
 - Context lines: "-A 3" (3 lines after), "-B 2" (2 lines before), "-C 2" (2 lines before and after)
 - Line numbers: "-n" to show line numbers
@@ -56,7 +56,7 @@ Examples:
 ${getToolCallString(toolName, { pattern: 'foo' })}
 ${getToolCallString(toolName, { pattern: 'foo\\.bar = 1\\.0' })}
 ${getToolCallString(toolName, { pattern: 'import.*foo', cwd: 'src' })}
-${getToolCallString(toolName, { pattern: 'function.*authenticate', flags: '-i -t ts' })}
+${getToolCallString(toolName, { pattern: 'function.*authenticate', flags: '-i -t ts -t js' })}
 ${getToolCallString(toolName, { pattern: 'TODO', flags: '-n --type-not py' })}
 ${getToolCallString(toolName, { pattern: 'getUserData', maxResults: 10 })}
     `.trim(),

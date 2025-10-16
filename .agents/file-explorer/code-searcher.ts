@@ -24,7 +24,7 @@ const paramsSchema = {
           flags: {
             type: 'string' as const,
             description:
-              'Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts" for TypeScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not py" to exclude Python files)',
+              'Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts -t js" for TypeScript and JavaScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not py" to exclude Python files)',
           },
           cwd: {
             type: 'string' as const,
