@@ -1,3 +1,4 @@
+import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -23,17 +24,16 @@ import {
   messagesWithSystem,
   expireMessages,
 } from './util/messages'
-import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type {
   AddAgentStepFn,
   FinishAgentRunFn,
   StartAgentRunFn,
 } from '@codebuff/common/types/contracts/database'
-import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'

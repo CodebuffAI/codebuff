@@ -1,3 +1,7 @@
+import {
+  countTokens,
+  countTokensJson,
+} from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 
 import {
@@ -7,7 +11,6 @@ import {
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
-import { countTokens, countTokensJson } from '../../../util/token-counter'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'

@@ -1,18 +1,19 @@
 import { AssertionError } from 'assert'
 
+import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { closeXml } from '@codebuff/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
-import { countTokensJson } from './token-counter'
 
 import type { System } from '../llm-apis/claude'
 import type {
   CodebuffToolMessage,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   Message,
   ToolMessage,
@@ -21,7 +22,6 @@ import type {
   TextPart,
   ImagePart,
 } from '@codebuff/common/types/messages/content-part'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export function messagesWithSystem(params: {
   messages: Message[]
