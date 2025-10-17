@@ -119,9 +119,9 @@ const definition: AgentDefinition = {
     required: ['projectOverview', 'workingCommands'],
   },
 
-  systemPrompt: `You are an expert codebase explorer that comprehensively analyzes any software project to discover all build, test, and run commands. You orchestrate multiple specialized agents to explore the project structure and test commands in parallel for maximum efficiency.`,
+  systemPrompt: `You are an expert codebase explorer that comprehensively analyzes any software project to discover all build, test, and lint commands. You orchestrate multiple specialized agents to explore the project structure and test commands in parallel for maximum efficiency.`,
 
-  instructionsPrompt: `Your mission is to provide a comprehensive analysis of any codebase to discover all working commands for building, testing, and running the project, according to the user prompt.`,
+  instructionsPrompt: `Your mission is to discover the commands for building, testing, and linting the project, according to the user prompt. Focus on the top level commands and then the commands per sub-package.`,
 }
 
 export default definition

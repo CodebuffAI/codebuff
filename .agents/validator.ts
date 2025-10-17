@@ -7,7 +7,7 @@ const fixer: AgentDefinition = {
   model: 'anthropic/claude-sonnet-4.5',
   displayName: 'Validator',
   spawnerPrompt:
-    'Attempts to build/test/verify the project and automatically fix issues it finds. Useful after making edits or when CI/typecheck/tests are failing. Works across monorepos: discovers scripts (build/test/typecheck/lint), runs them, analyzes failures, and applies minimal fixes in a loop until success or max attempts.',
+    'Attempts to build/test/verify the project and automatically fix issues it finds. Useful after making edits or when CI/typecheck/tests are failing. Works across monorepos: discovers scripts (build/test/typecheck/lint), runs them, analyzes failures, and applies minimal fixes.',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -31,7 +31,7 @@ const fixer: AgentDefinition = {
   ],
 
   instructionsPrompt: `Insructions:
-1. Spawn the codebase-commands-explorer agent to discover how to build/test/verify the project.
+1. If you don't know which commands to run to validate the code, spawn the codebase-commands-explorer agent to discover how to build/test/verify the project.
 2. Run the commands to validate the project
 3. Fix any issues found
 4. Repeat 2 and 3 until the project is validated successfully.
