@@ -288,7 +288,6 @@ export async function runBuffBench(options: {
 
   const logFiles = fs.readdirSync(logsDir)
 
-  console.log('\n=== Running Meta-Analysis ===')
   const metaAnalysis = await analyzeAllTasks({
     client,
     logsDir,

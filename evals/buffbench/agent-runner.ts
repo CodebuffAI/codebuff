@@ -55,11 +55,17 @@ export async function runAgentOnCommit({
             agentDefinitions: localAgentDefinitions,
             cwd: repoDir,
             handleEvent: (event) => {
-              if (event.type === 'tool_call' && event.toolName === 'set_messages') {
+              if (
+                (event.type === 'tool_call' || event.type === 'tool_result') &&
+                event.toolName === 'set_messages'
+              ) {
                 return
               }
               if (event.type === 'error') {
-                console.error(`[${agentId}] Error event:`, event.message)
+                console.error(
+                  `[${commit.id}:${agentId}] Error event:`,
+                  event.message,
+                )
               }
               trace.push(event)
             },
