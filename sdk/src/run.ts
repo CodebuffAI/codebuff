@@ -44,6 +44,8 @@ import type { SessionState } from '../../common/src/types/session-state'
 import type { Source } from '../../common/src/types/source'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
+type TextPrintEvent = Extract<PrintModeEvent, { type: 'text' }>
+
 export type CodebuffClientOptions = {
   apiKey?: string
 
@@ -141,7 +143,7 @@ export async function run({
   const textFilterStates = new Map<string, ToolXmlFilterState>()
   const textAccumulator = new Map<string, string>()
   const lastStreamedTextByAgent = new Map<string, string>()
-  const lastTextEventByAgent = new Map<string, PrintModeEvent>()
+  const lastTextEventByAgent = new Map<string, TextPrintEvent>()
   const sectionStartIndexByAgent = new Map<string, number>()
 
   const subagentFilterStates = new Map<string, ToolXmlFilterState>()

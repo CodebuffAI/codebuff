@@ -111,7 +111,7 @@ const waitForHandler = async (): Promise<MockHandlerInstance> => {
 
 const resolvePrompt = async (
   handler: MockHandlerInstance,
-  extras: Partial<ClientAction<'prompt'>> = {},
+  extras: Partial<Omit<ServerAction<'prompt-response'>, 'type' | 'promptId'>> = {},
 ) => {
   const promptId =
     handler.lastInput?.promptId ??
