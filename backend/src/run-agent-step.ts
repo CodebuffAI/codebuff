@@ -1,3 +1,4 @@
+import { getAgentStreamFromTemplate } from '@codebuff/agent-runtime/prompt-agent-stream'
 import {
   asSystemInstruction,
   asSystemMessage,
@@ -17,7 +18,6 @@ import { cloneDeep } from 'lodash'
 
 import { checkLiveUserInput } from './live-user-inputs'
 import { getMCPToolData } from './mcp/util'
-import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
