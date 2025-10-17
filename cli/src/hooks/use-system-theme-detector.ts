@@ -15,10 +15,6 @@ const DEFAULT_POLL_INTERVAL_MS = 60000 // 60 seconds
  * Falls back to slower polling on other platforms or if watcher fails.
  *
  * @returns The current system theme name
- *
- * Environment Variables:
- * - OPEN_TUI_THEME_POLL_INTERVAL: Polling interval in milliseconds (default: 60000)
- *   Set to 0 to disable automatic polling (only affects non-macOS or if watcher fails)
  */
 export const useSystemThemeDetector = (): ThemeName => {
   const [themeName, setThemeName] = useState<ThemeName>(() => detectSystemTheme())
@@ -58,17 +54,7 @@ export const useSystemThemeDetector = (): ThemeName => {
     }
 
     // Fall back to polling for non-macOS or if listener failed
-    const envInterval = process.env.OPEN_TUI_THEME_POLL_INTERVAL
-    const pollIntervalMs = envInterval
-      ? parseInt(envInterval, 10)
-      : DEFAULT_POLL_INTERVAL_MS
-
-    // If interval is 0 or invalid, disable polling
-    if (!pollIntervalMs || pollIntervalMs <= 0 || isNaN(pollIntervalMs)) {
-      return
-    }
-
-    const intervalId = setInterval(handleThemeChange, pollIntervalMs)
+    const intervalId = setInterval(handleThemeChange, DEFAULT_POLL_INTERVAL_MS)
 
     return () => {
       clearInterval(intervalId)

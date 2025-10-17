@@ -80,7 +80,7 @@
     },
     "cli": {
       "name": "@codebuff/cli",
-      "version": "1.0.0",
+      "version": "1.0.420",
       "bin": {
         "codebuff-tui": "./dist/index.js",
       },
@@ -278,7 +278,7 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.4.1",
+      "version": "0.4.3",
       "dependencies": {
         "@vscode/tree-sitter-wasm": "0.1.4",
         "ai": "^5.0.0",
