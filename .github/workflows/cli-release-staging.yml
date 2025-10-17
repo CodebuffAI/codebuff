@@ -56,18 +56,20 @@ jobs:
           RELEASES_JSON=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
             "https://api.github.com/repos/CodebuffAI/codebuff/releases?per_page=100")
 
-          LATEST_BETA=$(echo "$RELEASES_JSON" | jq -r '.[] | select(.prerelease == true and (.name // "" | test("Codebuff CLI v"))) | .tag_name' | sort -V | tail -n 1)
+          LATEST_TAG=$(echo "$RELEASES_JSON" | jq -r '.[] | select(.prerelease == true and (.name // "" | test("Codebuff CLI v"))) | .tag_name' | sort -V | tail -n 1)
 
-          if [ "$LATEST_BETA" = "null" ]; then
-            LATEST_BETA=""
+          if [ "$LATEST_TAG" = "null" ] || [ -z "$LATEST_TAG" ]; then
+            echo "No existing CLI prerelease found via releases, falling back to tags..."
+            LATEST_TAG=$(git ls-remote --tags origin "v${BASE_VERSION}-beta.*" | awk '{print $2}' | sed 's@refs/tags/@@' | sort -V | tail -n 1)
           fi
 
-          if [ -z "$LATEST_BETA" ]; then
-            echo "No existing CLI beta releases found, starting with beta.1"
-            NEW_VERSION="${BASE_VERSION}-beta.1"
-          else
-            echo "Latest CLI beta tag: $LATEST_BETA"
-            LATEST_VERSION=${LATEST_BETA#v}
+          if [ -n "$LATEST_TAG" ] && [[ "$LATEST_TAG" != v* ]]; then
+            LATEST_TAG="v${LATEST_TAG}"
+          fi
+
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Latest CLI beta tag: $LATEST_TAG"
+            LATEST_VERSION=${LATEST_TAG#v}
             LATEST_BASE=$(echo "$LATEST_VERSION" | sed 's/-beta\..*$//')
             LATEST_BETA_NUM=$(echo "$LATEST_VERSION" | sed 's/.*-beta\.//')
 
@@ -75,9 +77,12 @@ jobs:
               NEXT=$((LATEST_BETA_NUM + 1))
               NEW_VERSION="${BASE_VERSION}-beta.${NEXT}"
             else
-              echo "Base version changed, resetting beta counter"
+              echo "Base version changed since last prerelease, resetting counter"
               NEW_VERSION="${BASE_VERSION}-beta.1"
             fi
+          else
+            echo "No existing CLI beta tags found, starting with beta.1"
+            NEW_VERSION="${BASE_VERSION}-beta.1"
           fi
 
           echo "New staging version: $NEW_VERSION"
