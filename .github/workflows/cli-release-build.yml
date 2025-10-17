@@ -96,6 +96,9 @@ jobs:
             ln -s ../node_modules cli/node_modules
           fi
 
+      - name: Ensure CLI dependencies
+        run: bun install --frozen-lockfile --cwd cli
+
       - name: Configure environment variables
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
