@@ -1,9 +1,10 @@
-import { globalStopSequence } from '@codebuff/agent-runtime/constants'
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { describe, expect, it } from 'bun:test'
 
-import { processStreamWithTags } from '../xml-stream-parser'
+import { globalStopSequence } from '@codebuff/agent-runtime/constants'
+
+import { processStreamWithTags } from '../tool-stream-parser'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
