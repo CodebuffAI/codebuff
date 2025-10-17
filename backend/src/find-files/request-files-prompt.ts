@@ -1,5 +1,10 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
+import {
+  castAssistantMessage,
+  messagesWithSystem,
+  getMessagesSubset,
+} from '@codebuff/agent-runtime/util/messages'
 import { insertTrace } from '@codebuff/bigquery'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
@@ -14,15 +19,10 @@ import { range, shuffle, uniq } from 'lodash'
 
 import { CustomFilePickerConfigSchema } from './custom-file-picker-config'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
-import {
-  castAssistantMessage,
-  messagesWithSystem,
-  getMessagesSubset,
-} from '../util/messages'
 import { getRequestContext } from '../websockets/request-context'
 
 import type { CustomFilePickerConfig } from './custom-file-picker-config'
-import type { TextBlock } from '../llm-apis/claude'
+import type { TextBlock } from '@codebuff/agent-runtime/llm-api/claude'
 import type {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,

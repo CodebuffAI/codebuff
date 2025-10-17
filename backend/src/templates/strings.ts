@@ -2,6 +2,7 @@ import {
   PLACEHOLDER,
   placeholderValues,
 } from '@codebuff/agent-runtime/templates/types'
+import { parseUserMessage } from '@codebuff/agent-runtime/util/messages'
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { escapeString } from '@codebuff/common/util/string'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
@@ -19,7 +20,6 @@ import {
   getShortToolInstructions,
   getToolsInstructions,
 } from '../tools/prompts'
-import { parseUserMessage } from '../util/messages'
 
 import type {
   AgentTemplate,

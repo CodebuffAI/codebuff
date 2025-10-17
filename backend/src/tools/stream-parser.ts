@@ -1,3 +1,4 @@
+import { expireMessages } from '@codebuff/agent-runtime/util/messages'
 import {
   endToolTag,
   startToolTag,
@@ -9,7 +10,6 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { executeBatchStrReplaces } from './batch-str-replace'
-import { expireMessages } from '../util/messages'
 import { processStreamWithTags } from '../xml-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 

@@ -1,4 +1,3 @@
-import * as tokenCounter from '@codebuff/agent-runtime/util/token-counter'
 import {
   afterEach,
   beforeEach,
@@ -13,7 +12,9 @@ import {
   trimMessagesToFitTokenLimit,
   messagesWithSystem,
   getPreviouslyReadFiles,
-} from '../messages'
+} from '@codebuff/agent-runtime/util/messages'
+
+import * as tokenCounter from '../token-counter'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 import type {

@@ -1,14 +1,14 @@
 import { AssertionError } from 'assert'
 
-import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { closeXml } from '@codebuff/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
+import { countTokensJson } from './token-counter'
 
-import type { System } from '../llm-apis/claude'
+import type { System } from '../llm-api/claude'
 import type {
   CodebuffToolMessage,
   CodebuffToolOutput,

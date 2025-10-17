@@ -1,3 +1,10 @@
+import {
+  asSystemInstruction,
+  asSystemMessage,
+  buildUserMessageContent,
+  messagesWithSystem,
+  expireMessages,
+} from '@codebuff/agent-runtime/util/messages'
 import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
@@ -17,13 +24,6 @@ import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
-import {
-  asSystemInstruction,
-  asSystemMessage,
-  buildUserMessageContent,
-  messagesWithSystem,
-  expireMessages,
-} from './util/messages'
 import { getRequestContext } from './websockets/request-context'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
