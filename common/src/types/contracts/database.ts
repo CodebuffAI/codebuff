@@ -35,7 +35,7 @@ export type GetAgentRunFromIdOutput<T extends AgentRunColumn> = Promise<
   | {
       [K in T]: AgentRun[K]
     }
-  | undefined
+  | null
 >
 export type GetAgentRunFromIdFn = <T extends AgentRunColumn>(
   params: GetAgentRunFromIdInput<T>,

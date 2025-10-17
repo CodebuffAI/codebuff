@@ -1,6 +1,6 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { websiteUrl } from '@codebuff/npm-app/config'
-import { streamText } from 'ai'
+import { generateText } from 'ai'
 
 const codebuffBackendProvider = createOpenAICompatible({
   name: 'codebuff',
@@ -8,7 +8,8 @@ const codebuffBackendProvider = createOpenAICompatible({
   baseURL: websiteUrl + '/api/v1',
 })
 
-const response = streamText({
+// const response = await streamText({
+const response = await generateText({
   model: codebuffBackendProvider('anthropic/claude-sonnet-4.5'),
   messages: [
     {
@@ -44,6 +45,8 @@ const response = streamText({
     },
   },
 })
-for await (const chunk of response.fullStream) {
-  console.log({ chunk })
-}
+
+console.dir({ response }, { depth: null })
+// for await (const chunk of response.fullStream) {
+//   console.dir({ chunk }, { depth: null })
+// }

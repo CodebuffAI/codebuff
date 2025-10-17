@@ -3,15 +3,19 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { NextResponse } from 'next/server'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
+import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billing'
 import type {
   GetAgentRunFromIdFn,
   GetUserInfoFromApiKeyFn,
 } from '@codebuff/common/types/contracts/database'
-import type { HandleOpenRouterStreamFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
+import {
+  handleOpenRouterNonStream,
+  handleOpenRouterStream,
+} from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 export async function chatCompletionsPost(params: {
@@ -21,8 +25,8 @@ export async function chatCompletionsPost(params: {
   trackEvent: TrackEventFn
   getUserUsageData: GetUserUsageDataFn
   getAgentRunFromId: GetAgentRunFromIdFn
-  handleOpenRouterStream: HandleOpenRouterStreamFn
-  appUrl: string
+  fetch: typeof globalThis.fetch
+  insertMessageBigquery: InsertMessageBigqueryFn
 }) {
   const {
     req,
@@ -31,13 +35,13 @@ export async function chatCompletionsPost(params: {
     trackEvent,
     getUserUsageData,
     getAgentRunFromId,
-    handleOpenRouterStream,
-    appUrl,
+    fetch,
+    insertMessageBigquery,
   } = params
 
   try {
     // Parse request body
-    let body: any
+    let body: unknown
     try {
       body = await req.json()
     } catch (error) {
@@ -51,7 +55,7 @@ export async function chatCompletionsPost(params: {
       })
       return NextResponse.json(
         { message: 'Invalid JSON in request body' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -82,7 +86,7 @@ export async function chatCompletionsPost(params: {
       })
       return NextResponse.json(
         { message: 'Invalid Codebuff API key' },
-        { status: 401 }
+        { status: 401 },
       )
     }
 
@@ -93,8 +97,8 @@ export async function chatCompletionsPost(params: {
       event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
       userId,
       properties: {
-        hasStream: !!body.stream,
-        hasAgentRunId: !!body.codebuff_metadata?.agent_run_id,
+        hasStream: !!(body as any).stream,
+        hasAgentRunId: !!(body as any).codebuff_metadata?.agent_run_id,
       },
       logger,
     })
@@ -116,31 +120,15 @@ export async function chatCompletionsPost(params: {
       })
       return NextResponse.json(
         {
-          message: `Insufficient credits. Please add credits at ${appUrl}/usage or wait for your next cycle to begin (${nextQuotaReset}).`,
+          message: `Insufficient credits. Please add credits at ${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage or wait for your next cycle to begin (${nextQuotaReset}).`,
         },
-        { status: 402 }
-      )
-    }
-
-    // Validate streaming requirement
-    if (!body.stream) {
-      trackEvent({
-        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
-        userId,
-        properties: {
-          error: 'stream parameter must be true',
-        },
-        logger,
-      })
-      return NextResponse.json(
-        { message: 'Not implemented. Use stream=true.' },
-        { status: 500 }
+        { status: 402 },
       )
     }
 
     // Extract and validate agent run ID
-    const runIdFromBody: string | undefined =
-      body.codebuff_metadata?.agent_run_id
+    const runIdFromBody: string | undefined = (body as any).codebuff_metadata
+      ?.agent_run_id
     if (!runIdFromBody || typeof runIdFromBody !== 'string') {
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
@@ -152,7 +140,7 @@ export async function chatCompletionsPost(params: {
       })
       return NextResponse.json(
         { message: 'No agentRunId found in request body' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -174,7 +162,7 @@ export async function chatCompletionsPost(params: {
       })
       return NextResponse.json(
         { message: `agentRunId Not Found: ${runIdFromBody}` },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -193,56 +181,86 @@ export async function chatCompletionsPost(params: {
       })
       return NextResponse.json(
         { message: `agentRunId Not Running: ${runIdFromBody}` },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    // Create OpenRouter stream
+    // Handle streaming vs non-streaming
     try {
-      const stream = await handleOpenRouterStream({
-        body,
-        userId,
-        agentId,
-      })
-
-      trackEvent({
-        event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
-        userId,
-        properties: {
+      if ((body as any).stream) {
+        // Streaming request
+        const stream = await handleOpenRouterStream({
+          body,
+          userId,
           agentId,
-          agentRunId: runIdFromBody,
-        },
-        logger,
-      })
+          fetch,
+          logger,
+          insertMessageBigquery,
+        })
 
-      return new NextResponse(stream, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
-          'Access-Control-Allow-Origin': '*',
-        },
-      })
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
+          userId,
+          properties: {
+            agentId,
+            agentRunId: runIdFromBody,
+          },
+          logger,
+        })
+
+        return new NextResponse(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+          },
+        })
+      } else {
+        // Non-streaming request
+        const result = await handleOpenRouterNonStream({
+          body,
+          userId,
+          agentId,
+          fetch,
+          logger,
+          insertMessageBigquery,
+        })
+
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_GENERATION_STARTED,
+          userId,
+          properties: {
+            agentId,
+            agentRunId: runIdFromBody,
+            streaming: false,
+          },
+          logger,
+        })
+
+        return NextResponse.json(result)
+      }
     } catch (error) {
-      logger.error(getErrorObject(error), 'Error setting up OpenRouter stream')
+      logger.error(getErrorObject(error), 'Error with OpenRouter request')
       trackEvent({
-        event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_ERROR,
+        event: AnalyticsEvent.CHAT_COMPLETIONS_ERROR,
         userId,
         properties: {
           error: error instanceof Error ? error.message : 'Unknown error',
           agentId,
+          streaming: (body as any).stream,
         },
         logger,
       })
       return NextResponse.json(
-        { error: 'Failed to initialize stream' },
-        { status: 500 }
+        { error: 'Failed to process request' },
+        { status: 500 },
       )
     }
   } catch (error) {
     logger.error(
       getErrorObject(error),
-      'Error processing chat completions request'
+      'Error processing chat completions request',
     )
     trackEvent({
       event: AnalyticsEvent.CHAT_COMPLETIONS_ERROR,
@@ -254,7 +272,7 @@ export async function chatCompletionsPost(params: {
     })
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

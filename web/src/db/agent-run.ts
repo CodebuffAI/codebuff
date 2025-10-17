@@ -2,31 +2,20 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 
-import type { InferSelectModel } from 'drizzle-orm'
+import type {
+  AgentRunColumn,
+  GetAgentRunFromIdInput,
+  GetAgentRunFromIdOutput,
+} from '@codebuff/common/types/contracts/database'
 
-type AgentRunTable = typeof schema.agentRun
-type AgentRunColumn = AgentRunTable['_']['columns']
-type AgentRun = InferSelectModel<AgentRunTable>
+export async function getAgentRunFromId<T extends AgentRunColumn>(
+  params: GetAgentRunFromIdInput<T>,
+): GetAgentRunFromIdOutput<T> {
+  const { agentRunId, userId, fields } = params
 
-export async function getAgentRunFromId<
-  T extends readonly (keyof AgentRunColumn)[],
->({
-  agentRunId,
-  userId,
-  fields,
-}: {
-  agentRunId: string
-  userId: string
-  fields: T
-}): Promise<
-  | {
-      [K in T[number]]: AgentRun[K]
-    }
-  | undefined
-> {
   const selection = Object.fromEntries(
-    fields.map((field) => [field, schema.agentRun[field]])
-  ) as { [K in T[number]]: AgentRunColumn[K] }
+    fields.map((field) => [field, schema.agentRun[field]]),
+  ) as { [K in T]: (typeof schema.agentRun)[K] }
 
   const rows = await db
     .select({ selection })
@@ -34,10 +23,10 @@ export async function getAgentRunFromId<
     .where(
       and(
         eq(schema.agentRun.id, agentRunId),
-        eq(schema.agentRun.user_id, userId)
-      )
+        eq(schema.agentRun.user_id, userId),
+      ),
     )
     .limit(1)
 
-  return rows[0]?.selection
+  return rows[0]?.selection ?? null
 }

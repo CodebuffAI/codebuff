@@ -1,10 +1,13 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
 import { chatCompletionsPost } from '../completions'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
+import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
+import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billing'
 import type {
+  GetAgentRunFromIdFn,
   GetUserInfoFromApiKeyFn,
   GetUserInfoFromApiKeyOutput,
 } from '@codebuff/common/types/contracts/database'
@@ -35,9 +38,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
   let mockLogger: Logger
   let mockTrackEvent: TrackEventFn
-  let mockGetUserUsageData: any
-  let mockGetAgentRunFromId: any
-  let mockHandleOpenRouterStream: any
+  let mockGetUserUsageData: GetUserUsageDataFn
+  let mockGetAgentRunFromId: GetAgentRunFromIdFn
+  let mockFetch: typeof globalThis.fetch
+  let mockInsertMessageBigquery: InsertMessageBigqueryFn
 
   beforeEach(() => {
     mockLogger = {
@@ -62,7 +66,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       }
     })
 
-    mockGetAgentRunFromId = mock(async ({ agentRunId }: any) => {
+    mockGetAgentRunFromId = mock((async ({ agentRunId }: any) => {
       if (agentRunId === 'run-123') {
         return {
           agent_id: 'agent-123',
@@ -76,16 +80,69 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         }
       }
       return null
-    })
+    }) satisfies GetAgentRunFromIdFn)
 
-    mockHandleOpenRouterStream = mock(async () => {
-      return new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode('test stream'))
-          controller.close()
-        },
-      })
-    })
+    // Mock global fetch to return OpenRouter-like responses
+    mockFetch = (async (url: any, options: any) => {
+      if (!options?.body) {
+        throw new Error('Missing request body')
+      }
+
+      const body = JSON.parse(options.body)
+
+      if (body.stream) {
+        // Return streaming response
+        const encoder = new TextEncoder()
+        const stream = new ReadableStream({
+          start(controller) {
+            // Simulate OpenRouter SSE format
+            controller.enqueue(
+              encoder.encode(
+                'data: {"id":"test-id","model":"test-model","choices":[{"delta":{"content":"test"}}]}\n\n',
+              ),
+            )
+            controller.enqueue(
+              encoder.encode(
+                'data: {"id":"test-id","model":"test-model","choices":[{"delta":{"content":" stream"}}]}\n\n',
+              ),
+            )
+            controller.enqueue(
+              encoder.encode(
+                'data: {"id":"test-id","model":"test-model","choices":[{"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30,"cost":0.001}}\n\n',
+              ),
+            )
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          },
+        })
+
+        return new Response(stream, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        })
+      } else {
+        // Return non-streaming response
+        return new Response(
+          JSON.stringify({
+            id: 'test-id',
+            model: 'test-model',
+            choices: [{ message: { content: 'test response' } }],
+            usage: {
+              prompt_tokens: 10,
+              completion_tokens: 20,
+              total_tokens: 30,
+              cost: 0.001,
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
+      }
+    }) as any
+
+    mockInsertMessageBigquery = mock(async () => true)
   })
 
   afterEach(() => {
@@ -93,7 +150,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   })
 
   describe('Authentication', () => {
-    test('returns 401 when Authorization header is missing', async () => {
+    it('returns 401 when Authorization header is missing', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -109,8 +166,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: globalThis.fetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
       expect(response.status).toBe(401)
@@ -118,7 +175,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body).toEqual({ message: 'Unauthorized' })
     })
 
-    test('returns 401 when API key is invalid', async () => {
+    it('returns 401 when API key is invalid', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -135,8 +192,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
       expect(response.status).toBe(401)
@@ -146,7 +203,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   })
 
   describe('Request body validation', () => {
-    test('returns 400 when body is not valid JSON', async () => {
+    it('returns 400 when body is not valid JSON', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -163,8 +220,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
       expect(response.status).toBe(400)
@@ -172,33 +229,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body).toEqual({ message: 'Invalid JSON in request body' })
     })
 
-    test('returns 500 when stream is not true', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-123' },
-          body: JSON.stringify({ stream: false }),
-        },
-      )
-
-      const response = await chatCompletionsPost({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
-      })
-
-      expect(response.status).toBe(500)
-      const body = await response.json()
-      expect(body).toEqual({ message: 'Not implemented. Use stream=true.' })
-    })
-
-    test('returns 400 when agent_run_id is missing', async () => {
+    it('returns 400 when agent_run_id is missing', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -215,8 +246,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
       expect(response.status).toBe(400)
@@ -224,7 +255,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body).toEqual({ message: 'No agentRunId found in request body' })
     })
 
-    test('returns 400 when agent run not found', async () => {
+    it('returns 400 when agent run not found', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -244,8 +275,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
       expect(response.status).toBe(400)
@@ -255,7 +286,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       })
     })
 
-    test('returns 400 when agent run is not running', async () => {
+    it('returns 400 when agent run is not running', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -275,8 +306,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
       expect(response.status).toBe(400)
@@ -288,7 +319,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   })
 
   describe('Credit validation', () => {
-    test('returns 402 when user has insufficient credits', async () => {
+    it('returns 402 when user has insufficient credits', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -308,8 +339,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
       expect(response.status).toBe(402)
@@ -320,7 +351,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   })
 
   describe('Successful responses', () => {
-    test('returns stream with correct headers', async () => {
+    it('returns stream with correct headers', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -328,7 +359,11 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({
             stream: true,
-            codebuff_metadata: { agent_run_id: 'run-123' },
+            codebuff_metadata: {
+              agent_run_id: 'run-123',
+              client_id: 'test-client-id-123',
+              client_request_id: 'test-client-session-id-123',
+            },
           }),
         },
       )
@@ -340,39 +375,33 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
+      if (response.status !== 200) {
+        const errorBody = await response.json()
+        console.log('Error response:', errorBody)
+      }
       expect(response.status).toBe(200)
       expect(response.headers.get('Content-Type')).toBe('text/event-stream')
       expect(response.headers.get('Cache-Control')).toBe('no-cache')
       expect(response.headers.get('Connection')).toBe('keep-alive')
-      expect(mockHandleOpenRouterStream).toHaveBeenCalledWith({
-        body: {
-          stream: true,
-          codebuff_metadata: { agent_run_id: 'run-123' },
-        },
-        userId: 'user-123',
-        agentId: 'agent-123',
-      })
     })
-  })
 
-  describe('Error handling', () => {
-    test('returns 500 when stream initialization fails', async () => {
-      mockHandleOpenRouterStream = mock(async () => {
-        throw new Error('Stream error')
-      })
-
+    it('returns JSON response for non-streaming requests', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({
-            stream: true,
-            codebuff_metadata: { agent_run_id: 'run-123' },
+            stream: false,
+            codebuff_metadata: {
+              agent_run_id: 'run-123',
+              client_id: 'test-client-id-123',
+              client_request_id: 'test-client-session-id-123',
+            },
           }),
         },
       )
@@ -384,14 +413,15 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        handleOpenRouterStream: mockHandleOpenRouterStream,
-        appUrl: 'http://localhost:3000',
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
       })
 
-      expect(response.status).toBe(500)
+      expect(response.status).toBe(200)
+      expect(response.headers.get('Content-Type')).toContain('application/json')
       const body = await response.json()
-      expect(body).toEqual({ error: 'Failed to initialize stream' })
-      expect(mockLogger.error).toHaveBeenCalled()
+      expect(body.id).toBe('test-id')
+      expect(body.choices[0].message.content).toBe('test response')
     })
   })
 })
