@@ -10,7 +10,9 @@ const definition: SecretAgentDefinition = {
   model: 'openai/gpt-5',
   spawnableAgents: buildArray(
     'file-picker',
-    'find-all-referencer',
+    'code-searcher',
+    'directory-lister',
+    'glob-matcher',
     'researcher-web',
     'researcher-docs',
     'commander',
