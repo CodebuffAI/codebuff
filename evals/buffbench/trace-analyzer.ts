@@ -19,17 +19,15 @@ export interface AgentTraceData {
 }
 
 function truncateTrace(trace: AgentStep[]): AgentStep[] {
-  return trace.map((step) => ({
-    ...step,
-    toolResults: step.toolResults.map((result) => {
-      // Truncate read_files, run_terminal_command, and code_search results to save tokens
-      if (result.toolName === 'read_files' && result.output) {
-        const output = Array.isArray(result.output)
-          ? result.output
-          : [result.output]
+  return trace.map((step) => {
+    // Handle tool_result events
+    if (step.type === 'tool_result') {
+      const output = Array.isArray(step.output) ? step.output : [step.output]
+      
+      // Truncate read_files results
+      if (step.toolName === 'read_files') {
         const truncatedOutput = output.map((item: any) => {
           if (item.type === 'json' && Array.isArray(item.value)) {
-            // Truncate file contents in read_files results
             return {
               ...item,
               value: item.value.map((file: any) => {
@@ -47,16 +45,13 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
           return item
         })
         return {
-          ...result,
+          ...step,
           output: truncatedOutput,
         }
       }
 
       // Truncate run_terminal_command results (keep first 500 chars)
-      if (result.toolName === 'run_terminal_command' && result.output) {
-        const output = Array.isArray(result.output)
-          ? result.output
-          : [result.output]
+      if (step.toolName === 'run_terminal_command') {
         const truncatedOutput = output.map((item: any) => {
           if (item.type === 'json' && item.value?.stdout) {
             return {
@@ -73,16 +68,13 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
           return item
         })
         return {
-          ...result,
+          ...step,
           output: truncatedOutput,
         }
       }
 
       // Truncate code_search results (keep first 500 chars)
-      if (result.toolName === 'code_search' && result.output) {
-        const output = Array.isArray(result.output)
-          ? result.output
-          : [result.output]
+      if (step.toolName === 'code_search') {
         const truncatedOutput = output.map((item: any) => {
           if (item.type === 'json' && item.value?.stdout) {
             return {
@@ -99,14 +91,14 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
           return item
         })
         return {
-          ...result,
+          ...step,
           output: truncatedOutput,
         }
       }
-
-      return result
-    }),
-  }))
+    }
+    
+    return step
+  })
 }
 
 const traceAnalyzerAgent: AgentDefinition = {

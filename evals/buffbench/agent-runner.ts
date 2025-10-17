@@ -4,13 +4,10 @@ import { withTimeout } from '@codebuff/common/util/promise'
 import { CodebuffClient } from '../../sdk/src/client'
 import { withTestRepo } from '../subagents/test-repo-utils'
 
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { EvalCommitV2 } from './types'
 
-export interface AgentStep {
-  response: string
-  toolCalls: any[]
-  toolResults: any[]
-}
+export type AgentStep = PrintModeEvent
 
 export async function runAgentOnCommit({
   client,
@@ -50,23 +47,6 @@ export async function runAgentOnCommit({
         initCommand,
       },
       async (repoDir) => {
-        let responseText = ''
-        let toolCalls: any[] = []
-        let toolResults: any[] = []
-
-        function flushStep() {
-          if (
-            responseText.length > 0 ||
-            toolCalls.length > 0 ||
-            toolResults.length > 0
-          ) {
-            trace.push({ response: responseText, toolCalls, toolResults })
-            responseText = ''
-            toolCalls = []
-            toolResults = []
-          }
-        }
-
         const timeoutMs = 30 * 60 * 1000 // 30 minutes
         const result = await withTimeout(
           client.run({
@@ -75,30 +55,18 @@ export async function runAgentOnCommit({
             agentDefinitions: localAgentDefinitions,
             cwd: repoDir,
             handleEvent: (event) => {
-              if (event.type === 'text') {
-                if (toolResults.length > 0) {
-                  flushStep()
-                }
-                responseText += event.text
-              } else if (event.type === 'tool_call') {
-                if (event.toolName === 'set_messages') {
-                  return
-                }
-                toolCalls.push(event)
-              } else if (event.type === 'tool_result') {
-                toolResults.push(event)
-              } else if (event.type === 'finish') {
-                flushStep()
-              } else if (event.type === 'error') {
+              if (event.type === 'tool_call' && event.toolName === 'set_messages') {
+                return
+              }
+              if (event.type === 'error') {
                 console.error(`[${agentId}] Error event:`, event.message)
               }
+              trace.push(event)
             },
           }),
           timeoutMs,
           `Agent ${agentId} timed out after ${timeoutMs / 1000} seconds`,
         )
-
-        flushStep()
         cost = result.sessionState.mainAgentState.creditsUsed / 100
 
         execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
