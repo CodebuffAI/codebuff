@@ -83,14 +83,15 @@ jobs:
     strategy:
       matrix:
         package:
-          [npm-app, backend, common, web, packages/agent-runtime, .agents]
+          [.agents, backend, cli, common, npm-app, packages/agent-runtime, web]
         include:
-          - package: npm-app
-          - package: backend
-          - package: common
-          - package: web
-          - package: packages/agent-runtime
           - package: .agents
+          - package: backend
+          - package: cli
+          - package: common
+          - package: npm-app
+          - package: packages/agent-runtime
+          - package: web
     name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:
@@ -153,14 +154,15 @@ jobs:
     strategy:
       matrix:
         package:
-          [npm-app, backend, common, packages/agent-runtime, web, .agents]
+          [.agents, backend, cli, common, npm-app, packages/agent-runtime, web]
         include:
-          - package: npm-app
+          - package: .agents
           - package: backend
+          - package: cli
           - package: common
+          - package: npm-app
           - package: packages/agent-runtime
           - package: web
-          - package: .agents
     name: test-integration-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:
