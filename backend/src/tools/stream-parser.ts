@@ -15,7 +15,7 @@ import { executeCustomToolCall, executeToolCall } from './tool-executor'
 
 import type { BatchStrReplaceState } from './batch-str-replace'
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'

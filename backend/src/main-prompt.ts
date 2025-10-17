@@ -7,7 +7,7 @@ import { loopAgentSteps } from './run-agent-step'
 import { getAgentTemplate } from './templates/agent-registry'
 import { expireMessages } from './util/messages'
 
-import type { AgentTemplate } from './templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/old-constants'
 import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'

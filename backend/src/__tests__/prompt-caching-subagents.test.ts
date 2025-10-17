@@ -16,7 +16,7 @@ import {
 
 import { loopAgentSteps } from '../run-agent-step'
 
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,

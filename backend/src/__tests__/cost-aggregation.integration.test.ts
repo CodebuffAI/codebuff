@@ -19,7 +19,7 @@ import { mainPrompt } from '../main-prompt'
 import * as agentRegistry from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { ServerAction } from '@codebuff/common/actions'
 import type {
   AgentRuntimeDeps,

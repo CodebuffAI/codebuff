@@ -11,7 +11,7 @@ import { codebuffToolHandlers } from './handlers/list'
 import { getMCPToolData } from '../mcp/util'
 
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
   ClientToolCall,
