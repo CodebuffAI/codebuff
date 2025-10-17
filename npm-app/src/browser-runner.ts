@@ -504,7 +504,7 @@ export class BrowserRunner {
       try {
         const chatDir = getCurrentChatDir()
         const screenshotsDir = path.join(chatDir, 'screenshots')
-        ensureDirectoryExists(screenshotsDir)
+        ensureDirectoryExists({ baseDir: screenshotsDir, fs })
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
         const filename = `screenshot-${timestamp}.jpg`

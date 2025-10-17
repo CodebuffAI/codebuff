@@ -137,7 +137,7 @@ export function createFileReadingMock(projectRoot: string) {
 export async function getProjectFileContext(
   projectPath: string,
 ): Promise<ProjectFileContext> {
-  const fileTree = getProjectFileTree(projectPath)
+  const fileTree = getProjectFileTree({ projectRoot: projectPath, fs })
   const allFilePaths = getAllFilePaths(fileTree)
   const knowledgeFilePaths = allFilePaths.filter((filePath) =>
     filePath.endsWith('knowledge.md'),

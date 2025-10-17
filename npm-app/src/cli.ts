@@ -608,7 +608,10 @@ export class CLI {
         .filter((file) => file.startsWith(partial))
         .map(
           (file) =>
-            file + (isDir(path.join(baseDir, file)) ? directorySuffix : ''),
+            file +
+            (isDir({ path: path.join(baseDir, file), fs })
+              ? directorySuffix
+              : ''),
         )
       return [fsMatches, partial]
     } catch {

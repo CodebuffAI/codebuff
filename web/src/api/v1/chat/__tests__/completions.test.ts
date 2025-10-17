@@ -1,14 +1,7 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { chatCompletionsPost } from '../chat-completions'
+import { chatCompletionsPost } from '../completions'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
@@ -106,7 +99,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         {
           method: 'POST',
           body: JSON.stringify({ stream: true }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -132,7 +125,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer invalid-key' },
           body: JSON.stringify({ stream: true }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -160,7 +153,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: 'not json',
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -186,7 +179,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({ stream: false }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -212,7 +205,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({ stream: true }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -241,7 +234,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             stream: true,
             codebuff_metadata: { agent_run_id: 'run-nonexistent' },
           }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -272,7 +265,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             stream: true,
             codebuff_metadata: { agent_run_id: 'run-completed' },
           }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -305,7 +298,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             stream: true,
             codebuff_metadata: { agent_run_id: 'run-123' },
           }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -337,7 +330,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             stream: true,
             codebuff_metadata: { agent_run_id: 'run-123' },
           }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({
@@ -381,7 +374,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             stream: true,
             codebuff_metadata: { agent_run_id: 'run-123' },
           }),
-        }
+        },
       )
 
       const response = await chatCompletionsPost({

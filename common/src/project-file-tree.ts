@@ -1,4 +1,3 @@
-import fs from 'fs'
 import path from 'path'
 
 import * as ignore from 'ignore'
@@ -7,14 +6,20 @@ import { sortBy } from 'lodash'
 import { DEFAULT_IGNORED_PATHS } from './old-constants'
 import { isValidProjectRoot } from './util/file'
 
+import type { CodebuffFileSystem } from './types/filesystem'
 import type { DirectoryNode, FileTreeNode } from './util/file'
 
 export const DEFAULT_MAX_FILES = 10_000
 
-export function getProjectFileTree(
-  projectRoot: string,
-  { maxFiles = DEFAULT_MAX_FILES }: { maxFiles?: number } = {},
-): FileTreeNode[] {
+export function getProjectFileTree(params: {
+  projectRoot: string
+  maxFiles?: number
+  fs: CodebuffFileSystem
+}): FileTreeNode[] {
+  const withDefaults = { maxFiles: DEFAULT_MAX_FILES, ...params }
+  const { projectRoot, fs } = withDefaults
+  let { maxFiles } = withDefaults
+
   const start = Date.now()
   const defaultIgnore = ignore.default()
   for (const pattern of DEFAULT_IGNORED_PATHS) {
@@ -50,7 +55,7 @@ export function getProjectFileTree(
     const mergedIgnore = ignore
       .default()
       .add(currentIgnore)
-      .add(parseGitignore(fullPath, projectRoot))
+      .add(parseGitignore({ fullDirPath: fullPath, projectRoot, fs }))
 
     try {
       const files = fs.readdirSync(fullPath)
@@ -146,10 +151,13 @@ function rebaseGitignorePattern(
   return isNegated ? `!${rebased}` : rebased
 }
 
-export function parseGitignore(
-  fullDirPath: string,
-  projectRoot: string,
-): ignore.Ignore {
+export function parseGitignore(params: {
+  fullDirPath: string
+  projectRoot: string
+  fs: CodebuffFileSystem
+}): ignore.Ignore {
+  const { fullDirPath, projectRoot, fs } = params
+
   const ig = ignore.default()
   const relativeDirPath = path.relative(projectRoot, fullDirPath)
   const ignoreFiles = [
@@ -210,7 +218,13 @@ export function getLastReadFilePaths(
     .map((node) => node.filePath)
 }
 
-export function isFileIgnored(filePath: string, projectRoot: string): boolean {
+export function isFileIgnored(params: {
+  filePath: string
+  projectRoot: string
+  fs: CodebuffFileSystem
+}): boolean {
+  const { filePath, projectRoot, fs } = params
+
   const defaultIgnore = ignore.default()
   for (const pattern of DEFAULT_IGNORED_PATHS) {
     defaultIgnore.add(pattern)
@@ -226,7 +240,9 @@ export function isFileIgnored(filePath: string, projectRoot: string): boolean {
   const mergedIgnore = ignore.default().add(defaultIgnore)
   let currentDir = dirPath
   while (currentDir.startsWith(projectRoot)) {
-    mergedIgnore.add(parseGitignore(currentDir, projectRoot))
+    mergedIgnore.add(
+      parseGitignore({ fullDirPath: currentDir, projectRoot, fs }),
+    )
     currentDir = path.dirname(currentDir)
   }
 

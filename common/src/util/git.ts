@@ -1,8 +1,8 @@
 import { execSync } from 'child_process'
-import * as fs from 'fs'
 import * as path from 'path'
 
 import type { FileChanges } from '../actions'
+import type { CodebuffFileSystem } from '../types/filesystem'
 
 const maxBuffer = 50 * 1024 * 1024 // 50 MB
 
@@ -38,7 +38,13 @@ export function stageAllChanges(): boolean {
   }
 }
 
-export function stagePatches(dir: string, changes: FileChanges): boolean {
+export function stagePatches(params: {
+  dir: string
+  changes: FileChanges
+  fs: CodebuffFileSystem
+}): boolean {
+  const { dir, changes, fs } = params
+
   try {
     const fileNames = changes.map((change) => change.path)
     const existingFileNames = fileNames.filter((filePath) =>

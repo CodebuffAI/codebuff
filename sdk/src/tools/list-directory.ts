@@ -1,12 +1,15 @@
-import * as fs from 'fs'
 import * as path from 'path'
 
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebuffToolOutput } from '../../../common/src/tools/list'
+import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'
 
-export async function listDirectory(
-  directoryPath: string,
-  projectPath: string,
-): Promise<CodebuffToolOutput<'list_directory'>> {
+export async function listDirectory(params: {
+  directoryPath: string
+  projectPath: string
+  fs: CodebuffFileSystem
+}): Promise<CodebuffToolOutput<'list_directory'>> {
+  const { directoryPath, projectPath, fs } = params
+
   try {
     const resolvedPath = path.resolve(projectPath, directoryPath)
 
@@ -47,8 +50,7 @@ export async function listDirectory(
       },
     ]
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
     return [
       {
         type: 'json',

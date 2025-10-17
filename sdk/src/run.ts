@@ -3,6 +3,11 @@ import path from 'path'
 import { cloneDeep } from 'lodash'
 
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
+import { stripToolCallPayloads } from './tool-xml-buffer'
+import {
+  createToolXmlFilterState,
+  filterToolXmlFromText,
+} from './tool-xml-filter'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
@@ -10,19 +15,14 @@ import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { WebSocketHandler } from './websocket-client'
-import {
-  createToolXmlFilterState,
-  filterToolXmlFromText,
-  type ToolXmlFilterState,
-} from './tool-xml-filter'
-import { stripToolCallPayloads } from './tool-xml-buffer'
-import { PromptResponseSchema } from '../../common/src/actions'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { toolNames } from '../../common/src/tools/constants'
 import { clientToolCallSchema } from '../../common/src/tools/list'
+import { AgentOutputSchema } from '../../common/src/types/session-state'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
+import type { ToolXmlFilterState } from './tool-xml-filter'
 import type { ServerAction } from '../../common/src/actions'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type {
@@ -40,14 +40,11 @@ import type {
   ToolResultPart,
 } from '../../common/src/types/messages/content-part'
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
-import {
-  AgentOutputSchema,
-  type SessionState,
-} from '../../common/src/types/session-state'
-
+import type { SessionState } from '../../common/src/types/session-state'
+import type { Source } from '../../common/src/types/source'
+import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export type CodebuffClientOptions = {
-  // Provide an API key or set the CODEBUFF_API_KEY environment variable.
   apiKey?: string
 
   cwd?: string
@@ -72,6 +69,8 @@ export type CodebuffClientOptions = {
     }
   >
   customToolDefinitions?: CustomToolDefinition[]
+
+  fsSource?: Source<CodebuffFileSystem>
 }
 
 export type RunOptions = {
@@ -100,6 +99,8 @@ export async function run({
   overrideTools,
   customToolDefinitions,
 
+  fsSource = () => require('fs'),
+
   agent,
   prompt,
   params,
@@ -111,6 +112,7 @@ export async function run({
     apiKey: string
     fingerprintId: string
   }): Promise<RunState> {
+  const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
   checkAborted(signal)
   async function onError(error: { message: string }) {
     if (handleEvent) {
@@ -189,7 +191,10 @@ export async function run({
       incoming.includes(previous)
     ) {
       next = incoming
-    } else if (incoming.length < previous.length && !previous.includes(incoming)) {
+    } else if (
+      incoming.length < previous.length &&
+      !previous.includes(incoming)
+    ) {
       next = incoming
     } else {
       next = previous + incoming
@@ -279,7 +284,11 @@ export async function run({
               agentId: eventAgentId,
             } as PrintModeEvent)
 
-      if (eventAgentId && 'agentId' in eventPayload && eventPayload.agentId == null) {
+      if (
+        eventAgentId &&
+        'agentId' in eventPayload &&
+        eventPayload.agentId == null
+      ) {
         eventPayload.agentId = eventAgentId
       }
 
@@ -332,6 +341,7 @@ export async function run({
         filePaths,
         override: overrideTools?.read_files,
         cwd,
+        fs,
       }),
     handleToolCall: (action) =>
       handleToolCall({
@@ -343,6 +353,7 @@ export async function run({
             )
           : {},
         cwd,
+        fs,
       }),
     onCostResponse: async () => {},
 
@@ -387,7 +398,10 @@ export async function run({
           )
           let remainder = streamTail
 
-          if (streamFilterState.buffer && !streamFilterState.buffer.includes('<')) {
+          if (
+            streamFilterState.buffer &&
+            !streamFilterState.buffer.includes('<')
+          ) {
             remainder += streamFilterState.buffer
           }
           streamFilterState.buffer = ''
@@ -400,8 +414,7 @@ export async function run({
 
           await flushTextState(ROOT_AGENT_KEY)
 
-          const finishAgentKey =
-            'agentId' in chunk ? chunk.agentId : undefined
+          const finishAgentKey = 'agentId' in chunk ? chunk.agentId : undefined
           if (finishAgentKey && finishAgentKey !== ROOT_AGENT_KEY) {
             await flushTextState(finishAgentKey, finishAgentKey)
             await flushSubagentState(
@@ -487,12 +500,14 @@ export async function run({
     )
   } else {
     // No previous run, so create a fresh session state
-    sessionState = await initialSessionState(cwd, {
+    sessionState = await initialSessionState({
+      cwd,
       knowledgeFiles,
       agentDefinitions,
       customToolDefinitions,
       projectFiles,
       maxAgentSteps,
+      fs,
     })
   }
 
@@ -533,17 +548,19 @@ async function readFiles({
   filePaths,
   override,
   cwd,
+  fs,
 }: {
   filePaths: string[]
   override?: NonNullable<
     Required<CodebuffClientOptions>['overrideTools']['read_files']
   >
   cwd?: string
+  fs: CodebuffFileSystem
 }) {
   if (override) {
     return await override({ filePaths })
   }
-  return getFiles(filePaths, requireCwd(cwd, 'read_files'))
+  return getFiles({ filePaths, cwd: requireCwd(cwd, 'read_files'), fs })
 }
 
 async function handleToolCall({
@@ -551,11 +568,13 @@ async function handleToolCall({
   overrides,
   customToolDefinitions,
   cwd,
+  fs,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
   customToolDefinitions: Record<string, CustomToolDefinition>
   cwd?: string
+  fs: CodebuffFileSystem
 }): ReturnType<WebSocketHandler['handleToolCall']> {
   const toolName = action.toolName
   const input = action.input
@@ -587,7 +606,11 @@ async function handleToolCall({
     } else if (toolName === 'end_turn') {
       result = []
     } else if (toolName === 'write_file' || toolName === 'str_replace') {
-      result = changeFile(input, requireCwd(cwd, toolName))
+      result = changeFile({
+        parameters: input,
+        cwd: requireCwd(cwd, toolName),
+        fs,
+      })
     } else if (toolName === 'run_terminal_command') {
       const resolvedCwd = requireCwd(cwd, 'run_terminal_command')
       result = await runTerminalCommand({
@@ -600,16 +623,18 @@ async function handleToolCall({
         ...input,
       } as Parameters<typeof codeSearch>[0])
     } else if (toolName === 'list_directory') {
-      result = await listDirectory(
-        (input as { path: string }).path,
-        requireCwd(cwd, 'list_directory'),
-      )
+      result = await listDirectory({
+        directoryPath: (input as { path: string }).path,
+        projectPath: requireCwd(cwd, 'list_directory'),
+        fs,
+      })
     } else if (toolName === 'glob') {
-      result = await glob(
-        (input as { pattern: string; cwd?: string }).pattern,
-        requireCwd(cwd, 'glob'),
-        (input as { pattern: string; cwd?: string }).cwd,
-      )
+      result = await glob({
+        pattern: (input as { pattern: string; cwd?: string }).pattern,
+        projectPath: requireCwd(cwd, 'glob'),
+        cwd: (input as { pattern: string; cwd?: string }).cwd,
+        fs,
+      })
     } else if (toolName === 'run_file_change_hooks') {
       // No-op: SDK doesn't run file change hooks
       result = [

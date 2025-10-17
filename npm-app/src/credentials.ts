@@ -2,9 +2,7 @@ import type { User } from '@codebuff/common/util/credentials'
 
 import { z } from 'zod/v4'
 
-import { logger } from './utils/logger'
-
-import { existsSync, readFileSync } from 'fs'
+import fs from 'fs'
 import path from 'node:path'
 import os from 'os'
 
@@ -40,6 +38,8 @@ export const userFromJson = (
 
 import { ensureDirectoryExists } from '@codebuff/common/util/file'
 
+import { logger } from './utils/logger'
+
 export const CONFIG_DIR = path.join(
   os.homedir(),
   '.config',
@@ -52,7 +52,7 @@ export const CONFIG_DIR = path.join(
 )
 
 // Ensure config directory exists
-ensureDirectoryExists(CONFIG_DIR)
+ensureDirectoryExists({ baseDir: CONFIG_DIR, fs })
 export const CREDENTIALS_PATH = path.join(CONFIG_DIR, 'credentials.json')
 
 /**
@@ -61,12 +61,12 @@ export const CREDENTIALS_PATH = path.join(CONFIG_DIR, 'credentials.json')
  */
 export const getUserCredentials = (): User | null => {
   // Read user credentials directly from file
-  if (!existsSync(CREDENTIALS_PATH)) {
+  if (!fs.existsSync(CREDENTIALS_PATH)) {
     return null
   }
 
   try {
-    const credentialsFile = readFileSync(CREDENTIALS_PATH, 'utf8')
+    const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
     const user = userFromJson(credentialsFile)
     return user || null
   } catch (error) {

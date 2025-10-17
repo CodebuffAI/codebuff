@@ -1,10 +1,10 @@
-import fs from 'fs'
 import path from 'path'
 
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
+import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'
 
 const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -12,19 +12,24 @@ const FileChangeSchema = z.object({
   content: z.string(),
 })
 
-export function changeFile(
-  parameters: unknown,
-  cwd: string,
-): CodebuffToolOutput<'str_replace'> {
+export function changeFile(params: {
+  parameters: unknown
+  cwd: string
+  fs: CodebuffFileSystem
+}): CodebuffToolOutput<'str_replace'> {
+  const { parameters, cwd, fs } = params
+
   if (cwd.includes('../')) {
     throw new Error('cwd cannot include ../')
   }
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
 
-  const { created, modified, invalid, patchFailed } = applyChanges(cwd, [
-    fileChange,
-  ])
+  const { created, modified, invalid, patchFailed } = applyChanges({
+    projectRoot: cwd,
+    changes: [fileChange],
+    fs,
+  })
 
   const results: CodebuffToolOutput<'str_replace'>[0]['value'][] = []
 
@@ -71,14 +76,17 @@ export function changeFile(
   return [{ type: 'json', value: results[0] }]
 }
 
-function applyChanges(
-  projectRoot: string,
+function applyChanges(params: {
+  projectRoot: string
   changes: {
     type: 'patch' | 'file'
     path: string
     content: string
-  }[],
-) {
+  }[]
+  fs: CodebuffFileSystem
+}) {
+  const { projectRoot, changes, fs } = params
+
   const created: string[] = []
   const modified: string[] = []
   const patchFailed: string[] = []

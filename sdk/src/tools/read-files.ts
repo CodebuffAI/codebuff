@@ -1,9 +1,16 @@
-import fs from 'fs'
 import path, { isAbsolute } from 'path'
 
 import { FILE_READ_STATUS } from '../../../common/src/old-constants'
 
-export function getFiles(filePaths: string[], cwd: string) {
+import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'
+
+export function getFiles(params: {
+  filePaths: string[]
+  cwd: string
+  fs: CodebuffFileSystem
+}) {
+  const { filePaths, cwd, fs } = params
+
   const result: Record<string, string | null> = {}
   const MAX_FILE_SIZE = 1024 * 1024 // 1MB in bytes
 

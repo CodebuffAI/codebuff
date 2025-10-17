@@ -17,7 +17,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
   for (const change of changes) {
     const { path: filePath, content, type } = change
     try {
-      if (isFileIgnored(filePath, projectRoot)) {
+      if (isFileIgnored({ filePath, projectRoot, fs })) {
         ignored.push(filePath)
         continue
       }

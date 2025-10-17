@@ -1,5 +1,6 @@
 import { spawn } from 'child_process'
-import * as path from 'path'
+import fs from 'fs'
+import path from 'path'
 
 import { FileChangeSchema } from '@codebuff/common/actions'
 import { BrowserActionSchema } from '@codebuff/common/browser-actions'
@@ -487,7 +488,7 @@ const handleGlob: ToolHandler<'glob'> = async (parameters, _id) => {
 
   try {
     // Get all files in the project
-    const fileTree = getProjectFileTree(projectPath)
+    const fileTree = getProjectFileTree({ projectRoot: projectPath, fs })
     const flattenedNodes = flattenTree(fileTree)
     let allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')

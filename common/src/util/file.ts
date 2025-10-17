@@ -1,10 +1,11 @@
-import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
 import { z } from 'zod/v4'
 
 import { CodebuffConfigSchema } from '../json-config/constants'
+
+import type { CodebuffFileSystem } from '../types/filesystem'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
   name: z.string(),
@@ -214,7 +215,12 @@ export const ensureEndsWithNewline = (
   return contents + '\n'
 }
 
-export const ensureDirectoryExists = (baseDir: string) => {
+export const ensureDirectoryExists = (params: {
+  baseDir: string
+  fs: CodebuffFileSystem
+}) => {
+  const { baseDir, fs } = params
+
   if (!fs.existsSync(baseDir)) {
     fs.mkdirSync(baseDir, { recursive: true })
   }
@@ -243,9 +249,14 @@ export function isValidFilePath(path: string) {
   return true
 }
 
-export function isDir(p: string): boolean {
+export function isDir(params: {
+  path: string
+  fs: CodebuffFileSystem
+}): boolean {
+  const { path, fs } = params
+
   try {
-    return fs.statSync(p).isDirectory()
+    return fs.statSync(path).isDirectory()
   } catch {
     return false
   }

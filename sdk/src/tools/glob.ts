@@ -1,20 +1,22 @@
-import * as path from 'path'
-
 import {
   flattenTree,
   getProjectFileTree,
 } from '@codebuff/common/project-file-tree'
 import micromatch from 'micromatch'
 
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebuffToolOutput } from '../../../common/src/tools/list'
+import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'
 
-export async function glob(
-  pattern: string,
-  projectPath: string,
-  cwd?: string,
-): Promise<CodebuffToolOutput<'glob'>> {
+export async function glob(params: {
+  pattern: string
+  projectPath: string
+  cwd?: string
+  fs: CodebuffFileSystem
+}): Promise<CodebuffToolOutput<'glob'>> {
+  const { pattern, projectPath, cwd, fs } = params
+
   try {
-    const fileTree = getProjectFileTree(projectPath)
+    const fileTree = getProjectFileTree({ projectRoot: projectPath, fs })
     const flattenedNodes = flattenTree(fileTree)
     let allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')
@@ -43,8 +45,7 @@ export async function glob(
       },
     ]
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
     return [
       {
         type: 'json',

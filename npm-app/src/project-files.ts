@@ -86,7 +86,7 @@ export function getProjectDataDir(): string {
 export function getCurrentChatDir(): string {
   const chatId = getCurrentChatId()
   const dir = path.join(getProjectDataDir(), 'chats', chatId)
-  ensureDirectoryExists(dir)
+  ensureDirectoryExists({ baseDir: dir, fs })
   return dir
 }
 
@@ -262,7 +262,7 @@ export const getProjectFileContext = async (
     !cachedProjectFileContext ||
     cachedProjectFileContext.projectRoot !== projectRoot
   ) {
-    const fileTree = getProjectFileTree(projectRoot)
+    const fileTree = getProjectFileTree({ projectRoot, fs })
     const flattenedNodes = flattenTree(fileTree)
     const allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')
@@ -457,7 +457,7 @@ export function getChangesSinceLastFileVersion(
 export function getFiles(filePaths: string[]) {
   const result: Record<string, string | null> = {}
   const MAX_FILE_SIZE = 1024 * 1024 // 1MB in bytes
-  const ig = parseGitignore(projectRoot, projectRoot)
+  const ig = parseGitignore({ fullDirPath: projectRoot, projectRoot, fs })
 
   for (const filePath of filePaths) {
     if (!filePath) {
