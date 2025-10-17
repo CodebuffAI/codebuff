@@ -1,3 +1,4 @@
+import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { type ToolCallPart } from 'ai'
@@ -8,7 +9,6 @@ import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 import { checkLiveUserInput } from '../live-user-inputs'
 import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
-import { getMCPToolData } from '../mcp/util'
 
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
