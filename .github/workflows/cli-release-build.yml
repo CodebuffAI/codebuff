@@ -92,6 +92,54 @@ jobs:
       - name: Ensure CLI dependencies
         run: bun install --frozen-lockfile --cwd cli
 
+      - name: Fix OpenTUI module symlinks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          import fs from 'fs';
+          import path from 'path';
+
+          const rootDir = process.cwd();
+          const rootOpenTui = path.join(rootDir, 'node_modules', '@opentui');
+          const cliNodeModules = path.join(rootDir, 'cli', 'node_modules');
+          const cliOpenTui = path.join(cliNodeModules, '@opentui');
+
+          if (!fs.existsSync(rootOpenTui)) {
+            console.log('Root @opentui packages missing; skipping fix');
+            process.exit(0);
+          }
+
+          fs.mkdirSync(cliOpenTui, { recursive: true });
+
+          const packages = ['core', 'react'];
+          for (const pkg of packages) {
+            const target = path.join(rootOpenTui, pkg);
+            const link = path.join(cliOpenTui, pkg);
+
+            if (!fs.existsSync(target)) {
+              console.log(`Target ${target} missing; skipping ${pkg}`);
+              continue;
+            }
+
+            if (fs.existsSync(link)) {
+              try {
+                const actual = fs.realpathSync(link);
+                if (actual === target) {
+                  continue;
+                }
+              } catch (error) {
+                // If the link is broken or realpath fails, remove it.
+              }
+              fs.rmSync(link, { recursive: true, force: true });
+            }
+
+            const type = process.platform === 'win32' ? 'junction' : 'dir';
+            fs.symlinkSync(target, link, type);
+            console.log(`Linked ${link} -> ${target}`);
+          }
+          NODE
+
       - name: Configure environment variables
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
