@@ -1,0 +1,11 @@
+{
+  "name": "@codebuff/cli-staging",
+  "private": true,
+  "version": "1.0.420",
+  "description": "Staging release metadata for Codebuff CLI binaries",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodebuffAI/codebuff.git"
+  },
+  "homepage": "https://codebuff.com"
+}
