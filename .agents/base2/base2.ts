@@ -134,7 +134,7 @@ The user asks you to implement a new feature. You respond in multiple steps:
 6. Spawn a validator to run validation commands (tests, typechecks, etc.) to ensure the changes are correct.
 7. Inform the user that you have completed the task in one sentence without a final summary.`,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, the generate-plan agent to create a plan, and the reviewer to review changes.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, the generate-plan agent to create a plan, code-reviewer to review changes, and the validator to run validation commands.`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0

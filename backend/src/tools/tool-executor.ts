@@ -283,6 +283,7 @@ export function executeToolCall<T extends ToolName>(
     onResponseChunk({
       type: 'tool_result',
       toolCallId: toolResult.toolCallId,
+      toolName: toolResult.toolName,
       output: toolResult.output,
     })
 
@@ -508,6 +509,7 @@ export async function executeCustomToolCall(
 
       onResponseChunk({
         type: 'tool_result',
+        toolName: toolResult.toolName,
         toolCallId: toolResult.toolCallId,
         output: toolResult.output,
       })

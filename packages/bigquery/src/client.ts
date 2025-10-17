@@ -3,13 +3,8 @@ import { BigQuery } from '@google-cloud/bigquery'
 
 import { MESSAGE_SCHEMA, RELABELS_SCHEMA, TRACES_SCHEMA } from './schema'
 
-import type {
-  BaseTrace,
-  GetRelevantFilesTrace,
-  MessageRow,
-  Relabel,
-  Trace,
-} from './schema'
+import type { BaseTrace, GetRelevantFilesTrace, Relabel, Trace } from './schema'
+import type { MessageRow } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const DATASET =
@@ -99,7 +94,7 @@ export async function setupBigQuery({
   }
 }
 
-export async function insertMessage({
+export async function insertMessageBigquery({
   row,
   dataset = DATASET,
   logger,

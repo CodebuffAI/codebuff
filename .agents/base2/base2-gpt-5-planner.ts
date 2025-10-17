@@ -15,8 +15,10 @@ const definition: SecretAgentDefinition = {
   toolNames: ['spawn_agents', 'read_files'],
 
   spawnableAgents: buildArray(
-    'file-picker',
-    'find-all-referencer',
+    'file-picker-max',
+    'code-searcher',
+    'directory-lister',
+    'glob-matcher',
     'researcher-web',
     'researcher-docs',
     'commander',

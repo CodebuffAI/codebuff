@@ -96,8 +96,8 @@ export enum AnalyticsEvent {
   CHAT_COMPLETIONS_AUTH_ERROR = 'api.chat_completions_auth_error',
   CHAT_COMPLETIONS_VALIDATION_ERROR = 'api.chat_completions_validation_error',
   CHAT_COMPLETIONS_INSUFFICIENT_CREDITS = 'api.chat_completions_insufficient_credits',
+  CHAT_COMPLETIONS_GENERATION_STARTED = 'api.chat_completions_generation_started',
   CHAT_COMPLETIONS_STREAM_STARTED = 'api.chat_completions_stream_started',
-  CHAT_COMPLETIONS_STREAM_ERROR = 'api.chat_completions_stream_error',
   CHAT_COMPLETIONS_ERROR = 'api.chat_completions_error',
 
   // Common
