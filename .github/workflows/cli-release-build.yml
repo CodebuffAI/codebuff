@@ -21,6 +21,11 @@ on:
         type: string
         description: 'Git ref to checkout'
         default: ''
+      env-overrides:
+        required: false
+        type: string
+        description: 'JSON object of environment variable overrides'
+        default: '{}'
 
 jobs:
   build-binaries:
@@ -87,18 +92,19 @@ jobs:
       - name: Configure environment variables
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+          ENV_OVERRIDES: ${{ inputs.env-overrides }}
         shell: bash
         run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js | jq '[.[] | select(startswith("NEXT_PUBLIC_"))]')
-          if [ "$VAR_NAMES" = "[]" ]; then
-            echo "No NEXT_PUBLIC_ variables detected from generate-ci-env.js"
-          else
-            echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
-              to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
-            ' >> $GITHUB_ENV
-          fi
+          VAR_NAMES=$(node scripts/generate-ci-env.js --prefix NEXT_PUBLIC_)
+
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+          if [ "$ENV_OVERRIDES" != "{}" ]; then
+            echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
+          fi
 
       - name: Build binary
         run: bun run scripts/build-binary.ts ${{ inputs.binary-name }} ${{ inputs.new-version }}
