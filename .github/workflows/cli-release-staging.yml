@@ -185,21 +185,21 @@ jobs:
           VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
         run: |
           CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          RELEASE_BODY=$(cat <<EOF
-## Codebuff CLI v${VERSION} (Staging)
+          RELEASE_BODY=$(cat <<'EOF'
+          ## Codebuff CLI v${VERSION} (Staging)
 
-**⚠️ This is a staging build intended for internal testing.**
+          **⚠️ This is a staging build intended for internal testing.**
 
-### Included Binaries
-- \`codebuff-cli-linux-x64.tar.gz\`
-- \`codebuff-cli-linux-arm64.tar.gz\`
-- \`codebuff-cli-darwin-x64.tar.gz\`
-- \`codebuff-cli-darwin-arm64.tar.gz\`
-- \`codebuff-cli-win32-x64.tar.gz\`
+          ### Included Binaries
+          - `codebuff-cli-linux-x64.tar.gz`
+          - `codebuff-cli-linux-arm64.tar.gz`
+          - `codebuff-cli-darwin-x64.tar.gz`
+          - `codebuff-cli-darwin-arm64.tar.gz`
+          - `codebuff-cli-win32-x64.tar.gz`
 
-After downloading, extract the tarball, add the binary to your PATH, and run \`codebuff-cli --help\` for usage.
-EOF
-)
+          After downloading, extract the tarball, add the binary to your PATH, and run `codebuff-cli --help` for usage.
+          EOF
+          )
 
           curl -s -X POST \
             -H "Accept: application/vnd.github.v3+json" \
