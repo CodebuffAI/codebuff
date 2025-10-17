@@ -37,6 +37,7 @@ export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
 export const printModeToolResultSchema = z.object({
   type: z.literal('tool_result'),
   toolCallId: z.string(),
+  toolName: z.string().optional(),
   output: toolResultOutputSchema.array(),
   parentAgentId: z.string().optional(),
 })

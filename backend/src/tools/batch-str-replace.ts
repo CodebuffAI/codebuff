@@ -345,6 +345,7 @@ async function executeSingleStrReplace(
       onResponseChunk({
         type: 'tool_result',
         toolCallId: toolCall.toolCallId,
+        toolName: 'str_replace',
         output: toolResult,
       })
 
@@ -491,6 +492,7 @@ function handleStrReplaceError(params: {
   onResponseChunk({
     type: 'tool_result',
     toolCallId: toolCall.toolCallId,
+    toolName: 'str_replace',
     output: errorResult.output,
   })
 }
@@ -877,6 +879,7 @@ async function applyBenchifyResultSafely(params: {
     onResponseChunk({
       type: 'tool_result',
       toolCallId: relatedToolCall.toolCallId,
+      toolName: 'str_replace',
       output: benchifyToolResult.output,
     })
 
