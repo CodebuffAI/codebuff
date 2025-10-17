@@ -362,5 +362,16 @@ export async function runBuffBench(options: {
     )
   }
 
+  // Print all overall scores for distribution analysis
+  console.log('\n=== Score Distribution ===')
+  for (const [agentId, data] of Object.entries(results)) {
+    const validRuns = data.runs.filter(
+      (r) => !commitShasWithErrors.has(r.commitSha),
+    )
+    const scores = validRuns.map((r) => r.judging.overallScore.toFixed(1))
+    console.log(`\n${agentId}:`)
+    console.log(`  Scores: ${scores.join(', ')}`)
+  }
+
   return finalResults
 }
