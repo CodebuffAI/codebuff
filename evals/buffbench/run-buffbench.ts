@@ -169,13 +169,40 @@ export async function runBuffBench(options: {
   agents: string[]
   taskConcurrency?: number
   client?: CodebuffClient
+  taskIds?: string[]
 }) {
-  const { evalDataPath, agents, taskConcurrency = 1 } = options
+  const { evalDataPath, agents, taskConcurrency = 1, taskIds } = options
 
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
   )
-  const commitsToRun = evalData.evalCommits
+
+  let commitsToRun: EvalDataV2['evalCommits']
+  if (taskIds && taskIds.length > 0) {
+    const foundCommits: EvalDataV2['evalCommits'] = []
+    const notFoundIds: string[] = []
+    
+    for (const taskId of taskIds) {
+      const foundCommit = evalData.evalCommits.find((c) => c.id === taskId)
+      if (foundCommit) {
+        foundCommits.push(foundCommit)
+      } else {
+        notFoundIds.push(taskId)
+      }
+    }
+    
+    if (notFoundIds.length > 0) {
+      const availableIds = evalData.evalCommits.map((c) => c.id).join(', ')
+      throw new Error(
+        `Task ID(s) not found: ${notFoundIds.join(', ')}. Available task IDs: ${availableIds}`,
+      )
+    }
+    
+    commitsToRun = foundCommits
+    console.log(`Running ${foundCommits.length} task(s): ${taskIds.join(', ')}`)
+  } else {
+    commitsToRun = evalData.evalCommits
+  }
 
   const client =
     options.client ??
