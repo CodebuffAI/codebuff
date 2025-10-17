@@ -89,13 +89,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Link workspace node_modules
-        shell: bash
-        run: |
-          if [ ! -e cli/node_modules ]; then
-            ln -s ../node_modules cli/node_modules
-          fi
-
       - name: Ensure CLI dependencies
         run: bun install --frozen-lockfile --cwd cli
 
