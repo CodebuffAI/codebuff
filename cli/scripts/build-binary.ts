@@ -1,7 +1,14 @@
 #!/usr/bin/env bun
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process'
-import { chmodSync, existsSync, mkdirSync } from 'fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -120,6 +127,8 @@ async function main() {
   log('Building SDK dependencies...')
   runCommand('bun', ['run', 'build:sdk'], { cwd: cliRoot })
 
+  patchOpenTuiAssetPaths()
+
   const outputFilename =
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
   const outputFile = join(binDir, outputFilename)
@@ -167,3 +176,37 @@ main().catch((error: unknown) => {
   }
   process.exit(1)
 })
+
+function patchOpenTuiAssetPaths() {
+  const coreDir = join(cliRoot, 'node_modules', '@opentui', 'core')
+  if (!existsSync(coreDir)) {
+    log('OpenTUI core package not found; skipping asset patch')
+    return
+  }
+
+  const indexFile = readdirSync(coreDir).find(
+    (file) => file.startsWith('index') && file.endsWith('.js'),
+  )
+
+  if (!indexFile) {
+    log('OpenTUI core index bundle not found; skipping asset patch')
+    return
+  }
+
+  const indexPath = join(coreDir, indexFile)
+  const content = readFileSync(indexPath, 'utf8')
+
+  const absolutePathPattern =
+    /var __dirname = ".*?packages\/core\/src\/lib\/tree-sitter\/assets";/
+  if (!absolutePathPattern.test(content)) {
+    log('OpenTUI core bundle already has relative asset paths')
+    return
+  }
+
+  const replacement =
+    'var __dirname = path3.join(path3.dirname(fileURLToPath(new URL(".", import.meta.url))), "lib/tree-sitter/assets");'
+
+  const patched = content.replace(absolutePathPattern, replacement)
+  writeFileSync(indexPath, patched)
+  logAlways('Patched OpenTUI core tree-sitter asset paths')
+}
