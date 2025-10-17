@@ -122,21 +122,44 @@ jobs:
               continue;
             }
 
-            if (fs.existsSync(link)) {
+            let linkStats = null;
+            try {
+              linkStats = fs.lstatSync(link);
+            } catch (error) {
+              if (error?.code !== 'ENOENT') {
+                throw error;
+              }
+            }
+
+            if (linkStats) {
+              let alreadyLinked = false;
               try {
                 const actual = fs.realpathSync(link);
-                if (actual === target) {
-                  continue;
-                }
-              } catch (error) {
-                // If the link is broken or realpath fails, remove it.
+                alreadyLinked = actual === target;
+              } catch {
+                // Broken symlink or unreadable target; we'll replace it.
               }
+
+              if (alreadyLinked) {
+                continue;
+              }
+
               fs.rmSync(link, { recursive: true, force: true });
             }
 
             const type = process.platform === 'win32' ? 'junction' : 'dir';
-            fs.symlinkSync(target, link, type);
-            console.log(`Linked ${link} -> ${target}`);
+            try {
+              fs.symlinkSync(target, link, type);
+              console.log(`Linked ${link} -> ${target}`);
+            } catch (error) {
+              if (error?.code === 'EEXIST') {
+                fs.rmSync(link, { recursive: true, force: true });
+                fs.symlinkSync(target, link, type);
+                console.log(`Re-linked ${link} -> ${target}`);
+              } else {
+                throw error;
+              }
+            }
           }
           NODE
 
