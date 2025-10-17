@@ -12,7 +12,7 @@
     "declaration": true,
     "outDir": "./dist",
     "allowImportingTsExtensions": false,
-    "types": ["node"]
+    "types": ["node", "bun-types"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
