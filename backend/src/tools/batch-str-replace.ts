@@ -346,7 +346,6 @@ async function executeSingleStrReplace(
         type: 'tool_result',
         toolName: toolResultPart.toolName,
         toolCallId: toolCall.toolCallId,
-        toolName: 'str_replace',
         output: toolResult,
       })
 
@@ -492,9 +491,8 @@ function handleStrReplaceError(params: {
   toolResults.push(errorResult)
   onResponseChunk({
     type: 'tool_result',
-    toolName: errorResult.toolName,
+    toolName: errorResult.toolName || 'str_replace',
     toolCallId: toolCall.toolCallId,
-    toolName: 'str_replace',
     output: errorResult.output,
   })
 }
@@ -880,9 +878,8 @@ async function applyBenchifyResultSafely(params: {
     // Notify client about the benchify update
     onResponseChunk({
       type: 'tool_result',
-      toolName: benchifyToolResult.toolName,
+      toolName: benchifyToolResult.toolName || 'str_replace',
       toolCallId: relatedToolCall.toolCallId,
-      toolName: 'str_replace',
       output: benchifyToolResult.output,
     })
 
