@@ -86,17 +86,18 @@ export async function updateGrantBalance(params: {
     .set({ balance: newBalance })
     .where(eq(schema.creditLedger.operation_id, grant.operation_id))
 
-  logger.debug(
-    {
-      userId,
-      grantId: grant.operation_id,
-      grantType: grant.type,
-      consumed,
-      remaining: newBalance,
-      expiresAt: grant.expires_at,
-    },
-    'Updated grant remaining amount after consumption',
-  )
+  // Note (James): This log was too noisy. Reenable it as you need to test something.
+  // logger.debug(
+  //   {
+  //     userId,
+  //     grantId: grant.operation_id,
+  //     grantType: grant.type,
+  //     consumed,
+  //     remaining: newBalance,
+  //     expiresAt: grant.expires_at,
+  //   },
+  //   'Updated grant remaining amount after consumption',
+  // )
 }
 
 /**

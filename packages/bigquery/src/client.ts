@@ -148,10 +148,11 @@ export async function insertTrace({
 
     await getClient().dataset(dataset).table(TRACES_TABLE).insert(traceToInsert)
 
-    logger.debug(
-      { traceId: trace.id, type: trace.type },
-      'Inserted trace into BigQuery',
-    )
+    // Note (James): This log was too noisy.
+    // logger.debug(
+    //   { traceId: trace.id, type: trace.type },
+    //   'Inserted trace into BigQuery',
+    // )
     return true
   } catch (error) {
     logger.error(
