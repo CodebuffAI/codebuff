@@ -346,7 +346,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(402)
       const body = await response.json()
       expect(body.message).toContain('Insufficient credits')
-      expect(body.message).toContain('http://localhost:3000/usage')
+      expect(body.message).toContain(
+        `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage`,
+      )
     })
   })
 
