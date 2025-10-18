@@ -28,6 +28,16 @@ export type RunState = {
   output: AgentOutput
 }
 
+export type InitialSessionStateOptions = {
+  cwd?: string
+  projectFiles?: Record<string, string>
+  knowledgeFiles?: Record<string, string>
+  agentDefinitions?: AgentDefinition[]
+  customToolDefinitions?: CustomToolDefinition[]
+  maxAgentSteps?: number
+  fs?: CodebuffFileSystem
+};
+
 /**
  * Processes agent definitions array and converts handleSteps functions to strings
  */
@@ -155,16 +165,32 @@ function deriveKnowledgeFiles(
   return knowledgeFiles
 }
 
-export async function initialSessionState(options: {
-  cwd: string | undefined
-  projectFiles?: Record<string, string>
-  knowledgeFiles?: Record<string, string>
-  agentDefinitions?: AgentDefinition[]
-  customToolDefinitions?: CustomToolDefinition[]
-  maxAgentSteps?: number
-  fs: CodebuffFileSystem
-}) {
-  let { projectFiles, agentDefinitions = [], cwd, knowledgeFiles, fs } = options
+export function initialSessionState(
+  options: InitialSessionStateOptions,
+): Promise<SessionState>;
+export function initialSessionState(
+  cwd: string,
+  options?: Omit<InitialSessionStateOptions, 'cwd'>,
+): Promise<SessionState>;
+export async function initialSessionState(
+  arg1: string | InitialSessionStateOptions,
+  arg2?: Omit<InitialSessionStateOptions, 'cwd'>,
+): Promise<SessionState> {
+  const options: InitialSessionStateOptions =
+    typeof arg1 === 'string' ? { ...(arg2 ?? {}), cwd: arg1 } : arg1 ?? {}
+
+  const cwd = options.cwd
+  const agentDefinitions = options.agentDefinitions ?? []
+  const customToolDefinitions = options.customToolDefinitions ?? []
+  const maxAgentSteps = options.maxAgentSteps
+
+  let projectFiles = options.projectFiles
+  let knowledgeFiles = options.knowledgeFiles
+  let fs: CodebuffFileSystem | undefined = options.fs
+
+  if (!fs) {
+    fs = (await import('fs')) as unknown as CodebuffFileSystem
+  }
 
   // Auto-discover project files if not provided and cwd is available
   if (projectFiles === undefined && cwd) {
@@ -176,7 +202,7 @@ export async function initialSessionState(options: {
 
   const processedAgentTemplates = processAgentDefinitions(agentDefinitions)
   const processedCustomToolDefinitions = processCustomToolDefinitions(
-    options.customToolDefinitions ?? [],
+    customToolDefinitions,
   )
 
   // Generate file tree and token scores from projectFiles if available
@@ -219,8 +245,8 @@ export async function initialSessionState(options: {
     },
   })
 
-  if (options.maxAgentSteps) {
-    initialState.mainAgentState.stepsRemaining = options.maxAgentSteps
+  if (maxAgentSteps) {
+    initialState.mainAgentState.stepsRemaining = maxAgentSteps
   }
 
   return initialState
