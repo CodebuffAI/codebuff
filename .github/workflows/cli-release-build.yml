@@ -42,6 +42,7 @@ jobs:
             bun_target: bun-linux-arm64
             platform: linux
             arch: arm64
+            # Cross-compiles on x64 runner; binary can't be executed here.
             smoke_test: false
           - os: macos-13
             target: darwin-x64
