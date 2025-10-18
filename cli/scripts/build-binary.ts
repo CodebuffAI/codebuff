@@ -303,16 +303,18 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
 
     for (const target of missingTargets) {
       mkdirSync(target.packagesDir, { recursive: true })
+      mkdirSync(target.packageDir, { recursive: true })
 
-      if (process.platform === 'win32') {
-        if (!existsSync(target.packageDir)) {
-          runCommand('cmd.exe', ['/d', '/s', '/c', `mkdir "${target.packageDir}"`])
-        }
-      } else {
-        mkdirSync(target.packageDir, { recursive: true })
+      if (!existsSync(target.packageDir)) {
+        throw new Error(`Failed to create directory for ${packageName}: ${target.packageDir}`)
       }
 
-      const tarArgs = ['-xzf', tarballPath, '--strip-components=1', '-C', target.packageDir]
+      const tarballForTar =
+        process.platform === 'win32' ? tarballPath.replace(/\\/g, '/') : tarballPath
+      const extractDirForTar =
+        process.platform === 'win32' ? target.packageDir.replace(/\\/g, '/') : target.packageDir
+
+      const tarArgs = ['-xzf', tarballForTar, '--strip-components=1', '-C', extractDirForTar]
       if (process.platform === 'win32') {
         tarArgs.unshift('--force-local')
       }
