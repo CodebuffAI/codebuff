@@ -23,7 +23,7 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
     // Handle tool_result events
     if (step.type === 'tool_result') {
       const output = Array.isArray(step.output) ? step.output : [step.output]
-      
+
       // Truncate read_files results
       if (step.toolName === 'read_files') {
         const truncatedOutput = output.map((item: any) => {
@@ -96,7 +96,7 @@ function truncateTrace(trace: AgentStep[]): AgentStep[] {
         }
       }
     }
-    
+
     return step
   })
 }
@@ -278,8 +278,8 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
           }
         },
       }),
-      10 * 60 * 1000,
-      'Trace analyzer agent timed out after 10 minutes',
+      20 * 60 * 1000,
+      'Trace analyzer agent timed out after 20 minutes',
     )
 
     const { output } = analyzerResult
