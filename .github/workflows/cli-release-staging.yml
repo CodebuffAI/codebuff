@@ -14,7 +14,7 @@ permissions:
 jobs:
   prepare-and-commit-staging:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.title, '[codebuff-cli]')
+    if: contains(github.event.pull_request.title, '[codecane]')
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
@@ -110,7 +110,7 @@ jobs:
       - name: Commit staging release snapshot
         run: |
           git add -A
-          git commit -m "Staging CLI Release v${{ steps.bump_version.outputs.new_version }} [codebuff-cli]
+          git commit -m "Staging CLI Release v${{ steps.bump_version.outputs.new_version }} [codecane]
 
           Captures the staged state for the CLI prerelease, including the version bump.
 
@@ -132,7 +132,7 @@ jobs:
     needs: prepare-and-commit-staging
     uses: ./.github/workflows/cli-release-build.yml
     with:
-      binary-name: codebuff-cli
+      binary-name: codecane
       new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
       artifact-name: cli-staging-metadata
       checkout-ref: ${{ github.event.pull_request.head.sha }}
@@ -191,18 +191,18 @@ jobs:
         run: |
           CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           RELEASE_BODY=$(cat <<'EOF'
-          ## Codebuff CLI v${VERSION} (Staging)
+          ## Codecane v${VERSION} (Staging)
 
           **⚠️ This is a staging build intended for internal testing.**
 
           ### Included Binaries
-          - `codebuff-cli-linux-x64.tar.gz`
-          - `codebuff-cli-linux-arm64.tar.gz`
-          - `codebuff-cli-darwin-x64.tar.gz`
-          - `codebuff-cli-darwin-arm64.tar.gz`
-          - `codebuff-cli-win32-x64.tar.gz`
+          - `codecane-linux-x64.tar.gz`
+          - `codecane-linux-arm64.tar.gz`
+          - `codecane-darwin-x64.tar.gz`
+          - `codecane-darwin-arm64.tar.gz`
+          - `codecane-win32-x64.tar.gz`
 
-          After downloading, extract the tarball, add the binary to your PATH, and run `codebuff-cli --help` for usage.
+          After downloading, extract the tarball, add the binary to your PATH, and run `codecane --help` for usage.
           EOF
           )
 
@@ -213,7 +213,7 @@ jobs:
             https://api.github.com/repos/CodebuffAI/codebuff/releases \
             -d "{
               \"tag_name\": \"v${VERSION}\",
-              \"name\": \"Codebuff CLI v${VERSION} (Staging)\",
+              \"name\": \"Codecane v${VERSION} (Staging)\",
               \"body\": \"${RELEASE_BODY//$'\n'/\\n}\",
               \"prerelease\": true,
               \"published_at\": \"$CURRENT_TIME\"
@@ -231,7 +231,7 @@ jobs:
             exit 1
           fi
 
-          for file in binaries/*/codebuff-cli-*; do
+          for file in binaries/*/codecane-*; do
             if [ -f "$file" ]; then
               FILENAME=$(basename "$file")
               echo "Uploading $FILENAME"
@@ -242,3 +242,33 @@ jobs:
                 "https://uploads.github.com/repos/CodebuffAI/codebuff/releases/$RELEASE_ID/assets?name=$FILENAME"
             fi
           done
+
+  publish-staging-npm:
+    needs: [prepare-and-commit-staging, build-staging-binaries, create-staging-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Download CLI staging package
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-staging-metadata
+          path: cli/release-staging/
+
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: Publish codecane staging package to npm
+        run: |
+          cd cli/release-staging
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

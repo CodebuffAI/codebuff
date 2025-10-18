@@ -19,7 +19,7 @@
     "prebuild": "bun run build:sdk",
     "build": "bun build src/index.tsx --outdir dist --target node --format esm",
     "build:sdk": "cd ../sdk && bun run build",
-    "build:binary": "bun ./scripts/build-binary.ts codebuff-cli $npm_package_version",
+    "build:binary": "bun ./scripts/build-binary.ts codecane $npm_package_version",
     "start": "bun run dist/index.js",
     "pretypecheck": "bun run build:sdk",
     "typecheck": "tsc --noEmit -p ."
