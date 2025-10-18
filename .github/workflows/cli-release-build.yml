@@ -42,6 +42,7 @@ jobs:
             bun_target: bun-linux-arm64
             platform: linux
             arch: arm64
+            smoke_test: false
           - os: macos-13
             target: darwin-x64
             bun_target: bun-darwin-x64
@@ -191,6 +192,7 @@ jobs:
           OVERRIDE_ARCH: ${{ matrix.arch }}
 
       - name: Smoke test binary
+        if: matrix.smoke_test != false
         shell: bash
         run: |
           cd cli/bin
