@@ -29,7 +29,7 @@ import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { mockFileContext } from './test-utils'
 
-import type { getAgentTemplate } from '../templates/agent-registry'
+import type { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
 import type {

@@ -1,5 +1,6 @@
 import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
 import { getAgentStreamFromTemplate } from '@codebuff/agent-runtime/prompt-agent-stream'
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import {
   asSystemInstruction,
   asSystemMessage,
@@ -20,7 +21,6 @@ import { cloneDeep } from 'lodash'
 import { checkLiveUserInput } from './live-user-inputs'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
-import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
@@ -401,7 +401,7 @@ export const runAgentStep = async (
   }
 }
 
-export const loopAgentSteps = async (
+export async function loopAgentSteps(
   params: {
     userInputId: string
     agentType: AgentTemplateType
@@ -448,7 +448,7 @@ export const loopAgentSteps = async (
 ): Promise<{
   agentState: AgentState
   output: AgentOutput
-}> => {
+}> {
   const {
     userInputId,
     agentType,

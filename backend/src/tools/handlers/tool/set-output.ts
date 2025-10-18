@@ -1,4 +1,4 @@
-import { getAgentTemplate } from '../../../templates/agent-registry'
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 

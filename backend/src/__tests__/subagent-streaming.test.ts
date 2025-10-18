@@ -1,3 +1,4 @@
+import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   TEST_AGENT_RUNTIME_IMPL,
@@ -17,7 +18,6 @@ import {
 
 import * as runAgentStep from '../run-agent-step'
 import { mockFileContext } from './test-utils'
-import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import * as loggerModule from '../util/logger'
 

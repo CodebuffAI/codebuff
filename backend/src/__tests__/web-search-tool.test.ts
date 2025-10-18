@@ -1,6 +1,7 @@
 // Set environment variables before any imports
 process.env.LINKUP_API_KEY = 'test-api-key'
 
+import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
@@ -27,7 +28,6 @@ import * as liveUserInputs from '../live-user-inputs'
 import { mockFileContext } from './test-utils'
 import * as linkupApi from '../llm-apis/linkup-api'
 import { runAgentStep } from '../run-agent-step'
-import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 
 import type {
   AgentRuntimeDeps,

@@ -4,7 +4,7 @@ import {
   promptAiSdkStream,
   promptAiSdkStructured,
 } from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import { fetchAgentFromDatabase } from '../templates/agent-registry'
+import { fetchAgentFromDatabase } from '../templates/agent-db'
 import { logger } from '../util/logger'
 import { getUserInfoFromApiKey } from '../websockets/auth'
 

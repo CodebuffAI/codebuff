@@ -1,8 +1,5 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
+import { mockModule } from '@codebuff/common/testing/mock-modules'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import {
   describe,
@@ -13,15 +10,14 @@ import {
   spyOn,
   mock,
   beforeAll,
-  afterAll,
 } from 'bun:test'
 
 import {
   getAgentTemplate,
   assembleLocalAgentTemplates,
-} from '../templates/agent-registry'
+} from '../agent-registry'
 
-import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
+import type { AgentTemplate } from '../types'
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
@@ -68,43 +64,6 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
 // We'll spy on the validation functions instead of mocking the entire module
 
 describe('Agent Registry', () => {
-  beforeAll(() => {
-    // Mock the database module
-    mockModule('@codebuff/common/db', () => ({
-      default: {
-        select: () => ({
-          from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => Promise.resolve([]),
-              }),
-              then: (fn: (rows: any[]) => any) => fn([]),
-            }),
-          }),
-        }),
-      },
-    }))
-
-    // Mock the schema module
-    mockModule('@codebuff/common/db/schema', () => ({
-      agentConfig: {
-        id: 'id',
-        publisher_id: 'publisher_id',
-        version: 'version',
-        major: 'major',
-        minor: 'minor',
-        patch: 'patch',
-        data: 'data',
-      },
-    }))
-
-    // Mock drizzle-orm
-    mockModule('drizzle-orm', () => ({
-      and: (...args: any[]) => ({ type: 'and', args }),
-      desc: (field: any) => ({ type: 'desc', field }),
-      eq: (field: any, value: any) => ({ type: 'eq', field, value }),
-    }))
-  })
   let mockFileContext: ProjectFileContext
 
   beforeAll(() => {
@@ -213,10 +172,6 @@ describe('Agent Registry', () => {
 
   afterEach(() => {
     mock.restore()
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   describe('parseAgentId (tested through getAgentTemplate)', () => {

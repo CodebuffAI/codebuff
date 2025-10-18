@@ -1,3 +1,4 @@
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import {
   PLACEHOLDER,
   placeholderValues,
@@ -8,7 +9,6 @@ import { escapeString } from '@codebuff/common/util/string'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
-import { getAgentTemplate } from './agent-registry'
 import { buildSpawnableAgentsDescription } from './prompts'
 import {
   getGitChangesPrompt,

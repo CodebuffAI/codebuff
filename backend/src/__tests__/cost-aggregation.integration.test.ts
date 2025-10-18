@@ -1,3 +1,4 @@
+import * as agentRegistry from '@codebuff/agent-runtime/templates/agent-registry'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   TEST_AGENT_RUNTIME_IMPL,
@@ -16,7 +17,6 @@ import {
 
 import * as messageCostTracker from '../llm-apis/message-cost-tracker'
 import { mainPrompt } from '../main-prompt'
-import * as agentRegistry from '../templates/agent-registry'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
