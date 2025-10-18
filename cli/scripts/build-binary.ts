@@ -303,7 +303,14 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
 
     for (const target of missingTargets) {
       mkdirSync(target.packagesDir, { recursive: true })
-      mkdirSync(target.packageDir, { recursive: true })
+
+      if (process.platform === 'win32') {
+        if (!existsSync(target.packageDir)) {
+          runCommand('cmd.exe', ['/d', '/s', '/c', `mkdir "${target.packageDir}"`])
+        }
+      } else {
+        mkdirSync(target.packageDir, { recursive: true })
+      }
 
       const tarArgs = ['-xzf', tarballPath, '--strip-components=1', '-C', target.packageDir]
       if (process.platform === 'win32') {
