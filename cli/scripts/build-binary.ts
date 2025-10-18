@@ -112,7 +112,7 @@ function getTargetInfo(): TargetInfo {
 
 async function main() {
   const [, , binaryNameArg, version] = process.argv
-  const binaryName = binaryNameArg ?? 'codebuff-cli'
+  const binaryName = binaryNameArg ?? 'codecane'
 
   if (!version) {
     throw new Error('Version argument is required when building a binary')

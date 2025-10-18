@@ -1,11 +1,39 @@
 {
-  "name": "@codebuff/cli-staging",
-  "private": true,
+  "name": "codecane",
   "version": "1.0.420",
-  "description": "Staging release metadata for Codebuff CLI binaries",
+  "description": "AI coding agent CLI (staging)",
+  "license": "MIT",
+  "bin": {
+    "codecane": "index.js"
+  },
+  "scripts": {
+    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'codecane.exe' : 'codecane'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
+  },
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "tar": "^6.2.0"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/CodebuffAI/codebuff.git"
   },
-  "homepage": "https://codebuff.com"
+  "homepage": "https://codebuff.com",
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -70,9 +70,9 @@ function parseArgs(): ParsedArgs {
 }
 
 function printHelp() {
-  console.log(`Codebuff CLI v${VERSION}`)
+  console.log(`Codecane v${VERSION}`)
   console.log('')
-  console.log('Usage: codebuff-cli [options] [initial prompt]')
+  console.log('Usage: codecane [options] [initial prompt]')
   console.log('')
   console.log('Options:')
   console.log('  --help, -h       Show this help message and exit')
@@ -85,7 +85,7 @@ function printHelp() {
 }
 
 function printVersion() {
-  console.log(`Codebuff CLI v${VERSION}`)
+  console.log(`Codecane v${VERSION}`)
 }
 
 const { initialPrompt, clearLogs, showHelp, showVersion } = parseArgs()

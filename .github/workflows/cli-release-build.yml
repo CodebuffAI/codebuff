@@ -210,13 +210,13 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             BINARY_FILE="${{ inputs.binary-name }}.exe"
           fi
-          tar -czf codebuff-cli-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE"
+          tar -czf codecane-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: codebuff-cli-${{ matrix.target }}
-          path: codebuff-cli-${{ matrix.target }}.tar.gz
+          name: codecane-${{ matrix.target }}
+          path: codecane-${{ matrix.target }}.tar.gz
 
       - name: Open debug shell on failure
         if: failure()
