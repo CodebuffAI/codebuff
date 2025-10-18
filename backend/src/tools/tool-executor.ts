@@ -10,8 +10,8 @@ import { checkLiveUserInput } from '../live-user-inputs'
 import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
 
-import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
+import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
   ClientToolCall,

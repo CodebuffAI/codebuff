@@ -22,7 +22,7 @@ import { handleUpdateSubgoal } from './tool/update-subgoal'
 import { handleWebSearch } from './tool/web-search'
 import { handleWriteFile } from './tool/write-file'
 
-import type { CodebuffToolHandlerFunction } from './handler-function-type'
+import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type { ToolName } from '@codebuff/common/tools/constants'
 
 /**

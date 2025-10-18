@@ -2,8 +2,7 @@ import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { describe, expect, it } from 'bun:test'
 
-import { globalStopSequence } from '@codebuff/agent-runtime/constants'
-
+import { globalStopSequence } from '../constants'
 import { processStreamWithTags } from '../tool-stream-parser'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'

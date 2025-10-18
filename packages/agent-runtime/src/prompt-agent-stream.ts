@@ -2,7 +2,7 @@ import { providerModelNames } from '@codebuff/common/old-constants'
 
 import { globalStopSequence } from './constants'
 
-import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
+import type { AgentTemplate } from './templates/types'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { PromptAiSdkStreamFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
