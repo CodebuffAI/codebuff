@@ -18,9 +18,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export type AgentRegistry = Record<string, AgentTemplate>
 
-// Global database cache - only state in the system
-const databaseAgentCache = new Map<string, AgentTemplate | null>()
-
 /**
  * Fetch and validate an agent from the database by publisher/agent-id[@version] format
  */
@@ -132,10 +129,16 @@ export async function getAgentTemplate(params: {
   agentId: string
   localAgentTemplates: Record<string, AgentTemplate>
   fetchAgentFromDatabase: FetchAgentFromDatabaseFn
+  databaseAgentCache: Map<string, AgentTemplate | null>
   logger: Logger
 }): Promise<AgentTemplate | null> {
-  const { agentId, localAgentTemplates, fetchAgentFromDatabase, logger } =
-    params
+  const {
+    agentId,
+    localAgentTemplates,
+    fetchAgentFromDatabase,
+    databaseAgentCache,
+    logger,
+  } = params
   // 1. Check localAgentTemplates first (dynamic agents + static templates)
   if (localAgentTemplates[agentId]) {
     return localAgentTemplates[agentId]
@@ -203,6 +206,10 @@ export function assembleLocalAgentTemplates(params: {
 /**
  * Clear the database agent cache (useful for testing)
  */
-export function clearDatabaseCache(): void {
+export function clearDatabaseCache(params: {
+  databaseAgentCache: Map<string, AgentTemplate | null>
+}): void {
+  const { databaseAgentCache } = params
+
   databaseAgentCache.clear()
 }

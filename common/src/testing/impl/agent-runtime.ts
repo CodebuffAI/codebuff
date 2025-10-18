@@ -1,8 +1,9 @@
+import type { AgentTemplate } from '../../types/agent-template'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+} from '../../types/contracts/agent-runtime'
+import type { Logger } from '../../types/contracts/logger'
 
 export const testLogger: Logger = {
   debug: () => {},
@@ -15,13 +16,14 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   // Database
   getUserInfoFromApiKey: async () => ({
     id: 'test-user-id',
-   email: 'test-email',
+    email: 'test-email',
     discord_id: 'test-discord-id',
   }),
   fetchAgentFromDatabase: async () => null,
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
+  databaseAgentCache: new Map<string, AgentTemplate | null>(),
 
   // LLM
   promptAiSdkStream: async function* () {

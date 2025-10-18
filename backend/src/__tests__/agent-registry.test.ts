@@ -19,7 +19,6 @@ import {
 import {
   getAgentTemplate,
   assembleLocalAgentTemplates,
-  clearDatabaseCache,
 } from '../templates/agent-registry'
 
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
@@ -147,10 +146,12 @@ describe('Agent Registry', () => {
   })
 
   beforeEach(async () => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+    }
 
-    // Clear cache before each test
-    clearDatabaseCache()
+    agentRuntimeImpl.databaseAgentCache.clear()
+
     mockFileContext = getStubProjectFileContext()
 
     // Spy on validation functions
@@ -520,8 +521,7 @@ describe('Agent Registry', () => {
       })
       expect(selectSpy).toHaveBeenCalledTimes(1)
 
-      // Clear cache
-      clearDatabaseCache()
+      agentRuntimeImpl.databaseAgentCache.clear()
 
       // Third call - should hit database again after cache clear
       await getAgentTemplate({
