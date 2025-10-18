@@ -305,7 +305,12 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
       mkdirSync(target.packagesDir, { recursive: true })
       mkdirSync(target.packageDir, { recursive: true })
 
-      runCommand('tar', ['-xzf', tarballPath, '--strip-components=1', '-C', target.packageDir])
+      const tarArgs = ['-xzf', tarballPath, '--strip-components=1', '-C', target.packageDir]
+      if (process.platform === 'win32') {
+        tarArgs.unshift('--force-local')
+      }
+
+      runCommand('tar', tarArgs)
       log(
         `Installed OpenTUI native bundle for ${targetInfo.platform}-${targetInfo.arch} in ${target.label}`,
       )
