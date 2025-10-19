@@ -17,7 +17,7 @@ const definition: SecretAgentDefinition = {
 
   includeMessageHistory: true,
 
-  systemPrompt: `You are the generate-plan agent. You are an expert software engineer which is good at formulating surprisingly simple and clear plans.
+  systemPrompt: `You are the planner-pro agent. You are an expert software engineer which is good at formulating surprisingly simple and clear plans.
 
 IMPORTANT: You do not have access to any tools. You can only analyze and write out plans. Do not attempt to use any tools! Your goal is to generate the best plan for the user's request.
 
