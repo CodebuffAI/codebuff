@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 import { execSync } from 'child_process'
 
 import { withTimeout } from '@codebuff/common/util/promise'
@@ -8,6 +10,8 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { EvalCommitV2 } from './types'
 
 export type AgentStep = PrintModeEvent
+
+const DEBUG_ERROR = true
 
 export async function runAgentOnCommit({
   client,
@@ -55,11 +59,33 @@ export async function runAgentOnCommit({
             agentDefinitions: localAgentDefinitions,
             cwd: repoDir,
             handleEvent: (event) => {
-              if (event.type === 'tool_call' && event.toolName === 'set_messages') {
+              if (
+                (event.type === 'tool_call' || event.type === 'tool_result') &&
+                event.toolName === 'set_messages'
+              ) {
                 return
               }
               if (event.type === 'error') {
-                console.error(`[${agentId}] Error event:`, event.message)
+                console.error(
+                  `[${commit.id}:${agentId}] Error event:`,
+                  event.message,
+                )
+                if (DEBUG_ERROR) {
+                  fs.writeFileSync(
+                    path.join(
+                      __dirname,
+                      `${commit.id}-${agentId}-error-${Math.random().toString(36).substring(2, 6)}.json`,
+                    ),
+                    JSON.stringify(
+                      {
+                        error: event.message,
+                        trace: trace,
+                      },
+                      null,
+                      2,
+                    ),
+                  )
+                }
               }
               trace.push(event)
             },

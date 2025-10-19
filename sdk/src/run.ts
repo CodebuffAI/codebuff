@@ -195,12 +195,6 @@ export async function run({
       incoming.includes(previous)
     ) {
       next = incoming
-    } else if (
-      incoming.length < previous.length &&
-      !previous.includes(incoming)
-    ) {
-      next = incoming
-      sectionStartIndexByAgent.set(agentKey, 0)
     } else {
       next = previous + incoming
     }
@@ -263,12 +257,17 @@ export async function run({
       return
     }
 
+    const trimmedText = text.trim()
+    if (!trimmedText) {
+      return
+    }
+
     const eventAgentId = resolveAgentId(agentKey, agentIdHint)
     const lastChunk = lastTextEventByAgent.get(agentKey)
 
     let eventPayload: PrintModeEvent
     if (lastChunk) {
-      eventPayload = { ...lastChunk, text }
+      eventPayload = { ...lastChunk, text: trimmedText }
 
       if (
         eventAgentId &&
@@ -281,7 +280,7 @@ export async function run({
     } else {
       eventPayload = {
         type: 'text',
-        text,
+        text: trimmedText,
       } as PrintModeEvent
 
       if (eventAgentId) {
@@ -448,7 +447,16 @@ export async function run({
             await emitStreamDelta(agentKey, nextFullText)
           }
         }
-        await emitPendingSection(agentKey, chunk.agentId)
+
+        const fullText = textAccumulator.get(agentKey) ?? ''
+        const startIndex =
+          sectionStartIndexByAgent.get(agentKey) ?? fullText.length
+        const shouldFlushForToolXml =
+          state.activeTag != null && startIndex < fullText.length
+
+        if (shouldFlushForToolXml) {
+          await emitPendingSection(agentKey, chunk.agentId)
+        }
       } else {
         const chunkType = chunk.type as string
 

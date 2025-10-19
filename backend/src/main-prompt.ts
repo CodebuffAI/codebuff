@@ -1,13 +1,13 @@
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
+import { expireMessages } from '@codebuff/agent-runtime/util/messages'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 
 import { checkTerminalCommand } from './check-terminal-command'
 import { loopAgentSteps } from './run-agent-step'
-import { getAgentTemplate } from './templates/agent-registry'
-import { expireMessages } from './util/messages'
 
-import type { AgentTemplate } from './templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/old-constants'
 import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'

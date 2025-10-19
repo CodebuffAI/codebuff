@@ -318,14 +318,6 @@ export async function runProgrammaticStep(
               case 'subagent_start':
               case 'subagent_finish':
                 if (!chunk.parentAgentId) {
-                  logger.debug(
-                    {
-                      eventType: chunk.type,
-                      agentId: chunk.agentId,
-                      parentId: parentAgentId,
-                    },
-                    `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
-                  )
                   onResponseChunk({
                     ...chunk,
                     parentAgentId,
@@ -347,10 +339,6 @@ export async function runProgrammaticStep(
                           eventType: chunk.type,
                           parentId: parentAgentId,
                         }
-                  logger.debug(
-                    debugPayload,
-                    `run-programmatic-step: Adding parentAgentId to ${chunk.type} event`,
-                  )
                   onResponseChunk({
                     ...chunk,
                     parentAgentId,

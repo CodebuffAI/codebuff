@@ -3,17 +3,17 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { getFileProcessingValues, postStreamProcessing } from './write-file'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   FileProcessingState,
   OptionalFileProcessingState,
 } from './write-file'
+import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type {
   ClientToolCall,
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const handleCreatePlan = ((params: {
   previousToolCallFinished: Promise<void>

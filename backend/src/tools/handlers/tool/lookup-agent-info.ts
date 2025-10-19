@@ -1,9 +1,8 @@
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import { removeUndefinedProps } from '@codebuff/common/util/object'
 import z from 'zod/v4'
 
-import { getAgentTemplate } from '../../../templates/agent-registry'
-
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 
 export const handleLookupAgentInfo: CodebuffToolHandlerFunction<
   'lookup_agent_info'

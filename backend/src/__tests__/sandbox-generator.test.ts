@@ -16,7 +16,7 @@ import { mockFileContext } from './test-utils'
 import * as agentRun from '../agent-run'
 import * as requestContext from '../websockets/request-context'
 
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,

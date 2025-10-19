@@ -5,7 +5,7 @@ import {
 } from '@codebuff/common/util/agent-name-normalization'
 import { describe, expect, it, beforeEach } from 'bun:test'
 
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 
 describe('Agent ID Resolution', () => {
   let mockRegistry: Record<string, AgentTemplate>

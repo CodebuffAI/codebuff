@@ -42,9 +42,8 @@ The user asks you to implement a new feature. You respond in multiple steps:
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
-3. Spawn a base2-gpt-5 agent inline (with spawn_agent_inline tool) to generate a plan for the changes.
-4. Gather any additional context you need with sub-agents and the read_files tool.
-5. Create a plan for the changes, but do not implement it yet!
+3. Gather any additional context you need with sub-agents and the read_files tool.
+4. Write out a plan for the changes, but do not implement it yet!
 
 For your plan:
 - You do not have access to tools to modify files (e.g. the write_file or str_replace tools). You are describing changes that should be made or actions that should be taken.

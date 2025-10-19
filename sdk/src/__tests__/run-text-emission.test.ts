@@ -189,6 +189,377 @@ describe('run() text emission', () => {
     })
   })
 
+  test('emits aggregated text blocks while streaming chunk deltas', async () => {
+    const events: PrintModeEvent[] = []
+    const streamChunks: string[] = []
+    const runPromise = run({
+      ...baseRunOptions,
+      handleEvent: (event) => {
+        events.push(event)
+      },
+      handleStreamChunk: (chunk) => {
+        streamChunks.push(chunk)
+      },
+    })
+
+    const handler = await waitForHandler()
+
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: 'Hello ',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: 'Hello world',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'finish',
+        totalCost: 0,
+      }),
+    )
+
+    await resolvePrompt(handler)
+    await runPromise
+
+    expect(streamChunks).toEqual(['Hello ', 'world'])
+
+    const textEvents = events.filter(
+      (event): event is PrintModeEvent & { type: 'text' } =>
+        event.type === 'text',
+    )
+    expect(textEvents).toEqual([
+      expect.objectContaining({ type: 'text', text: 'Hello world' }),
+    ])
+  })
+
+  test('emits combined text when raw string and structured chunks interleave', async () => {
+    const events: PrintModeEvent[] = []
+    const streamChunks: string[] = []
+    const runPromise = run({
+      ...baseRunOptions,
+      handleEvent: (event) => {
+        events.push(event)
+      },
+      handleStreamChunk: (chunk) => {
+        streamChunks.push(chunk)
+      },
+    })
+
+    const handler = await waitForHandler()
+
+    await handler.options.onResponseChunk(
+      responseChunk(handler, 'Root string '),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: 'section complete',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'finish',
+        totalCost: 0,
+      }),
+    )
+
+    await resolvePrompt(handler)
+    await runPromise
+
+    expect(streamChunks).toEqual(['Root string ', 'section complete'])
+
+    const textEvents = events.filter(
+      (event): event is PrintModeEvent & { type: 'text' } =>
+        event.type === 'text',
+    )
+
+    expect(textEvents).toEqual([
+      expect.objectContaining({
+        type: 'text',
+        text: 'Root string section complete',
+      }),
+    ])
+  })
+
+  test('keeps earlier text when new fragments are shorter than accumulated text', async () => {
+    const events: PrintModeEvent[] = []
+    const runPromise = run({
+      ...baseRunOptions,
+      handleEvent: async (event) => {
+        events.push(event)
+      },
+    })
+
+    const handler = await waitForHandler()
+
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: 'Intro line ',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: 'continues',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: ' and ends.<codebuff_tool_call>',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'tool_call',
+        toolCallId: 'tool-aggregate',
+        toolName: 'example_tool',
+        input: {},
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'finish',
+        totalCost: 0,
+      }),
+    )
+
+    await resolvePrompt(handler)
+    await runPromise
+
+    const textEvents = events.filter(
+      (event): event is PrintModeEvent & { type: 'text' } =>
+        event.type === 'text',
+    )
+
+    expect(textEvents).toEqual([
+      expect.objectContaining({
+        type: 'text',
+        text: 'Intro line continues and ends.',
+      }),
+    ])
+  })
+
+  test('flushes subagent text on subagent finish', async () => {
+    const events: PrintModeEvent[] = []
+    const runPromise = run({
+      ...baseRunOptions,
+      handleEvent: async (event) => {
+        events.push(event)
+      },
+    })
+
+    const handler = await waitForHandler()
+
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        agentId: 'agent-sub',
+        text: 'Subagent output block',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'subagent_finish',
+        agentId: 'agent-sub',
+        agentType: 'helper',
+        displayName: 'Helper',
+        onlyChild: false,
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'finish',
+        totalCost: 0,
+      }),
+    )
+
+    await resolvePrompt(handler)
+    await runPromise
+
+    const textEvents = events.filter(
+      (event): event is PrintModeEvent & { type: 'text' } =>
+        event.type === 'text',
+    )
+
+    expect(textEvents).toContainEqual(
+      expect.objectContaining({
+        type: 'text',
+        agentId: 'agent-sub',
+        text: 'Subagent output block',
+      }),
+    )
+  })
+
+  test('handles tool XML that spans multiple text chunks', async () => {
+    const events: PrintModeEvent[] = []
+    const runPromise = run({
+      ...baseRunOptions,
+      handleEvent: (event) => {
+        events.push(event)
+      },
+    })
+
+    const handler = await waitForHandler()
+
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: 'Before <codebuff_tool_call>{"x":1}',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: '</codebuff_tool_call> after',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'finish',
+        totalCost: 0,
+      }),
+    )
+
+    await resolvePrompt(handler)
+    await runPromise
+
+    const textEvents = events.filter(
+      (event): event is PrintModeEvent & { type: 'text' } =>
+        event.type === 'text',
+    )
+
+    expect(textEvents).toEqual([
+      expect.objectContaining({ text: 'Before' }),
+      expect.objectContaining({ text: 'after' }),
+    ])
+  })
+
+  test('trims surrounding newlines before emitting text', async () => {
+    const events: PrintModeEvent[] = []
+    const runPromise = run({
+      ...baseRunOptions,
+      handleEvent: (event) => {
+        events.push(event)
+      },
+    })
+
+    const handler = await waitForHandler()
+
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: '\nLine 1\nLine 2\n\n',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'finish',
+        totalCost: 0,
+      }),
+    )
+
+    await resolvePrompt(handler)
+    await runPromise
+
+    const textEvents = events.filter(
+      (event): event is PrintModeEvent & { type: 'text' } =>
+        event.type === 'text',
+    )
+
+    expect(textEvents).toEqual([
+      expect.objectContaining({
+        text: 'Line 1\nLine 2',
+      }),
+    ])
+  })
+
+  test('skips whitespace-only sections', async () => {
+    const events: PrintModeEvent[] = []
+    const runPromise = run({
+      ...baseRunOptions,
+      handleEvent: (event) => {
+        events.push(event)
+      },
+    })
+
+    const handler = await waitForHandler()
+
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'text',
+        text: '\n\n',
+      }),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'finish',
+        totalCost: 0,
+      }),
+    )
+
+    await resolvePrompt(handler)
+    await runPromise
+
+    const textEvents = events.filter(
+      (event): event is PrintModeEvent & { type: 'text' } =>
+        event.type === 'text',
+    )
+
+    expect(textEvents).toEqual([])
+  })
+
+  test('flushes buffered text when finish clears residual tool XML state', async () => {
+    const events: PrintModeEvent[] = []
+    const streamChunks: string[] = []
+    const runPromise = run({
+      ...baseRunOptions,
+      handleEvent: (event) => {
+        events.push(event)
+      },
+      handleStreamChunk: (chunk) => {
+        streamChunks.push(chunk)
+      },
+    })
+
+    const handler = await waitForHandler()
+
+    await handler.options.onResponseChunk(
+      responseChunk(handler, 'Streaming start '),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, 'continues before <codebuff_tool_call'),
+    )
+    await handler.options.onResponseChunk(
+      responseChunk(handler, {
+        type: 'finish',
+        totalCost: 0,
+      }),
+    )
+
+    await resolvePrompt(handler)
+    await runPromise
+
+    const textEvents = events.filter(
+      (event): event is PrintModeEvent & { type: 'text' } =>
+        event.type === 'text',
+    )
+
+    expect(streamChunks).toEqual(['Streaming start ', 'continu'])
+
+    expect(textEvents).toEqual([
+      expect.objectContaining({
+        text: 'Streaming start continu',
+      }),
+    ])
+  })
+
   test('splits root sections around tool events without duplication', async () => {
     const events: PrintModeEvent[] = []
     const runPromise = run({
@@ -335,9 +706,6 @@ describe('run() text emission', () => {
         event.type === 'text',
     )
 
-    expect(textEvents.map((event) => event.text)).toEqual([
-      'Before ',
-      ' after',
-    ])
+    expect(textEvents.map((event) => event.text)).toEqual(['Before', 'after'])
   })
 })

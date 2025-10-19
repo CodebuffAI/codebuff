@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
 
+import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import {
   handleStepsLogChunkWs,
   requestFilesWs,
@@ -13,7 +14,6 @@ import {
   sendSubagentChunkWs,
 } from '@codebuff/backend/client-wrapper'
 import { runAgentStep } from '@codebuff/backend/run-agent-step'
-import { assembleLocalAgentTemplates } from '@codebuff/backend/templates/agent-registry'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { mockModule } from '@codebuff/common/testing/mock-modules'

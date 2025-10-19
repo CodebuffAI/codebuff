@@ -20,7 +20,10 @@ import { mockFileContext } from './test-utils'
 import * as toolExecutor from '../tools/tool-executor'
 import * as requestContext from '../websockets/request-context'
 
-import type { AgentTemplate, StepGenerator } from '../templates/types'
+import type {
+  AgentTemplate,
+  StepGenerator,
+} from '@codebuff/agent-runtime/templates/types'
 import type { PublicAgentState } from '@codebuff/common/types/agent-template'
 import type { AgentRuntimeScopedDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'

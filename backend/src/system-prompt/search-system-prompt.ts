@@ -1,3 +1,7 @@
+import {
+  countTokens,
+  countTokensJson,
+} from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 import { buildArray } from '@codebuff/common/util/array'
 
@@ -6,7 +10,6 @@ import {
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from './prompts'
-import { countTokens, countTokensJson } from '../util/token-counter'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'

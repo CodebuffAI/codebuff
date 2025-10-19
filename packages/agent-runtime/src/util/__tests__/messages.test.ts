@@ -12,7 +12,8 @@ import {
   trimMessagesToFitTokenLimit,
   messagesWithSystem,
   getPreviouslyReadFiles,
-} from '../messages'
+} from '@codebuff/agent-runtime/util/messages'
+
 import * as tokenCounter from '../token-counter'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
@@ -292,7 +293,12 @@ describe('trimMessagesToFitTokenLimit', () => {
   it('handles empty messages array', () => {
     const maxTotalTokens = 200
     const systemTokens = 100
-    const result = trimMessagesToFitTokenLimit({ messages: [], systemTokens, maxTotalTokens, logger })
+    const result = trimMessagesToFitTokenLimit({
+      messages: [],
+      systemTokens,
+      maxTotalTokens,
+      logger,
+    })
 
     expect(result).toEqual([])
   })
@@ -315,7 +321,12 @@ describe('trimMessagesToFitTokenLimit', () => {
         },
       ]
 
-      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 1000, logger })
+      const result = trimMessagesToFitTokenLimit({
+        messages,
+        systemTokens: 0,
+        maxTotalTokens: 1000,
+        logger,
+      })
 
       // Should contain the kept messages
       const keptMessages = result.filter(
@@ -345,7 +356,12 @@ describe('trimMessagesToFitTokenLimit', () => {
         },
       ] as Message[]
 
-      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 10000, logger })
+      const result = trimMessagesToFitTokenLimit({
+        messages,
+        systemTokens: 0,
+        maxTotalTokens: 10000,
+        logger,
+      })
 
       // Should be unchanged when under token limit
       expect(result).toHaveLength(2)
@@ -361,7 +377,12 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'Keep this', keepDuringTruncation: true },
       ]
 
-      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 1000, logger })
+      const result = trimMessagesToFitTokenLimit({
+        messages,
+        systemTokens: 0,
+        maxTotalTokens: 1000,
+        logger,
+      })
 
       // Should only have one replacement message for consecutive removals
       const replacementMessages = result.filter(
@@ -391,7 +412,12 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'C'.repeat(100) }, // Might be kept
       ]
 
-      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 2000, logger })
+      const result = trimMessagesToFitTokenLimit({
+        messages,
+        systemTokens: 0,
+        maxTotalTokens: 2000,
+        logger,
+      })
 
       // Should preserve the keepDuringTruncation message
       const keptMessage = result.find(
@@ -415,7 +441,12 @@ describe('trimMessagesToFitTokenLimit', () => {
         { role: 'user', content: 'C'.repeat(800) }, // Large message to force truncation
       ]
 
-      const result = trimMessagesToFitTokenLimit({ messages, systemTokens: 0, maxTotalTokens: 500, logger })
+      const result = trimMessagesToFitTokenLimit({
+        messages,
+        systemTokens: 0,
+        maxTotalTokens: 500,
+        logger,
+      })
 
       // Should keep both marked messages
       const keptMessages = result.filter(

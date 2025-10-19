@@ -169,13 +169,40 @@ export async function runBuffBench(options: {
   agents: string[]
   taskConcurrency?: number
   client?: CodebuffClient
+  taskIds?: string[]
 }) {
-  const { evalDataPath, agents, taskConcurrency = 1 } = options
+  const { evalDataPath, agents, taskConcurrency = 1, taskIds } = options
 
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
   )
-  const commitsToRun = evalData.evalCommits
+
+  let commitsToRun: EvalDataV2['evalCommits']
+  if (taskIds && taskIds.length > 0) {
+    const foundCommits: EvalDataV2['evalCommits'] = []
+    const notFoundIds: string[] = []
+    
+    for (const taskId of taskIds) {
+      const foundCommit = evalData.evalCommits.find((c) => c.id === taskId)
+      if (foundCommit) {
+        foundCommits.push(foundCommit)
+      } else {
+        notFoundIds.push(taskId)
+      }
+    }
+    
+    if (notFoundIds.length > 0) {
+      const availableIds = evalData.evalCommits.map((c) => c.id).join(', ')
+      throw new Error(
+        `Task ID(s) not found: ${notFoundIds.join(', ')}. Available task IDs: ${availableIds}`,
+      )
+    }
+    
+    commitsToRun = foundCommits
+    console.log(`Running ${foundCommits.length} task(s): ${taskIds.join(', ')}`)
+  } else {
+    commitsToRun = evalData.evalCommits
+  }
 
   const client =
     options.client ??
@@ -288,7 +315,6 @@ export async function runBuffBench(options: {
 
   const logFiles = fs.readdirSync(logsDir)
 
-  console.log('\n=== Running Meta-Analysis ===')
   const metaAnalysis = await analyzeAllTasks({
     client,
     logsDir,
@@ -360,6 +386,17 @@ export async function runBuffBench(options: {
     console.log(
       `  Valid runs: ${validRuns.length}/${data.runs.length} (excluding ${commitShasWithErrors.size} commit(s) with errors)`,
     )
+  }
+
+  // Print all overall scores for distribution analysis
+  console.log('\n=== Score Distribution ===')
+  for (const [agentId, data] of Object.entries(results)) {
+    const validRuns = data.runs.filter(
+      (r) => !commitShasWithErrors.has(r.commitSha),
+    )
+    const scores = validRuns.map((r) => r.judging.overallScore.toFixed(1))
+    console.log(`\n${agentId}:`)
+    console.log(`  Scores: ${scores.join(', ')}`)
   }
 
   return finalResults
