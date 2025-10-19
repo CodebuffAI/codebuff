@@ -1,7 +1,7 @@
 import { publisher } from './constants'
 import type { AgentDefinition } from './types/agent-definition'
 
-const fixer: AgentDefinition = {
+const definition: AgentDefinition = {
   id: 'validator',
   publisher,
   model: 'anthropic/claude-sonnet-4.5',
@@ -38,4 +38,4 @@ const fixer: AgentDefinition = {
 5. Give a final summary that includes the exact commands you ran and the issues you fixed and the final state (are all the types/tests passing?). Be extremely concise.`,
 }
 
-export default fixer
+export default definition

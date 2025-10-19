@@ -11,7 +11,7 @@ import type { EvalCommitV2 } from './types'
 
 export type AgentStep = PrintModeEvent
 
-const DEBUG_ERROR = false
+const DEBUG_ERROR = true
 
 export async function runAgentOnCommit({
   client,
