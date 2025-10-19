@@ -134,19 +134,22 @@ jobs:
 
           git tag "$TAG"
 
-          if git push origin "$TAG"; then
-            echo "Pushed tag $TAG to origin."
-            exit 0
+          set +e
+          git push origin "$TAG"
+          PUSH_STATUS=$?
+          set -e
+
+          if [ "$PUSH_STATUS" -ne 0 ]; then
+            echo "Push failed, re-checking remote for $TAG..."
+            if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+              echo "Tag $TAG is present on origin after push attempt; continuing."
+              exit 0
+            fi
+            echo "Failed to push tag $TAG and it is not present on origin."
+            exit 1
           fi
 
-          echo "Push failed, re-checking remote for $TAG..."
-          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
-            echo "Tag $TAG is present on origin after push attempt; continuing."
-            exit 0
-          fi
-
-          echo "Failed to push tag $TAG and it is not present on origin."
-          exit 1
+          echo "Pushed tag $TAG to origin."
 
       - name: Upload staging metadata
         uses: actions/upload-artifact@v4
