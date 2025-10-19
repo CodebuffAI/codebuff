@@ -3,6 +3,8 @@ name: CLI Release Staging
 on:
   pull_request:
     branches: ['main']
+  push:
+    branches: ['**']
 
 concurrency:
   group: cli-staging-release
@@ -14,14 +16,16 @@ permissions:
 jobs:
   prepare-and-commit-staging:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.title, '[codecane]')
+    if: |
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[codecane]')) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[codecane]'))
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -135,7 +139,7 @@ jobs:
       binary-name: codecane
       new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
       artifact-name: cli-staging-metadata
-      checkout-ref: ${{ github.event.pull_request.head.sha }}
+      checkout-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       env-overrides: '{}'
     secrets: inherit
 
@@ -145,7 +149,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Clean up old CLI prereleases
         run: |
@@ -252,7 +256,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Download CLI staging package
         uses: actions/download-artifact@v4
