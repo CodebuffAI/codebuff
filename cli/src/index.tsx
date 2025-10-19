@@ -70,7 +70,7 @@ function parseArgs(): ParsedArgs {
 }
 
 function printHelp() {
-  console.log(`Codecane v${VERSION}`)
+  console.log(`Codecane CLI v${VERSION}`)
   console.log('')
   console.log('Usage: codecane [options] [initial prompt]')
   console.log('')
@@ -85,7 +85,7 @@ function printHelp() {
 }
 
 function printVersion() {
-  console.log(`Codecane v${VERSION}`)
+  console.log(VERSION)
 }
 
 const { initialPrompt, clearLogs, showHelp, showVersion } = parseArgs()
