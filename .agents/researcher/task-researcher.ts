@@ -5,6 +5,7 @@ import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
+import { ToolCall, AgentState } from '../types/agent-definition'
 
 export const createTaskResearcher: () => Omit<
   SecretAgentDefinition,
@@ -21,16 +22,8 @@ export const createTaskResearcher: () => Omit<
         type: 'string',
         description: 'A coding task to research',
       },
-      params: {
-        type: 'object',
-        properties: {
-          maxContextLength: {
-            type: 'number',
-          },
-        },
-        required: [],
-      },
     },
+    includeMessageHistory: true,
     outputMode: 'structured_output',
     outputSchema: {
       type: 'object',
@@ -52,9 +45,8 @@ export const createTaskResearcher: () => Omit<
             'A comprehensive list of the paths of files that are relevant to the coding task.',
         },
       },
-      required: ['report'],
+      required: ['analysis', 'keyFacts', 'relevantFiles'],
     },
-    includeMessageHistory: false,
     toolNames: ['spawn_agents', 'read_files', 'set_output'],
     spawnableAgents: buildArray(
       'file-picker-max',
@@ -93,11 +85,50 @@ You recieve a coding task to implement a new feature. You do research in multipl
 2a. Read all the relevant files using the read_files tool.
 3. Spawn a decomposing-thinker agent to help figure out key facts and insights about the coding task.
 3a. Read any remaining relevant files using the read_files tool.
-4. Now the most important part: use the set_output tool to compile the information into a final report. Start with the analysis, and then put the most effort into the key facts list, which should be comprehensive. Finally, include ALL the relevant files in the report.`,
+4. Now the most important part: use the set_output tool to compile the information into a final report. Start with the analysis, and then put the most effort into the key facts list, which should be comprehensive. Finally, include ALL the relevant files in the report.
+Important: the report should only include the analysis, key facts, and relevant files. It should not include a plan or recommendations or any other information.
+5. End your turn.
+`,
 
     stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, and the decomposing-thinker agent to help figure out key facts and insights.`,
 
-    handleSteps: function* ({ prompt, params }) {
+    handleSteps: function* ({ prompt, agentState, logger }) {
+      // Reset the message history to the initial user message and the input prompt.
+      const { messageHistory } = agentState
+      const instructionsMessage = messageHistory[messageHistory.length - 1]
+      const userMessages = messageHistory.filter(
+        (message) =>
+          message.role === 'user' &&
+          (typeof message.content === 'string'
+            ? message.content.includes('<user_message>')
+            : message.content[0].type === 'text' &&
+              message.content[0].text.includes('<user_message>')),
+      )
+      const lastUserMessage = userMessages[userMessages.length - 2]
+      let userPrompt = prompt
+      if (lastUserMessage) {
+        const userMessageBlock =
+          typeof lastUserMessage.content === 'string'
+            ? lastUserMessage.content
+            : (lastUserMessage.content as any)[0].text || ''
+        const userMessage = userMessageBlock
+          .split('<user_message>')[1]
+          .split('</user_message>')[0]
+          .trim()
+        userPrompt = `<user_message>${userMessage}<generated_summary_of_task>${prompt}</generated_summary_of_task></user_message>`
+        yield {
+          toolName: 'set_messages',
+          input: {
+            messages: [
+              { role: 'user', content: userPrompt },
+              instructionsMessage,
+            ],
+          },
+          includeToolCall: false,
+        } satisfies ToolCall
+      }
+
+      let lastAgentState: AgentState
       let steps = 0
       while (true) {
         steps++
@@ -106,14 +137,24 @@ You recieve a coding task to implement a new feature. You do research in multipl
           toolName: 'spawn_agent_inline',
           input: {
             agent_type: 'context-pruner',
-            params: params ?? {},
+            params: {},
           },
           includeToolCall: false,
         } as any
 
-        const { stepsComplete } = yield 'STEP'
+        const { stepsComplete, agentState } = yield 'STEP'
+        lastAgentState = agentState
         if (stepsComplete) break
       }
+
+      yield {
+        toolName: 'set_output',
+        input: {
+          ...lastAgentState.output,
+          userPrompt,
+        },
+        includeToolCall: false,
+      } satisfies ToolCall<'set_output'>
     },
   }
 }
