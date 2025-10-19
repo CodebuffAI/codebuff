@@ -119,8 +119,37 @@ jobs:
 
       - name: Create and push staging tag
         run: |
-          git tag "v${{ steps.bump_version.outputs.new_version }}"
-          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+          set -euo pipefail
+          TAG="v${{ steps.bump_version.outputs.new_version }}"
+
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "Tag $TAG already exists on origin; skipping push."
+            exit 0
+          fi
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally; removing before re-tagging."
+            git tag -d "$TAG"
+          fi
+
+          git tag "$TAG"
+
+          set +e
+          git push origin "$TAG"
+          PUSH_STATUS=$?
+          set -e
+
+          if [ "$PUSH_STATUS" -ne 0 ]; then
+            echo "Push failed, re-checking remote for $TAG..."
+            if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+              echo "Tag $TAG is present on origin after push attempt; continuing."
+              exit 0
+            fi
+            echo "Failed to push tag $TAG and it is not present on origin."
+            exit 1
+          fi
+
+          echo "Pushed tag $TAG to origin."
 
       - name: Upload staging metadata
         uses: actions/upload-artifact@v4
@@ -189,6 +218,14 @@ jobs:
         env:
           VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
         run: |
+          EXISTING_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/CodebuffAI/codebuff/releases/tags/v${VERSION}")
+
+          if echo "$EXISTING_RELEASE" | jq -e '.id' >/dev/null 2>&1; then
+            echo "Release for v${VERSION} already exists; skipping creation."
+            exit 0
+          fi
+
           CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           RELEASE_BODY=$(cat <<'EOF'
           ## Codecane v${VERSION} (Staging)
@@ -266,7 +303,20 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
+      - name: Check if version already published
+        id: check_npm
+        env:
+          VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
+        run: |
+          if npm view codecane@"$VERSION" version >/dev/null 2>&1; then
+            echo "codecane@$VERSION already published to npm; skipping publish."
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish codecane staging package to npm
+        if: steps.check_npm.outputs.published != 'true'
         run: |
           cd cli/release-staging
           npm publish --access public
