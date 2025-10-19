@@ -17,7 +17,6 @@ jobs:
     if: contains(github.event.pull_request.title, '[codecane]')
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
-      tag_exists: ${{ steps.check_tag.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -118,27 +117,36 @@ jobs:
           🤖 Generated with Codebuff
           Co-Authored-By: Codebuff <noreply@codebuff.com>"
 
-      - name: Check if staging tag exists
-        id: check_tag
+      - name: Create and push staging tag
         run: |
+          set -euo pipefail
           TAG="v${{ steps.bump_version.outputs.new_version }}"
+
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
-            echo "Tag $TAG already exists on origin; skipping tag creation."
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists on origin; skipping push."
+            exit 0
           fi
 
-      - name: Create and push staging tag
-        if: steps.check_tag.outputs.exists != 'true'
-        run: |
-          git tag "v${{ steps.bump_version.outputs.new_version }}"
-          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally; removing before re-tagging."
+            git tag -d "$TAG"
+          fi
 
-      - name: Tag already exists
-        if: steps.check_tag.outputs.exists == 'true'
-        run: |
-          echo "Tag v${{ steps.bump_version.outputs.new_version }} already present on origin; continuing without pushing."
+          git tag "$TAG"
+
+          if git push origin "$TAG"; then
+            echo "Pushed tag $TAG to origin."
+            exit 0
+          fi
+
+          echo "Push failed, re-checking remote for $TAG..."
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "Tag $TAG is present on origin after push attempt; continuing."
+            exit 0
+          fi
+
+          echo "Failed to push tag $TAG and it is not present on origin."
+          exit 1
 
       - name: Upload staging metadata
         uses: actions/upload-artifact@v4
