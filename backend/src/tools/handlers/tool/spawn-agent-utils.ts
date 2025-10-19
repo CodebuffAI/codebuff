@@ -1,10 +1,10 @@
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { generateCompactId } from '@codebuff/common/util/string'
 
-import { getAgentTemplate } from '../../../templates/agent-registry'
+import { loopAgentSteps } from '../../../run-agent-step'
 
-import type { loopAgentSteps } from '../../../run-agent-step'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
@@ -332,9 +332,6 @@ export async function executeSubagent(
     parentAgentId: parentAgentState.agentId,
   }
   onResponseChunk(startEvent)
-
-  // Import loopAgentSteps dynamically to avoid circular dependency
-  const { loopAgentSteps } = await import('../../../run-agent-step')
 
   const result = await loopAgentSteps({
     ...withDefaults,

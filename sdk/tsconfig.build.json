@@ -9,6 +9,7 @@
     "outDir": "dist",
     "strict": true,
     "declaration": true,
+    "declarationMap": true,
     "skipLibCheck": true,
     "emitDeclarationOnly": true,
     "esModuleInterop": true,

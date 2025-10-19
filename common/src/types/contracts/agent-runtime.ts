@@ -1,3 +1,4 @@
+import type { AgentTemplate } from '../agent-template'
 import type {
   HandleStepsLogChunkFn,
   RequestFilesFn,
@@ -28,6 +29,7 @@ export type AgentRuntimeDeps = {
   startAgentRun: StartAgentRunFn
   finishAgentRun: FinishAgentRunFn
   addAgentStep: AddAgentStepFn
+  databaseAgentCache: Map<string, AgentTemplate | null>
 
   // LLM
   promptAiSdkStream: PromptAiSdkStreamFn

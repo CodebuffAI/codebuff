@@ -1,10 +1,10 @@
+import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
 import { models } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { env } from '@codebuff/internal'
 
 import { saveMessage } from '../llm-apis/message-cost-tracker'
-import { countTokens } from '../util/token-counter'
 
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'

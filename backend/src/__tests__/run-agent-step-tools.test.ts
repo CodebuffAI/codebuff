@@ -1,3 +1,4 @@
+import { asUserMessage } from '@codebuff/agent-runtime/util/messages'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import db from '@codebuff/common/db'
@@ -19,13 +20,11 @@ import {
   spyOn,
 } from 'bun:test'
 
-// Mock imports
 import * as liveUserInputs from '../live-user-inputs'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
-import { asUserMessage } from '../util/messages'
 
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,

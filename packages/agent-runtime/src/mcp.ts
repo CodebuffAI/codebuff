@@ -1,4 +1,4 @@
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from './templates/types'
 import type { RequestMcpToolDataFn } from '@codebuff/common/types/contracts/client'
 import type { OptionalFields } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'

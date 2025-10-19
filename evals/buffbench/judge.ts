@@ -182,8 +182,8 @@ ${error ? `\n## Error Encountered\n${error}` : ''}`
         }
       },
     }),
-    10 * 60 * 1000,
-    'Judge agent timed out after 10 minutes',
+    20 * 60 * 1000,
+    'Judge agent timed out after 20 minutes',
   )
 
   if (judgeResult.output.type !== 'structuredOutput') {

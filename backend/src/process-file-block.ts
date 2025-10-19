@@ -1,3 +1,4 @@
+import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
 import { models } from '@codebuff/common/old-constants'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { hasLazyEdit } from '@codebuff/common/util/string'
@@ -8,7 +9,6 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
-import { countTokens } from './util/token-counter'
 
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'

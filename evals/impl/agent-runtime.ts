@@ -1,3 +1,4 @@
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
 export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
@@ -11,6 +12,7 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
+  databaseAgentCache: new Map<string, AgentTemplate | null>(),
 
   // LLM
   promptAiSdkStream: async function* () {

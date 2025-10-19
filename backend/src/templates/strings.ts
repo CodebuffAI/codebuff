@@ -1,11 +1,15 @@
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
+import {
+  PLACEHOLDER,
+  placeholderValues,
+} from '@codebuff/agent-runtime/templates/types'
+import { parseUserMessage } from '@codebuff/agent-runtime/util/messages'
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { escapeString } from '@codebuff/common/util/string'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
-import { getAgentTemplate } from './agent-registry'
 import { buildSpawnableAgentsDescription } from './prompts'
-import { PLACEHOLDER, placeholderValues } from './types'
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
@@ -16,9 +20,11 @@ import {
   getShortToolInstructions,
   getToolsInstructions,
 } from '../tools/prompts'
-import { parseUserMessage } from '../util/messages'
 
-import type { AgentTemplate, PlaceholderValue } from './types'
+import type {
+  AgentTemplate,
+  PlaceholderValue,
+} from '@codebuff/agent-runtime/templates/types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {

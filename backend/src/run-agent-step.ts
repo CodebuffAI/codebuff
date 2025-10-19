@@ -1,3 +1,14 @@
+import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
+import { getAgentStreamFromTemplate } from '@codebuff/agent-runtime/prompt-agent-stream'
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
+import {
+  asSystemInstruction,
+  asSystemMessage,
+  buildUserMessageContent,
+  messagesWithSystem,
+  expireMessages,
+} from '@codebuff/agent-runtime/util/messages'
+import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -8,32 +19,21 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { checkLiveUserInput } from './live-user-inputs'
-import { getMCPToolData } from './mcp/util'
-import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
-import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
-import {
-  asSystemInstruction,
-  asSystemMessage,
-  buildUserMessageContent,
-  messagesWithSystem,
-  expireMessages,
-} from './util/messages'
-import { countTokensJson } from './util/token-counter'
 import { getRequestContext } from './websockets/request-context'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type {
   AddAgentStepFn,
   FinishAgentRunFn,
   StartAgentRunFn,
 } from '@codebuff/common/types/contracts/database'
-import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -401,7 +401,7 @@ export const runAgentStep = async (
   }
 }
 
-export const loopAgentSteps = async (
+export async function loopAgentSteps(
   params: {
     userInputId: string
     agentType: AgentTemplateType
@@ -448,7 +448,7 @@ export const loopAgentSteps = async (
 ): Promise<{
   agentState: AgentState
   output: AgentOutput
-}> => {
+}> {
   const {
     userInputId,
     agentType,

@@ -46,7 +46,8 @@ export function trackEvent({
   logger: Logger
 }) {
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
-    logger.info({ payload: { event, properties } }, 'Analytics event tracked')
+    // Note (James): This log was too noisy. Reenable it as you need to test something.
+    // logger.info({ payload: { event, properties } }, event)
     return
   }
 

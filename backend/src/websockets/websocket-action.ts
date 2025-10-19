@@ -1,3 +1,4 @@
+import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -14,7 +15,6 @@ import {
 import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendActionWs } from '../client-wrapper'
-import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { withLoggerContext } from '../util/logger'
 
 import type { ClientAction, UsageResponse } from '@codebuff/common/actions'

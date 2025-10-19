@@ -1,6 +1,6 @@
 import { providerModelNames } from '@codebuff/common/old-constants'
 
-import { globalStopSequence } from './tools/constants'
+import { globalStopSequence } from './constants'
 
 import type { AgentTemplate } from './templates/types'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'

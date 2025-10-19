@@ -1,3 +1,4 @@
+import { messagesWithSystem } from '@codebuff/agent-runtime/util/messages'
 import {
   getTracesAndAllDataForUser,
   getTracesWithoutRelabels,
@@ -14,9 +15,8 @@ import { closeXml } from '@codebuff/common/util/xml'
 
 import { rerank } from '../llm-apis/relace-api'
 import { promptAiSdk } from '../llm-apis/vercel-ai-sdk/ai-sdk'
-import { messagesWithSystem } from '../util/messages'
 
-import type { System } from '../llm-apis/claude'
+import type { System } from '@codebuff/agent-runtime/llm-api/claude'
 import type {
   GetExpandedFileContextForTrainingBlobTrace,
   GetExpandedFileContextForTrainingTrace,

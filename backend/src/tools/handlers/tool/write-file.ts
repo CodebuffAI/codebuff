@@ -2,7 +2,7 @@ import { partition } from 'lodash'
 
 import { processFileBlock } from '../../../process-file-block'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type {
   ClientToolCall,
   CodebuffToolCall,

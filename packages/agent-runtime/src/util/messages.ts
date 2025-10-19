@@ -8,11 +8,12 @@ import { cloneDeep, isEqual } from 'lodash'
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
 
-import type { System } from '../llm-apis/claude'
+import type { System } from '../llm-api/claude'
 import type {
   CodebuffToolMessage,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   Message,
   ToolMessage,
@@ -21,7 +22,6 @@ import type {
   TextPart,
   ImagePart,
 } from '@codebuff/common/types/messages/content-part'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export function messagesWithSystem(params: {
   messages: Message[]

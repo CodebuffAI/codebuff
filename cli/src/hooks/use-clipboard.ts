@@ -9,6 +9,12 @@ export const useClipboard = () => {
   const clipboardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
+  const pendingCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
+  const copyDelayRef = useRef<number>(2000)
+  const pendingSelectionRef = useRef<string | null>(null)
+  const lastCopiedRef = useRef<string | null>(null)
 
   const copyToClipboard = useCallback(async (text: string) => {
     if (!text || text.trim().length === 0) return
@@ -37,7 +43,9 @@ export const useClipboard = () => {
         clearTimeout(clipboardTimeoutRef.current)
       }
 
-      setClipboardMessage('Copied to clipboard')
+      const preview = text.replace(/\s+/g, ' ').trim()
+      const truncated = preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
+      setClipboardMessage(`Copied: "${truncated}"`)
       clipboardTimeoutRef.current = setTimeout(() => {
         setClipboardMessage(null)
         clipboardTimeoutRef.current = null
@@ -48,17 +56,49 @@ export const useClipboard = () => {
   }, [])
 
   useEffect(() => {
-    const handleSelection = () => {
-      const selection = (renderer as any)?.getSelection?.()
-      if (selection && selection.length > 0) {
-        void copyToClipboard(selection)
+    const handleSelection = (selectionEvent: any) => {
+      const selectionObj = selectionEvent ?? (renderer as any)?.getSelection?.()
+      const rawText: string | null = selectionObj?.getSelectedText
+        ? selectionObj.getSelectedText()
+        : typeof selectionObj === 'string'
+          ? selectionObj
+          : null
+
+      if (!rawText || rawText.trim().length === 0) {
+        pendingSelectionRef.current = null
+        if (pendingCopyTimeoutRef.current) {
+          clearTimeout(pendingCopyTimeoutRef.current)
+          pendingCopyTimeoutRef.current = null
+        }
+        return
       }
+
+      if (rawText === pendingSelectionRef.current) {
+        return
+      }
+
+      pendingSelectionRef.current = rawText
+
+      if (pendingCopyTimeoutRef.current) {
+        clearTimeout(pendingCopyTimeoutRef.current)
+      }
+
+      pendingCopyTimeoutRef.current = setTimeout(() => {
+        pendingCopyTimeoutRef.current = null
+        const pending = pendingSelectionRef.current
+        if (!pending || pending === lastCopiedRef.current) {
+          return
+        }
+
+        lastCopiedRef.current = pending
+        void copyToClipboard(pending)
+      }, copyDelayRef.current)
     }
 
-    if (renderer) {
-      renderer.on?.('selectionchange', handleSelection)
+    if (renderer?.on) {
+      renderer.on('selection', handleSelection)
       return () => {
-        renderer.off?.('selectionchange', handleSelection)
+        renderer.off?.('selection', handleSelection)
       }
     }
     return undefined
@@ -68,6 +108,10 @@ export const useClipboard = () => {
     return () => {
       if (clipboardTimeoutRef.current) {
         clearTimeout(clipboardTimeoutRef.current)
+      }
+      if (pendingCopyTimeoutRef.current) {
+        clearTimeout(pendingCopyTimeoutRef.current)
+        pendingCopyTimeoutRef.current = null
       }
     }
   }, [])

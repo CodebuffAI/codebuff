@@ -1,6 +1,6 @@
-import { getAgentTemplate } from '../../../templates/agent-registry'
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 
 type ToolName = 'set_output'
 export const handleSetOutput: CodebuffToolHandlerFunction<ToolName> = (

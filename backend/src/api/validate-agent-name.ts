@@ -1,7 +1,7 @@
+import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import { AGENT_PERSONAS } from '@codebuff/common/constants/agents'
 import { z } from 'zod/v4'
 
-import { getAgentTemplate } from '../templates/agent-registry'
 import { extractAuthTokenFromHeader } from '../util/auth-helpers'
 import { logger } from '../util/logger'
 

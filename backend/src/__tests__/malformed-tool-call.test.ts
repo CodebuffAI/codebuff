@@ -21,7 +21,7 @@ import {
 import { mockFileContext } from './test-utils'
 import { processStreamWithTools } from '../tools/stream-parser'
 
-import type { AgentTemplate } from '../templates/types'
+import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,

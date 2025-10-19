@@ -43,6 +43,7 @@ async function build() {
     target: 'node',
     format: 'esm',
     minify: false,
+    sourcemap: 'linked',
     external,
     naming: '[dir]/index.mjs',
     loader: {
@@ -57,6 +58,7 @@ async function build() {
     target: 'node',
     format: 'cjs',
     minify: false,
+    sourcemap: 'linked',
     external,
     naming: '[dir]/index.cjs',
     define: {
