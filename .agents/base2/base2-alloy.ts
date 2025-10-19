@@ -4,7 +4,7 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const base2 = createBase2('max')
 const definition: SecretAgentDefinition = {
   ...base2,
-  id: 'base2-max',
+  id: 'base2-alloy',
   spawnableAgents: [
     ...(base2.spawnableAgents ?? []),
     'base2-gpt-5-single-step',

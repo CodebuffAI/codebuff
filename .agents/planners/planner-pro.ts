@@ -5,10 +5,10 @@ import {
 import { publisher } from '../constants'
 
 const definition: SecretAgentDefinition = {
-  id: 'create-plan-gpt-5-pro',
+  id: 'planner-pro',
   model: 'openai/gpt-5-pro',
   publisher,
-  displayName: 'Plan Generator Pro',
+  displayName: 'Planner Pro',
   spawnerPrompt:
     'Generates 5 alternative plans for a user request, analyzes them, and selects the best and simplest one that meets all requirements.',
   inputSchema: {},

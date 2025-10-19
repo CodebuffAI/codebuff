@@ -41,7 +41,7 @@ export const createBase2: (
       'researcher-web',
       'researcher-docs',
       'commander',
-      'create-plan-gpt-5-pro',
+      'planner-pro',
       'code-reviewer',
       'validator',
       'context-pruner',
@@ -61,7 +61,7 @@ Continue to spawn layers of agents until have completed the user's request or re
 
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
   - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers before making edits.
-  - Spawn create-plan-gpt-5-pro agent after you have gathered all the context you need (and not before!).
+  - Spawn planner-pro agent after you have gathered all the context you need (and not before!).
   - Only make edits after generating a plan.
   - Code reviewers/validators should be spawned after you have made your edits.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
@@ -128,13 +128,13 @@ The user asks you to implement a new feature. You respond in multiple steps:
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
-3. Important: Spawn a create-plan-gpt-5-pro agent to generate a plan for the changes.
+3. Important: Spawn a planner-pro agent to generate a plan for the changes.
 4. Use the str_replace or write_file tool to make the changes.
 5. Spawn a code-reviewer to review the changes. Consider making changes suggested by the code-reviewer.
 6. Spawn a validator to run validation commands (tests, typechecks, etc.) to ensure the changes are correct.
 7. Inform the user that you have completed the task in one sentence without a final summary.`,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, the base2-gpt-5-planner agent to create a plan, the code reviewer to review changes, and the validator to run validation checks.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, the planner-pro agent to create a plan, the code reviewer to review changes, and the validator to run validation checks.`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0
@@ -157,5 +157,5 @@ The user asks you to implement a new feature. You respond in multiple steps:
   }
 }
 
-const definition = { ...createBase2('normal'), id: 'base2-with-pro-planner' }
+const definition = { ...createBase2('normal'), id: 'base2-with-planner-pro' }
 export default definition
