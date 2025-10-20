@@ -151,7 +151,12 @@ export const mainPrompt = async (
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
-  if (prompt && mainAgentTemplate.toolNames.includes('run_terminal_command')) {
+  // TODO (fat sdk): remove this once we switch to sdk-only
+  if (
+    prompt &&
+    mainAgentTemplate.toolNames.includes('run_terminal_command') &&
+    !fingerprintId.startsWith('codebuff-sdk-')
+  ) {
     // Check if this is a direct terminal command
     const startTime = Date.now()
     const terminalCommand = await checkTerminalCommand({
