@@ -37,7 +37,7 @@ jobs:
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js)
+          VAR_NAMES=$(bun scripts/generate-ci-env.js)
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV

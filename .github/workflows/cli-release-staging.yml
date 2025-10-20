@@ -53,7 +53,7 @@ jobs:
         run: |
           cd cli/release-staging
 
-          BASE_VERSION=$(node -e "console.log(require('./package.json').version)")
+          BASE_VERSION=$(bun -e "console.log(require('./package.json').version)")
           echo "Base version: $BASE_VERSION"
 
           echo "Fetching latest CLI prerelease from GitHub..."
@@ -92,7 +92,7 @@ jobs:
           echo "New staging version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-          node -e "
+          bun -e "
             const fs = require('fs');
             const path = require('path');
             const version = '$NEW_VERSION';
@@ -263,12 +263,6 @@ jobs:
         with:
           name: cli-staging-metadata
           path: cli/release-staging/
-
-      - name: Set up Node.js for npm publishing
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org/
 
       - name: Publish codecane staging package to npm
         run: |
