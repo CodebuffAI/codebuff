@@ -1,9 +1,9 @@
+import { promptFlashWithFallbacks } from '@codebuff/agent-runtime/llm-api/gemini-with-fallbacks'
 import { models, openaiModels } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
 
-import { promptFlashWithFallbacks } from './llm-apis/gemini-with-fallbacks'
 import { promptRelaceAI } from './llm-apis/relace-api'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'

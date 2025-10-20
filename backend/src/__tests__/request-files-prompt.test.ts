@@ -1,3 +1,4 @@
+import * as geminiWithFallbacksModule from '@codebuff/agent-runtime/llm-api/gemini-with-fallbacks'
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
 import {
   TEST_AGENT_RUNTIME_IMPL,
@@ -18,7 +19,6 @@ import {
 } from 'bun:test'
 
 import * as OriginalRequestFilesPromptModule from '../find-files/request-files-prompt'
-import * as geminiWithFallbacksModule from '../llm-apis/gemini-with-fallbacks'
 
 import type { CostMode } from '@codebuff/common/old-constants'
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
