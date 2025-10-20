@@ -3,7 +3,6 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import { addAgentStep } from './agent-run'
 import { executeToolCall } from './tools/tool-executor'
 import { getRequestContext } from './websockets/request-context'
 
@@ -17,6 +16,7 @@ import type {
   HandleStepsLogChunkFn,
   SendActionFn,
 } from '@codebuff/common/types/contracts/client'
+import type { AddAgentStepFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
@@ -65,6 +65,7 @@ export async function runProgrammaticStep(
     stepNumber: number
     handleStepsLogChunk: HandleStepsLogChunkFn
     sendAction: SendActionFn
+    addAgentStep: AddAgentStepFn
     logger: Logger
   } & ParamsExcluding<
     typeof executeToolCall,
@@ -80,7 +81,17 @@ export async function runProgrammaticStep(
     | 'autoInsertEndStepParam'
     | 'state'
     | 'excludeToolFromMessageHistory'
-  >,
+  > &
+    ParamsExcluding<
+      AddAgentStepFn,
+      | 'agentRunId'
+      | 'stepNumber'
+      | 'credits'
+      | 'childRunIds'
+      | 'status'
+      | 'startTime'
+      | 'messageId'
+    >,
 ): Promise<{ agentState: AgentState; endTurn: boolean; stepNumber: number }> {
   const {
     agentState,
@@ -96,6 +107,7 @@ export async function runProgrammaticStep(
     stepsComplete,
     handleStepsLogChunk,
     sendAction,
+    addAgentStep,
     logger,
   } = params
   let { stepNumber } = params
@@ -366,7 +378,7 @@ export async function runProgrammaticStep(
 
       if (state.agentState.runId) {
         await addAgentStep({
-          userId,
+          ...params,
           agentRunId: state.agentState.runId,
           stepNumber,
           credits: state.agentState.directCreditsUsed - creditsBefore,
@@ -374,7 +386,6 @@ export async function runProgrammaticStep(
           status: 'completed',
           startTime,
           messageId: null,
-          logger,
         })
       } else {
         logger.error('No runId found for agent state after finishing agent run')
@@ -415,13 +426,14 @@ export async function runProgrammaticStep(
 
     if (agentState.runId) {
       await addAgentStep({
-        userId,
+        ...params,
         agentRunId: agentState.runId,
         stepNumber,
         credits: agentState.directCreditsUsed - creditsBefore,
         childRunIds: agentState.childRunIds.slice(childrenBefore),
         status: 'skipped',
         startTime,
+        errorMessage,
         messageId: null,
         logger,
       })
