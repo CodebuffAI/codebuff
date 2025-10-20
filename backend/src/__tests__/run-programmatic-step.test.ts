@@ -1,6 +1,9 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_SCOPED_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import {
+  TEST_AGENT_RUNTIME_IMPL,
+  TEST_AGENT_RUNTIME_SCOPED_IMPL,
+} from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
@@ -25,9 +28,13 @@ import type {
   StepGenerator,
 } from '@codebuff/agent-runtime/templates/types'
 import type { PublicAgentState } from '@codebuff/common/types/agent-template'
-import type { AgentRuntimeScopedDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -44,12 +51,22 @@ const logger: Logger = {
 describe('runProgrammaticStep', () => {
   let mockTemplate: AgentTemplate
   let mockAgentState: AgentState
-  let mockParams: any
+  let mockParams: ParamsOf<typeof runProgrammaticStep>
   let executeToolCallSpy: any
   let getRequestContextSpy: any
+  let agentRuntimeImpl: AgentRuntimeDeps
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(() => {
+    agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      addAgentStep: async () => 'test-agent-step-id',
+      getUserInfoFromApiKey: async () => ({
+        id: 'test-user-id',
+        email: 'test-email',
+        discord_id: 'test-discord-id',
+      }),
+    }
     agentRuntimeScopedImpl = {
       ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       sendAction: () => {},
@@ -117,22 +134,23 @@ describe('runProgrammaticStep', () => {
 
     // Create mock params
     mockParams = {
+      ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       agentState: mockAgentState,
       template: mockTemplate,
       prompt: 'Test prompt',
-      params: { testParam: 'value' },
+      toolCallParams: { testParam: 'value' },
       userId: TEST_USER_ID,
       userInputId: 'test-user-input',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
       fileContext: mockFileContext,
-      assistantMessage: undefined,
-      assistantPrefix: undefined,
       localAgentTemplates: {},
+      system: undefined,
       stepsComplete: false,
       stepNumber: 1,
+
       logger,
     }
   })
@@ -790,8 +808,8 @@ describe('runProgrammaticStep', () => {
 
       mockTemplate.handleSteps = () => mockGenerator
 
-      const responseChunks: string[] = []
-      mockParams.onResponseChunk = (chunk: string) => responseChunks.push(chunk)
+      const responseChunks: any[] = []
+      mockParams.onResponseChunk = (chunk) => responseChunks.push(chunk)
 
       const result = await runProgrammaticStep(mockParams)
 
@@ -811,8 +829,8 @@ describe('runProgrammaticStep', () => {
       mockTemplate.handleSteps = () => mockGenerator
       executeToolCallSpy.mockRejectedValue(new Error('Tool execution failed'))
 
-      const responseChunks: string[] = []
-      mockParams.onResponseChunk = (chunk: string) => responseChunks.push(chunk)
+      const responseChunks: any[] = []
+      mockParams.onResponseChunk = (chunk) => responseChunks.push(chunk)
 
       const result = await runProgrammaticStep(mockParams)
 
@@ -873,7 +891,7 @@ describe('runProgrammaticStep', () => {
         ...mockParams,
         template: schemaTemplate,
         localAgentTemplates: { 'test-agent': schemaTemplate },
-      })
+      } as any)
 
       expect(result.endTurn).toBe(true)
       expect(result.agentState.output).toEqual({
@@ -916,14 +934,14 @@ describe('runProgrammaticStep', () => {
       // Don't mock executeToolCall - let it use the real implementation
       executeToolCallSpy.mockRestore()
 
-      const responseChunks: string[] = []
-      mockParams.onResponseChunk = (chunk: string) => responseChunks.push(chunk)
+      const responseChunks: any[] = []
+      mockParams.onResponseChunk = (chunk) => responseChunks.push(chunk)
 
       const result = await runProgrammaticStep({
         ...mockParams,
         template: schemaTemplate,
         localAgentTemplates: { 'test-agent': schemaTemplate },
-      })
+      } as any)
 
       // Should end turn (validation may fail but execution continues)
       expect(result.endTurn).toBe(true)
