@@ -1,5 +1,6 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
+import { CustomFilePickerConfigSchema } from '@codebuff/agent-runtime/find-files/custom-file-picker-config'
 import {
   castAssistantMessage,
   messagesWithSystem,
@@ -17,11 +18,10 @@ import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { and, eq } from 'drizzle-orm'
 import { range, shuffle, uniq } from 'lodash'
 
-import { CustomFilePickerConfigSchema } from './custom-file-picker-config'
 import { promptFlashWithFallbacks } from '../llm-apis/gemini-with-fallbacks'
 import { getRequestContext } from '../websockets/request-context'
 
-import type { CustomFilePickerConfig } from './custom-file-picker-config'
+import type { CustomFilePickerConfig } from '@codebuff/agent-runtime/find-files/custom-file-picker-config'
 import type { TextBlock } from '@codebuff/agent-runtime/llm-api/claude'
 import type {
   GetExpandedFileContextForTrainingTrace,
