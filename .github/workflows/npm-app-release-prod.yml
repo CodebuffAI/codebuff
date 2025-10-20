@@ -53,12 +53,12 @@ jobs:
           cd npm-app/release
 
           # Get current version and bump it
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
           echo "Current version: $CURRENT_VERSION"
 
           # Bump version based on input
           npm version ${{ inputs.version_type }} --no-git-tag-version
-          NEW_VERSION=$(node -p "require('./package.json').version")
+          NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
 
           echo "New production version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT

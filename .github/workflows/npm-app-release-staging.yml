@@ -51,7 +51,7 @@ jobs:
           cd npm-app/release-staging
 
           # Use the current package.json version as base
-          CURRENT_VERSION=$(node -e "console.log(require('./package.json').version)")
+          CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
           echo "Current package.json version: $CURRENT_VERSION"
 
           # Get latest beta version from npm to check if we need to increment
@@ -83,7 +83,7 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
           # Update package.json with new version
-          node -e "
+          bun -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             pkg.version = '$NEW_VERSION';

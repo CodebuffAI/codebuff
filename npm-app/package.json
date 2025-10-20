@@ -20,7 +20,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
-    "build": "bun run scripts/build-binary.js codebuff $(node -p \"require('./release/package.json').version\")",
+    "build": "bun run scripts/build-binary.js codebuff $(bun -e \"console.log(require('./release/package.json').version)\")",
     "release": "bun run scripts/release.js",
     "start-bin": "bun run build && ./bin/codebuff",
     "start": "bun run src/index.ts --cwd ..",
@@ -31,7 +31,7 @@
     "README.md"
   ],
   "engines": {
-    "bun": ">=1.2.11"
+    "bun": ">=1.3.0"
   },
   "dependencies": {
     "@codebuff/code-map": "workspace:*",

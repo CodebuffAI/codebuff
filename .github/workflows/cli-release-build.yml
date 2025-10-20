@@ -98,7 +98,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node <<'NODE'
+          bun - <<'BUN'
           import fs from 'fs';
           import path from 'path';
 
@@ -163,7 +163,7 @@ jobs:
               }
             }
           }
-          NODE
+          BUN
 
       - name: Configure environment variables
         env:
@@ -171,7 +171,7 @@ jobs:
           ENV_OVERRIDES: ${{ inputs.env-overrides }}
         shell: bash
         run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js --prefix NEXT_PUBLIC_)
+          VAR_NAMES=$(bun scripts/generate-ci-env.js --prefix NEXT_PUBLIC_)
 
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
