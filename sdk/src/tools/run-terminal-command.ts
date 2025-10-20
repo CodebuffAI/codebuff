@@ -88,11 +88,17 @@ export function runTerminalCommand({
         remove: 'MIDDLE',
       })
 
+      const truncatedStderr = truncateStringWithMessage({
+        str: stripColors(stderr),
+        maxLength: COMMAND_OUTPUT_LIMIT,
+        remove: 'MIDDLE',
+      })
+
       // Include stderr in stdout for compatibility with existing behavior
       const combinedOutput = {
         command,
         stdout: truncatedStdout,
-        ...(stderr ? { stderr } : {}),
+        ...(truncatedStderr ? { stderr: truncatedStderr } : {}),
         ...(exitCode !== null ? { exitCode } : {}),
       }
 
