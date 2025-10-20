@@ -13,8 +13,8 @@ async function main() {
 
   const results = await runBuffBench({
     evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
-    agents: ['base', 'base2'],
-    taskConcurrency: 20,
+    agents: ['base', 'base-lite-grok-4-fast'],
+    taskConcurrency: 5,
   })
 
   console.log('\nNightly buffbench evaluation completed successfully!')
