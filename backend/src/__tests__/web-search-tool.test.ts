@@ -1,6 +1,7 @@
 // Set environment variables before any imports
 process.env.LINKUP_API_KEY = 'test-api-key'
 
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
@@ -13,6 +14,7 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -23,9 +25,8 @@ import {
 
 import researcherAgent from '../../../.agents/researcher/researcher'
 import * as checkTerminalCommandModule from '../check-terminal-command'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as liveUserInputs from '../live-user-inputs'
 import { mockFileContext } from './test-utils'
+import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as linkupApi from '../llm-apis/linkup-api'
 import { runAgentStep } from '../run-agent-step'
 
@@ -50,6 +51,10 @@ function mockAgentStream(content: string | string[]) {
 let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
 describe('web_search tool with researcher agent', () => {
+  beforeAll(() => {
+    disableLiveUserInputCheck()
+  })
+
   beforeEach(() => {
     agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
 
@@ -86,9 +91,6 @@ describe('web_search tool with researcher agent', () => {
       checkTerminalCommandModule,
       'checkTerminalCommand',
     ).mockImplementation(async () => null)
-
-    // Mock live user inputs
-    spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
   })
 
   afterEach(() => {

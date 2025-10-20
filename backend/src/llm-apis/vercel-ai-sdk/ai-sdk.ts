@@ -1,5 +1,9 @@
 import { openai } from '@ai-sdk/openai'
 import {
+  checkLiveUserInput,
+  getLiveUserInputIds,
+} from '@codebuff/agent-runtime/live-user-inputs'
+import {
   finetunedVertexModels,
   openaiModels,
 } from '@codebuff/common/old-constants'
@@ -10,7 +14,6 @@ import { withTimeout } from '@codebuff/common/util/promise'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
 import { APICallError, generateObject, generateText, streamText } from 'ai'
 
-import { checkLiveUserInput, getLiveUserInputIds } from '../../live-user-inputs'
 import { saveMessage } from '../message-cost-tracker'
 import { openRouterLanguageModel } from '../openrouter'
 import { vertexFinetuned } from './vertex-finetuned'
@@ -77,7 +80,7 @@ export async function* promptAiSdkStream(
       {
         userId: params.userId,
         userInputId: params.userInputId,
-        liveUserInputId: getLiveUserInputIds(params.userId),
+        liveUserInputId: getLiveUserInputIds(params),
       },
       'Skipping stream due to canceled user input',
     )
@@ -252,7 +255,7 @@ export async function promptAiSdk(
       {
         userId: params.userId,
         userInputId: params.userInputId,
-        liveUserInputId: getLiveUserInputIds(params.userId),
+        liveUserInputId: getLiveUserInputIds(params),
       },
       'Skipping prompt due to canceled user input',
     )
@@ -337,7 +340,7 @@ export async function promptAiSdkStructured<T>(
       {
         userId: params.userId,
         userInputId: params.userInputId,
-        liveUserInputId: getLiveUserInputIds(params.userId),
+        liveUserInputId: getLiveUserInputIds(params),
       },
       'Skipping structured prompt due to canceled user input',
     )

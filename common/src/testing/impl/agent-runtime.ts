@@ -23,7 +23,6 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
-  databaseAgentCache: new Map<string, AgentTemplate | null>(),
 
   // LLM
   promptAiSdkStream: async function* () {
@@ -35,6 +34,11 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   promptAiSdkStructured: async function () {
     throw new Error('promptAiSdkStructured not implemented in test runtime')
   },
+
+  // Mutable State
+  databaseAgentCache: new Map<string, AgentTemplate | null>(),
+  liveUserInputRecord: {},
+  sessionConnections: {},
 
   // Other
   logger: testLogger,

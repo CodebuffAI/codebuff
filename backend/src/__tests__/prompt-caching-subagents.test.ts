@@ -1,18 +1,11 @@
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   TEST_AGENT_RUNTIME_IMPL,
   TEST_AGENT_RUNTIME_SCOPED_IMPL,
 } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import {
-  spyOn,
-  beforeEach,
-  afterEach,
-  describe,
-  expect,
-  it,
-  mock,
-} from 'bun:test'
+import { spyOn, beforeEach, describe, expect, it, beforeAll } from 'bun:test'
 
 import { loopAgentSteps } from '../run-agent-step'
 
@@ -55,6 +48,10 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
   let capturedMessages: Message[] = []
   let agentRuntimeImpl: AgentRuntimeDeps
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+
+  beforeAll(() => {
+    disableLiveUserInputCheck()
+  })
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
@@ -138,12 +135,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     })
 
     // Mock live user input
-    const liveUserInputs = require('../live-user-inputs')
+    const liveUserInputs = require('@codebuff/agent-runtime/live-user-inputs')
     spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
-  })
-
-  afterEach(() => {
-    mock.restore()
   })
 
   it('should inherit parent system prompt when inheritParentSystemPrompt is true', async () => {

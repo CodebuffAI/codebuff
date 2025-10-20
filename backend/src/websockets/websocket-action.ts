@@ -1,3 +1,8 @@
+import {
+  cancelUserInput,
+  checkLiveUserInput,
+  startUserInput,
+} from '@codebuff/agent-runtime/live-user-inputs'
 import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
@@ -7,11 +12,6 @@ import * as schema from '@codebuff/common/db/schema'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { eq } from 'drizzle-orm'
 
-import {
-  cancelUserInput,
-  checkLiveUserInput,
-  startUserInput,
-} from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendActionWs } from '../client-wrapper'
@@ -20,6 +20,7 @@ import { withLoggerContext } from '../util/logger'
 import type { ClientAction, UsageResponse } from '@codebuff/common/actions'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
+import type { UserInputRecord } from '@codebuff/common/types/contracts/live-user-input'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
@@ -97,6 +98,7 @@ const onPrompt = async (
     action: ClientAction<'prompt'>
     ws: WebSocket
     getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
+    liveUserInputRecord: UserInputRecord
     logger: Logger
   } & ParamsExcluding<typeof callMainPrompt, 'userId' | 'promptId'>,
 ) => {
@@ -127,7 +129,7 @@ const onPrompt = async (
         })
       }
 
-      startUserInput({ userId, userInputId: promptId })
+      startUserInput({ ...params, userId, userInputId: promptId })
 
       try {
         const result = await callMainPrompt({
@@ -152,7 +154,7 @@ const onPrompt = async (
           },
         })
       } finally {
-        cancelUserInput({ userId, userInputId: promptId, logger })
+        cancelUserInput({ ...params, userId, userInputId: promptId })
         const usageResponse = await genUsageResponse({
           fingerprintId,
           userId,
@@ -171,6 +173,7 @@ export const callMainPrompt = async (
     promptId: string
     clientSessionId: string
     sendAction: SendActionFn
+    liveUserInputRecord: UserInputRecord
     logger: Logger
   } & ParamsExcluding<
     typeof mainPrompt,
@@ -217,9 +220,7 @@ export const callMainPrompt = async (
     ...params,
     localAgentTemplates,
     onResponseChunk: (chunk) => {
-      if (
-        checkLiveUserInput({ userId, userInputId: promptId, clientSessionId })
-      ) {
+      if (checkLiveUserInput({ ...params, userInputId: promptId })) {
         sendAction({
           action: {
             type: 'response-chunk',
@@ -316,6 +317,7 @@ const onInit = async (params: {
 const onCancelUserInput = async (params: {
   action: ClientAction<'cancel-user-input'>
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
+  liveUserInputRecord: UserInputRecord
   logger: Logger
 }) => {
   const { action, getUserInfoFromApiKey, logger } = params
@@ -328,7 +330,7 @@ const onCancelUserInput = async (params: {
     logger.error({ authToken }, 'User id not found for authToken')
     return
   }
-  cancelUserInput({ userId, userInputId: promptId, logger })
+  cancelUserInput({ ...params, userId, userInputId: promptId })
 }
 
 /**

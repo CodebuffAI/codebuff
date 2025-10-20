@@ -1,3 +1,4 @@
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import * as agentRegistry from '@codebuff/agent-runtime/templates/agent-registry'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
@@ -13,6 +14,7 @@ import {
   expect,
   it,
   mock,
+  beforeAll,
 } from 'bun:test'
 
 import * as messageCostTracker from '../llm-apis/message-cost-tracker'
@@ -90,6 +92,10 @@ describe('Cost Aggregation Integration Tests', () => {
   let mockLocalAgentTemplates: Record<string, any>
   let agentRuntimeImpl: AgentRuntimeDeps
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+
+  beforeAll(() => {
+    disableLiveUserInputCheck()
+  })
 
   beforeEach(async () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
@@ -207,10 +213,6 @@ describe('Cost Aggregation Integration Tests', () => {
       })
       return results
     }
-
-    // Mock live user input checking
-    const liveUserInputs = await import('../live-user-inputs')
-    spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
 
     // Mock getAgentTemplate to return our mock templates
     spyOn(agentRegistry, 'getAgentTemplate').mockImplementation(

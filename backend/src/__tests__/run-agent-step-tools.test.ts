@@ -1,3 +1,4 @@
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { asUserMessage } from '@codebuff/agent-runtime/util/messages'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
@@ -12,6 +13,7 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -20,7 +22,6 @@ import {
   spyOn,
 } from 'bun:test'
 
-import * as liveUserInputs from '../live-user-inputs'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 
@@ -35,6 +36,10 @@ describe('runAgentStep - set_output tool', () => {
   let testAgent: AgentTemplate
   let agentRuntimeImpl: AgentRuntimeDeps
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+
+  beforeAll(() => {
+    disableLiveUserInputCheck()
+  })
 
   beforeEach(async () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
@@ -79,11 +84,6 @@ describe('runAgentStep - set_output tool', () => {
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
     )
-
-    // Mock live user inputs to always return true (simulating active session)
-    spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
-    spyOn(liveUserInputs, 'startUserInput').mockImplementation(() => {})
-    spyOn(liveUserInputs, 'setSessionConnected').mockImplementation(() => {})
 
     agentRuntimeScopedImpl.requestFiles = async ({ filePaths }) => {
       const results: Record<string, string | null> = {}

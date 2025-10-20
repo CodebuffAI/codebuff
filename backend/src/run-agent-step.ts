@@ -1,3 +1,4 @@
+import { checkLiveUserInput } from '@codebuff/agent-runtime/live-user-inputs'
 import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
 import { getAgentStreamFromTemplate } from '@codebuff/agent-runtime/prompt-agent-stream'
 import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
@@ -18,7 +19,6 @@ import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import { checkLiveUserInput } from './live-user-inputs'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentPrompt } from './templates/strings'
@@ -34,8 +34,12 @@ import type {
   FinishAgentRunFn,
   StartAgentRunFn,
 } from '@codebuff/common/types/contracts/database'
+import type { CheckLiveUserInputFn } from '@codebuff/common/types/contracts/live-user-input'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   ToolResultPart,
@@ -94,6 +98,10 @@ export const runAgentStep = async (
     ParamsExcluding<
       typeof getMCPToolData,
       'toolNames' | 'mcpServers' | 'writeTo'
+    > &
+    ParamsExcluding<
+      typeof getAgentStreamFromTemplate,
+      'agentId' | 'template' | 'onCostCalculated' | 'includeCacheControl'
     >,
 ): Promise<{
   agentState: AgentState
@@ -238,10 +246,7 @@ export const runAgentStep = async (
   const { model } = agentTemplate
 
   const { getStream } = getAgentStreamFromTemplate({
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
+    ...params,
     agentId: agentState.parentId ? agentState.agentId : undefined,
     template: agentTemplate,
     onCostCalculated: async (credits: number) => {
@@ -261,9 +266,6 @@ export const runAgentStep = async (
         )
       }
     },
-    sendAction,
-    promptAiSdkStream,
-    logger,
     includeCacheControl: supportsCacheControl(agentTemplate.model),
   })
 
@@ -444,7 +446,8 @@ export async function loopAgentSteps(
     ParamsExcluding<
       typeof getMCPToolData,
       'toolNames' | 'mcpServers' | 'writeTo'
-    >,
+    > &
+    ParamsOf<CheckLiveUserInputFn>,
 ): Promise<{
   agentState: AgentState
   output: AgentOutput
@@ -583,7 +586,7 @@ export async function loopAgentSteps(
   try {
     while (true) {
       totalSteps++
-      if (!checkLiveUserInput({ userId, userInputId, clientSessionId })) {
+      if (!checkLiveUserInput(params)) {
         logger.warn(
           {
             userId,
@@ -715,9 +718,7 @@ export async function loopAgentSteps(
       )
     }
 
-    const status = checkLiveUserInput({ userId, userInputId, clientSessionId })
-      ? 'completed'
-      : 'cancelled'
+    const status = checkLiveUserInput(params) ? 'completed' : 'cancelled'
     await finishAgentRun({
       userId,
       runId,
@@ -747,9 +748,7 @@ export async function loopAgentSteps(
     )
     const errorMessage = typeof error === 'string' ? error : `${error}`
 
-    const status = checkLiveUserInput({ userId, userInputId, clientSessionId })
-      ? 'failed'
-      : 'cancelled'
+    const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
     await finishAgentRun({
       userId,
       runId,

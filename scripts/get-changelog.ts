@@ -2,6 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { models } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import prettier from 'prettier'
@@ -164,6 +165,7 @@ Please create a changelog with:
 
 Start your response with a heading using ### (three hashes) and organize the content below it.`
 
+    disableLiveUserInputCheck()
     const response = await promptAiSdk({
       messages: [{ role: 'user', content: prompt }],
       clientSessionId: generateCompactId(),
@@ -173,6 +175,8 @@ Start your response with a heading using ### (three hashes) and organize the con
       userId: undefined,
       chargeUser: false,
       sendAction: () => {},
+      liveUserInputRecord: {},
+      sessionConnections: {},
       logger: console,
     })
 

@@ -18,12 +18,16 @@ export const BACKEND_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   startAgentRun,
   finishAgentRun,
   addAgentStep,
-  databaseAgentCache: new Map<string, AgentTemplate | null>(),
 
   // LLM
   promptAiSdkStream,
   promptAiSdk,
   promptAiSdkStructured,
+
+  // Mutable State
+  databaseAgentCache: new Map<string, AgentTemplate | null>(),
+  liveUserInputRecord: {},
+  sessionConnections: {},
 
   // Other
   logger,

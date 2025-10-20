@@ -2,7 +2,7 @@ import { execFileSync, fork } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { withTimeout } from '@codebuff/common/util/promise'
@@ -159,6 +159,8 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
               userId: undefined,
               timeout: 5 * 60_000, // 5 minute timeout
               sendAction: () => {},
+              liveUserInputRecord: {},
+              sessionConnections: {},
               logger: console,
             })
       } catch (agentError) {

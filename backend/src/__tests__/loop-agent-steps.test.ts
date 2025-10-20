@@ -1,3 +1,4 @@
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import * as analytics from '@codebuff/common/analytics'
 import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
@@ -62,6 +63,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   }
 
   beforeAll(() => {
+    disableLiveUserInputCheck()
+
     // Mock bigquery
     mockModule('@codebuff/bigquery', () => ({
       insertTrace: () => {},
@@ -70,17 +73,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     // Mock template strings
     mockModule('@codebuff/backend/templates/strings', () => ({
       getAgentPrompt: async () => 'Mock prompt',
-    }))
-
-    // Mock live user inputs - default to true to allow tests to run
-    mockModule('@codebuff/backend/live-user-inputs', () => ({
-      checkLiveUserInput: () => true,
-      resetLiveUserInputsState: () => {},
-      startUserInput: () => {},
-      endUserInput: () => {},
-      cancelUserInput: () => {},
-      setSessionConnected: () => {},
-      getLiveUserInputIds: () => undefined,
     }))
 
     // Mock file reading updates

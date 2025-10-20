@@ -1,3 +1,4 @@
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/old-constants'
@@ -179,6 +180,7 @@ export async function analyzeEvalResults(
   const tokenCount = countTokens(finalPrompt)
   console.log(`Post-eval analysis prompt: ${tokenCount} tokens`)
 
+  disableLiveUserInputCheck()
   return promptAiSdkStructured({
     messages: [{ role: 'user', content: finalPrompt }],
     schema: PostEvalAnalysisSchema,
@@ -189,6 +191,8 @@ export async function analyzeEvalResults(
     userId: undefined,
     timeout: 10 * 60 * 1000, // 10 minute timeout
     sendAction: () => {},
+    liveUserInputRecord: {},
+    sessionConnections: {},
     logger: console,
   })
 }

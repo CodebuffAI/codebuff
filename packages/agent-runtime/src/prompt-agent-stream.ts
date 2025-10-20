@@ -4,6 +4,10 @@ import { globalStopSequence } from './constants'
 
 import type { AgentTemplate } from './templates/types'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
+import type {
+  SessionRecord,
+  UserInputRecord,
+} from '@codebuff/common/types/contracts/live-user-input'
 import type { PromptAiSdkStreamFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
@@ -23,6 +27,8 @@ export const getAgentStreamFromTemplate = (params: {
   logger: Logger
   sendAction: SendActionFn
   promptAiSdkStream: PromptAiSdkStreamFn
+  liveUserInputRecord: UserInputRecord
+  sessionConnections: SessionRecord
 }) => {
   const {
     clientSessionId,
@@ -36,6 +42,8 @@ export const getAgentStreamFromTemplate = (params: {
     logger,
     sendAction,
     promptAiSdkStream,
+    liveUserInputRecord,
+    sessionConnections,
   } = params
 
   if (!template) {
@@ -59,6 +67,8 @@ export const getAgentStreamFromTemplate = (params: {
       agentId,
       maxRetries: 3,
       sendAction,
+      liveUserInputRecord,
+      sessionConnections,
       logger,
     }
 

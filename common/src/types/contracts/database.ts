@@ -84,3 +84,5 @@ export type AddAgentStepFn = (params: {
   startTime: Date
   logger: Logger
 }) => Promise<string>
+
+export type DatabaseAgentCache = Map<string, AgentTemplate | null>

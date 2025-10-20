@@ -1,3 +1,5 @@
+import * as liveUserInputs from '@codebuff/agent-runtime/live-user-inputs'
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
@@ -12,6 +14,7 @@ import {
 } from '@codebuff/common/types/session-state'
 import {
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -24,7 +27,6 @@ import {
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
-import * as liveUserInputs from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
@@ -49,6 +51,10 @@ const mockAgentStream = (streamOutput: string) => {
 
 describe('mainPrompt', () => {
   let mockLocalAgentTemplates: Record<string, any>
+
+  beforeAll(() => {
+    disableLiveUserInputCheck()
+  })
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }

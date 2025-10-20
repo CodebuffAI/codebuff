@@ -1,4 +1,3 @@
-import type { AgentTemplate } from '../agent-template'
 import type {
   HandleStepsLogChunkFn,
   RequestFilesFn,
@@ -10,11 +9,13 @@ import type {
 } from './client'
 import type {
   AddAgentStepFn,
+  DatabaseAgentCache,
   FetchAgentFromDatabaseFn,
   FinishAgentRunFn,
   GetUserInfoFromApiKeyFn,
   StartAgentRunFn,
 } from './database'
+import type { SessionRecord, UserInputRecord } from './live-user-input'
 import type {
   PromptAiSdkFn,
   PromptAiSdkStreamFn,
@@ -29,12 +30,16 @@ export type AgentRuntimeDeps = {
   startAgentRun: StartAgentRunFn
   finishAgentRun: FinishAgentRunFn
   addAgentStep: AddAgentStepFn
-  databaseAgentCache: Map<string, AgentTemplate | null>
 
   // LLM
   promptAiSdkStream: PromptAiSdkStreamFn
   promptAiSdk: PromptAiSdkFn
   promptAiSdkStructured: PromptAiSdkStructuredFn
+
+  // Mutable State
+  databaseAgentCache: DatabaseAgentCache
+  liveUserInputRecord: UserInputRecord
+  sessionConnections: SessionRecord
 
   // Other
   logger: Logger

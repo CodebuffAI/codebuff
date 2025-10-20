@@ -1,11 +1,12 @@
+import { setSessionConnected } from '@codebuff/agent-runtime/live-user-inputs'
 import { CLIENT_MESSAGE_SCHEMA } from '@codebuff/common/websockets/websocket-schema'
 import { isError } from 'lodash'
 import { WebSocketServer } from 'ws'
 
-import { setSessionConnected } from '../live-user-inputs'
 import { Switchboard } from './switchboard'
 import { onWebsocketAction } from './websocket-action'
 
+import type { SessionRecord } from '@codebuff/common/types/contracts/live-user-input'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ServerMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { Server as HttpServer } from 'node:http'
@@ -87,6 +88,7 @@ export function listen(params: {
   server: HttpServer
   path: string
   logger: Logger
+  sessionConnections: SessionRecord
 }) {
   const { server, path, logger } = params
   const wss = new WebSocketServer({ server, path })
@@ -134,7 +136,11 @@ export function listen(params: {
       SWITCHBOARD.clients.get(ws)?.sessionId ?? 'mc-client-unknown'
 
     // Mark session as connected
-    setSessionConnected(clientSessionId, true)
+    setSessionConnected({
+      ...params,
+      sessionId: clientSessionId,
+      connected: true,
+    })
     ws.on('message', async (data: RawData) => {
       const result = await processMessage({ ws, clientSessionId, data, logger })
       // mqp: check ws.readyState before sending?
@@ -147,7 +153,11 @@ export function listen(params: {
       // )
 
       // Mark session as disconnected to stop all agents
-      setSessionConnected(clientSessionId, false)
+      setSessionConnected({
+        ...params,
+        sessionId: clientSessionId,
+        connected: false,
+      })
 
       SWITCHBOARD.disconnect(ws)
     })

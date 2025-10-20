@@ -1,3 +1,4 @@
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
@@ -10,6 +11,7 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -20,9 +22,8 @@ import {
 
 import researcherAgent from '../../../.agents/researcher/researcher'
 import * as checkTerminalCommandModule from '../check-terminal-command'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
-import * as liveUserInputs from '../live-user-inputs'
 import { mockFileContext } from './test-utils'
+import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as context7Api from '../llm-apis/context7-api'
 import { runAgentStep } from '../run-agent-step'
 
@@ -49,6 +50,10 @@ describe('read_docs tool with researcher agent', () => {
   // Track all mocked functions to verify they're being used
   const mockedFunctions: Array<{ name: string; spy: any }> = []
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+
+  beforeAll(() => {
+    disableLiveUserInputCheck()
+  })
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
@@ -120,34 +125,6 @@ describe('read_docs tool with researcher agent', () => {
       name: 'checkTerminalCommand',
       spy: checkTerminalCommandSpy,
     })
-
-    // Mock live user inputs - these should return false to avoid waiting
-    const checkLiveUserInputSpy = spyOn(
-      liveUserInputs,
-      'checkLiveUserInput',
-    ).mockImplementation(() => false)
-    mockedFunctions.push({
-      name: 'liveUserInputs.checkLiveUserInput',
-      spy: checkLiveUserInputSpy,
-    })
-
-    const startUserInputSpy = spyOn(
-      liveUserInputs,
-      'startUserInput',
-    ).mockImplementation(() => {})
-    mockedFunctions.push({
-      name: 'liveUserInputs.startUserInput',
-      spy: startUserInputSpy,
-    })
-
-    const cancelUserInputSpy = spyOn(
-      liveUserInputs,
-      'cancelUserInput',
-    ).mockImplementation(() => {})
-    mockedFunctions.push({
-      name: 'liveUserInputs.cancelUserInput',
-      spy: cancelUserInputSpy,
-    })
   })
 
   afterEach(() => {
@@ -161,48 +138,6 @@ describe('read_docs tool with researcher agent', () => {
       researcher: researcherAgent,
     },
   }
-
-  test('mock verification - ensure all mocks are properly set up', async () => {
-    // Verify that all mocked functions are actually mocked
-    for (const { name, spy } of mockedFunctions) {
-      expect(spy.getMockImplementation()).toBeDefined()
-      // Ensure the mock is callable without errors
-      expect(() => {
-        if (spy.getMockImplementation().constructor.name === 'AsyncFunction') {
-          // For async functions, ensure they return a promise
-          const result = spy.getMockImplementation()()
-          expect(result).toBeInstanceOf(Promise)
-        } else if (
-          spy.getMockImplementation().constructor.name ===
-          'AsyncGeneratorFunction'
-        ) {
-          // For async generators, ensure they return an async iterator
-          const result = spy.getMockImplementation()()
-          expect(result.next).toBeDefined()
-        } else {
-          // For sync functions, just call them
-          spy.getMockImplementation()()
-        }
-      }).not.toThrow()
-    }
-
-    // Verify critical mocks that prevent hanging
-    const liveUserInputMock = mockedFunctions.find(
-      (m) => m.name === 'liveUserInputs.checkLiveUserInput',
-    )
-    expect(liveUserInputMock?.spy()).toBe(false) // Must return false to avoid waiting
-
-    // Verify async mocks resolve properly
-    const flushAnalyticsMock = mockedFunctions.find(
-      (m) => m.name === 'analytics.flushAnalytics',
-    )
-    await expect(flushAnalyticsMock?.spy()).resolves.toBeUndefined()
-
-    const insertTraceMock = mockedFunctions.find(
-      (m) => m.name === 'bigquery.insertTrace',
-    )
-    await expect(insertTraceMock?.spy()).resolves.toBe(true)
-  })
 
   test('should successfully fetch documentation with basic query', async () => {
     const mockDocumentation =

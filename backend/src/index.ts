@@ -13,6 +13,7 @@ import {
 import { validateAgentNameHandler } from './api/agents'
 import { isRepoCoveredHandler } from './api/org'
 import usageHandler from './api/usage'
+import { BACKEND_AGENT_RUNTIME_IMPL } from './impl/agent-runtime'
 import { checkAdmin } from './util/check-auth'
 import { logger } from './util/logger'
 import {
@@ -94,7 +95,11 @@ server.listen(port, () => {
   logger.debug(`🚀 Server is running on port ${port}`)
   console.log(`🚀 Server is running on port ${port}`)
 })
-webSocketListen({ server, path: '/ws', logger })
+webSocketListen({
+  ...BACKEND_AGENT_RUNTIME_IMPL,
+  server,
+  path: '/ws',
+})
 
 let shutdownInProgress = false
 // Graceful shutdown handler for both SIGTERM and SIGINT

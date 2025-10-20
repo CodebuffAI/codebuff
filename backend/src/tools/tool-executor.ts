@@ -1,3 +1,4 @@
+import { checkLiveUserInput } from '@codebuff/agent-runtime/live-user-inputs'
 import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -6,7 +7,6 @@ import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import { checkLiveUserInput } from '../live-user-inputs'
 import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
 

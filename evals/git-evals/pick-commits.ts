@@ -4,7 +4,7 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { disableLiveUserInputCheck } from '@codebuff/backend/live-user-inputs'
+import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/old-constants'
 import { mapLimit } from 'async'
@@ -380,6 +380,8 @@ async function screenCommitsWithGpt5(
         userInputId,
         userId: undefined,
         sendAction: () => {},
+        liveUserInputRecord: {},
+        sessionConnections: {},
         logger: console,
       })
 
