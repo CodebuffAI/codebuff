@@ -2,11 +2,11 @@
 // Creates ESM + CJS bundles with TypeScript declarations
 
 import { execSync } from 'child_process'
-import { mkdir, cp, readFile, writeFile } from 'fs/promises'
+import { mkdir, cp, readFile, writeFile, rm } from 'fs/promises'
 
 async function build() {
   console.log('🧹 Cleaning dist directory...')
-  execSync('rm -rf dist', { stdio: 'inherit' })
+  await rm('dist', { recursive: true, force: true })
 
   await mkdir('./dist', { recursive: true })
 
