@@ -11,7 +11,7 @@ const definition: SecretAgentDefinition = {
   displayName: 'Find All Referencer',
   spawnerPrompt:
     'Ask this agent to find all references to something in the codebase or where something is defined or answer any other codebase-wide questions.',
-  model: 'x-ai/grok-code-fast-1',
+  model: 'x-ai/grok-4-fast',
   publisher,
   outputMode: 'last_message',
   includeMessageHistory: false,

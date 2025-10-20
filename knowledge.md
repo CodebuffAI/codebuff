@@ -300,10 +300,6 @@ This project uses [Infisical](https://infisical.com/) for secret management. All
 
 The release mechanism uses the `CODEBUFF_GITHUB_TOKEN` environment variable directly. The old complex GitHub App token generation system has been removed in favor of using a simple personal access token or the infisical-managed token.
 
-**To run any service locally, use the `exec` runner script from root `package.json`**, which wraps commands with `infisical run --`.
-
-Example: `bun run exec -- bun --cwd backend dev`
-
 Environment variables are defined and validated in `packages/internal/src/env.ts`. This module provides type-safe `env` objects for use throughout the monorepo.
 
 ### Bun Wrapper Script
