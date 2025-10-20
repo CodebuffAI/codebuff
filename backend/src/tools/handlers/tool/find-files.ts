@@ -2,13 +2,13 @@ import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
 } from '@codebuff/agent-runtime/find-files/request-files-prompt'
+import { getFileReadingUpdates } from '@codebuff/agent-runtime/get-file-reading-updates'
 import {
   countTokens,
   countTokensJson,
 } from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 
-import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 

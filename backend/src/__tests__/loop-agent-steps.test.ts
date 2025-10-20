@@ -74,11 +74,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     mockModule('@codebuff/backend/templates/strings', () => ({
       getAgentPrompt: async () => 'Mock prompt',
     }))
-
-    // Mock file reading updates
-    mockModule('@codebuff/backend/get-file-reading-updates', () => ({
-      getFileReadingUpdates: async () => [],
-    }))
   })
 
   beforeEach(() => {
@@ -86,6 +81,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     agentRuntimeScopedImpl = {
       ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       sendAction: () => {},
+      requestFiles: async () => ({}),
     }
 
     llmCallCount = 0

@@ -1,4 +1,5 @@
-import { getFileReadingUpdates } from '../../../get-file-reading-updates'
+import { getFileReadingUpdates } from '@codebuff/agent-runtime/get-file-reading-updates'
+
 import { renderReadFilesResult } from '../../../util/parse-tool-call-xml'
 
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
