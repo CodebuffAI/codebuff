@@ -1,6 +1,5 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
-import { CustomFilePickerConfigSchema } from '@codebuff/agent-runtime/find-files/custom-file-picker-config'
 import { promptFlashWithFallbacks } from '@codebuff/agent-runtime/llm-api/gemini-with-fallbacks'
 import {
   castAssistantMessage,
@@ -8,20 +7,14 @@ import {
   getMessagesSubset,
 } from '@codebuff/agent-runtime/util/messages'
 import { insertTrace } from '@codebuff/bigquery'
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
 import {
   finetunedVertexModels,
   models,
   type FinetunedVertexModel,
 } from '@codebuff/common/old-constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
-import { and, eq } from 'drizzle-orm'
 import { range, shuffle, uniq } from 'lodash'
 
-import { getRequestContext } from '../websockets/request-context'
-
-import type { CustomFilePickerConfig } from '@codebuff/agent-runtime/find-files/custom-file-picker-config'
 import type { TextBlock } from '@codebuff/agent-runtime/llm-api/claude'
 import type {
   GetExpandedFileContextForTrainingTrace,
@@ -35,91 +28,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
-
-export async function getCustomFilePickerConfigForOrg(params: {
-  orgId: string | undefined
-  isRepoApprovedForUserInOrg: boolean | undefined
-  logger: Logger
-}): Promise<CustomFilePickerConfig | null> {
-  const { orgId, isRepoApprovedForUserInOrg, logger } = params
-  if (!orgId || !isRepoApprovedForUserInOrg) {
-    return null
-  }
-
-  try {
-    const orgFeature = await db
-      .select()
-      .from(schema.orgFeature)
-      .where(
-        and(
-          eq(schema.orgFeature.org_id, orgId),
-          eq(schema.orgFeature.feature, 'custom-file-picker'),
-          eq(schema.orgFeature.is_active, true),
-        ),
-      )
-      .limit(1)
-      .then((rows) => rows[0])
-
-    if (orgFeature?.config && typeof orgFeature.config === 'string') {
-      // Check if config is a string
-      let parsedConfigObject
-      try {
-        parsedConfigObject = JSON.parse(orgFeature.config)
-      } catch (jsonParseError) {
-        logger.error(
-          { error: jsonParseError, orgId, configString: orgFeature.config },
-          'Failed to parse customFilePickerConfig JSON string',
-        )
-        return null // Parsing the string itself failed
-      }
-
-      const parseResult =
-        CustomFilePickerConfigSchema.safeParse(parsedConfigObject) // Parse the object
-      if (parseResult.success) {
-        logger.info(
-          { orgId, modelName: parseResult.data.modelName },
-          'Using custom file picker configuration for organization',
-        )
-        return parseResult.data
-      } else {
-        logger.error(
-          { error: parseResult.error, orgId, configObject: parsedConfigObject }, // Log the object that failed parsing
-          'Invalid custom file picker configuration, using defaults',
-        )
-      }
-    } else if (orgFeature?.config) {
-      // If config is not a string but exists, it might be an object already (e.g. from a direct mock)
-      // or an unexpected type. Let's try to parse it directly, assuming it might be an object.
-      const parseResult = CustomFilePickerConfigSchema.safeParse(
-        orgFeature.config,
-      )
-      if (parseResult.success) {
-        logger.info(
-          { orgId, modelName: parseResult.data.modelName },
-          'Using custom file picker configuration for organization (pre-parsed config object)',
-        )
-        return parseResult.data
-      } else {
-        logger.error(
-          { error: parseResult.error, orgId, configValue: orgFeature.config },
-          'Invalid custom file picker configuration (non-string config value), using defaults',
-        )
-      }
-    }
-  } catch (error) {
-    logger.error(
-      { error, orgId },
-      'Error fetching custom file picker configuration',
-    )
-  }
-  return null
-}
-
-function isValidFilePickerModelName(
-  modelName: string,
-): modelName is keyof typeof finetunedVertexModels {
-  return Object.keys(finetunedVertexModels).includes(modelName)
-}
 
 export async function requestRelevantFiles(
   params: {
@@ -140,23 +48,10 @@ export async function requestRelevantFiles(
   >,
 ) {
   const { messages, fileContext, assistantPrompt, logger } = params
-  // Check for organization custom file picker feature
-  const requestContext = getRequestContext()
-  const orgId = requestContext?.approvedOrgIdForRepo
-  const customFilePickerConfig = null satisfies Awaited<
-    ReturnType<typeof getCustomFilePickerConfigForOrg>
-  > as Awaited<ReturnType<typeof getCustomFilePickerConfigForOrg>>
-  // const customFilePickerConfig = await getCustomFilePickerConfigForOrg({
-  //   orgId,
-  //   isRepoApprovedForUserInOrg: requestContext?.isRepoApprovedForUserInOrg,
-  //   logger,
-  // })
 
   const countPerRequest = 12
 
   // Use custom max files per request if specified, otherwise default to 30
-  const maxFilesPerRequest =
-    customFilePickerConfig?.maxFilesPerRequest ?? MAX_FILES_PER_REQUEST
 
   const lastMessage = messages[messages.length - 1]
   const messagesExcludingLastIfByUser =
@@ -177,17 +72,6 @@ export async function requestRelevantFiles(
   )
 
   let modelIdForRequest: FinetunedVertexModel | undefined = undefined
-  const modelName = customFilePickerConfig?.modelName
-  if (modelName) {
-    if (isValidFilePickerModelName(modelName)) {
-      modelIdForRequest = finetunedVertexModels[modelName]
-    } else {
-      logger.warn(
-        { modelName: customFilePickerConfig.modelName },
-        'Custom file picker modelName not found in finetunedVertexModel, using default',
-      )
-    }
-  }
 
   const keyPromise = getRelevantFiles({
     ...params,
@@ -214,7 +98,7 @@ export async function requestRelevantFiles(
   //   'requestRelevantFiles: results',
   // )
 
-  return candidateFiles.slice(0, maxFilesPerRequest)
+  return candidateFiles.slice(0, MAX_FILES_PER_REQUEST)
 }
 
 export async function requestRelevantFilesForTraining(
