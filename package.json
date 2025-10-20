@@ -70,7 +70,8 @@
     "typescript-eslint": "^7.17.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0",
+    "bun": ">=1.3.0"
   },
-  "packageManager": "bun@1.2.12"
+  "packageManager": "bun@1.3.0"
 }
