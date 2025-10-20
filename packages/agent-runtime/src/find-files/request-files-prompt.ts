@@ -1,11 +1,5 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
-import { promptFlashWithFallbacks } from '@codebuff/agent-runtime/llm-api/gemini-with-fallbacks'
-import {
-  castAssistantMessage,
-  messagesWithSystem,
-  getMessagesSubset,
-} from '@codebuff/agent-runtime/util/messages'
 import { insertTrace } from '@codebuff/bigquery'
 import {
   finetunedVertexModels,
@@ -15,7 +9,15 @@ import {
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { range, shuffle, uniq } from 'lodash'
 
-import type { TextBlock } from '@codebuff/agent-runtime/llm-api/claude'
+import {
+  castAssistantMessage,
+  messagesWithSystem,
+  getMessagesSubset,
+} from '@codebuff/agent-runtime/util/messages'
+
+import { promptFlashWithFallbacks } from '../llm-api/gemini-with-fallbacks'
+
+import type { TextBlock } from '../llm-api/claude'
 import type {
   GetExpandedFileContextForTrainingTrace,
   GetRelevantFilesTrace,

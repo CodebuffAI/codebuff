@@ -20,10 +20,8 @@ import {
   test,
 } from 'bun:test'
 
-import researcherAgent from '../../../.agents/researcher/researcher'
-import * as checkTerminalCommandModule from '../check-terminal-command'
 import { mockFileContext } from './test-utils'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
+import researcherAgent from '../../../.agents/researcher/researcher'
 import * as context7Api from '../llm-apis/context7-api'
 import { runAgentStep } from '../run-agent-step'
 
@@ -105,25 +103,6 @@ describe('read_docs tool with researcher agent', () => {
           value: 'Tool call success',
         },
       ],
-    })
-
-    // Mock other required modules
-    const requestRelevantFilesSpy = spyOn(
-      requestFilesPrompt,
-      'requestRelevantFiles',
-    ).mockImplementation(async () => [])
-    mockedFunctions.push({
-      name: 'requestFilesPrompt.requestRelevantFiles',
-      spy: requestRelevantFilesSpy,
-    })
-
-    const checkTerminalCommandSpy = spyOn(
-      checkTerminalCommandModule,
-      'checkTerminalCommand',
-    ).mockImplementation(async () => null)
-    mockedFunctions.push({
-      name: 'checkTerminalCommand',
-      spy: checkTerminalCommandSpy,
     })
   })
 

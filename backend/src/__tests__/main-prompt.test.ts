@@ -25,7 +25,6 @@ import {
 
 // Mock imports
 import * as checkTerminalCommandModule from '../check-terminal-command'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
@@ -152,10 +151,6 @@ describe('mainPrompt', () => {
           },
         ],
       }),
-    )
-
-    spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
-      async () => [],
     )
 
     spyOn(

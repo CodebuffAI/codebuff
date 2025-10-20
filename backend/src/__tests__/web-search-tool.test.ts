@@ -23,10 +23,8 @@ import {
   test,
 } from 'bun:test'
 
-import researcherAgent from '../../../.agents/researcher/researcher'
-import * as checkTerminalCommandModule from '../check-terminal-command'
 import { mockFileContext } from './test-utils'
-import * as requestFilesPrompt from '../find-files/request-files-prompt'
+import researcherAgent from '../../../.agents/researcher/researcher'
 import * as linkupApi from '../llm-apis/linkup-api'
 import { runAgentStep } from '../run-agent-step'
 
@@ -82,15 +80,6 @@ describe('web_search tool with researcher agent', () => {
     agentRuntimeImpl.promptAiSdk = async function () {
       return 'Test response'
     }
-
-    // Mock other required modules
-    spyOn(requestFilesPrompt, 'requestRelevantFiles').mockImplementation(
-      async () => [],
-    )
-    spyOn(
-      checkTerminalCommandModule,
-      'checkTerminalCommand',
-    ).mockImplementation(async () => null)
   })
 
   afterEach(() => {
