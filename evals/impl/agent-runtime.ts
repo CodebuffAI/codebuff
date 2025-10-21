@@ -15,12 +15,11 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
 
-  // Backend
-  consumeCreditsWithFallback: async () => {
-    return success({
+  // Billing
+  consumeCreditsWithFallback: async () =>
+    success({
       chargedToOrganization: false,
-    })
-  },
+    }),
 
   // LLM
   promptAiSdkStream: async function* () {
@@ -40,12 +39,6 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
 
   // Analytics
   trackEvent: () => {},
-
-  // Billing
-  consumeCreditsWithFallback: async () => ({
-    success: true,
-    chargedToOrganization: false,
-  }),
 
   // Other
   logger: console,

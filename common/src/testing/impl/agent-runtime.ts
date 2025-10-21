@@ -1,3 +1,5 @@
+import { success } from '../../util/error'
+
 import type { AgentTemplate } from '../../types/agent-template'
 import type {
   AgentRuntimeDeps,
@@ -32,11 +34,10 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   addAgentStep: async () => 'test-agent-step-id',
 
   // Billing
-  consumeCreditsWithFallback: async () => {
-    throw new Error(
-      'consumeCreditsWithFallback not implemented in test runtime',
-    )
-  },
+  consumeCreditsWithFallback: async () =>
+    success({
+      chargedToOrganization: false,
+    }),
 
   // LLM
   promptAiSdkStream: async function* () {
@@ -56,12 +57,6 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
 
   // Analytics
   trackEvent: () => {},
-
-  // Billing
-  consumeCreditsWithFallback: async () => ({
-    success: true,
-    chargedToOrganization: false,
-  }),
 
   // Other
   logger: testLogger,

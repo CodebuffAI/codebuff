@@ -49,9 +49,6 @@ export type AgentRuntimeDeps = {
   // Analytics
   trackEvent: TrackEventFn
 
-  // Billing
-  consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
-
   // Other
   logger: Logger
   fetch: typeof globalThis.fetch
