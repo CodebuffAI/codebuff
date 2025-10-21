@@ -10,6 +10,7 @@ import { runAgentOnCommit } from './agent-runner'
 import { formatTaskResults } from './format-output'
 import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
+import { extractAgentLessons, saveAgentLessons } from './lessons-extractor'
 import { CodebuffClient } from '../../sdk/src/client'
 
 import type { AgentEvalResults, EvalDataV2 } from './types'
@@ -30,6 +31,7 @@ async function runTask(options: {
     testedAgentIds: string[]
   }
   localAgentDefinitions: any[]
+  extractLessons: boolean
 }) {
   const {
     client,
@@ -42,6 +44,7 @@ async function runTask(options: {
     totalTasks,
     analyzerContext,
     localAgentDefinitions,
+    extractLessons,
   } = options
 
   console.log(
@@ -69,6 +72,31 @@ async function runTask(options: {
       agentDiff: agentResult.diff,
       error: agentResult.error,
     })
+
+    // Extract and append agent lessons
+    if (extractLessons) {
+      console.log(`[${commit.id}] Extracting lessons for ${agentId}...`)
+      const { lessons } = await extractAgentLessons({
+        client,
+        localAgentDefinitions,
+        prompt: commit.prompt,
+        groundTruthFileDiffs: commit.fileDiffs,
+        contextFiles: agentResult.contextFiles,
+        agentDiff: agentResult.diff,
+        agentTrace: agentResult.trace,
+        judgeResult,
+        error: agentResult.error,
+      })
+
+      saveAgentLessons({
+        agentId,
+        commitId: commit.id,
+        commitSha: commit.sha,
+        prompt: commit.prompt,
+        lessons,
+        lessonsDir: path.join(__dirname, 'agent-lessons'),
+      })
+    }
 
     const evalRun = {
       commitSha: commit.sha,
@@ -170,8 +198,9 @@ export async function runBuffBench(options: {
   taskConcurrency?: number
   client?: CodebuffClient
   taskIds?: string[]
+  extractLessons?: boolean
 }) {
-  const { evalDataPath, agents, taskConcurrency = 1, taskIds } = options
+  const { evalDataPath, agents, taskConcurrency = 1, taskIds, extractLessons = false } = options
 
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
@@ -181,7 +210,7 @@ export async function runBuffBench(options: {
   if (taskIds && taskIds.length > 0) {
     const foundCommits: EvalDataV2['evalCommits'] = []
     const notFoundIds: string[] = []
-    
+
     for (const taskId of taskIds) {
       const foundCommit = evalData.evalCommits.find((c) => c.id === taskId)
       if (foundCommit) {
@@ -190,14 +219,14 @@ export async function runBuffBench(options: {
         notFoundIds.push(taskId)
       }
     }
-    
+
     if (notFoundIds.length > 0) {
       const availableIds = evalData.evalCommits.map((c) => c.id).join(', ')
       throw new Error(
         `Task ID(s) not found: ${notFoundIds.join(', ')}. Available task IDs: ${availableIds}`,
       )
     }
-    
+
     commitsToRun = foundCommits
     console.log(`Running ${foundCommits.length} task(s): ${taskIds.join(', ')}`)
   } else {
@@ -231,9 +260,10 @@ export async function runBuffBench(options: {
   const startTime = Date.now()
   const results: Record<string, AgentEvalResults> = {}
 
-  // Create logs directory with current date and time
+  // Create logs directory with current date and time and agent IDs
   const date = new Date().toISOString().replace(/:/g, '-').slice(0, 16) // YYYY-MM-DDTHH-MM
-  const logsDir = path.join(__dirname, 'logs', date)
+  const agentNames = agents.map(id => id.replace(/[^a-zA-Z0-9-]/g, '_')).join('_vs_')
+  const logsDir = path.join(__dirname, 'logs', `${date}_${agentNames}`)
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true })
   }
@@ -263,6 +293,7 @@ export async function runBuffBench(options: {
         totalTasks: commitsToRun.length,
         analyzerContext,
         localAgentDefinitions: analyzerContext.agentDefinitions,
+        extractLessons,
       }),
     ),
   )
