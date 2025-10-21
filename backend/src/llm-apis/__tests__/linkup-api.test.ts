@@ -1,3 +1,4 @@
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
@@ -10,23 +11,18 @@ import {
   describe,
   expect,
   mock,
-  spyOn,
   test,
 } from 'bun:test'
 
 import { searchWeb } from '../linkup-api'
 
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+
 // Mock environment variables
 process.env.LINKUP_API_KEY = 'test-api-key'
 
 describe('Linkup API', () => {
-  // Mock logger with spy functions to verify logging calls
-  const mockLogger = {
-    debug: mock(() => {}),
-    error: mock(() => {}),
-    info: mock(() => {}),
-    warn: mock(() => {}),
-  }
+  let agentRuntimeImpl: AgentRuntimeDeps
 
   beforeAll(() => {
     mockModule('@codebuff/internal', () => ({
@@ -42,13 +38,9 @@ describe('Linkup API', () => {
   })
 
   beforeEach(() => {
-    // Reset fetch mock before each test
-    spyOn(global, 'fetch').mockResolvedValue(new Response())
-    // Reset logger mocks
-    mockLogger.debug.mockClear()
-    mockLogger.error.mockClear()
-    mockLogger.info.mockClear()
-    mockLogger.warn.mockClear()
+    agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+    }
   })
 
   afterEach(() => {
@@ -73,16 +65,18 @@ describe('Linkup API', () => {
       ],
     }
 
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(mockResponse), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response(JSON.stringify(mockResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }) as unknown as typeof global.fetch
 
     const result = await searchWeb({
+      ...agentRuntimeImpl,
       query: 'React tutorial',
-      logger: mockLogger,
     })
 
     expect(result).toBe(
@@ -90,7 +84,7 @@ describe('Linkup API', () => {
     )
 
     // Verify fetch was called with correct parameters
-    expect(fetch).toHaveBeenCalledWith(
+    expect(agentRuntimeImpl.fetch).toHaveBeenCalledWith(
       'https://api.linkup.so/v1/search',
       expect.objectContaining({
         method: 'POST',
@@ -120,17 +114,19 @@ describe('Linkup API', () => {
       ],
     }
 
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(mockResponse), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response(JSON.stringify(mockResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }) as unknown as typeof global.fetch
 
     const result = await searchWeb({
+      ...agentRuntimeImpl,
       query: 'React patterns',
       depth: 'deep',
-      logger: mockLogger,
     })
 
     expect(result).toBe(
@@ -138,7 +134,7 @@ describe('Linkup API', () => {
     )
 
     // Verify fetch was called with correct parameters
-    expect(fetch).toHaveBeenCalledWith(
+    expect(agentRuntimeImpl.fetch).toHaveBeenCalledWith(
       'https://api.linkup.so/v1/search',
       expect.objectContaining({
         body: JSON.stringify({
@@ -151,48 +147,59 @@ describe('Linkup API', () => {
   })
 
   test('should handle API errors gracefully', async () => {
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response('Internal Server Error', {
-        status: 500,
-        statusText: 'Internal Server Error',
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response('Internal Server Error', {
+          status: 500,
+          statusText: 'Internal Server Error',
+        }),
+      )
+    }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ query: 'test query', logger: mockLogger })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
     expect(result).toBeNull()
   })
 
   test('should handle network errors', async () => {
-    spyOn(global, 'fetch').mockRejectedValue(new Error('Network error'))
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.reject(new Error('Network error'))
+    }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ query: 'test query', logger: mockLogger })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
     expect(result).toBeNull()
   })
 
   test('should handle invalid response format', async () => {
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ invalid: 'format' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response(JSON.stringify({ invalid: 'format' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ query: 'test query', logger: mockLogger })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
     expect(result).toBeNull()
   })
 
   test('should handle missing answer field', async () => {
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ sources: [] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response(JSON.stringify({ sources: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ query: 'test query', logger: mockLogger })
+    const result = await searchWeb({
+      ...agentRuntimeImpl,
+      query: 'test query',
+    })
 
     expect(result).toBeNull()
   })
@@ -202,14 +209,16 @@ describe('Linkup API', () => {
       sources: [],
     }
 
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(mockResponse), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response(JSON.stringify(mockResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ query: 'test query', logger: mockLogger })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
     expect(result).toBeNull()
   })
@@ -222,17 +231,19 @@ describe('Linkup API', () => {
       ],
     }
 
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(mockResponse), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response(JSON.stringify(mockResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }) as unknown as typeof global.fetch
 
-    await searchWeb({ query: 'test query', logger: mockLogger })
+    await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
     // Verify fetch was called with default parameters
-    expect(fetch).toHaveBeenCalledWith(
+    expect(agentRuntimeImpl.fetch).toHaveBeenCalledWith(
       'https://api.linkup.so/v1/search',
       expect.objectContaining({
         body: JSON.stringify({
@@ -245,39 +256,44 @@ describe('Linkup API', () => {
   })
 
   test('should handle malformed JSON response', async () => {
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response('invalid json{', {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response('invalid json{', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }) as unknown as typeof global.fetch
+    agentRuntimeImpl.logger.error = mock(() => {})
 
-    const result = await searchWeb({ query: 'test query', logger: mockLogger })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
     expect(result).toBeNull()
     // Verify that error logging was called
-    expect(mockLogger.error).toHaveBeenCalled()
+    expect(agentRuntimeImpl.logger.error).toHaveBeenCalled()
   })
 
   test('should log detailed error information for 404 responses', async () => {
     const mockErrorResponse =
       'Not Found - The requested endpoint does not exist'
-    spyOn(global, 'fetch').mockResolvedValue(
-      new Response(mockErrorResponse, {
-        status: 404,
-        statusText: 'Not Found',
-        headers: { 'Content-Type': 'text/plain' },
-      }),
-    )
+    agentRuntimeImpl.fetch = mock(() => {
+      return Promise.resolve(
+        new Response(mockErrorResponse, {
+          status: 404,
+          statusText: 'Not Found',
+          headers: { 'Content-Type': 'text/plain' },
+        }),
+      )
+    }) as unknown as typeof global.fetch
 
     const result = await searchWeb({
+      ...agentRuntimeImpl,
       query: 'test query for 404',
-      logger: mockLogger,
     })
 
     expect(result).toBeNull()
     // Verify that detailed error logging was called with 404 info
-    expect(mockLogger.error).toHaveBeenCalledWith(
+    expect(agentRuntimeImpl.logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 404,
         statusText: 'Not Found',

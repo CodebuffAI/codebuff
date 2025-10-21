@@ -1,5 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { failure, success } from '@codebuff/common/util/error'
 import { eq, and } from 'drizzle-orm'
 
 import { consumeCredits } from './balance-calculator'
@@ -9,7 +10,9 @@ import {
   extractOwnerAndRepo,
 } from './org-billing'
 
+import type { ConsumeCreditsWithFallbackFn } from '@codebuff/common/types/contracts/billing'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 
 export interface OrganizationLookupResult {
   found: boolean
@@ -225,25 +228,13 @@ export async function consumeCreditsWithDelegation(params: {
   }
 }
 
-export interface CreditFallbackResult {
-  success: boolean
-  organizationId?: string
-  organizationName?: string
-  chargedToOrganization: boolean
-  error?: string
-}
-
 /**
  * Helper function that decides whether to charge credits to an organization or user directly.
  * Tries organization delegation first if a repo URL is available, falls back to personal credits.
  */
-export async function consumeCreditsWithFallback(params: {
-  userId: string
-  creditsToCharge: number
-  repoUrl?: string | null
-  context: string // Description of what the credits are for (e.g., 'web search', 'documentation lookup')
-  logger: Logger
-}): Promise<CreditFallbackResult> {
+export async function consumeCreditsWithFallback(
+  params: ParamsOf<ConsumeCreditsWithFallbackFn>,
+): ReturnType<ConsumeCreditsWithFallbackFn> {
   const { userId, creditsToCharge, repoUrl, context, logger } = params
 
   try {
@@ -266,12 +257,11 @@ export async function consumeCreditsWithFallback(params: {
           `Charged organization credits for ${context}`,
         )
 
-        return {
-          success: true,
+        return success({
           organizationId: delegationResult.organizationId,
           organizationName: delegationResult.organizationName,
           chargedToOrganization: true,
-        }
+        })
       }
     }
 
@@ -286,20 +276,15 @@ export async function consumeCreditsWithFallback(params: {
       `Charged personal credits for ${context}`,
     )
 
-    return {
-      success: true,
+    return success({
       chargedToOrganization: false,
-    }
+    })
   } catch (error) {
     logger.error(
       { error, userId, creditsToCharge, context },
       `Failed to charge credits for ${context}`,
     )
 
-    return {
-      success: false,
-      chargedToOrganization: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
+    return failure(error)
   }
 }

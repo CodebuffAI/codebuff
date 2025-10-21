@@ -1,4 +1,5 @@
 import type { TrackEventFn } from './analytics'
+import type { ConsumeCreditsWithFallbackFn } from './billing'
 import type {
   HandleStepsLogChunkFn,
   RequestFilesFn,
@@ -31,6 +32,9 @@ export type AgentRuntimeDeps = {
   startAgentRun: StartAgentRunFn
   finishAgentRun: FinishAgentRunFn
   addAgentStep: AddAgentStepFn
+
+  // Billing
+  consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
 
   // LLM
   promptAiSdkStream: PromptAiSdkStreamFn
