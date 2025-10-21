@@ -23,7 +23,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.2.12'
+          bun-version: '1.3.0'
 
       - name: Cache dependencies
         uses: actions/cache@v3
@@ -32,7 +32,7 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
@@ -101,7 +101,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.2.12'
+          bun-version: '1.3.0'
 
       - name: Cache dependencies
         uses: actions/cache@v3
@@ -110,7 +110,7 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
@@ -172,7 +172,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.2.12'
+          bun-version: '1.3.0'
 
       - name: Cache dependencies
         uses: actions/cache@v3
@@ -181,7 +181,7 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 

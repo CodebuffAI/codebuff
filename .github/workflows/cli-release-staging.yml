@@ -26,7 +26,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.2.16'
+          bun-version: '1.3.0'
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -34,9 +34,9 @@ jobs:
           path: |
             node_modules
             */node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*', '**/package.json') }}
           restore-keys: |
-            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lockb') }}
+            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
             ${{ runner.os }}-deps-
 
       - name: Install dependencies

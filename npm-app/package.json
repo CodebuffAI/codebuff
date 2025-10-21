@@ -31,7 +31,7 @@
     "README.md"
   ],
   "engines": {
-    "bun": ">=1.2.11"
+    "bun": "^1.3.0"
   },
   "dependencies": {
     "@codebuff/code-map": "workspace:*",

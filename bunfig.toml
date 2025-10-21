@@ -1,8 +1,9 @@
 [install]
-# In CI, skip local linking and pull prebuilt artifacts from npm
-linkWorkspacePackages = false
+# Use hoisted installs to prevent duplicate dependency trees in Bun v1.3
+linker = "hoisted"
+# Link workspace packages so builds resolve shared dependencies under hoisted mode
+linkWorkspacePackages = true
 
 [test]
 # Exclude test repositories from test execution to prevent timeouts
 exclude = ["evals/test-repos/**"]
-

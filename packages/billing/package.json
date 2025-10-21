@@ -23,13 +23,13 @@
   },
   "sideEffects": false,
   "engines": {
-    "bun": ">=1.2.11"
+    "bun": "^1.3.0"
   },
   "dependencies": {
     "@codebuff/common": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22",
-    "@types/bun": "^1.2.11"
+    "@types/bun": "^1.3.0"
   }
 }

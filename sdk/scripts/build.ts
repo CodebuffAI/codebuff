@@ -1,8 +1,53 @@
 // Build script for @codebuff/sdk using Bun's bundler with dual package support
 // Creates ESM + CJS bundles with TypeScript declarations
 
+import type { BunPlugin } from 'bun'
 import { execSync } from 'child_process'
 import { mkdir, cp, readFile, writeFile, rm } from 'fs/promises'
+import Module, { createRequire } from 'module'
+import { delimiter, dirname, join } from 'path'
+
+const workspaceNodeModules = join(import.meta.dir, '..', 'node_modules')
+const rootNodeModules = join(import.meta.dir, '..', '..', 'node_modules')
+const existingNodePath = process.env.NODE_PATH ?? ''
+const nodePathEntries = existingNodePath
+  ? new Set(existingNodePath.split(delimiter))
+  : new Set<string>()
+
+if (!nodePathEntries.has(workspaceNodeModules)) {
+  nodePathEntries.add(workspaceNodeModules)
+  process.env.NODE_PATH = Array.from(nodePathEntries).join(delimiter)
+  const moduleWithInit = Module as unknown as { _initPaths?: () => void }
+  moduleWithInit._initPaths?.()
+}
+
+const requireForResolve = createRequire(import.meta.url)
+const builtinModuleNames = new Set(Module.builtinModules)
+
+const hoistedResolver: BunPlugin = {
+  name: 'hoisted-node-modules-resolver',
+  setup(builder) {
+    builder.onResolve({ filter: /^[^./][^:]*$/ }, (args) => {
+      if (builtinModuleNames.has(args.path) || args.path.startsWith('node:')) {
+        return undefined
+      }
+      const importerDir =
+        typeof args.importer === 'string' ? dirname(args.importer) : undefined
+      try {
+        const resolved = requireForResolve.resolve(args.path, {
+          paths: [
+            importerDir,
+            workspaceNodeModules,
+            rootNodeModules,
+          ].filter((value): value is string => Boolean(value)),
+        })
+        return { path: resolved, namespace: 'file' }
+      } catch {
+        return undefined
+      }
+    })
+  },
+}
 
 async function build() {
   console.log('🧹 Cleaning dist directory...')
@@ -49,6 +94,7 @@ async function build() {
     loader: {
       '.scm': 'text',
     },
+    plugins: [hoistedResolver],
   })
 
   console.log('📦 Building CJS format...')
@@ -68,6 +114,7 @@ async function build() {
     loader: {
       '.scm': 'text',
     },
+    plugins: [hoistedResolver],
   })
 
   console.log('📝 Generating and bundling TypeScript declarations...')
