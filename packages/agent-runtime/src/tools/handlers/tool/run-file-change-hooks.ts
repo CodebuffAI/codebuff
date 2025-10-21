@@ -1,21 +1,18 @@
-import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   ClientToolCall,
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 
-type ToolName = 'glob'
-export const handleGlob = ((params: {
+type ToolName = 'run_file_change_hooks'
+export const handleRunFileChangeHooks = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
   requestClientToolCall: (
     toolCall: ClientToolCall<ToolName>,
   ) => Promise<CodebuffToolOutput<ToolName>>
-}): {
-  result: Promise<CodebuffToolOutput<ToolName>>
-  state: {}
-} => {
+}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
   return {
@@ -25,4 +22,4 @@ export const handleGlob = ((params: {
     })(),
     state: {},
   }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
+}) satisfies CodebuffToolHandlerFunction<'run_file_change_hooks'>
