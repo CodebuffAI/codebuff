@@ -53,6 +53,7 @@
         "cors": "^2.8.5",
         "diff": "5.2.0",
         "dotenv": "16.4.5",
+        "drizzle-orm": "0.36.4",
         "express": "4.19.2",
         "gpt-tokenizer": "2.8.1",
         "ignore": "5.3.2",
@@ -145,6 +146,7 @@
         "@oclif/parser": "^3.8.17",
         "async": "^3.2.6",
         "diff": "^8.0.2",
+        "drizzle-orm": "0.36.4",
         "lodash": "^4.17.21",
         "p-limit": "^6.2.0",
         "zod": "3.25.67",
@@ -252,7 +254,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@codebuff/common": "workspace:*",
-        "drizzle-orm": "*",
+        "drizzle-orm": "0.36.4",
         "loops": "^5.0.1",
       },
       "devDependencies": {
@@ -407,6 +409,7 @@
     },
   },
   "overrides": {
+    "drizzle-orm": "0.36.4",
     "zod": "3.25.67",
   },
   "packages": {

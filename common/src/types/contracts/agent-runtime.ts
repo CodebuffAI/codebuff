@@ -1,4 +1,5 @@
 import type { TrackEventFn } from './analytics'
+import type { ConsumeCreditsWithFallbackFn } from './billing'
 import type {
   HandleStepsLogChunkFn,
   RequestFilesFn,
@@ -44,6 +45,9 @@ export type AgentRuntimeDeps = {
 
   // Analytics
   trackEvent: TrackEventFn
+
+  // Billing
+  consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
 
   // Other
   logger: Logger

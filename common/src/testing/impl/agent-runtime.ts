@@ -50,6 +50,12 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   // Analytics
   trackEvent: () => {},
 
+  // Billing
+  consumeCreditsWithFallback: async () => ({
+    success: true,
+    chargedToOrganization: false,
+  }),
+
   // Other
   logger: testLogger,
   fetch: testFetch,

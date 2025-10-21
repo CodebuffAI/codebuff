@@ -1,4 +1,5 @@
 import { trackEvent } from '@codebuff/common/analytics'
+import { consumeCreditsWithFallback } from '@codebuff/billing'
 
 import { addAgentStep, finishAgentRun, startAgentRun } from '../agent-run'
 import {
@@ -33,6 +34,9 @@ export const BACKEND_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
 
   // Analytics
   trackEvent,
+
+  // Billing
+  consumeCreditsWithFallback,
 
   // Other
   logger,
