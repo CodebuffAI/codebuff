@@ -1,5 +1,5 @@
 import { getFileProcessingValues, postStreamProcessing } from '@codebuff/agent-runtime/tools/handlers/tool/write-file'
-import { processStrReplace } from '../../../process-str-replace'
+import { processStrReplace } from '@codebuff/agent-runtime/process-str-replace'
 
 import type {
   FileProcessingState,

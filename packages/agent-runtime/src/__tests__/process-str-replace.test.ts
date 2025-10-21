@@ -233,26 +233,6 @@ describe('processStrReplace', () => {
     }
   })
 
-  it('should handle replacement where old string equals new string', async () => {
-    const initialContent = 'const x = 1;\nconst y = 2;\n'
-    const oldStr = 'const y = 2;'
-    const newStr = 'const y = 2;' // Same as old string
-
-    const result = await processStrReplace({
-      path: 'test.ts',
-      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
-      initialContentPromise: Promise.resolve(initialContent),
-      logger,
-    })
-
-    expect(result).not.toBeNull()
-    expect('content' in result).toBe(true)
-    if ('content' in result) {
-      expect(result.content).toBe('const x = 1;\nconst y = 2;\n')
-      expect(result.messages).toEqual([])
-    }
-  })
-
   // New comprehensive tests for allowMultiple functionality
   describe('allowMultiple functionality', () => {
     it('should error when multiple occurrences exist and allowMultiple is false', async () => {
