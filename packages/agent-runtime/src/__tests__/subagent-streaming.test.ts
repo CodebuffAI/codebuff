@@ -1,4 +1,3 @@
-import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
   TEST_AGENT_RUNTIME_IMPL,
@@ -18,11 +17,11 @@ import {
 
 import * as runAgentStep from '../run-agent-step'
 import { mockFileContext } from './test-utils'
+import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
-import * as loggerModule from '../util/logger'
 
+import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
-import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Mock } from 'bun:test'
 
@@ -58,25 +57,8 @@ describe('Subagent Streaming', () => {
   })
 
   beforeAll(() => {
-    // Mock dependencies
-    spyOn(loggerModule.logger, 'debug').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'error').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'info').mockImplementation(() => {})
-    spyOn(loggerModule.logger, 'warn').mockImplementation(() => {})
-    spyOn(loggerModule, 'withLoggerContext').mockImplementation(
-      async (context: any, fn: () => Promise<any>) => fn(),
-    )
-
     // Mock sendSubagentChunk function to capture streaming messages
-    mockSendSubagentChunk = mock(
-      (data: {
-        userInputId: string
-        agentId: string
-        agentType: string
-        chunk: string
-        prompt?: string
-      }) => {},
-    )
+    mockSendSubagentChunk = mock(() => {})
 
     // Mock loopAgentSteps to simulate subagent execution with streaming
     mockLoopAgentSteps = spyOn(

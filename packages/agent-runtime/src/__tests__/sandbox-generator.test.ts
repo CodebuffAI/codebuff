@@ -13,10 +13,8 @@ import {
   runProgrammaticStep,
 } from '../run-programmatic-step'
 import { mockFileContext } from './test-utils'
-import * as agentRun from '../agent-run'
-import * as requestContext from '../websockets/request-context'
 
-import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
+import type { AgentTemplate } from '../templates/types'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
@@ -40,12 +38,6 @@ describe('QuickJS Sandbox Generator', () => {
     clearAgentGeneratorCache(agentRuntimeImpl)
 
     // Mock dependencies
-    spyOn(agentRun, 'addAgentStep').mockImplementation(
-      async () => 'test-step-id',
-    )
-    spyOn(requestContext, 'getRequestContext').mockImplementation(() => ({
-      processedRepoId: 'test-repo-id',
-    }))
     spyOn(crypto, 'randomUUID').mockImplementation(
       () =>
         'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`,

@@ -21,12 +21,8 @@ import {
 } from '../run-programmatic-step'
 import { mockFileContext } from './test-utils'
 import * as toolExecutor from '../tools/tool-executor'
-import * as requestContext from '../websockets/request-context'
 
-import type {
-  AgentTemplate,
-  StepGenerator,
-} from '@codebuff/agent-runtime/templates/types'
+import type { AgentTemplate, StepGenerator } from '../templates/types'
 import type { PublicAgentState } from '@codebuff/common/types/agent-template'
 import type {
   AgentRuntimeDeps,
@@ -82,14 +78,6 @@ describe('runProgrammaticStep', () => {
       toolExecutor,
       'executeToolCall',
     ).mockImplementation(async () => {})
-
-    // Mock getRequestContext
-    getRequestContextSpy = spyOn(
-      requestContext,
-      'getRequestContext',
-    ).mockImplementation(() => ({
-      processedRepoId: 'test-repo-id',
-    }))
 
     // Mock crypto.randomUUID
     spyOn(crypto, 'randomUUID').mockImplementation(

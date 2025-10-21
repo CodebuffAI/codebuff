@@ -1,6 +1,3 @@
-import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
-import * as context7Api from '@codebuff/agent-runtime/llm-api/context7-api'
-import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
@@ -21,9 +18,12 @@ import {
   test,
 } from 'bun:test'
 
+import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { mockFileContext } from './test-utils'
-import researcherAgent from '../../../.agents/researcher/researcher'
+import researcherAgent from '../../../../.agents/researcher/researcher'
+import * as context7Api from '../llm-api/context7-api'
 import { runAgentStep } from '../run-agent-step'
+import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 
 import type {
   AgentRuntimeDeps,

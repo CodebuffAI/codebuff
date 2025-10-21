@@ -1,8 +1,3 @@
-// Set environment variables before any imports
-process.env.LINKUP_API_KEY = 'test-api-key'
-
-import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
-import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
@@ -24,15 +19,20 @@ import {
   test,
 } from 'bun:test'
 
+import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { mockFileContext } from './test-utils'
-import researcherAgent from '../../../.agents/researcher/researcher'
-import * as linkupApi from '@codebuff/agent-runtime/llm-apis/linkup-api'
+import researcherAgent from '../../../../.agents/researcher/researcher'
+import * as linkupApi from '../llm-api/linkup-api'
 import { runAgentStep } from '../run-agent-step'
+import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+
+// Set environment variables before any imports
+process.env.LINKUP_API_KEY = 'test-api-key'
 
 let agentRuntimeImpl: AgentRuntimeDeps
 function mockAgentStream(content: string | string[]) {

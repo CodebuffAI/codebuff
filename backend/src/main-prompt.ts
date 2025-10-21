@@ -1,3 +1,4 @@
+import { loopAgentSteps } from '@codebuff/agent-runtime/run-agent-step'
 import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import { expireMessages } from '@codebuff/agent-runtime/util/messages'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
@@ -5,7 +6,6 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 
 import { checkTerminalCommand } from './check-terminal-command'
-import { loopAgentSteps } from './run-agent-step'
 
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { ClientAction } from '@codebuff/common/actions'

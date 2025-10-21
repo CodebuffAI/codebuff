@@ -1,5 +1,3 @@
-import { processStreamWithTags } from '@codebuff/agent-runtime/tool-stream-parser'
-import { expireMessages } from '@codebuff/agent-runtime/util/messages'
 import {
   endToolTag,
   startToolTag,
@@ -10,10 +8,12 @@ import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
+import { processStreamWithTags } from '../tool-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
+import { expireMessages } from '../util/messages'
 
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
-import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
+import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'

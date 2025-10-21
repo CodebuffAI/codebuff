@@ -1,4 +1,3 @@
-import * as agentRegistry from '@codebuff/agent-runtime/templates/agent-registry'
 import {
   TEST_AGENT_RUNTIME_IMPL,
   TEST_AGENT_RUNTIME_SCOPED_IMPL,
@@ -17,6 +16,7 @@ import {
   mock,
 } from 'bun:test'
 
+import * as agentRegistry from '../templates/agent-registry'
 import * as spawnAgentUtils from '../tools/handlers/tool/spawn-agent-utils'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
