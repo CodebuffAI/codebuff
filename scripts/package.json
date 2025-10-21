@@ -25,7 +25,8 @@
     "@codebuff/backend": "workspace:*",
     "@codebuff/bigquery": "workspace:*",
     "@codebuff/common": "workspace:*",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "drizzle-orm": "0.36.4"
   },
   "devDependencies": {
     "@types/bun": "^1.3.0",
