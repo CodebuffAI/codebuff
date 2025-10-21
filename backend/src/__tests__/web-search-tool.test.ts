@@ -26,7 +26,7 @@ import {
 
 import { mockFileContext } from './test-utils'
 import researcherAgent from '../../../.agents/researcher/researcher'
-import * as linkupApi from '../llm-apis/linkup-api'
+import * as linkupApi from '@codebuff/agent-runtime/llm-apis/linkup-api'
 import { runAgentStep } from '../run-agent-step'
 
 import type {
