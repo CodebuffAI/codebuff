@@ -1,12 +1,12 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
-import { getFileProcessingValues, postStreamProcessing } from './write-file'
+import { getFileProcessingValues, postStreamProcessing } from '@codebuff/agent-runtime/tools/handlers/tool/write-file'
 
 import type {
   FileProcessingState,
   OptionalFileProcessingState,
-} from './write-file'
+} from '@codebuff/agent-runtime/tools/handlers/tool/write-file'
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type {
   ClientToolCall,

@@ -1,6 +1,6 @@
 import { createPatch } from 'diff'
 
-import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
+import { tryToDoStringReplacementWithExtraIndentation } from '@codebuff/agent-runtime/generate-diffs-prompt'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 

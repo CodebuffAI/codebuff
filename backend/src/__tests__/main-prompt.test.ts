@@ -27,7 +27,7 @@ import {
 import * as checkTerminalCommandModule from '../check-terminal-command'
 import * as getDocumentationForQueryModule from '../get-documentation-for-query'
 import { mainPrompt } from '../main-prompt'
-import * as processFileBlockModule from '../process-file-block'
+import * as processFileBlockModule from '@codebuff/agent-runtime/process-file-block'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {

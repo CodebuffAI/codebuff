@@ -1,10 +1,10 @@
-import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
+import { countTokens } from './util/token-counter'
 import { models } from '@codebuff/common/old-constants'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { hasLazyEdit } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'
 
-import { fastRewrite, shouldAddFilePlaceholders } from '@codebuff/agent-runtime/fast-rewrite'
+import { fastRewrite, shouldAddFilePlaceholders } from './fast-rewrite'
 import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,

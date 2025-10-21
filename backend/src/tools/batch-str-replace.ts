@@ -3,7 +3,7 @@ import { env } from '@codebuff/internal/env'
 import { Benchify } from 'benchify'
 
 import { handleStrReplace } from './handlers/tool/str-replace'
-import { getFileProcessingValues } from './handlers/tool/write-file'
+import { getFileProcessingValues } from '@codebuff/agent-runtime/tools/handlers/tool/write-file'
 
 import type {
   CodebuffToolCall,
