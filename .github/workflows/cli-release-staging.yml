@@ -264,6 +264,12 @@ jobs:
           name: cli-staging-metadata
           path: cli/release-staging/
 
+      - name: Set up Node.js with npm registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Publish codecane staging package to npm
         run: |
           cd cli/release-staging
