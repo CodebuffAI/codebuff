@@ -23,7 +23,7 @@ import { cloneDeep } from 'lodash'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
-import { getAgentOutput } from './util/agent-output'
+import { getAgentOutput } from '@codebuff/agent-runtime/util/agent-output'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'

@@ -9,13 +9,12 @@ import {
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { range, shuffle, uniq } from 'lodash'
 
+import { promptFlashWithFallbacks } from '../llm-api/gemini-with-fallbacks'
 import {
   castAssistantMessage,
   messagesWithSystem,
   getMessagesSubset,
-} from '@codebuff/agent-runtime/util/messages'
-
-import { promptFlashWithFallbacks } from '../llm-api/gemini-with-fallbacks'
+} from '../util/messages'
 
 import type { TextBlock } from '../llm-api/claude'
 import type {

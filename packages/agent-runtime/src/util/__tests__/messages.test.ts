@@ -12,8 +12,7 @@ import {
   trimMessagesToFitTokenLimit,
   messagesWithSystem,
   getPreviouslyReadFiles,
-} from '@codebuff/agent-runtime/util/messages'
-
+} from '../../util/messages'
 import * as tokenCounter from '../token-counter'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
