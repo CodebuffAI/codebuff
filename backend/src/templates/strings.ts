@@ -19,7 +19,7 @@ import {
   fullToolList,
   getShortToolInstructions,
   getToolsInstructions,
-} from '../tools/prompts'
+} from '@codebuff/agent-runtime/tools/prompts'
 
 import type {
   AgentTemplate,

@@ -4,7 +4,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { pluralize } from '@codebuff/common/util/string'
 import z from 'zod/v4'
 
-import { codebuffToolDefs } from '@codebuff/agent-runtime/tools/definitions/list'
+import { codebuffToolDefs } from './definitions/list'
 
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { customToolDefinitionsSchema } from '@codebuff/common/util/file'
