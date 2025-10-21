@@ -145,8 +145,8 @@ jobs:
           RELEASES=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
             "${GITHUB_API_URL}/releases?per_page=100")
 
-          if echo "$RELEASES" | jq -e . >/dev/null 2>&1; then
-            OLD=$(echo "$RELEASES" | jq -r '.[] | select(.prerelease == true and .created_at < "'$ONE_WEEK_AGO'" and (.tag_name | test("^v[0-9].*-beta\\.[0-9]+$"))) | "\(.id):\(.tag_name)"')
+          if echo "$RELEASES" | jq -e 'type == "array"' >/dev/null 2>&1; then
+            OLD=$(echo "$RELEASES" | jq -r --arg cutoff "$ONE_WEEK_AGO" '.[] | select(.prerelease == true and .created_at < $cutoff and (.tag_name | test("^v[0-9].*-beta\\.[0-9]+$"))) | "\(.id):\(.tag_name)"')
 
             if [ -n "$OLD" ]; then
               echo "Deleting old prereleases:"
