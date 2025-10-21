@@ -3,6 +3,8 @@ import { join } from 'path'
 
 import { findGitRoot } from './git'
 
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+
 const PROJECT_ROOT = findGitRoot()
 const LOG_DIR = join(PROJECT_ROOT, 'debug')
 const LOG_FILE = join(LOG_DIR, 'cli.log')
@@ -18,34 +20,54 @@ function formatTimestamp(): string {
   return now.toISOString()
 }
 
-function formatMessage(level: string, message: string, data?: any): string {
+function format(str: string, ...args: any[]): string {
+  return str.replace(/{(\d+)}/g, (match, index) =>
+    typeof args[index] !== 'undefined' ? args[index] : match,
+  )
+}
+
+function formatMessage(
+  level: string,
+  data: unknown,
+  message: string | undefined,
+  ...args: unknown[]
+): string {
   const timestamp = formatTimestamp()
-  let logLine = `[${timestamp}] [${level}] ${message}`
-  
+  let logLines = [
+    `[${timestamp}] [${level}] ${format(message ?? 'No message provided', args)}`,
+  ]
+
   if (data !== undefined) {
     try {
       if (data instanceof Error) {
-        logLine += `\n  Error: ${data.message}`
+        logLines.push(`  Error: ${data.message}`)
         if (data.stack) {
-          logLine += `\n  Stack: ${data.stack}`
+          logLines.push(`  Stack: ${data.stack}`)
         }
       } else if (typeof data === 'object') {
-        logLine += `\n  Data: ${JSON.stringify(data, null, 2)}`
+        logLines.push(`  Data: ${JSON.stringify(data, null, 2)}`)
       } else {
-        logLine += `\n  Data: ${String(data)}`
+        logLines.push(`  Data: ${String(data)}`)
       }
     } catch (error) {
-      logLine += `\n  Data: [Unable to stringify]`
+      logLines.push(`  Data: [Unable to stringify]`)
     }
   }
-  
-  return logLine + '\n'
+
+  logLines.push('')
+
+  return logLines.join('\n')
 }
 
-function writeLog(level: string, message: string, data?: any) {
+function writeLog(
+  level: string,
+  data: unknown,
+  message: string | undefined,
+  ...args: unknown[]
+) {
   try {
     ensureLogDirectory()
-    const formattedMessage = formatMessage(level, message, data)
+    const formattedMessage = formatMessage(level, data, message, ...args)
     appendFileSync(LOG_FILE, formattedMessage, 'utf8')
   } catch (error) {
     console.error('Failed to write to log file:', error)
@@ -63,7 +85,12 @@ export function clearLogFile() {
 }
 
 export const logger = {
-  info: (message: string, data?: any) => writeLog('INFO', message, data),
-  warn: (message: string, data?: any) => writeLog('WARN', message, data),
-  error: (message: string, data?: any) => writeLog('ERROR', message, data),
-}
+  info: (data: any, message?: string, ...args: any[]) =>
+    writeLog('INFO', data, message, ...args),
+  debug: (data: any, message?: string, ...args: any[]) =>
+    writeLog('DEBUG', data, message, ...args),
+  warn: (data: any, message?: string, ...args: any[]) =>
+    writeLog('WARN', data, message, ...args),
+  error: (data: any, message?: string, ...args: any[]) =>
+    writeLog('ERROR', data, message, ...args),
+} satisfies Logger

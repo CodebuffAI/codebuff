@@ -33,6 +33,7 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Source } from '@codebuff/common/types/source'
 import type { WebSocket } from 'ws'
 
 type MiddlewareCallback = (params: {
@@ -63,10 +64,24 @@ function getServerErrorAction<T extends ClientAction>(
 
 export class WebSocketMiddleware {
   private middlewares: Array<MiddlewareCallback> = []
-  private impl: AgentRuntimeDeps
+  private implSource: Source<AgentRuntimeDeps>
+  private impl: AgentRuntimeDeps | undefined
 
-  constructor(params: AgentRuntimeDeps) {
-    this.impl = params
+  constructor(params: Source<AgentRuntimeDeps>) {
+    this.implSource = params
+  }
+
+  async getImpl() {
+    if (this.impl) {
+      return this.impl
+    }
+
+    if (typeof this.implSource === 'function') {
+      this.impl = await this.implSource()
+    } else {
+      this.impl = await this.implSource
+    }
+    return this.impl
   }
 
   use<T extends ClientAction['type']>(
@@ -186,14 +201,14 @@ export class WebSocketMiddleware {
             clientSessionId,
             ws,
             silent,
-            ...this.impl,
+            ...(await this.getImpl()),
           })
           if (shouldContinue) {
             baseAction({
               action,
               clientSessionId,
               ws,
-              ...this.impl,
+              ...(await this.getImpl()),
               ...scopedDeps,
             })
           }
@@ -203,7 +218,7 @@ export class WebSocketMiddleware {
   }
 }
 
-export const protec = new WebSocketMiddleware(BACKEND_AGENT_RUNTIME_IMPL)
+export const protec = new WebSocketMiddleware(() => BACKEND_AGENT_RUNTIME_IMPL)
 
 protec.use(async (params) => {
   const { action } = params

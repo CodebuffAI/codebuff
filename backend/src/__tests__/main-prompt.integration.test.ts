@@ -1,10 +1,9 @@
+import * as checkTerminalCommandModule from '@codebuff/agent-runtime/check-terminal-command'
+import { mainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 
 // Mock imports needed for setup within the test
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_SCOPED_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -17,8 +16,7 @@ import {
   spyOn,
 } from 'bun:test'
 
-import * as checkTerminalCommandModule from '../check-terminal-command'
-import { mainPrompt } from '../main-prompt'
+import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 
 import type {
   AgentRuntimeDeps,
@@ -64,7 +62,7 @@ describe.skip('mainPrompt (Integration)', () => {
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeEach(() => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeImpl = { ...BACKEND_AGENT_RUNTIME_IMPL }
     agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
 
     // Setup common mock agent templates

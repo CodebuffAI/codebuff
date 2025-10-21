@@ -1,18 +1,3 @@
-import { checkLiveUserInput } from '@codebuff/agent-runtime/live-user-inputs'
-import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
-import { getAgentStreamFromTemplate } from '@codebuff/agent-runtime/prompt-agent-stream'
-import { additionalSystemPrompts } from '@codebuff/agent-runtime/system-prompt/prompts'
-import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
-import { getAgentPrompt } from '@codebuff/agent-runtime/templates/strings'
-import { getAgentOutput } from '@codebuff/agent-runtime/util/agent-output'
-import {
-  asSystemInstruction,
-  asSystemMessage,
-  buildUserMessageContent,
-  messagesWithSystem,
-  expireMessages,
-} from '@codebuff/agent-runtime/util/messages'
-import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
@@ -21,8 +6,23 @@ import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
+import { checkLiveUserInput } from './live-user-inputs'
+import { getMCPToolData } from './mcp'
+import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
+import { additionalSystemPrompts } from './system-prompt/prompts'
+import { getAgentTemplate } from './templates/agent-registry'
+import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
+import { getAgentOutput } from './util/agent-output'
+import {
+  asSystemInstruction,
+  asSystemMessage,
+  buildUserMessageContent,
+  messagesWithSystem,
+  expireMessages,
+} from './util/messages'
+import { countTokensJson } from './util/token-counter'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'

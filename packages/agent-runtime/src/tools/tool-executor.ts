@@ -1,6 +1,3 @@
-import { checkLiveUserInput } from '@codebuff/agent-runtime/live-user-inputs'
-import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
-import { codebuffToolDefs } from '@codebuff/agent-runtime/tools/definitions/list'
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { type ToolCallPart } from 'ai'
@@ -8,10 +5,13 @@ import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
+import { checkLiveUserInput } from '../live-user-inputs'
+import { getMCPToolData } from '../mcp'
+import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
 
-import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
-import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
+import type { AgentTemplate } from '../templates/types'
+import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
   ClientToolCall,

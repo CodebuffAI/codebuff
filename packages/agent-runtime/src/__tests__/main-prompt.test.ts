@@ -1,5 +1,3 @@
-import * as liveUserInputs from '@codebuff/agent-runtime/live-user-inputs'
-import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
@@ -23,11 +21,11 @@ import {
   spyOn,
 } from 'bun:test'
 
-// Mock imports
 import * as checkTerminalCommandModule from '../check-terminal-command'
-import * as getDocumentationForQueryModule from '../get-documentation-for-query'
+import { disableLiveUserInputCheck } from '../live-user-inputs'
+import * as liveUserInputs from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
-import * as processFileBlockModule from '@codebuff/agent-runtime/process-file-block'
+import * as processFileBlockModule from '../process-file-block'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
@@ -156,11 +154,6 @@ describe('mainPrompt', () => {
     spyOn(
       checkTerminalCommandModule,
       'checkTerminalCommand',
-    ).mockImplementation(async () => null)
-
-    spyOn(
-      getDocumentationForQueryModule,
-      'getDocumentationForQuery',
     ).mockImplementation(async () => null)
 
     // Mock live user inputs

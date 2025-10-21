@@ -1,4 +1,3 @@
-import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import * as analytics from '@codebuff/common/analytics'
 import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
@@ -25,18 +24,17 @@ import {
 } from 'bun:test'
 import { z } from 'zod/v4'
 
-import { withAppContext } from '../context/app-context'
+import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { mockFileContext } from './test-utils'
 
-import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
+import type { AgentTemplate } from '../templates/types'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
 describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => {
@@ -45,22 +43,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   let llmCallCount: number
   let agentRuntimeImpl: AgentRuntimeDeps
   let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
-
-  const runLoopAgentStepsWithContext = async (
-    options: ParamsOf<typeof loopAgentSteps>,
-  ) => {
-    return await withAppContext(
-      {
-        userId: options.userId,
-        clientSessionId: options.clientSessionId,
-      },
-      {
-        currentUserId: options.userId,
-        processedRepoId: 'test-repo',
-      },
-      async () => loopAgentSteps(options),
-    )
-  }
 
   beforeAll(() => {
     disableLiveUserInputCheck()
@@ -181,7 +163,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -229,7 +211,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -279,7 +261,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -328,7 +310,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -370,7 +352,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -404,7 +386,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': llmOnlyTemplate,
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -440,7 +422,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -493,7 +475,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -523,7 +505,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
     // Mock runProgrammaticStep module to capture calls and verify stepsComplete parameter
     const mockedRunProgrammaticStep = await mockModule(
-      '@codebuff/backend/run-programmatic-step',
+      '@codebuff/agent-runtime/run-programmatic-step',
       () => ({
         runProgrammaticStep: async (params: any) => {
           runProgrammaticStepCalls.push(params)
@@ -551,7 +533,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'test-agent': mockTemplate,
     }
 
-    await runLoopAgentStepsWithContext({
+    await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -623,7 +605,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       return `mock-message-id-${promptCallCount}`
     }
 
-    await runLoopAgentStepsWithContext({
+    await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -708,7 +690,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -783,7 +765,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -831,7 +813,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       return 'mock-message-id'
     }
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,
@@ -901,7 +883,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     mockAgentState.output = undefined
     capturedAgentState = mockAgentState
 
-    const result = await runLoopAgentStepsWithContext({
+    const result = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
       repoId: undefined,

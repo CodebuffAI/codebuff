@@ -1,9 +1,9 @@
-import { SandboxManager } from '@codebuff/agent-runtime/util/quickjs-sandbox'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { executeToolCall } from './tools/tool-executor'
+import { SandboxManager } from './util/quickjs-sandbox'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {

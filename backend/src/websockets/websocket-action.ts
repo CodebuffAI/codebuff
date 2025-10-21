@@ -3,6 +3,7 @@ import {
   checkLiveUserInput,
   startUserInput,
 } from '@codebuff/agent-runtime/live-user-inputs'
+import { mainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
@@ -12,7 +13,6 @@ import * as schema from '@codebuff/common/db/schema'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { eq } from 'drizzle-orm'
 
-import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendActionWs } from '../client-wrapper'
 import { getRequestContext } from './request-context'
