@@ -1,3 +1,4 @@
+import { consumeCreditsWithFallback } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { consumeCreditsWithFallback } from '@codebuff/billing'
 
@@ -21,6 +22,9 @@ export const BACKEND_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   startAgentRun,
   finishAgentRun,
   addAgentStep,
+
+  // Billing
+  consumeCreditsWithFallback,
 
   // LLM
   promptAiSdkStream,

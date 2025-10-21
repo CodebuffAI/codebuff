@@ -1,4 +1,5 @@
 import type { Logger } from './logger'
+import type { ErrorOr } from '../../util/error'
 
 export type GetUserUsageDataFn = (params: {
   userId: string
@@ -12,12 +13,12 @@ export type ConsumeCreditsWithFallbackFn = (params: {
   userId: string
   creditsToCharge: number
   repoUrl?: string | null
-  context: string
+  context: string // Description of what the credits are for (e.g., 'web search', 'documentation lookup')
   logger: Logger
-}) => Promise<{
-  success: boolean
+}) => Promise<ErrorOr<CreditFallbackResult>>
+
+export type CreditFallbackResult = {
   organizationId?: string
   organizationName?: string
   chargedToOrganization: boolean
-  error?: string
-}>
+}

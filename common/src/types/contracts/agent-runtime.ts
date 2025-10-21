@@ -33,6 +33,9 @@ export type AgentRuntimeDeps = {
   finishAgentRun: FinishAgentRunFn
   addAgentStep: AddAgentStepFn
 
+  // Billing
+  consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
+
   // LLM
   promptAiSdkStream: PromptAiSdkStreamFn
   promptAiSdk: PromptAiSdkFn

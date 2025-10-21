@@ -12,6 +12,7 @@ import {
 } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { success } from '@codebuff/common/util/error'
 import {
   afterEach,
   beforeAll,
@@ -25,7 +26,7 @@ import {
 
 import { mockFileContext } from './test-utils'
 import researcherAgent from '../../../.agents/researcher/researcher'
-import * as linkupApi from '../llm-apis/linkup-api'
+import * as linkupApi from '@codebuff/agent-runtime/llm-apis/linkup-api'
 import { runAgentStep } from '../run-agent-step'
 
 import type {
@@ -33,7 +34,7 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 
-let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
+let agentRuntimeImpl: AgentRuntimeDeps
 function mockAgentStream(content: string | string[]) {
   agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
     if (typeof content === 'string') {
@@ -54,6 +55,14 @@ describe('web_search tool with researcher agent', () => {
   })
 
   beforeEach(() => {
+    agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      consumeCreditsWithFallback: async () => {
+        return success({
+          chargedToOrganization: false,
+        })
+      },
+    }
     agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
 
     // Mock analytics and tracing
@@ -139,11 +148,12 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Just verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith({
-      query: 'test query',
-      depth: 'standard',
-      logger: expect.anything(),
-    })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'test query',
+        depth: 'standard',
+      }),
+    )
   })
 
   test('should successfully perform web search with basic query', async () => {
@@ -190,11 +200,12 @@ describe('web_search tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith({
-      query: 'Next.js 15 new features',
-      depth: 'standard',
-      logger: expect.anything(),
-    })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'Next.js 15 new features',
+        depth: 'standard',
+      }),
+    )
 
     // Check that the search results were added to the message history
     const toolResultMessages = newAgentState.messageHistory.filter(
@@ -251,11 +262,12 @@ describe('web_search tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith({
-      query: 'React Server Components tutorial',
-      depth: 'deep',
-      logger: expect.anything(),
-    })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'React Server Components tutorial',
+        depth: 'deep',
+      }),
+    )
   })
 
   test('should handle case when no search results are found', async () => {
@@ -298,11 +310,12 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith({
-      query: 'very obscure search query that returns nothing',
-      depth: 'standard',
-      logger: expect.anything(),
-    })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'very obscure search query that returns nothing',
+        depth: 'standard',
+      }),
+    )
 
     // Check that the "no results found" message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
@@ -358,11 +371,12 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith({
-      query: 'test query',
-      depth: 'standard',
-      logger: expect.anything(),
-    })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'test query',
+        depth: 'standard',
+      }),
+    )
 
     // Check that the error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
@@ -417,11 +431,12 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith({
-      query: 'test query',
-      depth: 'standard',
-      logger: expect.anything(),
-    })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'test query',
+        depth: 'standard',
+      }),
+    )
   })
 
   test('should handle non-Error exceptions', async () => {
@@ -466,11 +481,12 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith({
-      query: 'test query',
-      depth: 'standard',
-      logger: expect.anything(),
-    })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'test query',
+        depth: 'standard',
+      }),
+    )
 
     // Check that the error message was added
     const toolResultMessages = newAgentState.messageHistory.filter(
@@ -527,11 +543,12 @@ describe('web_search tool with researcher agent', () => {
     })
 
     // Verify that searchWeb was called
-    expect(linkupApi.searchWeb).toHaveBeenCalledWith({
-      query: 'test formatting',
-      depth: 'standard',
-      logger: expect.anything(),
-    })
+    expect(linkupApi.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'test formatting',
+        depth: 'standard',
+      }),
+    )
 
     // Check that the search results were formatted correctly
     const toolResultMessages = newAgentState.messageHistory.filter(

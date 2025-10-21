@@ -1,14 +1,17 @@
-import { consumeCreditsWithFallback } from '@codebuff/billing'
+import { searchWeb } from '@codebuff/agent-runtime/llm-apis/linkup-api'
 import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
-
-import { searchWeb } from '../../../llm-apis/linkup-api'
 
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type {
+  ConsumeCreditsWithFallbackFn,
+  CreditFallbackResult,
+} from '@codebuff/common/types/contracts/billing'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ErrorOr } from '@codebuff/common/util/error'
 
 export const handleWebSearch = ((params: {
   previousToolCallFinished: Promise<void>
@@ -25,6 +28,8 @@ export const handleWebSearch = ((params: {
     fingerprintId?: string
     repoId?: string
   }
+  fetch: typeof globalThis.fetch
+  consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
 }): { result: Promise<CodebuffToolOutput<'web_search'>>; state: {} } => {
   const {
     previousToolCallFinished,
@@ -35,6 +40,8 @@ export const handleWebSearch = ((params: {
     userInputId,
     repoUrl,
     state,
+    fetch,
+    consumeCreditsWithFallback,
   } = params
   const { query, depth } = toolCall.input
   const { userId, fingerprintId, repoId } = state
@@ -60,13 +67,13 @@ export const handleWebSearch = ((params: {
   const webSearchPromise: Promise<CodebuffToolOutput<'web_search'>> =
     (async () => {
       try {
-        const searchResult = await searchWeb({ query, depth, logger })
+        const searchResult = await searchWeb({ query, depth, logger, fetch })
         const searchDuration = Date.now() - searchStartTime
         const resultLength = searchResult?.length || 0
         const hasResults = Boolean(searchResult && searchResult.trim())
 
         // Charge credits for web search usage
-        let creditResult = null
+        let creditResult: ErrorOr<CreditFallbackResult> | null = null
         if (userId) {
           const creditsToCharge = Math.round(
             (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN),

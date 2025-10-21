@@ -1,11 +1,14 @@
-import { getFileProcessingValues, postStreamProcessing } from '@codebuff/agent-runtime/tools/handlers/tool/write-file'
-import { processStrReplace } from '@codebuff/agent-runtime/process-str-replace'
+import { processStrReplace } from '../../../process-str-replace'
+import {
+  getFileProcessingValues,
+  postStreamProcessing,
+} from './write-file'
 
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   FileProcessingState,
   OptionalFileProcessingState,
-} from '@codebuff/agent-runtime/tools/handlers/tool/write-file'
-import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
+} from './write-file'
 import type {
   ClientToolCall,
   CodebuffToolCall,

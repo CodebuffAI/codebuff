@@ -1,6 +1,5 @@
 import { dirname, isAbsolute, normalize } from 'path'
 
-import { insertTrace } from '@codebuff/bigquery'
 import {
   finetunedVertexModels,
   models,
@@ -17,10 +16,6 @@ import {
 } from '../util/messages'
 
 import type { TextBlock } from '../llm-api/claude'
-import type {
-  GetExpandedFileContextForTrainingTrace,
-  GetRelevantFilesTrace,
-} from '@codebuff/bigquery'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
@@ -236,29 +231,6 @@ async function getRelevantFiles(
 
   const files = validateFilePaths(response.split('\n'))
 
-  const trace: GetRelevantFilesTrace = {
-    id: crypto.randomUUID(),
-    agent_step_id: agentStepId,
-    user_id: userId ?? '',
-    created_at: new Date(),
-    type: 'get-relevant-files',
-    payload: {
-      messages: messagesWithPrompt,
-      system,
-      output: response,
-      request_type: requestType,
-      user_input_id: userInputId,
-      client_session_id: clientSessionId,
-      fingerprint_id: fingerprintId,
-      model: finetunedModel,
-      repo_name: repoId, // Use repoId parameter for trace
-    },
-  }
-
-  insertTrace({ trace, logger }).catch((error: Error) => {
-    logger.error({ error }, 'Failed to insert trace')
-  })
-
   return { files, duration, requestType, response }
 }
 
@@ -316,29 +288,6 @@ async function getRelevantFilesForTraining(
   const duration = end - start
 
   const files = validateFilePaths(response.split('\n'))
-
-  const trace: GetExpandedFileContextForTrainingTrace = {
-    id: crypto.randomUUID(),
-    agent_step_id: agentStepId,
-    user_id: userId ?? '',
-    created_at: new Date(),
-    type: 'get-expanded-file-context-for-training',
-    payload: {
-      messages: messagesWithPrompt,
-      system,
-      output: response,
-      request_type: requestType,
-      user_input_id: userInputId,
-      client_session_id: clientSessionId,
-      fingerprint_id: fingerprintId,
-      model: models.ft_filepicker_005, // Use specific model for trace
-      repo_name: repoId, // Use repoId parameter for trace
-    },
-  }
-
-  insertTrace({ trace, logger }).catch((error: Error) => {
-    logger.error({ error }, 'Failed to insert trace')
-  })
 
   return { files, duration, requestType, response }
 }

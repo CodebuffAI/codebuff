@@ -14,14 +14,14 @@ import { handleRunFileChangeHooks } from '@codebuff/agent-runtime/tools/handlers
 import { handleRunTerminalCommand } from '@codebuff/agent-runtime/tools/handlers/tool/run-terminal-command'
 import { handleSetMessages } from '@codebuff/agent-runtime/tools/handlers/tool/set-messages'
 import { handleSetOutput } from '@codebuff/agent-runtime/tools/handlers/tool/set-output'
+import { handleStrReplace } from '@codebuff/agent-runtime/tools/handlers/tool/str-replace'
 import { handleThinkDeeply } from '@codebuff/agent-runtime/tools/handlers/tool/think-deeply'
 import { handleUpdateSubgoal } from '@codebuff/agent-runtime/tools/handlers/tool/update-subgoal'
+import { handleWebSearch } from '@codebuff/agent-runtime/tools/handlers/tool/web-search'
 import { handleWriteFile } from '@codebuff/agent-runtime/tools/handlers/tool/write-file'
 
 import { handleSpawnAgentInline } from './tool/spawn-agent-inline'
 import { handleSpawnAgents } from './tool/spawn-agents'
-import { handleStrReplace } from './tool/str-replace'
-import { handleWebSearch } from './tool/web-search'
 
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type { ToolName } from '@codebuff/common/tools/constants'
