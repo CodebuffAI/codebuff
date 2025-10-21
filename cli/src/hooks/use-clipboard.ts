@@ -6,9 +6,7 @@ import { logger } from '../utils/logger'
 export const useClipboard = () => {
   const renderer = useRenderer()
   const [clipboardMessage, setClipboardMessage] = useState<string | null>(null)
-  const clipboardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  )
+  const clipboardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
@@ -44,14 +42,15 @@ export const useClipboard = () => {
       }
 
       const preview = text.replace(/\s+/g, ' ').trim()
-      const truncated = preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
+      const truncated =
+        preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
       setClipboardMessage(`Copied: "${truncated}"`)
       clipboardTimeoutRef.current = setTimeout(() => {
         setClipboardMessage(null)
         clipboardTimeoutRef.current = null
       }, 3000)
     } catch (error) {
-      logger.error('Failed to copy to clipboard', error)
+      logger.error(error, 'Failed to copy to clipboard')
     }
   }, [])
 
