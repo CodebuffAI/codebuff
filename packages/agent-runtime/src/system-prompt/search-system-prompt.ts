@@ -1,7 +1,7 @@
 import {
   countTokens,
   countTokensJson,
-} from '@codebuff/agent-runtime/util/token-counter'
+} from '../util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 import { buildArray } from '@codebuff/common/util/array'
 

@@ -7,7 +7,7 @@ import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import { codebuffToolDefs } from './definitions/list'
+import { codebuffToolDefs } from '@codebuff/agent-runtime/tools/definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
 
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
