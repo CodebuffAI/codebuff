@@ -240,7 +240,7 @@ async function downloadBinary(version) {
     throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
   }
 
-  const downloadUrl = `https://github.com/CodebuffAI/codebuff/releases/download/v${version}/${fileName}`
+  const downloadUrl = `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'}/api/releases/download/${version}/${fileName}`
 
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
 

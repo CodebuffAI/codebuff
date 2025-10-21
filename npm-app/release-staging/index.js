@@ -250,9 +250,10 @@ async function downloadBinary(version) {
     throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
   }
 
-  // For now, we get version info from npm but still download binaries from GitHub
-  // TODO: This assumes GitHub releases still exist with the same naming convention
-  const downloadUrl = `https://github.com/CodebuffAI/codebuff-community/releases/download/v${version}/${fileName}`
+  // Use proxy endpoint that handles version mapping from npm to GitHub releases
+  const downloadUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+    ? `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/releases/download/${version}/${fileName}`
+    : `https://codebuff.com/api/releases/download/${version}/${fileName}`
 
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })

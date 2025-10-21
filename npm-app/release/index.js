@@ -215,7 +215,10 @@ async function downloadBinary(version) {
     throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
   }
 
-  const downloadUrl = `https://github.com/${CONFIG.githubRepo}/releases/download/v${version}/${fileName}`
+  // Use proxy endpoint that handles version mapping
+  const downloadUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+    ? `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/releases/download/${version}/${fileName}`
+    : `https://codebuff.com/api/releases/download/${version}/${fileName}`
 
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
