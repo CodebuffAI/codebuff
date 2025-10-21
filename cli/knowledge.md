@@ -1,5 +1,22 @@
 # CLI Package Knowledge
 
+## Test Naming Conventions
+
+**IMPORTANT**: Follow these naming patterns for automatic dependency detection:
+
+- **Unit tests:** `*.test.ts` (e.g., `cli-args.test.ts`)
+- **E2E tests:** `e2e-*.test.ts` (e.g., `e2e-cli.test.ts`)
+- **Integration tests:** `integration-*.test.ts` (e.g., `integration-tmux.test.ts`)
+
+**Why?** The `.bin/bun` wrapper detects files matching `*integration*.test.ts` or `*e2e*.test.ts` patterns and automatically checks for tmux availability. If tmux is missing, it shows installation instructions but lets tests continue (they skip gracefully).
+
+**Benefits:**
+
+- Project-wide convention (not CLI-specific)
+- No hardcoded directory paths
+- Automatic dependency validation
+- Clear test categorization
+
 ## Migration from Custom OpenTUI Fork
 
 **October 2024**: Migrated from custom `CodebuffAI/opentui#codebuff/custom` fork to official `@opentui/react@^0.1.27` and `@opentui/core@^0.1.27` packages.

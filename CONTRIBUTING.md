@@ -114,35 +114,35 @@ Before you begin, you'll need to install a few tools:
 
 10. **Running in other directories**:
 
-   In order to run the CLI from other directories, you need to first publish the agents to the database.
+In order to run the CLI from other directories, you need to first publish the agents to the database.
 
-   - First, create a publisher profile at http://localhost:3000/publishers. Make sure the `publisher_id` is `codebuff`.
+- First, create a publisher profile at http://localhost:3000/publishers. Make sure the `publisher_id` is `codebuff`.
 
-   - Run:
+- Run:
 
-     ```bash
-     bun run start-bin publish base
-     ```
+  ```bash
+  bun run start-bin publish base
+  ```
 
-   - It will give you an error along the lines of `Invalid agent ID: [some agent ID]`, e.g. `Invalid agent ID: context-pruner`. You need to publish that agent at the same time, e.g.:
+- It will give you an error along the lines of `Invalid agent ID: [some agent ID]`, e.g. `Invalid agent ID: context-pruner`. You need to publish that agent at the same time, e.g.:
 
-     ```bash
-     bun run start-bin publish base context-pruner
-     ```
+  ```bash
+  bun run start-bin publish base context-pruner
+  ```
 
-   - Repeat this until there are no more errors.
+- Repeat this until there are no more errors.
 
-     - As of the time of writing, the command required is:
+  - As of the time of writing, the command required is:
 
-     ```bash
-     bun start-bin publish base context-pruner file-explorer file-picker researcher thinker reviewer
-     ```
+  ```bash
+  bun start-bin publish base context-pruner file-explorer file-picker researcher thinker reviewer
+  ```
 
-   - Now, you can start the CLI in any directory by running:
+- Now, you can start the CLI in any directory by running:
 
-     ```bash
-     bun run start-bin --cwd [some/other/directory]
-     ```
+  ```bash
+  bun run start-bin --cwd [some/other/directory]
+  ```
 
 ## Understanding the Codebase
 
@@ -203,6 +203,31 @@ bun test specific.test.ts  # Run just one test file
 ```
 
 **Writing tests:** Use `spyOn()` for mocking functions (it's cleaner than `mock.module()`), and always clean up with `mock.restore()` in your `afterEach()` blocks.
+
+#### Interactive CLI Testing
+
+For testing interactive CLI features (user input, real-time responses), install tmux:
+
+```bash
+# macOS
+brew install tmux
+
+# Ubuntu/Debian
+sudo apt-get install tmux
+
+# Windows (via WSL)
+wsl --install
+sudo apt-get install tmux
+```
+
+Run the proof-of-concept to validate your setup:
+
+```bash
+cd cli
+bun run test:tmux-poc
+```
+
+See [cli/src/__tests__/README.md](cli/src/__tests__/README.md) for comprehensive interactive testing documentation.
 
 ### Commit Messages
 

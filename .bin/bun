@@ -172,6 +172,14 @@ create_cache() {
     fi
 }
 
+# Function to check if tmux is installed
+check_tmux_installed() {
+    if ! command -v tmux &> /dev/null; then
+        return 1
+    fi
+    return 0
+}
+
 # Function to check if command doesn't need secrets
 # Returns 0 if secrets are NOT needed, 1 if they ARE needed
 doesnt_need_secrets() {
@@ -247,6 +255,43 @@ doesnt_need_secrets() {
                     return 1
                     ;;
             esac
+            ;;
+        # Test command needs special handling
+        test)
+            # Check for integration/e2e tests that require tmux
+            # Convention: test files matching *integration*.test.ts or *e2e*.test.ts
+            local needs_tmux=false
+            
+            for arg in "$@"; do
+                # Check if running integration or e2e tests
+                if [[ "$arg" =~ (integration|e2e).*\.test\.(ts|tsx|js|jsx) ]]; then
+                    needs_tmux=true
+                    break
+                fi
+                # Also check if running all tests and integration files exist
+                if [[ "$arg" == "test" ]] || [[ -z "$arg" ]]; then
+                    if ls */src/__tests__/*integration*.test.ts 2>/dev/null || ls */src/__tests__/*e2e*.test.ts 2>/dev/null; then
+                        needs_tmux=true
+                        break
+                    fi
+                fi
+            done
+            
+            # If running integration/e2e tests, check tmux availability
+            if [ "$needs_tmux" = true ]; then
+                if ! check_tmux_installed; then
+                    echo "⚠️  tmux not found but required for integration/E2E tests"
+                    echo ""
+                    echo "📦 Install tmux:"
+                    echo "   macOS:    brew install tmux"
+                    echo "   Ubuntu:   sudo apt-get install tmux"
+                    echo "   Windows:  Use WSL and run 'sudo apt-get install tmux'"
+                    echo ""
+                    echo "ℹ️  Skipping tmux-dependent tests..."
+                    echo ""
+                fi
+            fi
+            return 1  # Tests need secrets
             ;;
         *)
             # Default to needing secrets for all other commands
