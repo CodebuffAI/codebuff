@@ -18,9 +18,10 @@ import { handleThinkDeeply } from '@codebuff/agent-runtime/tools/handlers/tool/t
 import { handleUpdateSubgoal } from '@codebuff/agent-runtime/tools/handlers/tool/update-subgoal'
 import { handleWriteFile } from '@codebuff/agent-runtime/tools/handlers/tool/write-file'
 
+import { handleStrReplace } from '@codebuff/agent-runtime/tools/handlers/tool/str-replace'
+
 import { handleSpawnAgentInline } from './tool/spawn-agent-inline'
 import { handleSpawnAgents } from './tool/spawn-agents'
-import { handleStrReplace } from './tool/str-replace'
 import { handleWebSearch } from './tool/web-search'
 
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
