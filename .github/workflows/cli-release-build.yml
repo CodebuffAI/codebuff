@@ -42,6 +42,7 @@ jobs:
             bun_target: bun-linux-arm64
             platform: linux
             arch: arm64
+            bun_version: '1.3.0'  # Use stable 1.3.0 for arm64 support
             # Cross-compiles on x64 runner; binary can't be executed here.
             smoke_test: false
           - os: macos-13
@@ -67,7 +68,7 @@ jobs:
 
       - uses: ./.github/actions/setup-project
         with:
-          bun-version: '1.3.0-canary.20251021.1'
+          bun-version: ${{ matrix.bun_version || '1.3.0-canary.20251021.1' }}
 
       - name: Download staging metadata
         if: inputs.artifact-name != ''
