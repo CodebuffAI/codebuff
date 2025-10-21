@@ -383,6 +383,7 @@ async function screenCommitsWithGpt5(
         liveUserInputRecord: {},
         sessionConnections: {},
         logger: console,
+        trackEvent: () => {},
       })
 
       // Handle empty or invalid response

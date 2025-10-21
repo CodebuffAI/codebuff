@@ -1,6 +1,6 @@
-import { fetchContext7LibraryDocumentation } from '@codebuff/agent-runtime/llm-api/context7-api'
+import { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
 
-import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,

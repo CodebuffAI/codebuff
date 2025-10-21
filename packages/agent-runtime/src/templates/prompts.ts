@@ -1,4 +1,4 @@
-import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
+import { getAgentTemplate } from './agent-registry'
 import { buildArray } from '@codebuff/common/util/array'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 

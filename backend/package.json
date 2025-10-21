@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@ai-sdk/google-vertex": "3.0.6",
-    "benchify": "^0.1.0-alpha.41",
     "@ai-sdk/openai": "2.0.11",
     "@codebuff/agent-runtime": "workspace:*",
     "@codebuff/billing": "workspace:*",

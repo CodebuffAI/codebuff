@@ -70,7 +70,8 @@ export async function runAgentOnCommit({
                   `[${commit.id}:${agentId}] Error event:`,
                   event.message,
                 )
-                if (DEBUG_ERROR) {
+                if (DEBUG_ERROR && !event.message.startsWith('Invalid JSON')) {
+                  // Save errors in a file, but not tool calls with invalid json.
                   fs.writeFileSync(
                     path.join(
                       __dirname,

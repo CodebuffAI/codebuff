@@ -3,6 +3,7 @@ import { providerModelNames } from '@codebuff/common/old-constants'
 import { globalStopSequence } from './constants'
 
 import type { AgentTemplate } from './templates/types'
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type {
   SessionRecord,
@@ -29,6 +30,7 @@ export const getAgentStreamFromTemplate = (params: {
   promptAiSdkStream: PromptAiSdkStreamFn
   liveUserInputRecord: UserInputRecord
   sessionConnections: SessionRecord
+  trackEvent: TrackEventFn
 }) => {
   const {
     clientSessionId,
@@ -44,6 +46,7 @@ export const getAgentStreamFromTemplate = (params: {
     promptAiSdkStream,
     liveUserInputRecord,
     sessionConnections,
+    trackEvent,
   } = params
 
   if (!template) {
@@ -70,6 +73,7 @@ export const getAgentStreamFromTemplate = (params: {
       liveUserInputRecord,
       sessionConnections,
       logger,
+      trackEvent,
     }
 
     // Add Gemini-specific options if needed

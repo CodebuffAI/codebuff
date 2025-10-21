@@ -194,5 +194,6 @@ export async function analyzeEvalResults(
     liveUserInputRecord: {},
     sessionConnections: {},
     logger: console,
+    trackEvent: () => {},
   })
 }
