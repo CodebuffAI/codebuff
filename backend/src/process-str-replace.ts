@@ -1,6 +1,5 @@
-import { createPatch } from 'diff'
-
 import { tryToDoStringReplacementWithExtraIndentation } from '@codebuff/agent-runtime/generate-diffs-prompt'
+import { createPatch } from 'diff'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -38,7 +37,6 @@ export async function processStrReplace(params: {
   let currentContent = initialContent
   let messages: string[] = []
   const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
-  let anyReplacementSuccessful = false
 
   for (const { old: oldStr, new: newStr, allowMultiple } of replacements) {
     // Regular case: require oldStr for replacements
@@ -66,7 +64,6 @@ export async function processStrReplace(params: {
 
     if (match.success) {
       updatedOldStr = match.oldStr
-      anyReplacementSuccessful = true
     } else {
       messages.push(match.error)
       updatedOldStr = null
@@ -81,14 +78,15 @@ export async function processStrReplace(params: {
   currentContent = currentContent.replaceAll('\n', lineEnding)
 
   // If no successful replacements occurred, return error
-  if (!anyReplacementSuccessful) {
+  if (initialContent === currentContent) {
     logger.debug(
       {
         path,
         initialContent,
       },
-      `processStrReplace: No successful replacements for ${path}`,
+      `processStrReplace: No change to ${path}`,
     )
+    messages.push('No change to the file')
     return {
       tool: 'str_replace' as const,
       path,

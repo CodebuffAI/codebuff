@@ -10,10 +10,8 @@ import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
-import { executeBatchStrReplaces } from './batch-str-replace'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 
-import type { BatchStrReplaceState } from './batch-str-replace'
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
@@ -70,10 +68,6 @@ export async function processStreamWithTools(
     | 'state'
   > &
     ParamsExcluding<
-      typeof executeBatchStrReplaces,
-      'deferredStrReplaces' | 'toolCalls' | 'toolResults' | 'state'
-    > &
-    ParamsExcluding<
       typeof processStreamWithTags,
       'processors' | 'defaultProcessor' | 'onError' | 'loggerOptions'
     >,
@@ -106,14 +100,6 @@ export async function processStreamWithTools(
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
 
-  // Two-phase execution state
-  const batchState: BatchStrReplaceState = {
-    deferredStrReplaces: [],
-    otherToolsQueue: [],
-    strReplacePhaseComplete: false,
-    failures: [],
-  }
-
   const state: Record<string, any> = {
     fingerprintId,
     userId,
@@ -132,73 +118,18 @@ export async function processStreamWithTools(
     return {
       onTagStart: () => {},
       onTagEnd: async (_: string, input: Record<string, string>) => {
-        // Two-phase execution: defer str_replace tools, queue others
-        if (toolName === 'str_replace' && !batchState.strReplacePhaseComplete) {
-          // Defer str_replace execution
-          const toolCallId = generateCompactId()
-          const toolCall: CodebuffToolCall<'str_replace'> = {
-            toolName: 'str_replace',
-            input: input as any,
-            toolCallId,
-          }
-
-          batchState.deferredStrReplaces.push({ toolCall })
-
-          // Still emit the tool call event
-          onResponseChunk({
-            type: 'tool_call',
-            toolCallId,
-            toolName,
-            input,
-            // Only include agentId for subagents (agents with a parent)
-            ...(agentState.parentId && { agentId: agentState.agentId }),
-          })
-        } else {
-          // First non-str_replace tool marks end of str_replace phase
-          if (
-            !batchState.strReplacePhaseComplete &&
-            batchState.deferredStrReplaces.length > 0
-          ) {
-            logger.info(
-              {
-                triggeringTool: toolName,
-                deferredCount: batchState.deferredStrReplaces.length,
-                agentStepId,
-                userInputId,
-              },
-              `toolCallback: Triggering batch str_replace execution (${batchState.deferredStrReplaces.length} deferred tools) due to ${toolName}`,
-            )
-
-            batchState.strReplacePhaseComplete = true
-
-            // Execute all deferred str_replace tools as a batch
-            previousToolCallFinished = previousToolCallFinished.then(
-              async () => {
-                await executeBatchStrReplaces({
-                  ...params,
-                  deferredStrReplaces: batchState.deferredStrReplaces,
-                  toolCalls,
-                  toolResults,
-                  onResponseChunk,
-                  state,
-                })
-              },
-            )
-          }
-
-          previousToolCallFinished = executeToolCall({
-            ...params,
-            toolName,
-            input,
-            toolCalls,
-            toolResults,
-            toolResultsToAddAfterStream,
-            previousToolCallFinished,
-            fullResponse: fullResponseChunks.join(''),
-            onResponseChunk,
-            state,
-          })
-        }
+        // delegated to reusable helper
+        previousToolCallFinished = executeToolCall({
+          ...params,
+          toolName,
+          input,
+          toolCalls,
+          toolResults,
+          toolResultsToAddAfterStream,
+          previousToolCallFinished,
+          fullResponse: fullResponseChunks.join(''),
+          state,
+        })
       },
     }
   }
@@ -250,7 +181,14 @@ export async function processStreamWithTools(
   })
 
   let reasoning = false
-  for await (const chunk of streamWithTags) {
+  let messageId: string | null = null
+  while (true) {
+    const { value: chunk, done } = await streamWithTags.next()
+    if (done) {
+      messageId = chunk
+      break
+    }
+
     if (chunk.type === 'reasoning') {
       if (!reasoning) {
         reasoning = true
@@ -288,54 +226,6 @@ export async function processStreamWithTools(
   ])
 
   resolveStreamDonePromise()
-
-  // Handle case where only str_replace tools were generated and stream ended
-  if (
-    !batchState.strReplacePhaseComplete &&
-    batchState.deferredStrReplaces.length > 0
-  ) {
-    logger.info(
-      {
-        triggeringEvent: 'stream_end',
-        deferredCount: batchState.deferredStrReplaces.length,
-        deferredFiles: batchState.deferredStrReplaces.map(
-          (d) => d.toolCall.input.path,
-        ),
-        agentStepId,
-        userInputId,
-      },
-      `stream-parser: Triggering batch str_replace execution (${batchState.deferredStrReplaces.length} deferred tools) due to stream end`,
-    )
-
-    batchState.strReplacePhaseComplete = true
-
-    // Execute all deferred str_replace tools as a batch
-    previousToolCallFinished = previousToolCallFinished.then(async () => {
-      logger.info(
-        {
-          agentStepId,
-          userInputId,
-          deferredCount: batchState.deferredStrReplaces.length,
-        },
-        'stream-parser: About to call executeBatchStrReplaces from stream end handler',
-      )
-      await executeBatchStrReplaces({
-        ...params,
-        deferredStrReplaces: batchState.deferredStrReplaces,
-        toolCalls,
-        toolResults,
-        state,
-      })
-      logger.info(
-        {
-          agentStepId,
-          userInputId,
-        },
-        'stream-parser: Completed executeBatchStrReplaces from stream end handler',
-      )
-    })
-  }
-
   await previousToolCallFinished
   return {
     toolCalls,
@@ -343,5 +233,6 @@ export async function processStreamWithTools(
     state,
     fullResponse: fullResponseChunks.join(''),
     fullResponseChunks,
+    messageId,
   }
 }

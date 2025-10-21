@@ -301,6 +301,7 @@ export const runAgentStep = async (
     state,
     fullResponse: fullResponseAfterStream,
     fullResponseChunks,
+    messageId,
   } = await processStreamWithTools({
     ...params,
     stream,
@@ -396,7 +397,7 @@ export const runAgentStep = async (
     agentState,
     fullResponse,
     shouldEndTurn,
-    messageId: null,
+    messageId,
   }
 }
 
