@@ -3,7 +3,7 @@ import { closeXml } from '@codebuff/common/util/xml'
 import { uniq } from 'lodash'
 import { z } from 'zod/v4'
 
-import { fetchContext7LibraryDocumentation } from './llm-apis/context7-api'
+import { fetchContext7LibraryDocumentation } from '@codebuff/agent-runtime/llm-api/context7-api'
 
 import type { PromptAiSdkStructuredFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'

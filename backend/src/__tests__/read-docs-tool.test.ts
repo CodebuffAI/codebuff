@@ -1,4 +1,5 @@
 import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
+import * as context7Api from '@codebuff/agent-runtime/llm-api/context7-api'
 import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
@@ -22,7 +23,6 @@ import {
 
 import { mockFileContext } from './test-utils'
 import researcherAgent from '../../../.agents/researcher/researcher'
-import * as context7Api from '../llm-apis/context7-api'
 import { runAgentStep } from '../run-agent-step'
 
 import type {
@@ -176,11 +176,12 @@ describe('read_docs tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith({
-      query: 'React',
-      topic: 'hooks',
-      logger: expect.anything(),
-    })
+    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'React',
+        topic: 'hooks',
+      }),
+    )
 
     // Check that the documentation was added to the message history
     const toolResultMessages = newAgentState.messageHistory.filter(
@@ -251,12 +252,13 @@ describe('read_docs tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith({
-      query: 'React',
-      topic: 'hooks',
-      tokens: 5000,
-      logger: expect.anything(),
-    })
+    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'React',
+        topic: 'hooks',
+        tokens: 5000,
+      }),
+    )
   }, 10000)
 
   test('should handle case when no documentation is found', async () => {

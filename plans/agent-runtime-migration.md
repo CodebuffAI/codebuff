@@ -13,7 +13,7 @@ Most likely, there will be import errors:
   - It does appear in `package.json`, but ignore that file.
 
 Run `bun test $(find . -name '*.test.ts')` twice: in `backend/` and `packages/agent-runtime/`
-If they do not pass, do NOT fix the tests (unless it is an import error, which should have been fixed in the step before. You can fix the imports, but do not change the test logic). Ask the user what to do and end turn and disregard the rest of this file.
+**IMPORTANT** If they do not pass, do **NOT** fix the tests (unless it is an import error, which should have been fixed in the step before. You can fix the imports, but do not change the test logic). Ask the user what to do and end turn and disregard the rest of this file.
 
 If the tests pass, git add the changed files (including the deleted files), then commit the changes. No need to use any subagent to commit, you have all the context you need.
 
