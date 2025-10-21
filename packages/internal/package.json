@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@codebuff/common": "workspace:*",
-    "drizzle-orm": "*",
+    "drizzle-orm": "0.36.4",
     "loops": "^5.0.1"
   },
   "devDependencies": {

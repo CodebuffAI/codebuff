@@ -43,7 +43,8 @@
     "zod": "3.25.67"
   },
   "overrides": {
-    "zod": "3.25.67"
+    "zod": "3.25.67",
+    "drizzle-orm": "0.36.4"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",

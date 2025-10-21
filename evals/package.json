@@ -43,7 +43,8 @@
     "diff": "^8.0.2",
     "lodash": "^4.17.21",
     "p-limit": "^6.2.0",
-    "zod": "3.25.67"
+    "zod": "3.25.67",
+    "drizzle-orm": "0.36.4"
   },
   "devDependencies": {
     "@types/async": "^3.2.24"
