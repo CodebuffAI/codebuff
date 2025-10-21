@@ -196,7 +196,7 @@ jobs:
             After downloading, extract the tarball, add the binary to your PATH, and run `codecane --help` for usage.
           files: |
             binaries/*/codecane-*
-          repository: codebuff-community/codebuff
+          repository: CodebuffAI/codebuff-community
           token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
 
   publish-staging-npm:
