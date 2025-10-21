@@ -105,6 +105,7 @@ interface UseSendMessageOptions {
   setIsStreaming: (streaming: boolean) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
+  agentId?: string
 }
 
 export const useSendMessage = ({
@@ -124,6 +125,7 @@ export const useSendMessage = ({
   setIsStreaming,
   setCanProcessQueue,
   abortControllerRef,
+  agentId,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -383,11 +385,17 @@ export const useSendMessage = ({
                         const entry = updatedBlocks[i]
                         if (entry.type === 'text') {
                           replaced = true
-                          if (entry.content === text && block.content === text) {
-                            logger.info('Agent block text replacement skipped', {
-                              agentId,
-                              preview,
-                            })
+                          if (
+                            entry.content === text &&
+                            block.content === text
+                          ) {
+                            logger.info(
+                              'Agent block text replacement skipped',
+                              {
+                                agentId,
+                                preview,
+                              },
+                            )
                             return block
                           }
                           updatedBlocks[i] = { ...entry, content: text }
@@ -427,8 +435,7 @@ export const useSendMessage = ({
                         ...lastBlock,
                         content: lastBlock.content + text,
                       }
-                      const updatedContent =
-                        (block.content ?? '') + text
+                      const updatedContent = (block.content ?? '') + text
                       logger.info('Agent block text appended', {
                         agentId,
                         appendedLength: text.length,
@@ -440,8 +447,7 @@ export const useSendMessage = ({
                         blocks: [...agentBlocks.slice(0, -1), updatedLastBlock],
                       }
                     } else {
-                      const updatedContent =
-                        (block.content ?? '') + text
+                      const updatedContent = (block.content ?? '') + text
                       logger.info('Agent block text started', {
                         agentId,
                         appendedLength: text.length,
@@ -466,12 +472,12 @@ export const useSendMessage = ({
                   return block
                 },
               )
-            return { ...msg, blocks: newBlocks }
-          }
-          return msg
-        }),
-      )
-    }
+              return { ...msg, blocks: newBlocks }
+            }
+            return msg
+          }),
+        )
+      }
 
       const appendRootTextChunk = (delta: string) => {
         if (!delta) {
@@ -529,7 +535,7 @@ export const useSendMessage = ({
 
       try {
         const result = await client.run({
-          agent: 'base',
+          agent: agentId || 'base',
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,
@@ -601,10 +607,7 @@ export const useSendMessage = ({
                 })
                 const previous =
                   agentStreamAccumulatorsRef.current.get(event.agentId) ?? ''
-                const { next, delta } = mergeTextSegments(
-                  previous,
-                  text,
-                )
+                const { next, delta } = mergeTextSegments(previous, text)
                 if (!delta && next === previous) {
                   return
                 }
@@ -624,17 +627,17 @@ export const useSendMessage = ({
                 }
               } else {
                 if (rootStreamSeenRef.current) {
-                  logger.info('Skipping root text event (stream already handled)', {
-                    textPreview: text.slice(0, 100),
-                    textLength: text.length,
-                  })
+                  logger.info(
+                    'Skipping root text event (stream already handled)',
+                    {
+                      textPreview: text.slice(0, 100),
+                      textLength: text.length,
+                    },
+                  )
                   return
                 }
                 const previous = rootStreamBufferRef.current ?? ''
-                const { next, delta } = mergeTextSegments(
-                  previous,
-                  text,
-                )
+                const { next, delta } = mergeTextSegments(previous, text)
                 if (!delta && next === previous) {
                   return
                 }
@@ -717,7 +720,10 @@ export const useSendMessage = ({
                                   agentId: event.agentId,
                                 }
                                 // Don't add to result - we're extracting it
-                              } else if (block.type === 'agent' && block.blocks) {
+                              } else if (
+                                block.type === 'agent' &&
+                                block.blocks
+                              ) {
                                 // Recursively process nested blocks
                                 result.push({
                                   ...block,
