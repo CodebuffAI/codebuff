@@ -25,6 +25,8 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     agentStepId: string
     clientSessionId: string
     userInputId: string
+    repoUrl: string | undefined
+    repoId: string | undefined
     fileContext: ProjectFileContext
 
     fullResponse: string

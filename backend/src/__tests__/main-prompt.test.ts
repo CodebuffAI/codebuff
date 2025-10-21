@@ -226,6 +226,8 @@ describe('mainPrompt', () => {
     const { sessionState: newSessionState, output } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -286,6 +288,8 @@ describe('mainPrompt', () => {
     await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -364,6 +368,8 @@ describe('mainPrompt', () => {
     const { output } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -391,6 +397,8 @@ describe('mainPrompt', () => {
     const { sessionState: newSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -422,6 +430,8 @@ describe('mainPrompt', () => {
     const { sessionState: newSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -451,6 +461,8 @@ describe('mainPrompt', () => {
     const { output } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -491,6 +503,8 @@ describe('mainPrompt', () => {
     await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',

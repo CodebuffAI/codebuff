@@ -160,6 +160,8 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -233,6 +235,8 @@ describe('read_docs tool with researcher agent', () => {
     await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -283,6 +287,8 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -350,6 +356,8 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -416,6 +424,8 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -483,6 +493,8 @@ describe('read_docs tool with researcher agent', () => {
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',

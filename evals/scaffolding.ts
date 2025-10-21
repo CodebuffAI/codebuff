@@ -223,6 +223,8 @@ export async function runAgentStepScaffolding(
     agentState,
     prompt,
     spawnParams: undefined,
+    repoUrl: undefined,
+    repoId: undefined,
     system: 'Test system prompt',
   })
 

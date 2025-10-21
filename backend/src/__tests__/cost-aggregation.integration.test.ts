@@ -245,6 +245,8 @@ describe('Cost Aggregation Integration Tests', () => {
     const result = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -280,6 +282,8 @@ describe('Cost Aggregation Integration Tests', () => {
     await websocketAction.callMainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       promptId: 'test-prompt',
@@ -350,6 +354,8 @@ describe('Cost Aggregation Integration Tests', () => {
     const result = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -406,6 +412,8 @@ describe('Cost Aggregation Integration Tests', () => {
       result = await mainPrompt({
         ...agentRuntimeImpl,
         ...agentRuntimeScopedImpl,
+        repoId: undefined,
+        repoUrl: undefined,
         action,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session',
@@ -455,6 +463,8 @@ describe('Cost Aggregation Integration Tests', () => {
     await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
@@ -495,6 +505,8 @@ describe('Cost Aggregation Integration Tests', () => {
     await websocketAction.callMainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       promptId: 'test-prompt',

@@ -238,6 +238,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -271,6 +273,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -306,6 +310,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -343,6 +349,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -376,6 +384,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -412,6 +422,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -459,6 +471,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -513,6 +527,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -544,6 +560,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -576,6 +594,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -607,6 +627,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -638,6 +660,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -672,6 +696,8 @@ describe('Spawn Agents Permissions', () => {
       const { result } = handleSpawnAgentInline({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall,
         fileContext: mockFileContext,
@@ -704,6 +730,8 @@ describe('Spawn Agents Permissions', () => {
         handleSpawnAgentInline({
           ...TEST_AGENT_RUNTIME_IMPL,
           ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+          repoId: undefined,
+          repoUrl: undefined,
           previousToolCallFinished: Promise.resolve(),
           toolCall,
           fileContext: mockFileContext,

@@ -189,6 +189,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -235,6 +237,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -283,6 +287,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -330,6 +336,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -370,6 +378,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -402,6 +412,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -436,6 +448,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -487,6 +501,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -543,6 +559,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -613,6 +631,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -696,6 +716,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -769,6 +791,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -815,6 +839,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,
@@ -883,6 +909,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const result = await runLoopAgentStepsWithContext({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-user-input',
       agentType: 'test-agent',
       agentState: mockAgentState,

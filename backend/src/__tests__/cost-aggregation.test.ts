@@ -183,6 +183,8 @@ describe('Cost Aggregation System', () => {
       const result = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,
@@ -263,6 +265,8 @@ describe('Cost Aggregation System', () => {
       const result = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,
@@ -420,6 +424,8 @@ describe('Cost Aggregation System', () => {
       const result = handleSpawnAgents({
         ...TEST_AGENT_RUNTIME_IMPL,
         ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+        repoId: undefined,
+        repoUrl: undefined,
         previousToolCallFinished: Promise.resolve(),
         toolCall: mockToolCall,
         fileContext: mockFileContext,

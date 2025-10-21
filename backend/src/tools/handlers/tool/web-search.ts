@@ -1,7 +1,6 @@
 import { consumeCreditsWithFallback } from '@codebuff/billing'
 import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 
-import { getRequestContext } from '../../../context/app-context'
 import { searchWeb } from '../../../llm-apis/linkup-api'
 
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
@@ -19,6 +18,7 @@ export const handleWebSearch = ((params: {
   agentStepId: string
   clientSessionId: string
   userInputId: string
+  repoUrl: string | undefined
 
   state: {
     userId?: string
@@ -33,6 +33,7 @@ export const handleWebSearch = ((params: {
     agentStepId,
     clientSessionId,
     userInputId,
+    repoUrl,
     state,
   } = params
   const { query, depth } = toolCall.input
@@ -70,8 +71,6 @@ export const handleWebSearch = ((params: {
           const creditsToCharge = Math.round(
             (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN),
           )
-          const requestContext = getRequestContext()
-          const repoUrl = requestContext?.processedRepoUrl
 
           creditResult = await consumeCreditsWithFallback({
             userId,

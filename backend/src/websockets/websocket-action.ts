@@ -15,6 +15,7 @@ import { eq } from 'drizzle-orm'
 import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendActionWs } from '../client-wrapper'
+import { getRequestContext } from './request-context'
 import { withLoggerContext } from '../util/logger'
 
 import type { ClientAction, UsageResponse } from '@codebuff/common/actions'
@@ -100,7 +101,10 @@ const onPrompt = async (
     getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
     liveUserInputRecord: UserInputRecord
     logger: Logger
-  } & ParamsExcluding<typeof callMainPrompt, 'userId' | 'promptId'>,
+  } & ParamsExcluding<
+    typeof callMainPrompt,
+    'userId' | 'promptId' | 'repoId' | 'repoUrl'
+  >,
 ) => {
   const { action, ws, getUserInfoFromApiKey, logger } = params
   const { fingerprintId, authToken, promptId, prompt, costMode } = action
@@ -129,6 +133,10 @@ const onPrompt = async (
         })
       }
 
+      const requestContext = getRequestContext()
+      const repoId = requestContext?.processedRepoId
+      const repoUrl = requestContext?.processedRepoUrl
+
       startUserInput({ ...params, userId, userInputId: promptId })
 
       try {
@@ -136,6 +144,8 @@ const onPrompt = async (
           ...params,
           userId,
           promptId,
+          repoUrl,
+          repoId,
         })
         if (result.output.type === 'error') {
           throw new Error(result.output.message)

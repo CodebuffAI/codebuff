@@ -86,6 +86,8 @@ describe('QuickJS Sandbox Generator', () => {
     mockParams = {
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       system: undefined,
       agentState: mockAgentState,
       template: mockTemplate,

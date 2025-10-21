@@ -136,6 +136,8 @@ describe('runProgrammaticStep', () => {
     mockParams = {
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       agentState: mockAgentState,
       template: mockTemplate,
       prompt: 'Test prompt',

@@ -24,7 +24,6 @@ import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
-import { getRequestContext } from './websockets/request-context'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
@@ -60,6 +59,7 @@ export const runAgentStep = async (
     userInputId: string
     clientSessionId: string
     fingerprintId: string
+    repoId: string | undefined
     onResponseChunk: (chunk: string | PrintModeEvent) => void
     sendAction: SendActionFn
 
@@ -114,6 +114,7 @@ export const runAgentStep = async (
     userInputId,
     fingerprintId,
     clientSessionId,
+    repoId,
     onResponseChunk,
     sendAction,
     fileContext,
@@ -130,9 +131,6 @@ export const runAgentStep = async (
   const { agentContext } = agentState
 
   const startTime = Date.now()
-  // Get the extracted repo ID from request context
-  const requestContext = getRequestContext()
-  const repoId = requestContext?.processedRepoId
 
   // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
   // This is used to link logs within a single agent loop

@@ -133,6 +133,8 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for test',
+      repoId: undefined,
+      repoUrl: undefined,
       spawnParams: undefined,
     })
 
@@ -183,6 +185,8 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for Next.js 15 new features',
+      repoId: undefined,
+      repoUrl: undefined,
       spawnParams: undefined,
     })
 
@@ -242,6 +246,8 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for React Server Components tutorial with deep search',
+      repoId: undefined,
+      repoUrl: undefined,
       spawnParams: undefined,
     })
 
@@ -286,6 +292,8 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: "Search for something that doesn't exist",
+      repoId: undefined,
+      repoUrl: undefined,
       spawnParams: undefined,
     })
 
@@ -344,6 +352,8 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for something',
+      repoId: undefined,
+      repoUrl: undefined,
       spawnParams: undefined,
     })
 
@@ -401,6 +411,8 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for something',
+      repoId: undefined,
+      repoUrl: undefined,
       spawnParams: undefined,
     })
 
@@ -448,6 +460,8 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for something',
+      repoId: undefined,
+      repoUrl: undefined,
       spawnParams: undefined,
     })
 
@@ -507,6 +521,8 @@ describe('web_search tool with researcher agent', () => {
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Test search result formatting',
+      repoId: undefined,
+      repoUrl: undefined,
       spawnParams: undefined,
     })
 

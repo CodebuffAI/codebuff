@@ -4,7 +4,6 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { executeToolCall } from './tools/tool-executor'
-import { getRequestContext } from './websockets/request-context'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
@@ -57,6 +56,8 @@ export async function runProgrammaticStep(
     toolCallParams: Record<string, any> | undefined
     system: string | undefined
     userId: string | undefined
+    repoId: string | undefined
+    repoUrl: string | undefined
     userInputId: string
     fingerprintId: string
     onResponseChunk: (chunk: string | PrintModeEvent) => void
@@ -101,6 +102,7 @@ export async function runProgrammaticStep(
     system,
     userId,
     userInputId,
+    repoId,
     fingerprintId,
     onResponseChunk,
     localAgentTemplates,
@@ -185,16 +187,12 @@ export async function runProgrammaticStep(
 
   const agentStepId = crypto.randomUUID()
 
-  const requestContext = getRequestContext()
-  const repoId = requestContext?.processedRepoId
-
   // Initialize state for tool execution
   const toolCalls: CodebuffToolCall[] = []
   const toolResults: ToolResultPart[] = []
   const state = {
     fingerprintId,
     userId,
-    repoId,
     agentTemplate: template,
     localAgentTemplates,
     system,

@@ -380,6 +380,8 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
     const { output, sessionState: finalSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       action,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session-delete-function-integration',
@@ -462,6 +464,8 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       await mainPrompt({
         ...agentRuntimeImpl,
         ...agentRuntimeScopedImpl,
+        repoId: undefined,
+        repoUrl: undefined,
         action,
         userId: TEST_USER_ID,
         clientSessionId: 'test-session-delete-function-integration',

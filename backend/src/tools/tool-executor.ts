@@ -126,6 +126,8 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   clientSessionId: string
   userInputId: string
   fullResponse: string
+  repoId: string | undefined
+  repoUrl: string | undefined
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   state: Record<string, any>
   userId: string | undefined
@@ -153,6 +155,8 @@ export function executeToolCall<T extends ToolName>(
     fullResponse,
     onResponseChunk,
     state,
+    repoId,
+    repoUrl,
     userId,
     autoInsertEndStepParam = false,
     excludeToolFromMessageHistory = false,
@@ -235,6 +239,8 @@ export function executeToolCall<T extends ToolName>(
     agentStepId,
     clientSessionId,
     userInputId,
+    repoUrl,
+    repoId,
     fullResponse,
     writeToClient: onResponseChunk,
     requestClientToolCall: async (

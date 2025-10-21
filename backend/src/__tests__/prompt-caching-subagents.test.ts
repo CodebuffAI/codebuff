@@ -146,6 +146,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -180,6 +182,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
@@ -228,6 +232,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -256,6 +262,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
@@ -305,6 +313,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -336,6 +346,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
@@ -411,6 +423,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -439,6 +453,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
@@ -492,6 +508,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const parentResult = await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-parent',
       prompt: 'Parent task',
       spawnParams: undefined,
@@ -529,6 +547,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     await loopAgentSteps({
       ...agentRuntimeImpl,
       ...agentRuntimeScopedImpl,
+      repoId: undefined,
+      repoUrl: undefined,
       userInputId: 'test-child',
       prompt: 'Child task',
       spawnParams: undefined,
