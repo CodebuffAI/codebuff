@@ -4,7 +4,7 @@ import { handleBrowserLogs } from '@codebuff/agent-runtime/tools/handlers/tool/b
 import { handleCodeSearch } from '@codebuff/agent-runtime/tools/handlers/tool/code-search'
 import { handleCreatePlan } from '@codebuff/agent-runtime/tools/handlers/tool/create-plan'
 import { handleEndTurn } from '@codebuff/agent-runtime/tools/handlers/tool/end-turn'
-import { handleFindFiles } from './tool/find-files'
+import { handleFindFiles } from '@codebuff/agent-runtime/tools/handlers/tool/find-files'
 import { handleGlob } from '@codebuff/agent-runtime/tools/handlers/tool/glob'
 import { handleListDirectory } from '@codebuff/agent-runtime/tools/handlers/tool/list-directory'
 import { handleLookupAgentInfo } from '@codebuff/agent-runtime/tools/handlers/tool/lookup-agent-info'

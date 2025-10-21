@@ -1,18 +1,16 @@
 import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
-} from '@codebuff/agent-runtime/find-files/request-files-prompt'
-import { getFileReadingUpdates } from '@codebuff/agent-runtime/get-file-reading-updates'
-import { getSearchSystemPrompt } from '@codebuff/agent-runtime/system-prompt/search-system-prompt'
-import { renderReadFilesResult } from '@codebuff/agent-runtime/util/render-read-files-result'
+} from '../../../find-files/request-files-prompt'
+import { getFileReadingUpdates } from '../../../get-file-reading-updates'
+import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
+import { renderReadFilesResult } from '../../../util/render-read-files-result'
 import {
   countTokens,
   countTokensJson,
-} from '@codebuff/agent-runtime/util/token-counter'
-import { insertTrace } from '@codebuff/bigquery'
+} from '../../../util/token-counter'
 
-import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
-import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
+import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
@@ -218,24 +216,4 @@ async function uploadExpandedFileContextForTraining(
     }
     filesToUpload[file] = { content, tokens }
   }
-
-  const trace: GetExpandedFileContextForTrainingBlobTrace = {
-    type: 'get-expanded-file-context-for-training-blobs',
-    created_at: new Date(),
-    id: crypto.randomUUID(),
-    agent_step_id: agentStepId,
-    user_id: userId ?? '',
-    payload: {
-      files: filesToUpload,
-      user_input_id: userInputId,
-      client_session_id: clientSessionId,
-      fingerprint_id: fingerprintId,
-    },
-  }
-
-  // Upload the files to bigquery
-  await insertTrace({
-    trace,
-    logger,
-  })
 }
