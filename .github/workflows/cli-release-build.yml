@@ -66,6 +66,8 @@ jobs:
           ref: ${{ inputs.checkout-ref || github.sha }}
 
       - uses: ./.github/actions/setup-project
+        with:
+          bun-version: '1.3.0-canary.20251021.1'
 
       - name: Download staging metadata
         if: inputs.artifact-name != ''
