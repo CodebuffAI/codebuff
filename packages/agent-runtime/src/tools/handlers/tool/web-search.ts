@@ -1,6 +1,5 @@
-import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
-
 import { searchWeb } from '@codebuff/agent-runtime/llm-apis/linkup-api'
+import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type {
