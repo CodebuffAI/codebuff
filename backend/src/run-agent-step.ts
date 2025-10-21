@@ -21,7 +21,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { runProgrammaticStep } from './run-programmatic-step'
-import { getAgentPrompt } from './templates/strings'
+import { getAgentPrompt } from '@codebuff/agent-runtime/templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from '@codebuff/agent-runtime/util/agent-output'
 
