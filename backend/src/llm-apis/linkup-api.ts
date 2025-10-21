@@ -27,8 +27,9 @@ export async function searchWeb(options: {
   query: string
   depth?: 'standard' | 'deep'
   logger: Logger
+  fetch: typeof globalThis.fetch
 }): Promise<string | null> {
-  const { query, depth = 'standard', logger } = options
+  const { query, depth = 'standard', logger, fetch } = options
   const apiStartTime = Date.now()
 
   const requestBody = {

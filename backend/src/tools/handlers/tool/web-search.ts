@@ -25,6 +25,7 @@ export const handleWebSearch = ((params: {
     fingerprintId?: string
     repoId?: string
   }
+  fetch: typeof globalThis.fetch
 }): { result: Promise<CodebuffToolOutput<'web_search'>>; state: {} } => {
   const {
     previousToolCallFinished,
@@ -35,6 +36,7 @@ export const handleWebSearch = ((params: {
     userInputId,
     repoUrl,
     state,
+    fetch,
   } = params
   const { query, depth } = toolCall.input
   const { userId, fingerprintId, repoId } = state
@@ -60,7 +62,7 @@ export const handleWebSearch = ((params: {
   const webSearchPromise: Promise<CodebuffToolOutput<'web_search'>> =
     (async () => {
       try {
-        const searchResult = await searchWeb({ query, depth, logger })
+        const searchResult = await searchWeb({ query, depth, logger, fetch })
         const searchDuration = Date.now() - searchStartTime
         const resultLength = searchResult?.length || 0
         const hasResults = Boolean(searchResult && searchResult.trim())
