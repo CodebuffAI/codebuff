@@ -175,66 +175,29 @@ jobs:
           name: cli-staging-metadata
           path: cli/release-staging/
 
-      - name: Create GitHub prerelease
-        env:
-          VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
-          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff-community
-        run: |
-          CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          RELEASE_BODY=$(cat <<'EOF'
-          ## Codecane v${VERSION} (Staging)
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
+          name: Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
+          prerelease: true
+          body: |
+            ## Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
 
-          **⚠️ This is a staging build intended for internal testing.**
+            **⚠️ This is a staging build intended for internal testing.**
 
-          ### Included Binaries
-          - `codecane-linux-x64.tar.gz`
-          - `codecane-linux-arm64.tar.gz`
-          - `codecane-darwin-x64.tar.gz`
-          - `codecane-darwin-arm64.tar.gz`
-          - `codecane-win32-x64.tar.gz`
+            ### Included Binaries
+            - `codecane-linux-x64.tar.gz`
+            - `codecane-linux-arm64.tar.gz`
+            - `codecane-darwin-x64.tar.gz`
+            - `codecane-darwin-arm64.tar.gz`
+            - `codecane-win32-x64.tar.gz`
 
-          After downloading, extract the tarball, add the binary to your PATH, and run `codecane --help` for usage.
-          EOF
-          )
-
-          curl -s -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            ${GITHUB_API_URL}/releases \
-            -d "{
-              \"tag_name\": \"v${VERSION}\",
-              \"name\": \"Codecane v${VERSION} (Staging)\",
-              \"body\": \"${RELEASE_BODY//$'\n'/\\n}\",
-              \"prerelease\": true,
-              \"published_at\": \"$CURRENT_TIME\"
-            }"
-
-      - name: Upload release assets
-        env:
-          VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
-          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff-community
-          GITHUB_UPLOADS_URL: https://uploads.github.com/repos/CodebuffAI/codebuff-community
-        run: |
-          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-            "${GITHUB_API_URL}/releases/tags/v${VERSION}" | jq -r '.id')
-
-          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
-            echo "Failed to resolve release ID for v${VERSION}"
-            exit 1
-          fi
-
-          for file in binaries/*/codecane-*; do
-            if [ -f "$file" ]; then
-              FILENAME=$(basename "$file")
-              echo "Uploading $FILENAME"
-              curl -s -X POST \
-                -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-                -H "Content-Type: application/octet-stream" \
-                --data-binary @"$file" \
-                "${GITHUB_UPLOADS_URL}/releases/$RELEASE_ID/assets?name=$FILENAME"
-            fi
-          done
+            After downloading, extract the tarball, add the binary to your PATH, and run `codecane --help` for usage.
+          files: |
+            binaries/*/codecane-*
+          repository: codebuff-community/codebuff
+          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
 
   publish-staging-npm:
     needs:
