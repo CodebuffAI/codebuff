@@ -4,7 +4,7 @@ import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { hasLazyEdit } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'
 
-import { fastRewrite, shouldAddFilePlaceholders } from './fast-rewrite'
+import { fastRewrite, shouldAddFilePlaceholders } from '@codebuff/agent-runtime/fast-rewrite'
 import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,

@@ -1,5 +1,5 @@
-import { promptFlashWithFallbacks } from '@codebuff/agent-runtime/llm-api/gemini-with-fallbacks'
-import { promptRelaceAI } from '@codebuff/agent-runtime/llm-api/relace-api'
+import { promptFlashWithFallbacks } from './llm-api/gemini-with-fallbacks'
+import { promptRelaceAI } from './llm-api/relace-api'
 import { models, openaiModels } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
