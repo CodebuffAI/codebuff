@@ -79,7 +79,7 @@ async function handleStartAction(params: {
         agentId,
         ancestorRunIds: validatedAncestorRunIds,
       },
-      'Failed to start agent run'
+      'Failed to start agent run',
     )
     trackEvent({
       event: AnalyticsEvent.AGENT_RUN_CREATION_ERROR,
@@ -92,7 +92,7 @@ async function handleStartAction(params: {
     })
     return NextResponse.json(
       { error: 'Failed to create agent run' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -160,7 +160,7 @@ async function handleFinishAction(params: {
     })
     return NextResponse.json(
       { error: 'Failed to finish agent run' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -179,17 +179,21 @@ export async function agentRunsPost(params: {
   if (!apiKey) {
     return NextResponse.json(
       { error: 'Missing or invalid Authorization header' },
-      { status: 401 }
+      { status: 401 },
     )
   }
 
   // Get user info
-  const userInfo = await getUserInfoFromApiKey({ apiKey, fields: ['id'] })
+  const userInfo = await getUserInfoFromApiKey({
+    apiKey,
+    fields: ['id'],
+    logger,
+  })
 
   if (!userInfo) {
     return NextResponse.json(
       { error: 'Invalid API key or user not found' },
-      { status: 404 }
+      { status: 404 },
     )
   }
 
@@ -207,7 +211,7 @@ export async function agentRunsPost(params: {
   } catch (error) {
     return NextResponse.json(
       { error: 'Invalid JSON in request body' },
-      { status: 400 }
+      { status: 400 },
     )
   }
 
@@ -223,7 +227,7 @@ export async function agentRunsPost(params: {
     })
     return NextResponse.json(
       { error: 'Invalid request body', details: parseResult.error.format() },
-      { status: 400 }
+      { status: 400 },
     )
   }
 

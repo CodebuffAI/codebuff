@@ -1,4 +1,5 @@
 import { trackEvent } from '@codebuff/common/analytics'
+
 import type { NextRequest } from 'next/server'
 
 import { meGet } from '@/api/v1/me'

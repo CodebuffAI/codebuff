@@ -113,8 +113,13 @@ const onPrompt = async (
     { fingerprintId, clientRequestId: promptId, costMode },
     async () => {
       const userId = authToken
-        ? (await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] }))
-            ?.id
+        ? (
+            await getUserInfoFromApiKey({
+              apiKey: authToken,
+              fields: ['id'],
+              logger,
+            })
+          )?.id
         : null
       if (!userId) {
         throw new Error('User not found')
@@ -291,7 +296,13 @@ const onInit = async (params: {
 
   await withLoggerContext({ fingerprintId }, async () => {
     const userId = authToken
-      ? (await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] }))?.id
+      ? (
+          await getUserInfoFromApiKey({
+            apiKey: authToken,
+            fields: ['id'],
+            logger,
+          })
+        )?.id
       : undefined
 
     if (!userId) {
@@ -334,7 +345,11 @@ const onCancelUserInput = async (params: {
   const { authToken, promptId } = action
 
   const userId = (
-    await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] })
+    await getUserInfoFromApiKey({
+      apiKey: authToken,
+      fields: ['id'],
+      logger,
+    })
   )?.id
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')

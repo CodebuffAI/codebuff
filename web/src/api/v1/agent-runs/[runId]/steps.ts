@@ -44,7 +44,11 @@ export async function agentRunsStepsPost(params: {
   }
 
   // Get user info
-  const userInfo = await getUserInfoFromApiKey({ apiKey, fields: ['id'] })
+  const userInfo = await getUserInfoFromApiKey({
+    apiKey,
+    fields: ['id'],
+    logger,
+  })
 
   if (!userInfo) {
     return NextResponse.json(

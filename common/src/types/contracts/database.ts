@@ -10,6 +10,7 @@ export type UserColumn = keyof User
 export type GetUserInfoFromApiKeyInput<T extends UserColumn> = {
   apiKey: string
   fields: readonly T[]
+  logger: Logger
 }
 export type GetUserInfoFromApiKeyOutput<T extends UserColumn> = Promise<
   | {

@@ -74,7 +74,11 @@ export async function chatCompletionsPost(params: {
     }
 
     // Get user info
-    const userInfo = await getUserInfoFromApiKey({ apiKey, fields: ['id'] })
+    const userInfo = await getUserInfoFromApiKey({
+      apiKey,
+      fields: ['id'],
+      logger,
+    })
     if (!userInfo) {
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_AUTH_ERROR,

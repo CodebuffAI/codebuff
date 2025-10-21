@@ -26,6 +26,7 @@ import {
 import { withAppContext } from '../context/app-context'
 import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 import { checkAuth } from '../util/check-auth'
+import { logger } from '../util/logger'
 
 import type { ClientAction, ServerAction } from '@codebuff/common/actions'
 import type {
@@ -119,6 +120,7 @@ export class WebSocketMiddleware {
         ? await getUserInfoFromApiKey({
             apiKey: action.authToken,
             fields: ['id'],
+            logger,
           })
         : null
 
@@ -171,6 +173,7 @@ export class WebSocketMiddleware {
           ? await getUserInfoFromApiKey({
               apiKey: action.authToken!,
               fields: ['id', 'email', 'discord_id'],
+              logger,
             })
           : undefined
 
