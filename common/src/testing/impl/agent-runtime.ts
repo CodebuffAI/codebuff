@@ -31,6 +31,13 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
 
+  // Billing
+  consumeCreditsWithFallback: async () => {
+    throw new Error(
+      'consumeCreditsWithFallback not implemented in test runtime',
+    )
+  },
+
   // LLM
   promptAiSdkStream: async function* () {
     throw new Error('promptAiSdkStream not implemented in test runtime')
