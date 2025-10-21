@@ -95,14 +95,6 @@ export const testimonials: Testimonial[][] = [
     },
     {
       quote:
-        'codebuff is amazing; I use it over Claude for all my coding projects now',
-      author: 'Janna Lu',
-      title: 'Economics PhD Candidate',
-      avatar: '/testimonials/janna-lu.jpg',
-      link: '/testimonials/proof/janna-lu.png',
-    },
-    {
-      quote:
         "Im basically hiring an engineer for $50/month, that's how I see it",
       author: 'Shardool Patel',
       title: 'Founder & CTO',
