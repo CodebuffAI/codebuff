@@ -14,7 +14,7 @@ import { escapeString } from '@codebuff/common/util/string'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
-import { buildSpawnableAgentsDescription } from './prompts'
+import { buildSpawnableAgentsDescription } from '@codebuff/agent-runtime/templates/prompts'
 import {
   fullToolList,
   getShortToolInstructions,
