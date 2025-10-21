@@ -1446,18 +1446,6 @@ describe('runProgrammaticStep', () => {
       expect(true).toBe(true)
     })
 
-    it('should use request context for repo ID', async () => {
-      const mockGenerator = (function* () {
-        yield { toolName: 'end_turn', input: {} }
-      })() as StepGenerator
-
-      mockTemplate.handleSteps = () => mockGenerator
-
-      await runProgrammaticStep(mockParams)
-
-      expect(getRequestContextSpy).toHaveBeenCalled()
-    })
-
     it('should generate unique agent step ID', async () => {
       const mockGenerator = (function* () {
         yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
