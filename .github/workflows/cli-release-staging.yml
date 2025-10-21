@@ -178,7 +178,7 @@ jobs:
       - name: Create GitHub prerelease
         env:
           VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
-          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff
+          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff-community
         run: |
           CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           RELEASE_BODY=$(cat <<'EOF'
@@ -213,8 +213,8 @@ jobs:
       - name: Upload release assets
         env:
           VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
-          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff
-          GITHUB_UPLOADS_URL: https://uploads.github.com/repos/CodebuffAI/codebuff
+          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff-community
+          GITHUB_UPLOADS_URL: https://uploads.github.com/repos/CodebuffAI/codebuff-community
         run: |
           RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
             "${GITHUB_API_URL}/releases/tags/v${VERSION}" | jq -r '.id')
