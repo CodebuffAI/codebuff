@@ -155,6 +155,7 @@ async function main() {
     `--target=${targetInfo.bunTarget}`,
     `--outfile=${outputFile}`,
     '--sourcemap=none',
+    '--jsx=react-jsx',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
   ]
 
@@ -170,7 +171,9 @@ async function main() {
     chmodSync(outputFile, 0o755)
   }
 
-  logAlways(`✅ Built ${outputFilename} (${targetInfo.platform}-${targetInfo.arch})`)
+  logAlways(
+    `✅ Built ${outputFilename} (${targetInfo.platform}-${targetInfo.arch})`,
+  )
 }
 
 main().catch((error: unknown) => {
@@ -232,9 +235,13 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
     },
   ]
 
-  const missingTargets = installTargets.filter(({ packageDir }) => !existsSync(packageDir))
+  const missingTargets = installTargets.filter(
+    ({ packageDir }) => !existsSync(packageDir),
+  )
   if (missingTargets.length === 0) {
-    log(`OpenTUI native bundle already present for ${targetInfo.platform}-${targetInfo.arch}`)
+    log(
+      `OpenTUI native bundle already present for ${targetInfo.platform}-${targetInfo.arch}`,
+    )
     return
   }
 
@@ -252,7 +259,9 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
   }
   const version = corePackageJson.optionalDependencies?.[packageName]
   if (!version) {
-    log(`No optional dependency declared for ${packageName}; skipping native bundle fetch`)
+    log(
+      `No optional dependency declared for ${packageName}; skipping native bundle fetch`,
+    )
     return
   }
 
@@ -306,15 +315,27 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
       mkdirSync(target.packageDir, { recursive: true })
 
       if (!existsSync(target.packageDir)) {
-        throw new Error(`Failed to create directory for ${packageName}: ${target.packageDir}`)
+        throw new Error(
+          `Failed to create directory for ${packageName}: ${target.packageDir}`,
+        )
       }
 
       const tarballForTar =
-        process.platform === 'win32' ? tarballPath.replace(/\\/g, '/') : tarballPath
+        process.platform === 'win32'
+          ? tarballPath.replace(/\\/g, '/')
+          : tarballPath
       const extractDirForTar =
-        process.platform === 'win32' ? target.packageDir.replace(/\\/g, '/') : target.packageDir
+        process.platform === 'win32'
+          ? target.packageDir.replace(/\\/g, '/')
+          : target.packageDir
 
-      const tarArgs = ['-xzf', tarballForTar, '--strip-components=1', '-C', extractDirForTar]
+      const tarArgs = [
+        '-xzf',
+        tarballForTar,
+        '--strip-components=1',
+        '-C',
+        extractDirForTar,
+      ]
       if (process.platform === 'win32') {
         tarArgs.unshift('--force-local')
       }
@@ -324,7 +345,9 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
         `Installed OpenTUI native bundle for ${targetInfo.platform}-${targetInfo.arch} in ${target.label}`,
       )
     }
-    logAlways(`Fetched OpenTUI native bundle for ${targetInfo.platform}-${targetInfo.arch}`)
+    logAlways(
+      `Fetched OpenTUI native bundle for ${targetInfo.platform}-${targetInfo.arch}`,
+    )
   } finally {
     rmSync(tempDir, { recursive: true, force: true })
   }
