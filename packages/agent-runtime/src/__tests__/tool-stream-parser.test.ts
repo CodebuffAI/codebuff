@@ -1,18 +1,12 @@
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
-import { describe, expect, it } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { globalStopSequence } from '../constants'
 import { processStreamWithTags } from '../tool-stream-parser'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-
-const logger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-}
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
 describe('processStreamWithTags', () => {
   async function* createMockStream(chunks: string[]) {
@@ -22,6 +16,12 @@ describe('processStreamWithTags', () => {
 
     return 'mock-message-id'
   }
+
+  let agentRuntimeImpl: AgentRuntimeDeps
+
+  beforeEach(() => {
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+  })
 
   it('should handle basic tool call parsing', async () => {
     const streamChunks = [
@@ -62,12 +62,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -130,12 +130,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -207,12 +207,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -283,12 +283,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -350,12 +350,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -416,12 +416,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -489,12 +489,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -556,12 +556,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -613,12 +613,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -656,12 +656,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -717,12 +717,12 @@ describe('processStreamWithTags', () => {
     }
 
     for await (const chunk of processStreamWithTags({
+      ...agentRuntimeImpl,
       stream,
       processors,
       defaultProcessor,
       onError,
       onResponseChunk,
-      logger,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -788,12 +788,12 @@ describe('processStreamWithTags', () => {
       }
 
       for await (const chunk of processStreamWithTags({
+        ...agentRuntimeImpl,
         stream,
         processors,
         defaultProcessor,
         onError,
         onResponseChunk,
-        logger,
       })) {
         if (chunk.type === 'text') {
           result.push(chunk.text)

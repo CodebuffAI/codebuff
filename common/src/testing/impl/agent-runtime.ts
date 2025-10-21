@@ -47,6 +47,9 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   liveUserInputRecord: {},
   sessionConnections: {},
 
+  // Analytics
+  trackEvent: () => {},
+
   // Other
   logger: testLogger,
   fetch: testFetch,

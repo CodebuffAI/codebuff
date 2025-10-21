@@ -29,6 +29,9 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   sessionConnections: {},
   databaseAgentCache: new Map<string, AgentTemplate | null>(),
 
+  // Analytics
+  trackEvent: () => {},
+
   // Other
   logger: console,
   fetch: globalThis.fetch,

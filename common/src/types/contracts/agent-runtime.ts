@@ -1,3 +1,4 @@
+import type { TrackEventFn } from './analytics'
 import type {
   HandleStepsLogChunkFn,
   RequestFilesFn,
@@ -40,6 +41,9 @@ export type AgentRuntimeDeps = {
   databaseAgentCache: DatabaseAgentCache
   liveUserInputRecord: UserInputRecord
   sessionConnections: SessionRecord
+
+  // Analytics
+  trackEvent: TrackEventFn
 
   // Other
   logger: Logger

@@ -69,11 +69,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     mockModule('@codebuff/bigquery', () => ({
       insertTrace: () => {},
     }))
-
-    // Mock template strings
-    mockModule('@codebuff/backend/templates/strings', () => ({
-      getAgentPrompt: async () => 'Mock prompt',
-    }))
   })
 
   beforeEach(() => {

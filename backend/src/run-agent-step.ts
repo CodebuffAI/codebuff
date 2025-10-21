@@ -3,6 +3,8 @@ import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
 import { getAgentStreamFromTemplate } from '@codebuff/agent-runtime/prompt-agent-stream'
 import { additionalSystemPrompts } from '@codebuff/agent-runtime/system-prompt/prompts'
 import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
+import { getAgentPrompt } from '@codebuff/agent-runtime/templates/strings'
+import { getAgentOutput } from '@codebuff/agent-runtime/util/agent-output'
 import {
   asSystemInstruction,
   asSystemMessage,
@@ -12,7 +14,6 @@ import {
 } from '@codebuff/agent-runtime/util/messages'
 import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
-import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
@@ -21,13 +22,11 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { runProgrammaticStep } from './run-programmatic-step'
-import { getAgentPrompt } from '@codebuff/agent-runtime/templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
-import { getAgentOutput } from '@codebuff/agent-runtime/util/agent-output'
 
 import type { AgentResponseTrace } from '@codebuff/bigquery'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { SendActionFn } from '@codebuff/common/types/contracts/client'
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   AddAgentStepFn,
   FinishAgentRunFn,
@@ -61,7 +60,6 @@ export const runAgentStep = async (
     fingerprintId: string
     repoId: string | undefined
     onResponseChunk: (chunk: string | PrintModeEvent) => void
-    sendAction: SendActionFn
 
     agentType: AgentTemplateType
     fileContext: ProjectFileContext
@@ -71,6 +69,8 @@ export const runAgentStep = async (
     prompt: string | undefined
     spawnParams: Record<string, any> | undefined
     system: string
+
+    trackEvent: TrackEventFn
   } & ParamsExcluding<
     typeof processStreamWithTools,
     | 'stream'
@@ -116,7 +116,6 @@ export const runAgentStep = async (
     clientSessionId,
     repoId,
     onResponseChunk,
-    sendAction,
     fileContext,
     agentType,
     localAgentTemplates,
@@ -124,7 +123,7 @@ export const runAgentStep = async (
     spawnParams,
     system,
     logger,
-    promptAiSdkStream,
+    trackEvent,
   } = params
   let agentState = params.agentState
 

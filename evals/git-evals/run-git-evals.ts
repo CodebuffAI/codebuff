@@ -162,6 +162,7 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
               liveUserInputRecord: {},
               sessionConnections: {},
               logger: console,
+              trackEvent: () => {},
             })
       } catch (agentError) {
         throw new Error(

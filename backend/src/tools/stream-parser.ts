@@ -72,6 +72,10 @@ export async function processStreamWithTools(
     ParamsExcluding<
       typeof executeBatchStrReplaces,
       'deferredStrReplaces' | 'toolCalls' | 'toolResults' | 'state'
+    > &
+    ParamsExcluding<
+      typeof processStreamWithTags,
+      'processors' | 'defaultProcessor' | 'onError' | 'loggerOptions'
     >,
 ) {
   const {
@@ -219,7 +223,7 @@ export async function processStreamWithTools(
   }
 
   const streamWithTags = processStreamWithTags({
-    stream,
+    ...params,
     processors: Object.fromEntries([
       ...toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
       ...Object.keys(fileContext.customToolDefinitions).map((toolName) => [
@@ -238,8 +242,6 @@ export async function processStreamWithTools(
       toolResults.push(cloneDeep(toolResult))
       toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     },
-    onResponseChunk,
-    logger,
     loggerOptions: {
       userId,
       model: agentTemplate.model,

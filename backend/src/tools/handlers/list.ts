@@ -2,7 +2,7 @@ import { handleAddMessage } from '@codebuff/agent-runtime/tools/handlers/tool/ad
 import { handleAddSubgoal } from '@codebuff/agent-runtime/tools/handlers/tool/add-subgoal'
 import { handleBrowserLogs } from '@codebuff/agent-runtime/tools/handlers/tool/browser-logs'
 import { handleCodeSearch } from '@codebuff/agent-runtime/tools/handlers/tool/code-search'
-import { handleCreatePlan } from './tool/create-plan'
+import { handleCreatePlan } from '@codebuff/agent-runtime/tools/handlers/tool/create-plan'
 import { handleEndTurn } from '@codebuff/agent-runtime/tools/handlers/tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleGlob } from '@codebuff/agent-runtime/tools/handlers/tool/glob'

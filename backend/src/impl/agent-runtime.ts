@@ -1,3 +1,5 @@
+import { trackEvent } from '@codebuff/common/analytics'
+
 import { addAgentStep, finishAgentRun, startAgentRun } from '../agent-run'
 import {
   promptAiSdk,
@@ -28,6 +30,9 @@ export const BACKEND_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
   databaseAgentCache: new Map<string, AgentTemplate | null>(),
   liveUserInputRecord: {},
   sessionConnections: {},
+
+  // Analytics
+  trackEvent,
 
   // Other
   logger,
