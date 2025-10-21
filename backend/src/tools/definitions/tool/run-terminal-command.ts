@@ -1,6 +1,5 @@
+import { gitCommitGuidePrompt } from '@codebuff/agent-runtime/system-prompt/prompts'
 import { getToolCallString } from '@codebuff/common/tools/utils'
-
-import { gitCommitGuidePrompt } from '../../../system-prompt/prompts'
 
 import type { ToolDescription } from '../tool-def-type'
 

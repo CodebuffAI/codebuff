@@ -1,3 +1,8 @@
+import {
+  getGitChangesPrompt,
+  getProjectFileTreePrompt,
+  getSystemInfoPrompt,
+} from '@codebuff/agent-runtime/system-prompt/prompts'
 import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import {
   PLACEHOLDER,
@@ -10,11 +15,6 @@ import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
 import { buildSpawnableAgentsDescription } from './prompts'
-import {
-  getGitChangesPrompt,
-  getProjectFileTreePrompt,
-  getSystemInfoPrompt,
-} from '../system-prompt/prompts'
 import {
   fullToolList,
   getShortToolInstructions,

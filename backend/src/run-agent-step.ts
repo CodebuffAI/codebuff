@@ -1,6 +1,7 @@
 import { checkLiveUserInput } from '@codebuff/agent-runtime/live-user-inputs'
 import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
 import { getAgentStreamFromTemplate } from '@codebuff/agent-runtime/prompt-agent-stream'
+import { additionalSystemPrompts } from '@codebuff/agent-runtime/system-prompt/prompts'
 import { getAgentTemplate } from '@codebuff/agent-runtime/templates/agent-registry'
 import {
   asSystemInstruction,
@@ -20,7 +21,6 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { runProgrammaticStep } from './run-programmatic-step'
-import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'

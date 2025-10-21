@@ -3,14 +3,13 @@ import {
   requestRelevantFilesForTraining,
 } from '@codebuff/agent-runtime/find-files/request-files-prompt'
 import { getFileReadingUpdates } from '@codebuff/agent-runtime/get-file-reading-updates'
+import { getSearchSystemPrompt } from '@codebuff/agent-runtime/system-prompt/search-system-prompt'
 import { renderReadFilesResult } from '@codebuff/agent-runtime/util/render-read-files-result'
 import {
   countTokens,
   countTokensJson,
 } from '@codebuff/agent-runtime/util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
-
-import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
 
 import type { CodebuffToolHandlerFunction } from '@codebuff/agent-runtime/tools/handlers/handler-function-type'
 import type { GetExpandedFileContextForTrainingBlobTrace } from '@codebuff/bigquery'
