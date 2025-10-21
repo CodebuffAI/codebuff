@@ -6,33 +6,40 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
-export const handleReadDocs = (({
-  previousToolCallFinished,
-  toolCall,
-  logger,
-  agentStepId,
-  clientSessionId,
-  userInputId,
-  state,
-}: {
-  previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'read_docs'>
-  logger: Logger
+export const handleReadDocs = ((
+  params: {
+    previousToolCallFinished: Promise<void>
+    toolCall: CodebuffToolCall<'read_docs'>
+    logger: Logger
 
-  agentStepId: string
-  clientSessionId: string
-  userInputId: string
+    agentStepId: string
+    clientSessionId: string
+    userInputId: string
 
-  state: {
-    userId?: string
-    fingerprintId?: string
-    repoId?: string
-  }
-}): {
+    state: {
+      userId?: string
+      fingerprintId?: string
+      repoId?: string
+    }
+  } & ParamsExcluding<
+    typeof fetchContext7LibraryDocumentation,
+    'query' | 'topic' | 'tokens'
+  >,
+): {
   result: Promise<CodebuffToolOutput<'read_docs'>>
   state: {}
 } => {
+  const {
+    previousToolCallFinished,
+    toolCall,
+    logger,
+    agentStepId,
+    clientSessionId,
+    userInputId,
+    state,
+  } = params
   const { libraryTitle, topic, max_tokens } = toolCall.input
   const { userId, fingerprintId, repoId } = state
   if (!userId) {
@@ -61,10 +68,10 @@ export const handleReadDocs = (({
   const documentationPromise = (async () => {
     try {
       const documentation = await fetchContext7LibraryDocumentation({
+        ...params,
         query: libraryTitle,
         topic,
         tokens: max_tokens,
-        logger,
       })
 
       const docsDuration = Date.now() - docsStartTime

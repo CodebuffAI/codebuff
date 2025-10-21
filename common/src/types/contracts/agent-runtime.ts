@@ -43,6 +43,7 @@ export type AgentRuntimeDeps = {
 
   // Other
   logger: Logger
+  fetch: typeof globalThis.fetch
 }
 
 export type AgentRuntimeScopedDeps = {

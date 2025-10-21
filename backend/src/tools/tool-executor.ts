@@ -1,5 +1,6 @@
 import { checkLiveUserInput } from '@codebuff/agent-runtime/live-user-inputs'
 import { getMCPToolData } from '@codebuff/agent-runtime/mcp'
+import { codebuffToolDefs } from '@codebuff/agent-runtime/tools/definitions/list'
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { type ToolCallPart } from 'ai'
@@ -7,7 +8,6 @@ import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import { codebuffToolDefs } from '@codebuff/agent-runtime/tools/definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
 
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
@@ -133,6 +133,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   userId: string | undefined
   autoInsertEndStepParam?: boolean
   excludeToolFromMessageHistory?: boolean
+  fetch: typeof globalThis.fetch
   fromHandleSteps?: boolean
 } & AgentRuntimeDeps &
   AgentRuntimeScopedDeps
@@ -231,19 +232,14 @@ export function executeToolCall<T extends ToolName>(
   }
 
   // Cast to any to avoid type errors
-  const handler = codebuffToolHandlers[toolName] as any
+  const handler = codebuffToolHandlers[
+    toolName
+  ] as unknown as CodebuffToolHandlerFunction<T>
   const { result: toolResultPromise, state: stateUpdate } = handler({
     ...params,
     previousToolCallFinished,
-    fileContext,
-    agentStepId,
-    clientSessionId,
-    userInputId,
-    repoUrl,
-    repoId,
-    fullResponse,
     writeToClient: onResponseChunk,
-    requestClientToolCall: async (
+    requestClientToolCall: (async (
       clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
     ) => {
       if (!checkLiveUserInput(params)) {
@@ -256,11 +252,11 @@ export function executeToolCall<T extends ToolName>(
         input: clientToolCall.input,
       })
       return clientToolResult.output as CodebuffToolOutput<T>
-    },
+    }) as any,
     toolCall,
     getLatestState: () => state,
     state,
-  }) as ReturnType<CodebuffToolHandlerFunction<T>>
+  })
 
   for (const [key, value] of Object.entries(stateUpdate ?? {})) {
     if (key === 'agentState' && typeof value === 'object' && value !== null) {

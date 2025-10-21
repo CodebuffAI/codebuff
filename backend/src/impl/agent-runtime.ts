@@ -31,4 +31,5 @@ export const BACKEND_AGENT_RUNTIME_IMPL: AgentRuntimeDeps = Object.freeze({
 
   // Other
   logger,
+  fetch: globalThis.fetch,
 })

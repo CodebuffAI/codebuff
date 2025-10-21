@@ -12,6 +12,13 @@ export const testLogger: Logger = {
   warn: () => {},
 }
 
+export const testFetch = async () => {
+  throw new Error('fetch not implemented in test runtime')
+}
+testFetch.preconnect = async () => {
+  throw new Error('fetch.preconnect not implemented in test runtime')
+}
+
 export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   // Database
   getUserInfoFromApiKey: async () => ({
@@ -42,6 +49,7 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
 
   // Other
   logger: testLogger,
+  fetch: testFetch,
 })
 
 export const TEST_AGENT_RUNTIME_SCOPED_IMPL =

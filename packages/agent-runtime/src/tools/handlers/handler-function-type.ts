@@ -30,6 +30,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     fileContext: ProjectFileContext
 
     fullResponse: string
+    fetch: typeof globalThis.fetch
 
     writeToClient: (chunk: string | PrintModeEvent) => void
 

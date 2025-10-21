@@ -27,24 +27,20 @@ const DELIMITER = `\n\n----------------------------------------\n\n`
 export async function getDocumentationForQuery(
   params: {
     query: string
-    tokens?: number
     clientSessionId: string
     userInputId: string
     fingerprintId: string
     userId?: string
     logger: Logger
   } & ParamsOf<typeof suggestLibraries> &
-    ParamsExcluding<typeof filterRelevantChunks, 'allChunks'>,
+    ParamsExcluding<typeof filterRelevantChunks, 'allChunks'> &
+    ParamsExcluding<
+      typeof fetchContext7LibraryDocumentation,
+      'query' | 'topic'
+    >,
 ): Promise<string | null> {
-  const {
-    query,
-    tokens,
-    clientSessionId,
-    userInputId,
-    fingerprintId,
-    userId,
-    logger,
-  } = params
+  const { query, clientSessionId, userInputId, fingerprintId, userId, logger } =
+    params
   const startTime = Date.now()
 
   // 1. Search for relevant libraries
@@ -70,10 +66,9 @@ export async function getDocumentationForQuery(
     await Promise.all(
       libraries.map(({ libraryName, topic }) =>
         fetchContext7LibraryDocumentation({
+          ...params,
           query: libraryName,
-          tokens,
           topic,
-          logger,
         }),
       ),
     )

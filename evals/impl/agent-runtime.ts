@@ -31,4 +31,5 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
 
   // Other
   logger: console,
+  fetch: globalThis.fetch,
 })

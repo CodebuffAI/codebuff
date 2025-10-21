@@ -1,8 +1,8 @@
 import { withTimeout } from '@codebuff/common/util/promise'
 import { env } from '@codebuff/internal/env'
 
-import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 
 const CONTEXT7_API_BASE_URL = 'https://context7.com/api/v1'
 const DEFAULT_TYPE = 'txt'
@@ -46,8 +46,9 @@ export interface SearchResult {
 export async function searchLibraries(params: {
   query: string
   logger: Logger
+  fetch: typeof globalThis.fetch
 }): Promise<SearchResult[] | null> {
-  const { query, logger } = params
+  const { query, logger, fetch } = params
 
   const searchStartTime = Date.now()
   const searchContext = {
@@ -137,9 +138,10 @@ export async function fetchContext7LibraryDocumentation(
     topic?: string
     folders?: string
     logger: Logger
+    fetch: typeof globalThis.fetch
   } & ParamsOf<typeof searchLibraries>,
 ): Promise<string | null> {
-  const { query, tokens, topic, folders, logger } = params
+  const { query, tokens, topic, folders, logger, fetch } = params
 
   const apiStartTime = Date.now()
   const apiContext = {
