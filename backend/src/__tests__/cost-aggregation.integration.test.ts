@@ -1,4 +1,5 @@
 import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
+import { mainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import * as agentRegistry from '@codebuff/agent-runtime/templates/agent-registry'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import {
@@ -18,7 +19,6 @@ import {
 } from 'bun:test'
 
 import * as messageCostTracker from '../llm-apis/message-cost-tracker'
-import { mainPrompt } from '../main-prompt'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
