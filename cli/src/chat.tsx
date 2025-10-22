@@ -629,32 +629,47 @@ export const App = ({
           backgroundColor: theme.panelBg,
         }}
       >
-        {(hasStatus || queuedMessages.length > 0) && (
-          <>
-            <text wrap={false} style={{ width: '100%' }}>
-              <StatusIndicator
-                isProcessing={isWaitingForResponse}
-                theme={theme}
-                clipboardMessage={clipboardMessage}
-              />
-              {hasStatus && queuedMessages.length > 0 && '  '}
-              {queuedMessages.length > 0 && (
-                <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
-                  {' '}
-                  {formatQueuedPreview(
-                    queuedMessages,
-                    Math.max(30, renderer.width - 25),
-                  )}{' '}
-                </span>
-              )}
-            </text>
-          </>
-        )}
-        <AgentModeToggle
-          mode={agentMode}
-          theme={theme}
-          onToggle={toggleAgentMode}
-        />
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+          }}
+        >
+          <box
+            style={{
+              flexGrow: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+          >
+            {(hasStatus || queuedMessages.length > 0) && (
+              <text wrap={false}>
+                <StatusIndicator
+                  isProcessing={isWaitingForResponse}
+                  theme={theme}
+                  clipboardMessage={clipboardMessage}
+                />
+                {hasStatus && queuedMessages.length > 0 && '  '}
+                {queuedMessages.length > 0 && (
+                  <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
+                    {' '}
+                    {formatQueuedPreview(
+                      queuedMessages,
+                      Math.max(30, renderer.width - 25),
+                    )}{' '}
+                  </span>
+                )}
+              </text>
+            )}
+          </box>
+          <AgentModeToggle
+            mode={agentMode}
+            theme={theme}
+            onToggle={toggleAgentMode}
+          />
+        </box>
         <Separator theme={theme} width={renderer.width} />
         {slashContext.active && slashSuggestionItems.length > 0 ? (
           <SuggestionMenu

@@ -19,7 +19,7 @@ export const AgentModeToggle = ({
     <box
       style={{
         flexDirection: 'row',
-        alignSelf: 'flex-end',
+        alignItems: 'center',
         backgroundColor: bgColor,
         paddingLeft: isFast ? 2 : 1,
         paddingRight: isFast ? 2 : 1,
