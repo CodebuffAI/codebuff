@@ -44,6 +44,7 @@ export type PromptAiSdkStreamFn = (
 
 export type PromptAiSdkFn = (
   params: {
+    apiKey: string
     messages: Message[]
     clientSessionId: string
     fingerprintId: string

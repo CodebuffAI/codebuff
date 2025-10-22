@@ -174,6 +174,7 @@ File Changes:\n${fileContext}`
       sessionConnections: {},
       logger: console,
       trackEvent: () => {},
+      apiKey: 'unused-api-key',
     })
 
     // Extract spec from <spec></spec> tags

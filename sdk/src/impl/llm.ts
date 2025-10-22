@@ -8,12 +8,15 @@ import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
-import { streamText, APICallError } from 'ai'
+import { streamText, APICallError, generateText } from 'ai'
 
 import { WEBSITE_URL } from '../constants'
 
 import type { LanguageModelV2 } from '@ai-sdk/provider'
-import type { PromptAiSdkStreamFn } from '@codebuff/common/types/contracts/llm'
+import type {
+  PromptAiSdkFn,
+  PromptAiSdkStreamFn,
+} from '@codebuff/common/types/contracts/llm'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type {
   OpenRouterProviderOptions,
@@ -206,21 +209,99 @@ export async function* promptAiSdkStream(
   return messageId
 }
 
-for await (const chunk of promptAiSdkStream({
-  apiKey: '12345',
-  messages: [{ role: 'user', content: 'Hello' }],
-  clientSessionId: 'test-session',
-  fingerprintId: 'test-fingerprint',
-  model: 'openai/gpt-5',
-  userId: 'test-user-id',
-  userInputId: '64a2e61f-1fab-4701-8651-7ff7a473e97a',
-  sendAction: () => {},
-  logger: console,
-  trackEvent: () => {},
-  liveUserInputRecord: {
-    'test-user-id': ['64a2e61f-1fab-4701-8651-7ff7a473e97a'],
-  },
-  sessionConnections: { 'test-session': true },
-})) {
-  console.dir({ asdf: chunk }, { depth: null })
+export async function promptAiSdk(
+  params: ParamsOf<PromptAiSdkFn>,
+): ReturnType<PromptAiSdkFn> {
+  const { logger } = params
+
+  if (!checkLiveUserInput(params)) {
+    logger.info(
+      {
+        userId: params.userId,
+        userInputId: params.userInputId,
+        liveUserInputId: getLiveUserInputIds(params),
+      },
+      'Skipping prompt due to canceled user input',
+    )
+    return ''
+  }
+
+  const startTime = Date.now()
+  let aiSDKModel = getAiSdkModel(params)
+
+  const response = await generateText({
+    ...params,
+    prompt: undefined,
+    model: aiSDKModel,
+    messages: convertCbToModelMessages(params),
+    providerOptions: {
+      codebuff: {
+        codebuff_metadata: {
+          run_id: params.userInputId,
+          client_id: params.clientSessionId,
+        },
+      },
+    },
+  })
+  const content = response.text
+
+  const messageId = response.response.id
+  const providerMetadata = response.providerMetadata ?? {}
+  const usage = response.usage
+  let inputTokens = usage.inputTokens || 0
+  const outputTokens = usage.outputTokens || 0
+  let cacheReadInputTokens: number = 0
+  let cacheCreationInputTokens: number = 0
+  let costOverrideDollars: number | undefined
+  if (providerMetadata.anthropic) {
+    cacheReadInputTokens =
+      typeof providerMetadata.anthropic.cacheReadInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheReadInputTokens
+        : 0
+    cacheCreationInputTokens =
+      typeof providerMetadata.anthropic.cacheCreationInputTokens === 'number'
+        ? providerMetadata.anthropic.cacheCreationInputTokens
+        : 0
+  }
+  if (providerMetadata.openrouter) {
+    if (providerMetadata.openrouter.usage) {
+      const openrouterUsage = providerMetadata.openrouter
+        .usage as OpenRouterUsageAccounting
+      cacheReadInputTokens =
+        openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
+      inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
+
+      costOverrideDollars =
+        (openrouterUsage.cost ?? 0) +
+        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+    }
+  }
+
+  // Call the cost callback if provided
+  if (params.onCostCalculated && costOverrideDollars) {
+    const creditsUsed = costOverrideDollars * (1 + PROFIT_MARGIN)
+    await params.onCostCalculated(creditsUsed)
+  }
+
+  return content
 }
+
+console.log(
+  await promptAiSdk({
+    apiKey: '12345',
+    messages: [{ role: 'user', content: 'Hello' }],
+    clientSessionId: 'test-session',
+    fingerprintId: 'test-fingerprint',
+    model: 'openai/gpt-5',
+    userId: 'test-user-id',
+    userInputId: '64a2e61f-1fab-4701-8651-7ff7a473e97a',
+    sendAction: () => {},
+    logger: console,
+    trackEvent: () => {},
+    liveUserInputRecord: {
+      'test-user-id': ['64a2e61f-1fab-4701-8651-7ff7a473e97a'],
+    },
+    sessionConnections: { 'test-session': true },
+  }),
+  'asdf',
+)
