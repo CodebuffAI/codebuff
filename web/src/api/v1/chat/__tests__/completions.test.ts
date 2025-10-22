@@ -66,14 +66,14 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       }
     })
 
-    mockGetAgentRunFromId = mock((async ({ agentRunId }: any) => {
-      if (agentRunId === 'run-123') {
+    mockGetAgentRunFromId = mock((async ({ runId }: any) => {
+      if (runId === 'run-123') {
         return {
           agent_id: 'agent-123',
           status: 'running',
         }
       }
-      if (agentRunId === 'run-completed') {
+      if (runId === 'run-completed') {
         return {
           agent_id: 'agent-123',
           status: 'completed',
@@ -229,7 +229,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body).toEqual({ message: 'Invalid JSON in request body' })
     })
 
-    it('returns 400 when agent_run_id is missing', async () => {
+    it('returns 400 when run_id is missing', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -252,7 +252,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
       expect(response.status).toBe(400)
       const body = await response.json()
-      expect(body).toEqual({ message: 'No agentRunId found in request body' })
+      expect(body).toEqual({ message: 'No runId found in request body' })
     })
 
     it('returns 400 when agent run not found', async () => {
@@ -263,7 +263,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({
             stream: true,
-            codebuff_metadata: { agent_run_id: 'run-nonexistent' },
+            codebuff_metadata: { run_id: 'run-nonexistent' },
           }),
         },
       )
@@ -282,7 +282,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(400)
       const body = await response.json()
       expect(body).toEqual({
-        message: 'agentRunId Not Found: run-nonexistent',
+        message: 'runId Not Found: run-nonexistent',
       })
     })
 
@@ -294,7 +294,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({
             stream: true,
-            codebuff_metadata: { agent_run_id: 'run-completed' },
+            codebuff_metadata: { run_id: 'run-completed' },
           }),
         },
       )
@@ -313,7 +313,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(400)
       const body = await response.json()
       expect(body).toEqual({
-        message: 'agentRunId Not Running: run-completed',
+        message: 'runId Not Running: run-completed',
       })
     })
   })
@@ -327,7 +327,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           headers: { Authorization: 'Bearer test-api-key-no-credits' },
           body: JSON.stringify({
             stream: true,
-            codebuff_metadata: { agent_run_id: 'run-123' },
+            codebuff_metadata: { run_id: 'run-123' },
           }),
         },
       )
@@ -362,7 +362,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           body: JSON.stringify({
             stream: true,
             codebuff_metadata: {
-              agent_run_id: 'run-123',
+              run_id: 'run-123',
               client_id: 'test-client-id-123',
               client_request_id: 'test-client-session-id-123',
             },
@@ -400,7 +400,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           body: JSON.stringify({
             stream: false,
             codebuff_metadata: {
-              agent_run_id: 'run-123',
+              run_id: 'run-123',
               client_id: 'test-client-id-123',
               client_request_id: 'test-client-session-id-123',
             },
