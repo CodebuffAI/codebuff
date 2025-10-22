@@ -13,6 +13,10 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@codebuff/sdk": ["./sdk/dist/index.d.ts"],
+      "@codebuff/sdk/*": ["./sdk/dist/*"]
+    }
   }
 }
