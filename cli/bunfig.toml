@@ -1,0 +1,2 @@
+[alias]
+"react/jsx-dev-runtime" = "./src/shims/react-jsx-dev-runtime.ts"

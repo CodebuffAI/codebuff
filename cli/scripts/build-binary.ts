@@ -131,6 +131,9 @@ async function main() {
   log('Building SDK dependencies...')
   runCommand('bun', ['run', 'build:sdk'], { cwd: cliRoot })
 
+  log('Patching web-tree-sitter for binary...')
+  runCommand('bun', [join(repoRoot, 'npm-app', 'scripts', 'patch-web-tree-sitter.ts')], { cwd: repoRoot })
+
   patchOpenTuiAssetPaths()
   await ensureOpenTuiNativeBundle(targetInfo)
 
@@ -140,6 +143,11 @@ async function main() {
 
   const defineFlags = [
     ['process.env.NODE_ENV', '"production"'],
+    ['process.env.BABEL_ENV', '"production"'],
+    ['import.meta.env.MODE', '"production"'],
+    ['import.meta.env.PROD', 'true'],
+    ['import.meta.env.DEV', 'false'],
+    ['import.meta.dev', 'false'],
     ['__DEV__', 'false'],
     ['process.env.CODEBUFF_IS_BINARY', '"true"'],
     ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
@@ -159,6 +167,7 @@ async function main() {
     '--jsx=react-jsx',
     '--jsx-development=false',
     '--jsx-import-source=@opentui/react',
+    '--minify',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
   ]
 
