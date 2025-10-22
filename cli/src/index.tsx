@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import './polyfills/bun-strip-ansi'
+import 'web-tree-sitter'
 import { render } from '@opentui/react'
 import React from 'react'
 import { createRequire } from 'module'
