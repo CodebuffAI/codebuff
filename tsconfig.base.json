@@ -13,10 +13,6 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "paths": {
-      "@codebuff/sdk": ["./sdk/dist/index"],
-      "@codebuff/sdk/*": ["./sdk/dist/*"]
-    }
+    "forceConsistentCasingInFileNames": true
   }
 }

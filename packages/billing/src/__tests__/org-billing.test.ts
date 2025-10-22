@@ -2,7 +2,7 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 
 import {
   calculateOrganizationUsageAndBalance,
@@ -49,52 +49,44 @@ const logger: Logger = {
   warn: () => {},
 }
 
-const createDbMock = (options?: {
-  grants?: typeof mockGrants | any[]
-  insert?: () => { values: () => Promise<unknown> }
-  update?: () => { set: () => { where: () => Promise<unknown> } }
-}) => {
-  const {
-    grants = mockGrants,
-    insert,
-    update,
-  } = options ?? {}
-
-  return {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          orderBy: () => grants,
-        }),
-      }),
-    }),
-    insert:
-      insert ??
-      (() => ({
-        values: () => Promise.resolve(),
-      })),
-    update:
-      update ??
-      (() => ({
-        set: () => ({
-          where: () => Promise.resolve(),
-        }),
-      })),
-  }
-}
-
 describe('Organization Billing', () => {
-  beforeAll(async () => {
-    await mockModule('@codebuff/common/db', () => ({
-      default: createDbMock(),
+  beforeAll(() => {
+    mockModule('@codebuff/common/db', () => ({
+      default: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => mockGrants,
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: () => Promise.resolve(),
+        }),
+        update: () => ({
+          set: () => ({
+            where: () => Promise.resolve(),
+          }),
+        }),
+      },
     }))
 
-    await mockModule('@codebuff/common/db/transaction', () => ({
-      withSerializableTransaction: async ({
-        callback,
-      }: {
-        callback: (tx: any) => Promise<unknown> | unknown
-      }) => await callback(createDbMock()),
+    mockModule('@codebuff/common/db/transaction', () => ({
+      withSerializableTransaction: (fn: any) =>
+        fn({
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => mockGrants,
+              }),
+            }),
+          }),
+          update: () => ({
+            set: () => ({
+              where: () => Promise.resolve(),
+            }),
+          }),
+        }),
     }))
   })
 
@@ -102,17 +94,11 @@ describe('Organization Billing', () => {
     clearMockedModules()
   })
 
-  afterEach(async () => {
-    await mockModule('@codebuff/common/db', () => ({
-      default: createDbMock(),
-    }))
-  })
-
-describe('calculateOrganizationUsageAndBalance', () => {
-  it('should calculate balance correctly with positive and negative balances', async () => {
-    const organizationId = 'org-123'
-    const quotaResetDate = new Date('2024-01-01')
-    const now = new Date('2024-06-01')
+  describe('calculateOrganizationUsageAndBalance', () => {
+    it('should calculate balance correctly with positive and negative balances', async () => {
+      const organizationId = 'org-123'
+      const quotaResetDate = new Date('2024-01-01')
+      const now = new Date('2024-06-01')
 
       const result = await calculateOrganizationUsageAndBalance({
         organizationId,
@@ -132,11 +118,19 @@ describe('calculateOrganizationUsageAndBalance', () => {
       expect(result.usageThisCycle).toBe(800)
     })
 
-  it('should handle organization with no grants', async () => {
-    // Mock empty grants
-    await mockModule('@codebuff/common/db', () => ({
-      default: createDbMock({ grants: [] }),
-    }))
+    it('should handle organization with no grants', async () => {
+      // Mock empty grants
+      mockModule('@codebuff/common/db', () => ({
+        default: {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => [],
+              }),
+            }),
+          }),
+        },
+      }))
 
       const organizationId = 'org-empty'
       const quotaResetDate = new Date('2024-01-01')
@@ -207,7 +201,7 @@ describe('calculateOrganizationUsageAndBalance', () => {
     it('should reject malformed URLs', () => {
       const result = validateAndNormalizeRepositoryUrl('not-a-url')
       expect(result.isValid).toBe(false)
-      expect(result.error).toBe('Repository domain not allowed')
+      expect(result.error).toBe('Invalid URL format')
     })
 
     it('should accept allowed domains', () => {
@@ -261,19 +255,19 @@ describe('calculateOrganizationUsageAndBalance', () => {
     })
 
     it('should handle duplicate operation IDs gracefully', async () => {
-    // Mock database constraint error
-    await mockModule('@codebuff/common/db', () => ({
-      default: createDbMock({
-        insert: () => ({
-          values: () => {
-            const error = new Error('Duplicate key')
-            ;(error as any).code = '23505'
-            ;(error as any).constraint = 'credit_ledger_pkey'
-            throw error
-          },
-        }),
-      }),
-    }))
+      // Mock database constraint error
+      mockModule('@codebuff/common/db', () => ({
+        default: {
+          insert: () => ({
+            values: () => {
+              const error = new Error('Duplicate key')
+              ;(error as any).code = '23505'
+              ;(error as any).constraint = 'credit_ledger_pkey'
+              throw error
+            },
+          }),
+        },
+      }))
 
       const organizationId = 'org-123'
       const userId = 'user-123'

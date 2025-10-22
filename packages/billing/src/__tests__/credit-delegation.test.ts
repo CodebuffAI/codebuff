@@ -17,9 +17,9 @@ describe('Credit Delegation', () => {
     error: () => {},
   }
 
-  beforeAll(async () => {
+  beforeAll(() => {
     // Mock the org-billing functions that credit-delegation depends on
-    await mockModule('@codebuff/billing/org-billing', () => ({
+    mockModule('@codebuff/billing/org-billing', () => ({
       normalizeRepositoryUrl: mock((url: string) => url.toLowerCase().trim()),
       extractOwnerAndRepo: mock((url: string) => {
         if (url.includes('codebuffai/codebuff')) {
@@ -31,61 +31,26 @@ describe('Credit Delegation', () => {
     }))
 
     // Mock common dependencies
-    await mockModule('@codebuff/common/db', () => {
-      const select = mock((fields: Record<string, unknown>) => {
-        if ('orgId' in fields && 'orgName' in fields) {
-          return {
-            from: () => ({
-              innerJoin: () => ({
-                where: () =>
-                  Promise.resolve([
-                    {
-                      orgId: 'org-123',
-                      orgName: 'CodebuffAI',
-                      orgSlug: 'codebuffai',
-                    },
-                  ]),
-              }),
-            }),
-          }
-        }
+    mockModule('@codebuff/common/db', () => ({
+      default: {
+        select: mock(() => ({
+          from: mock(() => ({
+            innerJoin: mock(() => ({
+              where: mock(() =>
+                Promise.resolve([{ orgId: 'org-123', orgName: 'CodebuffAI' }]),
+              ),
+            })),
+          })),
+        })),
+      },
+    }))
 
-        if ('repoUrl' in fields) {
-          return {
-            from: () => ({
-              where: () =>
-                Promise.resolve([
-                  {
-                    repoUrl: 'https://github.com/codebuffai/codebuff',
-                    repoName: 'codebuff',
-                    isActive: true,
-                  },
-                ]),
-            }),
-          }
-        }
-
-        return {
-          from: () => ({
-            where: () => Promise.resolve([]),
-          }),
-        }
-      })
-
-      return {
-        default: {
-          select,
-        },
-      }
-    })
-
-    await mockModule('@codebuff/common/db/schema', () => ({
+    mockModule('@codebuff/common/db/schema', () => ({
       orgMember: { org_id: 'org_id', user_id: 'user_id' },
-      org: { id: 'id', name: 'name', slug: 'slug' },
+      org: { id: 'id', name: 'name' },
       orgRepo: {
         org_id: 'org_id',
         repo_url: 'repo_url',
-        repo_name: 'repo_name',
         is_active: 'is_active',
       },
     }))

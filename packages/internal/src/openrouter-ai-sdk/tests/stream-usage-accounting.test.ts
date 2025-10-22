@@ -1,73 +1,28 @@
-import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test'
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import {
+  convertReadableStreamToArray,
+  createTestServer,
+} from '@ai-sdk/provider-utils/test'
+import { describe, expect, it } from 'bun:test'
 
 import { OpenRouterChatLanguageModel } from '../chat'
 
 import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings'
 
 describe('OpenRouter Streaming Usage Accounting', () => {
-  const originalFetch = global.fetch
-  let capturedRequests: Array<{
-    url: string
-    body?: any
-  }> = []
-  let nextResponseChunks: string[] = []
-
-  const createStreamFromChunks = (chunks: string[]) =>
-    new ReadableStream<string>({
-      start(controller) {
-        for (const chunk of chunks) {
-          controller.enqueue(chunk)
-        }
-        controller.close()
-      },
-    }).pipeThrough(new TextEncoderStream())
-
-  beforeEach(() => {
-    capturedRequests = []
-    global.fetch = (async (input: RequestInfo, init?: RequestInit) => {
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url
-
-      let parsedBody: any
-      if (init?.body && typeof init.body === 'string') {
-        try {
-          parsedBody = JSON.parse(init.body)
-        } catch {
-          parsedBody = undefined
-        }
-      }
-
-      capturedRequests.push({ url, body: parsedBody })
-
-      return new Response(createStreamFromChunks(nextResponseChunks), {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
-        },
-      })
-    }) as typeof global.fetch
-  })
-
-  afterEach(() => {
-    global.fetch = originalFetch
-    nextResponseChunks = []
+  const server = createTestServer({
+    'https://api.openrouter.ai/chat/completions': {
+      response: { type: 'stream-chunks', chunks: [] },
+    },
   })
 
   function prepareStreamResponse(includeUsage = true) {
-    nextResponseChunks = [
+    const chunks = [
       `data: {"id":"test-id","model":"test-model","choices":[{"delta":{"content":"Hello"},"index":0}]}\n\n`,
       `data: {"choices":[{"finish_reason":"stop","index":0}]}\n\n`,
     ]
 
     if (includeUsage) {
-      nextResponseChunks.push(
+      chunks.push(
         `data: ${JSON.stringify({
           usage: {
             prompt_tokens: 10,
@@ -85,7 +40,12 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       )
     }
 
-    nextResponseChunks.push('data: [DONE]\n\n')
+    chunks.push('data: [DONE]\n\n')
+
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks,
+    }
   }
 
   it('should include stream_options.include_usage in request when enabled', async () => {
@@ -116,7 +76,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     })
 
     // Verify stream options
-    const requestBody = capturedRequests[0]?.body
+    const requestBody = await server.calls[0]!.requestBodyJson
     expect(requestBody).toBeDefined()
     expect(requestBody.stream).toBe(true)
     expect(requestBody.stream_options).toEqual({
