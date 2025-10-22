@@ -54,11 +54,6 @@ jobs:
             bun_target: bun-darwin-arm64
             platform: darwin
             arch: arm64
-          - os: windows-latest
-            target: win32-x64
-            bun_target: bun-windows-x64
-            platform: win32
-            arch: x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -200,6 +195,148 @@ jobs:
         with:
           name: codecane-${{ matrix.target }}
           path: codecane-${{ matrix.target }}.tar.gz
+
+      - name: Open debug shell on failure
+        if: failure()
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+        timeout-minutes: 15
+
+  build-windows-binary:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout-ref || github.sha }}
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Download staging metadata
+        if: inputs.artifact-name != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: cli/release-staging/
+
+      - name: Ensure CLI dependencies
+        run: bun install --frozen-lockfile --cwd cli
+
+      - name: Fix OpenTUI module symlinks
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun - <<'BUN'
+          import fs from 'fs';
+          import path from 'path';
+
+          const rootDir = process.cwd();
+          const rootOpenTui = path.join(rootDir, 'node_modules', '@opentui');
+          const cliNodeModules = path.join(rootDir, 'cli', 'node_modules');
+          const cliOpenTui = path.join(cliNodeModules, '@opentui');
+
+          if (!fs.existsSync(rootOpenTui)) {
+            console.log('Root @opentui packages missing; skipping fix');
+            process.exit(0);
+          }
+
+          fs.mkdirSync(cliOpenTui, { recursive: true });
+
+          const packages = ['core', 'react'];
+          for (const pkg of packages) {
+            const target = path.join(rootOpenTui, pkg);
+            const link = path.join(cliOpenTui, pkg);
+
+            if (!fs.existsSync(target)) {
+              console.log(`Target ${target} missing; skipping ${pkg}`);
+              continue;
+            }
+
+            let linkStats = null;
+            try {
+              linkStats = fs.lstatSync(link);
+            } catch (error) {
+              if (error?.code !== 'ENOENT') {
+                throw error;
+              }
+            }
+
+            if (linkStats) {
+              let alreadyLinked = false;
+              try {
+                const actual = fs.realpathSync(link);
+                alreadyLinked = actual === target;
+              } catch {
+                // Broken symlink or unreadable target; we'll replace it.
+              }
+
+              if (alreadyLinked) {
+                continue;
+              }
+
+              fs.rmSync(link, { recursive: true, force: true });
+            }
+
+            const type = process.platform === 'win32' ? 'junction' : 'dir';
+            try {
+              fs.symlinkSync(target, link, type);
+              console.log(`Linked ${link} -> ${target}`);
+            } catch (error) {
+              if (error?.code === 'EEXIST') {
+                fs.rmSync(link, { recursive: true, force: true });
+                fs.symlinkSync(target, link, type);
+                console.log(`Re-linked ${link} -> ${target}`);
+              } else {
+                throw error;
+              }
+            }
+          }
+          BUN
+
+      - name: Configure environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+          ENV_OVERRIDES: ${{ inputs.env-overrides }}
+        shell: bash
+        run: |
+          VAR_NAMES=$(bun scripts/generate-ci-env.js --prefix NEXT_PUBLIC_)
+
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+          if [ "$ENV_OVERRIDES" != "{}" ]; then
+            echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
+          fi
+
+      - name: Build binary
+        run: bun run scripts/build-binary.ts ${{ inputs.binary-name }} ${{ inputs.new-version }}
+        working-directory: cli
+        shell: bash
+        env:
+          VERBOSE: true
+          OVERRIDE_TARGET: bun-windows-x64
+          OVERRIDE_PLATFORM: win32
+          OVERRIDE_ARCH: x64
+
+      - name: Smoke test binary
+        shell: bash
+        run: |
+          cd cli/bin
+          ./${{ inputs.binary-name }}.exe --version
+
+      - name: Create tarball
+        shell: bash
+        run: |
+          BINARY_FILE="${{ inputs.binary-name }}.exe"
+          tar -czf codecane-win32-x64.tar.gz -C cli/bin "$BINARY_FILE"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codecane-win32-x64
+          path: codecane-win32-x64.tar.gz
 
       - name: Open debug shell on failure
         if: failure()
