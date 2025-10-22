@@ -8,7 +8,7 @@ import {
   getUserInfoFromApiKey,
   startAgentRun,
 } from './database'
-import { promptAiSdk, promptAiSdkStream } from './llm'
+import { promptAiSdk, promptAiSdkStream, promptAiSdkStructured } from './llm'
 
 import type {
   AgentRuntimeDeps,
@@ -21,7 +21,6 @@ export function getAgentRuntimeImpl(params: {
   apiKey: string
 }): Omit<
   AgentRuntimeDeps & AgentRuntimeScopedDeps,
-  | 'promptAiSdkStructured'
   | 'handleStepsLogChunk'
   | 'requestToolCall'
   | 'requestMcpToolData'
@@ -49,7 +48,7 @@ export function getAgentRuntimeImpl(params: {
     // LLM
     promptAiSdkStream,
     promptAiSdk,
-    // promptAiSdkStructured: PromptAiSdkStructuredFn,
+    promptAiSdkStructured,
 
     // Mutable State
     databaseAgentCache: new Map(),
