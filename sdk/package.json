@@ -23,7 +23,7 @@
   ],
   "scripts": {
     "build": "bun run scripts/build.ts",
-    "build:types": "tsc -p tsconfig.build.json",
+    "build:types": "bunx dts-bundle-generator -o dist/index.d.ts --no-check --export-referenced-types=false src/index.ts",
     "build:verify": "bun run build && bun run smoke-test:dist && bun run test:cjs && bun run test:esm && bun run test:ripgrep && bun run test:tree-sitter-queries",
     "test:typecheck-strict": "tsc --noEmit --strict dist/index.d.ts",
     "smoke-test:dist": "bun run smoke-test-dist.ts",

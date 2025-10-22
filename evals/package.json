@@ -11,6 +11,7 @@
     }
   },
   "scripts": {
+    "pretypecheck": "cd ../sdk && bun run build:types",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",
     "test:manifold": "bun test manifold.test.ts",
