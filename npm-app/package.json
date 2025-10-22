@@ -38,7 +38,6 @@
     "@codebuff/common": "workspace:*",
     "@types/diff": "8.0.0",
     "@types/micromatch": "^4.0.9",
-    "@vscode/ripgrep": "1.15.9",
     "ai": "5.0.0",
     "axios": "1.7.4",
     "cli-highlight": "^2.1.11",
