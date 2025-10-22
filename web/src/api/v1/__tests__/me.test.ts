@@ -1,15 +1,12 @@
-import { describe, test, expect } from 'bun:test'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { describe, test, expect, beforeEach } from 'bun:test'
 import { NextRequest } from 'next/server'
 
 import { VALID_USER_INFO_FIELDS } from '../../../db/user'
 import { meGet } from '../me'
 
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type {
-  GetUserInfoFromApiKeyFn,
-  GetUserInfoFromApiKeyOutput,
-} from '@codebuff/common/types/contracts/database'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type { GetUserInfoFromApiKeyOutput } from '@codebuff/common/types/contracts/database'
 
 describe('/api/v1/me route', () => {
   const mockUserData: Record<
@@ -32,36 +29,28 @@ describe('/api/v1/me route', () => {
     },
   }
 
-  const mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn = async ({
-    apiKey,
-    fields,
-  }) => {
-    const userData = mockUserData[apiKey]
-    if (!userData) {
-      return null
+  let agentRuntimeImpl: AgentRuntimeDeps
+  beforeEach(() => {
+    agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      getUserInfoFromApiKey: async ({ apiKey, fields }) => {
+        const userData = mockUserData[apiKey]
+        if (!userData) {
+          return null
+        }
+        return Object.fromEntries(
+          fields.map((field) => [field, userData[field]]),
+        ) as any
+      },
     }
-    return Object.fromEntries(
-      fields.map((field) => [field, userData[field]])
-    ) as any
-  }
-
-  const mockLogger: Logger = {
-    error: () => {},
-    warn: () => {},
-    info: () => {},
-    debug: () => {},
-  }
-
-  const mockTrackEvent: TrackEventFn = () => {}
+  })
 
   describe('Authentication', () => {
     test('returns 401 when Authorization header is missing', async () => {
       const req = new NextRequest('http://localhost:3000/api/v1/me')
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
 
       expect(response.status).toBe(401)
@@ -74,10 +63,8 @@ describe('/api/v1/me route', () => {
         headers: { Authorization: 'InvalidFormat' },
       })
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
 
       expect(response.status).toBe(401)
@@ -92,10 +79,8 @@ describe('/api/v1/me route', () => {
       })
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -109,10 +94,8 @@ describe('/api/v1/me route', () => {
       })
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -125,10 +108,8 @@ describe('/api/v1/me route', () => {
       })
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(404)
       const body = await response.json()
@@ -143,10 +124,8 @@ describe('/api/v1/me route', () => {
       })
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -158,14 +137,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=email',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -177,14 +154,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=id,email,discord_id',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -200,14 +175,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=id, email , discord_id',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -223,20 +196,18 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=invalid_field',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
       expect(body.error).toContain('Invalid fields: invalid_field')
       expect(body.error).toContain(
-        `Valid fields are: ${VALID_USER_INFO_FIELDS.join(', ')}`
+        `Valid fields are: ${VALID_USER_INFO_FIELDS.join(', ')}`,
       )
     })
 
@@ -245,14 +216,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=invalid1,invalid2,email',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -264,14 +233,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=id,bad_field,email',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
     })
@@ -284,10 +251,8 @@ describe('/api/v1/me route', () => {
       })
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -299,14 +264,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=email',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -318,14 +281,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=id,email,discord_id',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -341,14 +302,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=id,discord_id',
         {
           headers: { Authorization: 'Bearer test-api-key-456' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -363,10 +322,8 @@ describe('/api/v1/me route', () => {
       })
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()
@@ -378,14 +335,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=,,,',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
     })
@@ -395,14 +350,12 @@ describe('/api/v1/me route', () => {
         'http://localhost:3000/api/v1/me?fields=ID,Email',
         {
           headers: { Authorization: 'Bearer test-api-key-123' },
-        }
+        },
       )
 
       const response = await meGet({
+        ...agentRuntimeImpl,
         req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
       })
       expect(response.status).toBe(400)
       const body = await response.json()

@@ -17,20 +17,25 @@ const DEFAULT_POLL_INTERVAL_MS = 60000 // 60 seconds
  * @returns The current system theme name
  */
 export const useSystemThemeDetector = (): ThemeName => {
-  const [themeName, setThemeName] = useState<ThemeName>(() => detectSystemTheme())
+  const [themeName, setThemeName] = useState<ThemeName>(() =>
+    detectSystemTheme(),
+  )
   const lastThemeRef = useRef<ThemeName>(themeName)
   const listenerRef = useRef<ThemeListenerProcess | null>(null)
 
   useEffect(() => {
-    logger.info(`[theme] initial theme ${themeName}`)
+    logger.info({ themeName }, `[theme] initial theme ${themeName}`)
 
     const handleThemeChange = () => {
       const currentTheme = detectSystemTheme()
 
       if (currentTheme !== lastThemeRef.current) {
-        logger.info(`[theme] theme changed ${lastThemeRef.current} -> ${currentTheme}`)
+        logger.info(
+          {},
+          `[theme] theme changed ${lastThemeRef.current} -> ${currentTheme}`,
+        )
       } else {
-        logger.info('[theme] theme change event with no delta')
+        logger.info({}, '[theme] theme change event with no delta')
       }
 
       // Only update state if theme actually changed

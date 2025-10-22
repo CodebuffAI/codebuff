@@ -18,8 +18,6 @@ import type {
   Blockquote,
 } from 'mdast'
 
-
-
 export interface MarkdownPalette {
   inlineCodeFg: string
   codeBackground: string
@@ -249,7 +247,7 @@ export function renderMarkdown(
     // Return a fragment containing all inline elements
     return <>{inlineElements}</>
   } catch (error) {
-    logger.error('Failed to parse markdown', error)
+    logger.error(error, 'Failed to parse markdown')
     return markdown
   }
 }

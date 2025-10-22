@@ -24,7 +24,7 @@ export async function meGet(params: {
   if (!apiKey) {
     return NextResponse.json(
       { error: 'Missing or invalid Authorization header' },
-      { status: 401 }
+      { status: 401 },
     )
   }
 
@@ -43,13 +43,13 @@ export async function meGet(params: {
         {
           error: `Invalid fields: empty. Valid fields are: ${VALID_USER_INFO_FIELDS.join(', ')}`,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     // Validate that all requested fields are valid
     const invalidFields = requestedFields.filter(
-      (f) => !VALID_USER_INFO_FIELDS.includes(f as ValidField)
+      (f) => !VALID_USER_INFO_FIELDS.includes(f as ValidField),
     )
     if (invalidFields.length > 0) {
       trackEvent({
@@ -65,7 +65,7 @@ export async function meGet(params: {
         {
           error: `Invalid fields: ${invalidFields.join(', ')}. Valid fields are: ${VALID_USER_INFO_FIELDS.join(', ')}`,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
     fields = requestedFields as ValidField[]
@@ -75,12 +75,16 @@ export async function meGet(params: {
   }
 
   // Get user info
-  const userInfo = await getUserInfoFromApiKey({ apiKey, fields })
+  const userInfo = await getUserInfoFromApiKey({
+    apiKey,
+    fields,
+    logger,
+  })
 
   if (!userInfo) {
     return NextResponse.json(
       { error: 'Invalid API key or user not found' },
-      { status: 404 }
+      { status: 404 },
     )
   }
 

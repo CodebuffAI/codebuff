@@ -6,6 +6,7 @@ import type { DynamicAgentValidationError } from '@codebuff/common/templates/age
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { FetchAgentFromDatabaseFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 /**
@@ -14,13 +15,15 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
  * 2. Database cache
  * 3. Database query
  */
-export async function getAgentTemplate(params: {
-  agentId: string
-  localAgentTemplates: Record<string, AgentTemplate>
-  fetchAgentFromDatabase: FetchAgentFromDatabaseFn
-  databaseAgentCache: Map<string, AgentTemplate | null>
-  logger: Logger
-}): Promise<AgentTemplate | null> {
+export async function getAgentTemplate(
+  params: {
+    agentId: string
+    localAgentTemplates: Record<string, AgentTemplate>
+    fetchAgentFromDatabase: FetchAgentFromDatabaseFn
+    databaseAgentCache: Map<string, AgentTemplate | null>
+    logger: Logger
+  } & ParamsExcluding<FetchAgentFromDatabaseFn, 'parsedAgentId'>,
+): Promise<AgentTemplate | null> {
   const {
     agentId,
     localAgentTemplates,
@@ -45,8 +48,8 @@ export async function getAgentTemplate(params: {
     )
     if (codebuffParsed) {
       const dbAgent = await fetchAgentFromDatabase({
+        ...params,
         parsedAgentId: codebuffParsed,
-        logger,
       })
       if (dbAgent) {
         databaseAgentCache.set(dbAgent.id, dbAgent)
@@ -59,8 +62,8 @@ export async function getAgentTemplate(params: {
 
   // 3. Query database (only for publisher/agent-id format)
   const dbAgent = await fetchAgentFromDatabase({
+    ...params,
     parsedAgentId: parsed,
-    logger,
   })
   if (dbAgent && parsed.version && parsed.version !== 'latest') {
     // Cache only specific versions to avoid stale 'latest' results

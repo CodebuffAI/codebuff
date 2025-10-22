@@ -10,6 +10,7 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
@@ -33,6 +34,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     fetch: typeof globalThis.fetch
 
     writeToClient: (chunk: string | PrintModeEvent) => void
+    trackEvent: TrackEventFn
 
     getLatestState: () => any
     state: { [K in string]?: any }

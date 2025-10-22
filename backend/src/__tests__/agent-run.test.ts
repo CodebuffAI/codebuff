@@ -1,5 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   mockModule,
   clearMockedModules,
@@ -18,12 +19,20 @@ import {
 
 import { startAgentRun, finishAgentRun, addAgentStep } from '../agent-run'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 
 describe('Agent Run Database Functions', () => {
-  let logger: Logger
+  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeEach(() => {
+    agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+    }
+    agentRuntimeImpl.logger.error = mock(() => {})
+
     // Setup spies for database operations
     spyOn(db, 'insert').mockReturnValue({
       values: mock(() => Promise.resolve({ id: 'test-run-id' })),
@@ -33,12 +42,6 @@ describe('Agent Run Database Functions', () => {
         where: mock(() => Promise.resolve()),
       })),
     } as any)
-    logger = {
-      debug: mock(() => {}),
-      info: mock(() => {}),
-      warn: mock(() => {}),
-      error: mock(() => {}),
-    }
   })
 
   afterEach(() => {
@@ -65,10 +68,10 @@ describe('Agent Run Database Functions', () => {
       spyOn(crypto, 'randomUUID').mockReturnValue('generated-uuid')
 
       const result = await startAgentRun({
+        ...agentRuntimeImpl,
         userId: 'user-123',
         agentId: 'test-agent',
         ancestorRunIds: ['parent-run-1', 'parent-run-2'],
-        logger,
       })
 
       expect(result).toBe('generated-uuid')
@@ -88,11 +91,11 @@ describe('Agent Run Database Functions', () => {
       spyOn(db, 'insert').mockReturnValue({ values: mockValues } as any)
 
       const result = await startAgentRun({
+        ...agentRuntimeImpl,
         runId: 'custom-run-id',
         userId: 'user-123',
         agentId: 'test-agent',
         ancestorRunIds: [],
-        logger,
       })
 
       expect(result).toBe('custom-run-id')
@@ -112,9 +115,9 @@ describe('Agent Run Database Functions', () => {
       spyOn(crypto, 'randomUUID').mockReturnValue('generated-uuid')
 
       await startAgentRun({
+        ...agentRuntimeImpl,
         agentId: 'test-agent',
         ancestorRunIds: [],
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith({
@@ -133,9 +136,9 @@ describe('Agent Run Database Functions', () => {
       spyOn(crypto, 'randomUUID').mockReturnValue('generated-uuid')
 
       await startAgentRun({
+        ...agentRuntimeImpl,
         agentId: 'test-agent',
         ancestorRunIds: [],
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -151,9 +154,9 @@ describe('Agent Run Database Functions', () => {
       spyOn(crypto, 'randomUUID').mockReturnValue('generated-uuid')
 
       await startAgentRun({
+        ...agentRuntimeImpl,
         agentId: 'test-agent',
         ancestorRunIds: ['root-run', 'parent-run'],
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -171,13 +174,13 @@ describe('Agent Run Database Functions', () => {
 
       expect(
         startAgentRun({
+          ...agentRuntimeImpl,
           agentId: 'test-agent',
           ancestorRunIds: [],
-          logger,
         }),
       ).rejects.toThrow('Database connection failed')
 
-      expect(logger.error).toHaveBeenCalledWith(
+      expect(agentRuntimeImpl.logger.error).toHaveBeenCalledWith(
         {
           error: mockError,
           runId: undefined,
@@ -197,13 +200,13 @@ describe('Agent Run Database Functions', () => {
       spyOn(db, 'update').mockReturnValue({ set: mockSet } as any)
 
       await finishAgentRun({
+        ...agentRuntimeImpl,
         userId: undefined,
         runId: 'test-run-id',
         status: 'completed',
         totalSteps: 5,
         directCredits: 150.5,
         totalCredits: 300.75,
-        logger,
       })
 
       expect(db.update).toHaveBeenCalledWith(schema.agentRun)
@@ -224,6 +227,7 @@ describe('Agent Run Database Functions', () => {
       spyOn(db, 'update').mockReturnValue({ set: mockSet } as any)
 
       await finishAgentRun({
+        ...agentRuntimeImpl,
         userId: undefined,
         runId: 'test-run-id',
         status: 'failed',
@@ -231,7 +235,6 @@ describe('Agent Run Database Functions', () => {
         directCredits: 75.25,
         totalCredits: 125.5,
         errorMessage: 'Agent execution failed',
-        logger,
       })
 
       expect(mockSet).toHaveBeenCalledWith({
@@ -251,13 +254,13 @@ describe('Agent Run Database Functions', () => {
       mockSet.mockReturnValue({ where: mockWhere })
 
       await finishAgentRun({
+        ...agentRuntimeImpl,
         userId: undefined,
         runId: 'test-run-id',
         status: 'cancelled',
         totalSteps: 2,
         directCredits: 50,
         totalCredits: 100,
-        logger,
       })
 
       expect(mockSet).toHaveBeenCalledWith(
@@ -276,17 +279,17 @@ describe('Agent Run Database Functions', () => {
 
       expect(
         finishAgentRun({
+          ...agentRuntimeImpl,
           userId: undefined,
           runId: 'test-run-id',
           status: 'completed',
           totalSteps: 5,
           directCredits: 150,
           totalCredits: 300,
-          logger,
         }),
       ).rejects.toThrow('Update failed')
 
-      expect(logger.error).toHaveBeenCalledWith(
+      expect(agentRuntimeImpl.logger.error).toHaveBeenCalledWith(
         {
           error: mockError,
           runId: 'test-run-id',
@@ -306,6 +309,7 @@ describe('Agent Run Database Functions', () => {
       const startTime = new Date('2023-01-01T10:00:00Z')
 
       const result = await addAgentStep({
+        ...agentRuntimeImpl,
         userId: undefined,
         agentRunId: 'run-123',
         stepNumber: 1,
@@ -314,7 +318,6 @@ describe('Agent Run Database Functions', () => {
         messageId: 'msg-456',
         status: 'completed',
         startTime,
-        logger,
       })
 
       expect(result).toBe('step-uuid')
@@ -341,12 +344,12 @@ describe('Agent Run Database Functions', () => {
       const startTime = new Date('2023-01-01T10:00:00Z')
 
       await addAgentStep({
+        ...agentRuntimeImpl,
         userId: undefined,
         agentRunId: 'run-123',
         stepNumber: 2,
         startTime,
         messageId: null,
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith({
@@ -371,6 +374,7 @@ describe('Agent Run Database Functions', () => {
       const startTime = new Date('2023-01-01T10:00:00Z')
 
       await addAgentStep({
+        ...agentRuntimeImpl,
         userId: undefined,
         agentRunId: 'run-123',
         stepNumber: 3,
@@ -378,7 +382,6 @@ describe('Agent Run Database Functions', () => {
         errorMessage: 'Step failed validation',
         startTime,
         messageId: null,
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -397,13 +400,13 @@ describe('Agent Run Database Functions', () => {
       const startTime = new Date('2023-01-01T10:00:00Z')
 
       await addAgentStep({
+        ...agentRuntimeImpl,
         userId: undefined,
         agentRunId: 'run-123',
         stepNumber: 4,
         status: 'running',
         startTime,
         messageId: null,
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -421,13 +424,13 @@ describe('Agent Run Database Functions', () => {
       const startTime = new Date('2023-01-01T10:00:00Z')
 
       await addAgentStep({
+        ...agentRuntimeImpl,
         userId: undefined,
         agentRunId: 'run-123',
         stepNumber: 5,
         credits: 0, // Zero credits
         startTime,
         messageId: null,
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -447,16 +450,16 @@ describe('Agent Run Database Functions', () => {
 
       expect(
         addAgentStep({
+          ...agentRuntimeImpl,
           userId: undefined,
           agentRunId: 'run-123',
           stepNumber: 6,
           startTime,
           messageId: null,
-          logger,
         }),
       ).rejects.toThrow('Insert failed')
 
-      expect(logger.error).toHaveBeenCalledWith(
+      expect(agentRuntimeImpl.logger.error).toHaveBeenCalledWith(
         {
           error: mockError,
           agentRunId: 'run-123',
@@ -474,13 +477,13 @@ describe('Agent Run Database Functions', () => {
       spyOn(crypto, 'randomUUID').mockReturnValue('step-uuid')
 
       await addAgentStep({
+        ...agentRuntimeImpl,
         userId: undefined,
         agentRunId: 'run-123',
         stepNumber: 1,
         credits: 123.456789, // High precision number
         startTime: new Date(),
         messageId: null,
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -498,12 +501,12 @@ describe('Agent Run Database Functions', () => {
       const specificStartTime = new Date('2023-01-01T10:30:45.123Z')
 
       await addAgentStep({
+        ...agentRuntimeImpl,
         userId: undefined,
         agentRunId: 'run-123',
         stepNumber: 1,
         startTime: specificStartTime,
         messageId: null,
-        logger,
       })
 
       expect(mockValues).toHaveBeenCalledWith(

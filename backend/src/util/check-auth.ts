@@ -6,19 +6,23 @@ import { getUserInfoFromApiKey } from '../websockets/auth'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Request, Response, NextFunction } from 'express'
 
-export const checkAuth = async (params: {
-  authToken?: string
-  clientSessionId: string
-  getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
-  logger: Logger
-}): Promise<void | ServerAction> => {
+export const checkAuth = async (
+  params: {
+    authToken?: string
+    clientSessionId: string
+    getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
+    logger: Logger
+  } & ParamsExcluding<GetUserInfoFromApiKeyFn, 'apiKey' | 'fields'>,
+): Promise<void | ServerAction> => {
   const { authToken, clientSessionId, getUserInfoFromApiKey, logger } = params
 
   // Use shared auth check functionality
   const authResult = authToken
     ? await getUserInfoFromApiKey({
+        ...params,
         apiKey: authToken,
         fields: ['id'],
       })
@@ -63,6 +67,7 @@ export const checkAdmin =
     const user = await getUserInfoFromApiKey({
       apiKey: authToken,
       fields: ['id', 'email'],
+      logger,
     })
 
     if (!user) {

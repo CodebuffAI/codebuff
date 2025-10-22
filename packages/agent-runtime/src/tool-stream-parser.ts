@@ -1,4 +1,3 @@
-import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   endsAgentStepParam,
@@ -8,6 +7,7 @@ import {
 } from '@codebuff/common/tools/constants'
 
 import type { Model } from '@codebuff/common/old-constants'
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
@@ -46,6 +46,7 @@ export async function* processStreamWithTags(params: {
     model?: Model
     agentName?: string
   }
+  trackEvent: TrackEventFn
 }): AsyncGenerator<StreamChunk, string | null> {
   const {
     stream,
@@ -55,6 +56,7 @@ export async function* processStreamWithTags(params: {
     onResponseChunk,
     logger,
     loggerOptions,
+    trackEvent,
   } = params
 
   let streamCompleted = false

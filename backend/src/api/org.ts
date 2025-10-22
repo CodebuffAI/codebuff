@@ -36,7 +36,7 @@ async function isRepoCoveredHandler(
         .json({ error: 'Missing x-codebuff-api-key header' })
     }
     const userId = (
-      await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] })
+      await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'], logger })
     )?.id
 
     if (!userId) {

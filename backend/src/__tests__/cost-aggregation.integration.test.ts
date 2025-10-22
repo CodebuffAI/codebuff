@@ -1,10 +1,8 @@
 import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
+import { mainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import * as agentRegistry from '@codebuff/agent-runtime/templates/agent-registry'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   spyOn,
@@ -18,7 +16,6 @@ import {
 } from 'bun:test'
 
 import * as messageCostTracker from '../llm-apis/message-cost-tracker'
-import { mainPrompt } from '../main-prompt'
 import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
@@ -90,17 +87,15 @@ const mockFileContext: ProjectFileContext = {
 
 describe('Cost Aggregation Integration Tests', () => {
   let mockLocalAgentTemplates: Record<string, any>
-  let agentRuntimeImpl: AgentRuntimeDeps
-  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeAll(() => {
     disableLiveUserInputCheck()
   })
 
   beforeEach(async () => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = {
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
+    agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
       sendAction: mock(() => {}),
     }
 
@@ -178,7 +173,7 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Mock tool call execution
-    agentRuntimeScopedImpl.requestToolCall = async ({ toolName, input }) => {
+    agentRuntimeImpl.requestToolCall = async ({ toolName, input }) => {
       if (toolName === 'write_file') {
         return {
           output: [
@@ -204,9 +199,7 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Mock file reading
-    agentRuntimeScopedImpl.requestFiles = async (params: {
-      filePaths: string[]
-    }) => {
+    agentRuntimeImpl.requestFiles = async (params: { filePaths: string[] }) => {
       const results: Record<string, string | null> = {}
       params.filePaths.forEach((path) => {
         results[path] = path === 'hello.txt' ? 'Hello, World!' : null
@@ -244,7 +237,6 @@ describe('Cost Aggregation Integration Tests', () => {
 
     const result = await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -281,7 +273,6 @@ describe('Cost Aggregation Integration Tests', () => {
     // Call through websocket action handler to test full integration
     await websocketAction.callMainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -292,7 +283,7 @@ describe('Cost Aggregation Integration Tests', () => {
 
     // Verify final cost is included in prompt response
     const promptResponse = (
-      agentRuntimeScopedImpl.sendAction as Mock<SendActionFn>
+      agentRuntimeImpl.sendAction as Mock<SendActionFn>
     ).mock.calls
       .map((call) => call[0].action)
       .find((action: ServerAction) => action.type === 'prompt-response') as any
@@ -353,7 +344,6 @@ describe('Cost Aggregation Integration Tests', () => {
 
     const result = await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -411,7 +401,6 @@ describe('Cost Aggregation Integration Tests', () => {
     try {
       result = await mainPrompt({
         ...agentRuntimeImpl,
-        ...agentRuntimeScopedImpl,
         repoId: undefined,
         repoUrl: undefined,
         action,
@@ -462,7 +451,6 @@ describe('Cost Aggregation Integration Tests', () => {
 
     await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -504,7 +492,6 @@ describe('Cost Aggregation Integration Tests', () => {
     // Call through websocket action to test server-side reset
     await websocketAction.callMainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -515,7 +502,7 @@ describe('Cost Aggregation Integration Tests', () => {
 
     // Server should have reset the malicious value and calculated correct cost
     const promptResponse = (
-      agentRuntimeScopedImpl.sendAction as Mock<SendActionFn>
+      agentRuntimeImpl.sendAction as Mock<SendActionFn>
     ).mock.calls
       .map((call) => call[0].action)
       .find((action) => action.type === 'prompt-response') as any

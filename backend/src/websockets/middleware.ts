@@ -26,6 +26,7 @@ import {
 import { withAppContext } from '../context/app-context'
 import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 import { checkAuth } from '../util/check-auth'
+import { logger } from '../util/logger'
 
 import type { ClientAction, ServerAction } from '@codebuff/common/actions'
 import type {
@@ -33,6 +34,7 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Source } from '@codebuff/common/types/source'
 import type { WebSocket } from 'ws'
 
 type MiddlewareCallback = (params: {
@@ -63,10 +65,24 @@ function getServerErrorAction<T extends ClientAction>(
 
 export class WebSocketMiddleware {
   private middlewares: Array<MiddlewareCallback> = []
-  private impl: AgentRuntimeDeps
+  private implSource: Source<AgentRuntimeDeps>
+  private impl: AgentRuntimeDeps | undefined
 
-  constructor(params: AgentRuntimeDeps) {
-    this.impl = params
+  constructor(params: Source<AgentRuntimeDeps>) {
+    this.implSource = params
+  }
+
+  async getImpl() {
+    if (this.impl) {
+      return this.impl
+    }
+
+    if (typeof this.implSource === 'function') {
+      this.impl = await this.implSource()
+    } else {
+      this.impl = await this.implSource
+    }
+    return this.impl
   }
 
   use<T extends ClientAction['type']>(
@@ -104,6 +120,7 @@ export class WebSocketMiddleware {
         ? await getUserInfoFromApiKey({
             apiKey: action.authToken,
             fields: ['id'],
+            logger,
           })
         : null
 
@@ -151,13 +168,14 @@ export class WebSocketMiddleware {
       clientSessionId: string,
       ws: WebSocket,
     ) => {
-      const userInfo =
-        'authToken' in action
-          ? await getUserInfoFromApiKey({
-              apiKey: action.authToken!,
-              fields: ['id', 'email', 'discord_id'],
-            })
-          : undefined
+      const authToken = 'authToken' in action ? action.authToken : undefined
+      const userInfo = authToken
+        ? await getUserInfoFromApiKey({
+            apiKey: authToken,
+            fields: ['id', 'email', 'discord_id'],
+            logger,
+          })
+        : undefined
 
       const scopedDeps: AgentRuntimeScopedDeps = {
         handleStepsLogChunk: (params) =>
@@ -169,6 +187,7 @@ export class WebSocketMiddleware {
           requestOptionalFileWs({ ...params, ws }),
         sendSubagentChunk: (params) => sendSubagentChunkWs({ ...params, ws }),
         sendAction: (params) => sendActionWs({ ...params, ws }),
+        apiKey: authToken ?? '',
       }
 
       // Use the new combined context - much cleaner!
@@ -186,14 +205,14 @@ export class WebSocketMiddleware {
             clientSessionId,
             ws,
             silent,
-            ...this.impl,
+            ...(await this.getImpl()),
           })
           if (shouldContinue) {
             baseAction({
               action,
               clientSessionId,
               ws,
-              ...this.impl,
+              ...(await this.getImpl()),
               ...scopedDeps,
             })
           }
@@ -203,7 +222,7 @@ export class WebSocketMiddleware {
   }
 }
 
-export const protec = new WebSocketMiddleware(BACKEND_AGENT_RUNTIME_IMPL)
+export const protec = new WebSocketMiddleware(() => BACKEND_AGENT_RUNTIME_IMPL)
 
 protec.use(async (params) => {
   const { action } = params

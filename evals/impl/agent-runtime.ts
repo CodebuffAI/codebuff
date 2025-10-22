@@ -1,3 +1,5 @@
+import { success } from '@codebuff/common/util/error'
+
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
@@ -12,6 +14,13 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
+
+  // Backend
+  consumeCreditsWithFallback: async () => {
+    return success({
+      chargedToOrganization: false,
+    })
+  },
 
   // LLM
   promptAiSdkStream: async function* () {
@@ -28,6 +37,9 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   liveUserInputRecord: {},
   sessionConnections: {},
   databaseAgentCache: new Map<string, AgentTemplate | null>(),
+
+  // Analytics
+  trackEvent: () => {},
 
   // Other
   logger: console,

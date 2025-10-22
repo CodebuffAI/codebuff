@@ -45,7 +45,13 @@ async function usageHandler(
     }
 
     const userId = authToken
-      ? (await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] }))?.id
+      ? (
+          await getUserInfoFromApiKey({
+            apiKey: authToken,
+            fields: ['id'],
+            logger,
+          })
+        )?.id
       : undefined
 
     if (!userId) {

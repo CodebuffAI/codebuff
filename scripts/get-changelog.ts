@@ -178,6 +178,7 @@ Start your response with a heading using ### (three hashes) and organize the con
       liveUserInputRecord: {},
       sessionConnections: {},
       logger: console,
+      trackEvent: () => {},
     })
 
     // Clean up the AI response

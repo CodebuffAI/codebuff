@@ -1,5 +1,4 @@
 import { consumeCredits, consumeOrganizationCredits } from '@codebuff/billing'
-import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/common/db/index'
 import * as schema from '@codebuff/common/db/schema'
@@ -21,9 +20,13 @@ import { stripNullCharsFromObject } from '../util/object'
 import { SWITCHBOARD } from '../websockets/server'
 
 import type { ClientState } from '../websockets/switchboard'
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 // Pricing details:
@@ -481,19 +484,22 @@ type CreditConsumptionResult = {
   fromPurchased: number
 }
 
-async function updateUserCycleUsageWithRetries(params: {
-  userId: string
-  creditsUsed: number
-  logger: Logger
-  maxRetries?: number
-}): Promise<CreditConsumptionResult> {
-  const { userId, creditsUsed, logger, maxRetries = 3 } = params
+async function updateUserCycleUsageWithRetries(
+  params: {
+    userId: string
+    creditsUsed: number
+    logger: Logger
+    maxRetries?: number
+    trackEvent: TrackEventFn
+  } & ParamsOf<typeof updateUserCycleUsage>,
+): Promise<CreditConsumptionResult> {
+  const { userId, creditsUsed, logger, maxRetries = 3, trackEvent } = params
   const requestContext = getRequestContext()
   const orgId = requestContext?.approvedOrgIdForRepo
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await updateUserCycleUsage({ userId, creditsUsed, logger })
+      return await updateUserCycleUsage(params)
     } catch (error) {
       if (attempt === maxRetries) {
         logger.error(
@@ -521,8 +527,9 @@ async function updateUserCycleUsage(params: {
   userId: string
   creditsUsed: number
   logger: Logger
+  trackEvent: TrackEventFn
 }): Promise<CreditConsumptionResult> {
-  const { userId, creditsUsed, logger } = params
+  const { userId, creditsUsed, logger, trackEvent } = params
   if (creditsUsed <= 0) {
     if (VERBOSE) {
       logger.debug(
@@ -615,24 +622,38 @@ export async function saveMessage(
     costOverrideDollars?: number
     agentId?: string
     logger: Logger
+    trackEvent: TrackEventFn
   } & ParamsExcluding<typeof sendCostResponseToClient, 'creditsUsed'>,
 ): Promise<number> {
+  const {
+    messageId,
+    userId,
+    fingerprintId,
+    costOverrideDollars,
+    model,
+    inputTokens,
+    outputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
+    logger,
+    trackEvent,
+  } = params
+
   return withLoggerContext(
     {
-      messageId: params.messageId,
-      userId: params.userId,
-      fingerprintId: params.fingerprintId,
+      messageId,
+      userId,
+      fingerprintId,
     },
     async () => {
-      const { logger } = params
       const cost =
-        params.costOverrideDollars ??
+        costOverrideDollars ??
         calcCost(
-          params.model,
-          params.inputTokens,
-          params.outputTokens,
-          params.cacheCreationInputTokens ?? 0,
-          params.cacheReadInputTokens ?? 0,
+          model,
+          inputTokens,
+          outputTokens,
+          cacheCreationInputTokens ?? 0,
+          cacheReadInputTokens ?? 0,
         )
 
       // Default to 1 cent per credit
@@ -652,7 +673,7 @@ export async function saveMessage(
 
       const creditsUsed = Math.max(0, costInCents)
 
-      if (params.userId === TEST_USER_ID) {
+      if (userId === TEST_USER_ID) {
         logger.info(
           {
             costUSD: cost,
@@ -669,7 +690,7 @@ export async function saveMessage(
       if (VERBOSE) {
         logger.debug(
           {
-            messageId: params.messageId,
+            messageId,
             costUSD: cost,
             costInCents,
             creditsUsed,
@@ -705,6 +726,7 @@ export async function saveMessage(
         userId: params.userId,
         creditsUsed,
         logger,
+        trackEvent,
       })
 
       // Only sync the portion from purchased credits to Stripe

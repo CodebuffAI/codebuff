@@ -169,6 +169,6 @@ Important: you *must* make at least one tool call in every response message unle
 
 const definition = {
   ...createBase2Implementor(),
-  id: 'base2-implementor',
+  id: 'base2-implementor-gpt-5',
 }
 export default definition

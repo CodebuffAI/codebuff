@@ -173,6 +173,7 @@ File Changes:\n${fileContext}`
       liveUserInputRecord: {},
       sessionConnections: {},
       logger: console,
+      trackEvent: () => {},
     })
 
     // Extract spec from <spec></spec> tags

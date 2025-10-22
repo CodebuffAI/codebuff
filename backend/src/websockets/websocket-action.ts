@@ -3,6 +3,7 @@ import {
   checkLiveUserInput,
   startUserInput,
 } from '@codebuff/agent-runtime/live-user-inputs'
+import { mainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
@@ -12,7 +13,6 @@ import * as schema from '@codebuff/common/db/schema'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { eq } from 'drizzle-orm'
 
-import { mainPrompt } from '../main-prompt'
 import { protec } from './middleware'
 import { sendActionWs } from '../client-wrapper'
 import { getRequestContext } from './request-context'
@@ -113,8 +113,13 @@ const onPrompt = async (
     { fingerprintId, clientRequestId: promptId, costMode },
     async () => {
       const userId = authToken
-        ? (await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] }))
-            ?.id
+        ? (
+            await getUserInfoFromApiKey({
+              apiKey: authToken,
+              fields: ['id'],
+              logger,
+            })
+          )?.id
         : null
       if (!userId) {
         throw new Error('User not found')
@@ -291,7 +296,13 @@ const onInit = async (params: {
 
   await withLoggerContext({ fingerprintId }, async () => {
     const userId = authToken
-      ? (await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] }))?.id
+      ? (
+          await getUserInfoFromApiKey({
+            apiKey: authToken,
+            fields: ['id'],
+            logger,
+          })
+        )?.id
       : undefined
 
     if (!userId) {
@@ -334,7 +345,11 @@ const onCancelUserInput = async (params: {
   const { authToken, promptId } = action
 
   const userId = (
-    await getUserInfoFromApiKey({ apiKey: authToken, fields: ['id'] })
+    await getUserInfoFromApiKey({
+      apiKey: authToken,
+      fields: ['id'],
+      logger,
+    })
   )?.id
   if (!userId) {
     logger.error({ authToken }, 'User id not found for authToken')

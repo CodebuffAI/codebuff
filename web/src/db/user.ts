@@ -17,7 +17,7 @@ export async function getUserInfoFromApiKey<
 }: GetUserInfoFromApiKeyInput<T>): GetUserInfoFromApiKeyOutput<T> {
   // Build a typed selection object for user columns
   const userSelection = Object.fromEntries(
-    fields.map((field) => [field, schema.user[field]])
+    fields.map((field) => [field, schema.user[field]]),
   ) as { [K in T]: (typeof schema.user)[K] }
 
   const rows = await db

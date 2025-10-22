@@ -1,3 +1,4 @@
+import type { TrackEventFn } from './analytics'
 import type { SendActionFn } from './client'
 import type { CheckLiveUserInputFn } from './live-user-input'
 import type { ParamsExcluding } from '../function-params'
@@ -35,6 +36,7 @@ export type PromptAiSdkStreamFn = (
     includeCacheControl?: boolean
     sendAction: SendActionFn
     logger: Logger
+    trackEvent: TrackEventFn
   } & ParamsExcluding<typeof streamText, 'model' | 'messages'> &
     ParamsExcluding<CheckLiveUserInputFn, 'clientSessionId'>,
 ) => AsyncGenerator<StreamChunk, string | null>
@@ -54,6 +56,7 @@ export type PromptAiSdkFn = (
     maxRetries?: number
     sendAction: SendActionFn
     logger: Logger
+    trackEvent: TrackEventFn
   } & ParamsExcluding<typeof generateText, 'model' | 'messages'> &
     ParamsExcluding<CheckLiveUserInputFn, 'clientSessionId'>,
 ) => Promise<string>
@@ -76,6 +79,7 @@ export type PromptAiSdkStructuredInput<T> = {
   maxRetries?: number
   sendAction: SendActionFn
   logger: Logger
+  trackEvent: TrackEventFn
 } & ParamsExcluding<CheckLiveUserInputFn, 'clientSessionId'>
 export type PromptAiSdkStructuredOutput<T> = Promise<T>
 export type PromptAiSdkStructuredFn = <T>(

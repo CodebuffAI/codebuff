@@ -4,7 +4,10 @@ import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
 
 import { validateAgentNameHandlerHelper } from '../validate-agent-name'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { FetchAgentFromDatabaseFn } from '@codebuff/common/types/contracts/database'
 import type {
   Request as ExpressRequest,
@@ -12,7 +15,7 @@ import type {
   NextFunction,
 } from 'express'
 
-let agentRuntimeImpl: AgentRuntimeDeps
+let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 function createMockReq(query: Record<string, any>): Partial<ExpressRequest> {
   return {
@@ -100,14 +103,15 @@ describe('validateAgentNameHandler', () => {
       next: noopNext,
     })
 
-    expect(spy).toHaveBeenCalledWith({
-      parsedAgentId: {
-        publisherId: 'codebuff',
-        agentId: 'file-explorer',
-        version: undefined,
-      },
-      logger: expect.anything(),
-    })
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedAgentId: {
+          publisherId: 'codebuff',
+          agentId: 'file-explorer',
+          version: undefined,
+        },
+      }),
+    )
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(true)
     expect(res.jsonPayload.source).toBe('published')
@@ -133,14 +137,15 @@ describe('validateAgentNameHandler', () => {
       next: noopNext,
     })
 
-    expect(spy).toHaveBeenCalledWith({
-      parsedAgentId: {
-        publisherId: 'codebuff',
-        agentId: 'file-explorer',
-        version: '0.0.1',
-      },
-      logger: expect.anything(),
-    })
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedAgentId: {
+          publisherId: 'codebuff',
+          agentId: 'file-explorer',
+          version: '0.0.1',
+        },
+      }),
+    )
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(true)
     expect(res.jsonPayload.source).toBe('published')
@@ -162,14 +167,15 @@ describe('validateAgentNameHandler', () => {
       next: noopNext,
     })
 
-    expect(spy).toHaveBeenCalledWith({
-      parsedAgentId: {
-        publisherId: 'someorg',
-        agentId: 'not-a-real-agent',
-        version: undefined,
-      },
-      logger: expect.anything(),
-    })
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedAgentId: {
+          publisherId: 'someorg',
+          agentId: 'not-a-real-agent',
+          version: undefined,
+        },
+      }),
+    )
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(false)
   })

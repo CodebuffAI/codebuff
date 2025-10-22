@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { SetStateAction } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import { formatTimestamp } from '../utils/helpers'
@@ -7,6 +6,7 @@ import { logger } from '../utils/logger'
 
 import type { ChatMessage, ContentBlock } from '../chat'
 import type { ToolName } from '@codebuff/sdk'
+import type { SetStateAction } from 'react'
 
 const completionMessages = [
   'All changes have been applied successfully.',
@@ -276,7 +276,7 @@ export const useSendMessage = ({
       const client = getCodebuffClient()
 
       if (!client) {
-        logger.info('No API client available, using mock mode')
+        logger.info({}, 'No API client available, using mock mode')
         const aiMessageId = `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`
         const aiMessage: ChatMessage = {
           id: aiMessageId,
@@ -324,12 +324,12 @@ export const useSendMessage = ({
           )
         }, 28)
 
-        logger.info('Starting mock response streaming')
+        logger.info({}, 'Starting mock response streaming')
         startStreaming()
         return
       }
 
-      logger.info('Starting real API request', { prompt: content })
+      logger.info({ prompt: content }, 'Starting real API request')
 
       const aiMessageId = `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`
       const aiMessage: ChatMessage = {
@@ -354,11 +354,14 @@ export const useSendMessage = ({
           update.type === 'text'
             ? update.content.slice(0, 120)
             : JSON.stringify({ toolName: update.toolName }).slice(0, 120)
-        logger.info('updateAgentContent invoked', {
-          agentId,
-          updateType: update.type,
-          preview,
-        })
+        logger.info(
+          {
+            agentId,
+            updateType: update.type,
+            preview,
+          },
+          'updateAgentContent invoked',
+        )
         queueMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id === aiMessageId && msg.blocks) {
@@ -390,11 +393,11 @@ export const useSendMessage = ({
                             block.content === text
                           ) {
                             logger.info(
-                              'Agent block text replacement skipped',
                               {
                                 agentId,
                                 preview,
                               },
+                              'Agent block text replacement skipped',
                             )
                             return block
                           }
@@ -407,10 +410,13 @@ export const useSendMessage = ({
                         updatedBlocks.push({ type: 'text', content: text })
                       }
 
-                      logger.info('Agent block text replaced', {
-                        agentId,
-                        length: text.length,
-                      })
+                      logger.info(
+                        {
+                          agentId,
+                          length: text.length,
+                        },
+                        'Agent block text replaced',
+                      )
                       return {
                         ...block,
                         content: text,
@@ -425,10 +431,10 @@ export const useSendMessage = ({
                     const lastBlock = agentBlocks[agentBlocks.length - 1]
                     if (lastBlock && lastBlock.type === 'text') {
                       if (lastBlock.content.endsWith(text)) {
-                        logger.info('Skipping duplicate agent text append', {
-                          agentId,
-                          preview,
-                        })
+                        logger.info(
+                          { agentId, preview },
+                          'Skipping duplicate agent text append',
+                        )
                         return block
                       }
                       const updatedLastBlock: ContentBlock = {
@@ -436,11 +442,14 @@ export const useSendMessage = ({
                         content: lastBlock.content + text,
                       }
                       const updatedContent = (block.content ?? '') + text
-                      logger.info('Agent block text appended', {
-                        agentId,
-                        appendedLength: text.length,
-                        totalLength: updatedContent.length,
-                      })
+                      logger.info(
+                        {
+                          agentId,
+                          appendedLength: text.length,
+                          totalLength: updatedContent.length,
+                        },
+                        'Agent block text appended',
+                      )
                       return {
                         ...block,
                         content: updatedContent,
@@ -448,11 +457,14 @@ export const useSendMessage = ({
                       }
                     } else {
                       const updatedContent = (block.content ?? '') + text
-                      logger.info('Agent block text started', {
-                        agentId,
-                        appendedLength: text.length,
-                        totalLength: updatedContent.length,
-                      })
+                      logger.info(
+                        {
+                          agentId,
+                          appendedLength: text.length,
+                          totalLength: updatedContent.length,
+                        },
+                        'Agent block text started',
+                      )
                       return {
                         ...block,
                         content: updatedContent,
@@ -463,10 +475,13 @@ export const useSendMessage = ({
                       }
                     }
                   } else if (update.type === 'tool') {
-                    logger.info('Agent block tool appended', {
-                      agentId,
-                      toolName: update.toolName,
-                    })
+                    logger.info(
+                      {
+                        agentId,
+                        toolName: update.toolName,
+                      },
+                      'Agent block tool appended',
+                    )
                     return { ...block, blocks: [...agentBlocks, update] }
                   }
                   return block
@@ -485,11 +500,14 @@ export const useSendMessage = ({
         }
 
         const fullText = rootStreamBufferRef.current ?? ''
-        logger.info('appendRootTextChunk invoked', {
-          chunkLength: delta.length,
-          fullLength: fullText.length,
-          preview: delta.slice(0, 100),
-        })
+        logger.info(
+          {
+            chunkLength: delta.length,
+            fullLength: fullText.length,
+            preview: delta.slice(0, 100),
+          },
+          'appendRootTextChunk invoked',
+        )
 
         queueMessageUpdate((prev) =>
           prev.map((msg) => {
@@ -555,12 +573,15 @@ export const useSendMessage = ({
             if (!delta && next === previous) {
               return
             }
-            logger.info('handleStreamChunk root delta', {
-              chunkLength: chunk.length,
-              previousLength: previous.length,
-              nextLength: next.length,
-              preview: chunk.slice(0, 100),
-            })
+            logger.info(
+              {
+                chunkLength: chunk.length,
+                previousLength: previous.length,
+                nextLength: next.length,
+                preview: chunk.slice(0, 100),
+              },
+              'handleStreamChunk root delta',
+            )
             rootStreamBufferRef.current = next
             rootStreamSeenRef.current = true
             if (delta) {
@@ -569,7 +590,7 @@ export const useSendMessage = ({
           },
 
           handleEvent: (event: any) => {
-            logger.info('SDK Event received (raw)', { type: event.type, event })
+            logger.info({ type: event.type, event }, 'SDK Event received (raw)')
 
             if (event.type === 'subagent-chunk') {
               const { agentId, chunk } = event
@@ -601,10 +622,13 @@ export const useSendMessage = ({
               }
 
               if (event.agentId) {
-                logger.info('setMessages: text event with agentId', {
-                  agentId: event.agentId,
-                  textPreview: text.slice(0, 100),
-                })
+                logger.info(
+                  {
+                    agentId: event.agentId,
+                    textPreview: text.slice(0, 100),
+                  },
+                  'setMessages: text event with agentId',
+                )
                 const previous =
                   agentStreamAccumulatorsRef.current.get(event.agentId) ?? ''
                 const { next, delta } = mergeTextSegments(previous, text)
@@ -628,11 +652,11 @@ export const useSendMessage = ({
               } else {
                 if (rootStreamSeenRef.current) {
                   logger.info(
-                    'Skipping root text event (stream already handled)',
                     {
                       textPreview: text.slice(0, 100),
                       textLength: text.length,
                     },
+                    'Skipping root text event (stream already handled)',
                   )
                   return
                 }
@@ -641,12 +665,15 @@ export const useSendMessage = ({
                 if (!delta && next === previous) {
                   return
                 }
-                logger.info('setMessages: text event without agentId', {
-                  textPreview: text.slice(0, 100),
-                  previousLength: previous.length,
-                  textLength: text.length,
-                  appendedLength: delta.length,
-                })
+                logger.info(
+                  {
+                    textPreview: text.slice(0, 100),
+                    previousLength: previous.length,
+                    textLength: text.length,
+                    appendedLength: delta.length,
+                  },
+                  'setMessages: text event without agentId',
+                )
                 rootStreamBufferRef.current = next
 
                 if (delta) {
@@ -669,13 +696,16 @@ export const useSendMessage = ({
               event.type === 'subagent-start'
             ) {
               if (event.agentId) {
-                logger.info('CLI: subagent_start event received', {
-                  agentId: event.agentId,
-                  agentType: event.agentType,
-                  parentAgentId: event.parentAgentId || 'ROOT',
-                  hasParentAgentId: !!event.parentAgentId,
-                  eventKeys: Object.keys(event),
-                })
+                logger.info(
+                  {
+                    agentId: event.agentId,
+                    agentType: event.agentType,
+                    parentAgentId: event.parentAgentId || 'ROOT',
+                    hasParentAgentId: !!event.parentAgentId,
+                    eventKeys: Object.keys(event),
+                  },
+                  'CLI: subagent_start event received',
+                )
                 addActiveSubagent(event.agentId)
 
                 let foundExistingBlock = false
@@ -692,7 +722,6 @@ export const useSendMessage = ({
                       eventType.split('/')[1]?.split('@')[0] === storedType)
                   if (isMatch) {
                     logger.info(
-                      'setMessages: matching spawn_agents block found',
                       {
                         tempId,
                         realAgentId: event.agentId,
@@ -700,6 +729,7 @@ export const useSendMessage = ({
                         hasParentAgentId: !!event.parentAgentId,
                         parentAgentId: event.parentAgentId || 'none',
                       },
+                      'setMessages: matching spawn_agents block found',
                     )
                     applyMessageUpdate((prev) =>
                       prev.map((msg) => {
@@ -751,12 +781,12 @@ export const useSendMessage = ({
                           // If parentAgentId exists, nest under parent
                           if (event.parentAgentId) {
                             logger.info(
-                              'setMessages: moving spawn_agents block to nest under parent',
                               {
                                 tempId,
                                 realAgentId: event.agentId,
                                 parentAgentId: event.parentAgentId,
                               },
+                              'setMessages: moving spawn_agents block to nest under parent',
                             )
 
                             // Try to find parent and nest
@@ -784,12 +814,12 @@ export const useSendMessage = ({
                               blocks = updatedBlocks
                             } else {
                               logger.info(
-                                'setMessages: spawn_agents parent not found, adding to top level',
                                 {
                                   tempId,
                                   realAgentId: event.agentId,
                                   parentAgentId: event.parentAgentId,
                                 },
+                                'setMessages: spawn_agents parent not found, adding to top level',
                               )
                               blocks = [...blocks, blockToMove]
                             }
@@ -825,12 +855,12 @@ export const useSendMessage = ({
 
                 if (!foundExistingBlock) {
                   logger.info(
-                    'setMessages: creating new agent block (no spawn_agents match)',
                     {
                       agentId: event.agentId,
                       agentType: event.agentType,
                       parentAgentId: event.parentAgentId || 'ROOT',
                     },
+                    'setMessages: creating new agent block (no spawn_agents match)',
                   )
                   applyMessageUpdate((prev) =>
                     prev.map((msg) => {
@@ -854,10 +884,13 @@ export const useSendMessage = ({
 
                       // If parentAgentId exists, nest inside parent agent
                       if (event.parentAgentId) {
-                        logger.info('Nesting agent inside parent', {
-                          childId: event.agentId,
-                          parentId: event.parentAgentId,
-                        })
+                        logger.info(
+                          {
+                            childId: event.agentId,
+                            parentId: event.parentAgentId,
+                          },
+                          'Nesting agent inside parent',
+                        )
 
                         // Try to find and update parent
                         let parentFound = false
@@ -884,11 +917,11 @@ export const useSendMessage = ({
                           return { ...msg, blocks: updatedBlocks }
                         } else {
                           logger.info(
-                            'Parent agent not found, adding to top level',
                             {
                               childId: event.agentId,
                               parentId: event.parentAgentId,
                             },
+                            'Parent agent not found, adding to top level',
                           )
                           // Parent doesn't exist - add at top level as fallback
                           return {
@@ -943,12 +976,15 @@ export const useSendMessage = ({
 
             if (event.type === 'tool_call' && event.toolCallId) {
               const { toolCallId, toolName, input, agentId } = event
-              logger.info('tool_call event received', {
-                toolCallId,
-                toolName,
-                agentId: agentId || 'ROOT',
-                hasAgentId: !!agentId,
-              })
+              logger.info(
+                {
+                  toolCallId,
+                  toolName,
+                  agentId: agentId || 'ROOT',
+                  hasAgentId: !!agentId,
+                },
+                'tool_call event received',
+              )
 
               if (toolName === 'spawn_agents' && input?.agents) {
                 const agents = Array.isArray(input.agents) ? input.agents : []
@@ -961,11 +997,14 @@ export const useSendMessage = ({
                   })
                 })
 
-                logger.info('setMessages: spawn_agents tool call', {
-                  toolCallId,
-                  agentCount: agents.length,
-                  agentTypes: agents.map((a: any) => a.agent_type),
-                })
+                logger.info(
+                  {
+                    toolCallId,
+                    agentCount: agents.length,
+                    agentTypes: agents.map((a: any) => a.agent_type),
+                  },
+                  'setMessages: spawn_agents tool call',
+                )
 
                 applyMessageUpdate((prev) =>
                   prev.map((msg) => {
@@ -1010,19 +1049,25 @@ export const useSendMessage = ({
                 return
               }
 
-              logger.info('setMessages: tool_call event', {
-                toolName,
-                toolCallId,
-                agentId: agentId || 'none',
-              })
+              logger.info(
+                {
+                  toolName,
+                  toolCallId,
+                  agentId: agentId || 'none',
+                },
+                'setMessages: tool_call event',
+              )
 
               // If this tool call belongs to a subagent, add it to that agent's blocks
               if (agentId) {
-                logger.info('setMessages: tool_call for subagent', {
-                  agentId,
-                  toolName,
-                  toolCallId,
-                })
+                logger.info(
+                  {
+                    agentId,
+                    toolName,
+                    toolCallId,
+                  },
+                  'setMessages: tool_call for subagent',
+                )
 
                 applyMessageUpdate((prev) =>
                   prev.map((msg) => {
@@ -1098,11 +1143,14 @@ export const useSendMessage = ({
                 Array.isArray(firstOutputValue) &&
                 firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
 
-              logger.info('setMessages: tool_result event', {
-                toolCallId,
-                isSpawnAgentsResult,
-                firstOutputValue: firstOutputValue ? 'array' : 'not array',
-              })
+              logger.info(
+                {
+                  toolCallId,
+                  isSpawnAgentsResult,
+                  firstOutputValue: firstOutputValue ? 'array' : 'not array',
+                },
+                'setMessages: tool_result event',
+              )
 
               if (isSpawnAgentsResult && Array.isArray(firstOutputValue)) {
                 applyMessageUpdate((prev) =>
@@ -1136,12 +1184,12 @@ export const useSendMessage = ({
                             }
 
                             logger.info(
-                              'setMessages: spawn_agents result processed',
                               {
                                 agentId: block.agentId,
                                 contentLength: content.length,
                                 contentPreview: content.substring(0, 100),
                               },
+                              'setMessages: spawn_agents result processed',
                             )
 
                             const resultTextBlock: ContentBlock = {
@@ -1221,9 +1269,12 @@ export const useSendMessage = ({
           },
         })
 
-        logger.info('SDK client.run() completed successfully', {
-          credits: actualCredits,
-        })
+        logger.info(
+          {
+            credits: actualCredits,
+          },
+          'SDK client.run() completed successfully',
+        )
         setIsStreaming(false)
         setCanProcessQueue(true)
         updateChainInProgress(false)
@@ -1254,7 +1305,7 @@ export const useSendMessage = ({
       } catch (error) {
         const isAborted = error instanceof Error && error.name === 'AbortError'
 
-        logger.error('SDK client.run() failed', error)
+        logger.error(error, 'SDK client.run() failed')
         setIsStreaming(false)
         setCanProcessQueue(true)
         updateChainInProgress(false)

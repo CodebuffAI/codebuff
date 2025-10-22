@@ -1,11 +1,12 @@
 import { useRenderer } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { MultilineInput } from './components/multiline-input'
 import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
-import { SLASH_COMMANDS, type SlashCommand } from './data/slash-commands'
+import { SLASH_COMMANDS } from './data/slash-commands'
 import { useClipboard } from './hooks/use-clipboard'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
@@ -15,17 +16,13 @@ import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
+import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
-import {
-  loadLocalAgents,
-  type LocalAgentInfo,
-} from './utils/local-agent-registry'
+import { loadLocalAgents } from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { chatThemes, createMarkdownPalette } from './utils/theme-system'
-import { useChatStore } from './state/chat-store'
-import { useShallow } from 'zustand/react/shallow'
 
 import type { ToolName } from '@codebuff/sdk'
 import type { InputRenderable, ScrollBoxRenderable } from '@opentui/core'
@@ -449,7 +446,7 @@ export const App = ({
       hasAutoSubmittedRef.current = true
 
       const timeout = setTimeout(() => {
-        logger.info('Auto-submitting initial prompt', { prompt: initialPrompt })
+        logger.info({ prompt: initialPrompt }, 'Auto-submitting initial prompt')
         if (sendMessageRef.current) {
           sendMessageRef.current(initialPrompt)
         }

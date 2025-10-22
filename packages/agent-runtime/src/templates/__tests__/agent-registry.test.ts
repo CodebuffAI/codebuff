@@ -18,12 +18,15 @@ import {
 } from '../agent-registry'
 
 import type { AgentTemplate } from '../types'
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-let agentRuntimeImpl: AgentRuntimeDeps
+let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 // Create mock static templates that will be used by the agent registry
 const mockStaticTemplates: Record<string, AgentTemplate> = {

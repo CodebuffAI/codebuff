@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
           details: errorMessages.join('; '),
           validationErrors: parseResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         acc[agent.id] = agent
         return acc
       },
-      {} as Record<string, any>
+      {} as Record<string, any>,
     )
 
     const { validationErrors, dynamicTemplates } =
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
           details: errorDetails,
           validationErrors,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
       const user = await getUserInfoFromApiKey({
         apiKey: authToken,
         fields: ['id'],
+        logger,
       })
       if (user) {
         userId = user.id
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
           error: 'Publisher field required',
           details: `All agents must have the "publisher" field set. Missing for agents: ${agentIds}`,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest) {
           error: 'Multiple publishers not allowed',
           details: `All agents in a single request must use the same publisher. Found: ${publisherIds.join(', ')}`,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -150,8 +151,8 @@ export async function POST(request: NextRequest) {
         schema.orgMember,
         and(
           eq(schema.orgMember.org_id, schema.publisher.org_id),
-          eq(schema.orgMember.user_id, userId)
-        )
+          eq(schema.orgMember.user_id, userId),
+        ),
       )
       .where(
         and(
@@ -162,11 +163,11 @@ export async function POST(request: NextRequest) {
               eq(schema.orgMember.user_id, userId),
               or(
                 eq(schema.orgMember.role, 'owner'),
-                eq(schema.orgMember.role, 'admin')
-              )
-            )
-          )
-        )
+                eq(schema.orgMember.role, 'admin'),
+              ),
+            ),
+          ),
+        ),
       )
       .limit(1)
 
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
           error: 'Publisher not found or not accessible',
           details: `Publisher '${requestedPublisherId}' not found or you don't have permission to publish to it`,
         },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -191,14 +192,14 @@ export async function POST(request: NextRequest) {
         const version = await determineNextVersion(
           agent.id,
           publisher.id,
-          agent.version
+          agent.version,
         )
 
         // Check if this version already exists
         const versionAlreadyExists = await versionExists(
           agent.id,
           version,
-          publisher.id
+          publisher.id,
         )
         if (versionAlreadyExists) {
           return NextResponse.json(
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
               error: 'Version already exists',
               details: `Agent '${agent.id}' version '${stringifyVersion(version)}' already exists for publisher '${publisher.id}'`,
             },
-            { status: 409 }
+            { status: 409 },
           )
         }
 
@@ -221,7 +222,7 @@ export async function POST(request: NextRequest) {
             error: 'Version determination failed',
             details: `Failed for agent '${agent.id}': ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
-          { status: 400 }
+          { status: 400 },
         )
       }
     }
@@ -230,8 +231,8 @@ export async function POST(request: NextRequest) {
     const publishingAgentIds = new Set(
       agentVersions.map(
         (agent) =>
-          `${requestedPublisherId}/${agent.id}@${stringifyVersion(agent.version)}`
-      )
+          `${requestedPublisherId}/${agent.id}@${stringifyVersion(agent.version)}`,
+      ),
     )
     const publishedAgentIds = await getPublishedAgentIds(requestedPublisherId)
 
@@ -240,7 +241,7 @@ export async function POST(request: NextRequest) {
 
     async function getLatestPublishedVersion(
       publisherId: string,
-      agentId: string
+      agentId: string,
     ): Promise<string | null> {
       const latest = await db
         .select({ version: schema.agentConfig.version })
@@ -248,13 +249,13 @@ export async function POST(request: NextRequest) {
         .where(
           and(
             eq(schema.agentConfig.publisher_id, publisherId),
-            eq(schema.agentConfig.id, agentId)
-          )
+            eq(schema.agentConfig.id, agentId),
+          ),
         )
         .orderBy(
           desc(schema.agentConfig.major),
           desc(schema.agentConfig.minor),
-          desc(schema.agentConfig.patch)
+          desc(schema.agentConfig.patch),
         )
         .limit(1)
         .then((rows) => rows[0])
@@ -282,7 +283,7 @@ export async function POST(request: NextRequest) {
             details: err.message,
             hint: "To fix this, also publish the referenced agent (include it in the same request's data array, or publish it first for the same publisher).",
           },
-          { status: 400 }
+          { status: 400 },
         )
       }
       throw err
@@ -314,7 +315,7 @@ export async function POST(request: NextRequest) {
         agentIds: newAgents.map((a) => a.id),
         agentCount: newAgents.length,
       },
-      'Agents published successfully'
+      'Agents published successfully',
     )
 
     return NextResponse.json(
@@ -327,16 +328,16 @@ export async function POST(request: NextRequest) {
           displayName: (agent.data as any).displayName,
         })),
       },
-      { status: 201 }
+      { status: 201 },
     )
   } catch (error: any) {
     logger.error(
       { name: error.name, message: error.message, stack: error.stack },
-      'Error handling /api/agents/publish request'
+      'Error handling /api/agents/publish request',
     )
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

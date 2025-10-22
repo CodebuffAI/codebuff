@@ -6,25 +6,25 @@ import { logger } from './logger'
 let clientInstance: CodebuffClient | null = null
 
 export function getCodebuffClient(): CodebuffClient | null {
-  logger.info('getCodebuffClient() called')
+  logger.info({}, 'getCodebuffClient() called')
 
   if (!clientInstance) {
     const apiKey = process.env.CODEBUFF_API_KEY
     if (!apiKey) {
-      logger.warn('No CODEBUFF_API_KEY found in environment variables')
+      logger.warn({}, 'No CODEBUFF_API_KEY found in environment variables')
       return null
     }
 
     const gitRoot = findGitRoot()
-    logger.info('Initializing CodebuffClient with API key', { cwd: gitRoot })
+    logger.info({ cwd: gitRoot }, 'Initializing CodebuffClient with API key')
     try {
       clientInstance = new CodebuffClient({
         apiKey,
         cwd: gitRoot,
       })
-      logger.info('CodebuffClient initialized successfully')
+      logger.info({}, 'CodebuffClient initialized successfully')
     } catch (error) {
-      logger.error('Failed to initialize CodebuffClient', error)
+      logger.error(error, 'Failed to initialize CodebuffClient')
       return null
     }
   }
