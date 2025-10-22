@@ -107,6 +107,7 @@ interface UseSendMessageOptions {
   setIsStreaming: (streaming: boolean) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
+  agentId?: string
 }
 
 export const useSendMessage = ({
@@ -126,6 +127,7 @@ export const useSendMessage = ({
   setIsStreaming,
   setCanProcessQueue,
   abortControllerRef,
+  agentId,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -558,7 +560,7 @@ export const useSendMessage = ({
 
         const agent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
         const result = await client.run({
-          agent,
+          agent: agentId || agent,
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,

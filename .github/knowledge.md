@@ -1,4 +1,39 @@
-# GitHub Actions Knowledge
+# GitHub Workflows
+
+## Refactoring Patterns
+
+### Composite Actions
+
+Common setup steps (checkout, Bun setup, caching, installation) have been extracted to `.github/actions/setup-project/action.yml`.
+
+Usage:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+    with:
+      # checkout-specific params
+
+  - uses: ./.github/actions/setup-project
+```
+
+Note: Checkout must be separate from the composite action to avoid circular dependencies.
+
+### Environment Variables
+
+GitHub API URLs are extracted as environment variables to avoid duplication:
+
+```yaml
+env:
+  GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff
+  GITHUB_UPLOADS_URL: https://uploads.github.com/repos/CodebuffAI/codebuff
+```
+
+This pattern:
+
+- Reduces duplication across workflow steps
+- Makes repository changes easier (single point of change)
+- Improves readability and maintainability
 
 ## CI/CD Pipeline Overview
 

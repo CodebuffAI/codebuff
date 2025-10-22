@@ -37,9 +37,12 @@ export function getBundledRgPath(importMetaUrl?: string): string {
   // Try to find the bundled binary relative to this module
   let vendorPath: string | undefined
 
-  if (importMetaUrl) {
+  // Use the SDK's own import.meta.url if none is provided
+  const metaUrl = importMetaUrl || import.meta.url
+
+  if (metaUrl) {
     // ESM context - use import.meta.url to find relative path
-    const currentFile = fileURLToPath(importMetaUrl)
+    const currentFile = fileURLToPath(metaUrl)
     const currentDir = dirname(currentFile)
 
     // Try relative to current file (development - from src/native/ripgrep.ts to vendor/)
@@ -54,6 +57,18 @@ export function getBundledRgPath(importMetaUrl?: string): string {
     )
     if (existsSync(devPath)) {
       vendorPath = devPath
+    }
+
+    // Try relative to bundled dist file (production - from dist/index.mjs to dist/vendor/)
+    const distPath = join(
+      currentDir,
+      'vendor',
+      'ripgrep',
+      platformDir,
+      binaryName,
+    )
+    if (existsSync(distPath)) {
+      vendorPath = distPath
     }
   }
 

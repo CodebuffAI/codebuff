@@ -3,6 +3,7 @@ import './polyfills/bun-strip-ansi'
 import { render } from '@opentui/react'
 import React from 'react'
 import { createRequire } from 'module'
+import { Command } from 'commander'
 
 import { App } from './chat'
 import { clearLogFile } from './utils/logger'
@@ -30,82 +31,45 @@ const VERSION = loadPackageVersion()
 
 type ParsedArgs = {
   initialPrompt: string | null
+  agent?: string
   clearLogs: boolean
-  showHelp: boolean
-  showVersion: boolean
 }
 
 function parseArgs(): ParsedArgs {
-  const args = process.argv.slice(2)
-  let clearLogs = false
-  let showHelp = false
-  let showVersion = false
-  const promptParts: string[] = []
+  const program = new Command()
 
-  for (const arg of args) {
-    switch (arg) {
-      case '--clear-logs':
-        clearLogs = true
-        break
-      case '--help':
-      case '-h':
-        showHelp = true
-        break
-      case '--version':
-      case '-v':
-        showVersion = true
-        break
-      default:
-        promptParts.push(arg)
-        break
-    }
-  }
+  program
+    .name('codecane')
+    .description('Codecane CLI - AI-powered coding assistant')
+    .version(VERSION, '-v, --version', 'Print the CLI version')
+    .option(
+      '--agent <agent-id>',
+      'Specify which agent to use (e.g., "base", "ask", "file-picker")',
+    )
+    .option('--clear-logs', 'Remove any existing CLI log files before starting')
+    .helpOption('-h, --help', 'Show this help message')
+    .argument('[prompt...]', 'Initial prompt to send to the agent')
+    .allowExcessArguments(true)
+    .parse(process.argv)
+
+  const options = program.opts()
+  const args = program.args
 
   return {
-    initialPrompt: promptParts.length > 0 ? promptParts.join(' ') : null,
-    clearLogs,
-    showHelp,
-    showVersion,
+    initialPrompt: args.length > 0 ? args.join(' ') : null,
+    agent: options.agent,
+    clearLogs: options.clearLogs || false,
   }
 }
 
-function printHelp() {
-  console.log(`Codebuff CLI v${VERSION}`)
-  console.log('')
-  console.log('Usage: codebuff-cli [options] [initial prompt]')
-  console.log('')
-  console.log('Options:')
-  console.log('  --help, -h       Show this help message and exit')
-  console.log('  --version, -v    Print the CLI version and exit')
-  console.log('  --clear-logs     Remove any existing CLI log files before starting')
-  console.log('')
-  console.log(
-    'Provide a prompt after the options to automatically seed the first conversation.',
-  )
-}
-
-function printVersion() {
-  console.log(`Codebuff CLI v${VERSION}`)
-}
-
-const { initialPrompt, clearLogs, showHelp, showVersion } = parseArgs()
-
-if (showVersion) {
-  printVersion()
-  process.exit(0)
-}
-
-if (showHelp) {
-  printHelp()
-  process.exit(0)
-}
+const { initialPrompt, agent, clearLogs } = parseArgs()
 
 if (clearLogs) {
   clearLogFile()
 }
 
 if (initialPrompt) {
-  render(<App initialPrompt={initialPrompt} />)
+  render(<App initialPrompt={initialPrompt} agentId={agent} />)
 } else {
-  render(<App />)
+  render(<App agentId={agent} />)
 }

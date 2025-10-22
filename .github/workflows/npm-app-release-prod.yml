@@ -27,25 +27,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.3.0'
-
-      # Cache dependencies for speed
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            */node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*', '**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
-            ${{ runner.os }}-deps-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - uses: ./.github/actions/setup-project
 
       - name: Calculate and update production version
         id: bump_version
@@ -53,12 +35,12 @@ jobs:
           cd npm-app/release
 
           # Get current version and bump it
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
           echo "Current version: $CURRENT_VERSION"
 
           # Bump version based on input
           npm version ${{ inputs.version_type }} --no-git-tag-version
-          NEW_VERSION=$(node -p "require('./package.json').version")
+          NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
 
           echo "New production version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT

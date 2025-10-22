@@ -75,7 +75,10 @@ export type ChatMessage = {
   isComplete?: boolean
 }
 
-export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
+export const App = ({
+  initialPrompt,
+  agentId,
+}: { initialPrompt?: string; agentId?: string } = {}) => {
   const renderer = useRenderer()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<InputRenderable | null>(null)
@@ -441,6 +444,7 @@ export const App = ({ initialPrompt }: { initialPrompt?: string } = {}) => {
     setIsStreaming,
     setCanProcessQueue,
     abortControllerRef,
+    agentId,
   })
 
   sendMessageRef.current = sendMessage

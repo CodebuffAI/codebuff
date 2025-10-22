@@ -30,9 +30,9 @@
     "start-vscode": "bun --cwd npm-app start-vscode",
     "start-nushell": "bun --cwd npm-app start-nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "release:npm-app": "bun run --cwd npm-app release",
+    "release:npm-app": "bun run --cwd=npm-app release",
     "clean-ts": "find . -name '*.tsbuildinfo' -type f -delete && find . -name '.next' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'node_modules' -type d -exec rm -rf {} + 2>/dev/null || true && bun install",
-    "typecheck": "bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
+    "typecheck": "bun --cwd=sdk run build:types && bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
     "test": "bun --filter='{@codebuff/backend,@codebuff/common,@codebuff/npm-app,@codebuff/agents}' run test",
     "init-worktree": "bun scripts/init-worktree.ts",
     "cleanup-worktree": "bash scripts/cleanup-worktree.sh",
@@ -47,13 +47,13 @@
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.59.16",
-    "@types/bun": "^1.3.0",
+    "@types/bun": "^1.2.11",
     "@types/lodash": "4.17.7",
     "@types/node": "^22.9.0",
     "@types/node-fetch": "^2.6.12",
     "@types/parse-path": "^7.1.0",
     "@typescript-eslint/eslint-plugin": "^6.17",
-    "bun-types": "^1.3.0",
+    "bun-types": "^1.2.2",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-unused-imports": "^4.1.4",
@@ -67,6 +67,9 @@
     "types": "^0.1.1",
     "typescript": "5.5.4",
     "typescript-eslint": "^7.17.0"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
   },
   "packageManager": "bun@1.3.0"
 }

@@ -43,7 +43,7 @@ jobs:
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js)
+          VAR_NAMES=$(bun scripts/generate-ci-env.js)
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV
@@ -121,7 +121,7 @@ jobs:
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js)
+          VAR_NAMES=$(bun scripts/generate-ci-env.js)
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV
@@ -129,6 +129,9 @@ jobs:
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+      - name: Build SDK before tests
+        run: cd sdk && bun run build
 
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
@@ -192,7 +195,7 @@ jobs:
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
-          VAR_NAMES=$(node scripts/generate-ci-env.js)
+          VAR_NAMES=$(bun scripts/generate-ci-env.js)
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV
@@ -200,6 +203,9 @@ jobs:
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+      - name: Build SDK before integration tests
+        run: cd sdk && bun run build
 
       - name: Run ${{ matrix.package }} integration tests
         uses: nick-fields/retry@v3

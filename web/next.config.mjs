@@ -32,7 +32,7 @@ const nextConfig = {
       'pino-pretty',
       'encoding',
       'perf_hooks',
-      'async_hooks'
+      'async_hooks',
     )
 
     // Suppress contentlayer webpack cache warnings
@@ -123,6 +123,12 @@ const nextConfig = {
       {
         source: '/discord',
         destination: 'https://discord.gg/mcWTGjgTj3',
+        permanent: false,
+      },
+      {
+        source: '/releases',
+        destination:
+          'https://github.com/CodebuffAI/codebuff-community/releases',
         permanent: false,
       },
     ]

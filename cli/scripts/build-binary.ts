@@ -1,9 +1,19 @@
 #!/usr/bin/env bun
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process'
-import { chmodSync, existsSync, mkdirSync } from 'fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
+import { tmpdir } from 'os'
 
 type TargetInfo = {
   bunTarget: string
@@ -21,6 +31,7 @@ const OVERRIDE_ARCH = process.env.OVERRIDE_ARCH ?? undefined
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const cliRoot = join(__dirname, '..')
+const repoRoot = dirname(cliRoot)
 
 function log(message: string) {
   if (VERBOSE) {
@@ -101,7 +112,7 @@ function getTargetInfo(): TargetInfo {
 
 async function main() {
   const [, , binaryNameArg, version] = process.argv
-  const binaryName = binaryNameArg ?? 'codebuff-cli'
+  const binaryName = binaryNameArg ?? 'codecane'
 
   if (!version) {
     throw new Error('Version argument is required when building a binary')
@@ -119,6 +130,9 @@ async function main() {
   // Ensure SDK assets exist before compiling the CLI
   log('Building SDK dependencies...')
   runCommand('bun', ['run', 'build:sdk'], { cwd: cliRoot })
+
+  patchOpenTuiAssetPaths()
+  await ensureOpenTuiNativeBundle(targetInfo)
 
   const outputFilename =
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
@@ -167,3 +181,151 @@ main().catch((error: unknown) => {
   }
   process.exit(1)
 })
+
+function patchOpenTuiAssetPaths() {
+  const coreDir = join(cliRoot, 'node_modules', '@opentui', 'core')
+  if (!existsSync(coreDir)) {
+    log('OpenTUI core package not found; skipping asset patch')
+    return
+  }
+
+  const indexFile = readdirSync(coreDir).find(
+    (file) => file.startsWith('index') && file.endsWith('.js'),
+  )
+
+  if (!indexFile) {
+    log('OpenTUI core index bundle not found; skipping asset patch')
+    return
+  }
+
+  const indexPath = join(coreDir, indexFile)
+  const content = readFileSync(indexPath, 'utf8')
+
+  const absolutePathPattern =
+    /var __dirname = ".*?packages\/core\/src\/lib\/tree-sitter\/assets";/
+  if (!absolutePathPattern.test(content)) {
+    log('OpenTUI core bundle already has relative asset paths')
+    return
+  }
+
+  const replacement =
+    'var __dirname = path3.join(path3.dirname(fileURLToPath(new URL(".", import.meta.url))), "lib/tree-sitter/assets");'
+
+  const patched = content.replace(absolutePathPattern, replacement)
+  writeFileSync(indexPath, patched)
+  logAlways('Patched OpenTUI core tree-sitter asset paths')
+}
+
+async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
+  const packageName = `@opentui/core-${targetInfo.platform}-${targetInfo.arch}`
+  const packageFolder = `core-${targetInfo.platform}-${targetInfo.arch}`
+  const installTargets = [
+    {
+      label: 'workspace root',
+      packagesDir: join(repoRoot, 'node_modules', '@opentui'),
+      packageDir: join(repoRoot, 'node_modules', '@opentui', packageFolder),
+    },
+    {
+      label: 'CLI workspace',
+      packagesDir: join(cliRoot, 'node_modules', '@opentui'),
+      packageDir: join(cliRoot, 'node_modules', '@opentui', packageFolder),
+    },
+  ]
+
+  const missingTargets = installTargets.filter(({ packageDir }) => !existsSync(packageDir))
+  if (missingTargets.length === 0) {
+    log(`OpenTUI native bundle already present for ${targetInfo.platform}-${targetInfo.arch}`)
+    return
+  }
+
+  const corePackagePath =
+    installTargets
+      .map(({ packagesDir }) => join(packagesDir, 'core', 'package.json'))
+      .find((candidate) => existsSync(candidate)) ?? null
+
+  if (!corePackagePath) {
+    log('OpenTUI core package metadata missing; skipping native bundle fetch')
+    return
+  }
+  const corePackageJson = JSON.parse(readFileSync(corePackagePath, 'utf8')) as {
+    optionalDependencies?: Record<string, string>
+  }
+  const version = corePackageJson.optionalDependencies?.[packageName]
+  if (!version) {
+    log(`No optional dependency declared for ${packageName}; skipping native bundle fetch`)
+    return
+  }
+
+  const registryBase =
+    process.env.CODEBUFF_NPM_REGISTRY ??
+    process.env.NPM_REGISTRY_URL ??
+    'https://registry.npmjs.org'
+  const metadataUrl = `${registryBase.replace(/\/$/, '')}/${encodeURIComponent(packageName)}`
+  log(`Fetching OpenTUI native bundle metadata from ${metadataUrl}`)
+
+  const metadataResponse = await fetch(metadataUrl)
+  if (!metadataResponse.ok) {
+    throw new Error(
+      `Failed to fetch metadata for ${packageName}: ${metadataResponse.status} ${metadataResponse.statusText}`,
+    )
+  }
+
+  const metadata = (await metadataResponse.json()) as {
+    versions?: Record<
+      string,
+      {
+        dist?: {
+          tarball?: string
+        }
+      }
+    >
+  }
+  const tarballUrl = metadata.versions?.[version]?.dist?.tarball
+  if (!tarballUrl) {
+    throw new Error(`Tarball URL missing for ${packageName}@${version}`)
+  }
+
+  log(`Downloading OpenTUI native bundle from ${tarballUrl}`)
+  const tarballResponse = await fetch(tarballUrl)
+  if (!tarballResponse.ok) {
+    throw new Error(
+      `Failed to download ${packageName}@${version}: ${tarballResponse.status} ${tarballResponse.statusText}`,
+    )
+  }
+
+  const tempDir = mkdtempSync(join(tmpdir(), 'opentui-'))
+  try {
+    const tarballPath = join(
+      tempDir,
+      `${packageName.split('/').pop() ?? 'package'}-${version}.tgz`,
+    )
+    await Bun.write(tarballPath, await tarballResponse.arrayBuffer())
+
+    for (const target of missingTargets) {
+      mkdirSync(target.packagesDir, { recursive: true })
+      mkdirSync(target.packageDir, { recursive: true })
+
+      if (!existsSync(target.packageDir)) {
+        throw new Error(`Failed to create directory for ${packageName}: ${target.packageDir}`)
+      }
+
+      const tarballForTar =
+        process.platform === 'win32' ? tarballPath.replace(/\\/g, '/') : tarballPath
+      const extractDirForTar =
+        process.platform === 'win32' ? target.packageDir.replace(/\\/g, '/') : target.packageDir
+
+      const tarArgs = ['-xzf', tarballForTar, '--strip-components=1', '-C', extractDirForTar]
+      if (process.platform === 'win32') {
+        tarArgs.unshift('--force-local')
+      }
+
+      runCommand('tar', tarArgs)
+      log(
+        `Installed OpenTUI native bundle for ${targetInfo.platform}-${targetInfo.arch} in ${target.label}`,
+      )
+    }
+    logAlways(`Fetched OpenTUI native bundle for ${targetInfo.platform}-${targetInfo.arch}`)
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true })
+  }
+}

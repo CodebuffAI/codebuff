@@ -148,6 +148,31 @@ We ❤️ contributions from the community - whether you're fixing bugs, tweakin
 
 **Want to contribute?** Check out our [Contributing Guide](./CONTRIBUTING.md) to get started.
 
+### Running Tests
+
+To run the test suite:
+
+```bash
+cd cli
+bun test
+```
+
+**For interactive E2E testing**, install tmux:
+
+```bash
+# macOS
+brew install tmux
+
+# Ubuntu/Debian
+sudo apt-get install tmux
+
+# Windows (via WSL)
+wsl --install
+sudo apt-get install tmux
+```
+
+See [cli/src/__tests__/README.md](cli/src/__tests__/README.md) for comprehensive testing documentation.
+
 Some ways you can help:
 
 - 🐛 **Fix bugs** or add features

@@ -3,6 +3,8 @@ name: CLI Release Staging
 on:
   pull_request:
     branches: ['main']
+  push:
+    branches: ['**']
 
 concurrency:
   group: cli-staging-release
@@ -14,60 +16,48 @@ permissions:
 jobs:
   prepare-and-commit-staging:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.title, '[codebuff-cli]')
+    if: |
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[codecane]')) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[codecane]'))
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.3.0'
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            */node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*', '**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
-            ${{ runner.os }}-deps-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - uses: ./.github/actions/setup-project
 
       - name: Calculate staging version
         id: bump_version
         env:
           GITHUB_TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff-community
         run: |
           cd cli/release-staging
 
-          BASE_VERSION=$(node -e "console.log(require('./package.json').version)")
+          BASE_VERSION=$(bun -e "console.log(require('./package.json').version)")
           echo "Base version: $BASE_VERSION"
 
           echo "Fetching latest CLI prerelease from GitHub..."
           RELEASES_JSON=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-            "https://api.github.com/repos/CodebuffAI/codebuff/releases?per_page=100")
+            "${GITHUB_API_URL}/releases?per_page=100")
 
-          LATEST_BETA=$(echo "$RELEASES_JSON" | jq -r '.[] | select(.prerelease == true and (.name // "" | test("Codebuff CLI v"))) | .tag_name' | sort -V | tail -n 1)
+          LATEST_TAG=$(echo "$RELEASES_JSON" | jq -r '.[] | select(.prerelease == true and (.name // "" | test("Codebuff CLI v"))) | .tag_name' | sort -V | tail -n 1)
 
-          if [ "$LATEST_BETA" = "null" ]; then
-            LATEST_BETA=""
+          if [ "$LATEST_TAG" = "null" ] || [ -z "$LATEST_TAG" ]; then
+            echo "No existing CLI prerelease found via releases, falling back to tags..."
+            LATEST_TAG=$(git ls-remote --tags origin "v${BASE_VERSION}-beta.*" | awk '{print $2}' | sed 's@refs/tags/@@' | sort -V | tail -n 1)
           fi
 
-          if [ -z "$LATEST_BETA" ]; then
-            echo "No existing CLI beta releases found, starting with beta.1"
-            NEW_VERSION="${BASE_VERSION}-beta.1"
-          else
-            echo "Latest CLI beta tag: $LATEST_BETA"
-            LATEST_VERSION=${LATEST_BETA#v}
+          if [ -n "$LATEST_TAG" ] && [[ "$LATEST_TAG" != v* ]]; then
+            LATEST_TAG="v${LATEST_TAG}"
+          fi
+
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Latest CLI beta tag: $LATEST_TAG"
+            LATEST_VERSION=${LATEST_TAG#v}
             LATEST_BASE=$(echo "$LATEST_VERSION" | sed 's/-beta\..*$//')
             LATEST_BETA_NUM=$(echo "$LATEST_VERSION" | sed 's/.*-beta\.//')
 
@@ -75,15 +65,18 @@ jobs:
               NEXT=$((LATEST_BETA_NUM + 1))
               NEW_VERSION="${BASE_VERSION}-beta.${NEXT}"
             else
-              echo "Base version changed, resetting beta counter"
+              echo "Base version changed since last prerelease, resetting counter"
               NEW_VERSION="${BASE_VERSION}-beta.1"
             fi
+          else
+            echo "No existing CLI beta tags found, starting with beta.1"
+            NEW_VERSION="${BASE_VERSION}-beta.1"
           fi
 
           echo "New staging version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-          node -e "
+          bun -e "
             const fs = require('fs');
             const path = require('path');
             const version = '$NEW_VERSION';
@@ -105,7 +98,7 @@ jobs:
       - name: Commit staging release snapshot
         run: |
           git add -A
-          git commit -m "Staging CLI Release v${{ steps.bump_version.outputs.new_version }} [codebuff-cli]
+          git commit -m "Staging CLI Release v${{ steps.bump_version.outputs.new_version }} [codecane]
 
           Captures the staged state for the CLI prerelease, including the version bump.
 
@@ -127,10 +120,10 @@ jobs:
     needs: prepare-and-commit-staging
     uses: ./.github/workflows/cli-release-build.yml
     with:
-      binary-name: codebuff-cli
+      binary-name: codecane
       new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
       artifact-name: cli-staging-metadata
-      checkout-ref: ${{ github.event.pull_request.head.sha }}
+      checkout-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       env-overrides: '{}'
     secrets: inherit
 
@@ -140,18 +133,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Clean up old CLI prereleases
+        env:
+          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff-community
         run: |
           ONE_WEEK_AGO=$(date -d '7 days ago' -u +%Y-%m-%dT%H:%M:%SZ)
           echo "Removing CLI prereleases older than: $ONE_WEEK_AGO"
 
           RELEASES=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/CodebuffAI/codebuff/releases?per_page=100")
+            "${GITHUB_API_URL}/releases?per_page=100")
 
-          if echo "$RELEASES" | jq -e . >/dev/null 2>&1; then
-            OLD=$(echo "$RELEASES" | jq -r '.[] | select(.prerelease == true and .created_at < "'$ONE_WEEK_AGO'" and (.tag_name | test("^v[0-9].*-beta\\.[0-9]+$"))) | "\(.id):\(.tag_name)"')
+          if echo "$RELEASES" | jq -e 'type == "array"' >/dev/null 2>&1; then
+            OLD=$(echo "$RELEASES" | jq -r --arg cutoff "$ONE_WEEK_AGO" '.[] | select(.prerelease == true and .created_at < $cutoff and (.tag_name | test("^v[0-9].*-beta\\.[0-9]+$"))) | "\(.id):\(.tag_name)"')
 
             if [ -n "$OLD" ]; then
               echo "Deleting old prereleases:"
@@ -159,7 +154,7 @@ jobs:
               echo "$OLD" | while IFS=: read -r RELEASE_ID TAG_NAME; do
                 curl -s -X DELETE \
                   -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-                  "https://api.github.com/repos/CodebuffAI/codebuff/releases/$RELEASE_ID"
+                  "${GITHUB_API_URL}/releases/$RELEASE_ID"
               done
             else
               echo "No stale prereleases found."
@@ -180,60 +175,61 @@ jobs:
           name: cli-staging-metadata
           path: cli/release-staging/
 
-      - name: Create GitHub prerelease
-        env:
-          VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
+          name: Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
+          prerelease: true
+          body: |
+            ## Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
+
+            **⚠️ This is a staging build intended for internal testing.**
+
+            ### Included Binaries
+            - `codecane-linux-x64.tar.gz`
+            - `codecane-linux-arm64.tar.gz`
+            - `codecane-darwin-x64.tar.gz`
+            - `codecane-darwin-arm64.tar.gz`
+            - `codecane-win32-x64.tar.gz`
+
+            After downloading, extract the tarball, add the binary to your PATH, and run `codecane --help` for usage.
+          files: |
+            binaries/*/codecane-*
+          repository: CodebuffAI/codebuff-community
+          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+
+  publish-staging-npm:
+    needs:
+      [
+        prepare-and-commit-staging,
+        build-staging-binaries,
+        create-staging-release,
+      ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Download CLI staging package
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-staging-metadata
+          path: cli/release-staging/
+
+      - name: Set up Node.js with npm registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish codecane staging package to npm
         run: |
-          CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          RELEASE_BODY=$(cat <<EOF
-## Codebuff CLI v${VERSION} (Staging)
-
-**⚠️ This is a staging build intended for internal testing.**
-
-### Included Binaries
-- \`codebuff-cli-linux-x64.tar.gz\`
-- \`codebuff-cli-linux-arm64.tar.gz\`
-- \`codebuff-cli-darwin-x64.tar.gz\`
-- \`codebuff-cli-darwin-arm64.tar.gz\`
-- \`codebuff-cli-win32-x64.tar.gz\`
-
-After downloading, extract the tarball, add the binary to your PATH, and run \`codebuff-cli --help\` for usage.
-EOF
-)
-
-          curl -s -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            https://api.github.com/repos/CodebuffAI/codebuff/releases \
-            -d "{
-              \"tag_name\": \"v${VERSION}\",
-              \"name\": \"Codebuff CLI v${VERSION} (Staging)\",
-              \"body\": \"${RELEASE_BODY//$'\n'/\\n}\",
-              \"prerelease\": true,
-              \"published_at\": \"$CURRENT_TIME\"
-            }"
-
-      - name: Upload release assets
+          cd cli/release-staging
+          npm publish --access public
         env:
-          VERSION: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
-        run: |
-          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/CodebuffAI/codebuff/releases/tags/v${VERSION}" | jq -r '.id')
-
-          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
-            echo "Failed to resolve release ID for v${VERSION}"
-            exit 1
-          fi
-
-          for file in binaries/*/codebuff-cli-*; do
-            if [ -f "$file" ]; then
-              FILENAME=$(basename "$file")
-              echo "Uploading $FILENAME"
-              curl -s -X POST \
-                -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
-                -H "Content-Type: application/octet-stream" \
-                --data-binary @"$file" \
-                "https://uploads.github.com/repos/CodebuffAI/codebuff/releases/$RELEASE_ID/assets?name=$FILENAME"
-            fi
-          done
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

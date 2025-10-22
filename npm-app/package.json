@@ -19,6 +19,8 @@
     "codebuff": "dist/index.js"
   },
   "scripts": {
+    "pretypecheck": "cd ../sdk && bun run build:types",
+    "pretest": "cd ../sdk && bun run build",
     "typecheck": "tsc --noEmit -p .",
     "build": "bun run scripts/build-binary.js codebuff $(node -p \"require('./release/package.json').version\")",
     "release": "bun run scripts/release.js",
@@ -38,7 +40,6 @@
     "@codebuff/common": "workspace:*",
     "@types/diff": "8.0.0",
     "@types/micromatch": "^4.0.9",
-    "@vscode/ripgrep": "1.15.9",
     "ai": "5.0.0",
     "axios": "1.7.4",
     "cli-highlight": "^2.1.11",

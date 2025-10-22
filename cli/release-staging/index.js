@@ -7,52 +7,52 @@ const os = require('os')
 const path = require('path')
 const zlib = require('zlib')
 
-const { Command } = require('commander')
 const tar = require('tar')
 
-const CONFIG = {
-  homeDir: os.homedir(),
-  configDir: path.join(os.homedir(), '.config', 'manicode'),
-  binaryName: process.platform === 'win32' ? 'codebuff.exe' : 'codebuff',
-  githubRepo: 'CodebuffAI/codebuff-community',
-  userAgent: 'codebuff-cli',
-  requestTimeout: 20000,
+const packageName = 'codecane'
+
+function createConfig(packageName) {
+  const homeDir = os.homedir()
+  const configDir = path.join(homeDir, '.config', 'manicode')
+  const binaryName =
+    process.platform === 'win32' ? `${packageName}.exe` : packageName
+
+  return {
+    homeDir,
+    configDir,
+    binaryName,
+    binaryPath: path.join(configDir, binaryName),
+    userAgent: `${packageName}-cli`,
+    requestTimeout: 20000,
+  }
 }
 
-CONFIG.binaryPath = path.join(CONFIG.configDir, CONFIG.binaryName)
+const CONFIG = createConfig(packageName)
 
-// Platform target mapping
 const PLATFORM_TARGETS = {
-  'linux-x64': 'codebuff-linux-x64.tar.gz',
-  'linux-arm64': 'codebuff-linux-arm64.tar.gz',
-  'darwin-x64': 'codebuff-darwin-x64.tar.gz',
-  'darwin-arm64': 'codebuff-darwin-arm64.tar.gz',
-  'win32-x64': 'codebuff-win32-x64.tar.gz',
+  'linux-x64': `${packageName}-linux-x64.tar.gz`,
+  'linux-arm64': `${packageName}-linux-arm64.tar.gz`,
+  'darwin-x64': `${packageName}-darwin-x64.tar.gz`,
+  'darwin-arm64': `${packageName}-darwin-arm64.tar.gz`,
+  'win32-x64': `${packageName}-win32-x64.tar.gz`,
 }
 
-// Terminal utilities
-let isPrintMode = false
 const term = {
   clearLine: () => {
-    if (!isPrintMode && process.stderr.isTTY) {
+    if (process.stderr.isTTY) {
       process.stderr.write('\r\x1b[K')
     }
   },
   write: (text) => {
-    if (!isPrintMode) {
-      term.clearLine()
-      process.stderr.write(text)
-    }
+    term.clearLine()
+    process.stderr.write(text)
   },
   writeLine: (text) => {
-    if (!isPrintMode) {
-      term.clearLine()
-      process.stderr.write(text + '\n')
-    }
+    term.clearLine()
+    process.stderr.write(text + '\n')
   },
 }
 
-// Utility functions
 function httpGet(url, options = {}) {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url)
@@ -63,12 +63,6 @@ function httpGet(url, options = {}) {
         'User-Agent': CONFIG.userAgent,
         ...options.headers,
       },
-    }
-
-    // Add GitHub token if available
-    const token = process.env.GITHUB_TOKEN
-    if (token) {
-      reqOptions.headers.Authorization = `Bearer ${token}`
     }
 
     const req = https.get(reqOptions, (res) => {
@@ -93,22 +87,15 @@ function httpGet(url, options = {}) {
 async function getLatestVersion() {
   try {
     const res = await httpGet(
-      `https://github.com/${CONFIG.githubRepo}/releases.atom`,
+      `https://registry.npmjs.org/${packageName}/latest`,
     )
 
     if (res.statusCode !== 200) return null
 
     const body = await streamToString(res)
+    const packageData = JSON.parse(body)
 
-    // Parse the Atom XML to extract the latest release tag
-    const tagMatch = body.match(
-      /<id>tag:github\.com,2008:Repository\/\d+\/([^<]+)<\/id>/,
-    )
-    if (tagMatch && tagMatch[1]) {
-      return tagMatch[1].replace(/^v/, '')
-    }
-
-    return null
+    return packageData.version || null
   } catch (error) {
     return null
   }
@@ -124,13 +111,10 @@ function streamToString(stream) {
 }
 
 function getCurrentVersion() {
-  return new Promise((resolve, reject) => {
-    try {
-      if (!fs.existsSync(CONFIG.binaryPath)) {
-        resolve('error')
-        return
-      }
+  if (!fs.existsSync(CONFIG.binaryPath)) return null
 
+  try {
+    return new Promise((resolve, reject) => {
       const child = spawn(CONFIG.binaryPath, ['--version'], {
         cwd: os.homedir(),
         stdio: 'pipe',
@@ -170,27 +154,68 @@ function getCurrentVersion() {
         clearTimeout(timeout)
         resolve('error')
       })
-    } catch (error) {
-      resolve('error')
-    }
-  })
+    })
+  } catch (error) {
+    return 'error'
+  }
 }
 
 function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
 
-  const parts1 = v1.split('.').map(Number)
-  const parts2 = v2.split('.').map(Number)
-
-  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-    const p1 = parts1[i] || 0
-    const p2 = parts2[i] || 0
-
-    if (p1 < p2) return -1
-    if (p1 > p2) return 1
+  const parseVersion = (version) => {
+    const parts = version.split('-')
+    const mainParts = parts[0].split('.').map(Number)
+    const prereleaseParts = parts[1] ? parts[1].split('.') : []
+    return { main: mainParts, prerelease: prereleaseParts }
   }
 
-  return 0
+  const p1 = parseVersion(v1)
+  const p2 = parseVersion(v2)
+
+  for (let i = 0; i < Math.max(p1.main.length, p2.main.length); i++) {
+    const n1 = p1.main[i] || 0
+    const n2 = p2.main[i] || 0
+
+    if (n1 < n2) return -1
+    if (n1 > n2) return 1
+  }
+
+  if (p1.prerelease.length === 0 && p2.prerelease.length === 0) {
+    return 0
+  } else if (p1.prerelease.length === 0) {
+    return 1
+  } else if (p2.prerelease.length === 0) {
+    return -1
+  } else {
+    for (
+      let i = 0;
+      i < Math.max(p1.prerelease.length, p2.prerelease.length);
+      i++
+    ) {
+      const pr1 = p1.prerelease[i] || ''
+      const pr2 = p2.prerelease[i] || ''
+
+      const isNum1 = !isNaN(parseInt(pr1))
+      const isNum2 = !isNaN(parseInt(pr2))
+
+      if (isNum1 && isNum2) {
+        const num1 = parseInt(pr1)
+        const num2 = parseInt(pr2)
+        if (num1 < num2) return -1
+        if (num1 > num2) return 1
+      } else if (isNum1 && !isNum2) {
+        return 1
+      } else if (!isNum1 && isNum2) {
+        return -1
+      } else if (pr1 < pr2) {
+        return -1
+      } else if (pr1 > pr2) {
+        return 1
+      }
+    }
+    return 0
+  }
 }
 
 function formatBytes(bytes) {
@@ -215,12 +240,8 @@ async function downloadBinary(version) {
     throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
   }
 
-  // Use proxy endpoint that handles version mapping
-  const downloadUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
-    ? `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/releases/download/${version}/${fileName}`
-    : `https://codebuff.com/api/releases/download/${version}/${fileName}`
+  const downloadUrl = `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'}/api/releases/download/${version}/${fileName}`
 
-  // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
 
   if (fs.existsSync(CONFIG.binaryPath)) {
@@ -266,7 +287,6 @@ async function downloadBinary(version) {
   })
 
   try {
-    // Find the extracted binary - it should be named "codebuff" or "codebuff.exe"
     const files = fs.readdirSync(CONFIG.configDir)
     const extractedPath = path.join(CONFIG.configDir, CONFIG.binaryName)
 
@@ -281,37 +301,20 @@ async function downloadBinary(version) {
     }
   } catch (error) {
     term.clearLine()
-    if (!isPrintMode) {
-      console.error(`Extraction failed: ${error.message}`)
-    }
+    console.error(`Extraction failed: ${error.message}`)
     process.exit(1)
   }
 
   term.clearLine()
-  if (isPrintMode) {
-    console.log(
-      JSON.stringify({ type: 'download', version, status: 'complete' }),
-    )
-  } else {
-    console.log('Download complete! Starting Codebuff...')
-  }
+  console.log('Download complete! Starting Codecane...')
 }
 
 async function ensureBinaryExists() {
   if (!fs.existsSync(CONFIG.binaryPath)) {
     const version = await getLatestVersion()
     if (!version) {
-      if (isPrintMode) {
-        console.error(
-          JSON.stringify({
-            type: 'error',
-            message: 'Failed to determine latest version.',
-          }),
-        )
-      } else {
-        console.error('❌ Failed to determine latest version')
-        console.error('Please check your internet connection and try again')
-      }
+      console.error('❌ Failed to determine latest version')
+      console.error('Please check your internet connection and try again')
       process.exit(1)
     }
 
@@ -319,46 +322,32 @@ async function ensureBinaryExists() {
       await downloadBinary(version)
     } catch (error) {
       term.clearLine()
-      if (isPrintMode) {
-        console.error(
-          JSON.stringify({
-            type: 'error',
-            message: `Failed to download codebuff: ${error.message}`,
-          }),
-        )
-      } else {
-        console.error('❌ Failed to download codebuff:', error.message)
-        console.error('Please check your internet connection and try again')
-      }
+      console.error('❌ Failed to download codecane:', error.message)
+      console.error('Please check your internet connection and try again')
       process.exit(1)
     }
   }
 }
 
-async function checkForUpdates(runningProcess, exitListener, retry) {
+async function checkForUpdates(runningProcess, exitListener) {
   try {
     const currentVersion = await getCurrentVersion()
+    if (!currentVersion) return
 
     const latestVersion = await getLatestVersion()
     if (!latestVersion) return
 
     if (
-      // Download new version if current binary errors.
       currentVersion === 'error' ||
       compareVersions(currentVersion, latestVersion) < 0
     ) {
       term.clearLine()
 
-      // Remove the specific exit listener to prevent it from interfering with the update
       runningProcess.removeListener('exit', exitListener)
-
-      // Kill the running process
       runningProcess.kill('SIGTERM')
 
-      // Wait for the process to actually exit
       await new Promise((resolve) => {
         runningProcess.on('exit', resolve)
-        // Fallback timeout in case the process doesn't exit gracefully
         setTimeout(() => {
           if (!runningProcess.killed) {
             runningProcess.kill('SIGKILL')
@@ -367,76 +356,53 @@ async function checkForUpdates(runningProcess, exitListener, retry) {
         }, 5000)
       })
 
-      if (!isPrintMode) {
-        console.log(`Update available: ${currentVersion} → ${latestVersion}`)
-      }
+      console.log(`Update available: ${currentVersion} → ${latestVersion}`)
 
       await downloadBinary(latestVersion)
 
-      await retry(isPrintMode)
+      const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
+        stdio: 'inherit',
+        detached: false,
+      })
+
+      newChild.on('exit', (code) => {
+        process.exit(code || 0)
+      })
+
+      return new Promise(() => {})
     }
   } catch (error) {
-    // Silently ignore update check errors
+    // Ignore update failures
   }
 }
 
-async function main(firstRun = false, printMode = false) {
-  isPrintMode = printMode
+async function main() {
+  console.log('\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m')
+  console.log('\x1b[1m\x1b[93m❄️ CODECANE STAGING ENVIRONMENT ❄️\x1b[0m')
+  console.log(
+    '\x1b[1m\x1b[91mFOR TESTING PURPOSES ONLY - NOT FOR PRODUCTION USE\x1b[0m',
+  )
+  console.log('\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m')
+  console.log('')
+
   await ensureBinaryExists()
 
-  let error = null
-  try {
-    // Start codebuff
-    const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
-      stdio: 'inherit',
-    })
+  const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
+    stdio: 'inherit',
+  })
 
-    // Store reference to the exit listener so we can remove it during updates
-    const exitListener = (code) => {
-      process.exit(code || 0)
-    }
-
-    child.on('exit', exitListener)
-
-    if (firstRun) {
-      // Check for updates in background
-      setTimeout(() => {
-        if (!error) {
-          checkForUpdates(child, exitListener, () => main(false, isPrintMode))
-        }
-      }, 100)
-    }
-  } catch (err) {
-    error = err
-    if (firstRun) {
-      if (!isPrintMode) {
-        console.error('❌ Codebuff failed to start:', error.message)
-        console.log('Redownloading Codebuff...')
-      }
-      // Binary could be corrupted (killed before download completed), so delete and retry.
-      fs.unlinkSync(CONFIG.binaryPath)
-      await main(false, isPrintMode)
-    }
+  const exitListener = (code) => {
+    process.exit(code || 0)
   }
+
+  child.on('exit', exitListener)
+
+  setTimeout(() => {
+    checkForUpdates(child, exitListener)
+  }, 100)
 }
 
-// Setup commander
-const program = new Command()
-program
-  .name('codebuff')
-  .description('AI coding agent')
-  .helpOption(false)
-  .option('-p, --print', 'print mode - suppress wrapper output')
-  .allowUnknownOption()
-  .parse()
-
-const options = program.opts()
-isPrintMode = options.print
-
-// Run the main function
-main(true, isPrintMode).catch((error) => {
-  if (!isPrintMode) {
-    console.error('❌ Unexpected error:', error.message)
-  }
+main().catch((error) => {
+  console.error('❌ Unexpected error:', error.message)
   process.exit(1)
 })
