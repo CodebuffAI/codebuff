@@ -1,4 +1,5 @@
 import { trackEvent } from '@codebuff/common/analytics'
+import { success } from '@codebuff/common/util/error'
 
 import {
   fetchAgentFromDatabase,
@@ -15,7 +16,6 @@ import type {
 export const CLI_AGENT_RUNTIME_IMPL: Omit<
   AgentRuntimeDeps & AgentRuntimeScopedDeps,
   | 'addAgentStep'
-  | 'consumeCreditsWithFallback'
   | 'promptAiSdkStream'
   | 'promptAiSdk'
   | 'promptAiSdkStructured'
@@ -35,7 +35,10 @@ export const CLI_AGENT_RUNTIME_IMPL: Omit<
   // addAgentStep: AddAgentStepFn
 
   // Billing
-  // consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn,
+  consumeCreditsWithFallback: async () =>
+    success({
+      chargedToOrganization: false,
+    }),
 
   // LLM
   // promptAiSdkStream: PromptAiSdkStreamFn,
