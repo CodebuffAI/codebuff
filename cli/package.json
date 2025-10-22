@@ -19,11 +19,12 @@
     "prebuild": "bun run build:sdk",
     "build": "bun build src/index.tsx --outdir dist --target node --format esm",
     "build:sdk": "cd ../sdk && bun run build",
+    "build:sdk-types": "cd ../sdk && bun run build:types",
     "build:binary": "bun ./scripts/build-binary.ts codecane $npm_package_version",
     "start": "bun run dist/index.js",
     "test": "bun test",
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",
-    "pretypecheck": "bun run build:sdk",
+    "pretypecheck": "bun run build:sdk-types",
     "typecheck": "tsc --noEmit -p ."
   },
   "sideEffects": false,

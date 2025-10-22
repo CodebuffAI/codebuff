@@ -32,7 +32,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "release:npm-app": "bun run --cwd npm-app release",
     "clean-ts": "find . -name '*.tsbuildinfo' -type f -delete && find . -name '.next' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'node_modules' -type d -exec rm -rf {} + 2>/dev/null || true && bun install",
-    "typecheck": "bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
+    "typecheck": "bun --cwd sdk run build:types && bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
     "test": "bun --filter='{@codebuff/backend,@codebuff/common,@codebuff/npm-app,@codebuff/agents}' run test",
     "init-worktree": "bun scripts/init-worktree.ts",
     "cleanup-worktree": "bash scripts/cleanup-worktree.sh",
