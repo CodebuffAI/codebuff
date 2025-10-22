@@ -97,7 +97,7 @@ export interface TestInterface {
 
     const result = await handleCodeSearch(parameters, 'test-id')
 
-    expect(result[0].value).toHaveProperty('message')
+    expect(result[0].value).toContainKey('message')
   })
 
   test('finds specific content in test file', async () => {

@@ -202,7 +202,7 @@ export async function processStreamWithTools(
         reasoning = false
         onResponseChunk(`"\n}${endToolTag}\n\n`)
       }
-      onResponseChunk(chunk)
+      onResponseChunk(chunk.text)
       fullResponseChunks.push(chunk.text)
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)

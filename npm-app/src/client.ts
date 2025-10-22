@@ -209,10 +209,6 @@ export class Client {
   private responseComplete: boolean = false
   private userInputId: string | undefined
   private currentOnChunk: ((chunk: string | PrintModeEvent) => void) | undefined
-  private onlyChildAgents: Set<string> = new Set()
-  private emitPromptChunkToParser:
-    | ((textChunk: string) => boolean)
-    | undefined
 
   public usageData: UsageData = {
     usage: 0,
@@ -956,24 +952,10 @@ export class Client {
     })
     // Handle subagent streaming messages
     this.webSocket.subscribe('subagent-response-chunk', (action) => {
-      const {
-        agentId,
-        agentType,
-        chunk,
-        prompt,
-        forwardToPrompt,
-      } = action
+      const { agentId, agentType, chunk, prompt } = action
 
       // Store the chunk locally
       storeSubagentChunk({ agentId, agentType, chunk, prompt })
-
-      if (
-        forwardToPrompt !== false &&
-        this.onlyChildAgents.has(agentId) &&
-        this.emitPromptChunkToParser
-      ) {
-        this.emitPromptChunkToParser(chunk)
-      }
 
       // Refresh display if we're currently viewing this agent
       refreshSubagentDisplay(agentId)
@@ -1358,44 +1340,6 @@ export class Client {
 
     this.userInputId = userInputId
     this.currentOnChunk = onChunk
-    this.onlyChildAgents.clear()
-
-    const emitChunkToParser = (textChunk: string) => {
-      rawChunkBuffer.push(textChunk)
-
-      const trimmed = textChunk.trim()
-      for (const tag of ONE_TIME_TAGS) {
-        if (trimmed.startsWith(`<${tag}>`) && trimmed.endsWith(closeXml(tag))) {
-          if (this.oneTimeFlags[tag]) {
-            return true
-          }
-          Spinner.get().stop()
-          const warningMessage = trimmed
-            .replace(`<${tag}>`, '')
-            .replace(closeXml(tag), '')
-          process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
-          this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
-          return true
-        }
-      }
-
-      try {
-        xmlStreamParser.write(textChunk, 'utf8')
-      } catch (e) {
-        logger.error(
-          {
-            errorMessage: e instanceof Error ? e.message : String(e),
-            errorStack: e instanceof Error ? e.stack : undefined,
-            chunk: textChunk,
-          },
-          'Error writing chunk to XML stream parser',
-        )
-      }
-
-      return false
-    }
-
-    this.emitPromptChunkToParser = emitChunkToParser
 
     const stopResponse = () => {
       responseStopped = true
@@ -1405,8 +1349,6 @@ export class Client {
       this.currentOnChunk = undefined
 
       xmlStreamParser.destroy()
-      this.emitPromptChunkToParser = undefined
-      this.onlyChildAgents.clear()
 
       const additionalMessages = prompt
         ? [
@@ -1452,50 +1394,45 @@ export class Client {
 
     unsubscribeChunks = this.webSocket.subscribe('response-chunk', (a) => {
       if (a.userInputId !== userInputId) return
-      const incomingChunk = a.chunk
+      if (typeof a.chunk === 'string') {
+        const { chunk } = a
 
-      const updateOnlyChildAgents = (event: PrintModeEvent) => {
-        if ('agentId' in event && event.agentId) {
+        rawChunkBuffer.push(chunk)
+
+        const trimmed = chunk.trim()
+        for (const tag of ONE_TIME_TAGS) {
           if (
-            event.type === 'subagent_start' &&
-            'onlyChild' in event &&
-            event.onlyChild
+            trimmed.startsWith(`<${tag}>`) &&
+            trimmed.endsWith(closeXml(tag))
           ) {
-            this.onlyChildAgents.add(event.agentId)
-          } else if (event.type === 'subagent_finish') {
-            this.onlyChildAgents.delete(event.agentId)
+            if (this.oneTimeFlags[tag]) {
+              return
+            }
+            Spinner.get().stop()
+            const warningMessage = trimmed
+              .replace(`<${tag}>`, '')
+              .replace(closeXml(tag), '')
+            process.stdout.write(yellow(`\n\n${warningMessage}\n\n`))
+            this.oneTimeFlags[tag as (typeof ONE_TIME_LABELS)[number]] = true
+            return
           }
         }
-      }
 
-      if (typeof incomingChunk === 'string') {
-        emitChunkToParser(incomingChunk)
-        return
-      }
-
-      if (incomingChunk.type === 'text') {
-        printModeLog(incomingChunk)
-        // Skip nested subagent text from streaming output
-        if (incomingChunk.agentId) return
-        emitChunkToParser(incomingChunk.text)
-        return
-      }
-
-      if (incomingChunk.type === 'error') {
-        const errorText = `${yellow(incomingChunk.message)}\n`
-        const handler = this.currentOnChunk
-        if (handler) {
-          handler(errorText)
-        } else {
-          Spinner.get().stop()
-          DiffManager.receivedResponse()
-          process.stdout.write(errorText)
+        try {
+          xmlStreamParser.write(chunk, 'utf8')
+        } catch (e) {
+          logger.error(
+            {
+              errorMessage: e instanceof Error ? e.message : String(e),
+              errorStack: e instanceof Error ? e.stack : undefined,
+              chunk,
+            },
+            'Error writing chunk to XML stream parser',
+          )
         }
+      } else {
+        onChunk(a.chunk)
       }
-
-      updateOnlyChildAgents(incomingChunk)
-
-      onChunk(incomingChunk)
     })
 
     let stepsCount = 0
@@ -1508,8 +1445,6 @@ export class Client {
 
         if (action.promptId !== userInputId) return
         this.responseComplete = true
-        this.emitPromptChunkToParser = undefined
-        this.onlyChildAgents.clear()
 
         Spinner.get().stop()
 
@@ -1617,7 +1552,6 @@ Go to https://www.codebuff.com/config for more information.`) +
 
         unsubscribeChunks()
         unsubscribeComplete()
-        this.onlyChildAgents.clear()
 
         // Clear the onChunk callback when response is complete
         this.currentOnChunk = undefined
