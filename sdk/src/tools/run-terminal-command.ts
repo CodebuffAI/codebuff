@@ -54,7 +54,10 @@ export function runTerminalCommand({
       timer = setTimeout(() => {
         if (!processFinished) {
           processFinished = true
-          childProcess.kill('SIGTERM')
+          const success = childProcess.kill('SIGTERM')
+          if (!success) {
+            childProcess.kill('SIGKILL')
+          }
           reject(
             new Error(`Command timed out after ${timeout_seconds} seconds`),
           )

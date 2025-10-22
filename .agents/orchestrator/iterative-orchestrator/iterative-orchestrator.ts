@@ -9,7 +9,6 @@ type StepInfo = {
   title: string
   prompt: string
   type: 'implementation' | 'decision'
-  successCriteria?: string[]
   filesToReadHints?: string[]
 }
 
@@ -22,7 +21,7 @@ const definition: SecretAgentDefinition = {
     'Orchestrates the completion of a large task through batches of independent steps.',
   outputMode: 'structured_output',
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: ['iterative-orchestrator-step', 'base2-fast'],
+  spawnableAgents: ['iterative-orchestrator-step', 'base2-with-files-input'],
 
   inputSchema: {
     prompt: { type: 'string', description: 'Overall task to complete' },
@@ -38,8 +37,10 @@ const definition: SecretAgentDefinition = {
     }[] = []
     let completed = false
     let iteration = 0
+    const maxIterations = 15
 
-    while (!completed) {
+    while (!completed && iteration < maxIterations) {
+      const remainingIterations = maxIterations - iteration
       iteration++
       // 1) Plan next step
       const planningBundle = [
@@ -93,18 +94,23 @@ const definition: SecretAgentDefinition = {
         break
       }
 
+      const reminder =
+        remainingIterations <= 5
+          ? `<reminder>You are approaching the MAXIMUM NUMBER OF ITERATIONS! You have ${remainingIterations} iterations left to complete the task, or at least get it into a working state. You must try to wrap up the task in the remaining iterations or be cut off!</system_remender>`
+          : `<reminder>You have ${remainingIterations} steps left to complete the task.</reminder>`
+
       // 3) Execute all steps in parallel
       const executionAgents = steps.map((step) => {
         if (step.type === 'decision') {
           return {
-            agent_type: 'base2-fast',
-            prompt: `DECISION TASK: ${step.prompt}\n\nThis is a decision-making step, not an implementation step. Your job is to research options, analyze trade-offs, and make a clear recommendation with rationale. Write out your decision in the last message. Do not create a file with your decision.`,
+            agent_type: 'base2-with-files-input',
+            prompt: `DECISION TASK: ${step.prompt}\n\nThis is a decision-making step, not an implementation step. Your job is to research options, analyze trade-offs, and make a clear recommendation with rationale. Write out your decision in the last message. Do not create a file with your decision. ${reminder}`,
             params: { filesToRead: step.filesToReadHints || [] },
           }
         } else {
           return {
-            agent_type: 'base2-fast',
-            prompt: step.prompt,
+            agent_type: 'base2-with-files-input',
+            prompt: `${step.prompt}\n\n${reminder}`,
             params: { filesToRead: step.filesToReadHints || [] },
           }
         }

@@ -77,6 +77,7 @@ export type FinishAgentRunFn = (params: {
 }) => Promise<void>
 
 export type AddAgentStepFn = (params: {
+  apiKey: string
   userId: string | undefined
   agentRunId: string
   stepNumber: number
@@ -87,6 +88,6 @@ export type AddAgentStepFn = (params: {
   errorMessage?: string
   startTime: Date
   logger: Logger
-}) => Promise<string>
+}) => Promise<string | null>
 
 export type DatabaseAgentCache = Map<string, AgentTemplate | null>

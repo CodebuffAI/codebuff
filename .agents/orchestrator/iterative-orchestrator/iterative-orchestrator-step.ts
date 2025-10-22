@@ -37,15 +37,27 @@ const definition: SecretAgentDefinition = {
           type: 'object',
           properties: {
             title: { type: 'string' },
-            prompt: { type: 'string' },
+            prompt: {
+              type: 'string',
+              description:
+                'The exact prompt that will be sent to the agent that will implement or decide the step',
+            },
             type: { type: 'string', enum: ['implementation', 'decision'] },
-            successCriteria: { type: 'array', items: { type: 'string' } },
-            filesToReadHints: { type: 'array', items: { type: 'string' } },
+            filesToReadHints: {
+              type: 'array',
+              items: { type: 'string' },
+              description:
+                'Include paths to files that will help the agent implement or decide the step',
+            },
           },
           required: ['title', 'prompt', 'type'],
         },
       },
-      notes: { type: 'string' },
+      notes: {
+        type: 'string',
+        description:
+          'Any notes for the future orchestator agent. What you want to accomplish with these steps, why you chose them, and what you want to accomplish next. Also, estimate the remaining number of steps needed to complete the task.',
+      },
     },
     required: ['isDone', 'nextSteps', 'notes'],
   },
@@ -61,20 +73,12 @@ Important: you *must* make at least one tool call, via <codebuff_tool_call> synt
 - If only one step is needed next, return a single-item array.
 - Mark isDone=true only when the overall task is truly complete.
 
-Return JSON via set_output with:
-{
-  isDone: boolean,
-  nextSteps: [
-    {
-      title: string,
-      prompt: string,           // exact prompt to give to the implementor or decision maker
-      type: 'implementation' | 'decision',  // whether this is a coding task or decision
-      successCriteria?: string[] // 3-6 bullet checks that show this step is done
-      filesToReadHints?: string[] // optional globs/paths hints
-    }
-  ],
-  notes: string             // short rationale for these steps
-}
+## Guidelines
+- It's better to make small changes at a time and validate them as you go. Writing a lot of code without testing it or typechecking it or validating it in some way is not good!
+- Keep the scope of your changes as small as possible.
+- Try to complete your task in as few steps as possible.
+- There is a time limit on the number of steps you can take. If you reach the limit, you will be cut off prematurely before the task is complete.
+- Prefer not to parallelize steps if they are at all related, because you can get a better result by doing them sequentially.
 `,
   stepPrompt: `Important: you *must* make at least one tool call, via <codebuff_tool_call> syntax, in every response message!`,
 }

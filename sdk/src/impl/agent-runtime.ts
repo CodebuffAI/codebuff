@@ -2,6 +2,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 import { success } from '@codebuff/common/util/error'
 
 import {
+  addAgentStep,
   fetchAgentFromDatabase,
   finishAgentRun,
   getUserInfoFromApiKey,
@@ -12,10 +13,13 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export const CLI_AGENT_RUNTIME_IMPL: Omit<
+export function getAgentRuntimeImpl(params: {
+  logger?: Logger
+  apiKey: string
+}): Omit<
   AgentRuntimeDeps & AgentRuntimeScopedDeps,
-  | 'addAgentStep'
   | 'promptAiSdkStream'
   | 'promptAiSdk'
   | 'promptAiSdkStructured'
@@ -26,50 +30,54 @@ export const CLI_AGENT_RUNTIME_IMPL: Omit<
   | 'requestOptionalFile'
   | 'sendAction'
   | 'sendSubagentChunk'
-> = {
-  // Database
-  getUserInfoFromApiKey,
-  fetchAgentFromDatabase,
-  startAgentRun,
-  finishAgentRun,
-  // addAgentStep: AddAgentStepFn
+> {
+  const { logger, apiKey } = params
 
-  // Billing
-  consumeCreditsWithFallback: async () =>
-    success({
-      chargedToOrganization: false,
-    }),
+  return {
+    // Database
+    getUserInfoFromApiKey,
+    fetchAgentFromDatabase,
+    startAgentRun,
+    finishAgentRun,
+    addAgentStep,
 
-  // LLM
-  // promptAiSdkStream: PromptAiSdkStreamFn,
-  // promptAiSdk: PromptAiSdkFn,
-  // promptAiSdkStructured: PromptAiSdkStructuredFn,
+    // Billing
+    consumeCreditsWithFallback: async () =>
+      success({
+        chargedToOrganization: false,
+      }),
 
-  // Mutable State
-  databaseAgentCache: new Map(),
-  liveUserInputRecord: {},
-  sessionConnections: {},
+    // LLM
+    // promptAiSdkStream: PromptAiSdkStreamFn,
+    // promptAiSdk: PromptAiSdkFn,
+    // promptAiSdkStructured: PromptAiSdkStructuredFn,
 
-  // Analytics
-  trackEvent,
+    // Mutable State
+    databaseAgentCache: new Map(),
+    liveUserInputRecord: {},
+    sessionConnections: {},
 
-  // Other
-  logger: {
-    info: () => {},
-    debug: () => {},
-    warn: () => {},
-    error: () => {},
-  },
-  fetch: globalThis.fetch,
+    // Analytics
+    trackEvent,
 
-  // Client (WebSocket)
-  // handleStepsLogChunk: HandleStepsLogChunkFn,
-  // requestToolCall: RequestToolCallFn,
-  // requestMcpToolData: RequestMcpToolDataFn,
-  // requestFiles: RequestFilesFn,
-  // requestOptionalFile: RequestOptionalFileFn,
-  // sendAction: SendActionFn,
-  // sendSubagentChunk: SendSubagentChunkFn,
+    // Other
+    logger: logger ?? {
+      info: () => {},
+      debug: () => {},
+      warn: () => {},
+      error: () => {},
+    },
+    fetch: globalThis.fetch,
 
-  apiKey: process.env.CODEBUFF_API_KEY ?? '',
+    // Client (WebSocket)
+    // handleStepsLogChunk: HandleStepsLogChunkFn,
+    // requestToolCall: RequestToolCallFn,
+    // requestMcpToolData: RequestMcpToolDataFn,
+    // requestFiles: RequestFilesFn,
+    // requestOptionalFile: RequestOptionalFileFn,
+    // sendAction: SendActionFn,
+    // sendSubagentChunk: SendSubagentChunkFn,
+
+    apiKey,
+  }
 }
