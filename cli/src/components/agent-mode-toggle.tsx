@@ -11,7 +11,7 @@ export const AgentModeToggle = ({
 }) => {
   const isFast = mode === 'FAST'
 
-  const bgColor = isFast ? '#12852e' : '#ac1626'
+  const bgColor = isFast ? '#0a6515' : '#ac1626'
   const textColor = '#ffffff'
   const label = isFast ? 'FAST' : '💪 MAX'
 
