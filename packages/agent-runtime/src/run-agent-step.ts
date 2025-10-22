@@ -450,6 +450,20 @@ export async function loopAgentSteps(
     ParamsExcluding<
       FinishAgentRunFn,
       'runId' | 'status' | 'totalSteps' | 'directCredits' | 'totalCredits'
+    > &
+    ParamsExcluding<
+      typeof runAgentStep,
+      'agentState' | 'prompt' | 'spawnParams' | 'system'
+    > &
+    ParamsExcluding<
+      AddAgentStepFn,
+      | 'agentRunId'
+      | 'stepNumber'
+      | 'credits'
+      | 'childRunIds'
+      | 'messageId'
+      | 'status'
+      | 'startTime'
     >,
 ): Promise<{
   agentState: AgentState
@@ -677,14 +691,6 @@ export async function loopAgentSteps(
         messageId,
       } = await runAgentStep({
         ...params,
-        userId,
-        userInputId,
-        clientSessionId,
-        fingerprintId,
-        onResponseChunk,
-        localAgentTemplates,
-        agentType,
-        fileContext,
         agentState: currentAgentState,
         prompt: currentPrompt,
         spawnParams: currentParams,
@@ -693,7 +699,7 @@ export async function loopAgentSteps(
 
       if (newAgentState.runId) {
         await addAgentStep({
-          userId,
+          ...params,
           agentRunId: newAgentState.runId,
           stepNumber: totalSteps,
           credits: newAgentState.directCreditsUsed - creditsBefore,
@@ -701,7 +707,6 @@ export async function loopAgentSteps(
           messageId,
           status: 'completed',
           startTime,
-          logger,
         })
       } else {
         logger.error('No runId found for agent state after finishing agent run')

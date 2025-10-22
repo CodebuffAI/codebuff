@@ -3,6 +3,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { WEBSITE_URL } from '../constants'
 
 import type {
+  AddAgentStepFn,
   FetchAgentFromDatabaseFn,
   FinishAgentRunFn,
   GetUserInfoFromApiKeyInput,
@@ -155,15 +156,62 @@ export async function finishAgentRun(
   }
 }
 
-console.log(
-  await finishAgentRun({
-    apiKey: '12345',
-    status: 'completed',
-    totalSteps: 5,
-    userId: undefined,
-    runId: 'e7a129b2-feb5-40ac-b2cd-0d7c115962f5',
-    directCredits: 12,
-    totalCredits: 34,
-    logger: console,
-  }),
-)
+export async function addAgentStep(
+  params: ParamsOf<AddAgentStepFn>,
+): ReturnType<AddAgentStepFn> {
+  const {
+    apiKey,
+    agentRunId,
+    stepNumber,
+    credits,
+    childRunIds,
+    messageId,
+    status = 'completed',
+    errorMessage,
+    startTime,
+    logger,
+  } = params
+
+  const url = new URL(`/api/v1/agent-runs/${agentRunId}/steps`, WEBSITE_URL)
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        stepNumber,
+        credits,
+        childRunIds,
+        messageId,
+        status,
+        errorMessage,
+        startTime,
+      }),
+    })
+
+    if (!response.ok) {
+      logger.error({ response }, 'addAgentStep request failed')
+      return null
+    }
+
+    return response.json()
+  } catch (error) {
+    logger.error(
+      {
+        error: getErrorObject(error),
+        agentRunId,
+        stepNumber,
+        credits,
+        childRunIds,
+        messageId,
+        status,
+        errorMessage,
+        startTime,
+      },
+      'addAgentStep error',
+    )
+    return null
+  }
+}
