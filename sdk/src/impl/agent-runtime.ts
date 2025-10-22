@@ -2,6 +2,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 import { success } from '@codebuff/common/util/error'
 
 import {
+  addAgentStep,
   fetchAgentFromDatabase,
   finishAgentRun,
   getUserInfoFromApiKey,
@@ -19,7 +20,6 @@ export function getAgentRuntimeImpl(params: {
   apiKey: string
 }): Omit<
   AgentRuntimeDeps & AgentRuntimeScopedDeps,
-  | 'addAgentStep'
   | 'promptAiSdkStream'
   | 'promptAiSdk'
   | 'promptAiSdkStructured'
@@ -39,7 +39,7 @@ export function getAgentRuntimeImpl(params: {
     fetchAgentFromDatabase,
     startAgentRun,
     finishAgentRun,
-    // addAgentStep: AddAgentStepFn
+    addAgentStep,
 
     // Billing
     consumeCreditsWithFallback: async () =>
