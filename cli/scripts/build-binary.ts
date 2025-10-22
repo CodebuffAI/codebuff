@@ -157,6 +157,7 @@ async function main() {
     `--outfile=${outputFile}`,
     '--sourcemap=none',
     '--jsx=react-jsx',
+    '--jsx-development=false',
     '--jsx-import-source=@opentui/react',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
   ]
