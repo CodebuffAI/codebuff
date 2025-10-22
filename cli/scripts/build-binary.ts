@@ -140,6 +140,7 @@ async function main() {
 
   const defineFlags = [
     ['process.env.NODE_ENV', '"production"'],
+    ['__DEV__', 'false'],
     ['process.env.CODEBUFF_IS_BINARY', '"true"'],
     ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
     [
@@ -156,6 +157,7 @@ async function main() {
     `--outfile=${outputFile}`,
     '--sourcemap=none',
     '--jsx=react-jsx',
+    '--jsx-import-source=@opentui/react',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
   ]
 
