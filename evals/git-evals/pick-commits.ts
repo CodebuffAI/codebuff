@@ -384,6 +384,7 @@ async function screenCommitsWithGpt5(
         sessionConnections: {},
         logger: console,
         trackEvent: () => {},
+        apiKey: 'unused-api-key',
       })
 
       // Handle empty or invalid response

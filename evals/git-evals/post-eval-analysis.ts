@@ -195,5 +195,6 @@ export async function analyzeEvalResults(
     sessionConnections: {},
     logger: console,
     trackEvent: () => {},
+    apiKey: 'unused-api-key',
   })
 }

@@ -163,6 +163,7 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
               sessionConnections: {},
               logger: console,
               trackEvent: () => {},
+              apiKey: 'unused-api-key',
             })
       } catch (agentError) {
         throw new Error(

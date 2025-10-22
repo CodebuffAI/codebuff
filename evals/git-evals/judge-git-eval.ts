@@ -198,6 +198,7 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       sessionConnections: {},
       logger: console,
       trackEvent: () => {},
+      apiKey: 'unused-api-key',
     }).catch((error) => {
       console.warn(`Judge ${index + 1} failed:`, error)
       return null

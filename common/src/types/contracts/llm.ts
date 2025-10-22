@@ -64,6 +64,7 @@ export type PromptAiSdkFn = (
 ) => Promise<string>
 
 export type PromptAiSdkStructuredInput<T> = {
+  apiKey: string
   messages: Message[]
   schema: z.ZodType<T>
   clientSessionId: string
