@@ -15,7 +15,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@codebuff/sdk": ["./sdk/dist/index.d.ts"],
+      "@codebuff/sdk": ["./sdk/dist/index"],
       "@codebuff/sdk/*": ["./sdk/dist/*"]
     }
   }

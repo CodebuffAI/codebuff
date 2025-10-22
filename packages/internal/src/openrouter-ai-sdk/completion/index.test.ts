@@ -1,8 +1,5 @@
-import {
-  convertReadableStreamToArray,
-  createTestServer,
-} from '@ai-sdk/provider-utils/test'
-import { describe, expect, it } from 'bun:test'
+import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 
 import { createOpenRouter } from '../provider'
 
@@ -39,18 +36,179 @@ const TEST_LOGPROBS = {
   ] as Record<string, number>[],
 }
 
-const provider = createOpenRouter({
-  apiKey: 'test-api-key',
-  compatibility: 'strict',
-})
+type MockResponseDefinition =
+  | {
+      type: 'json-value'
+      body: any
+      headers?: Record<string, string>
+      status?: number
+    }
+  | {
+      type: 'stream-chunks'
+      chunks: string[]
+      headers?: Record<string, string>
+      status?: number
+    }
 
-const model = provider.completion('openai/gpt-3.5-turbo-instruct')
+type MockServerRoute = {
+  response: MockResponseDefinition
+}
+
+type MockServerCall = {
+  requestHeaders: Record<string, string>
+  requestBodyJson: Promise<any>
+}
+
+const createStreamFromChunks = (chunks: string[]) =>
+  new ReadableStream<string>({
+    start(controller) {
+      try {
+        for (const chunk of chunks) {
+          controller.enqueue(chunk)
+        }
+      } finally {
+        controller.close()
+      }
+    },
+  }).pipeThrough(new TextEncoderStream())
+
+function toHeadersRecord(headers?: HeadersInit): Record<string, string> {
+  const result: Record<string, string> = {}
+
+  if (!headers) {
+    return result
+  }
+
+  if (headers instanceof Headers) {
+    headers.forEach((value, key) => {
+      result[key.toLowerCase()] = value
+    })
+    return result
+  }
+
+  if (Array.isArray(headers)) {
+    for (const [key, value] of headers) {
+      result[String(key).toLowerCase()] = String(value)
+    }
+    return result
+  }
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value !== 'undefined') {
+      result[key.toLowerCase()] = String(value)
+    }
+  }
+
+  return result
+}
+
+function parseRequestBody(body: BodyInit | null | undefined): any {
+  if (body == null) {
+    return undefined
+  }
+
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body)
+    } catch {
+      return undefined
+    }
+  }
+
+  return undefined
+}
+
+function createMockServer(routes: Record<string, MockServerRoute>) {
+  const urls: Record<string, MockServerRoute> = Object.fromEntries(
+    Object.entries(routes).map(([url, config]) => [
+      url,
+      {
+        response: { ...config.response },
+      },
+    ]),
+  )
+
+  const calls: MockServerCall[] = []
+
+  const buildResponse = (definition: MockResponseDefinition): Response => {
+    const status = definition.status ?? 200
+
+    if (definition.type === 'json-value') {
+      return new Response(JSON.stringify(definition.body), {
+        status,
+        headers: {
+          'Content-Type': 'application/json',
+          ...definition.headers,
+        },
+      })
+    }
+
+    return new Response(createStreamFromChunks(definition.chunks), {
+      status,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        ...definition.headers,
+      },
+    })
+  }
+
+  const fetchImpl = async (input: RequestInfo, init: RequestInit = {}) => {
+    const url =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url
+
+    const route = urls[url]
+
+    if (!route) {
+      return new Response('Not Found', { status: 404 })
+    }
+
+    const requestHeaders = toHeadersRecord(init.headers)
+    const requestBodyJson = Promise.resolve(parseRequestBody(init.body))
+
+    calls.push({ requestHeaders, requestBodyJson })
+
+    return buildResponse(route.response)
+  }
+
+  const fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+    fetchImpl(input as RequestInfo, init ?? {})) as typeof global.fetch
+
+  fetch.preconnect = async () => {}
+
+  return {
+    urls,
+    calls,
+    fetch,
+  }
+}
 
 describe('doGenerate', () => {
-  const server = createTestServer({
+  const server = createMockServer({
     'https://openrouter.ai/api/v1/completions': {
       response: { type: 'json-value', body: {} },
     },
+  })
+
+  const provider = createOpenRouter({
+    apiKey: 'test-api-key',
+    compatibility: 'strict',
+    fetch: server.fetch,
+  })
+
+  const model = provider.completion('openai/gpt-3.5-turbo-instruct')
+
+  beforeEach(() => {
+    server.calls.length = 0
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'json-value',
+      body: {},
+    }
   })
 
   function prepareJsonResponse({
@@ -130,7 +288,10 @@ describe('doGenerate', () => {
   it('should extract logprobs', async () => {
     prepareJsonResponse({ logprobs: TEST_LOGPROBS })
 
-    const provider = createOpenRouter({ apiKey: 'test-api-key' })
+    const provider = createOpenRouter({
+      apiKey: 'test-api-key',
+      fetch: server.fetch,
+    })
 
     await provider
       .completion('openai/gpt-3.5-turbo', { logprobs: 1 })
@@ -208,6 +369,7 @@ describe('doGenerate', () => {
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
       },
+      fetch: server.fetch,
     })
 
     await provider.completion('openai/gpt-3.5-turbo-instruct').doGenerate({
@@ -229,10 +391,26 @@ describe('doGenerate', () => {
 })
 
 describe('doStream', () => {
-  const server = createTestServer({
+  const server = createMockServer({
     'https://openrouter.ai/api/v1/completions': {
       response: { type: 'stream-chunks', chunks: [] },
     },
+  })
+
+  const provider = createOpenRouter({
+    apiKey: 'test-api-key',
+    compatibility: 'strict',
+    fetch: server.fetch,
+  })
+
+  const model = provider.completion('openai/gpt-3.5-turbo-instruct')
+
+  beforeEach(() => {
+    server.calls.length = 0
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [],
+    }
   })
 
   function prepareStreamResponse({
@@ -423,6 +601,7 @@ describe('doStream', () => {
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
       },
+      fetch: server.fetch,
     })
 
     await provider.completion('openai/gpt-3.5-turbo-instruct').doStream({
@@ -455,6 +634,7 @@ describe('doStream', () => {
           },
         },
       },
+      fetch: server.fetch,
     })
 
     await provider.completion('openai/gpt-4o').doStream({

@@ -22,11 +22,11 @@ describe('languages module', () => {
       languageTable.forEach((config) => {
         expect(config).toHaveProperty('extensions')
         expect(config).toHaveProperty('wasmFile')
-        expect(config).toHaveProperty('queryText')
+        expect(config).toHaveProperty('queryPathOrContent')
         expect(Array.isArray(config.extensions)).toBe(true)
         expect(config.extensions.length).toBeGreaterThan(0)
         expect(typeof config.wasmFile).toBe('string')
-        expect(typeof config.queryText).toBe('string')
+        expect(typeof config.queryPathOrContent).toBe('string')
       })
     })
 
@@ -34,7 +34,7 @@ describe('languages module', () => {
       const tsConfig = languageTable.find(c => c.extensions.includes('.ts'))
       expect(tsConfig).toBeDefined()
       expect(tsConfig?.wasmFile).toBe('tree-sitter-typescript.wasm')
-      expect(tsConfig?.queryText).toBeDefined()
+      expect(tsConfig?.queryPathOrContent).toBeDefined()
     })
 
     it('should support TSX files', () => {
@@ -209,12 +209,12 @@ describe('languages module', () => {
       const config: LanguageConfig = {
         extensions: ['.test'],
         wasmFile: 'test.wasm',
-        queryText: 'test query',
+        queryPathOrContent: 'test query',
       }
       
       expect(config.extensions).toEqual(['.test'])
       expect(config.wasmFile).toBe('test.wasm')
-      expect(config.queryText).toBe('test query')
+      expect(config.queryPathOrContent).toBe('test query')
       expect(config.parser).toBeUndefined()
       expect(config.query).toBeUndefined()
       expect(config.language).toBeUndefined()
