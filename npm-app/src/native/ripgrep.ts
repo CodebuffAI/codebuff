@@ -10,7 +10,7 @@ import { logger } from '../utils/logger'
 const getRipgrepPath = async (): Promise<string> => {
   let bundledRgPath: string
   try {
-    bundledRgPath = getBundledRgPath(import.meta.url)
+    bundledRgPath = getBundledRgPath()
   } catch (error) {
     logger.error({ error }, 'Failed to resolve bundled ripgrep path')
     throw error
