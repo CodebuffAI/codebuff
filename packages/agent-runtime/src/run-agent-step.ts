@@ -480,14 +480,15 @@ export async function loopAgentSteps(
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
 
-  const runId = crypto.randomUUID()
-  agentState.runId = runId
-  await startAgentRun({
+  const runId = await startAgentRun({
     ...params,
-    runId,
     agentId: agentTemplate.id,
     ancestorRunIds: agentState.ancestorRunIds,
   })
+  if (!runId) {
+    throw new Error('Failed to start agent run')
+  }
+  agentState.runId = runId
 
   // Initialize message history with user prompt and instructions on first iteration
   const instructionsPrompt = await getAgentPrompt({
