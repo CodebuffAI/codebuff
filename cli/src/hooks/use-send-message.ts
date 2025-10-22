@@ -3,10 +3,11 @@ import { useCallback, useEffect, useRef } from 'react'
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import { shouldHideAgent } from '../utils/constants'
 import { formatTimestamp } from '../utils/helpers'
+import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { logger } from '../utils/logger'
 
 import type { ChatMessage, ContentBlock } from '../chat'
-import type { ToolName } from '@codebuff/sdk'
+import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 
 const completionMessages = [
@@ -106,6 +107,7 @@ interface UseSendMessageOptions {
   setIsStreaming: (streaming: boolean) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
+  agentMode: 'FAST' | 'MAX'
 }
 
 export const useSendMessage = ({
@@ -125,6 +127,7 @@ export const useSendMessage = ({
   setIsStreaming,
   setCanProcessQueue,
   abortControllerRef,
+  agentMode,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -551,11 +554,15 @@ export const useSendMessage = ({
       abortControllerRef.current = abortController
 
       try {
+        // Load local agent definitions from .agents directory
+        const agentDefinitions = loadAgentDefinitions()
+
         const result = await client.run({
           agent: 'base',
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,
+          agentDefinitions: agentDefinitions as AgentDefinition[],
 
           handleStreamChunk: (chunk: any) => {
             if (typeof chunk !== 'string' || !chunk) {
