@@ -16,20 +16,32 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export function getAgentRuntimeImpl(params: {
-  logger?: Logger
-  apiKey: string
-}): Omit<
-  AgentRuntimeDeps & AgentRuntimeScopedDeps,
-  | 'handleStepsLogChunk'
-  | 'requestToolCall'
-  | 'requestMcpToolData'
-  | 'requestFiles'
-  | 'requestOptionalFile'
-  | 'sendAction'
-  | 'sendSubagentChunk'
-> {
-  const { logger, apiKey } = params
+export function getAgentRuntimeImpl(
+  params: {
+    logger?: Logger
+    apiKey: string
+  } & Pick<
+    AgentRuntimeScopedDeps,
+    | 'handleStepsLogChunk'
+    | 'requestToolCall'
+    | 'requestMcpToolData'
+    | 'requestFiles'
+    | 'requestOptionalFile'
+    | 'sendAction'
+    | 'sendSubagentChunk'
+  >,
+): AgentRuntimeDeps & AgentRuntimeScopedDeps {
+  const {
+    logger,
+    apiKey,
+    handleStepsLogChunk,
+    requestToolCall,
+    requestMcpToolData,
+    requestFiles,
+    requestOptionalFile,
+    sendAction,
+    sendSubagentChunk,
+  } = params
 
   return {
     // Database
@@ -68,13 +80,13 @@ export function getAgentRuntimeImpl(params: {
     fetch: globalThis.fetch,
 
     // Client (WebSocket)
-    // handleStepsLogChunk: HandleStepsLogChunkFn,
-    // requestToolCall: RequestToolCallFn,
-    // requestMcpToolData: RequestMcpToolDataFn,
-    // requestFiles: RequestFilesFn,
-    // requestOptionalFile: RequestOptionalFileFn,
-    // sendAction: SendActionFn,
-    // sendSubagentChunk: SendSubagentChunkFn,
+    handleStepsLogChunk,
+    requestToolCall,
+    requestMcpToolData,
+    requestFiles,
+    requestOptionalFile,
+    sendAction,
+    sendSubagentChunk,
 
     apiKey,
   }
