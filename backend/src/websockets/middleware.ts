@@ -168,14 +168,14 @@ export class WebSocketMiddleware {
       clientSessionId: string,
       ws: WebSocket,
     ) => {
-      const userInfo =
-        'authToken' in action
-          ? await getUserInfoFromApiKey({
-              apiKey: action.authToken!,
-              fields: ['id', 'email', 'discord_id'],
-              logger,
-            })
-          : undefined
+      const authToken = 'authToken' in action ? action.authToken : undefined
+      const userInfo = authToken
+        ? await getUserInfoFromApiKey({
+            apiKey: authToken,
+            fields: ['id', 'email', 'discord_id'],
+            logger,
+          })
+        : undefined
 
       const scopedDeps: AgentRuntimeScopedDeps = {
         handleStepsLogChunk: (params) =>
@@ -187,6 +187,7 @@ export class WebSocketMiddleware {
           requestOptionalFileWs({ ...params, ws }),
         sendSubagentChunk: (params) => sendSubagentChunkWs({ ...params, ws }),
         sendAction: (params) => sendActionWs({ ...params, ws }),
+        apiKey: authToken ?? '',
       }
 
       // Use the new combined context - much cleaner!

@@ -200,6 +200,7 @@ export async function runAgentStepScaffolding(
     sendSubagentChunk: (params) =>
       sendSubagentChunkWs({ ...params, ws: mockWs }),
     sendAction: (params) => sendActionWs({ ...params, ws: mockWs }),
+    apiKey: process.env.CODEBUFF_API_KEY ?? '',
   }
   const result = await runAgentStep({
     ...EVALS_AGENT_RUNTIME_IMPL,

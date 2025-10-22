@@ -1,10 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import * as stringUtils from '@codebuff/common/util/string'
@@ -35,12 +32,10 @@ let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 
 describe('malformed tool call error handling', () => {
   let testAgent: AgentTemplate
-  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
-  let agentRuntimeImpl: AgentRuntimeDeps
+  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
 
     testAgent = {
       id: 'test-agent',
@@ -68,9 +63,9 @@ describe('malformed tool call error handling', () => {
     )
 
     // Mock websocket actions
-    agentRuntimeScopedImpl.requestFiles = async () => ({})
-    agentRuntimeScopedImpl.requestOptionalFile = async () => null
-    agentRuntimeScopedImpl.requestToolCall = async () => ({
+    agentRuntimeImpl.requestFiles = async () => ({})
+    agentRuntimeImpl.requestOptionalFile = async () => null
+    agentRuntimeImpl.requestToolCall = async () => ({
       output: [
         {
           type: 'json',
@@ -118,7 +113,6 @@ describe('malformed tool call error handling', () => {
 
     const result = await processStreamWithTools({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       stream,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
@@ -176,7 +170,6 @@ describe('malformed tool call error handling', () => {
 
     const result = await processStreamWithTools({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       stream,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
@@ -224,7 +217,6 @@ describe('malformed tool call error handling', () => {
 
     const result = await processStreamWithTools({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       stream,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
@@ -276,7 +268,6 @@ describe('malformed tool call error handling', () => {
 
     const result = await processStreamWithTools({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       stream,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
@@ -330,7 +321,6 @@ describe('malformed tool call error handling', () => {
 
     const result = await processStreamWithTools({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       stream,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
@@ -386,7 +376,6 @@ describe('malformed tool call error handling', () => {
 
     const result = await processStreamWithTools({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       stream,
       agentStepId: 'test-step',
       clientSessionId: 'test-session',

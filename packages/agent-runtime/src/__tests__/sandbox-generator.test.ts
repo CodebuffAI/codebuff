@@ -1,7 +1,4 @@
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   getInitialAgentState,
   type AgentState,
@@ -25,15 +22,10 @@ describe('QuickJS Sandbox Generator', () => {
   let mockAgentState: AgentState
   let mockParams: ParamsOf<typeof runProgrammaticStep>
   let mockTemplate: AgentTemplate
-  let agentRuntimeImpl: AgentRuntimeDeps
-  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeEach(() => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = {
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      sendAction: () => {},
-    }
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
 
     clearAgentGeneratorCache(agentRuntimeImpl)
 
@@ -77,7 +69,6 @@ describe('QuickJS Sandbox Generator', () => {
     // Common params structure
     mockParams = {
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       system: undefined,

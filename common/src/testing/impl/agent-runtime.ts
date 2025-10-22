@@ -19,7 +19,9 @@ testFetch.preconnect = async () => {
   throw new Error('fetch.preconnect not implemented in test runtime')
 }
 
-export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
+export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<
+  AgentRuntimeDeps & AgentRuntimeScopedDeps
+>({
   // Database
   getUserInfoFromApiKey: async () => ({
     id: 'test-user-id',
@@ -60,30 +62,31 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   // Other
   logger: testLogger,
   fetch: testFetch,
-})
 
-export const TEST_AGENT_RUNTIME_SCOPED_IMPL =
-  Object.freeze<AgentRuntimeScopedDeps>({
-    // Database
-    handleStepsLogChunk: () => {
-      throw new Error('handleStepsLogChunk not implemented in test runtime')
-    },
-    requestToolCall: () => {
-      throw new Error('requestToolCall not implemented in test runtime')
-    },
-    requestMcpToolData: () => {
-      throw new Error('requestMcpToolData not implemented in test runtime')
-    },
-    requestFiles: () => {
-      throw new Error('requestFiles not implemented in test runtime')
-    },
-    requestOptionalFile: () => {
-      throw new Error('requestOptionalFile not implemented in test runtime')
-    },
-    sendSubagentChunk: () => {
-      throw new Error('sendSubagentChunk not implemented in test runtime')
-    },
-    sendAction: () => {
-      throw new Error('sendAction not implemented in test runtime')
-    },
-  })
+  // Scoped deps
+
+  // Database
+  handleStepsLogChunk: () => {
+    throw new Error('handleStepsLogChunk not implemented in test runtime')
+  },
+  requestToolCall: () => {
+    throw new Error('requestToolCall not implemented in test runtime')
+  },
+  requestMcpToolData: () => {
+    throw new Error('requestMcpToolData not implemented in test runtime')
+  },
+  requestFiles: () => {
+    throw new Error('requestFiles not implemented in test runtime')
+  },
+  requestOptionalFile: () => {
+    throw new Error('requestOptionalFile not implemented in test runtime')
+  },
+  sendSubagentChunk: () => {
+    throw new Error('sendSubagentChunk not implemented in test runtime')
+  },
+  sendAction: () => {
+    throw new Error('sendAction not implemented in test runtime')
+  },
+
+  apiKey: 'test-api-key',
+})

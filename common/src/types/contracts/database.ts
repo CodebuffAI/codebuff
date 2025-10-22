@@ -46,6 +46,7 @@ export type GetAgentRunFromIdFn = <T extends AgentRunColumn>(
  * Fetch and validate an agent from the database by `publisher/agent-id[@version]` format
  */
 export type FetchAgentFromDatabaseFn = (params: {
+  apiKey: string
   parsedAgentId: {
     publisherId: string
     agentId: string

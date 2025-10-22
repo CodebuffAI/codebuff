@@ -1,10 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { success } from '@codebuff/common/util/error'
@@ -34,7 +31,7 @@ import type {
 // Set environment variables before any imports
 process.env.LINKUP_API_KEY = 'test-api-key'
 
-let agentRuntimeImpl: AgentRuntimeDeps
+let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 function mockAgentStream(content: string | string[]) {
   agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
     if (typeof content === 'string') {
@@ -46,8 +43,6 @@ function mockAgentStream(content: string | string[]) {
     return 'mock-message-id'
   }
 }
-
-let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
 describe('web_search tool with researcher agent', () => {
   beforeAll(() => {
@@ -63,7 +58,6 @@ describe('web_search tool with researcher agent', () => {
         })
       },
     }
-    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
 
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
@@ -74,9 +68,9 @@ describe('web_search tool with researcher agent', () => {
     )
 
     // Mock websocket actions
-    agentRuntimeScopedImpl.requestFiles = async () => ({})
-    agentRuntimeScopedImpl.requestOptionalFile = async () => null
-    agentRuntimeScopedImpl.requestToolCall = async () => ({
+    agentRuntimeImpl.requestFiles = async () => ({})
+    agentRuntimeImpl.requestOptionalFile = async () => null
+    agentRuntimeImpl.requestToolCall = async () => ({
       output: [
         {
           type: 'json',
@@ -130,7 +124,6 @@ describe('web_search tool with researcher agent', () => {
 
     await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -183,7 +176,6 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -245,7 +237,6 @@ describe('web_search tool with researcher agent', () => {
 
     await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -292,7 +283,6 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -353,7 +343,6 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -413,7 +402,6 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -463,7 +451,6 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -525,7 +512,6 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',

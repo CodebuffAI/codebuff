@@ -4,7 +4,10 @@ import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
 
 import { validateAgentNameHandlerHelper } from '../validate-agent-name'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { FetchAgentFromDatabaseFn } from '@codebuff/common/types/contracts/database'
 import type {
   Request as ExpressRequest,
@@ -12,7 +15,7 @@ import type {
   NextFunction,
 } from 'express'
 
-let agentRuntimeImpl: AgentRuntimeDeps
+let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 function createMockReq(query: Record<string, any>): Partial<ExpressRequest> {
   return {

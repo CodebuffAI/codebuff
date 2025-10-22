@@ -1,10 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -30,7 +27,7 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 
-let agentRuntimeImpl: AgentRuntimeDeps
+let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 function mockAgentStream(content: string | string[]) {
   agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
@@ -47,18 +44,13 @@ function mockAgentStream(content: string | string[]) {
 describe('read_docs tool with researcher agent', () => {
   // Track all mocked functions to verify they're being used
   const mockedFunctions: Array<{ name: string; spy: any }> = []
-  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
 
   beforeAll(() => {
     disableLiveUserInputCheck()
   })
 
   beforeEach(() => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = {
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      sendAction: () => {},
-    }
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
 
     // Clear tracked mocks
     mockedFunctions.length = 0
@@ -94,9 +86,9 @@ describe('read_docs tool with researcher agent', () => {
     mockedFunctions.push({ name: 'bigquery.insertTrace', spy: insertTraceSpy })
 
     // Mock websocket actions
-    agentRuntimeScopedImpl.requestFiles = async () => ({})
-    agentRuntimeScopedImpl.requestOptionalFile = async () => null
-    agentRuntimeScopedImpl.requestToolCall = async () => ({
+    agentRuntimeImpl.requestFiles = async () => ({})
+    agentRuntimeImpl.requestOptionalFile = async () => null
+    agentRuntimeImpl.requestToolCall = async () => ({
       output: [
         {
           type: 'json',
@@ -159,7 +151,6 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -235,7 +226,6 @@ describe('read_docs tool with researcher agent', () => {
 
     await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -288,7 +278,6 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -357,7 +346,6 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -425,7 +413,6 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -494,7 +481,6 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',

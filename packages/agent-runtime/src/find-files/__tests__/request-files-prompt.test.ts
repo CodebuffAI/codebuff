@@ -1,17 +1,17 @@
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 
 import { requestRelevantFiles } from '../request-files-prompt'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-let agentRuntimeImpl: AgentRuntimeDeps
+let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 describe('requestRelevantFiles', () => {
   const mockMessages: Message[] = [{ role: 'user', content: 'test prompt' }]
@@ -59,7 +59,6 @@ describe('requestRelevantFiles', () => {
   it('should use default file counts and maxFiles when no custom config', async () => {
     await requestRelevantFiles({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -83,7 +82,6 @@ describe('requestRelevantFiles', () => {
 
     await requestRelevantFiles({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -106,7 +104,6 @@ describe('requestRelevantFiles', () => {
 
     const result = await requestRelevantFiles({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -131,7 +128,6 @@ describe('requestRelevantFiles', () => {
 
     await requestRelevantFiles({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,
@@ -157,7 +153,6 @@ describe('requestRelevantFiles', () => {
 
     await requestRelevantFiles({
       ...agentRuntimeImpl,
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       messages: mockMessages,
       system: mockSystem,
       fileContext: mockFileContext,

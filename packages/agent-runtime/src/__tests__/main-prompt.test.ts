@@ -1,10 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   AgentTemplateTypes,
@@ -36,8 +33,7 @@ import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-let agentRuntimeImpl: AgentRuntimeDeps
-let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 const mockAgentStream = (streamOutput: string) => {
   agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
@@ -55,7 +51,6 @@ describe('mainPrompt', () => {
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = { ...TEST_AGENT_RUNTIME_SCOPED_IMPL }
 
     // Setup common mock agent templates
     mockLocalAgentTemplates = {
@@ -118,7 +113,7 @@ describe('mainPrompt', () => {
     mockAgentStream('Test response')
 
     // Mock websocket actions
-    agentRuntimeScopedImpl.requestFiles = async ({ filePaths }) => {
+    agentRuntimeImpl.requestFiles = async ({ filePaths }) => {
       const results: Record<string, string | null> = {}
       filePaths.forEach((p) => {
         if (p === 'test.txt') {
@@ -130,14 +125,14 @@ describe('mainPrompt', () => {
       return results
     }
 
-    agentRuntimeScopedImpl.requestOptionalFile = async ({ filePath }) => {
+    agentRuntimeImpl.requestOptionalFile = async ({ filePath }) => {
       if (filePath === 'test.txt') {
         return 'mock content for test.txt'
       }
       return null
     }
 
-    agentRuntimeScopedImpl.requestToolCall = mock(
+    agentRuntimeImpl.requestToolCall = mock(
       async ({
         toolName,
         input,
@@ -218,7 +213,6 @@ describe('mainPrompt', () => {
 
     const { sessionState: newSessionState, output } = await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -229,7 +223,7 @@ describe('mainPrompt', () => {
     })
 
     // Verify that requestToolCall was called with the terminal command
-    const requestToolCallSpy = agentRuntimeScopedImpl.requestToolCall
+    const requestToolCallSpy = agentRuntimeImpl.requestToolCall
     expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
     expect(requestToolCallSpy).toHaveBeenCalledWith({
       userInputId: expect.any(String), // userInputId
@@ -265,7 +259,7 @@ describe('mainPrompt', () => {
     mockAgentStream(mockResponse)
 
     // Get reference to the spy so we can check if it was called
-    const requestToolCallSpy = agentRuntimeScopedImpl.requestToolCall
+    const requestToolCallSpy = agentRuntimeImpl.requestToolCall
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -280,7 +274,6 @@ describe('mainPrompt', () => {
 
     await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -360,7 +353,6 @@ describe('mainPrompt', () => {
 
     const { output } = await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -389,7 +381,6 @@ describe('mainPrompt', () => {
 
     const { sessionState: newSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -422,7 +413,6 @@ describe('mainPrompt', () => {
 
     const { sessionState: newSessionState } = await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -453,7 +443,6 @@ describe('mainPrompt', () => {
 
     const { output } = await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,
@@ -481,7 +470,7 @@ describe('mainPrompt', () => {
     mockAgentStream(mockResponse)
 
     // Get reference to the spy so we can check if it was called
-    const requestToolCallSpy = agentRuntimeScopedImpl.requestToolCall
+    const requestToolCallSpy = agentRuntimeImpl.requestToolCall
 
     const action = {
       type: 'prompt' as const,
@@ -495,7 +484,6 @@ describe('mainPrompt', () => {
 
     await mainPrompt({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       action,

@@ -2,10 +2,7 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -34,19 +31,14 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 describe('runAgentStep - set_output tool', () => {
   let testAgent: AgentTemplate
-  let agentRuntimeImpl: AgentRuntimeDeps
-  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeAll(() => {
     disableLiveUserInputCheck()
   })
 
   beforeEach(async () => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-    agentRuntimeScopedImpl = {
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
-      sendAction: () => {},
-    }
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
 
     // Create a test agent that supports set_output
     testAgent = {
@@ -85,7 +77,7 @@ describe('runAgentStep - set_output tool', () => {
       Promise.resolve(true),
     )
 
-    agentRuntimeScopedImpl.requestFiles = async ({ filePaths }) => {
+    agentRuntimeImpl.requestFiles = async ({ filePaths }) => {
       const results: Record<string, string | null> = {}
       filePaths.forEach((p) => {
         if (p === 'src/auth.ts') {
@@ -98,7 +90,7 @@ describe('runAgentStep - set_output tool', () => {
       })
       return results
     }
-    agentRuntimeScopedImpl.requestOptionalFile = async ({ filePath }) => {
+    agentRuntimeImpl.requestOptionalFile = async ({ filePath }) => {
       if (filePath === 'src/auth.ts') {
         return 'export function authenticate() { return true; }'
       } else if (filePath === 'src/user.ts') {
@@ -171,7 +163,6 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -215,7 +206,6 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -265,7 +255,6 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -306,7 +295,6 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -361,7 +349,7 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock requestFiles to return test file content
-    agentRuntimeScopedImpl.requestFiles = async ({ filePaths }) => {
+    agentRuntimeImpl.requestFiles = async ({ filePaths }) => {
       const results: Record<string, string | null> = {}
       filePaths.forEach((p) => {
         if (p === 'src/test.ts') {
@@ -402,7 +390,6 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -564,7 +551,6 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,

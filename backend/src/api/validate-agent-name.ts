@@ -39,7 +39,7 @@ export async function validateAgentNameHandlerHelper(
     next: NextFunction
   } & ParamsExcluding<
     typeof getAgentTemplate,
-    'agentId' | 'localAgentTemplates'
+    'agentId' | 'localAgentTemplates' | 'apiKey'
   >,
 ): Promise<void | ExpressResponse> {
   const { req, res, next } = params
@@ -88,6 +88,7 @@ export async function validateAgentNameHandlerHelper(
       ...params,
       agentId,
       localAgentTemplates: {},
+      apiKey,
     })
     if (found) {
       const result = {

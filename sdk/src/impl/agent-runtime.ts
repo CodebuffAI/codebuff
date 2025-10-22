@@ -1,6 +1,6 @@
 import { trackEvent } from '@codebuff/common/analytics'
 
-import { getUserInfoFromApiKey } from './database'
+import { fetchAgentFromDatabase, getUserInfoFromApiKey } from './database'
 
 import type {
   AgentRuntimeDeps,
@@ -9,7 +9,6 @@ import type {
 
 export const CLI_AGENT_RUNTIME_IMPL: Omit<
   AgentRuntimeDeps & AgentRuntimeScopedDeps,
-  | 'fetchAgentFromDatabase'
   | 'startAgentRun'
   | 'finishAgentRun'
   | 'addAgentStep'
@@ -27,7 +26,7 @@ export const CLI_AGENT_RUNTIME_IMPL: Omit<
 > = {
   // Database
   getUserInfoFromApiKey,
-  // fetchAgentFromDatabase: FetchAgentFromDatabaseFn
+  fetchAgentFromDatabase,
   // startAgentRun: StartAgentRunFn
   // finishAgentRun: FinishAgentRunFn
   // addAgentStep: AddAgentStepFn
@@ -65,4 +64,6 @@ export const CLI_AGENT_RUNTIME_IMPL: Omit<
   // requestOptionalFile: RequestOptionalFileFn,
   // sendAction: SendActionFn,
   // sendSubagentChunk: SendSubagentChunkFn,
+
+  apiKey: process.env.CODEBUFF_API_KEY ?? '',
 }

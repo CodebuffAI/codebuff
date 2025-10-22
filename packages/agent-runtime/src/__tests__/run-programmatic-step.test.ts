@@ -1,9 +1,6 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import {
-  TEST_AGENT_RUNTIME_IMPL,
-  TEST_AGENT_RUNTIME_SCOPED_IMPL,
-} from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
@@ -49,9 +46,7 @@ describe('runProgrammaticStep', () => {
   let mockAgentState: AgentState
   let mockParams: ParamsOf<typeof runProgrammaticStep>
   let executeToolCallSpy: any
-  let getRequestContextSpy: any
-  let agentRuntimeImpl: AgentRuntimeDeps
-  let agentRuntimeScopedImpl: AgentRuntimeScopedDeps
+  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeEach(() => {
     agentRuntimeImpl = {
@@ -62,9 +57,6 @@ describe('runProgrammaticStep', () => {
         email: 'test-email',
         discord_id: 'test-discord-id',
       }),
-    }
-    agentRuntimeScopedImpl = {
-      ...TEST_AGENT_RUNTIME_SCOPED_IMPL,
       sendAction: () => {},
     }
 
@@ -123,7 +115,6 @@ describe('runProgrammaticStep', () => {
     // Create mock params
     mockParams = {
       ...agentRuntimeImpl,
-      ...agentRuntimeScopedImpl,
       repoId: undefined,
       repoUrl: undefined,
       agentState: mockAgentState,

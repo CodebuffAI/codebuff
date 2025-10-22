@@ -25,6 +25,7 @@ import type {
 } from './llm'
 import type { Logger } from './logger'
 
+/** Shared dependencies */
 export type AgentRuntimeDeps = {
   // Database
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -54,6 +55,7 @@ export type AgentRuntimeDeps = {
   fetch: typeof globalThis.fetch
 }
 
+/** Per-run dependencies */
 export type AgentRuntimeScopedDeps = {
   // Client (WebSocket)
   handleStepsLogChunk: HandleStepsLogChunkFn
@@ -63,4 +65,6 @@ export type AgentRuntimeScopedDeps = {
   requestOptionalFile: RequestOptionalFileFn
   sendAction: SendActionFn
   sendSubagentChunk: SendSubagentChunkFn
+
+  apiKey: string
 }
