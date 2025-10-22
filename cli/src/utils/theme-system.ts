@@ -72,7 +72,8 @@ const JETBRAINS_ENV_KEYS = [
   'JB_IDE_CONFIG_DIR',
 ]
 
-const normalizeThemeName = (themeName: string): string => themeName.trim().toLowerCase()
+const normalizeThemeName = (themeName: string): string =>
+  themeName.trim().toLowerCase()
 
 const inferThemeFromName = (themeName: string): ThemeName | null => {
   const normalized = normalizeThemeName(themeName)
@@ -93,9 +94,7 @@ const inferThemeFromName = (themeName: string): ThemeName | null => {
 }
 
 const stripJsonStyleComments = (raw: string): string =>
-  raw
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
+  raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
 const safeReadFile = (filePath: string): string | null => {
   try {
@@ -197,7 +196,6 @@ const resolveZedSettingsPaths = (): string[] => {
   const home = homedir()
   const paths: string[] = []
 
-
   const configDirs = new Set<string>()
 
   const xdgConfig = process.env.XDG_CONFIG_HOME ?? join(home, '.config')
@@ -231,13 +229,16 @@ const resolveZedSettingsPaths = (): string[] => {
 }
 
 const extractVSCodeTheme = (content: string): ThemeName | null => {
-  const colorThemeMatch = content.match(/"workbench\.colorTheme"\s*:\s*"([^"]+)"/i)
+  const colorThemeMatch = content.match(
+    /"workbench\.colorTheme"\s*:\s*"([^"]+)"/i,
+  )
   if (colorThemeMatch) {
     const inferred = inferThemeFromName(colorThemeMatch[1])
     if (inferred) return inferred
   }
 
-  const themeKindEnv = process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
+  const themeKindEnv =
+    process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
   if (themeKindEnv) {
     const normalized = themeKindEnv.trim().toLowerCase()
     if (normalized === 'dark' || normalized === 'hc') return 'dark'
@@ -304,7 +305,8 @@ const detectVSCodeTheme = (): ThemeName | null => {
     }
   }
 
-  const themeKindEnv = process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
+  const themeKindEnv =
+    process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
   if (themeKindEnv) {
     const normalized = themeKindEnv.trim().toLowerCase()
     if (normalized === 'dark' || normalized === 'hc') return 'dark'
@@ -381,7 +383,8 @@ const extractZedTheme = (content: string): ThemeName | null => {
         candidates.push(appearanceTheme)
       }
 
-      const preference = (appearance as Record<string, unknown>).theme_preference
+      const preference = (appearance as Record<string, unknown>)
+        .theme_preference
       if (typeof preference === 'string') {
         candidates.push(preference)
       }
@@ -700,6 +703,16 @@ export const detectSystemTheme = (): ThemeName => {
 
   if (normalizedEnv === 'dark' || normalizedEnv === 'light') {
     return normalizedEnv
+  }
+
+  // Detect Ghostty terminal and default to dark.
+  if (
+    (typeof Bun !== 'undefined' &&
+      Bun.env.GHOSTTY_RESOURCES_DIR !== undefined) ||
+    process.env.GHOSTTY_RESOURCES_DIR !== undefined ||
+    (process.env.TERM ?? '').toLowerCase() === 'xterm-ghostty'
+  ) {
+    return 'dark'
   }
 
   const ideTheme = detectIDETheme()

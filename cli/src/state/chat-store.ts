@@ -17,6 +17,7 @@ export type ChatStoreState = {
   isChainInProgress: boolean
   slashSelectedIndex: number
   agentSelectedIndex: number
+  agentMode: 'FAST' | 'MAX'
 }
 
 type ChatStoreActions = {
@@ -40,6 +41,8 @@ type ChatStoreActions = {
   setIsChainInProgress: (active: boolean) => void
   setSlashSelectedIndex: (value: number | ((prev: number) => number)) => void
   setAgentSelectedIndex: (value: number | ((prev: number) => number)) => void
+  setAgentMode: (mode: 'FAST' | 'MAX') => void
+  toggleAgentMode: () => void
   reset: () => void
 }
 
@@ -58,6 +61,7 @@ const initialState: ChatStoreState = {
   isChainInProgress: false,
   slashSelectedIndex: 0,
   agentSelectedIndex: 0,
+  agentMode: 'FAST',
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -122,6 +126,16 @@ export const useChatStore = create<ChatStore>()(
           typeof value === 'function' ? value(state.agentSelectedIndex) : value
       }),
 
+    setAgentMode: (mode) =>
+      set((state) => {
+        state.agentMode = mode
+      }),
+
+    toggleAgentMode: () =>
+      set((state) => {
+        state.agentMode = state.agentMode === 'FAST' ? 'MAX' : 'FAST'
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -134,6 +148,7 @@ export const useChatStore = create<ChatStore>()(
         state.isChainInProgress = initialState.isChainInProgress
         state.slashSelectedIndex = initialState.slashSelectedIndex
         state.agentSelectedIndex = initialState.agentSelectedIndex
+        state.agentMode = initialState.agentMode
       }),
   })),
 )

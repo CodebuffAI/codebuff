@@ -261,8 +261,9 @@ export function getMessagesSubset(params: {
 
   // Remove cache_control from all messages
   for (const message of messagesSubset) {
-    delete message.providerOptions?.anthropic?.cacheControl
-    delete message.providerOptions?.openrouter?.cacheControl
+    for (const provider of ['anthropic', 'openrouter', 'codebuff'] as const) {
+      delete message.providerOptions?.[provider]?.cacheControl
+    }
   }
 
   // Cache up to the last message!

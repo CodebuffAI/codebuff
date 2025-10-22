@@ -22,6 +22,7 @@ export type StreamChunk =
 
 export type PromptAiSdkStreamFn = (
   params: {
+    apiKey: string
     messages: Message[]
     clientSessionId: string
     fingerprintId: string

@@ -2,6 +2,7 @@ import { useRenderer } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
+import { AgentModeToggle } from './components/agent-mode-toggle'
 import { MultilineInput } from './components/multiline-input'
 import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
@@ -107,6 +108,8 @@ export const App = ({
     setActiveSubagents,
     isChainInProgress,
     setIsChainInProgress,
+    agentMode,
+    toggleAgentMode,
   } = useChatStore(
     useShallow((store) => ({
       inputValue: store.inputValue,
@@ -129,6 +132,8 @@ export const App = ({
       setActiveSubagents: store.setActiveSubagents,
       isChainInProgress: store.isChainInProgress,
       setIsChainInProgress: store.setIsChainInProgress,
+      agentMode: store.agentMode,
+      toggleAgentMode: store.toggleAgentMode,
     })),
   )
 
@@ -400,7 +405,9 @@ export const App = ({
   )
 
   const sendMessageRef =
-    useRef<(content: string, onComplete?: () => void) => Promise<void>>()
+    useRef<
+      (content: string, params: { agentMode: 'FAST' | 'MAX' }) => Promise<void>
+    >()
 
   const {
     queuedMessages,
@@ -414,7 +421,8 @@ export const App = ({
     setCanProcessQueue,
     setIsStreaming,
   } = useMessageQueue(
-    (content: string) => sendMessageRef.current?.(content) ?? Promise.resolve(),
+    (content: string) =>
+      sendMessageRef.current?.(content, { agentMode }) ?? Promise.resolve(),
     isChainInProgressRef,
     activeAgentStreamsRef,
   )
@@ -448,14 +456,14 @@ export const App = ({
       const timeout = setTimeout(() => {
         logger.info({ prompt: initialPrompt }, 'Auto-submitting initial prompt')
         if (sendMessageRef.current) {
-          sendMessageRef.current(initialPrompt)
+          sendMessageRef.current(initialPrompt, { agentMode })
         }
       }, 100)
 
       return () => clearTimeout(timeout)
     }
     return undefined
-  }, [initialPrompt])
+  }, [initialPrompt, agentMode])
 
   const hasStatus = useHasStatus(isWaitingForResponse, clipboardMessage)
 
@@ -477,7 +485,7 @@ export const App = ({
       return
     }
 
-    sendMessage(trimmed)
+    sendMessage(trimmed, { agentMode })
 
     setTimeout(() => {
       scrollToLatest()
@@ -504,6 +512,7 @@ export const App = ({
     setCollapsedAgents,
     navigateUp,
     navigateDown,
+    toggleAgentMode,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(
@@ -641,6 +650,11 @@ export const App = ({
             </text>
           </>
         )}
+        <AgentModeToggle
+          mode={agentMode}
+          theme={theme}
+          onToggle={toggleAgentMode}
+        />
         <Separator theme={theme} width={renderer.width} />
         {slashContext.active && slashSuggestionItems.length > 0 ? (
           <SuggestionMenu

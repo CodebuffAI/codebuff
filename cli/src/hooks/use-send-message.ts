@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
+import { shouldHideAgent } from '../utils/constants'
 import { formatTimestamp } from '../utils/helpers'
+import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { logger } from '../utils/logger'
 
 import type { ChatMessage, ContentBlock } from '../chat'
-import type { ToolName } from '@codebuff/sdk'
+import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 
 const completionMessages = [
@@ -251,7 +253,8 @@ export const useSendMessage = ({
   }, [flushPendingUpdates])
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
+      const { agentMode } = params
       const timestamp = formatTimestamp()
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -552,11 +555,16 @@ export const useSendMessage = ({
       abortControllerRef.current = abortController
 
       try {
+        // Load local agent definitions from .agents directory
+        const agentDefinitions = loadAgentDefinitions()
+
+        const agent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
         const result = await client.run({
-          agent: agentId || 'base',
+          agent: agentId || agent,
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,
+          agentDefinitions: agentDefinitions as AgentDefinition[],
 
           handleStreamChunk: (chunk: any) => {
             if (typeof chunk !== 'string' || !chunk) {
@@ -695,6 +703,11 @@ export const useSendMessage = ({
               event.type === 'subagent_start' ||
               event.type === 'subagent-start'
             ) {
+              // Skip rendering hidden agents
+              if (shouldHideAgent(event.agentType)) {
+                return
+              }
+
               if (event.agentId) {
                 logger.info(
                   {
@@ -948,6 +961,9 @@ export const useSendMessage = ({
               event.type === 'subagent-finish'
             ) {
               if (event.agentId) {
+                if (shouldHideAgent(event.agentType)) {
+                  return
+                }
                 agentStreamAccumulatorsRef.current.delete(event.agentId)
                 removeActiveSubagent(event.agentId)
 
