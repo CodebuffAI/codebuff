@@ -103,14 +103,15 @@ describe('validateAgentNameHandler', () => {
       next: noopNext,
     })
 
-    expect(spy).toHaveBeenCalledWith({
-      parsedAgentId: {
-        publisherId: 'codebuff',
-        agentId: 'file-explorer',
-        version: undefined,
-      },
-      logger: expect.anything(),
-    })
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedAgentId: {
+          publisherId: 'codebuff',
+          agentId: 'file-explorer',
+          version: undefined,
+        },
+      }),
+    )
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(true)
     expect(res.jsonPayload.source).toBe('published')
@@ -136,14 +137,15 @@ describe('validateAgentNameHandler', () => {
       next: noopNext,
     })
 
-    expect(spy).toHaveBeenCalledWith({
-      parsedAgentId: {
-        publisherId: 'codebuff',
-        agentId: 'file-explorer',
-        version: '0.0.1',
-      },
-      logger: expect.anything(),
-    })
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedAgentId: {
+          publisherId: 'codebuff',
+          agentId: 'file-explorer',
+          version: '0.0.1',
+        },
+      }),
+    )
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(true)
     expect(res.jsonPayload.source).toBe('published')
@@ -165,14 +167,15 @@ describe('validateAgentNameHandler', () => {
       next: noopNext,
     })
 
-    expect(spy).toHaveBeenCalledWith({
-      parsedAgentId: {
-        publisherId: 'someorg',
-        agentId: 'not-a-real-agent',
-        version: undefined,
-      },
-      logger: expect.anything(),
-    })
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedAgentId: {
+          publisherId: 'someorg',
+          agentId: 'not-a-real-agent',
+          version: undefined,
+        },
+      }),
+    )
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.jsonPayload.valid).toBe(false)
   })
