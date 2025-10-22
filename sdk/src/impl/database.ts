@@ -6,6 +6,7 @@ import type {
   FetchAgentFromDatabaseFn,
   GetUserInfoFromApiKeyInput,
   GetUserInfoFromApiKeyOutput,
+  StartAgentRunFn,
   UserColumn,
 } from '@codebuff/common/types/contracts/database'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
@@ -75,14 +76,45 @@ export async function fetchAgentFromDatabase(
   }
 }
 
+export async function startAgentRun(
+  params: ParamsOf<StartAgentRunFn>,
+): ReturnType<StartAgentRunFn> {
+  const { apiKey, agentId, ancestorRunIds, logger } = params
+
+  const url = new URL(`${WEBSITE_URL}/api/v1/agent-runs`)
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        action: 'START',
+        agentId,
+        ancestorRunIds,
+      }),
+    })
+
+    if (!response.ok) {
+      logger.error({ response }, 'startAgentRun request failed')
+      return null
+    }
+    return response.json()
+  } catch (error) {
+    logger.error(
+      { error: getErrorObject(error), agentId },
+      'startAgentRun error',
+    )
+    return null
+  }
+}
+
 console.log(
-  await fetchAgentFromDatabase({
-    apiKey: 'unused',
-    parsedAgentId: {
-      publisherId: 'codebuff',
-      agentId: 'base',
-      version: '0.0.1',
-    },
+  await startAgentRun({
+    apiKey: '12345',
+    agentId: 'codebuff/base@0.0.1',
+    ancestorRunIds: [],
     logger: console,
   }),
 )

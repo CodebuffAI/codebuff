@@ -56,12 +56,13 @@ export type FetchAgentFromDatabaseFn = (params: {
 }) => Promise<AgentTemplate | null>
 
 export type StartAgentRunFn = (params: {
+  apiKey: string
   runId?: string
   userId?: string
   agentId: string
   ancestorRunIds: string[]
   logger: Logger
-}) => Promise<string>
+}) => Promise<string | null>
 
 export type FinishAgentRunFn = (params: {
   userId: string | undefined

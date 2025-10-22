@@ -445,7 +445,8 @@ export async function loopAgentSteps(
       typeof getMCPToolData,
       'toolNames' | 'mcpServers' | 'writeTo'
     > &
-    ParamsOf<CheckLiveUserInputFn>,
+    ParamsOf<CheckLiveUserInputFn> &
+    ParamsExcluding<StartAgentRunFn, 'runId' | 'agentId' | 'ancestorRunIds'>,
 ): Promise<{
   agentState: AgentState
   output: AgentOutput
@@ -482,11 +483,10 @@ export async function loopAgentSteps(
   const runId = crypto.randomUUID()
   agentState.runId = runId
   await startAgentRun({
+    ...params,
     runId,
-    userId,
     agentId: agentTemplate.id,
     ancestorRunIds: agentState.ancestorRunIds,
-    logger,
   })
 
   // Initialize message history with user prompt and instructions on first iteration
