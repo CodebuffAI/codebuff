@@ -34,7 +34,7 @@ export const createResearchImplementOrchestrator: () => Omit<
     outputMode: 'last_message',
     includeMessageHistory: false,
     toolNames: ['spawn_agents'],
-    spawnableAgents: buildArray('task-researcher', 'base2-implementor'),
+    spawnableAgents: buildArray('task-researcher', 'base2-implementor-gpt-5'),
 
     systemPrompt: `You are Buffy, a strategic coding assistant that orchestrates complex coding tasks through specialized sub-agents.
 
