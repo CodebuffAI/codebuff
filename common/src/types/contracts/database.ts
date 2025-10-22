@@ -65,6 +65,7 @@ export type StartAgentRunFn = (params: {
 }) => Promise<string | null>
 
 export type FinishAgentRunFn = (params: {
+  apiKey: string
   userId: string | undefined
   runId: string
   status: 'completed' | 'failed' | 'cancelled'

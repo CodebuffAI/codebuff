@@ -4,6 +4,7 @@ import { WEBSITE_URL } from '../constants'
 
 import type {
   FetchAgentFromDatabaseFn,
+  FinishAgentRunFn,
   GetUserInfoFromApiKeyInput,
   GetUserInfoFromApiKeyOutput,
   StartAgentRunFn,
@@ -17,7 +18,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
   const { apiKey, fields, logger } = params
 
   const urlParams = new URLSearchParams({ apiKey, fields: fields.join(',') })
-  const url = new URL(`${WEBSITE_URL}/api/v1/me?${urlParams}`)
+  const url = new URL(`/api/v1/me?${urlParams}`, WEBSITE_URL)
 
   try {
     const response = await fetch(url, {
@@ -51,7 +52,8 @@ export async function fetchAgentFromDatabase(
   const { publisherId, agentId, version } = parsedAgentId
 
   const url = new URL(
-    `${WEBSITE_URL}/api/v1/agents/${publisherId}/${agentId}/${version}`,
+    `/api/v1/agents/${publisherId}/${agentId}/${version}`,
+    WEBSITE_URL,
   )
 
   try {
@@ -81,7 +83,7 @@ export async function startAgentRun(
 ): ReturnType<StartAgentRunFn> {
   const { apiKey, agentId, ancestorRunIds, logger } = params
 
-  const url = new URL(`${WEBSITE_URL}/api/v1/agent-runs`)
+  const url = new URL(`/api/v1/agent-runs`, WEBSITE_URL)
 
   try {
     const response = await fetch(url, {
@@ -110,11 +112,58 @@ export async function startAgentRun(
   }
 }
 
+export async function finishAgentRun(
+  params: ParamsOf<FinishAgentRunFn>,
+): ReturnType<FinishAgentRunFn> {
+  const {
+    apiKey,
+    runId,
+    status,
+    totalSteps,
+    directCredits,
+    totalCredits,
+    logger,
+  } = params
+
+  const url = new URL(`/api/v1/agent-runs`, WEBSITE_URL)
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        action: 'FINISH',
+        runId,
+        status,
+        totalSteps,
+        directCredits,
+        totalCredits,
+      }),
+    })
+
+    if (!response.ok) {
+      logger.error({ response }, 'finishAgentRun request failed')
+      return
+    }
+  } catch (error) {
+    logger.error(
+      { error: getErrorObject(error), runId, status },
+      'finishAgentRun error',
+    )
+  }
+}
+
 console.log(
-  await startAgentRun({
+  await finishAgentRun({
     apiKey: '12345',
-    agentId: 'codebuff/base@0.0.1',
-    ancestorRunIds: [],
+    status: 'completed',
+    totalSteps: 5,
+    userId: undefined,
+    runId: 'e7a129b2-feb5-40ac-b2cd-0d7c115962f5',
+    directCredits: 12,
+    totalCredits: 34,
     logger: console,
   }),
 )

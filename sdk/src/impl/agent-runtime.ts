@@ -2,6 +2,7 @@ import { trackEvent } from '@codebuff/common/analytics'
 
 import {
   fetchAgentFromDatabase,
+  finishAgentRun,
   getUserInfoFromApiKey,
   startAgentRun,
 } from './database'
@@ -13,7 +14,6 @@ import type {
 
 export const CLI_AGENT_RUNTIME_IMPL: Omit<
   AgentRuntimeDeps & AgentRuntimeScopedDeps,
-  | 'finishAgentRun'
   | 'addAgentStep'
   | 'consumeCreditsWithFallback'
   | 'promptAiSdkStream'
@@ -31,7 +31,7 @@ export const CLI_AGENT_RUNTIME_IMPL: Omit<
   getUserInfoFromApiKey,
   fetchAgentFromDatabase,
   startAgentRun,
-  // finishAgentRun: FinishAgentRunFn
+  finishAgentRun,
   // addAgentStep: AddAgentStepFn
 
   // Billing
