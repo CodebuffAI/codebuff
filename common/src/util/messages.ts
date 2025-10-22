@@ -26,14 +26,14 @@ export function withCacheControl<
   if (!wrapper.providerOptions) {
     wrapper.providerOptions = {}
   }
-  if (!wrapper.providerOptions.anthropic) {
-    wrapper.providerOptions.anthropic = {}
+
+  for (const provider of ['anthropic', 'openrouter', 'codebuff'] as const) {
+    if (!wrapper.providerOptions[provider]) {
+      wrapper.providerOptions[provider] = {}
+    }
+    wrapper.providerOptions[provider].cacheControl = { type: 'ephemeral' }
   }
-  wrapper.providerOptions.anthropic.cacheControl = { type: 'ephemeral' }
-  if (!wrapper.providerOptions.openrouter) {
-    wrapper.providerOptions.openrouter = {}
-  }
-  wrapper.providerOptions.openrouter.cacheControl = { type: 'ephemeral' }
+
   return wrapper
 }
 
@@ -41,30 +41,20 @@ export function withoutCacheControl<
   T extends { providerOptions?: ProviderMetadata },
 >(obj: T): T {
   const wrapper = cloneDeep(obj)
-  if (has(wrapper.providerOptions?.anthropic?.cacheControl, 'type')) {
-    delete wrapper.providerOptions?.anthropic?.cacheControl?.type
-  }
-  if (
-    Object.keys(wrapper.providerOptions?.anthropic?.cacheControl ?? {})
-      .length === 0
-  ) {
-    delete wrapper.providerOptions?.anthropic?.cacheControl
-  }
-  if (Object.keys(wrapper.providerOptions?.anthropic ?? {}).length === 0) {
-    delete wrapper.providerOptions?.anthropic
-  }
 
-  if (has(wrapper.providerOptions?.openrouter?.cacheControl, 'type')) {
-    delete wrapper.providerOptions?.openrouter?.cacheControl?.type
-  }
-  if (
-    Object.keys(wrapper.providerOptions?.openrouter?.cacheControl ?? {})
-      .length === 0
-  ) {
-    delete wrapper.providerOptions?.openrouter?.cacheControl
-  }
-  if (Object.keys(wrapper.providerOptions?.openrouter ?? {}).length === 0) {
-    delete wrapper.providerOptions?.openrouter
+  for (const provider of ['anthropic', 'openrouter', 'codebuff'] as const) {
+    if (has(wrapper.providerOptions?.[provider]?.cacheControl, 'type')) {
+      delete wrapper.providerOptions?.[provider]?.cacheControl?.type
+    }
+    if (
+      Object.keys(wrapper.providerOptions?.[provider]?.cacheControl ?? {})
+        .length === 0
+    ) {
+      delete wrapper.providerOptions?.[provider]?.cacheControl
+    }
+    if (Object.keys(wrapper.providerOptions?.[provider] ?? {}).length === 0) {
+      delete wrapper.providerOptions?.[provider]
+    }
   }
 
   if (Object.keys(wrapper.providerOptions ?? {}).length === 0) {

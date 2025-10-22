@@ -21,11 +21,11 @@ function extractRequestMetadata(params: { body: unknown; logger: Logger }) {
     logger.warn({ body }, 'Received request without client_id')
   }
 
-  const rawClientRequestId = (body as any)?.codebuff_metadata?.client_request_id
+  const rawRunId = (body as any)?.codebuff_metadata?.run_id
   const clientRequestId: string | null =
-    typeof rawClientRequestId === 'string' ? rawClientRequestId : null
+    typeof rawRunId === 'string' ? rawRunId : null
   if (!clientRequestId) {
-    logger.warn({ body }, 'Received request without client_request_id')
+    logger.warn({ body }, 'Received request without run_id')
   }
 
   return { clientId, clientRequestId }

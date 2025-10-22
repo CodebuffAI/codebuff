@@ -1,5 +1,3 @@
-import { providerModelNames } from '@codebuff/common/old-constants'
-
 import { globalStopSequence } from './constants'
 
 import type { AgentTemplate } from './templates/types'
@@ -16,6 +14,7 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 
 export const getAgentStreamFromTemplate = (params: {
+  apiKey: string
   clientSessionId: string
   fingerprintId: string
   userInputId: string
@@ -33,6 +32,7 @@ export const getAgentStreamFromTemplate = (params: {
   trackEvent: TrackEventFn
 }) => {
   const {
+    apiKey,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -57,6 +57,7 @@ export const getAgentStreamFromTemplate = (params: {
 
   const getStream = (messages: Message[]) => {
     const aiSdkStreamParams: ParamsOf<PromptAiSdkStreamFn> = {
+      apiKey,
       messages,
       model,
       stopSequences: [globalStopSequence],
@@ -78,18 +79,18 @@ export const getAgentStreamFromTemplate = (params: {
 
     // Add Gemini-specific options if needed
     const primaryModel = Array.isArray(model) ? model[0] : model
-    const provider =
-      providerModelNames[primaryModel as keyof typeof providerModelNames]
 
     if (!aiSdkStreamParams.providerOptions) {
       aiSdkStreamParams.providerOptions = {}
     }
-    if (!aiSdkStreamParams.providerOptions.openrouter) {
-      aiSdkStreamParams.providerOptions.openrouter = {}
+    for (const provider of ['openrouter', 'codebuff'] as const) {
+      if (!aiSdkStreamParams.providerOptions[provider]) {
+        aiSdkStreamParams.providerOptions[provider] = {}
+      }
+      ;(
+        aiSdkStreamParams.providerOptions[provider] as OpenRouterProviderOptions
+      ).reasoning = template.reasoningOptions
     }
-    ;(
-      aiSdkStreamParams.providerOptions.openrouter as OpenRouterProviderOptions
-    ).reasoning = template.reasoningOptions
 
     return promptAiSdkStream(aiSdkStreamParams)
   }

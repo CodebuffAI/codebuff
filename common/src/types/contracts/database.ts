@@ -28,7 +28,7 @@ type AgentRun = {
 }
 export type AgentRunColumn = keyof AgentRun
 export type GetAgentRunFromIdInput<T extends AgentRunColumn> = {
-  agentRunId: string
+  runId: string
   userId: string
   fields: readonly T[]
 }

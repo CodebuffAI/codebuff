@@ -140,14 +140,16 @@ export async function* promptAiSdkStream(
       return null
     }
     if (chunk.type === 'reasoning-delta') {
-      if (
-        (
-          params.providerOptions?.openrouter as
-            | OpenRouterProviderOptions
-            | undefined
-        )?.reasoning?.exclude
-      ) {
-        continue
+      for (const provider of ['openrouter', 'codebuff'] as const) {
+        if (
+          (
+            params.providerOptions?.[provider] as
+              | OpenRouterProviderOptions
+              | undefined
+          )?.reasoning?.exclude
+        ) {
+          continue
+        }
       }
       yield {
         type: 'reasoning',

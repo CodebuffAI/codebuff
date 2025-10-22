@@ -102,7 +102,7 @@ export async function chatCompletionsPost(params: {
       userId,
       properties: {
         hasStream: !!(body as any).stream,
-        hasAgentRunId: !!(body as any).codebuff_metadata?.agent_run_id,
+        hasRunId: !!(body as any).codebuff_metadata?.run_id,
       },
       logger,
     })
@@ -132,25 +132,25 @@ export async function chatCompletionsPost(params: {
 
     // Extract and validate agent run ID
     const runIdFromBody: string | undefined = (body as any).codebuff_metadata
-      ?.agent_run_id
+      ?.run_id
     if (!runIdFromBody || typeof runIdFromBody !== 'string') {
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
         userId,
         properties: {
-          error: 'Missing or invalid agent_run_id',
+          error: 'Missing or invalid run_id',
         },
         logger,
       })
       return NextResponse.json(
-        { message: 'No agentRunId found in request body' },
+        { message: 'No runId found in request body' },
         { status: 400 },
       )
     }
 
     // Get and validate agent run
     const agentRun = await getAgentRunFromId({
-      agentRunId: runIdFromBody,
+      runId: runIdFromBody,
       userId,
       fields: ['agent_id', 'status'],
     })
@@ -160,12 +160,12 @@ export async function chatCompletionsPost(params: {
         userId,
         properties: {
           error: 'Agent run not found',
-          agentRunId: runIdFromBody,
+          runId: runIdFromBody,
         },
         logger,
       })
       return NextResponse.json(
-        { message: `agentRunId Not Found: ${runIdFromBody}` },
+        { message: `runId Not Found: ${runIdFromBody}` },
         { status: 400 },
       )
     }
@@ -178,13 +178,13 @@ export async function chatCompletionsPost(params: {
         userId,
         properties: {
           error: 'Agent run not running',
-          agentRunId: runIdFromBody,
+          runId: runIdFromBody,
           status: agentRunStatus,
         },
         logger,
       })
       return NextResponse.json(
-        { message: `agentRunId Not Running: ${runIdFromBody}` },
+        { message: `runId Not Running: ${runIdFromBody}` },
         { status: 400 },
       )
     }
@@ -207,7 +207,7 @@ export async function chatCompletionsPost(params: {
           userId,
           properties: {
             agentId,
-            agentRunId: runIdFromBody,
+            runId: runIdFromBody,
           },
           logger,
         })
@@ -236,7 +236,7 @@ export async function chatCompletionsPost(params: {
           userId,
           properties: {
             agentId,
-            agentRunId: runIdFromBody,
+            runId: runIdFromBody,
             streaming: false,
           },
           logger,

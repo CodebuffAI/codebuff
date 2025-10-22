@@ -11,7 +11,7 @@ import type {
 export async function getAgentRunFromId<T extends AgentRunColumn>(
   params: GetAgentRunFromIdInput<T>,
 ): GetAgentRunFromIdOutput<T> {
-  const { agentRunId, userId, fields } = params
+  const { runId, userId, fields } = params
 
   const selection = Object.fromEntries(
     fields.map((field) => [field, schema.agentRun[field]]),
@@ -21,10 +21,7 @@ export async function getAgentRunFromId<T extends AgentRunColumn>(
     .select({ selection })
     .from(schema.agentRun)
     .where(
-      and(
-        eq(schema.agentRun.id, agentRunId),
-        eq(schema.agentRun.user_id, userId),
-      ),
+      and(eq(schema.agentRun.id, runId), eq(schema.agentRun.user_id, userId)),
     )
     .limit(1)
 
