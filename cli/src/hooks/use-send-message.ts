@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
+import { shouldHideAgent } from '../utils/constants'
 import { formatTimestamp } from '../utils/helpers'
 import { logger } from '../utils/logger'
 
@@ -693,6 +694,11 @@ export const useSendMessage = ({
               event.type === 'subagent_start' ||
               event.type === 'subagent-start'
             ) {
+              // Skip rendering hidden agents
+              if (shouldHideAgent(event.agentType)) {
+                return
+              }
+
               if (event.agentId) {
                 logger.info(
                   {
@@ -946,6 +952,9 @@ export const useSendMessage = ({
               event.type === 'subagent-finish'
             ) {
               if (event.agentId) {
+                if (shouldHideAgent(event.agentType)) {
+                  return
+                }
                 agentStreamAccumulatorsRef.current.delete(event.agentId)
                 removeActiveSubagent(event.agentId)
 
