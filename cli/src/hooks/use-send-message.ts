@@ -107,7 +107,6 @@ interface UseSendMessageOptions {
   setIsStreaming: (streaming: boolean) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
-  agentMode: 'FAST' | 'MAX'
 }
 
 export const useSendMessage = ({
@@ -127,7 +126,6 @@ export const useSendMessage = ({
   setIsStreaming,
   setCanProcessQueue,
   abortControllerRef,
-  agentMode,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -253,7 +251,8 @@ export const useSendMessage = ({
   }, [flushPendingUpdates])
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
+      const { agentMode } = params
       const timestamp = formatTimestamp()
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -557,8 +556,9 @@ export const useSendMessage = ({
         // Load local agent definitions from .agents directory
         const agentDefinitions = loadAgentDefinitions()
 
+        const agent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
         const result = await client.run({
-          agent: 'base',
+          agent,
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,

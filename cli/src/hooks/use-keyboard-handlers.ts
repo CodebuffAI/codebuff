@@ -14,6 +14,7 @@ interface KeyboardHandlersConfig {
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   navigateUp: () => void
   navigateDown: () => void
+  toggleAgentMode: () => void
 }
 
 export const useKeyboardHandlers = ({
@@ -27,6 +28,7 @@ export const useKeyboardHandlers = ({
   setCollapsedAgents,
   navigateUp,
   navigateDown,
+  toggleAgentMode,
 }: KeyboardHandlersConfig) => {
   useKeyboard(
     useCallback(
@@ -148,6 +150,27 @@ export const useKeyboardHandlers = ({
         }
       },
       [navigateUp, navigateDown],
+    ),
+  )
+
+  useKeyboard(
+    useCallback(
+      (key) => {
+        const isShiftTab =
+          key.shift && key.name === 'tab' && !key.ctrl && !key.meta
+
+        if (!isShiftTab) return
+
+        if (
+          'preventDefault' in key &&
+          typeof key.preventDefault === 'function'
+        ) {
+          key.preventDefault()
+        }
+
+        toggleAgentMode()
+      },
+      [toggleAgentMode],
     ),
   )
 }
