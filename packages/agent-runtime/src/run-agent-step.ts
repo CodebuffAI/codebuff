@@ -446,7 +446,11 @@ export async function loopAgentSteps(
       'toolNames' | 'mcpServers' | 'writeTo'
     > &
     ParamsOf<CheckLiveUserInputFn> &
-    ParamsExcluding<StartAgentRunFn, 'runId' | 'agentId' | 'ancestorRunIds'>,
+    ParamsExcluding<StartAgentRunFn, 'runId' | 'agentId' | 'ancestorRunIds'> &
+    ParamsExcluding<
+      FinishAgentRunFn,
+      'runId' | 'status' | 'totalSteps' | 'directCredits' | 'totalCredits'
+    >,
 ): Promise<{
   agentState: AgentState
   output: AgentOutput
@@ -719,13 +723,12 @@ export async function loopAgentSteps(
 
     const status = checkLiveUserInput(params) ? 'completed' : 'cancelled'
     await finishAgentRun({
-      userId,
+      ...params,
       runId,
       status,
       totalSteps,
       directCredits: currentAgentState.directCreditsUsed,
       totalCredits: currentAgentState.creditsUsed,
-      logger,
     })
 
     return {
@@ -749,14 +752,13 @@ export async function loopAgentSteps(
 
     const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
     await finishAgentRun({
-      userId,
+      ...params,
       runId,
       status,
       totalSteps,
       directCredits: currentAgentState.directCreditsUsed,
       totalCredits: currentAgentState.creditsUsed,
       errorMessage,
-      logger,
     })
 
     const errorObject = getErrorObject(error)
