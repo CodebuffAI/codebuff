@@ -2,27 +2,29 @@ import { CodebuffClient } from '@codebuff/sdk'
 
 import { findGitRoot } from './git'
 import { logger } from './logger'
+import { getAuthTokenDetails } from './auth'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 
 let clientInstance: CodebuffClient | null = null
 
 export function getCodebuffClient(): CodebuffClient | null {
-  logger.info({}, 'getCodebuffClient() called')
-
   if (!clientInstance) {
-    const apiKey = process.env.CODEBUFF_API_KEY
+    const { token: apiKey, source } = getAuthTokenDetails()
+
     if (!apiKey) {
-      logger.warn({}, 'No CODEBUFF_API_KEY found in environment variables')
+      logger.warn(
+        {},
+        `No authentication token found. Please run the login flow or set ${API_KEY_ENV_VAR}.`,
+      )
       return null
     }
 
     const gitRoot = findGitRoot()
-    logger.info({ cwd: gitRoot }, 'Initializing CodebuffClient with API key')
     try {
       clientInstance = new CodebuffClient({
         apiKey,
         cwd: gitRoot,
       })
-      logger.info({}, 'CodebuffClient initialized successfully')
     } catch (error) {
       logger.error(error, 'Failed to initialize CodebuffClient')
       return null

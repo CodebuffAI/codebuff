@@ -1,8 +1,9 @@
 import { useRenderer } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { AgentModeToggle } from './components/agent-mode-toggle'
+import { LoginScreen } from './components/login-screen'
 import { MultilineInput } from './components/multiline-input'
 import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
@@ -24,6 +25,9 @@ import { loadLocalAgents } from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { chatThemes, createMarkdownPalette } from './utils/theme-system'
+
+import type { User } from './utils/auth'
+import { logoutUser } from './utils/auth'
 
 import type { ToolName } from '@codebuff/sdk'
 import type { InputRenderable, ScrollBoxRenderable } from '@opentui/core'
@@ -78,7 +82,14 @@ export type ChatMessage = {
 export const App = ({
   initialPrompt,
   agentId,
-}: { initialPrompt?: string; agentId?: string } = {}) => {
+  requireAuth,
+  hasInvalidCredentials,
+}: {
+  initialPrompt: string | null
+  agentId?: string
+  requireAuth: boolean | null
+  hasInvalidCredentials: boolean | null
+}) => {
   const renderer = useRenderer()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<InputRenderable | null>(null)
@@ -86,6 +97,30 @@ export const App = ({
   const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
+
+  // Track authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(!requireAuth)
+  const [user, setUser] = useState<User | null>(null)
+
+  // Log app initialization
+  useEffect(() => {
+    logger.debug(
+      {
+        requireAuth,
+        hasInvalidCredentials,
+        hasInitialPrompt: !!initialPrompt,
+        agentId,
+      },
+      'Chat App component mounted',
+    )
+  }, [])
+
+  // Handle successful login
+  const handleLoginSuccess = useCallback((loggedInUser: User) => {
+    setUser(loggedInUser)
+    setIsAuthenticated(true)
+    logger.info({ user: loggedInUser.name }, 'User logged in successfully')
+  }, [])
 
   const {
     inputValue,
@@ -471,6 +506,44 @@ export const App = ({
     const trimmed = inputValue.trim()
     if (!trimmed) return
 
+    const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
+    const cmd = normalized.split(/\s+/)[0].toLowerCase()
+    if (cmd === 'login' || cmd === 'signin') {
+      const msg = {
+        id: `sys-${Date.now()}`,
+        variant: 'ai' as const,
+        content: "You're already in the app. Use /logout to switch accounts.",
+        timestamp: new Date().toISOString(),
+      }
+      setMessages((prev) => [...prev, msg])
+      setInputValue('')
+      return
+    }
+    if (cmd === 'logout' || cmd === 'signout') {
+      ;(async () => {
+        try {
+          await logoutUser()
+        } finally {
+          abortControllerRef.current?.abort()
+          stopStreaming()
+          setCanProcessQueue(false)
+          const msg = {
+            id: `sys-${Date.now()}`,
+            variant: 'ai' as const,
+            content: 'Logged out.',
+            timestamp: new Date().toISOString(),
+          }
+          setMessages((prev) => [...prev, msg])
+          setInputValue('')
+          setTimeout(() => {
+            setUser(null)
+            setIsAuthenticated(false)
+          }, 300)
+        }
+      })()
+      return
+    }
+
     saveToHistory(trimmed)
     setInputValue('')
 
@@ -563,6 +636,17 @@ export const App = ({
       </text>
     ) : null
 
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <LoginScreen
+        onLoginSuccess={handleLoginSuccess}
+        theme={theme}
+        hasInvalidCredentials={hasInvalidCredentials}
+      />
+    )
+  }
+
   return (
     <box
       style={{
@@ -629,47 +713,33 @@ export const App = ({
           backgroundColor: theme.panelBg,
         }}
       >
-        <box
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-          }}
-        >
+        {(hasStatus || queuedMessages.length > 0) && (
           <box
             style={{
-              flexGrow: 1,
               flexDirection: 'row',
               alignItems: 'center',
+              width: '100%',
             }}
           >
-            {(hasStatus || queuedMessages.length > 0) && (
-              <text wrap={false}>
-                <StatusIndicator
-                  isProcessing={isWaitingForResponse}
-                  theme={theme}
-                  clipboardMessage={clipboardMessage}
-                />
-                {hasStatus && queuedMessages.length > 0 && '  '}
-                {queuedMessages.length > 0 && (
-                  <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
-                    {' '}
-                    {formatQueuedPreview(
-                      queuedMessages,
-                      Math.max(30, renderer.width - 25),
-                    )}{' '}
-                  </span>
-                )}
-              </text>
-            )}
+            <text wrap={false}>
+              <StatusIndicator
+                isProcessing={isWaitingForResponse}
+                theme={theme}
+                clipboardMessage={clipboardMessage}
+              />
+              {hasStatus && queuedMessages.length > 0 && '  '}
+              {queuedMessages.length > 0 && (
+                <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
+                  {' '}
+                  {formatQueuedPreview(
+                    queuedMessages,
+                    Math.max(30, renderer.width - 25),
+                  )}{' '}
+                </span>
+              )}
+            </text>
           </box>
-          <AgentModeToggle
-            mode={agentMode}
-            theme={theme}
-            onToggle={toggleAgentMode}
-          />
-        </box>
+        )}
         <Separator theme={theme} width={renderer.width} />
         {slashContext.active && slashSuggestionItems.length > 0 ? (
           <SuggestionMenu
@@ -703,6 +773,21 @@ export const App = ({
           onKeyIntercept={handleSuggestionMenuKey}
         />
         <Separator theme={theme} width={renderer.width} />
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            width: '100%',
+            paddingTop: 1,
+          }}
+        >
+          <AgentModeToggle
+            mode={agentMode}
+            theme={theme}
+            onToggle={toggleAgentMode}
+          />
+        </box>
       </box>
     </box>
   )

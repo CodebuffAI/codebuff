@@ -4,9 +4,11 @@ import { render } from '@opentui/react'
 import React from 'react'
 import { createRequire } from 'module'
 import { Command } from 'commander'
+import { getUserInfoFromApiKey } from '@codebuff/sdk'
 
 import { App } from './chat'
-import { clearLogFile } from './utils/logger'
+import { clearLogFile, logger } from './utils/logger'
+import { getUserCredentials } from './utils/auth'
 
 const require = createRequire(import.meta.url)
 
@@ -68,8 +70,23 @@ if (clearLogs) {
   clearLogFile()
 }
 
-if (initialPrompt) {
-  render(<App initialPrompt={initialPrompt} agentId={agent} />)
-} else {
-  render(<App agentId={agent} />)
+// Check authentication before starting
+async function startApp() {
+  const userCredentials = getUserCredentials()
+  const authResult = await getUserInfoFromApiKey({
+    apiKey: userCredentials?.authToken || process.env.CODEBUFF_API_KEY || '',
+    fields: ['id'],
+    logger,
+  })
+
+  render(
+    <App
+      initialPrompt={initialPrompt}
+      agentId={agent}
+      requireAuth={!authResult}
+      hasInvalidCredentials={!authResult}
+    />,
+  )
 }
+
+startApp()

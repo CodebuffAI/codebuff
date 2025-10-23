@@ -18,12 +18,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Configure project for better results',
   },
   {
-    id: 'login',
-    label: 'login',
-    description: 'Authenticate your session',
-    aliases: ['signin'],
-  },
-  {
     id: 'logout',
     label: 'logout',
     description: 'Sign out of your session',

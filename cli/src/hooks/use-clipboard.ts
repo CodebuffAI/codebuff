@@ -1,12 +1,24 @@
 import { useRenderer } from '@opentui/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { logger } from '../utils/logger'
+import {
+  copyTextToClipboard,
+  subscribeClipboardMessages,
+} from '../utils/clipboard'
+
+function formatDefaultClipboardMessage(text: string): string | null {
+  const preview = text.replace(/\s+/g, ' ').trim()
+  if (!preview) {
+    return null
+  }
+  const truncated =
+    preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
+  return `Copied: "${truncated}"`
+}
 
 export const useClipboard = () => {
   const renderer = useRenderer()
   const [clipboardMessage, setClipboardMessage] = useState<string | null>(null)
-  const clipboardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
@@ -14,44 +26,8 @@ export const useClipboard = () => {
   const pendingSelectionRef = useRef<string | null>(null)
   const lastCopiedRef = useRef<string | null>(null)
 
-  const copyToClipboard = useCallback(async (text: string) => {
-    if (!text || text.trim().length === 0) return
-
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(text)
-      } else if (typeof process !== 'undefined' && process.platform) {
-        const { execSync } = require('child_process')
-        if (process.platform === 'darwin') {
-          execSync('pbcopy', { input: text })
-        } else if (process.platform === 'linux') {
-          try {
-            execSync('xclip -selection clipboard', { input: text })
-          } catch {
-            execSync('xsel --clipboard --input', { input: text })
-          }
-        } else if (process.platform === 'win32') {
-          execSync('clip', { input: text })
-        }
-      } else {
-        return
-      }
-
-      if (clipboardTimeoutRef.current) {
-        clearTimeout(clipboardTimeoutRef.current)
-      }
-
-      const preview = text.replace(/\s+/g, ' ').trim()
-      const truncated =
-        preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
-      setClipboardMessage(`Copied: "${truncated}"`)
-      clipboardTimeoutRef.current = setTimeout(() => {
-        setClipboardMessage(null)
-        clipboardTimeoutRef.current = null
-      }, 3000)
-    } catch (error) {
-      logger.error(error, 'Failed to copy to clipboard')
-    }
+  useEffect(() => {
+    return subscribeClipboardMessages(setClipboardMessage)
   }, [])
 
   useEffect(() => {
@@ -90,7 +66,13 @@ export const useClipboard = () => {
         }
 
         lastCopiedRef.current = pending
-        void copyToClipboard(pending)
+        const successMessage = formatDefaultClipboardMessage(pending)
+        void copyTextToClipboard(pending, {
+          successMessage,
+          durationMs: 3000,
+        }).catch(() => {
+          // Errors are logged within copyTextToClipboard
+        })
       }, copyDelayRef.current)
     }
 
@@ -101,13 +83,10 @@ export const useClipboard = () => {
       }
     }
     return undefined
-  }, [renderer, copyToClipboard])
+  }, [renderer])
 
   useEffect(() => {
     return () => {
-      if (clipboardTimeoutRef.current) {
-        clearTimeout(clipboardTimeoutRef.current)
-      }
       if (pendingCopyTimeoutRef.current) {
         clearTimeout(pendingCopyTimeoutRef.current)
         pendingCopyTimeoutRef.current = null
