@@ -21,7 +21,15 @@ while [[ ! -f "$READY_FILE" ]]; do
     sleep 0.1
 done
 
-echo "Server is ready! Starting client..."
+echo "Server is ready! Building SDK..."
+
+if ! bun --cwd=sdk run build; then
+    echo "Failed to build SDK. Stopping server..."
+    kill -TERM -$SERVER_PID 2>/dev/null
+    exit 1
+fi
+
+echo "Starting client..."
 
 # Clean up the signal file
 rm -f "$READY_FILE"
