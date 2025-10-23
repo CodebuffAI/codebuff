@@ -44,8 +44,6 @@ import type { SessionState } from '../../common/src/types/session-state'
 import type { Source } from '../../common/src/types/source'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
-type TextPrintEvent = Extract<PrintModeEvent, { type: 'text' }>
-
 export type CodebuffClientOptions = {
   apiKey?: string
 
@@ -140,22 +138,11 @@ export async function run({
   const ROOT_AGENT_KEY = '__root__'
 
   const streamFilterState = createToolXmlFilterState()
-  const textFilterStates = new Map<string, ToolXmlFilterState>()
   const textAccumulator = new Map<string, string>()
   const lastStreamedTextByAgent = new Map<string, string>()
-  const lastTextEventByAgent = new Map<string, TextPrintEvent>()
   const sectionStartIndexByAgent = new Map<string, number>()
 
   const subagentFilterStates = new Map<string, ToolXmlFilterState>()
-
-  const getTextFilterState = (agentKey: string): ToolXmlFilterState => {
-    let state = textFilterStates.get(agentKey)
-    if (!state) {
-      state = createToolXmlFilterState()
-      textFilterStates.set(agentKey, state)
-    }
-    return state
-  }
 
   const getSubagentFilterState = (agentId: string): ToolXmlFilterState => {
     let state = subagentFilterStates.get(agentId)
@@ -263,30 +250,15 @@ export async function run({
     }
 
     const eventAgentId = resolveAgentId(agentKey, agentIdHint)
-    const lastChunk = lastTextEventByAgent.get(agentKey)
 
-    let eventPayload: PrintModeEvent
-    if (lastChunk) {
-      eventPayload = { ...lastChunk, text: trimmedText }
+    const eventPayload = {
+      type: 'text',
+      text: trimmedText,
+    } as PrintModeEvent
 
-      if (
-        eventAgentId &&
-        (!('agentId' in eventPayload) ||
-          (eventPayload as { agentId?: string | null }).agentId == null)
-      ) {
-        const eventWithAgent = eventPayload as { agentId?: string }
-        eventWithAgent.agentId = eventAgentId
-      }
-    } else {
-      eventPayload = {
-        type: 'text',
-        text: trimmedText,
-      } as PrintModeEvent
-
-      if (eventAgentId) {
-        const eventWithAgent = eventPayload as { agentId?: string }
-        eventWithAgent.agentId = eventAgentId
-      }
+    if (eventAgentId) {
+      const eventWithAgent = eventPayload as { agentId?: string }
+      eventWithAgent.agentId = eventAgentId
     }
 
     await handleEvent?.(eventPayload)
@@ -312,37 +284,11 @@ export async function run({
     agentKey: string,
     eventAgentId?: string,
   ): Promise<void> => {
-    const state = textFilterStates.get(agentKey)
-    let pending = ''
-
-    if (state) {
-      const { text: pendingText } = filterToolXmlFromText(
-        state,
-        '',
-        MAX_TOOL_XML_BUFFER,
-      )
-      pending = pendingText
-
-      if (state.buffer && !state.buffer.includes('<')) {
-        pending += state.buffer
-      }
-
-      state.buffer = ''
-      state.activeTag = null
-
-      textFilterStates.delete(agentKey)
-    } else {
-      ensureSectionStart(agentKey)
-    }
-
-    let nextFullText = textAccumulator.get(agentKey) ?? ''
     ensureSectionStart(agentKey)
 
-    if (pending) {
-      nextFullText = accumulateText(agentKey, pending)
-      if (agentKey === ROOT_AGENT_KEY) {
-        await emitStreamDelta(agentKey, nextFullText)
-      }
+    const nextFullText = textAccumulator.get(agentKey) ?? ''
+    if (agentKey === ROOT_AGENT_KEY && nextFullText) {
+      await emitStreamDelta(agentKey, nextFullText)
     }
 
     await emitPendingSection(agentKey, eventAgentId)
@@ -350,8 +296,6 @@ export async function run({
     textAccumulator.delete(agentKey)
     lastStreamedTextByAgent.delete(agentKey)
     sectionStartIndexByAgent.delete(agentKey)
-
-    lastTextEventByAgent.delete(agentKey)
   }
 
   const flushSubagentState = async (
@@ -429,33 +373,6 @@ export async function run({
         if (sanitized) {
           const nextFullText = accumulateText(ROOT_AGENT_KEY, sanitized)
           await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
-        }
-      } else if (chunk.type === 'text') {
-        const agentKey = chunk.agentId ?? ROOT_AGENT_KEY
-        const state = getTextFilterState(agentKey)
-        lastTextEventByAgent.set(agentKey, { ...chunk })
-        ensureSectionStart(agentKey)
-        const { text: sanitized } = filterToolXmlFromText(
-          state,
-          chunk.text,
-          MAX_TOOL_XML_BUFFER,
-        )
-
-        if (sanitized) {
-          const nextFullText = accumulateText(agentKey, sanitized)
-          if (agentKey === ROOT_AGENT_KEY) {
-            await emitStreamDelta(agentKey, nextFullText)
-          }
-        }
-
-        const fullText = textAccumulator.get(agentKey) ?? ''
-        const startIndex =
-          sectionStartIndexByAgent.get(agentKey) ?? fullText.length
-        const shouldFlushForToolXml =
-          state.activeTag != null && startIndex < fullText.length
-
-        if (shouldFlushForToolXml) {
-          await emitPendingSection(agentKey, chunk.agentId)
         }
       } else {
         const chunkType = chunk.type as string

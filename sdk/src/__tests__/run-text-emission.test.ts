@@ -204,17 +204,9 @@ describe('run() text emission', () => {
 
     const handler = await waitForHandler()
 
+    await handler.options.onResponseChunk(responseChunk(handler, 'Hello '))
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'Hello ',
-      }),
-    )
-    await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'Hello world',
-      }),
+      responseChunk(handler, 'Hello world'),
     )
     await handler.options.onResponseChunk(
       responseChunk(handler, {
@@ -237,7 +229,7 @@ describe('run() text emission', () => {
     ])
   })
 
-  test('emits combined text when raw string and structured chunks interleave', async () => {
+  test('emits combined text when consecutive string chunks overlap', async () => {
     const events: PrintModeEvent[] = []
     const streamChunks: string[] = []
     const runPromise = run({
@@ -256,10 +248,7 @@ describe('run() text emission', () => {
       responseChunk(handler, 'Root string '),
     )
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'section complete',
-      }),
+      responseChunk(handler, 'Root string section complete'),
     )
     await handler.options.onResponseChunk(
       responseChunk(handler, {
@@ -298,22 +287,13 @@ describe('run() text emission', () => {
     const handler = await waitForHandler()
 
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'Intro line ',
-      }),
+      responseChunk(handler, 'Intro line '),
     )
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'continues',
-      }),
+      responseChunk(handler, 'continues'),
     )
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: ' and ends.<codebuff_tool_call>',
-      }),
+      responseChunk(handler, ' and ends.<codebuff_tool_call>'),
     )
     await handler.options.onResponseChunk(
       responseChunk(handler, {
@@ -409,16 +389,10 @@ describe('run() text emission', () => {
     const handler = await waitForHandler()
 
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'Before <codebuff_tool_call>{"x":1}',
-      }),
+      responseChunk(handler, 'Before <codebuff_tool_call>{"x":1}'),
     )
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: '</codebuff_tool_call> after',
-      }),
+      responseChunk(handler, '</codebuff_tool_call> after'),
     )
     await handler.options.onResponseChunk(
       responseChunk(handler, {
@@ -436,8 +410,7 @@ describe('run() text emission', () => {
     )
 
     expect(textEvents).toEqual([
-      expect.objectContaining({ text: 'Before' }),
-      expect.objectContaining({ text: 'after' }),
+      expect.objectContaining({ text: 'Before  after' }),
     ])
   })
 
@@ -453,10 +426,7 @@ describe('run() text emission', () => {
     const handler = await waitForHandler()
 
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: '\nLine 1\nLine 2\n\n',
-      }),
+      responseChunk(handler, '\nLine 1\nLine 2\n\n'),
     )
     await handler.options.onResponseChunk(
       responseChunk(handler, {
@@ -491,12 +461,7 @@ describe('run() text emission', () => {
 
     const handler = await waitForHandler()
 
-    await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: '\n\n',
-      }),
-    )
+    await handler.options.onResponseChunk(responseChunk(handler, '\n\n'))
     await handler.options.onResponseChunk(
       responseChunk(handler, {
         type: 'finish',
@@ -572,10 +537,7 @@ describe('run() text emission', () => {
     const handler = await waitForHandler()
 
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'First section',
-      }),
+      responseChunk(handler, 'First section'),
     )
     await handler.options.onResponseChunk(
       responseChunk(handler, {
@@ -586,10 +548,7 @@ describe('run() text emission', () => {
       }),
     )
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'Second section',
-      }),
+      responseChunk(handler, 'Second section'),
     )
     await handler.options.onResponseChunk(
       responseChunk(handler, {
@@ -674,22 +633,13 @@ describe('run() text emission', () => {
     const handler = await waitForHandler()
 
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: 'Before <codebuff_tool_call>{"a":1}',
-      }),
+      responseChunk(handler, 'Before <codebuff_tool_call>{"a":1}'),
     )
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: '</codebuff_tool_call>',
-      }),
+      responseChunk(handler, '</codebuff_tool_call>'),
     )
     await handler.options.onResponseChunk(
-      responseChunk(handler, {
-        type: 'text',
-        text: ' after',
-      }),
+      responseChunk(handler, ' after'),
     )
     await handler.options.onResponseChunk(
       responseChunk(handler, {
@@ -706,6 +656,6 @@ describe('run() text emission', () => {
         event.type === 'text',
     )
 
-    expect(textEvents.map((event) => event.text)).toEqual(['Before', 'after'])
+    expect(textEvents.map((event) => event.text)).toEqual(['Before  after'])
   })
 })
