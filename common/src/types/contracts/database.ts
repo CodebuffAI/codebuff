@@ -1,5 +1,5 @@
-import type { AgentTemplate } from '../agent-template'
-import type { Logger } from './logger'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 type User = {
   id: string

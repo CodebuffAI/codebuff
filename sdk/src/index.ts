@@ -25,3 +25,5 @@ export { ToolHelpers } from './tools'
 export * from './websocket-client'
 export { formatState } from '../../common/src/websockets/websocket-client'
 export type { ReadyState } from '../../common/src/websockets/websocket-client'
+
+export { getUserInfoFromApiKey } from './impl/database'

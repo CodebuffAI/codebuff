@@ -15,10 +15,36 @@ import type {
 } from '../templates/initial-agents-dir/types/agent-definition'
 import type { Logger } from '../templates/initial-agents-dir/types/util-types'
 import type { ToolName } from '../tools/constants'
-import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 import type { z } from 'zod/v4'
 
 export type AgentId = `${string}/${string}@${number}.${number}.${number}`
+
+export type OpenRouterProviderOptions = {
+  models?: string[]
+
+  /**
+   * https://openrouter.ai/docs/use-cases/reasoning-tokens
+   * One of `max_tokens` or `effort` is required.
+   * If `exclude` is true, reasoning will be removed from the response. Default is false.
+   */
+  reasoning?: {
+    enabled?: boolean
+    exclude?: boolean
+  } & (
+    | {
+        max_tokens: number
+      }
+    | {
+        effort: 'high' | 'medium' | 'low'
+      }
+  )
+
+  /**
+   * A unique identifier representing your end-user, which can
+   * help OpenRouter to monitor and detect abuse.
+   */
+  user?: string
+}
 
 /**
  * Backend agent template with strict validation and Zod schemas
