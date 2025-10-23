@@ -1,5 +1,6 @@
-import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 import { createPatch } from 'diff'
+
+import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -72,7 +73,10 @@ export async function processStrReplace(params: {
     currentContent =
       updatedOldStr === null
         ? normalizedCurrentContent
-        : normalizedCurrentContent.replaceAll(updatedOldStr, normalizedNewStr)
+        : normalizedCurrentContent.replaceAll(
+            updatedOldStr,
+            () => normalizedNewStr,
+          )
   }
 
   currentContent = currentContent.replaceAll('\n', lineEnding)

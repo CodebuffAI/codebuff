@@ -445,4 +445,20 @@ function test3() {
       'line 1\nthis is a new line\nnew line 3\n',
     )
   })
+
+  it('should handle double dollar signs correctly', async () => {
+    const initialContent = 'line 1\nhello $world!\nline 2\n'
+    const oldStr = 'hello $world!\n'
+    const newStr = 'hello $$world!\n'
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [{ old: oldStr, new: newStr, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect(result).not.toBeNull()
+    expect((result as any)?.content).toBe('line 1\nhello $$world!\nline 2\n')
+  })
 })
