@@ -156,7 +156,7 @@ ${
 5. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user.`
 }`,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context,${!isFast ? ' the generate-plan agent to create a plan,' : ''} code-reviewer to review changes${!isFast ? ', and the validator to run validation commands' : ''}.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context,${isNormal ? ' the generate-plan agent to create a plan,' : isMax ? ' the base2-gpt-5-worker agent to do the planning and editing,' : ''}${!isFast ? ' code-reviewer to review changes, and the validator to run validation commands' : ''}.`,
 
     handleSteps: function* ({ params }) {
       let steps = 0

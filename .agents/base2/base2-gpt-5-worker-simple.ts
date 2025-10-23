@@ -6,7 +6,7 @@ const base2 = createBase2('max')
 
 const definition: SecretAgentDefinition = {
   ...base2,
-  id: 'base2-gpt-5-worker',
+  id: 'base2-gpt-5-worker-simple',
   model: 'openai/gpt-5',
   spawnableAgents: buildArray(
     'file-picker',
