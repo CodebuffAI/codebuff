@@ -32,7 +32,8 @@ The user asks you to implement a new feature. You respond in multiple steps:
 2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
 3. Use the str_replace or write_file tool to make the changes.
-4. Inform the parent agent you're done with your edits, but that it should double-check your work.`,
+4. Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.
+5. Inform the parent agent you're done with your edits, but that it should double-check your work.`,
 
   stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context.`,
 }
