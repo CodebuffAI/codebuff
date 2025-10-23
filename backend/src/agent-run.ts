@@ -16,16 +16,16 @@ import type { ParamsOf } from '@codebuff/common/types/function-params'
 export async function startAgentRun(
   params: ParamsOf<StartAgentRunFn>,
 ): ReturnType<StartAgentRunFn> {
-  const { runId, userId, agentId, ancestorRunIds, logger } = params
+  const { userId, agentId, ancestorRunIds, logger } = params
   if (userId === TEST_USER_ID) {
     return 'test-run-id'
   }
 
-  const id = crypto.randomUUID()
+  const runId = crypto.randomUUID()
 
   try {
     await db.insert(schema.agentRun).values({
-      id,
+      id: runId,
       user_id: userId,
       agent_id: agentId,
       ancestor_run_ids: ancestorRunIds.length > 0 ? ancestorRunIds : null,
@@ -33,7 +33,7 @@ export async function startAgentRun(
       created_at: new Date(),
     })
 
-    return id
+    return runId
   } catch (error) {
     logger.error(
       { error, runId, userId, agentId, ancestorRunIds },

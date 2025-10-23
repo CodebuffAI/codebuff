@@ -445,7 +445,7 @@ export async function loopAgentSteps(
       'toolNames' | 'mcpServers' | 'writeTo'
     > &
     ParamsOf<CheckLiveUserInputFn> &
-    ParamsExcluding<StartAgentRunFn, 'runId' | 'agentId' | 'ancestorRunIds'> &
+    ParamsExcluding<StartAgentRunFn, 'agentId' | 'ancestorRunIds'> &
     ParamsExcluding<
       FinishAgentRunFn,
       'runId' | 'status' | 'totalSteps' | 'directCredits' | 'totalCredits'

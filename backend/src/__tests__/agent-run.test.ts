@@ -86,29 +86,6 @@ describe('Agent Run Database Functions', () => {
       })
     })
 
-    it('should use provided runId when specified', async () => {
-      const mockValues = mock(() => Promise.resolve())
-      spyOn(db, 'insert').mockReturnValue({ values: mockValues } as any)
-
-      const result = await startAgentRun({
-        ...agentRuntimeImpl,
-        runId: 'custom-run-id',
-        userId: 'user-123',
-        agentId: 'test-agent',
-        ancestorRunIds: [],
-      })
-
-      expect(result).toBe('custom-run-id')
-      expect(mockValues).toHaveBeenCalledWith({
-        id: 'custom-run-id',
-        user_id: 'user-123',
-        agent_id: 'test-agent',
-        ancestor_run_ids: null, // Empty array should be converted to null
-        status: 'running',
-        created_at: expect.any(Date),
-      })
-    })
-
     it('should handle missing userId gracefully', async () => {
       const mockValues = mock(() => Promise.resolve())
       spyOn(db, 'insert').mockReturnValue({ values: mockValues } as any)

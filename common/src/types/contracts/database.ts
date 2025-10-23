@@ -58,7 +58,6 @@ export type FetchAgentFromDatabaseFn = (params: {
 
 export type StartAgentRunFn = (params: {
   apiKey: string
-  runId?: string
   userId?: string
   agentId: string
   ancestorRunIds: string[]
