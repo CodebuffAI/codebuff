@@ -138,6 +138,7 @@ describe('web_search tool with researcher agent', () => {
       repoId: undefined,
       repoUrl: undefined,
       spawnParams: undefined,
+      runId: 'test-run-id',
     })
 
     // Just verify that searchWeb was called
@@ -190,6 +191,7 @@ describe('web_search tool with researcher agent', () => {
       repoId: undefined,
       repoUrl: undefined,
       spawnParams: undefined,
+      runId: 'test-run-id',
     })
 
     expect(linkupApi.searchWeb).toHaveBeenCalledWith(
@@ -251,6 +253,7 @@ describe('web_search tool with researcher agent', () => {
       repoId: undefined,
       repoUrl: undefined,
       spawnParams: undefined,
+      runId: 'test-run-id',
     })
 
     expect(linkupApi.searchWeb).toHaveBeenCalledWith(
@@ -297,6 +300,7 @@ describe('web_search tool with researcher agent', () => {
       repoId: undefined,
       repoUrl: undefined,
       spawnParams: undefined,
+      runId: 'test-run-id',
     })
 
     // Verify that searchWeb was called
@@ -357,6 +361,7 @@ describe('web_search tool with researcher agent', () => {
       repoId: undefined,
       repoUrl: undefined,
       spawnParams: undefined,
+      runId: 'test-run-id',
     })
 
     // Verify that searchWeb was called
@@ -416,6 +421,7 @@ describe('web_search tool with researcher agent', () => {
       repoId: undefined,
       repoUrl: undefined,
       spawnParams: undefined,
+      runId: 'test-run-id',
     })
 
     // Verify that searchWeb was called
@@ -465,6 +471,7 @@ describe('web_search tool with researcher agent', () => {
       repoId: undefined,
       repoUrl: undefined,
       spawnParams: undefined,
+      runId: 'test-run-id',
     })
 
     // Verify that searchWeb was called
@@ -526,6 +533,7 @@ describe('web_search tool with researcher agent', () => {
       repoId: undefined,
       repoUrl: undefined,
       spawnParams: undefined,
+      runId: 'test-run-id',
     })
 
     // Verify that searchWeb was called

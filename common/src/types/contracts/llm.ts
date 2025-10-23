@@ -23,6 +23,7 @@ export type StreamChunk =
 export type PromptAiSdkStreamFn = (
   params: {
     apiKey: string
+    runId: string
     messages: Message[]
     clientSessionId: string
     fingerprintId: string
@@ -45,6 +46,7 @@ export type PromptAiSdkStreamFn = (
 export type PromptAiSdkFn = (
   params: {
     apiKey: string
+    runId: string
     messages: Message[]
     clientSessionId: string
     fingerprintId: string
@@ -65,6 +67,7 @@ export type PromptAiSdkFn = (
 
 export type PromptAiSdkStructuredInput<T> = {
   apiKey: string
+  runId: string
   messages: Message[]
   schema: z.ZodType<T>
   clientSessionId: string

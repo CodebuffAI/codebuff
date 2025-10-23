@@ -69,6 +69,7 @@ describe('QuickJS Sandbox Generator', () => {
     // Common params structure
     mockParams = {
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       system: undefined,

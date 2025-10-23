@@ -1,7 +1,6 @@
 import * as os from 'os'
 import path from 'path'
 
-import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { cloneDeep } from 'lodash'
 
 import {
@@ -9,9 +8,11 @@ import {
   getAllFilePaths,
 } from '../../common/src/project-file-tree'
 import { getInitialSessionState } from '../../common/src/types/session-state'
+import { getFileTokenScores } from '../../packages/code-map/src/parse'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
+import type { CodebuffFileSystem } from '../../common/src/types/filesystem'
 import type { Message } from '../../common/src/types/messages/codebuff-message'
 import type {
   AgentOutput,
@@ -21,7 +22,6 @@ import type {
   CustomToolDefinitions,
   FileTreeNode,
 } from '../../common/src/util/file'
-import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export type RunState = {
   sessionState: SessionState
@@ -36,7 +36,7 @@ export type InitialSessionStateOptions = {
   customToolDefinitions?: CustomToolDefinition[]
   maxAgentSteps?: number
   fs?: CodebuffFileSystem
-};
+}
 
 /**
  * Processes agent definitions array and converts handleSteps functions to strings
@@ -167,11 +167,11 @@ function deriveKnowledgeFiles(
 
 export function initialSessionState(
   options: InitialSessionStateOptions,
-): Promise<SessionState>;
+): Promise<SessionState>
 export function initialSessionState(
   cwd: string,
   options?: Omit<InitialSessionStateOptions, 'cwd'>,
-): Promise<SessionState>;
+): Promise<SessionState>
 export async function initialSessionState(
   arg1: string | InitialSessionStateOptions,
   arg2?: Omit<InitialSessionStateOptions, 'cwd'>,

@@ -23,6 +23,7 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type {
   Message,
   ToolMessage,
@@ -33,6 +34,7 @@ let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 describe('malformed tool call error handling', () => {
   let testAgent: AgentTemplate
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
+  let defaultParams: ParamsOf<typeof processStreamWithTools>
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
@@ -52,6 +54,31 @@ describe('malformed tool call error handling', () => {
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test instructions prompt',
       stepPrompt: 'Test agent step prompt',
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+
+    defaultParams = {
+      ...agentRuntimeImpl,
+      stream: createMockStream([]),
+      runId: 'test-run-id',
+      agentStepId: 'test-step',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      userInputId: 'test-input',
+      userId: TEST_USER_ID,
+      repoId: 'test-repo',
+      repoUrl: undefined,
+      agentTemplate: testAgent,
+      agentState,
+      localAgentTemplates: { 'test-agent': testAgent },
+      fileContext: mockFileContext,
+      messages: [],
+      system: 'Test system prompt',
+      agentContext: {},
+      onResponseChunk: mock(() => {}),
+      fullResponse: '',
     }
 
     // Mock analytics and tracing
@@ -107,29 +134,10 @@ describe('malformed tool call error handling', () => {
     ]
 
     const stream = createMockStream(chunks)
-    const onResponseChunk = mock(() => {})
-    const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState
 
     const result = await processStreamWithTools({
-      ...agentRuntimeImpl,
+      ...defaultParams,
       stream,
-      agentStepId: 'test-step',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      userInputId: 'test-input',
-      userId: TEST_USER_ID,
-      repoId: 'test-repo',
-      repoUrl: undefined,
-      agentTemplate: testAgent,
-      localAgentTemplates: { 'test-agent': testAgent },
-      fileContext: mockFileContext,
-      messages: [],
-      agentState,
-      system: 'Test system prompt',
-      agentContext: {},
-      onResponseChunk,
-      fullResponse: '',
     })
 
     // Should have tool result errors in the final message history
@@ -164,29 +172,10 @@ describe('malformed tool call error handling', () => {
     ]
 
     const stream = createMockStream(chunks)
-    const onResponseChunk = mock(() => {})
-    const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState
 
     const result = await processStreamWithTools({
-      ...agentRuntimeImpl,
+      ...defaultParams,
       stream,
-      agentStepId: 'test-step',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      userInputId: 'test-input',
-      userId: TEST_USER_ID,
-      repoId: 'test-repo',
-      repoUrl: undefined,
-      agentTemplate: testAgent,
-      localAgentTemplates: { 'test-agent': testAgent },
-      fileContext: mockFileContext,
-      messages: [],
-      agentState,
-      system: 'Test system prompt',
-      agentContext: {},
-      onResponseChunk,
-      fullResponse: '',
     })
 
     // Should have multiple error tool results
@@ -211,29 +200,10 @@ describe('malformed tool call error handling', () => {
     ]
 
     const stream = createMockStream(chunks)
-    const onResponseChunk = mock(() => {})
-    const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState
 
     const result = await processStreamWithTools({
-      ...agentRuntimeImpl,
+      ...defaultParams,
       stream,
-      agentStepId: 'test-step',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      userInputId: 'test-input',
-      userId: TEST_USER_ID,
-      repoId: 'test-repo',
-      repoUrl: undefined,
-      agentTemplate: testAgent,
-      localAgentTemplates: { 'test-agent': testAgent },
-      fileContext: mockFileContext,
-      messages: [],
-      agentState,
-      system: 'Test system prompt',
-      agentContext: {},
-      onResponseChunk,
-      fullResponse: '',
     })
 
     // Should have error in both toolResults and message history
@@ -262,29 +232,10 @@ describe('malformed tool call error handling', () => {
     ]
 
     const stream = createMockStream(chunks)
-    const onResponseChunk = mock(() => {})
-    const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState
 
     const result = await processStreamWithTools({
-      ...agentRuntimeImpl,
+      ...defaultParams,
       stream,
-      agentStepId: 'test-step',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      userInputId: 'test-input',
-      userId: TEST_USER_ID,
-      repoId: 'test-repo',
-      repoUrl: undefined,
-      agentTemplate: testAgent,
-      localAgentTemplates: { 'test-agent': testAgent },
-      fileContext: mockFileContext,
-      messages: [],
-      agentState,
-      system: 'Test system prompt',
-      agentContext: {},
-      onResponseChunk,
-      fullResponse: '',
     })
 
     const toolMessages = result.state.messages.filter(
@@ -315,29 +266,10 @@ describe('malformed tool call error handling', () => {
     ]
 
     const stream = createMockStream(chunks)
-    const onResponseChunk = mock(() => {})
-    const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState
 
     const result = await processStreamWithTools({
-      ...agentRuntimeImpl,
+      ...defaultParams,
       stream,
-      agentStepId: 'test-step',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      userInputId: 'test-input',
-      userId: TEST_USER_ID,
-      repoId: 'test-repo',
-      repoUrl: undefined,
-      agentTemplate: testAgent,
-      localAgentTemplates: { 'test-agent': testAgent },
-      fileContext: mockFileContext,
-      messages: [],
-      agentState,
-      system: 'Test system prompt',
-      agentContext: {},
-      onResponseChunk,
-      fullResponse: '',
     })
 
     const toolMessages = result.state.messages.filter(
@@ -370,29 +302,10 @@ describe('malformed tool call error handling', () => {
     ]
 
     const stream = createMockStream(chunks)
-    const onResponseChunk = mock(() => {})
-    const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState
 
     const result = await processStreamWithTools({
-      ...agentRuntimeImpl,
+      ...defaultParams,
       stream,
-      agentStepId: 'test-step',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      userInputId: 'test-input',
-      userId: TEST_USER_ID,
-      repoId: 'test-repo',
-      repoUrl: undefined,
-      agentTemplate: testAgent,
-      localAgentTemplates: { 'test-agent': testAgent },
-      fileContext: mockFileContext,
-      messages: [],
-      agentState,
-      system: 'Test system prompt',
-      agentContext: {},
-      onResponseChunk,
-      fullResponse: '',
     })
 
     const toolMessages = result.state.messages.filter(

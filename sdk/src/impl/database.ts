@@ -1,3 +1,4 @@
+import { userColumns } from '@codebuff/common/types/contracts/database'
 import { getErrorObject } from '@codebuff/common/util/error'
 
 import { WEBSITE_URL } from '../constants'
@@ -13,12 +14,32 @@ import type {
 } from '@codebuff/common/types/contracts/database'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 
+const userInfoCache: Record<
+  string,
+  Awaited<GetUserInfoFromApiKeyOutput<UserColumn>>
+> = {}
+
 export async function getUserInfoFromApiKey<T extends UserColumn>(
   params: GetUserInfoFromApiKeyInput<T>,
 ): GetUserInfoFromApiKeyOutput<T> {
   const { apiKey, fields, logger } = params
 
-  const urlParams = new URLSearchParams({ apiKey, fields: fields.join(',') })
+  if (apiKey in userInfoCache) {
+    const userInfo = userInfoCache[apiKey]
+    if (userInfo === null) {
+      return userInfo
+    }
+    return Object.fromEntries(
+      fields.map((field) => [field, userInfo[field]]),
+    ) as {
+      [K in (typeof fields)[number]]: (typeof userInfo)[K]
+    }
+  }
+
+  const urlParams = new URLSearchParams({
+    apiKey,
+    fields: userColumns.join(','),
+  })
   const url = new URL(`/api/v1/me?${urlParams}`, WEBSITE_URL)
 
   try {
@@ -36,13 +57,24 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
       )
       return null
     }
-    return response.json()
+
+    userInfoCache[apiKey] = await response.json()
   } catch (error) {
     logger.error(
       { error: getErrorObject(error), apiKey, fields },
       'getUserInfoFromApiKey error',
     )
     return null
+  }
+
+  const userInfo = userInfoCache[apiKey]
+  if (userInfo === null) {
+    return userInfo
+  }
+  return Object.fromEntries(
+    fields.map((field) => [field, userInfo[field]]),
+  ) as {
+    [K in (typeof fields)[number]]: (typeof userInfo)[K]
   }
 }
 
@@ -103,7 +135,15 @@ export async function startAgentRun(
       logger.error({ response }, 'startAgentRun request failed')
       return null
     }
-    return response.json()
+
+    const responseBody = await response.json()
+    if (!responseBody?.runId) {
+      logger.error(
+        { responseBody },
+        'no runId found from startAgentRun request',
+      )
+    }
+    return responseBody?.runId ?? null
   } catch (error) {
     logger.error(
       { error: getErrorObject(error), agentId },
@@ -191,12 +231,19 @@ export async function addAgentStep(
       }),
     })
 
+    const responseBody = await response.json()
     if (!response.ok) {
-      logger.error({ response }, 'addAgentStep request failed')
+      logger.error({ responseBody }, 'addAgentStep request failed')
       return null
     }
 
-    return response.json()
+    if (!responseBody?.runId) {
+      logger.error(
+        { responseBody },
+        'no stepId found from addAgentStep request',
+      )
+    }
+    return responseBody?.runId ?? null
   } catch (error) {
     logger.error(
       {

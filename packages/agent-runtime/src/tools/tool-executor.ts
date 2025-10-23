@@ -122,6 +122,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   previousToolCallFinished: Promise<void>
   agentTemplate: AgentTemplate
   fileContext: ProjectFileContext
+  runId: string
   agentStepId: string
   clientSessionId: string
   userInputId: string

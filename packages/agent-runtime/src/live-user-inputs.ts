@@ -13,6 +13,11 @@ export const disableLiveUserInputCheck = () => {
   liveUserInputCheckEnabled = false
 }
 
+let sessionConnectionCheckEnabled = true
+export const disableSessionConnectionCheck = () => {
+  sessionConnectionCheckEnabled = false
+}
+
 export function startUserInput(params: {
   userId: string
   userInputId: string
@@ -55,7 +60,7 @@ export function cancelUserInput(params: {
 }
 
 export function checkLiveUserInput(
-  params: ParamsOf<CheckLiveUserInputFn>,
+  params: ParamsOf<CheckLiveUserInputFn> & { logger: Logger },
 ): ReturnType<CheckLiveUserInputFn> {
   const {
     userId,
@@ -73,7 +78,7 @@ export function checkLiveUserInput(
   }
 
   // Check if WebSocket is still connected for this session
-  if (!sessionConnections[clientSessionId]) {
+  if (sessionConnectionCheckEnabled && !sessionConnections[clientSessionId]) {
     return false
   }
 

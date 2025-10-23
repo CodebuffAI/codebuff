@@ -14,7 +14,7 @@ export async function checkTerminalCommand(
     prompt: string
     promptAiSdk: PromptAiSdkFn
     logger: Logger
-  } & ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
+  } & ParamsExcluding<PromptAiSdkFn, 'messages' | 'model' | 'runId'>,
 ): Promise<string | null> {
   const { prompt, promptAiSdk, logger } = params
   if (!prompt?.trim()) {
@@ -61,6 +61,7 @@ ${JSON.stringify(prompt)}`,
     const response = await withTimeout(
       promptAiSdk({
         ...params,
+        runId: 'unused',
         messages,
         model: models.openrouter_gpt4_1_nano,
       }).then((response) => response.toLowerCase().includes('y')),

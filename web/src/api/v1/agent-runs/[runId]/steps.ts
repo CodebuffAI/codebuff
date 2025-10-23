@@ -18,7 +18,7 @@ const addAgentStepSchema = z.object({
   stepNumber: z.number().int().nonnegative(),
   credits: z.number().nonnegative().optional(),
   childRunIds: z.array(z.string()).optional(),
-  messageId: z.string().optional(),
+  messageId: z.string().nullable().optional(),
   status: z.enum(['running', 'completed', 'skipped']).optional(),
   errorMessage: z.string().optional(),
   startTime: z.string().datetime().optional(),

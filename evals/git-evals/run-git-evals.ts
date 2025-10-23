@@ -164,6 +164,7 @@ Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
               logger: console,
               trackEvent: () => {},
               apiKey: 'unused-api-key',
+              runId: 'unused-run-id',
             })
       } catch (agentError) {
         throw new Error(

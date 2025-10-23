@@ -409,7 +409,6 @@ export async function loopAgentSteps(
     prompt: string | undefined
     content?: Array<TextPart | ImagePart>
     spawnParams: Record<string, any> | undefined
-    fingerprintId: string
     fileContext: ProjectFileContext
     localAgentTemplates: Record<string, AgentTemplate>
     clearUserPromptMessagesAfterResponse?: boolean
@@ -417,7 +416,6 @@ export async function loopAgentSteps(
 
     userId: string | undefined
     clientSessionId: string
-    onResponseChunk: (chunk: string | PrintModeEvent) => void
 
     startAgentRun: StartAgentRunFn
     finishAgentRun: FinishAgentRunFn
@@ -425,6 +423,7 @@ export async function loopAgentSteps(
     logger: Logger
   } & ParamsExcluding<
     typeof runProgrammaticStep,
+    | 'runId'
     | 'agentState'
     | 'template'
     | 'prompt'
@@ -453,7 +452,7 @@ export async function loopAgentSteps(
     > &
     ParamsExcluding<
       typeof runAgentStep,
-      'agentState' | 'prompt' | 'spawnParams' | 'system'
+      'agentState' | 'prompt' | 'spawnParams' | 'system' | 'runId'
     > &
     ParamsExcluding<
       AddAgentStepFn,
@@ -476,12 +475,10 @@ export async function loopAgentSteps(
     prompt,
     content,
     spawnParams,
-    fingerprintId,
     fileContext,
     localAgentTemplates,
     userId,
     clientSessionId,
-    onResponseChunk,
     clearUserPromptMessagesAfterResponse = true,
     parentSystemPrompt,
     startAgentRun,
@@ -628,6 +625,7 @@ export async function loopAgentSteps(
           stepNumber,
         } = await runProgrammaticStep({
           ...params,
+          runId,
           agentState: currentAgentState,
           template: agentTemplate,
           localAgentTemplates,
@@ -691,6 +689,7 @@ export async function loopAgentSteps(
         messageId,
       } = await runAgentStep({
         ...params,
+        runId,
         agentState: currentAgentState,
         prompt: currentPrompt,
         spawnParams: currentParams,

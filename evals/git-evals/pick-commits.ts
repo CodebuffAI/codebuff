@@ -385,6 +385,7 @@ async function screenCommitsWithGpt5(
         logger: console,
         trackEvent: () => {},
         apiKey: 'unused-api-key',
+        runId: 'unused-run-id',
       })
 
       // Handle empty or invalid response

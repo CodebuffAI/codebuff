@@ -151,6 +151,7 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -226,6 +227,7 @@ describe('read_docs tool with researcher agent', () => {
 
     await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -278,6 +280,7 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -346,6 +349,7 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -413,6 +417,7 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -481,6 +486,7 @@ describe('read_docs tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',

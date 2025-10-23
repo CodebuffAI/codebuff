@@ -63,6 +63,7 @@ describe.skip('rewriteWithOpenAI', () => {
       fingerprintId: 'fingerprintId',
       userInputId: 'userInputId',
       userId: TEST_USER_ID,
+      runId: 'test-run-id',
     })
 
     const patch = createPatch('test.ts', expectedResult, result)

@@ -163,6 +163,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -206,6 +207,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -255,6 +257,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -295,6 +298,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -390,6 +394,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -551,6 +556,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,

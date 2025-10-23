@@ -175,6 +175,7 @@ File Changes:\n${fileContext}`
       logger: console,
       trackEvent: () => {},
       apiKey: 'unused-api-key',
+      runId: 'unused-run-id',
     })
 
     // Extract spec from <spec></spec> tags

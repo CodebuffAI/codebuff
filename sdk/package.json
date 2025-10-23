@@ -61,6 +61,7 @@
     "url": "https://github.com/CodebuffAI/codebuff/issues"
   },
   "dependencies": {
+    "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
     "@vscode/tree-sitter-wasm": "0.1.4",
     "ai": "^5.0.0",
     "diff": "8.0.2",

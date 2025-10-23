@@ -205,6 +205,7 @@ export async function runAgentStepScaffolding(
   const result = await runAgentStep({
     ...EVALS_AGENT_RUNTIME_IMPL,
     ...agentRuntimeScopedImpl,
+    runId: 'test-run-id',
     userId: TEST_USER_ID,
     userInputId: generateCompactId(),
     clientSessionId: sessionId,

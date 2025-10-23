@@ -23,6 +23,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
 
+    runId: string
     agentStepId: string
     clientSessionId: string
     userInputId: string

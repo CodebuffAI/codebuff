@@ -179,7 +179,8 @@ Start your response with a heading using ### (three hashes) and organize the con
       sessionConnections: {},
       logger: console,
       trackEvent: () => {},
-      apiKey: 'unused-api-key'
+      apiKey: 'unused-api-key',
+      runId: 'unused-run-id',
     })
 
     // Clean up the AI response

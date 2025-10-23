@@ -15,6 +15,7 @@ import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai
 
 export const getAgentStreamFromTemplate = (params: {
   apiKey: string
+  runId: string
   clientSessionId: string
   fingerprintId: string
   userInputId: string
@@ -33,6 +34,7 @@ export const getAgentStreamFromTemplate = (params: {
 }) => {
   const {
     apiKey,
+    runId,
     clientSessionId,
     fingerprintId,
     userInputId,
@@ -58,6 +60,7 @@ export const getAgentStreamFromTemplate = (params: {
   const getStream = (messages: Message[]) => {
     const aiSdkStreamParams: ParamsOf<PromptAiSdkStreamFn> = {
       apiKey,
+      runId,
       messages,
       model,
       stopSequences: [globalStopSequence],

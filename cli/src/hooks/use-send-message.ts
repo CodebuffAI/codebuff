@@ -560,6 +560,7 @@ export const useSendMessage = ({
 
         const agent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
         const result = await client.run({
+          logger,
           agent: agentId || agent,
           prompt: content,
           previousRun: previousRunStateRef.current,

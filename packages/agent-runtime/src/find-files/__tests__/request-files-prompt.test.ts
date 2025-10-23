@@ -48,6 +48,7 @@ describe('requestRelevantFiles', () => {
   const mockUserInputId = 'input1'
   const mockUserId = 'user1'
   const mockRepoId = 'owner/repo'
+  const mockRunId = 'run1'
 
   beforeEach(() => {
     agentRuntimeImpl = {
@@ -69,6 +70,7 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
+      runId: mockRunId,
     })
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalled()
   })
@@ -92,6 +94,7 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
+      runId: mockRunId,
     })
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalled()
   })
@@ -114,6 +117,7 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
+      runId: mockRunId,
     })
     expect(result).toBeArray()
     if (result) {
@@ -138,6 +142,7 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
+      runId: mockRunId,
     })
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -163,6 +168,7 @@ describe('requestRelevantFiles', () => {
       userInputId: mockUserInputId,
       userId: mockUserId,
       repoId: mockRepoId,
+      runId: mockRunId,
     })
     const expectedModel = finetunedVertexModels.ft_filepicker_010
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalledWith(

@@ -199,6 +199,7 @@ export async function judgeEvalRun(evalRun: EvalRunLog) {
       logger: console,
       trackEvent: () => {},
       apiKey: 'unused-api-key',
+      runId: 'unused-run-id',
     }).catch((error) => {
       console.warn(`Judge ${index + 1} failed:`, error)
       return null

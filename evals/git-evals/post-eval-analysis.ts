@@ -196,5 +196,6 @@ export async function analyzeEvalResults(
     logger: console,
     trackEvent: () => {},
     apiKey: 'unused-api-key',
+    runId: 'unused-run-id',
   })
 }

@@ -1,3 +1,7 @@
+import {
+  disableLiveUserInputCheck,
+  disableSessionConnectionCheck,
+} from '@codebuff/agent-runtime/live-user-inputs'
 import { trackEvent } from '@codebuff/common/analytics'
 import { success } from '@codebuff/common/util/error'
 
@@ -14,7 +18,18 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { DatabaseAgentCache } from '@codebuff/common/types/contracts/database'
+import type {
+  SessionRecord,
+  UserInputRecord,
+} from '@codebuff/common/types/contracts/live-user-input'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+const databaseAgentCache: DatabaseAgentCache = new Map()
+const liveUserInputRecord: UserInputRecord = {}
+const sessionConnections: SessionRecord = {}
+disableLiveUserInputCheck()
+disableSessionConnectionCheck()
 
 export function getAgentRuntimeImpl(
   params: {
@@ -63,9 +78,9 @@ export function getAgentRuntimeImpl(
     promptAiSdkStructured,
 
     // Mutable State
-    databaseAgentCache: new Map(),
-    liveUserInputRecord: {},
-    sessionConnections: {},
+    databaseAgentCache,
+    liveUserInputRecord,
+    sessionConnections,
 
     // Analytics
     trackEvent,

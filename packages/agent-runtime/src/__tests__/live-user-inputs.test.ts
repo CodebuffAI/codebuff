@@ -1,3 +1,4 @@
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { describe, it, expect, beforeEach } from 'bun:test'
 
 import {
@@ -11,23 +12,22 @@ import {
 } from '../live-user-inputs'
 
 import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
+import type {
   UserInputRecord,
   SessionRecord,
 } from '@codebuff/common/types/contracts/live-user-input'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const logger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-}
+let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 describe('live-user-inputs', () => {
   let liveUserInputRecord: UserInputRecord
   let sessionConnections: SessionRecord
 
   beforeEach(() => {
+    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
     liveUserInputRecord = {}
     sessionConnections = {}
     resetLiveUserInputsState({ liveUserInputRecord, sessionConnections })
@@ -107,10 +107,10 @@ describe('live-user-inputs', () => {
       })
 
       cancelUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         liveUserInputRecord,
-        logger,
       })
 
       const liveInputs = getLiveUserInputIds({
@@ -128,10 +128,10 @@ describe('live-user-inputs', () => {
       })
 
       cancelUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         liveUserInputRecord,
-        logger,
       })
 
       const liveInputs = getLiveUserInputIds({
@@ -151,10 +151,10 @@ describe('live-user-inputs', () => {
       // Should not throw
       expect(() => {
         cancelUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-nonexistent',
           liveUserInputRecord,
-          logger,
         })
       }).not.toThrow()
 
@@ -169,10 +169,10 @@ describe('live-user-inputs', () => {
       // Should not throw
       expect(() => {
         cancelUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-nonexistent',
           userInputId: 'input-123',
           liveUserInputRecord,
-          logger,
         })
       }).not.toThrow()
     })
@@ -186,10 +186,10 @@ describe('live-user-inputs', () => {
         liveUserInputRecord,
       })
       cancelUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         liveUserInputRecord,
-        logger,
       })
 
       const liveInputs = getLiveUserInputIds({
@@ -228,6 +228,7 @@ describe('live-user-inputs', () => {
       })
 
       const isLive = checkLiveUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         clientSessionId: 'session-1',
@@ -250,6 +251,7 @@ describe('live-user-inputs', () => {
       })
 
       const isLive = checkLiveUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123-async-agent',
         clientSessionId: 'session-1',
@@ -267,6 +269,7 @@ describe('live-user-inputs', () => {
       })
 
       const isLive = checkLiveUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-nonexistent',
         userInputId: 'input-123',
         clientSessionId: 'session-1',
@@ -284,6 +287,7 @@ describe('live-user-inputs', () => {
       })
 
       const isLive = checkLiveUserInput({
+        ...agentRuntimeImpl,
         userId: undefined,
         userInputId: 'input-123',
         clientSessionId: 'session-1',
@@ -306,6 +310,7 @@ describe('live-user-inputs', () => {
       })
 
       const isLive = checkLiveUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         clientSessionId: 'session-1',
@@ -328,6 +333,7 @@ describe('live-user-inputs', () => {
       })
 
       const isLive = checkLiveUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-456',
         clientSessionId: 'session-1',
@@ -341,6 +347,7 @@ describe('live-user-inputs', () => {
       disableLiveUserInputCheck()
 
       const isLive = checkLiveUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         clientSessionId: 'session-1',
@@ -365,6 +372,7 @@ describe('live-user-inputs', () => {
       })
 
       const isLive = checkLiveUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         clientSessionId: 'session-1',
@@ -389,6 +397,7 @@ describe('live-user-inputs', () => {
       // First verify it's connected
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -405,6 +414,7 @@ describe('live-user-inputs', () => {
       })
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -434,6 +444,7 @@ describe('live-user-inputs', () => {
 
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -443,6 +454,7 @@ describe('live-user-inputs', () => {
       ).toBe(true)
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-2',
@@ -507,6 +519,7 @@ describe('live-user-inputs', () => {
       // Verify input is live
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -520,15 +533,16 @@ describe('live-user-inputs', () => {
 
       // End user input
       cancelUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         liveUserInputRecord,
-        logger,
       })
 
       // Verify input is no longer live
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -557,6 +571,7 @@ describe('live-user-inputs', () => {
       // Verify input is live
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -575,6 +590,7 @@ describe('live-user-inputs', () => {
       // Input should no longer be considered live
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -609,6 +625,7 @@ describe('live-user-inputs', () => {
 
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -618,6 +635,7 @@ describe('live-user-inputs', () => {
       ).toBe(true)
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-456',
           clientSessionId: 'session-1',
@@ -631,14 +649,15 @@ describe('live-user-inputs', () => {
 
       // Cancel one input
       cancelUserInput({
+        ...agentRuntimeImpl,
         userId: 'user-1',
         userInputId: 'input-123',
         liveUserInputRecord,
-        logger,
       })
 
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-123',
           clientSessionId: 'session-1',
@@ -648,6 +667,7 @@ describe('live-user-inputs', () => {
       ).toBe(false)
       expect(
         checkLiveUserInput({
+          ...agentRuntimeImpl,
           userId: 'user-1',
           userInputId: 'input-456',
           clientSessionId: 'session-1',

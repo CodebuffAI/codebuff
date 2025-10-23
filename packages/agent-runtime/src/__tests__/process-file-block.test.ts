@@ -78,6 +78,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        runId: 'test-run-id',
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(null),
@@ -126,6 +127,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        runId: 'test-run-id',
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -159,6 +161,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        runId: 'test-run-id',
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -196,6 +199,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        runId: 'test-run-id',
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(oldContent),
@@ -243,6 +247,7 @@ describe('processFileBlockModule', () => {
 
       const result = await processFileBlock({
         ...agentRuntimeImpl,
+        runId: 'test-run-id',
         path: 'test.ts',
         instructions: undefined,
         initialContentPromise: Promise.resolve(null),
