@@ -160,7 +160,7 @@ describe('Agent Run Database Functions', () => {
       expect(agentRuntimeImpl.logger.error).toHaveBeenCalledWith(
         {
           error: mockError,
-          runId: undefined,
+          runId: 'generated-uuid',
           userId: undefined,
           agentId: 'test-agent',
           ancestorRunIds: [],
