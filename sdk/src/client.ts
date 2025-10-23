@@ -1,8 +1,5 @@
 import { run } from './run'
-import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
-import { WebSocket } from 'ws'
-import { WEBSOCKET_URL } from './constants'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
 import type { RunState } from './run-state'
@@ -57,30 +54,8 @@ export class CodebuffClient {
     return run({ ...this.options, ...options })
   }
 
-  /**
-   * Check if the Codebuff backend is reachable.
-   * Makes a lightweight connection attempt to verify backend availability.
-   * 
-   * @returns Promise resolving to true if backend is reachable, false otherwise
-   */
+  /** @deprecated */
   public async checkConnection(): Promise<boolean> {
-    return new Promise((resolve) => {
-      const ws = new WebSocket(WEBSOCKET_URL)
-      const timeout = setTimeout(() => {
-        ws.close()
-        resolve(false)
-      }, 5000)
-
-      ws.onopen = () => {
-        clearTimeout(timeout)
-        ws.close(1000, 'Connection check complete')
-        resolve(true)
-      }
-
-      ws.onerror = () => {
-        clearTimeout(timeout)
-        resolve(false)
-      }
-    })
+    return true
   }
 }
