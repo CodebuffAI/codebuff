@@ -155,7 +155,7 @@ ${
 7. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user.`
       : `3. IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.
 4. Fix any issues left by the base2-gpt-5-worker agent.
-5. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user.`
+5. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`
 }`,
 
     stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context,${isNormal ? ' the generate-plan agent to create a plan,' : isMax ? ' the base2-gpt-5-worker agent to do the planning and editing,' : ''}${!isFast ? ' code-reviewer to review changes, and the validator to run validation commands' : ''}.`,
