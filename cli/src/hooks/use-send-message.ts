@@ -10,17 +10,6 @@ import type { ChatMessage, ContentBlock } from '../chat'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 
-const completionMessages = [
-  'All changes have been applied successfully.',
-  'Implementation complete. Ready for your next request.',
-  'Done! All requested modifications are in place.',
-  'Changes completed and verified.',
-  'Finished! Everything is working as expected.',
-  'All tasks completed successfully.',
-  'Implementation finished. All systems go!',
-  'Done! All updates have been applied.',
-]
-
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
   'end_turn',
@@ -279,56 +268,7 @@ export const useSendMessage = ({
       const client = getCodebuffClient()
 
       if (!client) {
-        logger.info({}, 'No API client available, using mock mode')
-        const aiMessageId = `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`
-        const aiMessage: ChatMessage = {
-          id: aiMessageId,
-          variant: 'ai',
-          content: '',
-          timestamp: formatTimestamp(),
-        }
-
-        applyMessageUpdate((prev) => [...prev, aiMessage])
-
-        const fullResponse = `I've reviewed your message. Let me help with that.\n\n## Analysis\n\nBased on your request, here are the key points:\n\n1. **Architecture**: The current structure is well-organized\n2. **Performance**: Consider adding memoization for expensive calculations\n3. **Testing**: Add unit tests using \`bun:test\`\n\n### Code Example\n\n\`\`\`typescript\n// Add this optimization\nconst memoized = useMemo(() => {\n  return expensiveCalculation(data)\n}, [data])\n\`\`\`\n\nThis approach will improve _performance_ while maintaining **code clarity**.`
-
-        const tokens = fullResponse.split(/(\s+)/)
-        let index = 0
-        const interval = setInterval(() => {
-          if (index >= tokens.length) {
-            clearInterval(interval)
-            stopStreaming()
-
-            const completionMessageId = `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`
-            const completionMessage: ChatMessage = {
-              id: completionMessageId,
-              variant: 'ai',
-              content:
-                completionMessages[
-                  Math.floor(Math.random() * completionMessages.length)
-                ],
-              timestamp: formatTimestamp(),
-              isCompletion: true,
-              credits: Math.floor(Math.random() * (230 - 18 + 1)) + 18,
-            }
-            applyMessageUpdate((prev) => [...prev, completionMessage])
-            return
-          }
-
-          const nextChunk = tokens[index]
-          index++
-
-          queueMessageUpdate((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMessageId
-                ? { ...msg, content: msg.content + nextChunk }
-                : msg,
-            ),
-          )
-        }, 28)
-
-        logger.info({}, 'Starting mock response streaming')
-        startStreaming()
+        logger.error({}, 'No Codebuff client available. Please ensure you are authenticated.')
         return
       }
 
@@ -540,7 +480,7 @@ export const useSendMessage = ({
         )
       }
 
-      logger.info('Initiating SDK client.run()')
+
       setIsWaitingForResponse(true)
       applyMessageUpdate((prev) => [...prev, aiMessage])
       setIsStreaming(true)

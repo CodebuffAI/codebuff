@@ -30,12 +30,9 @@ export const useSystemThemeDetector = (): ThemeName => {
       const currentTheme = detectSystemTheme()
 
       if (currentTheme !== lastThemeRef.current) {
-        logger.info(
-          {},
-          `[theme] theme changed ${lastThemeRef.current} -> ${currentTheme}`,
-        )
+
       } else {
-        logger.info({}, '[theme] theme change event with no delta')
+
       }
 
       // Only update state if theme actually changed
