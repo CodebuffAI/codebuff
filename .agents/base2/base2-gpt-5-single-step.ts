@@ -2,7 +2,7 @@ import { createBase2 } from './base2'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
-  ...createBase2('normal'),
+  ...createBase2('fast'),
   id: 'base2-gpt-5-single-step',
   model: 'openai/gpt-5',
   reasoningOptions: {

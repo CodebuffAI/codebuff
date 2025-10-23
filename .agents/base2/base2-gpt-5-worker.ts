@@ -16,8 +16,6 @@ const definition: SecretAgentDefinition = {
     'researcher-web',
     'researcher-docs',
     'commander',
-    'code-reviewer-gpt-5',
-    'validator-gpt-5',
     'context-pruner',
   ),
 
@@ -34,12 +32,9 @@ The user asks you to implement a new feature. You respond in multiple steps:
 2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
 3. Use the str_replace or write_file tool to make the changes.
-4. Spawn a code-reviewer-gpt-5 to review the changes. (Try not to spawn multiple code-reviewers if possible.)
-5. Fix any issues raised by the reviewer.
-6. Spawn a validator-gpt-5 to run validation commands (tests, typechecks, etc.) to ensure the changes are correct. (Try not to spawn multiple validators if possible.)
-7. Inform the parent agent you're done with your edits, but that it should double-check your work.`,
+4. Inform the parent agent you're done with your edits, but that it should double-check your work.`,
 
-  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context, the code-reviewer-gpt-5 to review the changes, and the validator-gpt-5 to run validation commands (tests, typechecks, etc.) to ensure the changes are correct.`,
+  stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context.`,
 }
 
 export default definition

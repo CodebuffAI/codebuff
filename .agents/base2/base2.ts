@@ -7,10 +7,9 @@ import {
 } from '../types/secret-agent-definition'
 
 export const createBase2: (
-  mode: 'fast' | 'normal' | 'max',
+  mode: 'fast' | 'max',
 ) => Omit<SecretAgentDefinition, 'id'> = (mode) => {
   const isFast = mode === 'fast'
-  const isNormal = mode === 'normal'
   const isMax = mode === 'max'
   return {
     publisher,
@@ -35,7 +34,13 @@ export const createBase2: (
     },
     outputMode: 'last_message',
     includeMessageHistory: true,
-    toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
+    toolNames: buildArray(
+      'spawn_agents',
+      isMax && 'spawn_agent_inline',
+      'read_files',
+      'str_replace',
+      'write_file',
+    ),
     spawnableAgents: buildArray(
       'file-picker-max',
       'code-searcher',
@@ -44,10 +49,7 @@ export const createBase2: (
       'researcher-web',
       'researcher-docs',
       'commander',
-      isNormal && 'generate-plan',
       isMax && 'base2-gpt-5-worker',
-      !isFast && 'code-reviewer',
-      !isFast && 'validator',
       'context-pruner',
     ),
 
@@ -66,18 +68,10 @@ Continue to spawn layers of agents until have completed the user's request or re
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
   - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers before making edits.
   ${buildArray(
-    isNormal &&
-      '- Spawn generate-plan agent after you have gathered all the context you need (and not before!).',
     isMax &&
       '- Spawn a base2-gpt-5-worker agent inline after you have gathered all the context you need (and not before!).',
-    isNormal && '- Only make edits after generating a plan.',
-    !isFast &&
-      '- Code reviewers should be spawned after you have made your edits.',
-    !isFast &&
-      '- Validators should be spawned after you have done a code review.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
-${!isFast ? "- **Don't spawn code reviewers/validators for trivial changes or quick follow-ups:** You should spawn the code reviewer/validator for most changes, but not for little changes or simple follow-ups." : ''} 
 
 # Core Mandates
 
@@ -145,20 +139,12 @@ The user asks you to implement a new feature. You respond in multiple steps:
 ${
   isFast
     ? `3. Write out your implementation plan as a bullet point list.
-4. Use the str_replace or write_file tool to make the changes.
-5. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user.`
-    : isNormal
-      ? `3. Spawn a generate-plan agent to generate a plan for the changes.
-4. Use the str_replace or write_file tool to make the changes.
-5. Spawn a code-reviewer to review the changes. Consider making changes suggested by the code-reviewer.
-6. Spawn a validator to run validation commands (tests, typechecks, etc.) to ensure the changes are correct.
-7. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user.`
-      : `3. IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.
-4. Fix any issues left by the base2-gpt-5-worker agent.
-5. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`
-}`,
-
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context,${isNormal ? ' the generate-plan agent to create a plan,' : isMax ? ' the base2-gpt-5-worker agent to do the planning and editing,' : ''}${!isFast ? ' code-reviewer to review changes, and the validator to run validation commands' : ''}.`,
+4. Use the str_replace or write_file tool to make the changes.`
+    : `3. IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.
+4. Fix any issues left by the base2-gpt-5-worker agent.`
+}
+5. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context,${isMax ? ' the base2-gpt-5-worker agent to do the planning and editing,' : ''}.`,
 
     handleSteps: function* ({ params }) {
       let steps = 0
@@ -181,5 +167,5 @@ ${
   }
 }
 
-const definition = { ...createBase2('normal'), id: 'base2' }
+const definition = { ...createBase2('fast'), id: 'base2' }
 export default definition

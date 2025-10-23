@@ -2,7 +2,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { createBase2 } from './base2'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
-const base = createBase2('normal')
+const base = createBase2('fast')
 
 const definition: SecretAgentDefinition = {
   ...base,
