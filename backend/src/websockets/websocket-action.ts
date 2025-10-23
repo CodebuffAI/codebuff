@@ -1,10 +1,7 @@
 import {
   cancelUserInput,
-  checkLiveUserInput,
   startUserInput,
 } from '@codebuff/agent-runtime/live-user-inputs'
-import { mainPrompt } from '@codebuff/agent-runtime/main-prompt'
-import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -19,13 +16,13 @@ import { getRequestContext } from './request-context'
 import { withLoggerContext } from '../util/logger'
 
 import type { ClientAction, UsageResponse } from '@codebuff/common/actions'
-import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { UserInputRecord } from '@codebuff/common/types/contracts/live-user-input'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
+import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
 
 /**
  * Generates a usage response object for the client
@@ -179,101 +176,6 @@ const onPrompt = async (
       }
     },
   )
-}
-
-export const callMainPrompt = async (
-  params: {
-    action: ClientAction<'prompt'>
-    userId: string
-    promptId: string
-    clientSessionId: string
-    sendAction: SendActionFn
-    liveUserInputRecord: UserInputRecord
-    logger: Logger
-  } & ParamsExcluding<
-    typeof mainPrompt,
-    'localAgentTemplates' | 'onResponseChunk'
-  >,
-) => {
-  const { action, userId, promptId, clientSessionId, sendAction, logger } =
-    params
-  const { fileContext } = action.sessionState
-
-  // Enforce server-side state authority: reset creditsUsed to 0
-  // The server controls cost tracking, clients cannot manipulate this value
-  action.sessionState.mainAgentState.creditsUsed = 0
-  action.sessionState.mainAgentState.directCreditsUsed = 0
-
-  // Assemble local agent templates from fileContext
-  const { agentTemplates: localAgentTemplates, validationErrors } =
-    assembleLocalAgentTemplates({ fileContext, logger })
-
-  if (validationErrors.length > 0) {
-    sendAction({
-      action: {
-        type: 'prompt-error',
-        message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
-        userInputId: promptId,
-      },
-    })
-  }
-
-  sendAction({
-    action: {
-      type: 'response-chunk',
-      userInputId: promptId,
-      chunk: {
-        type: 'start',
-        agentId: action.sessionState.mainAgentState.agentType ?? undefined,
-        messageHistoryLength:
-          action.sessionState.mainAgentState.messageHistory.length,
-      },
-    },
-  })
-
-  const result = await mainPrompt({
-    ...params,
-    localAgentTemplates,
-    onResponseChunk: (chunk) => {
-      if (checkLiveUserInput({ ...params, userInputId: promptId })) {
-        sendAction({
-          action: {
-            type: 'response-chunk',
-            userInputId: promptId,
-            chunk,
-          },
-        })
-      }
-    },
-  })
-
-  const { sessionState, output } = result
-
-  sendAction({
-    action: {
-      type: 'response-chunk',
-      userInputId: promptId,
-      chunk: {
-        type: 'finish',
-        agentId: sessionState.mainAgentState.agentType ?? undefined,
-        totalCost: sessionState.mainAgentState.creditsUsed,
-      },
-    },
-  })
-
-  // Send prompt data back
-  sendAction({
-    action: {
-      type: 'prompt-response',
-      promptId,
-      sessionState,
-      toolCalls: [],
-      toolResults: [],
-      output,
-    },
-  })
-
-  return result
 }
 
 /**

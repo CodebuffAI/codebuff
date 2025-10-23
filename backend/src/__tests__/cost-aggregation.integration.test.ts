@@ -1,5 +1,5 @@
 import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
-import { mainPrompt } from '@codebuff/agent-runtime/main-prompt'
+import { callMainPrompt, mainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import * as agentRegistry from '@codebuff/agent-runtime/templates/agent-registry'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
@@ -14,9 +14,6 @@ import {
   mock,
   beforeAll,
 } from 'bun:test'
-
-import * as messageCostTracker from '../llm-apis/message-cost-tracker'
-import * as websocketAction from '../websockets/websocket-action'
 
 import type { AgentTemplate } from '@codebuff/agent-runtime/templates/types'
 import type { ServerAction } from '@codebuff/common/actions'
@@ -134,14 +131,6 @@ describe('Cost Aggregation Integration Tests', () => {
         stepPrompt: 'Editor agent step prompt',
       } satisfies AgentTemplate,
     }
-
-    // Mock cost tracking to return 0 so only onCostCalculated contributes
-    spyOn(messageCostTracker, 'saveMessage').mockImplementation(
-      async (value) => {
-        // Return 0 so we can control costs only via onCostCalculated
-        return 0
-      },
-    )
 
     // Mock LLM streaming
     let callCount = 0
@@ -271,7 +260,7 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Call through websocket action handler to test full integration
-    await websocketAction.callMainPrompt({
+    await callMainPrompt({
       ...agentRuntimeImpl,
       repoId: undefined,
       repoUrl: undefined,
@@ -424,17 +413,6 @@ describe('Cost Aggregation Integration Tests', () => {
   it('should not double-count costs in complex scenarios', async () => {
     // Track all saveMessage calls to ensure no duplication
     const saveMessageCalls: any[] = []
-    spyOn(messageCostTracker, 'saveMessage').mockImplementation(
-      async (value) => {
-        saveMessageCalls.push({
-          messageId: value.messageId,
-          model: value.model,
-          inputTokens: value.inputTokens,
-          outputTokens: value.outputTokens,
-        })
-        return 8 // Each LLM call costs 8 credits
-      },
-    )
 
     const sessionState = getInitialSessionState(mockFileContext)
     sessionState.mainAgentState.agentType = 'base'
@@ -490,7 +468,7 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     // Call through websocket action to test server-side reset
-    await websocketAction.callMainPrompt({
+    await callMainPrompt({
       ...agentRuntimeImpl,
       repoId: undefined,
       repoUrl: undefined,

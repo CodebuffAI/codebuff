@@ -3,14 +3,22 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 
 import { checkTerminalCommand } from './check-terminal-command'
+import { checkLiveUserInput } from './live-user-inputs'
 import { loopAgentSteps } from './run-agent-step'
-import { getAgentTemplate } from './templates/agent-registry'
+import {
+  assembleLocalAgentTemplates,
+  getAgentTemplate,
+} from './templates/agent-registry'
 import { expireMessages } from './util/messages'
 
 import type { AgentTemplate } from './templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
 import type { CostMode } from '@codebuff/common/old-constants'
-import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
+import type {
+  RequestToolCallFn,
+  SendActionFn,
+} from '@codebuff/common/types/contracts/client'
+import type { UserInputRecord } from '@codebuff/common/types/contracts/live-user-input'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -20,7 +28,7 @@ import type {
   AgentOutput,
 } from '@codebuff/common/types/session-state'
 
-export const mainPrompt = async (
+export async function mainPrompt(
   params: {
     action: ClientAction<'prompt'>
 
@@ -48,7 +56,7 @@ export const mainPrompt = async (
 ): Promise<{
   sessionState: SessionState
   output: AgentOutput
-}> => {
+}> {
   const { action, localAgentTemplates, requestToolCall, logger } = params
 
   const {
@@ -238,4 +246,96 @@ export const mainPrompt = async (
       message: 'No output from agent',
     },
   }
+}
+
+export async function callMainPrompt(
+  params: {
+    action: ClientAction<'prompt'>
+    promptId: string
+    sendAction: SendActionFn
+    liveUserInputRecord: UserInputRecord
+    logger: Logger
+  } & ParamsExcluding<
+    typeof mainPrompt,
+    'localAgentTemplates' | 'onResponseChunk'
+  >,
+) {
+  const { action, promptId, sendAction, logger } = params
+  const { fileContext } = action.sessionState
+
+  // Enforce server-side state authority: reset creditsUsed to 0
+  // The server controls cost tracking, clients cannot manipulate this value
+  action.sessionState.mainAgentState.creditsUsed = 0
+  action.sessionState.mainAgentState.directCreditsUsed = 0
+
+  // Assemble local agent templates from fileContext
+  const { agentTemplates: localAgentTemplates, validationErrors } =
+    assembleLocalAgentTemplates({ fileContext, logger })
+
+  if (validationErrors.length > 0) {
+    sendAction({
+      action: {
+        type: 'prompt-error',
+        message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
+        userInputId: promptId,
+      },
+    })
+  }
+
+  sendAction({
+    action: {
+      type: 'response-chunk',
+      userInputId: promptId,
+      chunk: {
+        type: 'start',
+        agentId: action.sessionState.mainAgentState.agentType ?? undefined,
+        messageHistoryLength:
+          action.sessionState.mainAgentState.messageHistory.length,
+      },
+    },
+  })
+
+  const result = await mainPrompt({
+    ...params,
+    localAgentTemplates,
+    onResponseChunk: (chunk) => {
+      if (checkLiveUserInput({ ...params, userInputId: promptId })) {
+        sendAction({
+          action: {
+            type: 'response-chunk',
+            userInputId: promptId,
+            chunk,
+          },
+        })
+      }
+    },
+  })
+
+  const { sessionState, output } = result
+
+  sendAction({
+    action: {
+      type: 'response-chunk',
+      userInputId: promptId,
+      chunk: {
+        type: 'finish',
+        agentId: sessionState.mainAgentState.agentType ?? undefined,
+        totalCost: sessionState.mainAgentState.creditsUsed,
+      },
+    },
+  })
+
+  // Send prompt data back
+  sendAction({
+    action: {
+      type: 'prompt-response',
+      promptId,
+      sessionState,
+      toolCalls: [],
+      toolResults: [],
+      output,
+    },
+  })
+
+  return result
 }
