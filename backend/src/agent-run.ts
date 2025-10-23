@@ -21,7 +21,7 @@ export async function startAgentRun(
     return 'test-run-id'
   }
 
-  const id = runId ?? crypto.randomUUID()
+  const id = crypto.randomUUID()
 
   try {
     await db.insert(schema.agentRun).values({
