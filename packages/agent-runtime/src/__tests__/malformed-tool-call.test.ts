@@ -269,6 +269,11 @@ describe('malformed tool call error handling', () => {
 
     const result = await processStreamWithTools({
       ...defaultParams,
+      requestFiles: async ({ filePaths }) => {
+        return Object.fromEntries(
+          filePaths.map((path) => [path, `${path} content`]),
+        )
+      },
       stream,
     })
 
