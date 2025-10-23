@@ -2,6 +2,8 @@ import path from 'path'
 
 import { cloneDeep } from 'lodash'
 
+import { getAgentRuntimeImpl } from './impl/agent-runtime'
+import { getUserInfoFromApiKey } from './impl/database'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { stripToolCallPayloads } from './tool-xml-buffer'
 import {
@@ -14,15 +16,18 @@ import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
-import { WebSocketHandler } from './websocket-client'
 import { MAX_AGENT_STEPS_DEFAULT } from '../../common/src/constants/agents'
+import { getMCPClient, listMCPTools } from '../../common/src/mcp/client'
+import { toOptionalFile } from '../../common/src/old-constants'
 import { toolNames } from '../../common/src/tools/constants'
 import { clientToolCallSchema } from '../../common/src/tools/list'
 import { AgentOutputSchema } from '../../common/src/types/session-state'
+import { callMainPrompt } from '../../packages/agent-runtime/src/main-prompt'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
 import type { ToolXmlFilterState } from './tool-xml-filter'
+import type { WebSocketHandler } from './websocket-client'
 import type { ServerAction } from '../../common/src/actions'
 import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 import type {
@@ -35,6 +40,8 @@ import type {
   CodebuffToolOutput,
   PublishedClientToolName,
 } from '../../common/src/tools/list'
+import type { Logger } from '../../common/src/types/contracts/logger'
+import type { CodebuffFileSystem } from '../../common/src/types/filesystem'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -42,7 +49,6 @@ import type {
 import type { PrintModeEvent } from '../../common/src/types/print-mode'
 import type { SessionState } from '../../common/src/types/session-state'
 import type { Source } from '../../common/src/types/source'
-import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export type CodebuffClientOptions = {
   apiKey?: string
@@ -71,6 +77,7 @@ export type CodebuffClientOptions = {
   customToolDefinitions?: CustomToolDefinition[]
 
   fsSource?: Source<CodebuffFileSystem>
+  logger?: Logger
 }
 
 export type RunOptions = {
@@ -100,6 +107,7 @@ export async function run({
   customToolDefinitions,
 
   fsSource = () => require('fs'),
+  logger,
 
   agent,
   prompt,
@@ -328,26 +336,127 @@ export async function run({
     }
   }
 
-  const websocketHandler = new WebSocketHandler({
+  const onResponseChunk = async (
+    action: ServerAction<'response-chunk'>,
+  ): Promise<void> => {
+    checkAborted(signal)
+    const { chunk } = action
+    if (typeof chunk === 'string') {
+      ensureSectionStart(ROOT_AGENT_KEY)
+      const { text: sanitized } = filterToolXmlFromText(
+        streamFilterState,
+        chunk,
+        MAX_TOOL_XML_BUFFER,
+      )
+
+      if (sanitized) {
+        const nextFullText = accumulateText(ROOT_AGENT_KEY, sanitized)
+        await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
+      }
+    } else {
+      const chunkType = chunk.type as string
+
+      if (
+        chunkType !== 'finish' &&
+        chunkType !== 'subagent_finish' &&
+        chunkType !== 'subagent-finish'
+      ) {
+        await emitPendingSection(ROOT_AGENT_KEY)
+        const pendingAgentId = 'agentId' in chunk ? chunk.agentId : undefined
+        if (pendingAgentId && pendingAgentId !== ROOT_AGENT_KEY) {
+          await emitPendingSection(pendingAgentId, pendingAgentId)
+        }
+      }
+
+      if (chunkType === 'finish') {
+        const { text: streamTail } = filterToolXmlFromText(
+          streamFilterState,
+          '',
+          MAX_TOOL_XML_BUFFER,
+        )
+        let remainder = streamTail
+
+        if (
+          streamFilterState.buffer &&
+          !streamFilterState.buffer.includes('<')
+        ) {
+          remainder += streamFilterState.buffer
+        }
+        streamFilterState.buffer = ''
+        streamFilterState.activeTag = null
+
+        if (remainder) {
+          const nextFullText = accumulateText(ROOT_AGENT_KEY, remainder)
+          await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
+        }
+
+        await flushTextState(ROOT_AGENT_KEY)
+
+        const finishAgentKey = 'agentId' in chunk ? chunk.agentId : undefined
+        if (finishAgentKey && finishAgentKey !== ROOT_AGENT_KEY) {
+          await flushTextState(finishAgentKey, finishAgentKey)
+          await flushSubagentState(
+            finishAgentKey,
+            (chunk as { agentType?: string }).agentType,
+          )
+        }
+      } else if (
+        chunkType === 'subagent_finish' ||
+        chunkType === 'subagent-finish'
+      ) {
+        const subagentId = 'agentId' in chunk ? chunk.agentId : undefined
+        if (subagentId) {
+          await flushTextState(subagentId, subagentId)
+          await flushSubagentState(
+            subagentId,
+            (chunk as { agentType?: string }).agentType,
+          )
+        }
+      }
+
+      await handleEvent?.(chunk)
+    }
+  }
+  const onSubagentResponseChunk = async (
+    action: ServerAction<'subagent-response-chunk'>,
+  ) => {
+    checkAborted(signal)
+    const { agentId, agentType, chunk } = action
+
+    const state = getSubagentFilterState(agentId)
+    const { text: sanitized } = filterToolXmlFromText(
+      state,
+      chunk,
+      MAX_TOOL_XML_BUFFER,
+    )
+
+    if (sanitized && handleEvent) {
+      await handleEvent({
+        type: 'subagent-chunk',
+        agentId,
+        agentType,
+        chunk: sanitized,
+      } as any)
+    }
+  }
+
+  const agentRuntimeImpl = getAgentRuntimeImpl({
+    logger,
     apiKey,
-    onWebsocketError: (error) => {
-      onError({ message: error.message })
+    handleStepsLogChunk: () => {
+      // Does nothing for now
     },
-    onWebsocketReconnect: () => {},
-    onRequestReconnect: async () => {},
-    onResponseError: async (error) => {
-      onError({ message: error.message })
-    },
-    readFiles: ({ filePaths }) =>
-      readFiles({
-        filePaths,
-        override: overrideTools?.read_files,
-        cwd,
-        fs,
-      }),
-    handleToolCall: (action) =>
-      handleToolCall({
-        action,
+    requestToolCall: async ({ userInputId, toolName, input, mcpConfig }) => {
+      return handleToolCall({
+        action: {
+          type: 'tool-call-request',
+          requestId: crypto.randomUUID(),
+          userInputId,
+          toolName,
+          input,
+          timeout: undefined,
+          mcpConfig,
+        },
         overrides: overrideTools ?? {},
         customToolDefinitions: customToolDefinitions
           ? Object.fromEntries(
@@ -356,124 +465,91 @@ export async function run({
           : {},
         cwd,
         fs,
+      })
+    },
+    requestMcpToolData: async ({ mcpConfig, toolNames }) => {
+      const mcpClientId = await getMCPClient(mcpConfig)
+      const tools = (await listMCPTools(mcpClientId)).tools
+      const filteredTools: typeof tools = []
+      for (const tool of tools) {
+        if (!toolNames) {
+          filteredTools.push(tool)
+          continue
+        }
+        if (tool.name in toolNames) {
+          filteredTools.push(tool)
+          continue
+        }
+      }
+
+      return filteredTools
+    },
+    requestFiles: ({ filePaths }) =>
+      readFiles({
+        filePaths,
+        override: overrideTools?.read_files,
+        cwd,
+        fs,
       }),
-    onCostResponse: async () => {},
-
-    onResponseChunk: async (action) => {
-      checkAborted(signal)
-      const { chunk } = action
-      if (typeof chunk === 'string') {
-        ensureSectionStart(ROOT_AGENT_KEY)
-        const { text: sanitized } = filterToolXmlFromText(
-          streamFilterState,
-          chunk,
-          MAX_TOOL_XML_BUFFER,
-        )
-
-        if (sanitized) {
-          const nextFullText = accumulateText(ROOT_AGENT_KEY, sanitized)
-          await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
-        }
-      } else {
-        const chunkType = chunk.type as string
-
-        if (
-          chunkType !== 'finish' &&
-          chunkType !== 'subagent_finish' &&
-          chunkType !== 'subagent-finish'
-        ) {
-          await emitPendingSection(ROOT_AGENT_KEY)
-          const pendingAgentId =
-            'agentId' in chunk ? chunk.agentId : undefined
-          if (pendingAgentId && pendingAgentId !== ROOT_AGENT_KEY) {
-            await emitPendingSection(pendingAgentId, pendingAgentId)
-          }
-        }
-
-        if (chunkType === 'finish') {
-          const { text: streamTail } = filterToolXmlFromText(
-            streamFilterState,
-            '',
-            MAX_TOOL_XML_BUFFER,
-          )
-          let remainder = streamTail
-
-          if (
-            streamFilterState.buffer &&
-            !streamFilterState.buffer.includes('<')
-          ) {
-            remainder += streamFilterState.buffer
-          }
-          streamFilterState.buffer = ''
-          streamFilterState.activeTag = null
-
-          if (remainder) {
-            const nextFullText = accumulateText(ROOT_AGENT_KEY, remainder)
-            await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
-          }
-
-          await flushTextState(ROOT_AGENT_KEY)
-
-          const finishAgentKey = 'agentId' in chunk ? chunk.agentId : undefined
-          if (finishAgentKey && finishAgentKey !== ROOT_AGENT_KEY) {
-            await flushTextState(finishAgentKey, finishAgentKey)
-            await flushSubagentState(
-              finishAgentKey,
-              (chunk as { agentType?: string }).agentType,
-            )
-          }
-        } else if (
-          chunkType === 'subagent_finish' ||
-          chunkType === 'subagent-finish'
-        ) {
-          const subagentId = 'agentId' in chunk ? chunk.agentId : undefined
-          if (subagentId) {
-            await flushTextState(subagentId, subagentId)
-            await flushSubagentState(
-              subagentId,
-              (chunk as { agentType?: string }).agentType,
-            )
-          }
-        }
-
-        await handleEvent?.(chunk)
+    requestOptionalFile: async ({ filePath }) => {
+      const files = await readFiles({
+        filePaths: [filePath],
+        override: overrideTools?.read_files,
+        cwd,
+        fs,
+      })
+      return toOptionalFile(files[filePath] ?? null)
+    },
+    sendAction: ({ action }) => {
+      if (action.type === 'action-error') {
+        onError({ message: action.message })
+        return
+      }
+      if (action.type === 'response-chunk') {
+        onResponseChunk(action)
+        return
+      }
+      if (action.type === 'subagent-response-chunk') {
+        onSubagentResponseChunk(action)
+        return
+      }
+      if (action.type === 'prompt-response') {
+        handlePromptResponse({
+          action,
+          resolve,
+          onError,
+          initialSessionState: sessionState,
+        })
+        return
+      }
+      if (action.type === 'prompt-error') {
+        handlePromptResponse({
+          action,
+          resolve,
+          onError,
+          initialSessionState: sessionState,
+        })
+        return
       }
     },
-    onSubagentResponseChunk: async (action) => {
-      checkAborted(signal)
-      const { agentId, agentType, chunk } = action
-
-      const state = getSubagentFilterState(agentId)
-      const { text: sanitized } = filterToolXmlFromText(
-        state,
+    sendSubagentChunk: ({
+      userInputId,
+      agentId,
+      agentType,
+      chunk,
+      prompt,
+      forwardToPrompt = true,
+    }) => {
+      onSubagentResponseChunk({
+        type: 'subagent-response-chunk',
+        userInputId,
+        agentId,
+        agentType,
         chunk,
-        MAX_TOOL_XML_BUFFER,
-      )
-
-      if (sanitized && handleEvent) {
-        await handleEvent({
-          type: 'subagent-chunk',
-          agentId,
-          agentType,
-          chunk: sanitized,
-        } as any)
-      }
+        prompt,
+        forwardToPrompt,
+      })
     },
-
-    onPromptResponse: (action) =>
-      handlePromptResponse({
-        action,
-        resolve,
-        onError,
-        initialSessionState: sessionState,
-      }),
-    onPromptError: (action) =>
-      handlePromptResponse({
-        action,
-        resolve,
-        onError,
-        initialSessionState: sessionState,
-      }),
   })
 
   // Init session state
@@ -515,24 +591,38 @@ export async function run({
 
   // Send input
   checkAborted(signal)
-  await websocketHandler.connect()
 
-  websocketHandler.sendInput({
+  const userInfo = await getUserInfoFromApiKey({
+    ...agentRuntimeImpl,
+    apiKey,
+    fields: ['id'],
+  })
+  if (!userInfo) {
+    throw new Error('No user found for key')
+  }
+  const userId = userInfo.id
+
+  callMainPrompt({
+    ...agentRuntimeImpl,
     promptId,
-    prompt,
-    promptParams: params,
-    fingerprintId: fingerprintId,
-    costMode: 'normal',
-    sessionState,
-    toolResults: extraToolResults ?? [],
-    agentId,
+    action: {
+      type: 'prompt',
+      promptId,
+      prompt,
+      promptParams: params,
+      fingerprintId: fingerprintId,
+      costMode: 'normal',
+      sessionState,
+      toolResults: extraToolResults ?? [],
+      agentId,
+    },
+    repoUrl: undefined,
+    repoId: undefined,
+    clientSessionId: promptId,
+    userId,
   })
 
-  const result = await promise
-
-  websocketHandler.close()
-
-  return result
+  return promise
 }
 
 function requireCwd(cwd: string | undefined, toolName: string): string {

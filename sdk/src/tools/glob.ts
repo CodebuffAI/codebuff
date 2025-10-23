@@ -1,8 +1,9 @@
+import micromatch from 'micromatch'
+
 import {
   flattenTree,
   getProjectFileTree,
-} from '@codebuff/common/project-file-tree'
-import micromatch from 'micromatch'
+} from '../../../common/src/project-file-tree'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'

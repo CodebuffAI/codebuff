@@ -1,6 +1,3 @@
-import { trackEvent } from '@codebuff/common/analytics'
-import { success } from '@codebuff/common/util/error'
-
 import {
   addAgentStep,
   fetchAgentFromDatabase,
@@ -9,12 +6,14 @@ import {
   startAgentRun,
 } from './database'
 import { promptAiSdk, promptAiSdkStream, promptAiSdkStructured } from './llm'
+import { trackEvent } from '../../../common/src/analytics'
+import { success } from '../../../common/src/util/error'
 
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+} from '../../../common/src/types/contracts/agent-runtime'
+import type { Logger } from '../../../common/src/types/contracts/logger'
 
 export function getAgentRuntimeImpl(
   params: {

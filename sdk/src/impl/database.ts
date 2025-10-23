@@ -1,5 +1,5 @@
-import { getErrorObject } from '@codebuff/common/util/error'
-
+import { userColumns } from '../../../common/src/types/contracts/database'
+import { getErrorObject } from '../../../common/src/util/error'
 import { WEBSITE_URL } from '../constants'
 
 import type {
@@ -10,15 +10,35 @@ import type {
   GetUserInfoFromApiKeyOutput,
   StartAgentRunFn,
   UserColumn,
-} from '@codebuff/common/types/contracts/database'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
+} from '../../../common/src/types/contracts/database'
+import type { ParamsOf } from '../../../common/src/types/function-params'
+
+const userInfoCache: Record<
+  string,
+  Awaited<GetUserInfoFromApiKeyOutput<UserColumn>>
+> = {}
 
 export async function getUserInfoFromApiKey<T extends UserColumn>(
   params: GetUserInfoFromApiKeyInput<T>,
 ): GetUserInfoFromApiKeyOutput<T> {
   const { apiKey, fields, logger } = params
 
-  const urlParams = new URLSearchParams({ apiKey, fields: fields.join(',') })
+  if (apiKey in userInfoCache) {
+    const userInfo = userInfoCache[apiKey]
+    if (userInfo === null) {
+      return userInfo
+    }
+    return Object.fromEntries(
+      fields.map((field) => [field, userInfo[field]]),
+    ) as {
+      [K in (typeof fields)[number]]: (typeof userInfo)[K]
+    }
+  }
+
+  const urlParams = new URLSearchParams({
+    apiKey,
+    fields: userColumns.join(','),
+  })
   const url = new URL(`/api/v1/me?${urlParams}`, WEBSITE_URL)
 
   try {
@@ -36,13 +56,24 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
       )
       return null
     }
-    return response.json()
+
+    userInfoCache[apiKey] = await response.json()
   } catch (error) {
     logger.error(
       { error: getErrorObject(error), apiKey, fields },
       'getUserInfoFromApiKey error',
     )
     return null
+  }
+
+  const userInfo = userInfoCache[apiKey]
+  if (userInfo === null) {
+    return userInfo
+  }
+  return Object.fromEntries(
+    fields.map((field) => [field, userInfo[field]]),
+  ) as {
+    [K in (typeof fields)[number]]: (typeof userInfo)[K]
   }
 }
 
