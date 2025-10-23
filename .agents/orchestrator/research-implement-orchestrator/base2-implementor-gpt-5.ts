@@ -1,20 +1,19 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../constants'
+import { publisher } from '../../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
-import { ToolCall } from 'types/agent-definition'
+} from '../../types/secret-agent-definition'
 
-export const createBase2WithTaskResearcher: () => Omit<
+export const createBase2Implementor: () => Omit<
   SecretAgentDefinition,
   'id'
 > = () => {
   return {
     publisher,
     model: 'openai/gpt-5',
-    displayName: 'Buffy the Orchestrator',
+    displayName: 'Buffy the Implementor',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
     inputSchema: {
@@ -25,6 +24,14 @@ export const createBase2WithTaskResearcher: () => Omit<
       params: {
         type: 'object',
         properties: {
+          filesToRead: {
+            type: 'array',
+            items: {
+              type: 'string',
+              description: 'The paths of the files to read',
+            },
+            description: 'A list of the paths of the files to read',
+          },
           maxContextLength: {
             type: 'number',
           },
@@ -36,7 +43,6 @@ export const createBase2WithTaskResearcher: () => Omit<
     includeMessageHistory: false,
     toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
     spawnableAgents: buildArray(
-      'task-researcher',
       'file-picker-max',
       'code-searcher',
       'directory-lister',
@@ -61,11 +67,11 @@ Continue to spawn layers of agents until have completed the user's request or re
 
 ## Spawning agents guidelines
 
-
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
-  - **Task researcher:** For medium to complex requests, you should first spawn a task-researcher agent by itself to gather context about the user's request. Spawn this before any other agents.
   - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers before making edits.
-  - Code reviewers before validators, and both should be spawned after you have made your edits.
+  - Spawn generate-plan agent after you have gathered all the context you need (and not before!).
+  - Only make edits after generating a plan.
+  - Code reviewers/validators should be spawned after you have made your edits.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Don't spawn code reviewers/validators for trivial changes or quick follow-ups:** You should spawn the code reviewer/validator for most changes, but not for little changes or simple follow-ups.
 
@@ -118,18 +124,29 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn a task-researcher agent to research the task and get key facts and insights.
-2. Use the str_replace or write_file tool to make the changes.
-3. Spawn a code-reviewer-gpt-5 to review the changes. Consider making changes suggested by the code reviewer.
-4. Spawn a validator-gpt-5 to run validation checks (tests, typechecks, etc.) to ensure the changes are correct.
+1. Read all the files provided by the user using the read_files tool.
+2. As needed, spawn a couple different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+2a. Read all the new relevant files using the read_files tool.
+3. As needed, spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
+3a. Read all the new relevant files using the read_files tool.
+5. Use the str_replace or write_file tool to make the changes.
+6. Spawn a code-reviewer-gpt-5 to review the changes. Consider making changes suggested by the code-reviewer-gpt-5.
+7. Spawn a validator-gpt-5 to run validation checks (tests, typechecks, etc.) to ensure the changes are correct.`,
 
-You may not need to spawn the task-researcher if the user's request is trivial or if you have already gathered all the information you need from the conversation history from reading files.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, code-reviewer-gpt-5 to review changes, and the validator-gpt-5 to run validation commands.
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the task-researcher to research the task, code-reviewer-gpt-5 to review changes, and validator-gpt-5 to run validation commands.
- 
 Important: you *must* make at least one tool call in every response message unless you are done with the task.`,
 
-    handleSteps: function* ({ params, logger }) {
+    handleSteps: function* ({ prompt, params }) {
+      const { filesToRead } = params ?? {}
+
+      if (filesToRead && filesToRead.length > 0) {
+        yield {
+          toolName: 'read_files',
+          input: { paths: filesToRead },
+        }
+      }
+
       let steps = 0
       while (true) {
         steps++
@@ -143,65 +160,15 @@ Important: you *must* make at least one tool call in every response message unle
           includeToolCall: false,
         } as any
 
-        const { stepsComplete, agentState } = yield 'STEP'
+        const { stepsComplete } = yield 'STEP'
         if (stepsComplete) break
-
-        // Check tool results for spawning of a task researcher...
-        // If found, reset messages to only include the task researcher's result and read the relevant files!
-        const spawnAgentsToolResults = agentState.messageHistory
-          .slice(-3)
-          .filter((message) => message.role === 'tool')
-          .filter((message) => message.content.toolName === 'spawn_agents')
-          .map((message) => message.content.output)
-          .flat()
-          .filter((result) => result.type === 'json')
-          .map((result) => result.value)[0] as {
-          agentType: string
-          value: any
-        }[]
-
-        const taskResearcherResult = spawnAgentsToolResults?.find(
-          (result) => result.agentType === 'task-researcher',
-        )
-        if (taskResearcherResult) {
-          const taskResearcherOutput = taskResearcherResult.value.value as {
-            analysis: string
-            keyFacts: string[]
-            relevantFiles: string[]
-            userPrompt: string
-          }
-          const lastUserMessageIndex = agentState.messageHistory.findLastIndex(
-            (message) =>
-              message.role === 'user' &&
-              (typeof message.content === 'string'
-                ? message.content
-                : message.content[0].type === 'text'
-                  ? message.content[0].text
-                  : ''
-              ).includes('<user_message>'),
-          )
-          const newMessages =
-            agentState.messageHistory.slice(lastUserMessageIndex)
-          yield {
-            toolName: 'set_messages',
-            input: {
-              messages: newMessages,
-            },
-            includeToolCall: false,
-          } satisfies ToolCall<'set_messages'>
-          yield {
-            toolName: 'read_files',
-            input: { paths: taskResearcherOutput.relevantFiles },
-          } satisfies ToolCall<'read_files'>
-        }
-        // Continue loop!
       }
     },
   }
 }
 
 const definition = {
-  ...createBase2WithTaskResearcher(),
-  id: 'base2-gpt-5-with-task-researcher',
+  ...createBase2Implementor(),
+  id: 'base2-implementor-gpt-5',
 }
 export default definition

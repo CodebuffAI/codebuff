@@ -1,11 +1,12 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../constants'
+import { publisher } from '../../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
-import { ToolCall } from 'types/agent-definition'
+} from '../../types/secret-agent-definition'
+
+import type { ToolCall } from 'types/agent-definition'
 
 export const createBase2WithTaskResearcher: () => Omit<
   SecretAgentDefinition,
@@ -13,7 +14,7 @@ export const createBase2WithTaskResearcher: () => Omit<
 > = () => {
   return {
     publisher,
-    model: 'anthropic/claude-sonnet-4.5',
+    model: 'openai/gpt-5',
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
@@ -44,9 +45,8 @@ export const createBase2WithTaskResearcher: () => Omit<
       'researcher-web',
       'researcher-docs',
       'commander',
-      'planner-pro',
-      'code-reviewer',
-      'validator',
+      'code-reviewer-gpt-5',
+      'validator-gpt-5',
       'context-pruner',
     ),
 
@@ -66,9 +66,7 @@ Continue to spawn layers of agents until have completed the user's request or re
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
   - **Task researcher:** For medium to complex requests, you should first spawn a task-researcher agent by itself to gather context about the user's request. Spawn this before any other agents.
   - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers before making edits.
-  - Spawn planner-pro agent after you have gathered all the context you need (and not before!).
-  - Only make edits after generating a plan.
-  - Code reviewers/validators should be spawned after you have made your edits.
+  - Code reviewers before validators, and both should be spawned after you have made your edits.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Don't spawn code reviewers/validators for trivial changes or quick follow-ups:** You should spawn the code reviewer/validator for most changes, but not for little changes or simple follow-ups.
 
@@ -122,15 +120,15 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 The user asks you to implement a new feature. You respond in multiple steps:
 
 1. Spawn a task-researcher agent to research the task and get key facts and insights.
-2. Spawn a planner-pro agent to generate a plan for the changes.
-3. Use the str_replace or write_file tools to make the changes.
-4. Spawn a code-reviewer to review the changes. Consider making changes suggested by the code-reviewer.
-5. Spawn a validator to run validation checks (tests, typechecks, etc.) to ensure the changes are correct.
+2. Use the str_replace or write_file tool to make the changes.
+3. Spawn a code-reviewer-gpt-5 to review the changes. Consider making changes suggested by the code reviewer.
+4. Spawn a validator-gpt-5 to run validation checks (tests, typechecks, etc.) to ensure the changes are correct.
 
-You may not need to spawn the task-researcher/planner-pro if the user's request is trivial or if you have already gathered all the information you need from the conversation history.
-`,
+You may not need to spawn the task-researcher if the user's request is trivial or if you have already gathered all the information you need from the conversation history from reading files.`,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the task-researcher to research the task, code-reviewer to review changes, and the validator to run validation commands.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the task-researcher to research the task, code-reviewer-gpt-5 to review changes, and validator-gpt-5 to run validation commands.
+ 
+Important: you *must* make at least one tool call in every response message unless you are done with the task.`,
 
     handleSteps: function* ({ params, logger }) {
       let steps = 0
@@ -152,6 +150,7 @@ You may not need to spawn the task-researcher/planner-pro if the user's request 
         // Check tool results for spawning of a task researcher...
         // If found, reset messages to only include the task researcher's result and read the relevant files!
         const spawnAgentsToolResults = agentState.messageHistory
+          .slice(-3)
           .filter((message) => message.role === 'tool')
           .filter((message) => message.content.toolName === 'spawn_agents')
           .map((message) => message.content.output)
@@ -172,20 +171,22 @@ You may not need to spawn the task-researcher/planner-pro if the user's request 
             relevantFiles: string[]
             userPrompt: string
           }
-          const initialMessage = `<research>${taskResearcherOutput.keyFacts.join('\n')}</research>${taskResearcherOutput.userPrompt}`
-          const message = {
-            role: 'user',
-            content: initialMessage,
-          }
-          const instructionsMessage = agentState.messageHistory.findLast(
+          const lastUserMessageIndex = agentState.messageHistory.findLastIndex(
             (message) =>
               message.role === 'user' &&
-              message.keepLastTags?.[0] === 'INSTRUCTIONS_PROMPT',
+              (typeof message.content === 'string'
+                ? message.content
+                : message.content[0].type === 'text'
+                  ? message.content[0].text
+                  : ''
+              ).includes('<user_message>'),
           )
+          const newMessages =
+            agentState.messageHistory.slice(lastUserMessageIndex)
           yield {
             toolName: 'set_messages',
             input: {
-              messages: [message, instructionsMessage],
+              messages: newMessages,
             },
             includeToolCall: false,
           } satisfies ToolCall<'set_messages'>
@@ -193,10 +194,6 @@ You may not need to spawn the task-researcher/planner-pro if the user's request 
             toolName: 'read_files',
             input: { paths: taskResearcherOutput.relevantFiles },
           } satisfies ToolCall<'read_files'>
-          yield {
-            toolName: 'spawn_agents',
-            input: { agents: [{ agent_type: 'planner-pro' }] },
-          } satisfies ToolCall<'spawn_agents'>
         }
         // Continue loop!
       }
@@ -206,6 +203,6 @@ You may not need to spawn the task-researcher/planner-pro if the user's request 
 
 const definition = {
   ...createBase2WithTaskResearcher(),
-  id: 'base2-with-task-researcher-planner-pro',
+  id: 'base2-gpt-5-with-task-researcher',
 }
 export default definition

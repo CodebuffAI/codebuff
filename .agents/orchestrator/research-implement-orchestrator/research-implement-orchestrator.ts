@@ -1,10 +1,10 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../constants'
+import { publisher } from '../../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
+} from '../../types/secret-agent-definition'
 
 export const createResearchImplementOrchestrator: () => Omit<
   SecretAgentDefinition,

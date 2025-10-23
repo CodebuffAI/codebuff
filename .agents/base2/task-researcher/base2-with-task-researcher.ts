@@ -1,11 +1,12 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../constants'
+import { publisher } from '../../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
-import { ToolCall } from 'types/agent-definition'
+} from '../../types/secret-agent-definition'
+
+import type { ToolCall } from 'types/agent-definition'
 
 export const createBase2WithTaskResearcher: () => Omit<
   SecretAgentDefinition,
@@ -36,7 +37,7 @@ export const createBase2WithTaskResearcher: () => Omit<
     includeMessageHistory: false,
     toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
     spawnableAgents: buildArray(
-      'task-researcher-full',
+      'task-researcher',
       'file-picker-max',
       'code-searcher',
       'directory-lister',
@@ -63,7 +64,7 @@ Continue to spawn layers of agents until have completed the user's request or re
 
 
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
-  - **Task researcher:** For medium to complex requests, you should first spawn a task-researcher-full agent by itself to gather context about the user's request. Spawn this before any other agents.
+  - **Task researcher:** For medium to complex requests, you should first spawn a task-researcher agent by itself to gather context about the user's request. Spawn this before any other agents.
   - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers before making edits.
   - Spawn generate-plan agent after you have gathered all the context you need (and not before!).
   - Only make edits after generating a plan.
@@ -120,15 +121,15 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn a task-researcher-full agent to research the task and get key facts and insights.
+1. Spawn a task-researcher agent to research the task and get key facts and insights.
 2. Use the str_replace or write_file tool to make the changes.
 3. Spawn a code-reviewer to review the changes. Consider making changes suggested by the code-reviewer.
 4. Spawn a validator to run validation checks (tests, typechecks, etc.) to ensure the changes are correct.
 
-You may not need to spawn the task-researcher-full if the user's request is trivial or if you have already gathered all the information you need from the conversation history.
+You may not need to spawn the task-researcher if the user's request is trivial or if you have already gathered all the information you need from the conversation history.
 `,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the task-researcher-full to research the task, code-reviewer to review changes, and the validator to run validation commands.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the task-researcher to research the task, code-reviewer to review changes, and the validator to run validation commands.`,
 
     handleSteps: function* ({ params, logger }) {
       let steps = 0
@@ -161,7 +162,7 @@ You may not need to spawn the task-researcher-full if the user's request is triv
         }[]
 
         const taskResearcherResult = spawnAgentsToolResults?.find(
-          (result) => result.agentType === 'task-researcher-full',
+          (result) => result.agentType === 'task-researcher',
         )
         if (taskResearcherResult) {
           const taskResearcherOutput = taskResearcherResult.value.value as {
@@ -170,22 +171,20 @@ You may not need to spawn the task-researcher-full if the user's request is triv
             relevantFiles: string[]
             userPrompt: string
           }
-          const lastUserMessageIndex = agentState.messageHistory.findLastIndex(
+          const initialMessage = `<research>${taskResearcherOutput.keyFacts.join('\n')}</research>${taskResearcherOutput.userPrompt}`
+          const message = {
+            role: 'user',
+            content: initialMessage,
+          }
+          const instructionsMessage = agentState.messageHistory.findLast(
             (message) =>
               message.role === 'user' &&
-              (typeof message.content === 'string'
-                ? message.content
-                : message.content[0].type === 'text'
-                  ? message.content[0].text
-                  : ''
-              ).includes('<user_message>'),
+              message.keepLastTags?.[0] === 'INSTRUCTIONS_PROMPT',
           )
-          const newMessages =
-            agentState.messageHistory.slice(lastUserMessageIndex)
           yield {
             toolName: 'set_messages',
             input: {
-              messages: newMessages,
+              messages: [message, instructionsMessage],
             },
             includeToolCall: false,
           } satisfies ToolCall<'set_messages'>
@@ -202,6 +201,6 @@ You may not need to spawn the task-researcher-full if the user's request is triv
 
 const definition = {
   ...createBase2WithTaskResearcher(),
-  id: 'base2-with-task-researcher-full',
+  id: 'base2-with-task-researcher',
 }
 export default definition
