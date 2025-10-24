@@ -135,18 +135,6 @@ export const App = ({
     )
   }, [])
 
-  // Handle successful login
-  const handleLoginSuccess = useCallback(
-    (loggedInUser: User) => {
-      resetChatStore()
-      setInputFocused(true)
-      setUser(loggedInUser)
-      setIsAuthenticated(true)
-      logger.info({ user: loggedInUser.name }, 'User logged in successfully')
-    },
-    [resetChatStore, setInputFocused],
-  )
-
   const {
     inputValue,
     setInputValue,
@@ -199,6 +187,7 @@ export const App = ({
     })),
   )
 
+  // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
       resetChatStore()

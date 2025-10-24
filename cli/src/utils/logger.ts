@@ -165,7 +165,7 @@ function logAsErrorIfNeeded(toTrack: {
     logError(
       new Error(toTrack.msg),
       toTrack.loggerContext.userId ?? 'unknown',
-      { ...toTrack.data, context: toTrack.loggerContext },
+      { ...(toTrack.data ?? {}), context: toTrack.loggerContext },
     )
     flushAnalytics()
   }
