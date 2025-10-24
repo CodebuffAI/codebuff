@@ -236,13 +236,13 @@ export async function addAgentStep(
       return null
     }
 
-    if (!responseBody?.runId) {
+    if (!responseBody?.stepId) {
       logger.error(
         { responseBody },
         'no stepId found from addAgentStep request',
       )
     }
-    return responseBody?.runId ?? null
+    return responseBody.stepId ?? null
   } catch (error) {
     logger.error(
       {
