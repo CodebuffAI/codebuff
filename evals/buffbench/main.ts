@@ -5,12 +5,8 @@ import { runBuffBench } from './run-buffbench'
 async function main() {
   await runBuffBench({
     evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
-    agents: [
-      'base2-fast-thinking',
-      'base2-fast-thinking-tags',
-      'base2-fast-thinking-tool',
-    ],
-    taskConcurrency: 2,
+    agents: ['base2-fast-with-validation'],
+    taskConcurrency: 5,
   })
 
   process.exit(0)
