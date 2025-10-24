@@ -75,6 +75,18 @@
       "name": "eslint-fix-imports",
       "command": "set -o pipefail && git diff --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx)$' | xargs -r npx eslint --fix --quiet",
       "filePattern": "**/*.{ts,tsx,js,jsx}"
+    },
+    {
+      "name": "cli-typecheck-on-sdk-changes",
+      "command": "bun run typecheck",
+      "cwd": "cli",
+      "filePattern": "**/*.{ts,tsx,js,jsx}"
+    },
+    {
+      "name": "cli-build-on-sdk-changes",
+      "command": "bun run build",
+      "cwd": "cli",
+      "filePattern": "sdk/**/*.ts"
     }
   ],
   "maxAgentSteps": 100
