@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import stringWidth from 'string-width'
 
 import { AgentModeToggle } from './components/agent-mode-toggle'
-import { LoginScreen } from './components/login-screen'
+import { LoginModal } from './components/login-modal'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -99,15 +99,15 @@ export const App = ({
   const { width: measuredWidth } = useTerminalDimensions()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<MultilineInputHandle | null>(null)
-  const sanitizeDimension = (value: number | null | undefined): number | null => {
+  const sanitizeDimension = (
+    value: number | null | undefined,
+  ): number | null => {
     if (typeof value !== 'number') return null
     if (!Number.isFinite(value) || value <= 0) return null
     return value
   }
   const resolvedTerminalWidth =
-    sanitizeDimension(measuredWidth) ??
-    sanitizeDimension(renderer?.width) ??
-    80
+    sanitizeDimension(measuredWidth) ?? sanitizeDimension(renderer?.width) ?? 80
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
@@ -117,7 +117,9 @@ export const App = ({
 
   const [exitWarning, setExitWarning] = useState<string | null>(null)
   const exitArmedRef = useRef(false)
-  const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
   const lastSigintTimeRef = useRef<number>(0)
 
   // Track authentication state
@@ -289,7 +291,10 @@ export const App = ({
       // If already armed, exit immediately
       if (exitArmedRef.current) {
         const flushed = flushAnalytics()
-        if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
+        if (
+          flushed &&
+          typeof (flushed as Promise<void>).finally === 'function'
+        ) {
           ;(flushed as Promise<void>).finally(() => process.exit(0))
         } else {
           process.exit(0)
@@ -781,7 +786,9 @@ export const App = ({
     ) : null
 
   const shouldShowQueuePreview = queuedMessages.length > 0
-  const shouldShowStatusLine = Boolean(exitWarning || hasStatus || shouldShowQueuePreview)
+  const shouldShowStatusLine = Boolean(
+    exitWarning || hasStatus || shouldShowQueuePreview,
+  )
   const statusIndicatorNode = (
     <StatusIndicator
       isProcessing={isWaitingForResponse}
@@ -789,17 +796,6 @@ export const App = ({
       clipboardMessage={clipboardMessage}
     />
   )
-
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <LoginScreen
-        onLoginSuccess={handleLoginSuccess}
-        theme={theme}
-        hasInvalidCredentials={hasInvalidCredentials}
-      />
-    )
-  }
 
   return (
     <box
@@ -951,6 +947,15 @@ export const App = ({
         </box>
         <Separator theme={theme} width={separatorWidth} />
       </box>
+
+      {/* Login Modal Overlay - show when not authenticated */}
+      {!isAuthenticated && (
+        <LoginModal
+          onLoginSuccess={handleLoginSuccess}
+          theme={theme}
+          hasInvalidCredentials={hasInvalidCredentials}
+        />
+      )}
     </box>
   )
 }
