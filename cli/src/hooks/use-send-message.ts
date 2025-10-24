@@ -268,7 +268,10 @@ export const useSendMessage = ({
       const client = getCodebuffClient()
 
       if (!client) {
-        logger.error({}, 'No Codebuff client available. Please ensure you are authenticated.')
+        logger.error(
+          {},
+          'No Codebuff client available. Please ensure you are authenticated.',
+        )
         return
       }
 
@@ -480,7 +483,6 @@ export const useSendMessage = ({
         )
       }
 
-
       setIsWaitingForResponse(true)
       applyMessageUpdate((prev) => [...prev, aiMessage])
       setIsStreaming(true)
@@ -539,7 +541,10 @@ export const useSendMessage = ({
           },
 
           handleEvent: (event: any) => {
-            logger.info({ type: event.type, event }, 'SDK Event received (raw)')
+            logger.info(
+              { type: event.type, event },
+              `SDK ${JSON.stringify(event.type)} Event received (raw)`,
+            )
 
             if (event.type === 'subagent-chunk') {
               const { agentId, chunk } = event
