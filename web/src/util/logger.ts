@@ -30,6 +30,10 @@ function getDebugDir(): string | null {
     debugDir = parent
   }
 
+  if (debugDir) {
+    debugDir = path.join(debugDir, 'debug')
+  }
+
   return debugDir
 }
 
