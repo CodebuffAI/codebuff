@@ -27,6 +27,7 @@ function getDebugDir(): string | null {
       console.error('Failed to find git root directory for logger')
       break
     }
+    debugDir = parent
   }
 
   return debugDir
