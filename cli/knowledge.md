@@ -17,6 +17,45 @@
 - Automatic dependency validation
 - Clear test categorization
 
+## Testing CLI Changes with tmux
+
+Use tmux to test CLI behavior in a controlled, scriptable way. This is especially useful for testing UI updates, authentication flows, and time-dependent behavior.
+
+### Basic Pattern
+
+```bash
+tmux new-session -d -s test-session 'cd /path/to/codebuff && bun --cwd=cli run dev 2>&1' && \
+  sleep 2 && \
+  echo '---AFTER 2 SECONDS---' && \
+  tmux capture-pane -t test-session -p && \
+  sleep 3 && \
+  echo '---AFTER 5 SECONDS---' && \
+  tmux capture-pane -t test-session -p && \
+  tmux kill-session -t test-session 2>/dev/null
+```
+
+### How It Works
+
+1. **`tmux new-session -d -s test-session '...'`** - Creates a detached tmux session running the CLI
+2. **`sleep N`** - Waits for N seconds to let the CLI initialize or update
+3. **`tmux capture-pane -t test-session -p`** - Captures and prints the current terminal output
+4. **`tmux kill-session -t test-session`** - Cleans up the session when done
+
+### Use Cases
+
+- **Authentication flows**: Capture login screen states at different intervals
+- **Loading states**: Verify shimmer text, spinners, and status indicators
+- **Auto-refresh behavior**: Test components that update over time
+- **Error states**: Capture how errors appear in the TUI
+- **Layout changes**: Verify responsive behavior based on terminal dimensions
+
+### Tips
+
+- Use unique session names (e.g., `login-url-test`, `auth-check-test`) to run multiple tests in parallel
+- Redirect stderr with `2>&1` to capture all output including errors
+- Add `2>/dev/null` to `tmux kill-session` to suppress errors if session doesn't exist
+- Adjust sleep timings based on what you're testing (auth checks, network requests, etc.)
+
 ## Migration from Custom OpenTUI Fork
 
 **October 2024**: Migrated from custom `CodebuffAI/opentui#codebuff/custom` fork to official `@opentui/react@^0.1.27` and `@opentui/core@^0.1.27` packages. Updated to `^0.1.28` in February 2025.
