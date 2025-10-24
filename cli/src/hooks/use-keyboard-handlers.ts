@@ -15,6 +15,7 @@ interface KeyboardHandlersConfig {
   navigateUp: () => void
   navigateDown: () => void
   toggleAgentMode: () => void
+  onCtrlC: () => boolean
 }
 
 export const useKeyboardHandlers = ({
@@ -29,6 +30,7 @@ export const useKeyboardHandlers = ({
   navigateUp,
   navigateDown,
   toggleAgentMode,
+  onCtrlC,
 }: KeyboardHandlersConfig) => {
   useKeyboard(
     useCallback(
@@ -48,8 +50,19 @@ export const useKeyboardHandlers = ({
             abortControllerRef.current.abort()
           }
         }
+
+        if (isCtrlC) {
+          const shouldPrevent = onCtrlC()
+          if (
+            shouldPrevent &&
+            'preventDefault' in key &&
+            typeof key.preventDefault === 'function'
+          ) {
+            key.preventDefault()
+          }
+        }
       },
-      [isStreaming, isWaitingForResponse, abortControllerRef],
+      [isStreaming, isWaitingForResponse, abortControllerRef, onCtrlC],
     ),
   )
 

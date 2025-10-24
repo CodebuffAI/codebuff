@@ -23,6 +23,7 @@ import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
+import { flushAnalytics } from './utils/analytics'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { chatThemes, createMarkdownPalette } from './utils/theme-system'
@@ -92,14 +93,18 @@ export const App = ({
   hasInvalidCredentials: boolean | null
 }) => {
   const renderer = useRenderer()
-  const { width: terminalWidth } = useTerminalDimensions()
+  const { width: measuredWidth } = useTerminalDimensions()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<InputRenderable | null>(null)
+  const terminalWidth = measuredWidth || renderer?.width || 80
   const separatorWidth = Math.max(0, terminalWidth - 2)
 
   const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
+
+  const [exitWarning, setExitWarning] = useState<string | null>(null)
+  const exitArmedRef = useRef(false)
 
   // Track authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(!requireAuth)
@@ -203,6 +208,13 @@ export const App = ({
     renderer?.setBackgroundColor(theme.background)
   }, [renderer, theme.background])
 
+  useEffect(() => {
+    if (exitArmedRef.current && inputValue.length > 0) {
+      exitArmedRef.current = false
+      setExitWarning(null)
+    }
+  }, [inputValue])
+
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const registerAgentRef = useCallback((agentId: string, element: any) => {
@@ -226,6 +238,28 @@ export const App = ({
     : scrollboxProps
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
+
+  const handleCtrlC = useCallback(() => {
+    if (exitArmedRef.current) {
+      exitArmedRef.current = false
+      setExitWarning(null)
+
+      const flushed = flushAnalytics()
+      if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
+        ;(flushed as Promise<void>).finally(() => process.exit(0))
+      } else {
+        process.exit(0)
+      }
+      return true
+    }
+
+    exitArmedRef.current = true
+    setExitWarning('Press Ctrl+C again to exit')
+    setInputValue('')
+    setInputFocused(true)
+    inputRef.current?.focus()
+    return true
+  }, [flushAnalytics, setExitWarning, setInputFocused, setInputValue])
 
   const {
     slashContext,
@@ -596,6 +630,7 @@ export const App = ({
     navigateUp,
     navigateDown,
     toggleAgentMode,
+    onCtrlC: handleCtrlC,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(
@@ -645,6 +680,16 @@ export const App = ({
         </span>
       </text>
     ) : null
+
+  const shouldShowQueuePreview = queuedMessages.length > 0
+  const shouldShowStatusLine = Boolean(exitWarning || hasStatus || shouldShowQueuePreview)
+  const statusIndicatorNode = (
+    <StatusIndicator
+      isProcessing={isWaitingForResponse}
+      theme={theme}
+      clipboardMessage={clipboardMessage}
+    />
+  )
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {
@@ -723,7 +768,7 @@ export const App = ({
           backgroundColor: theme.panelBg,
         }}
       >
-        {(hasStatus || queuedMessages.length > 0) && (
+        {shouldShowStatusLine && (
           <box
             style={{
               flexDirection: 'row',
@@ -732,13 +777,13 @@ export const App = ({
             }}
           >
             <text wrap={false}>
-              <StatusIndicator
-                isProcessing={isWaitingForResponse}
-                theme={theme}
-                clipboardMessage={clipboardMessage}
-              />
-              {hasStatus && queuedMessages.length > 0 && '  '}
-              {queuedMessages.length > 0 && (
+              {hasStatus ? statusIndicatorNode : null}
+              {hasStatus && (exitWarning || shouldShowQueuePreview) ? '  ' : ''}
+              {exitWarning ? (
+                <span fg={theme.statusSecondary}>{exitWarning}</span>
+              ) : null}
+              {exitWarning && shouldShowQueuePreview ? '  ' : ''}
+              {shouldShowQueuePreview ? (
                 <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
                   {' '}
                   {formatQueuedPreview(
@@ -746,7 +791,7 @@ export const App = ({
                     Math.max(30, terminalWidth - 25),
                   )}{' '}
                 </span>
-              )}
+              ) : null}
             </text>
           </box>
         )}
