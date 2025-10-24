@@ -70,23 +70,74 @@ if (clearLogs) {
   clearLogFile()
 }
 
-// Check authentication before starting
-async function startApp() {
-  const userCredentials = getUserCredentials()
-  const authResult = await getUserInfoFromApiKey({
-    apiKey: userCredentials?.authToken || process.env.CODEBUFF_API_KEY || '',
-    fields: ['id'],
-    logger,
-  })
+// Wrapper component to handle async auth check
+const AppWithAsyncAuth = () => {
+  const [requireAuth, setRequireAuth] = React.useState<boolean | null>(null)
+  const [hasInvalidCredentials, setHasInvalidCredentials] = React.useState(false)
 
-  render(
+  React.useEffect(() => {
+    // Check authentication asynchronously
+    const userCredentials = getUserCredentials()
+    const apiKey = userCredentials?.authToken || process.env.CODEBUFF_API_KEY || ''
+
+    if (!apiKey) {
+      // No credentials, require auth
+      setRequireAuth(true)
+      return
+    }
+
+    // We have credentials - show the banner immediately while we verify them
+    setHasInvalidCredentials(true)
+
+    // Start async auth check with timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+    })
+
+    Promise.race([
+      getUserInfoFromApiKey({
+        apiKey,
+        fields: ['id'],
+        logger,
+      }),
+      timeoutPromise,
+    ])
+      .then((authResult) => {
+        if (authResult) {
+          // Auth succeeded - clear the banner and allow access
+          setRequireAuth(false)
+          setHasInvalidCredentials(false)
+        } else {
+          // Auth failed - credentials are invalid, keep showing banner
+          logger.warn('Authentication check failed - credentials may be invalid')
+          setRequireAuth(true)
+          // hasInvalidCredentials already true
+        }
+      })
+      .catch((error) => {
+        // Auth check timed out or errored - keep showing banner
+        logger.error(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Failed to check authentication in background',
+        )
+        setRequireAuth(true)
+        // hasInvalidCredentials already true
+      })
+  }, [])
+
+  return (
     <App
       initialPrompt={initialPrompt}
       agentId={agent}
-      requireAuth={!authResult}
-      hasInvalidCredentials={!authResult}
-    />,
+      requireAuth={requireAuth}
+      hasInvalidCredentials={hasInvalidCredentials}
+    />
   )
+}
+
+// Start app immediately
+function startApp() {
+  render(<AppWithAsyncAuth />)
 }
 
 startApp()

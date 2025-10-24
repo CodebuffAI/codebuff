@@ -123,8 +123,18 @@ export const App = ({
   const lastSigintTimeRef = useRef<number>(0)
 
   // Track authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(!requireAuth)
+  // If requireAuth is null (checking), assume not authenticated until proven otherwise
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    requireAuth === false ? true : false
+  )
   const [user, setUser] = useState<User | null>(null)
+
+  // Update authentication state when requireAuth changes
+  useEffect(() => {
+    if (requireAuth !== null) {
+      setIsAuthenticated(!requireAuth)
+    }
+  }, [requireAuth])
 
   // Log app initialization
   useEffect(() => {
