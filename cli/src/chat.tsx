@@ -93,7 +93,7 @@ export const App = ({
   initialPrompt: string | null
   agentId?: string
   requireAuth: boolean | null
-  hasInvalidCredentials: boolean | null
+  hasInvalidCredentials: boolean
 }) => {
   const renderer = useRenderer()
   const { width: measuredWidth } = useTerminalDimensions()
@@ -117,6 +117,8 @@ export const App = ({
 
   const [exitWarning, setExitWarning] = useState<string | null>(null)
   const exitArmedRef = useRef(false)
+  const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSigintTimeRef = useRef<number>(0)
 
   // Track authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(!requireAuth)
@@ -275,6 +277,66 @@ export const App = ({
     : scrollboxProps
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
+
+  useEffect(() => {
+    const handleSigint = () => {
+      const now = Date.now()
+      if (now - lastSigintTimeRef.current < 50) {
+        return
+      }
+      lastSigintTimeRef.current = now
+
+      // If already armed, exit immediately
+      if (exitArmedRef.current) {
+        const flushed = flushAnalytics()
+        if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
+          ;(flushed as Promise<void>).finally(() => process.exit(0))
+        } else {
+          process.exit(0)
+        }
+        return
+      }
+
+      // First Ctrl+C - arm the exit and trigger UI update via state
+      exitArmedRef.current = true
+
+      // Clear any existing timeout
+      if (exitWarningTimeoutRef.current) {
+        clearTimeout(exitWarningTimeoutRef.current)
+        exitWarningTimeoutRef.current = null
+      }
+
+      // Schedule state updates in next tick to avoid render conflicts
+      setTimeout(() => {
+        setExitWarning('Press Ctrl+C again within 3 seconds to exit')
+
+        if (isAuthenticated) {
+          if (inputValue) {
+            setInputValue('')
+          }
+          setInputFocused(true)
+          setTimeout(() => {
+            const handle = inputRef.current
+            if (handle && typeof handle.focus === 'function') {
+              handle.focus()
+            }
+          }, 0)
+        }
+      }, 0)
+
+      // Set timeout to disarm
+      exitWarningTimeoutRef.current = setTimeout(() => {
+        exitArmedRef.current = false
+        setExitWarning(null)
+        exitWarningTimeoutRef.current = null
+      }, 3000)
+    }
+
+    process.on('SIGINT', handleSigint)
+    return () => {
+      process.off('SIGINT', handleSigint)
+    }
+  }, [isAuthenticated, inputValue, setInputValue, setInputFocused, inputRef])
 
   const handleCtrlC = useCallback(() => {
     if (exitArmedRef.current) {
