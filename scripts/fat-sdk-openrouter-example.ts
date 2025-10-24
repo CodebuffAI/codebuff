@@ -1,22 +1,53 @@
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import path from 'path'
+
+import {
+  OpenAICompatibleChatLanguageModel,
+  VERSION,
+} from '@ai-sdk/openai-compatible'
 import { websiteUrl } from '@codebuff/npm-app/config'
-import { generateObject } from 'ai'
-import z from 'zod/v4'
+import { streamText } from 'ai'
 
-const codebuffBackendProvider = createOpenAICompatible({
-  name: 'codebuff',
-  apiKey: '12345',
-  baseURL: websiteUrl + '/api/v1',
-  // apiKey: process.env.OPEN_ROUTER_API_KEY,
-  // baseURL: 'https://openrouter.ai/api/v1',
-  supportsStructuredOutputs: true,
-})
+const apiKey = '12345'
 
-const response = await generateObject({
-  schema: z.object({ greeting: z.string() }),
+const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(
+  'openai/gpt-5',
+  {
+    provider: 'codebuff.chat',
+    url: ({ path: endpoint }) =>
+      new URL(path.join('/api/v1', endpoint), websiteUrl).toString(),
+    headers: () => ({
+      Authorization: `Bearer ${apiKey}`,
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}`,
+    }),
+    metadataExtractor: {
+      extractMetadata: async (...inputs) => {
+        console.log(inputs, 'extractMetadata')
+        return undefined
+      },
+      createStreamExtractor: () => ({
+        processChunk: (...inputs) => {
+          console.log(
+            JSON.stringify(inputs, null, 2),
+            'createStreamExtractor.processChunk',
+          )
+        },
+        buildMetadata: (...inputs) => {
+          console.log(inputs, 'createStreamExtractor.buildMetadata')
+          return undefined
+        },
+      }),
+    },
+    fetch: undefined,
+    includeUsage: undefined,
+    supportsStructuredOutputs: true,
+  },
+)
+
+const response = streamText({
   // const response = await streamText({
   // const response = await generateText({
-  model: codebuffBackendProvider('openai/gpt-5'),
+  // model: codebuffBackendProvider('openai/gpt-5'),
+  model: codebuffBackendModel,
   messages: [
     {
       role: 'user',
@@ -44,15 +75,13 @@ const response = await generateObject({
       // all these get directly added to the body at the top level
       reasoningEffort: 'low',
       codebuff_metadata: {
-        agent_run_id: '19b636d9-bfbf-40ff-b3e9-92dc86f4a8d0',
+        run_id: '19b636d9-bfbf-40ff-b3e9-92dc86f4a8d0',
         client_id: 'test-client-id-123',
-        client_request_id: 'test-client-session-id-456',
       },
     },
   },
 })
 
-console.dir({ response }, { depth: null })
-// for await (const chunk of response.fullStream) {
-//   console.dir({ chunk }, { depth: null })
-// }
+for await (const chunk of response.fullStream) {
+  console.dir({ chunk }, { depth: null })
+}

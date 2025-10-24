@@ -1,4 +1,6 @@
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import path from 'path'
+
+import { OpenAICompatibleChatLanguageModel } from '@ai-sdk/openai-compatible'
 import { streamText, APICallError, generateText, generateObject } from 'ai'
 
 import { PROFIT_MARGIN } from '../../../common/src/old-constants'
@@ -20,24 +22,74 @@ import type {
 } from '../../../common/src/types/contracts/llm'
 import type { ParamsOf } from '../../../common/src/types/function-params'
 import type { LanguageModelV2 } from '@ai-sdk/provider'
-import type {
-  OpenRouterProviderOptions,
-  OpenRouterUsageAccounting,
-} from '@openrouter/ai-sdk-provider'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { OpenRouterProviderOptions } from '@openrouter/ai-sdk-provider'
 import type z from 'zod/v4'
+
+// Forked from https://github.com/OpenRouterTeam/ai-sdk-provider/
+type OpenRouterUsageAccounting = {
+  cost: number | null
+  costDetails: {
+    upstreamInferenceCost: number | null
+  }
+}
+
+function calculateUsedCredits(params: { costDollars: number }): number {
+  const { costDollars } = params
+
+  return Math.round(costDollars * (1 + PROFIT_MARGIN) * 100)
+}
 
 function getAiSdkModel(params: {
   apiKey: string
   model: string
+  logger: Logger
 }): LanguageModelV2 {
-  const { apiKey, model } = params
+  const { apiKey, model, logger } = params
 
-  return createOpenAICompatible({
-    name: 'codebuff',
-    apiKey,
-    baseURL: WEBSITE_URL + '/api/v1',
+  const openrouterUsage: OpenRouterUsageAccounting = {
+    cost: null,
+    costDetails: {
+      upstreamInferenceCost: null,
+    },
+  }
+
+  const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(model, {
+    provider: 'codebuff.chat',
+    url: ({ path: endpoint }) =>
+      new URL(path.join('/api/v1', endpoint), WEBSITE_URL).toString(),
+    headers: () => ({
+      Authorization: `Bearer ${apiKey}`,
+      'user-agent': `ai-sdk/codebuff/${process.env.NEXT_PUBLIC_NPM_APP_VERSION || 'unknown-version'}`,
+    }),
+    metadataExtractor: {
+      extractMetadata: async (...inputs) => {
+        console.log(inputs, 'extractMetadata')
+        return undefined
+      },
+      createStreamExtractor: () => ({
+        processChunk: (parsedChunk: any) => {
+          if (typeof parsedChunk?.usage?.cost === 'number') {
+            openrouterUsage.cost = parsedChunk.usage.cost
+          }
+          if (
+            typeof parsedChunk?.usage?.cost_details?.upstream_inference_cost ===
+            'number'
+          ) {
+            openrouterUsage.costDetails.upstreamInferenceCost =
+              parsedChunk.usage.cost_details.upstream_inference_cost
+          }
+        },
+        buildMetadata: () => {
+          return { codebuff: { usage: openrouterUsage } }
+        },
+      }),
+    },
+    fetch: undefined,
+    includeUsage: undefined,
     supportsStructuredOutputs: true,
-  })(model)
+  })
+  return codebuffBackendModel
 }
 
 export async function* promptAiSdkStream(
@@ -172,28 +224,12 @@ export async function* promptAiSdkStream(
   }
 
   const providerMetadata = (await response.providerMetadata) ?? {}
-  const usage = await response.usage
-  let inputTokens = usage.inputTokens || 0
-  let cacheReadInputTokens: number = 0
-  let cacheCreationInputTokens: number = 0
+
   let costOverrideDollars: number | undefined
-  if (providerMetadata.anthropic) {
-    cacheReadInputTokens =
-      typeof providerMetadata.anthropic.cacheReadInputTokens === 'number'
-        ? providerMetadata.anthropic.cacheReadInputTokens
-        : 0
-    cacheCreationInputTokens =
-      typeof providerMetadata.anthropic.cacheCreationInputTokens === 'number'
-        ? providerMetadata.anthropic.cacheCreationInputTokens
-        : 0
-  }
-  if (providerMetadata.openrouter) {
-    if (providerMetadata.openrouter.usage) {
-      const openrouterUsage = providerMetadata.openrouter
+  if (providerMetadata.codebuff) {
+    if (providerMetadata.codebuff.usage) {
+      const openrouterUsage = providerMetadata.codebuff
         .usage as OpenRouterUsageAccounting
-      cacheReadInputTokens =
-        openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
-      inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
 
       costOverrideDollars =
         (openrouterUsage.cost ?? 0) +
@@ -205,8 +241,9 @@ export async function* promptAiSdkStream(
 
   // Call the cost callback if provided
   if (params.onCostCalculated && costOverrideDollars) {
-    const creditsUsed = costOverrideDollars * (1 + PROFIT_MARGIN)
-    await params.onCostCalculated(creditsUsed)
+    await params.onCostCalculated(
+      calculateUsedCredits({ costDollars: costOverrideDollars }),
+    )
   }
 
   return messageId
@@ -229,7 +266,6 @@ export async function promptAiSdk(
     return ''
   }
 
-  const startTime = Date.now()
   let aiSDKModel = getAiSdkModel(params)
 
   const response = await generateText({
@@ -248,31 +284,12 @@ export async function promptAiSdk(
   })
   const content = response.text
 
-  const messageId = response.response.id
   const providerMetadata = response.providerMetadata ?? {}
-  const usage = response.usage
-  let inputTokens = usage.inputTokens || 0
-  const outputTokens = usage.outputTokens || 0
-  let cacheReadInputTokens: number = 0
-  let cacheCreationInputTokens: number = 0
   let costOverrideDollars: number | undefined
-  if (providerMetadata.anthropic) {
-    cacheReadInputTokens =
-      typeof providerMetadata.anthropic.cacheReadInputTokens === 'number'
-        ? providerMetadata.anthropic.cacheReadInputTokens
-        : 0
-    cacheCreationInputTokens =
-      typeof providerMetadata.anthropic.cacheCreationInputTokens === 'number'
-        ? providerMetadata.anthropic.cacheCreationInputTokens
-        : 0
-  }
-  if (providerMetadata.openrouter) {
-    if (providerMetadata.openrouter.usage) {
-      const openrouterUsage = providerMetadata.openrouter
+  if (providerMetadata.codebuff) {
+    if (providerMetadata.codebuff.usage) {
+      const openrouterUsage = providerMetadata.codebuff
         .usage as OpenRouterUsageAccounting
-      cacheReadInputTokens =
-        openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
-      inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
 
       costOverrideDollars =
         (openrouterUsage.cost ?? 0) +
@@ -282,8 +299,9 @@ export async function promptAiSdk(
 
   // Call the cost callback if provided
   if (params.onCostCalculated && costOverrideDollars) {
-    const creditsUsed = costOverrideDollars * (1 + PROFIT_MARGIN)
-    await params.onCostCalculated(creditsUsed)
+    await params.onCostCalculated(
+      calculateUsedCredits({ costDollars: costOverrideDollars }),
+    )
   }
 
   return content
@@ -325,31 +343,12 @@ export async function promptAiSdkStructured<T>(
 
   const content = response.object
 
-  const messageId = response.response.id
   const providerMetadata = response.providerMetadata ?? {}
-  const usage = response.usage
-  let inputTokens = usage.inputTokens || 0
-  const outputTokens = usage.outputTokens || 0
-  let cacheReadInputTokens: number = 0
-  let cacheCreationInputTokens: number = 0
   let costOverrideDollars: number | undefined
-  if (providerMetadata.anthropic) {
-    cacheReadInputTokens =
-      typeof providerMetadata.anthropic.cacheReadInputTokens === 'number'
-        ? providerMetadata.anthropic.cacheReadInputTokens
-        : 0
-    cacheCreationInputTokens =
-      typeof providerMetadata.anthropic.cacheCreationInputTokens === 'number'
-        ? providerMetadata.anthropic.cacheCreationInputTokens
-        : 0
-  }
-  if (providerMetadata.openrouter) {
-    if (providerMetadata.openrouter.usage) {
-      const openrouterUsage = providerMetadata.openrouter
+  if (providerMetadata.codebuff) {
+    if (providerMetadata.codebuff.usage) {
+      const openrouterUsage = providerMetadata.codebuff
         .usage as OpenRouterUsageAccounting
-      cacheReadInputTokens =
-        openrouterUsage.promptTokensDetails?.cachedTokens ?? 0
-      inputTokens = openrouterUsage.promptTokens - cacheReadInputTokens
 
       costOverrideDollars =
         (openrouterUsage.cost ?? 0) +
@@ -359,8 +358,9 @@ export async function promptAiSdkStructured<T>(
 
   // Call the cost callback if provided
   if (params.onCostCalculated && costOverrideDollars) {
-    const creditsUsed = costOverrideDollars * (1 + PROFIT_MARGIN)
-    await params.onCostCalculated(creditsUsed)
+    await params.onCostCalculated(
+      calculateUsedCredits({ costDollars: costOverrideDollars }),
+    )
   }
 
   return content
