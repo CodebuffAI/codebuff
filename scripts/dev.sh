@@ -7,7 +7,7 @@ trap 'kill -TERM -$SERVER_PID 2>/dev/null; rm -f "$READY_FILE"; exit' EXIT INT T
 
 # Start the server in background
 echo "Starting server..."
-bun start-server 2>&1 | tee >(grep -m 1 "🚀 Server is running on port" > /dev/null && touch "$READY_FILE") &
+bun start-web 2>&1 | tee >(grep -m 1 "  - Local:        http://localhost:3000" > /dev/null && touch "$READY_FILE") &
 SERVER_PID=$!
 
 # Wait for the ready signal
