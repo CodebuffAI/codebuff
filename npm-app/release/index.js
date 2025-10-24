@@ -298,7 +298,8 @@ async function downloadBinary(version) {
 }
 
 async function ensureBinaryExists() {
-  if ((await getCurrentVersion()) !== null) {
+  const currentVersion = await getCurrentVersion()
+  if (currentVersion !== null && currentVersion !== 'error') {
     return
   }
 
