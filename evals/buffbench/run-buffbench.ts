@@ -12,7 +12,7 @@ import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { extractAgentLessons, saveAgentLessons } from './lessons-extractor'
 import { CodebuffClient } from '../../sdk/src/client'
-
+import { logger } from '../logger'
 import type { AgentEvalResults, EvalDataV2 } from './types'
 import { analyzeAllTasks } from './meta-analyzer'
 
@@ -245,6 +245,7 @@ export async function runBuffBench(options: {
   const client =
     options.client ??
     new CodebuffClient({
+      logger,
       apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
     })
 
