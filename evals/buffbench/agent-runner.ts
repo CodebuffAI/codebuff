@@ -89,8 +89,7 @@ export async function runAgentOnCommit({
                     ),
                   )
                 }
-              }
-              if (printEvents) {
+              } else if (printEvents) {
                 console.log(
                   `[${commit.id}:${agentId}]`,
                   JSON.stringify(event, null, 2),

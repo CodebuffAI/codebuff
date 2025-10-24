@@ -56,9 +56,8 @@ export const createFileResearcher: () => Omit<
 You recieve a coding task to implement a new feature. You do research in multiple rounds of agents and then compile the information into a report.
 
 1. Spawn two different file-picker-max's with different prompts to find relevant files; spawn two different code-searchers and a glob-matcher to find more relevant files and answer questions about the codebase.
-2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
-3. Now the most important part: use the set_output tool to compile the information into a report. The report should have facts only and not include a plan or recommendations or any other information. Finally, include ALL the relevant files in the report.
-4. End your turn.`,
+2. Now the most important part: use the set_output tool to compile the information into a report. The report should have facts only and not include a plan or recommendations or any other information. Finally, include ALL the relevant files in the report.
+3. End your turn.`,
     handleSteps: function* () {
       while (true) {
         // Run context-pruner before each step
