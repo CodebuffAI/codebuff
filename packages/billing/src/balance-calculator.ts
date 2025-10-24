@@ -3,7 +3,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { withSerializableTransaction } from '@codebuff/common/db/transaction'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
-import { failure, success } from '@codebuff/common/util/error'
+import { failure, getErrorObject, success } from '@codebuff/common/util/error'
 import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
 
 import type { GrantType } from '@codebuff/common/db/schema'
@@ -481,6 +481,10 @@ export async function consumeCreditsAndAddAgentStep(params: {
       }),
     )
   } catch (error) {
+    logger.error(
+      { error: getErrorObject(error) },
+      'Error consuming credits and adding agent step',
+    )
     return failure(error)
   }
 }
