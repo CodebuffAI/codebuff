@@ -75,6 +75,47 @@ base-lite "fix this bug"             # Works right away!
 - Run commands with `bun` instead of `npm` (e.g., `bun install` not `npm install`)
 - Use `bun run` for script execution
 
+## Git Workflow Best Practices
+
+### Interactive Git Commands
+
+**Always use tmux when running interactive git commands** (e.g., `git rebase --continue`, `git add -p`, `git commit --amend`).
+
+- Codebuff agents cannot interact with prompts that require user input
+- Interactive git commands will hang if run directly through the commander agent
+- Use tmux to provide an interactive session where the user can handle git prompts manually
+- For automated operations, prefer non-interactive git commands when possible (e.g., `git rebase --continue` after resolving conflicts programmatically)
+
+**Common Interactive Git Commands (require tmux):**
+- `git rebase --continue` - Continue rebase after resolving conflicts
+- `git rebase --skip` - Skip current commit during rebase
+- `git rebase --abort` - Abort rebase operation
+- `git rebase -i` / `git rebase --interactive` - Interactive rebase with editor
+- `git add -p` / `git add --patch` - Interactively stage hunks
+- `git add -i` / `git add --interactive` - Interactive staging
+- `git commit --amend` - Amend last commit (opens editor)
+- `git commit -v` / `git commit --verbose` - Commit with diff in editor
+- `git merge --continue` - Continue merge after resolving conflicts
+- `git merge --abort` - Abort merge operation
+- `git cherry-pick --continue` - Continue cherry-pick after conflicts
+- `git cherry-pick --abort` - Abort cherry-pick operation
+- `git stash save -p` - Interactively stash changes
+- `git checkout -p` - Interactively discard changes
+- `git reset -p` - Interactively unstage changes
+- `git clean -i` - Interactively clean untracked files
+- Any git command that opens an editor (commit messages, rebase todo list, etc.)
+
+**Example:**
+```bash
+# ❌ Bad: Will hang waiting for input
+git rebase --continue
+
+# ✅ Good: Run in tmux for manual interaction
+tmux new-session -d -s git-rebase
+tmux send-keys -t git-rebase 'git rebase --continue' C-m
+tmux attach -t git-rebase
+```
+
 ## TypeScript Build State Management
 
 ### Cleaning Build State
