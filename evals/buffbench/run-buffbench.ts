@@ -32,6 +32,7 @@ async function runTask(options: {
   }
   localAgentDefinitions: any[]
   extractLessons: boolean
+  printEvents: boolean
 }) {
   const {
     client,
@@ -45,6 +46,7 @@ async function runTask(options: {
     analyzerContext,
     localAgentDefinitions,
     extractLessons,
+    printEvents,
   } = options
 
   console.log(
@@ -62,6 +64,7 @@ async function runTask(options: {
       repoUrl,
       initCommand,
       localAgentDefinitions,
+      printEvents,
     })
 
     const judgeResult = await judgeCommitResult({
@@ -200,7 +203,13 @@ export async function runBuffBench(options: {
   taskIds?: string[]
   extractLessons?: boolean
 }) {
-  const { evalDataPath, agents, taskConcurrency = 1, taskIds, extractLessons = false } = options
+  const {
+    evalDataPath,
+    agents,
+    taskConcurrency = 1,
+    taskIds,
+    extractLessons = false,
+  } = options
 
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
@@ -262,7 +271,9 @@ export async function runBuffBench(options: {
 
   // Create logs directory with current date and time and agent IDs
   const date = new Date().toISOString().replace(/:/g, '-').slice(0, 16) // YYYY-MM-DDTHH-MM
-  const agentNames = agents.map(id => id.replace(/[^a-zA-Z0-9-]/g, '_')).join('_vs_')
+  const agentNames = agents
+    .map((id) => id.replace(/[^a-zA-Z0-9-]/g, '_'))
+    .join('_vs_')
   const logsDir = path.join(__dirname, 'logs', `${date}_${agentNames}`)
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true })
@@ -294,6 +305,7 @@ export async function runBuffBench(options: {
         analyzerContext,
         localAgentDefinitions: analyzerContext.agentDefinitions,
         extractLessons,
+        printEvents: agents.length === 1 && taskConcurrency === 1,
       }),
     ),
   )

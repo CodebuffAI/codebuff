@@ -20,6 +20,7 @@ export async function runAgentOnCommit({
   repoUrl,
   initCommand,
   localAgentDefinitions,
+  printEvents,
 }: {
   client: CodebuffClient
   agentId: string
@@ -27,6 +28,7 @@ export async function runAgentOnCommit({
   repoUrl: string
   initCommand?: string
   localAgentDefinitions: any[]
+  printEvents: boolean
 }): Promise<{
   diff: string
   contextFiles: Record<string, string>
@@ -87,6 +89,12 @@ export async function runAgentOnCommit({
                     ),
                   )
                 }
+              }
+              if (printEvents) {
+                console.log(
+                  `[${commit.id}:${agentId}]`,
+                  JSON.stringify(event, null, 2),
+                )
               }
               trace.push(event)
             },
