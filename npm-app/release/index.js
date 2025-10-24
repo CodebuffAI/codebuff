@@ -298,40 +298,42 @@ async function downloadBinary(version) {
 }
 
 async function ensureBinaryExists() {
-  if (!fs.existsSync(CONFIG.binaryPath)) {
-    const version = await getLatestVersion()
-    if (!version) {
-      if (isPrintMode) {
-        console.error(
-          JSON.stringify({
-            type: 'error',
-            message: 'Failed to determine latest version.',
-          }),
-        )
-      } else {
-        console.error('❌ Failed to determine latest version')
-        console.error('Please check your internet connection and try again')
-      }
-      process.exit(1)
-    }
+  if ((await getCurrentVersion()) !== null) {
+    return
+  }
 
-    try {
-      await downloadBinary(version)
-    } catch (error) {
-      term.clearLine()
-      if (isPrintMode) {
-        console.error(
-          JSON.stringify({
-            type: 'error',
-            message: `Failed to download codebuff: ${error.message}`,
-          }),
-        )
-      } else {
-        console.error('❌ Failed to download codebuff:', error.message)
-        console.error('Please check your internet connection and try again')
-      }
-      process.exit(1)
+  const version = await getLatestVersion()
+  if (!version) {
+    if (isPrintMode) {
+      console.error(
+        JSON.stringify({
+          type: 'error',
+          message: 'Failed to determine latest version.',
+        }),
+      )
+    } else {
+      console.error('❌ Failed to determine latest version')
+      console.error('Please check your internet connection and try again')
     }
+    process.exit(1)
+  }
+
+  try {
+    await downloadBinary(version)
+  } catch (error) {
+    term.clearLine()
+    if (isPrintMode) {
+      console.error(
+        JSON.stringify({
+          type: 'error',
+          message: `Failed to download codebuff: ${error.message}`,
+        }),
+      )
+    } else {
+      console.error('❌ Failed to download codebuff:', error.message)
+      console.error('Please check your internet connection and try again')
+    }
+    process.exit(1)
   }
 }
 
