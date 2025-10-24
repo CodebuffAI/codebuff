@@ -2,10 +2,10 @@ import { mkdirSync } from 'fs'
 import path from 'path'
 import { format } from 'util'
 
+import { splitData } from '@codebuff/common/util/split-data'
 import { env } from '@codebuff/internal'
 import pino from 'pino'
 
-import { splitData } from './split-data'
 import {
   getLoggerContext,
   withAppContext,
@@ -76,7 +76,10 @@ function splitAndLog(
   const availableDataLimit = MAX_LENGTH - BUFFER - formattedMsg.length
 
   // split data recursively into chunks small enough to log
-  const processedData: any[] = splitData({ data, maxChunkSize: availableDataLimit })
+  const processedData: any[] = splitData({
+    data,
+    maxChunkSize: availableDataLimit,
+  })
 
   if (processedData.length === 1) {
     pinoLogger[level](processedData[0], msg, ...args)
