@@ -37,7 +37,6 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
   }
 
   const urlParams = new URLSearchParams({
-    apiKey,
     fields: userColumns.join(','),
   })
   const url = new URL(`/api/v1/me?${urlParams}`, WEBSITE_URL)
