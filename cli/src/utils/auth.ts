@@ -1,12 +1,12 @@
 import fs from 'fs'
-import path from 'path'
 import os from 'os'
-import { z } from 'zod'
-import { validateAuth, WEBSITE_URL } from '@codebuff/sdk'
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import path from 'path'
 
-import { logger, loggerContext } from './logger'
-import { flushAnalytics } from './analytics'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { WEBSITE_URL } from '@codebuff/sdk'
+import { z } from 'zod'
+
+import { logger } from './logger'
 
 // User schema
 const userSchema = z.object({

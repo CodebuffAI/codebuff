@@ -26,7 +26,7 @@ const WEBSITE_URL =
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void
   theme: ChatTheme
-  hasInvalidCredentials?: boolean
+  hasInvalidCredentials?: boolean | null
 }
 
 // Codebuff ASCII Logo
