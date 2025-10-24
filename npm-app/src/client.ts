@@ -109,6 +109,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { User } from '@codebuff/common/util/credentials'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -701,7 +702,7 @@ export class Client {
             this.freshPrompt()
           }
         } catch (error) {
-          console.error('Error checking login status:', error)
+          console.error('Error checking login status:', getErrorObject(error))
           logger.error(
             {
               errorMessage:
@@ -714,7 +715,7 @@ export class Client {
         }
       }, 5000)
     } catch (error) {
-      console.error('Error during login:', error)
+      console.error('Error during login:', getErrorObject(error))
       logger.error(
         {
           errorMessage: error instanceof Error ? error.message : String(error),
