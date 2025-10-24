@@ -310,22 +310,25 @@ async function downloadBinary(version) {
 }
 
 async function ensureBinaryExists() {
-  if (!fs.existsSync(CONFIG.binaryPath)) {
-    const version = await getLatestVersion()
-    if (!version) {
-      console.error('❌ Failed to determine latest version')
-      console.error('Please check your internet connection and try again')
-      process.exit(1)
-    }
+  const currentVersion = await getCurrentVersion()
+  if (currentVersion !== null && currentVersion !== 'error') {
+    return
+  }
 
-    try {
-      await downloadBinary(version)
-    } catch (error) {
-      term.clearLine()
-      console.error('❌ Failed to download codecane:', error.message)
-      console.error('Please check your internet connection and try again')
-      process.exit(1)
-    }
+  const version = await getLatestVersion()
+  if (!version) {
+    console.error('❌ Failed to determine latest version')
+    console.error('Please check your internet connection and try again')
+    process.exit(1)
+  }
+
+  try {
+    await downloadBinary(version)
+  } catch (error) {
+    term.clearLine()
+    console.error('❌ Failed to download codecane:', error.message)
+    console.error('Please check your internet connection and try again')
+    process.exit(1)
   }
 }
 
