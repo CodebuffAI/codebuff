@@ -319,15 +319,15 @@ export const LoginModal = ({
   return (
     <box
       position="absolute"
-      left={Math.floor(terminalWidth * 0.1)}
-      top={Math.floor((renderer?.height || 24) * 0.15)}
+      left={Math.floor(terminalWidth * 0.05)}
+      top={Math.floor((renderer?.height || 24) * 0.1)}
       border
       borderStyle="double"
       borderColor={theme.statusAccent}
       style={{
-        width: Math.floor(terminalWidth * 0.8),
-        height: Math.floor((renderer?.height || 24) * 0.7),
-        maxHeight: Math.floor((renderer?.height || 24) * 0.7),
+        width: Math.floor(terminalWidth * 0.9),
+        height: Math.floor((renderer?.height || 24) * 0.8),
+        maxHeight: Math.floor((renderer?.height || 24) * 0.8),
         backgroundColor: theme.background,
         padding: 0,
         overflow: 'hidden',
