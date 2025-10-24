@@ -156,7 +156,7 @@ function sendAnalyticsAndLog(
 }
 
 function logAsErrorIfNeeded(toTrack: {
-  data: any
+  data?: any
   level: LogLevel
   loggerContext: LoggerContext
   msg: string
