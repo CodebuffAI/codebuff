@@ -1,6 +1,14 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 
@@ -125,7 +133,13 @@ interface MultilineInputProps {
   width: number
 }
 
-export function MultilineInput({
+export type MultilineInputHandle = {
+  focus: () => void
+}
+
+export const MultilineInput = forwardRef<MultilineInputHandle, MultilineInputProps>(
+  function MultilineInput(
+  {
   value,
   onChange,
   onSubmit,
@@ -135,9 +149,23 @@ export function MultilineInput({
   theme,
   width,
   onKeyIntercept,
-}: MultilineInputProps) {
+  }: MultilineInputProps,
+  forwardedRef,
+) {
   const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
   const [cursorPosition, setCursorPosition] = useState(value.length)
+  useImperativeHandle(
+    forwardedRef,
+    () => ({
+      focus: () => {
+        const node = scrollBoxRef.current
+        if (node && typeof (node as any).focus === 'function') {
+          ;(node as any).focus()
+        }
+      },
+    }),
+    [],
+  )
 
   // Sync cursor when value changes externally
   useEffect(() => {
@@ -656,4 +684,4 @@ export function MultilineInput({
       </text>
     </scrollbox>
   )
-}
+})

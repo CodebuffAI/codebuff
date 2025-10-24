@@ -1,7 +1,7 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback } from 'react'
 
-import type { InputRenderable } from '@opentui/core'
+type InputHandle = { focus: () => void }
 
 interface KeyboardHandlersConfig {
   isStreaming: boolean
@@ -10,7 +10,7 @@ interface KeyboardHandlersConfig {
   focusedAgentId: string | null
   setFocusedAgentId: (id: string | null) => void
   setInputFocused: (focused: boolean) => void
-  inputRef: React.MutableRefObject<InputRenderable | null>
+  inputRef: React.MutableRefObject<InputHandle | null>
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   navigateUp: () => void
   navigateDown: () => void

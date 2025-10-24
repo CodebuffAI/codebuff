@@ -5,7 +5,10 @@ import stringWidth from 'string-width'
 
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { LoginScreen } from './components/login-screen'
-import { MultilineInput } from './components/multiline-input'
+import {
+  MultilineInput,
+  type MultilineInputHandle,
+} from './components/multiline-input'
 import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
@@ -32,7 +35,7 @@ import type { User } from './utils/auth'
 import { logoutUser } from './utils/auth'
 
 import type { ToolName } from '@codebuff/sdk'
-import type { InputRenderable, ScrollBoxRenderable } from '@opentui/core'
+import type { ScrollBoxRenderable } from '@opentui/core'
 
 type ChatVariant = 'ai' | 'user' | 'agent'
 
@@ -95,9 +98,18 @@ export const App = ({
   const renderer = useRenderer()
   const { width: measuredWidth } = useTerminalDimensions()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const inputRef = useRef<InputRenderable | null>(null)
-  const terminalWidth = measuredWidth || renderer?.width || 80
-  const separatorWidth = Math.max(0, terminalWidth - 2)
+  const inputRef = useRef<MultilineInputHandle | null>(null)
+  const sanitizeDimension = (value: number | null | undefined): number | null => {
+    if (typeof value !== 'number') return null
+    if (!Number.isFinite(value) || value <= 0) return null
+    return value
+  }
+  const resolvedTerminalWidth =
+    sanitizeDimension(measuredWidth) ??
+    sanitizeDimension(renderer?.width) ??
+    80
+  const terminalWidth = resolvedTerminalWidth
+  const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
   const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]
@@ -124,11 +136,16 @@ export const App = ({
   }, [])
 
   // Handle successful login
-  const handleLoginSuccess = useCallback((loggedInUser: User) => {
-    setUser(loggedInUser)
-    setIsAuthenticated(true)
-    logger.info({ user: loggedInUser.name }, 'User logged in successfully')
-  }, [])
+  const handleLoginSuccess = useCallback(
+    (loggedInUser: User) => {
+      resetChatStore()
+      setInputFocused(true)
+      setUser(loggedInUser)
+      setIsAuthenticated(true)
+      logger.info({ user: loggedInUser.name }, 'User logged in successfully')
+    },
+    [resetChatStore, setInputFocused],
+  )
 
   const {
     inputValue,
@@ -153,6 +170,7 @@ export const App = ({
     setIsChainInProgress,
     agentMode,
     toggleAgentMode,
+    resetChatStore,
   } = useChatStore(
     useShallow((store) => ({
       inputValue: store.inputValue,
@@ -177,8 +195,38 @@ export const App = ({
       setIsChainInProgress: store.setIsChainInProgress,
       agentMode: store.agentMode,
       toggleAgentMode: store.toggleAgentMode,
+      resetChatStore: store.reset,
     })),
   )
+
+  const handleLoginSuccess = useCallback(
+    (loggedInUser: User) => {
+      resetChatStore()
+      setInputFocused(true)
+      setUser(loggedInUser)
+      setIsAuthenticated(true)
+      logger.info({ user: loggedInUser.name }, 'User logged in successfully')
+    },
+    [resetChatStore, setInputFocused],
+  )
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    setInputFocused(true)
+
+    const focusNow = () => {
+      const handle = inputRef.current
+      if (handle && typeof handle.focus === 'function') {
+        handle.focus()
+      }
+    }
+
+    focusNow()
+    const timeoutId = setTimeout(focusNow, 0)
+
+    return () => clearTimeout(timeoutId)
+  }, [isAuthenticated, setInputFocused])
 
   const agentToggleLabel = agentMode === 'FAST' ? 'FAST' : '💪 MAX'
   const agentTogglePadding = agentMode === 'FAST' ? 4 : 2 // paddingLeft + paddingRight inside the button
@@ -834,6 +882,7 @@ export const App = ({
               theme={theme}
               width={inputWidth}
               onKeyIntercept={handleSuggestionMenuKey}
+              ref={inputRef}
             />
           </box>
           <box
