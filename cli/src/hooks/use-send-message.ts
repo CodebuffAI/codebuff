@@ -546,7 +546,7 @@ export const useSendMessage = ({
               `SDK ${JSON.stringify(event.type)} Event received (raw)`,
             )
 
-            if (event.type === 'subagent-chunk') {
+            if (event.type === 'subagent_chunk') {
               const { agentId, chunk } = event
 
               const previous =

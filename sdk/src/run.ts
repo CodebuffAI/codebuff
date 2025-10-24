@@ -328,7 +328,7 @@ export async function run({
     const trimmed = pendingText.trim()
     if (trimmed) {
       await handleEvent?.({
-        type: 'subagent-chunk',
+        type: 'subagent_chunk',
         agentId,
         agentType,
         chunk: pendingText,
@@ -354,12 +354,11 @@ export async function run({
         await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
       }
     } else {
-      const chunkType = chunk.type as string
+      const chunkType = chunk.type 
 
       if (
         chunkType !== 'finish' &&
-        chunkType !== 'subagent_finish' &&
-        chunkType !== 'subagent-finish'
+        chunkType !== 'subagent_finish'
       ) {
         await emitPendingSection(ROOT_AGENT_KEY)
         const pendingAgentId = 'agentId' in chunk ? chunk.agentId : undefined
@@ -401,8 +400,7 @@ export async function run({
           )
         }
       } else if (
-        chunkType === 'subagent_finish' ||
-        chunkType === 'subagent-finish'
+        chunkType === 'subagent_finish'
       ) {
         const subagentId = 'agentId' in chunk ? chunk.agentId : undefined
         if (subagentId) {
@@ -432,7 +430,7 @@ export async function run({
 
     if (sanitized && handleEvent) {
       await handleEvent({
-        type: 'subagent-chunk',
+        type: 'subagent_chunk',
         agentId,
         agentType,
         chunk: sanitized,
