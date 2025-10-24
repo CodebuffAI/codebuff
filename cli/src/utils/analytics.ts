@@ -1,7 +1,5 @@
 import { PostHog } from 'posthog-node'
 
-import { suppressConsoleOutput } from './suppress-console'
-
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 // Prints the events to console
@@ -14,16 +12,6 @@ let currentUserId: string | undefined
 let client: PostHog | undefined
 
 export let identified: boolean = false
-
-// Apply console wrapping when PostHog is initialized
-function suppressPostHogConsoleErrors() {
-  suppressConsoleOutput('error', (args, errorName) =>
-    errorName.toLowerCase().includes('posthog'),
-  )
-  suppressConsoleOutput('warn', (args, errorName) =>
-    errorName.toLowerCase().includes('posthog'),
-  )
-}
 
 export function initAnalytics() {
   if (
@@ -40,9 +28,6 @@ export function initAnalytics() {
     enableExceptionAutocapture:
       process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod',
   })
-
-  // Suppress PostHog console errors after initialization
-  suppressPostHogConsoleErrors()
 }
 
 export async function flushAnalytics() {
