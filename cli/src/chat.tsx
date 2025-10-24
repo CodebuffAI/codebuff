@@ -1,6 +1,7 @@
-import { useRenderer } from '@opentui/react'
+import { useRenderer, useTerminalDimensions } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import stringWidth from 'string-width'
 
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { LoginScreen } from './components/login-screen'
@@ -91,8 +92,10 @@ export const App = ({
   hasInvalidCredentials: boolean | null
 }) => {
   const renderer = useRenderer()
+  const { width: terminalWidth } = useTerminalDimensions()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<InputRenderable | null>(null)
+  const separatorWidth = Math.max(0, terminalWidth - 2)
 
   const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]
@@ -171,6 +174,13 @@ export const App = ({
       toggleAgentMode: store.toggleAgentMode,
     })),
   )
+
+  const agentToggleLabel = agentMode === 'FAST' ? 'FAST' : '💪 MAX'
+  const agentTogglePadding = agentMode === 'FAST' ? 4 : 2 // paddingLeft + paddingRight inside the button
+  const agentToggleGap = 2 // paddingLeft on the container box next to the input
+  const estimatedToggleWidth =
+    agentTogglePadding + agentToggleGap + stringWidth(agentToggleLabel)
+  const inputWidth = Math.max(1, separatorWidth - estimatedToggleWidth)
 
   const activeAgentStreamsRef = useRef<number>(0)
   const isChainInProgressRef = useRef<boolean>(isChainInProgress)
@@ -614,7 +624,7 @@ export const App = ({
     messages,
     messageTree,
     topLevelMessages: virtualTopLevelMessages,
-    availableWidth: renderer?.width ?? 80,
+    availableWidth: separatorWidth,
     theme,
     markdownPalette,
     collapsedAgents,
@@ -733,14 +743,14 @@ export const App = ({
                   {' '}
                   {formatQueuedPreview(
                     queuedMessages,
-                    Math.max(30, renderer.width - 25),
+                    Math.max(30, terminalWidth - 25),
                   )}{' '}
                 </span>
               )}
             </text>
           </box>
         )}
-        <Separator theme={theme} width={renderer.width} />
+        <Separator theme={theme} width={separatorWidth} />
         {slashContext.active && slashSuggestionItems.length > 0 ? (
           <SuggestionMenu
             items={slashSuggestionItems}
@@ -761,33 +771,40 @@ export const App = ({
             prefix="@"
           />
         ) : null}
-        <MultilineInput
-          value={inputValue}
-          onChange={setInputValue}
-          onSubmit={handleSubmit}
-          placeholder="Share your thoughts and press Enter…"
-          focused={inputFocused}
-          maxHeight={5}
-          theme={theme}
-          width={renderer.width}
-          onKeyIntercept={handleSuggestionMenuKey}
-        />
-        <Separator theme={theme} width={renderer.width} />
         <box
           style={{
             flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
+            alignItems: 'flex-start',
             width: '100%',
-            paddingTop: 1,
           }}
         >
-          <AgentModeToggle
-            mode={agentMode}
-            theme={theme}
-            onToggle={toggleAgentMode}
-          />
+          <box style={{ flexGrow: 1 }}>
+            <MultilineInput
+              value={inputValue}
+              onChange={setInputValue}
+              onSubmit={handleSubmit}
+              placeholder="Share your thoughts and press Enter…"
+              focused={inputFocused}
+              maxHeight={5}
+              theme={theme}
+              width={inputWidth}
+              onKeyIntercept={handleSuggestionMenuKey}
+            />
+          </box>
+          <box
+            style={{
+              flexShrink: 0,
+              paddingLeft: 2,
+            }}
+          >
+            <AgentModeToggle
+              mode={agentMode}
+              theme={theme}
+              onToggle={toggleAgentMode}
+            />
+          </box>
         </box>
+        <Separator theme={theme} width={separatorWidth} />
       </box>
     </box>
   )

@@ -40,6 +40,7 @@
     "open": "^10.1.0",
     "pino": "9.4.0",
     "posthog-node": "4.17.2",
+    "string-width": "^7.2.0",
     "react": "^19.0.0",
     "react-reconciler": "^0.32.0",
     "remark-parse": "^11.0.0",
