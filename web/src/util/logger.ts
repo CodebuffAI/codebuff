@@ -11,11 +11,36 @@ const MAX_LENGTH = 65535 // Max total log size is sometimes 100k (sometimes 6553
 const BUFFER = 1000 // Buffer for context, etc.
 
 // Ensure debug directory exists for local environment
-const debugDir = path.join(__dirname, '../../../debug')
-if (
+let debugDir: string | null | undefined
+function getDebugDir(): string | null {
+  if (debugDir !== undefined) {
+    return debugDir
+  }
+  debugDir = __dirname
+  while (true) {
+    if (fs.existsSync(path.join(debugDir, '.git'))) {
+      break
+    }
+    const parent = path.dirname(debugDir)
+    if (parent === debugDir) {
+      debugDir = null
+      console.error('Failed to find git root directory for logger')
+      break
+    }
+  }
+
+  return debugDir
+}
+
+setLocalDebugDir: if (
   env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
   process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
 ) {
+  const debugDir = getDebugDir()
+  if (!debugDir) {
+    break setLocalDebugDir
+  }
+
   try {
     fs.mkdirSync(debugDir, { recursive: true })
   } catch (err) {
@@ -33,8 +58,7 @@ const pinoLogger = pino(
     },
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
-    process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
+  debugDir
     ? pino.transport({
         target: 'pino/file',
         options: {
