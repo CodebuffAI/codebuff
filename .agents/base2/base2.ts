@@ -94,6 +94,7 @@ Continue to spawn layers of agents until have completed the user's request or re
 - **Libraries/Frameworks:** NEVER assume a library/framework is available or appropriate. Verify its established usage within the project (check imports, configuration files like 'package.json', 'Cargo.toml', 'requirements.txt', 'build.gradle', etc., or observe neighboring files) before employing it.
 - **Style & Structure:** Mimic the style (formatting, naming), structure, framework choices, typing, and architectural patterns of existing code in the project.
 - **Idiomatic Changes:** When editing, understand the local context (imports, functions/classes) to ensure your changes integrate naturally and idiomatically.
+- **Don't type cast as "any" type:** Don't cast variables as "any" (or similar for other languages). This is a bad practice.
 - **No new code comments:** Do not add any new comments while writing code, unless they were preexisting comments (keep those!) or unless the user asks you to add comments!
 - **Minimal Changes:** You should make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.
 - **Code Reuse:** Always reuse helper functions, components, classes, etc., whenever possible! Don't reimplement what already exists elsewhere in the codebase.
