@@ -4,10 +4,7 @@ import {
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
 import { getAgentTemplate } from './agent-registry'
-import {
-  PLACEHOLDER,
-  placeholderValues,
-} from './types'
+import { PLACEHOLDER, placeholderValues } from './types'
 import { parseUserMessage } from '../util/messages'
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { escapeString } from '@codebuff/common/util/string'
@@ -21,10 +18,7 @@ import {
   getToolsInstructions,
 } from '../tools/prompts'
 
-import type {
-  AgentTemplate,
-  PlaceholderValue,
-} from './types'
+import type { AgentTemplate, PlaceholderValue } from './types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {
@@ -229,21 +223,24 @@ export async function getAgentPrompt<T extends StringField>(
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
+    const hasTools = agentTemplate.toolNames.length > 0
     const toolsInstructions = agentTemplate.inheritParentSystemPrompt
       ? fullToolList(agentTemplate.toolNames, await additionalToolDefinitions())
       : getShortToolInstructions(
           agentTemplate.toolNames,
           await additionalToolDefinitions(),
         )
+    const hasSpawnableAgents = agentTemplate.spawnableAgents.length > 0
     addendum +=
-      '\n\n' +
-      toolsInstructions +
-      '\n\n' +
-      (await buildSpawnableAgentsDescription({
-        ...params,
-        spawnableAgents: agentTemplate.spawnableAgents,
-        agentTemplates,
-      }))
+      (hasTools ? '\n\n' + toolsInstructions : '') +
+      (hasSpawnableAgents
+        ? '\n\n' +
+          (await buildSpawnableAgentsDescription({
+            ...params,
+            spawnableAgents: agentTemplate.spawnableAgents,
+            agentTemplates,
+          }))
+        : '')
 
     const parentInstructions = await collectParentInstructions({
       agentType: agentState.agentType,
