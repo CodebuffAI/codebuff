@@ -159,12 +159,21 @@ export async function run({
       return
     }
 
-    const { buffer: newBuffer } = await filterXml({
-      chunk,
-      buffer: buffers[0],
-      omit: handleStreamChunk ?? (() => {}),
-    })
-    buffers[0] = newBuffer
+    if (handleStreamChunk) {
+      const stream = filterXml({
+        chunk,
+        buffer: buffers[0],
+      })
+      while (true) {
+        const { value, done } = stream.next()
+        if (done) {
+          buffers[0] = value.buffer
+          break
+        }
+
+        await handleStreamChunk(value.chunk)
+      }
+    }
   }
   const onSubagentResponseChunk = async (
     action: ServerAction<'subagent-response-chunk'>,
@@ -172,19 +181,25 @@ export async function run({
     checkAborted(signal)
     const { agentId, agentType, chunk } = action
 
-    const { buffer: newBuffer } = await filterXml({
-      chunk,
-      buffer: buffers[agentId] ?? '',
-      omit: async (chunk) => {
-        await handleStreamChunk?.({
+    if (handleStreamChunk) {
+      const stream = filterXml({
+        chunk,
+        buffer: buffers[agentId] ?? '',
+      })
+      while (true) {
+        const { value, done } = stream.next()
+        if (done) {
+          buffers[agentId] = value.buffer
+          break
+        }
+        await handleStreamChunk({
           type: 'subagent_chunk',
           agentId,
           agentType,
-          chunk,
+          chunk: value.chunk,
         })
-      },
-    })
-    buffers[agentId] = newBuffer
+      }
+    }
   }
 
   const agentRuntimeImpl = getAgentRuntimeImpl({
