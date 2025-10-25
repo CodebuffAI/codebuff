@@ -239,7 +239,7 @@ export interface AgentStepContext {
 export type ToolCall<T extends ToolName = ToolName> = {
   [K in T]: {
     toolName: K
-    input: Tools.GetToolParams<K>
+    input: GetToolParams<K>
     includeToolCall?: boolean
   }
 }[T]
@@ -338,9 +338,7 @@ export type ModelName =
   | 'z-ai/glm-4.6:nitro'
   | (string & {})
 
-export type { Tools }
-
-import type * as Tools from './tools'
+import type { ToolName, GetToolParams } from './tools'
 import type {
   Message,
   ToolResultOutput,
@@ -348,4 +346,5 @@ import type {
   MCPConfig,
   Logger,
 } from './util-types'
-type ToolName = Tools.ToolName
+
+export type { ToolName, GetToolParams }

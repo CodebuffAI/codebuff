@@ -59,7 +59,7 @@ export interface AddMessageParams {
 export interface CodeSearchParams {
   /** The pattern to search for. */
   pattern: string
-  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, --no-ignore to include files in ignored by .gitignore).
+  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts -t js" for TypeScript and JavaScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not py" to exclude Python files). */
   flags?: string
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
@@ -91,7 +91,7 @@ export interface GlobParams {
 }
 
 /**
- * List files and directories in the specified path. Returns information about each entry including name, type, size, and modification time.
+ * List files and directories in the specified path. Returns separate arrays of file names and directory names.
  */
 export interface ListDirectoryParams {
   /** Directory path to list, relative to the project root. */
