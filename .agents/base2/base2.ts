@@ -43,6 +43,7 @@ export const createBase2: (
       'write_file',
     ),
     spawnableAgents: buildArray(
+      'file-researcher',
       'file-picker-max',
       'code-searcher',
       'directory-lister',
@@ -132,10 +133,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn a couple different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
-1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
-2a. Read all the relevant files using the read_files tool.
+1. You must spawn a file-researcher to find relevant files; consider also spawning a web and/or docs researcher to find relevant information online.
+2. Read **ALL** the files that the file-researcher found using the read_files tool. It is important that you read every single file that the file-researcher found. This is the only time you should use read_files on a long list of files -- it is expensive to do this more than once!
+2.5. Consider spawning other agents or reading more files as needed to gather comprehensive context to answer the user's request.
 ${
   isFast
     ? `3. Write out your implementation plan as a bullet point list.
