@@ -92,6 +92,9 @@ export class CodebuffRunner implements Runner {
         }
       },
       handleStreamChunk: (chunk) => {
+        if (typeof chunk !== 'string') {
+          return
+        }
         process.stdout.write(chunk)
       },
       maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
