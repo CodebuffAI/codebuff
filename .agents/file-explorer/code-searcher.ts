@@ -1,3 +1,4 @@
+import { JSONValue } from 'types/util-types'
 import { publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
@@ -51,18 +52,19 @@ const codeSearcher: SecretAgentDefinition = {
     'Mechanically runs multiple code search queries (using ripgrep line-oriented search) and returns all results',
   model: 'anthropic/claude-sonnet-4.5',
   publisher,
-  outputMode: 'all_messages',
   includeMessageHistory: false,
-  toolNames: ['code_search'],
+  toolNames: ['code_search', 'set_output'],
   spawnableAgents: [],
   inputSchema: {
     params: paramsSchema,
   },
+  outputMode: 'structured_output',
   handleSteps: function* ({ params }) {
     const searchQueries: SearchQuery[] = params?.searchQueries ?? []
 
+    const toolResults: JSONValue[] = []
     for (const query of searchQueries) {
-      yield {
+      const { toolResult } = yield {
         toolName: 'code_search',
         input: {
           pattern: query.pattern,
@@ -71,6 +73,20 @@ const codeSearcher: SecretAgentDefinition = {
           maxResults: query.maxResults,
         },
       }
+      if (toolResult) {
+        toolResults.push(
+          ...toolResult
+            .filter((result) => result.type === 'json')
+            .map((result) => result.value),
+        )
+      }
+    }
+
+    yield {
+      toolName: 'set_output',
+      input: {
+        results: toolResults,
+      },
     }
   },
 }

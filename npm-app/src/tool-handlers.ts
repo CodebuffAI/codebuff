@@ -10,6 +10,7 @@ import {
   getProjectFileTree,
 } from '@codebuff/common/project-file-tree'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
+import { formatCodeSearchOutput } from '@codebuff/common/util/format-code-search'
 import micromatch from 'micromatch'
 import { cyan, green, red, yellow } from 'picocolors'
 
@@ -371,9 +372,10 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
         }
       }
 
-      const previewResults = limitedLines.slice(0, 3)
-      if (previewResults.length > 0) {
-        console.log(previewResults.join('\n'))
+      const previewResults = limitedLines.slice(0, 3).join('\n')
+      if (previewResults) {
+        const formattedPreview = formatCodeSearchOutput(previewResults)
+        console.log(formattedPreview)
         if (limitedLines.length > 3) {
           console.log('...')
         }
@@ -408,7 +410,7 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
         limitedStdout += `\n\n[${truncationMessages.join('\n\n')}]`
       }
 
-      const finalStdout = limitedStdout
+      const finalStdout = formatCodeSearchOutput(limitedStdout)
 
       const truncatedStdout = truncateStringWithMessage({
         str: finalStdout,
@@ -421,8 +423,7 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
       const result = {
         stdout: truncatedStdout,
         ...(truncatedStderr && { stderr: truncatedStderr }),
-        ...(code !== null && { exitCode: code }),
-        message: 'Code search completed',
+        message: code !== null ? `Exit code: ${code}` : '',
       }
       resolve([
         {

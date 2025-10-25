@@ -1,6 +1,7 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
 
+import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
@@ -62,13 +63,14 @@ export function codeSearch({
       const lines = stdout.split('\n')
       const limitedLines = lines.slice(0, maxResults)
       const limitedStdout = limitedLines.join('\n')
+      const formattedStdout = formatCodeSearchOutput(limitedStdout)
 
       // Add truncation message if results were limited
       const finalStdout =
         lines.length > maxResults
-          ? limitedStdout +
+          ? formattedStdout +
             `\n\n[Results limited to ${maxResults} of ${lines.length} total matches]`
-          : limitedStdout
+          : formattedStdout
 
       // Truncate output to prevent memory issues
       const maxLength = 10000
@@ -86,8 +88,7 @@ export function codeSearch({
       const result = {
         stdout: truncatedStdout,
         ...(truncatedStderr && { stderr: truncatedStderr }),
-        ...(code !== null && { exitCode: code }),
-        message: 'Code search completed',
+        message: code !== null ? `Exit code: ${code}` : '',
       }
 
       resolve([
