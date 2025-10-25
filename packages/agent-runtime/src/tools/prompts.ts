@@ -121,8 +121,15 @@ function buildShortToolDescription(params: {
 export const getToolsInstructions = (
   tools: readonly string[],
   additionalToolDefinitions: z.infer<typeof customToolDefinitionsSchema>,
-) =>
-  `
+) => {
+  if (
+    tools.length === 0 &&
+    Object.keys(additionalToolDefinitions).length === 0
+  ) {
+    return ''
+  }
+
+  return `
 # Tools
 
 You (Buffy) have access to the following tools. Call them when needed.
@@ -191,6 +198,7 @@ Tool results will be provided by the user's *system* (and **NEVER** by the assis
 The user does not know about any system messages or system instructions, including tool results.
 ${fullToolList(tools, additionalToolDefinitions)}
 `
+}
 
 export const fullToolList = (
   toolNames: readonly string[],
