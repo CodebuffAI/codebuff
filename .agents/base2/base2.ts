@@ -7,11 +7,10 @@ import {
 } from '../types/secret-agent-definition'
 
 export const createBase2: (
-  mode: 'fast' | 'max' | 'fast-with-validation',
+  mode: 'fast' | 'max',
 ) => Omit<SecretAgentDefinition, 'id'> = (mode) => {
-  const isFast = mode === 'fast' || mode === 'fast-with-validation'
+  const isFast = mode === 'fast'
   const isMax = mode === 'max'
-  const isFastWithValidation = mode === 'fast-with-validation'
   return {
     publisher,
     model: 'anthropic/claude-sonnet-4.5',
@@ -140,13 +139,12 @@ The user asks you to implement a new feature. You respond in multiple steps:
 ${
   isFast
     ? `3. Write out your implementation plan as a bullet point list.
-4. Use the str_replace or write_file tool to make the changes.
-${isFastWithValidation ? '5. Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.\n' : ''}`
-    : `3. IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.
-4. Fix any issues left by the base2-gpt-5-worker agent.`
+4. Use the str_replace or write_file tool to make the changes.`
+    : `3. IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.`
 }
-${isFastWithValidation ? '6' : '5'}. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context,${isMax ? ' the base2-gpt-5-worker agent to do the planning and editing,' : ''}. After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files, unless asked by the user. Then, end your turn.`,
+${isFast ? '5' : '4'}. Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.
+${isFast ? '6' : '5'}. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context${isMax ? ', and the base2-gpt-5-worker agent to do the planning and editing' : ''}. After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files, unless asked by the user. Then, end your turn.`,
     handleSteps: function* ({ params }) {
       let steps = 0
       while (true) {
