@@ -48,7 +48,6 @@ export const createTaskResearcher2: () => Omit<
       'researcher-web',
       'researcher-docs',
       'commander',
-      'decomposing-thinker',
       'context-pruner',
     ),
 
@@ -61,10 +60,9 @@ You recieve a coding task to implement a new feature. You do research in multipl
 1. Spawn a couple different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
-3. Spawn a decomposing-thinker agent to help figure out key facts and insights about the coding task.
-4. Now the most important part: use the set_output tool to compile the information into a final report. Include **ALL** the relevant files in the report so we can have comprehensive context to answer the user's request.
+3. Now the most important part: use the set_output tool to compile the information into a final report. Include **ALL** the relevant files in the report so we can have comprehensive context to answer the user's request.
 Important: the report should only include the analysis of the coding task, key facts, and insights. It should not include a step-by-step implementation plan or recommendations or any other opinion.
-5. End your turn.
+4. End your turn.
 `,
 
     stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max, code-searcher, glob-matcher, researcher-web, researcher-docs, and the decomposing-thinker agent to help figure out key facts and insights.`,

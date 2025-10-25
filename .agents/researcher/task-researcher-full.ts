@@ -1,23 +1,26 @@
 import { createTaskResearcher } from './task-researcher'
 
-const definition = { ...createTaskResearcher(), id: 'task-researcher-full',
-    outputSchema: {
-      type: 'object',
-      properties: {
-        report: {
-          type: 'string',
-          description: 'An analysis of the coding task, the cruxes of it, relevant information from web and docs (if relevant), and the key facts and insights about the coding task. Do not include opinions, plans, or recommendations. The research report should be just the facts.',
-        },
-        relevantFiles: {
-          type: 'array',
-          items: { type: 'string' },
-          description:
-            'A comprehensive list of the paths of files that are relevant to the coding task.',
-        },
+const definition = {
+  ...createTaskResearcher(),
+  id: 'task-researcher-full',
+  outputSchema: {
+    type: 'object',
+    properties: {
+      report: {
+        type: 'string',
+        description:
+          'An analysis of the coding task, the cruxes of it, relevant information from web and docs (if relevant), and the key facts and insights about the coding task. Do not include opinions, plans, or recommendations. The research report should be just the facts.',
       },
-      required: ['analysis', 'keyFacts', 'relevantFiles'],
+      relevantFiles: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'A comprehensive list of the paths of files that are relevant to the coding task.',
+      },
     },
-    instructionsPrompt: `Research the coding task and create a report. Take your time and be comprehensive.
+    required: ['analysis', 'keyFacts', 'relevantFiles'],
+  },
+  instructionsPrompt: `Research the coding task and create a report. Take your time and be comprehensive.
     
 ## Example workflow
 
@@ -27,13 +30,9 @@ You recieve a coding task to implement a new feature. You do research in multipl
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
-3. Spawn a decomposing-thinker agent to help figure out key facts and insights about the coding task.
-3a. Read any remaining relevant files using the read_files tool.
-4. Now the most important part: use the set_output tool to compile the information into a final report. Give a comprehensive, facts-only report of all the useful information you've gathered. Finally, include ALL the relevant files in the report.
+3. Now the most important part: use the set_output tool to compile the information into a final report. Give a comprehensive, facts-only report of all the useful information you've gathered. Finally, include ALL the relevant files in the report.
 Important: the report should not include a plan or recommendations or any other opinion.
-5. End your turn.
+4. End your turn.
 `,
-
-
- }
+}
 export default definition

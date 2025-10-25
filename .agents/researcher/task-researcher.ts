@@ -56,7 +56,6 @@ export const createTaskResearcher: () => Omit<
       'researcher-web',
       'researcher-docs',
       'commander',
-      'decomposing-thinker',
       'context-pruner',
     ),
 
@@ -83,8 +82,6 @@ You recieve a coding task to implement a new feature. You do research in multipl
 1a. Read all the relevant files using the read_files tool.
 2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
-3. Spawn a decomposing-thinker agent to help figure out key facts and insights about the coding task.
-3a. Read any remaining relevant files using the read_files tool.
 4. Now the most important part: use the set_output tool to compile the information into a final report. Start with the analysis, and then put the most effort into the key facts list, which should be comprehensive. Finally, include ALL the relevant files in the report.
 Important: the report should only include the analysis, key facts, and relevant files. It should not include a plan or recommendations or any other information.
 5. End your turn.
