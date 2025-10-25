@@ -216,7 +216,7 @@ export async function getAgentPrompt<T extends StringField>(
 
   let addendum = ''
 
-  if (promptType.type === 'stepPrompt' && agentState.agentType) {
+  if (promptType.type === 'stepPrompt' && agentState.agentType && prompt) {
     // Put step prompt within a system_reminder tag so agent doesn't think the user just spoke again.
     prompt = `<system_reminder>${prompt}</system_reminder>`
   }
