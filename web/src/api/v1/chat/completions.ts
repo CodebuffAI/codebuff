@@ -41,7 +41,7 @@ export async function chatCompletionsPost(params: {
 
   try {
     // Parse request body
-    let body: unknown
+    let body: {}
     try {
       body = await req.json()
     } catch (error) {
@@ -58,6 +58,9 @@ export async function chatCompletionsPost(params: {
         { status: 400 },
       )
     }
+
+    const bodyStream = 'stream' in body && body.stream
+    const runId = (body as any)?.codebuff_metadata?.run_id
 
     // Extract and validate API key
     const apiKey = extractApiKeyFromHeader(req)
@@ -101,8 +104,8 @@ export async function chatCompletionsPost(params: {
       event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
       userId,
       properties: {
-        hasStream: !!(body as any).stream,
-        hasRunId: !!(body as any).codebuff_metadata?.run_id,
+        hasStream: !!bodyStream,
+        hasRunId: !!runId,
       },
       logger,
     })
@@ -191,7 +194,7 @@ export async function chatCompletionsPost(params: {
 
     // Handle streaming vs non-streaming
     try {
-      if ((body as any).stream) {
+      if (bodyStream) {
         // Streaming request
         const stream = await handleOpenRouterStream({
           body,
@@ -252,7 +255,7 @@ export async function chatCompletionsPost(params: {
         properties: {
           error: error instanceof Error ? error.message : 'Unknown error',
           agentId,
-          streaming: (body as any).stream,
+          streaming: bodyStream,
         },
         logger,
       })
