@@ -14,6 +14,9 @@
  * @returns Formatted output with matches grouped by file
  */
 export function formatCodeSearchOutput(stdout: string): string {
+  if (!stdout) {
+    return 'No results'
+  }
   const lines = stdout.split('\n')
   const formatted: string[] = []
   let currentFile: string | null = null
