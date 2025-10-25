@@ -12,11 +12,7 @@ import { cloneDeep } from 'lodash'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
-import { stripToolCallPayloads } from './tool-xml-buffer'
-import {
-  createToolXmlFilterState,
-  filterToolXmlFromText,
-} from './tool-xml-filter'
+import { filterXml } from './tool-xml-filter'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
@@ -26,7 +22,6 @@ import { runTerminalCommand } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
-import type { ToolXmlFilterState } from './tool-xml-filter'
 import type { WebSocketHandler } from './websocket-client'
 import type { ServerAction } from '../../common/src/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
@@ -60,7 +55,16 @@ export type CodebuffClientOptions = {
   maxAgentSteps?: number
 
   handleEvent?: (event: PrintModeEvent) => void | Promise<void>
-  handleStreamChunk?: (chunk: string) => void | Promise<void>
+  handleStreamChunk?: (
+    chunk:
+      | string
+      | {
+          type: 'subagent_chunk'
+          agentId: string
+          agentType: string
+          chunk: string
+        },
+  ) => void | Promise<void>
 
   overrideTools?: Partial<
     {
@@ -87,6 +91,14 @@ export type RunOptions = {
   previousRun?: RunState
   extraToolResults?: ToolResultPart[]
   signal?: AbortSignal
+}
+
+function checkAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    const error = new Error('Run cancelled by user')
+    error.name = 'AbortError'
+    throw error
+  }
 }
 
 type RunReturnType = Awaited<ReturnType<typeof run>>
@@ -120,300 +132,39 @@ export async function run({
     apiKey: string
     fingerprintId: string
   }): Promise<RunState> {
-  const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
   checkAborted(signal)
-  async function onError(error: { message: string }) {
-    if (handleEvent) {
-      await handleEvent({ type: 'error', message: error.message })
-    }
-  }
 
-  function checkAborted(signal?: AbortSignal) {
-    if (signal?.aborted) {
-      const error = new Error('Run cancelled by user')
-      error.name = 'AbortError'
-      throw error
-    }
-  }
+  const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
 
   let resolve: (value: RunReturnType) => any = () => {}
   const promise = new Promise<RunReturnType>((res) => {
     resolve = res
   })
 
-  const BUFFER_SIZE = 100
-  const MAX_TOOL_XML_BUFFER = BUFFER_SIZE * 10
-  const ROOT_AGENT_KEY = '__root__'
-
-  const streamFilterState = createToolXmlFilterState()
-  const textAccumulator = new Map<string, string>()
-  const lastStreamedTextByAgent = new Map<string, string>()
-  const sectionStartIndexByAgent = new Map<string, number>()
-
-  const subagentFilterStates = new Map<string, ToolXmlFilterState>()
-
-  const getSubagentFilterState = (agentId: string): ToolXmlFilterState => {
-    let state = subagentFilterStates.get(agentId)
-    if (!state) {
-      state = createToolXmlFilterState()
-      subagentFilterStates.set(agentId, state)
-    }
-    return state
-  }
-
-  const getCommonPrefixLength = (a: string, b: string): number => {
-    const max = Math.min(a.length, b.length)
-    let index = 0
-    while (index < max && a[index] === b[index]) {
-      index++
-    }
-    return index
-  }
-
-  const accumulateText = (agentKey: string, incoming: string): string => {
-    if (!incoming) {
-      return textAccumulator.get(agentKey) ?? ''
-    }
-
-    const previous = textAccumulator.get(agentKey) ?? ''
-    let next: string
-
-    if (!previous) {
-      next = incoming
-    } else if (incoming.startsWith(previous)) {
-      next = incoming
-    } else if (previous.startsWith(incoming)) {
-      next = incoming
-      sectionStartIndexByAgent.set(agentKey, 0)
-    } else if (
-      incoming.length >= previous.length &&
-      incoming.includes(previous)
-    ) {
-      next = incoming
-    } else {
-      next = previous + incoming
-    }
-
-    const sanitizedNext = stripToolCallPayloads(next)
-
-    textAccumulator.set(agentKey, sanitizedNext)
-    return sanitizedNext
-  }
-
-  const emitStreamDelta = async (
-    agentKey: string,
-    nextFullText: string,
-  ): Promise<void> => {
-    const previous = lastStreamedTextByAgent.get(agentKey) ?? ''
-
-    if (nextFullText === previous) {
-      return
-    }
-
-    let delta = ''
-
-    if (nextFullText.startsWith(previous)) {
-      delta = nextFullText.slice(previous.length)
-    } else if (previous.startsWith(nextFullText)) {
-      delta = ''
-    } else {
-      const prefixLength = getCommonPrefixLength(previous, nextFullText)
-      delta = nextFullText.slice(prefixLength)
-    }
-
-    if (delta) {
-      await handleStreamChunk?.(delta)
-    }
-
-    lastStreamedTextByAgent.set(agentKey, nextFullText)
-  }
-
-  const resolveAgentId = (
-    agentKey: string,
-    agentIdHint?: string | null,
-  ): string | undefined =>
-    agentIdHint ?? (agentKey === ROOT_AGENT_KEY ? undefined : agentKey)
-
-  const ensureSectionStart = (agentKey: string): number => {
-    if (!sectionStartIndexByAgent.has(agentKey)) {
-      const currentLength = textAccumulator.get(agentKey)?.length ?? 0
-      sectionStartIndexByAgent.set(agentKey, currentLength)
-      return currentLength
-    }
-    return sectionStartIndexByAgent.get(agentKey) ?? 0
-  }
-
-  const emitTextSection = async (
-    agentKey: string,
-    text: string,
-    agentIdHint?: string | null,
-  ): Promise<void> => {
-    if (!text) {
-      return
-    }
-
-    const trimmedText = text.trim()
-    if (!trimmedText) {
-      return
-    }
-
-    const eventAgentId = resolveAgentId(agentKey, agentIdHint)
-
-    const eventPayload = {
-      type: 'text',
-      text: trimmedText,
-    } as PrintModeEvent
-
-    if (eventAgentId) {
-      const eventWithAgent = eventPayload as { agentId?: string }
-      eventWithAgent.agentId = eventAgentId
-    }
-
-    await handleEvent?.(eventPayload)
-  }
-
-  const emitPendingSection = async (
-    agentKey: string,
-    agentIdHint?: string | null,
-  ): Promise<void> => {
-    const fullText = textAccumulator.get(agentKey) ?? ''
-    const startIndex = sectionStartIndexByAgent.get(agentKey) ?? fullText.length
-
-    if (startIndex >= fullText.length) {
-      return
-    }
-
-    const sectionText = fullText.slice(startIndex)
-    await emitTextSection(agentKey, sectionText, agentIdHint)
-    sectionStartIndexByAgent.set(agentKey, fullText.length)
-  }
-
-  const flushTextState = async (
-    agentKey: string,
-    eventAgentId?: string,
-  ): Promise<void> => {
-    ensureSectionStart(agentKey)
-
-    const nextFullText = textAccumulator.get(agentKey) ?? ''
-    if (agentKey === ROOT_AGENT_KEY && nextFullText) {
-      await emitStreamDelta(agentKey, nextFullText)
-    }
-
-    await emitPendingSection(agentKey, eventAgentId)
-
-    textAccumulator.delete(agentKey)
-    lastStreamedTextByAgent.delete(agentKey)
-    sectionStartIndexByAgent.delete(agentKey)
-  }
-
-  const flushSubagentState = async (
-    agentId: string,
-    agentType?: string,
-  ): Promise<void> => {
-    const state = subagentFilterStates.get(agentId)
-    if (!state) {
-      return
-    }
-
-    const { text: pendingText } = filterToolXmlFromText(
-      state,
-      '',
-      MAX_TOOL_XML_BUFFER,
-    )
-
-    subagentFilterStates.delete(agentId)
-    state.buffer = ''
-    state.activeTag = null
-
-    const trimmed = pendingText.trim()
-    if (trimmed) {
-      await handleEvent?.({
-        type: 'subagent_chunk',
-        agentId,
-        agentType,
-        chunk: pendingText,
-      } as any)
+  async function onError(error: { message: string }) {
+    if (handleEvent) {
+      await handleEvent({ type: 'error', message: error.message })
     }
   }
+
+  const buffers: Record<string | 0, string> = { 0: '' }
 
   const onResponseChunk = async (
     action: ServerAction<'response-chunk'>,
   ): Promise<void> => {
     checkAborted(signal)
     const { chunk } = action
-    if (typeof chunk === 'string') {
-      ensureSectionStart(ROOT_AGENT_KEY)
-      const { text: sanitized } = filterToolXmlFromText(
-        streamFilterState,
-        chunk,
-        MAX_TOOL_XML_BUFFER,
-      )
-
-      if (sanitized) {
-        const nextFullText = accumulateText(ROOT_AGENT_KEY, sanitized)
-        await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
-      }
-    } else {
-      const chunkType = chunk.type 
-
-      if (
-        chunkType !== 'finish' &&
-        chunkType !== 'subagent_finish'
-      ) {
-        await emitPendingSection(ROOT_AGENT_KEY)
-        const pendingAgentId = 'agentId' in chunk ? chunk.agentId : undefined
-        if (pendingAgentId && pendingAgentId !== ROOT_AGENT_KEY) {
-          await emitPendingSection(pendingAgentId, pendingAgentId)
-        }
-      }
-
-      if (chunkType === 'finish') {
-        const { text: streamTail } = filterToolXmlFromText(
-          streamFilterState,
-          '',
-          MAX_TOOL_XML_BUFFER,
-        )
-        let remainder = streamTail
-
-        if (
-          streamFilterState.buffer &&
-          !streamFilterState.buffer.includes('<')
-        ) {
-          remainder += streamFilterState.buffer
-        }
-        streamFilterState.buffer = ''
-        streamFilterState.activeTag = null
-
-        if (remainder) {
-          const nextFullText = accumulateText(ROOT_AGENT_KEY, remainder)
-          await emitStreamDelta(ROOT_AGENT_KEY, nextFullText)
-        }
-
-        await flushTextState(ROOT_AGENT_KEY)
-
-        const finishAgentKey = 'agentId' in chunk ? chunk.agentId : undefined
-        if (finishAgentKey && finishAgentKey !== ROOT_AGENT_KEY) {
-          await flushTextState(finishAgentKey, finishAgentKey)
-          await flushSubagentState(
-            finishAgentKey,
-            (chunk as { agentType?: string }).agentType,
-          )
-        }
-      } else if (
-        chunkType === 'subagent_finish'
-      ) {
-        const subagentId = 'agentId' in chunk ? chunk.agentId : undefined
-        if (subagentId) {
-          await flushTextState(subagentId, subagentId)
-          await flushSubagentState(
-            subagentId,
-            (chunk as { agentType?: string }).agentType,
-          )
-        }
-      }
-
+    if (typeof chunk !== 'string') {
       await handleEvent?.(chunk)
+      return
     }
+
+    const { buffer: newBuffer } = await filterXml({
+      chunk,
+      buffer: buffers[0],
+      omit: handleStreamChunk ?? (() => {}),
+    })
+    buffers[0] = newBuffer
   }
   const onSubagentResponseChunk = async (
     action: ServerAction<'subagent-response-chunk'>,
@@ -421,21 +172,19 @@ export async function run({
     checkAborted(signal)
     const { agentId, agentType, chunk } = action
 
-    const state = getSubagentFilterState(agentId)
-    const { text: sanitized } = filterToolXmlFromText(
-      state,
+    const { buffer: newBuffer } = await filterXml({
       chunk,
-      MAX_TOOL_XML_BUFFER,
-    )
-
-    if (sanitized && handleEvent) {
-      await handleEvent({
-        type: 'subagent_chunk',
-        agentId,
-        agentType,
-        chunk: sanitized,
-      } as any)
-    }
+      buffer: buffers[agentId] ?? '',
+      omit: async (chunk) => {
+        await handleStreamChunk?.({
+          type: 'subagent_chunk',
+          agentId,
+          agentType,
+          chunk,
+        })
+      },
+    })
+    buffers[agentId] = newBuffer
   }
 
   const agentRuntimeImpl = getAgentRuntimeImpl({

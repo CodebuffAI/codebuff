@@ -509,44 +509,9 @@ export const useSendMessage = ({
           signal: abortController.signal,
           agentDefinitions: agentDefinitions as AgentDefinition[],
 
-          handleStreamChunk: (chunk: any) => {
-            if (typeof chunk !== 'string' || !chunk) {
-              return
-            }
-
-            if (!hasReceivedContent) {
-              hasReceivedContent = true
-              setIsWaitingForResponse(false)
-            }
-
-            const previous = rootStreamBufferRef.current ?? ''
-            const { next, delta } = mergeTextSegments(previous, chunk)
-            if (!delta && next === previous) {
-              return
-            }
-            logger.info(
-              {
-                chunkLength: chunk.length,
-                previousLength: previous.length,
-                nextLength: next.length,
-                preview: chunk.slice(0, 100),
-              },
-              'handleStreamChunk root delta',
-            )
-            rootStreamBufferRef.current = next
-            rootStreamSeenRef.current = true
-            if (delta) {
-              appendRootTextChunk(delta)
-            }
-          },
-
-          handleEvent: (event: any) => {
-            logger.info(
-              { type: event.type, event },
-              `SDK ${JSON.stringify(event.type)} Event received (raw)`,
-            )
-
-            if (event.type === 'subagent_chunk') {
+          handleStreamChunk: (event) => {
+            logger.info({event}, 'asdf')
+            if (typeof event !== 'string') {
               const { agentId, chunk } = event
 
               const previous =
@@ -564,6 +529,38 @@ export const useSendMessage = ({
               })
               return
             }
+
+            if (!hasReceivedContent) {
+              hasReceivedContent = true
+              setIsWaitingForResponse(false)
+            }
+
+            const previous = rootStreamBufferRef.current ?? ''
+            const { next, delta } = mergeTextSegments(previous, event)
+            if (!delta && next === previous) {
+              return
+            }
+            logger.info(
+              {
+                chunkLength: event.length,
+                previousLength: previous.length,
+                nextLength: next.length,
+                preview: event.slice(0, 100),
+              },
+              'handleStreamChunk root delta',
+            )
+            rootStreamBufferRef.current = next
+            rootStreamSeenRef.current = true
+            if (delta) {
+              appendRootTextChunk(delta)
+            }
+          },
+
+          handleEvent: (event: any) => {
+            logger.info(
+              { type: event.type, event },
+              `SDK ${JSON.stringify(event.type)} Event received (raw)`,
+            )
 
             if (event.type === 'text') {
               const text = event.text
