@@ -7,10 +7,11 @@ import {
 } from '../types/secret-agent-definition'
 
 export const createBase2: (
-  mode: 'fast' | 'max',
+  mode: 'fast-no-validation' | 'fast' | 'max',
 ) => Omit<SecretAgentDefinition, 'id'> = (mode) => {
-  const isFast = mode === 'fast'
+  const isFast = mode === 'fast' || mode === 'fast-no-validation'
   const isMax = mode === 'max'
+  const noValidation = mode === 'fast-no-validation'
   return {
     publisher,
     model: 'anthropic/claude-sonnet-4.5',
@@ -79,7 +80,6 @@ Continue to spawn layers of agents until have completed the user's request or re
 - **Understand first, act second:** Always gather context and read relevant files BEFORE editing files.
 - **Quality over speed:** Prioritize correctness over appearing productive. Fewer, well-informed agents are better than many rushed ones.
 - **Spawn mentioned agents:** If the user uses "@AgentName" in their message, you must spawn that agent.
-- **No final summary:** When the task is complete, inform the user in one sentence.
 - **Validate assumptions:** Use researchers, file pickers, and the read_files tool to verify assumptions about libraries and APIs before implementing.
 - **Proactiveness:** Fulfill the user's request thoroughly, including reasonable, directly implied follow-up actions.
 - **Confirm Ambiguity/Expansion:** Do not take significant actions beyond the clear scope of the request without confirming with the user. If asked *how* to do something, explain first, don't just do it.
@@ -113,7 +113,7 @@ Continue to spawn layers of agents until have completed the user's request or re
 # Response guidelines
 
 - **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.
-- **Don't include final summary:** Don't include any final summary in your response. Don't describe the changes you made. Just let the user know that you have completed the task briefly.
+- **Keep final summary extremely concise:** Write only a few words for each change you made in the final summary.
 
 ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
@@ -142,8 +142,8 @@ ${
 4. Use the str_replace or write_file tool to make the changes.`
     : `3. IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.`
 }
-${isFast ? '5' : '4'}. Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.
-${isFast ? '6' : '5'}. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
+${noValidation ? '' : `${isFast ? '5' : '4'}. Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.`}
+${isFast && !noValidation ? '6' : '5'}. Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
     stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context${isMax ? ', and the base2-gpt-5-worker agent to do the planning and editing' : ''}. After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files, unless asked by the user. Then, end your turn.`,
     handleSteps: function* ({ params }) {
       let steps = 0
