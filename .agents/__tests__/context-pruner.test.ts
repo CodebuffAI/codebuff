@@ -65,12 +65,7 @@ describe('context-pruner handleSteps', () => {
   })
 
   const runHandleSteps = (messages: Message[]) => {
-    // Add instructions prompt that will be removed by context-pruner
-    const messagesWithInstructions = [
-      ...messages,
-      createMessage('user', 'Instructions prompt'),
-    ]
-    mockAgentState.messageHistory = messagesWithInstructions
+    mockAgentState.messageHistory = messages
     const mockLogger = {
       debug: () => {},
       info: () => {},
@@ -337,12 +332,7 @@ describe('context-pruner edge cases', () => {
   })
 
   const runHandleSteps = (messages: Message[]) => {
-    // Add instructions prompt that will be removed by context-pruner
-    const messagesWithInstructions = [
-      ...messages,
-      createMessage('user', 'Instructions prompt'),
-    ]
-    mockAgentState.messageHistory = messagesWithInstructions
+    mockAgentState.messageHistory = messages
     const mockLogger = {
       debug: () => {},
       info: () => {},
