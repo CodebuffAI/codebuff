@@ -1,6 +1,7 @@
 {
   "repoUrl": "https://github.com/CodebuffAI/codebuff",
   "generationDate": "2025-10-12T05:55:40.855Z",
+  "initCommand": "bun install",
   "evalCommits": [
     {
       "id": "filter-system-history",
