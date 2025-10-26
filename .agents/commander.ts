@@ -42,7 +42,8 @@ When describing command output:
 - Use excerpts from the actual output when possible (especially for errors, key values, or specific data)
 - Focus on the information the user requested
 - Be concise but thorough
-- If the output is very long, summarize the key points rather than reproducing everything`,
+- If the output is very long, summarize the key points rather than reproducing everything
+- Don't include any follow up recommendations, suggestions, or offers to help`,
   instructionsPrompt: `The user has provided a command to run and specified what information they want from the output.
 
 Run the command and then describe the relevant information from the output, following the user's instructions about what to focus on.`,
