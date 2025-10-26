@@ -11,13 +11,17 @@ export function codeSearch({
   pattern,
   flags,
   cwd,
-  maxResults = 30,
+  maxResults = 15,
+  globalMaxResults = 250,
+  maxOutputStringLength = 20_000,
 }: {
   projectPath: string
   pattern: string
   flags?: string
   cwd?: string
   maxResults?: number
+  globalMaxResults?: number
+  maxOutputStringLength?: number
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let stdout = ''
@@ -59,27 +63,106 @@ export function codeSearch({
     })
 
     childProcess.on('close', (code) => {
-      // Limit results to maxResults
-      const lines = stdout.split('\n')
-      const limitedLines = lines.slice(0, maxResults)
-      const limitedStdout = limitedLines.join('\n')
-      const formattedStdout = formatCodeSearchOutput(limitedStdout)
+      const lines = stdout.split('\n').filter((line) => line.trim())
+
+      // Group results by file
+      const fileGroups = new Map<string, string[]>()
+      let currentFile: string | null = null
+
+      for (const line of lines) {
+        // Ripgrep output format: filename:line_number:content or filename:content
+        const colonIndex = line.indexOf(':')
+        if (colonIndex === -1) {
+          // This shouldn't happen with standard ripgrep output
+          if (currentFile) {
+            fileGroups.get(currentFile)!.push(line)
+          }
+          continue
+        }
+
+        const filename = line.substring(0, colonIndex)
+
+        // Check if this is a new file
+        if (filename && !filename.includes('\t') && !filename.startsWith(' ')) {
+          currentFile = filename
+          if (!fileGroups.has(currentFile)) {
+            fileGroups.set(currentFile, [])
+          }
+          fileGroups.get(currentFile)!.push(line)
+        } else if (currentFile) {
+          // Continuation of previous result
+          fileGroups.get(currentFile)!.push(line)
+        }
+      }
+
+      // Limit results per file and globally
+      const limitedLines: string[] = []
+      let totalOriginalCount = 0
+      let totalLimitedCount = 0
+      const truncatedFiles: string[] = []
+      let globalLimitReached = false
+      const skippedFiles: string[] = []
+
+      for (const [filename, fileLines] of fileGroups) {
+        totalOriginalCount += fileLines.length
+
+        // Check if we've hit the global limit
+        if (totalLimitedCount >= globalMaxResults) {
+          globalLimitReached = true
+          skippedFiles.push(filename)
+          continue
+        }
+
+        // Calculate how many results we can take from this file
+        const remainingGlobalSpace = globalMaxResults - totalLimitedCount
+        const resultsToTake = Math.min(
+          maxResults,
+          fileLines.length,
+          remainingGlobalSpace,
+        )
+        const limited = fileLines.slice(0, resultsToTake)
+        totalLimitedCount += limited.length
+        limitedLines.push(...limited)
+
+        if (fileLines.length > resultsToTake) {
+          truncatedFiles.push(
+            `${filename}: ${fileLines.length} results (showing ${resultsToTake})`,
+          )
+        }
+      }
+
+      let limitedStdout = limitedLines.join('\n')
 
       // Add truncation message if results were limited
-      const finalStdout =
-        lines.length > maxResults
-          ? formattedStdout +
-            `\n\n[Results limited to ${maxResults} of ${lines.length} total matches]`
-          : formattedStdout
+      const truncationMessages: string[] = []
+
+      if (truncatedFiles.length > 0) {
+        truncationMessages.push(
+          `Results limited to ${maxResults} per file. Truncated files:\n${truncatedFiles.join('\n')}`,
+        )
+      }
+
+      if (globalLimitReached) {
+        truncationMessages.push(
+          `Global limit of ${globalMaxResults} results reached. ${skippedFiles.length} file(s) skipped:\n${skippedFiles.join('\n')}`,
+        )
+      }
+
+      if (truncationMessages.length > 0) {
+        limitedStdout += `\n\n[${truncationMessages.join('\n\n')}]`
+      }
+
+      const formattedStdout = formatCodeSearchOutput(limitedStdout)
+      const finalStdout = formattedStdout
 
       // Truncate output to prevent memory issues
-      const maxLength = 10000
       const truncatedStdout =
-        finalStdout.length > maxLength
-          ? finalStdout.substring(0, maxLength) + '\n\n[Output truncated]'
+        finalStdout.length > maxOutputStringLength
+          ? finalStdout.substring(0, maxOutputStringLength) +
+            '\n\n[Output truncated]'
           : finalStdout
 
-      const maxErrorLength = 1000
+      const maxErrorLength = maxOutputStringLength / 5
       const truncatedStderr =
         stderr.length > maxErrorLength
           ? stderr.substring(0, maxErrorLength) + '\n\n[Error output truncated]'
