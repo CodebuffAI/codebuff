@@ -12,10 +12,18 @@ import { providerMetadataSchema } from './provider-metadata'
 
 const auxiliaryDataSchema = z.object({
   providerOptions: providerMetadataSchema.optional(),
+
+  tags: z.string().array().optional(),
+
+  // James: All the below is overly prescriptive for the framework.
+  // Instead, let's tag what the message is, and let the user decide time to live, keep during truncation, etc.
+  /** @deprecated Use tags instead. */
   timeToLive: z
     .union([z.literal('agentStep'), z.literal('userPrompt')])
     .optional(),
+  /** @deprecated Use tags instead. */
   keepDuringTruncation: z.boolean().optional(),
+  /** @deprecated Use tags instead. */
   keepLastTags: z.string().array().optional(),
 })
 

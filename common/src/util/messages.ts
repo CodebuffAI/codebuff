@@ -202,7 +202,8 @@ export function convertCbToModelMessages({
     const lastMessage = aggregated[aggregated.length - 1]
     if (
       lastMessage.timeToLive !== message.timeToLive ||
-      !isEqual(lastMessage.providerOptions, message.providerOptions)
+      !isEqual(lastMessage.providerOptions, message.providerOptions) ||
+      !isEqual(lastMessage.tags, message.tags)
     ) {
       aggregated.push(message)
       continue
@@ -227,9 +228,15 @@ export function convertCbToModelMessages({
     return aggregated
   }
 
-  // add cache control to specific messages
-  for (const ttl of ['agentStep', 'userPrompt'] as const) {
-    const index = aggregated.findIndex((m) => m.timeToLive === ttl)
+  // Add cache control to specific messages (max of 4 can be marked for caching!):
+  // - The message right before the three tagged messages
+  // - Last message
+  for (const tag of [
+    'USER_PROMPT',
+    'INSTRUCTIONS_PROMPT',
+    'STEP_PROMPT',
+  ] as const) {
+    const index = aggregated.findLastIndex((m) => m.tags?.includes(tag))
     if (index <= 0) {
       continue
     }

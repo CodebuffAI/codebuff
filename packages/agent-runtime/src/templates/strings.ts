@@ -214,6 +214,10 @@ export async function getAgentPrompt<T extends StringField>(
     spawnableAgents: agentTemplate.spawnableAgents,
   })
 
+  if (prompt.trim() === '') {
+    return undefined
+  }
+
   let addendum = ''
 
   if (promptType.type === 'stepPrompt' && agentState.agentType && prompt) {

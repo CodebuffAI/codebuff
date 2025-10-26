@@ -223,6 +223,9 @@ export const runAgentStep = async (
     stepPrompt && {
       role: 'user' as const,
       content: stepPrompt,
+      tags: ['STEP_PROMPT'],
+
+      // James: Deprecate the below, only use tags, which are not prescriptive.
       timeToLive: 'agentStep' as const,
       keepDuringTruncation: true,
     },
@@ -567,6 +570,9 @@ export async function loopAgentSteps(
         // Actual user message!
         role: 'user' as const,
         content: buildUserMessageContent(prompt, spawnParams, content),
+        tags: ['USER_PROMPT'],
+
+        // James: Deprecate the below, only use tags, which are not prescriptive.
         keepDuringTruncation: true,
       },
       prompt &&
@@ -583,6 +589,9 @@ export async function loopAgentSteps(
     instructionsPrompt && {
       role: 'user' as const,
       content: instructionsPrompt,
+      tags: ['INSTRUCTIONS_PROMPT'],
+
+      // James: Deprecate the below, only use tags, which are not prescriptive.
       keepLastTags: ['INSTRUCTIONS_PROMPT'],
     },
   )
