@@ -1,6 +1,7 @@
 import { publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import type { ToolMessage } from '../types/util-types'
 
 const definition: SecretAgentDefinition = {
   id: 'thinker-with-files-input',
@@ -63,9 +64,16 @@ You must be extremely concise and to the point.
       )
       const promptMessages = messageHistory.slice(0, lastAssistantMessageIndex)
       const readFilesMessages = messageHistory.slice(lastAssistantMessageIndex)
+      const readFilesToolResult = readFilesMessages[
+        readFilesMessages.length - 1
+      ] as ToolMessage
+      // For getting prompt caching to work, we need to remove the unique tool call id from the tool result.
+      delete (readFilesToolResult.content as any).toolCallId
+
       yield {
         toolName: 'set_messages',
         input: { messages: [...readFilesMessages, ...promptMessages] },
+        includeToolCall: false,
       }
     }
 

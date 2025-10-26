@@ -44,7 +44,7 @@ const definition: SecretAgentDefinition = {
 
     if (prompts.length > 1) {
       // Prompt cache with a dummy thinker first!
-      const prompt = `This request was cancelled. Please respond with an empty message only. Do not write any text at all.`
+      const prompt = `We are prompt caching the above files. This is a warm-up request so that subsequent (parallel!) requests can be cached. Please respond with just the phrase: 'The context is now cached!'. It's important that you don't include any other text or reasoning in your response, since that would increase latency and cost for this request, which is just meant to warm up the cache before firing off the real requests in parallel.`
       yield {
         toolName: 'spawn_agents',
         input: {
