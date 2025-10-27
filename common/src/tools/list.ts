@@ -24,6 +24,7 @@ import { thinkDeeplyParams } from './params/tool/think-deeply'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
+import { writeTodosParams } from './params/tool/write-todos'
 
 import type {
   $ToolParams,
@@ -61,6 +62,7 @@ export const $toolParams = {
   update_subgoal: updateSubgoalParams,
   web_search: webSearchParams,
   write_file: writeFileParams,
+  write_todos: writeTodosParams,
 } satisfies {
   [K in ToolName]: $ToolParams<K>
 }

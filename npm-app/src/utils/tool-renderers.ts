@@ -347,4 +347,27 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   lookup_agent_info: {
     ...defaultToolCallRenderer,
   },
+  write_todos: {
+    ...defaultToolCallRenderer,
+    onParamChunk: (content, paramName, toolName) => {
+      // Don't render chunks for todos array, wait for the full list
+      return null
+    },
+    onParamEnd: (paramName, toolName, content) => {
+      if (paramName !== 'todos') {
+        return null
+      }
+      let todos: Array<{ task: string; completed: boolean }> = []
+      try {
+        todos = JSON.parse(content)
+      } catch (e) {
+        return null
+      }
+      // Format as checkbox list
+      const formattedTodos = todos
+        .map((todo) => `${todo.completed ? '[x]' : '[]'} ${todo.task}`)
+        .join('\n')
+      return gray(formattedTodos)
+    },
+  },
 }

@@ -21,6 +21,7 @@ import { handleThinkDeeply } from './tool/think-deeply'
 import { handleUpdateSubgoal } from './tool/update-subgoal'
 import { handleWebSearch } from './tool/web-search'
 import { handleWriteFile } from './tool/write-file'
+import { handleWriteTodos } from './tool/write-todos'
 
 import type { CodebuffToolHandlerFunction } from './handler-function-type'
 import type { ToolName } from '@codebuff/common/tools/constants'
@@ -58,6 +59,7 @@ export const codebuffToolHandlers = {
   update_subgoal: handleUpdateSubgoal,
   web_search: handleWebSearch,
   write_file: handleWriteFile,
+  write_todos: handleWriteTodos,
 } satisfies {
   [K in ToolName]: CodebuffToolHandlerFunction<K>
 }

@@ -20,6 +20,7 @@ export type ToolName =
   | 'think_deeply'
   | 'web_search'
   | 'write_file'
+  | 'write_todos'
 
 /**
  * Map of tool names to their parameter types
@@ -43,6 +44,7 @@ export interface ToolParamsMap {
   think_deeply: ThinkDeeplyParams
   web_search: WebSearchParams
   write_file: WriteFileParams
+  write_todos: WriteTodosParams
 }
 
 /**
@@ -59,7 +61,7 @@ export interface AddMessageParams {
 export interface CodeSearchParams {
   /** The pattern to search for. */
   pattern: string
-  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-t ts -t js" for TypeScript and JavaScript files only, "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, "--type-not py" to exclude Python files). */
+  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, --no-ignore to include files in ignored by .gitignore). */
   flags?: string
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
@@ -219,6 +221,19 @@ export interface WriteFileParams {
   instructions: string
   /** Edit snippet to apply to the file. */
   content: string
+}
+
+/**
+ * Write a todo list to track tasks. Use this frequently to maintain a step-by-step plan.
+ */
+export interface WriteTodosParams {
+  /** List of todos with their completion status */
+  todos: {
+    /** Description of the task */
+    task: string
+    /** Whether the task is completed */
+    completed: boolean
+  }[]
 }
 
 /**

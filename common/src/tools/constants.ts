@@ -41,6 +41,7 @@ export const toolNames = [
   'update_subgoal',
   'web_search',
   'write_file',
+  'write_todos',
 ] as const
 
 export const publishedTools = [
@@ -62,6 +63,7 @@ export const publishedTools = [
   'think_deeply',
   'web_search',
   'write_file',
+  'write_todos',
   // 'spawn_agent_inline',
 ] as const
 

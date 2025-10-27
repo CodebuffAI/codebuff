@@ -23,6 +23,7 @@ import { thinkDeeplyTool } from './tool/think-deeply'
 import { updateSubgoalTool } from './tool/update-subgoal'
 import { webSearchTool } from './tool/web-search'
 import { writeFileTool } from './tool/write-file'
+import { writeTodosTool } from './tool/write-todos'
 
 import type { ToolDescription } from './tool-def-type'
 import type { ToolName } from '@codebuff/common/tools/constants'
@@ -52,6 +53,7 @@ const toolDescriptions = {
   update_subgoal: updateSubgoalTool,
   web_search: webSearchTool,
   write_file: writeFileTool,
+  write_todos: writeTodosTool,
 } satisfies {
   [K in ToolName]: ToolDescription<K>
 }
