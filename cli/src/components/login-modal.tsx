@@ -46,6 +46,8 @@ const COPY_SUCCESS_COLOR = '#22c55e'
 const COPY_ERROR_COLOR = '#ef4444'
 const WARNING_COLOR = '#ef4444'
 
+const SHEEN_SHADOW_CHARS = new Set(['╔', '╗', '╚', '╝', '═', '║'])
+
 export const LoginModal = ({
   onLoginSuccess,
   theme,
@@ -355,7 +357,7 @@ export const LoginModal = ({
         return <span key={charIndex}>{char}</span>
       }
 
-      const color = getSheenColor(char, charIndex, sheenPosition, logoColor)
+      const color = getSheenColor(char, charIndex, sheenPosition, logoColor, SHEEN_SHADOW_CHARS)
 
       return (
         <span key={charIndex} fg={color}>

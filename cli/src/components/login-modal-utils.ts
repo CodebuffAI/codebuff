@@ -60,35 +60,34 @@ export function generateFingerprintId(): string {
 
 /**
  * Determines the color for a character based on its position relative to the sheen
- * Creates a "fill" effect where characters behind the sheen are filled in
+ * Creates a "fill" effect where shadow characters permanently change to solid green as sheen passes
  */
 export function getSheenColor(
   char: string,
   charIndex: number,
   sheenPosition: number,
   logoColor: string,
+  shadowChars: Set<string>,
 ): string {
-  // Shadow characters that should have the sheen effect
-  const shadowChars = ['╚', '═', '╝']
-
-  if (!shadowChars.includes(char)) {
+  // Only apply sheen to shadow/border characters
+  if (!shadowChars.has(char)) {
     return logoColor
   }
 
   const sheenWidth = 5
   const distance = charIndex - sheenPosition
 
-  // Characters behind the sheen (already filled)
-  if (distance < -sheenWidth) {
-    return '#00cc00' // Filled green
-  }
-
-  // Characters at the leading edge (bright sheen)
+  // Characters at the sheen (bright, solid green - the active sheen)
   if (distance >= -sheenWidth && distance <= 0) {
-    return '#00ff00' // Bright green at the sheen edge
+    return '#00ff00' // Bright solid green at the sheen
   }
 
-  // Characters ahead of the sheen (not yet filled)
+  // Characters behind the sheen stay solid green (permanent fill effect)
+  if (distance < -sheenWidth) {
+    return '#00cc00' // Solid green - stays filled permanently
+  }
+
+  // Characters ahead of the sheen remain original color (unfilled shadow)
   return logoColor
 }
 
