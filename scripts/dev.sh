@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Get the project root directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Ensure .bin/bun is in PATH first so environment variables are loaded
+export PATH="$PROJECT_ROOT/.bin:$PATH"
+
 # Enable job control and set up trap for cleanup
 set -m
 READY_FILE="/tmp/codebuff_server_ready_$$"
