@@ -15,11 +15,13 @@ export function runTerminalCommand({
   process_type,
   cwd,
   timeout_seconds,
+  env,
 }: {
   command: string
   process_type: 'SYNC' | 'BACKGROUND'
   cwd: string
   timeout_seconds: number
+  env?: Record<string, string>
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   if (process_type === 'BACKGROUND') {
     throw new Error('BACKGROUND process_type not implemented')
@@ -37,6 +39,7 @@ export function runTerminalCommand({
       cwd: resolvedCwd,
       env: {
         ...process.env,
+        ...(env ?? {}),
         FORCE_COLOR: '1',
         CLICOLOR: '1',
         CLICOLOR_FORCE: '1',

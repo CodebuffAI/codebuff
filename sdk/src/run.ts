@@ -53,6 +53,7 @@ export type CodebuffClientOptions = {
   knowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
   maxAgentSteps?: number
+  env?: Record<string, string>
 
   handleEvent?: (event: PrintModeEvent) => void | Promise<void>
   handleStreamChunk?: (
@@ -111,6 +112,7 @@ export async function run({
   knowledgeFiles,
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
+  env,
 
   handleEvent,
   handleStreamChunk,
@@ -227,6 +229,7 @@ export async function run({
           : {},
         cwd,
         fs,
+        env,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -421,12 +424,14 @@ async function handleToolCall({
   customToolDefinitions,
   cwd,
   fs,
+  env,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
   customToolDefinitions: Record<string, CustomToolDefinition>
   cwd?: string
   fs: CodebuffFileSystem
+  env?: Record<string, string>
 }): ReturnType<WebSocketHandler['handleToolCall']> {
   const toolName = action.toolName
   const input = action.input
@@ -468,6 +473,7 @@ async function handleToolCall({
       result = await runTerminalCommand({
         ...input,
         cwd: path.resolve(resolvedCwd, input.cwd ?? '.'),
+        env,
       } as Parameters<typeof runTerminalCommand>[0])
     } else if (toolName === 'code_search') {
       result = await codeSearch({
