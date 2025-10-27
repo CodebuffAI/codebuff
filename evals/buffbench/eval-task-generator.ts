@@ -5,8 +5,8 @@ import findAllReferencerDef from '../../.agents/file-explorer/find-all-reference
 import { PLACEHOLDER } from '../../.agents/types/secret-agent-definition'
 
 const evalTaskGeneratorAgentDef: AgentDefinition = {
-  id: 'git-evals2-eval-task-generator',
-  displayName: 'Git Evals2 Eval Task Generator',
+  id: 'eval-task-generator',
+  displayName: 'Eval Task Generator',
   model: 'openai/gpt-5',
   toolNames: ['spawn_agents', 'read_files', 'set_output'],
   spawnableAgents: ['file-explorer', 'find-all-referencer'],
@@ -124,7 +124,7 @@ export async function generateEvalTask({
   ]
 
   const generatorResult = await client.run({
-    agent: 'git-evals2-eval-task-generator',
+    agent: 'eval-task-generator',
     prompt:
       'Generate a task specification and user prompt based on the git diff and codebase exploration',
     params: {

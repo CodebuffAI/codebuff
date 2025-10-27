@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import * as os from 'os'
 import { execSync } from 'child_process'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 /**
  * Helper function to manage test repository lifecycle
@@ -33,7 +34,13 @@ export const withTestRepo = async <T>(
 
     if (initCommand) {
       console.log(`Running init command: ${initCommand}...`)
-      execSync(initCommand, { cwd: repoDir, stdio: 'ignore' })
+      try {
+        execSync(initCommand, { cwd: repoDir })
+      } catch (error) {
+        console.error(
+          `Error running init command: ${getErrorObject(error).message}`,
+        )
+      }
     }
 
     // Run the provided function with the repo directory

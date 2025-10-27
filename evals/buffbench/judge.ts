@@ -29,8 +29,8 @@ export const JudgingResultSchema = z.object({
 export type JudgingResult = z.infer<typeof JudgingResultSchema>
 
 const judgeAgent: AgentDefinition = {
-  id: 'git-evals2-judge',
-  displayName: 'Git Evals2 Judge',
+  id: 'judge',
+  displayName: 'Judge',
   model: 'openai/gpt-5',
   toolNames: ['set_output'],
   inputSchema: {
@@ -169,7 +169,7 @@ ${error ? `\n## Error Encountered\n${error}` : ''}`
   const agentOutput: string[] = []
   const judgeResult = await withTimeout(
     client.run({
-      agent: 'git-evals2-judge',
+      agent: 'judge',
       prompt: judgePrompt,
       agentDefinitions: [judgeAgent],
       handleEvent: (event) => {

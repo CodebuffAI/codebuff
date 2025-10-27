@@ -20,8 +20,8 @@ export interface AgentTraceData {
 }
 
 const traceAnalyzerAgent: AgentDefinition = {
-  id: 'git-evals2-trace-analyzer',
-  displayName: 'Git Evals2 Trace Analyzer',
+  id: 'trace-analyzer',
+  displayName: 'Trace Analyzer',
   model: 'openai/gpt-5',
   toolNames: ['set_output'],
   inputSchema: {
@@ -183,7 +183,7 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
     const agentOutput: string[] = []
     const analyzerResult = await withTimeout(
       client.run({
-        agent: 'git-evals2-trace-analyzer',
+        agent: 'trace-analyzer',
         prompt,
         agentDefinitions: [traceAnalyzerAgent],
         handleEvent: (event) => {
