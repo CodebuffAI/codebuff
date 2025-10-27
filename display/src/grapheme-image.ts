@@ -1,5 +1,4 @@
 import GraphemeSplitter from 'grapheme-splitter'
-import { isEqual } from 'lodash'
 import stripAnsi from 'strip-ansi'
 
 import {
@@ -24,6 +23,8 @@ export type Grapheme = {
   textStyles?: Modifier[]
 }
 
+export type GraphemeImage = Grapheme[][]
+
 const splitter = new GraphemeSplitter()
 
 export function toGraphemeString(grapheme: string): $GraphemeString {
@@ -38,98 +39,140 @@ export function toGraphemeString(grapheme: string): $GraphemeString {
   return first as $GraphemeString
 }
 
-function equalStyles(a: Grapheme, b: Grapheme): boolean {
-  type GraphemeStyle = Omit<Grapheme, 'grapheme'> &
-    Partial<Pick<Grapheme, 'grapheme'>>
-  const aStyles: GraphemeStyle = { textStyles: [], ...a }
-  delete aStyles.grapheme
-  const bStyles: GraphemeStyle = { textStyles: [], ...b }
-  delete bStyles.grapheme
-  return isEqual(aStyles, bStyles)
+type GraphemeColor =
+  | { type: 'color'; color: Color | BackgroundColor }
+  | { type: 'rgb'; rgb: RGB }
+
+function colorsEqual(
+  a: GraphemeColor | undefined,
+  b: GraphemeColor | undefined,
+): boolean {
+  if (!a && !b) {
+    return true
+  }
+
+  if (!a || !b) {
+    return false
+  }
+
+  if (a.type !== b.type) {
+    return false
+  }
+
+  if (a.type === 'color' && b.type === 'color') {
+    return a.color === b.color
+  }
+
+  if (a.type === 'rgb' && b.type === 'rgb') {
+    return (
+      a.rgb[0] === b.rgb[0] &&
+      a.rgb[1] === b.rgb[1] &&
+      a.rgb[2] === b.rgb[2]
+    )
+  }
+
+  return false
 }
 
-function graphemeCommands(grapheme: Grapheme): string[] {
-  const commands: string[] = []
+function stylesEqual(a: Grapheme, b: Grapheme): boolean {
+  if (!colorsEqual(a.textColor, b.textColor)) {
+    return false
+  }
+
+  if (!colorsEqual(a.backgroundColor, b.backgroundColor)) {
+    return false
+  }
+
+  const aStyles = a.textStyles ?? []
+  const bStyles = b.textStyles ?? []
+  if (aStyles.length !== bStyles.length) {
+    return false
+  }
+  for (let i = 0; i < aStyles.length; i++) {
+    if (aStyles[i] !== bStyles[i]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function graphemeCommands(grapheme: Grapheme): string {
+  let command = ''
   if (grapheme.textColor) {
-    commands.push(
-      ansiCode(
-        grapheme.textColor.type === 'color'
-          ? {
-              type: 'style',
-              style: grapheme.textColor.color,
-            }
-          : {
-              type: 'text',
-              rgb: grapheme.textColor.rgb,
-            },
-      ),
+    command += ansiCode(
+      grapheme.textColor.type === 'color'
+        ? {
+            type: 'style',
+            style: grapheme.textColor.color,
+          }
+        : {
+            type: 'text',
+            rgb: grapheme.textColor.rgb,
+          },
     )
   }
   if (grapheme.backgroundColor) {
-    commands.push(
-      ansiCode(
-        grapheme.backgroundColor.type === 'color'
-          ? {
-              type: 'style',
-              style: grapheme.backgroundColor.color,
-            }
-          : {
-              type: 'text',
-              rgb: grapheme.backgroundColor.rgb,
-            },
-      ),
+    command += ansiCode(
+      grapheme.backgroundColor.type === 'color'
+        ? {
+            type: 'style',
+            style: grapheme.backgroundColor.color,
+          }
+        : {
+            type: 'text',
+            rgb: grapheme.backgroundColor.rgb,
+          },
     )
   }
 
   if (grapheme.textStyles) {
     for (const style of grapheme.textStyles) {
-      commands.push(ansiCode({ type: 'style', style }))
+      command += ansiCode({ type: 'style', style })
     }
   }
 
-  commands.push(grapheme.grapheme)
+  command += grapheme.grapheme
 
-  return commands
+  return command
 }
 
 function graphemeDiffCommands(
   prevGrapheme: Grapheme | null,
   newGrapheme: Grapheme,
-): string[] {
+): string {
   if (!prevGrapheme) {
     return graphemeCommands(newGrapheme)
   }
 
-  if (equalStyles(prevGrapheme, newGrapheme)) {
-    return [newGrapheme.grapheme]
+  if (stylesEqual(prevGrapheme, newGrapheme)) {
+    return newGrapheme.grapheme
   }
 
-  return [
-    ...ansiCode({ type: 'style', style: STYLE.RESET }),
-    ...graphemeCommands(newGrapheme),
-  ]
+  return (
+    ansiCode({ type: 'style', style: STYLE.RESET }) +
+    graphemeCommands(newGrapheme)
+  )
 }
 
-export type GraphemeImage = Grapheme[][]
-
-export function fullImageCommands(image: GraphemeImage): string[] {
-  const commands: string[] = [moveCursor(0, 0)]
+export function fullImageCommands(image: GraphemeImage): string {
+  let command = moveCursor(0, 0)
 
   let lastGrapheme: Grapheme | null = null
   for (const row of image) {
     for (const grapheme of row) {
-      commands.push(...graphemeDiffCommands(lastGrapheme, grapheme))
+      command += graphemeDiffCommands(lastGrapheme, grapheme)
       lastGrapheme = grapheme
     }
   }
 
-  return commands
+  return command
 }
 
 export function diffImageCommands(
   oldImage: GraphemeImage,
   newImage: GraphemeImage,
-): string[] {
+): string {
   if (oldImage.length !== newImage.length) {
     return fullImageCommands(newImage)
   }
@@ -137,7 +180,7 @@ export function diffImageCommands(
     return fullImageCommands(newImage)
   }
 
-  const commands: string[] = []
+  let command = ''
   let prevWrittenGrapheme: Grapheme | null = null
   let skipped = true
   for (const [r, newRow] of newImage.entries()) {
@@ -146,20 +189,20 @@ export function diffImageCommands(
       const prevFrameGrapheme = oldRow[c]
       if (
         newGrapheme.grapheme === prevFrameGrapheme.grapheme &&
-        equalStyles(newGrapheme, prevFrameGrapheme)
+        stylesEqual(newGrapheme, prevFrameGrapheme)
       ) {
         skipped = true
         continue
       }
 
       if (skipped) {
-        commands.push(moveCursor(r, c))
+        command += moveCursor(r, c)
         skipped = false
       }
 
-      commands.push(...graphemeDiffCommands(prevWrittenGrapheme, newGrapheme))
+      command += graphemeDiffCommands(prevWrittenGrapheme, newGrapheme)
       prevWrittenGrapheme = newGrapheme
     }
   }
-  return commands
+  return command
 }

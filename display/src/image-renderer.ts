@@ -44,6 +44,8 @@ export class Renderer {
   private timer: NodeJS.Timeout | null = null
   private interval: NodeJS.Timeout | null = null
   private inProgress: boolean = false
+  private lastCursorPosition: { row: number; column: number } | null = null
+  private cursorVisible: boolean = true
 
   constructor({
     stdout,
@@ -102,10 +104,14 @@ export class Renderer {
     this.lastRefreshTime = 0
     this.lastFullRefreshTime = 0
     this.inProgress = false
+    this.lastCursorPosition = null
+    this.cursorVisible = true
   }
 
   public start() {
     this.inProgress = true
+    this.lastCursorPosition = null
+    this.cursorVisible = true
     this.stdout.write(ENTER_ALT_BUFFER)
     this.onResize = () => {
       this.refreshScreen(false, true)
@@ -119,32 +125,62 @@ export class Renderer {
 
   private forceRenderFrame(renderAll: boolean = false) {
     if (this.timer) {
-      this.timer.close()
+      clearTimeout(this.timer)
       this.timer = null
     }
 
     const frame = this.getFrame(this.stdout.rows, this.stdout.columns)
 
     const now = Date.now()
-    // dt / 1000 > 1 / refreshAllFps
     if ((now - this.lastFullRefreshTime) * this.refreshAllFps > 1000) {
       renderAll = true
     }
 
-    const commands = renderAll
+    const frameCommands = renderAll
       ? fullImageCommands(frame.frame)
       : diffImageCommands(this.lastFrame, frame.frame)
-    if (frame.cursor) {
-      commands.push(moveCursor(frame.cursor.row, frame.cursor.column))
-      commands.push(frame.cursor.visible ?? true ? SHOW_CURSOR : HIDE_CURSOR)
-    } else {
-      commands.push(HIDE_CURSOR)
+
+    const commands: string[] = []
+    if (frameCommands.length > 0) {
+      commands.push(frameCommands)
     }
-    this.lastRefreshTime = Date.now()
+
+    const cursor = frame.cursor
+    if (cursor) {
+      const desiredVisible = cursor.visible ?? true
+      const cursorMoved =
+        !this.lastCursorPosition ||
+        this.lastCursorPosition.row !== cursor.row ||
+        this.lastCursorPosition.column !== cursor.column
+
+      if (commands.length > 0 || cursorMoved) {
+        commands.push(moveCursor(cursor.row, cursor.column))
+      }
+
+      if (this.cursorVisible !== desiredVisible) {
+        commands.push(desiredVisible ? SHOW_CURSOR : HIDE_CURSOR)
+        this.cursorVisible = desiredVisible
+      }
+
+      this.lastCursorPosition = { row: cursor.row, column: cursor.column }
+    } else {
+      this.lastCursorPosition = null
+      if (this.cursorVisible) {
+        commands.push(HIDE_CURSOR)
+        this.cursorVisible = false
+      }
+    }
+
+    this.lastRefreshTime = now
     if (renderAll) {
-      this.lastFullRefreshTime = Date.now()
+      this.lastFullRefreshTime = now
     }
     this.lastFrame = frame.frame
+
+    if (commands.length === 0) {
+      return
+    }
+
     this.stdout.write(commands.join(''))
   }
 
@@ -176,15 +212,17 @@ export class Renderer {
 
   public exit() {
     if (this.interval) {
-      this.interval.close()
+      clearInterval(this.interval)
       this.interval = null
     }
     if (this.timer) {
-      this.timer.close()
+      clearTimeout(this.timer)
       this.timer = null
     }
     this.stdout.removeListener('resize', this.onResize)
     this.stdout.write(EXIT_ALT_BUFFER)
+    this.lastCursorPosition = null
+    this.cursorVisible = true
     this.inProgress = false
   }
 }
