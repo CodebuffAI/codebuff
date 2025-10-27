@@ -39,9 +39,16 @@ jobs:
           CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
           echo "Current version: $CURRENT_VERSION"
 
-          # Bump version based on input
-          npm version ${{ inputs.version_type }} --no-git-tag-version
-          NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
+          # Bump version using Node.js semver since npm doesn't work with workspace: protocol
+          NEW_VERSION=$(node -e "
+            const fs = require('fs');
+            const semver = require('semver');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const newVersion = semver.inc(pkg.version, '${{ inputs.version_type }}');
+            pkg.version = newVersion;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\\n');
+            console.log(newVersion);
+          ")
 
           echo "New production version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
