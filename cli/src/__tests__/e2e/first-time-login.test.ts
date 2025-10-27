@@ -8,11 +8,15 @@ import {
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const createLogger = (): Logger & Record<string, ReturnType<typeof mock>> => ({
-  info: mock(() => {}),
-  error: mock(() => {}),
-  warn: mock(() => {}),
-  debug: mock(() => {}),
+type MockLogger = {
+  [K in keyof Logger]: ReturnType<typeof mock> & Logger[K]
+}
+
+const createLogger = (): MockLogger => ({
+  info: mock(() => {}) as ReturnType<typeof mock> & Logger['info'],
+  error: mock(() => {}) as ReturnType<typeof mock> & Logger['error'],
+  warn: mock(() => {}) as ReturnType<typeof mock> & Logger['warn'],
+  debug: mock(() => {}) as ReturnType<typeof mock> & Logger['debug'],
 })
 
 describe('First-Time Login Flow (helpers)', () => {
@@ -87,11 +91,12 @@ describe('First-Time Login Flow (helpers)', () => {
     )
 
     expect(result.status).toBe('success')
+    if (result.status !== 'success') {
+      throw new Error(`Expected polling success but received ${result.status}`)
+    }
     expect(result.attempts).toBe(3)
-    expect(result).toHaveProperty('user')
-    expect(
-      (result as { user: { id: string } }).user.id,
-    ).toBe('new-user-123')
+    const user = result.user as { id?: unknown }
+    expect(user?.id).toBe('new-user-123')
     expect(fetchMock.mock.calls.length).toBe(3)
   })
 

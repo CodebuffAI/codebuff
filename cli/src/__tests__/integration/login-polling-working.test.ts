@@ -5,11 +5,15 @@ import { generateLoginUrl, pollLoginStatus } from '../../login/login-flow'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { LoginUrlResponse } from '../../login/login-flow'
 
-const createLogger = (): Logger & Record<string, ReturnType<typeof mock>> => ({
-  info: mock(() => {}),
-  error: mock(() => {}),
-  warn: mock(() => {}),
-  debug: mock(() => {}),
+type MockLogger = {
+  [K in keyof Logger]: ReturnType<typeof mock> & Logger[K]
+}
+
+const createLogger = (): MockLogger => ({
+  info: mock(() => {}) as ReturnType<typeof mock> & Logger['info'],
+  error: mock(() => {}) as ReturnType<typeof mock> & Logger['error'],
+  warn: mock(() => {}) as ReturnType<typeof mock> & Logger['warn'],
+  debug: mock(() => {}) as ReturnType<typeof mock> & Logger['debug'],
 })
 
 const createClock = () => {
@@ -63,6 +67,9 @@ describe('Login Polling (Working)', () => {
     )
 
     expect(result.status).toBe('success')
+    if (result.status !== 'success') {
+      throw new Error(`Expected polling success but received ${result.status}`)
+    }
     expect(result.attempts).toBe(2)
     expect(fetchMock.mock.calls.length).toBe(2)
   })
@@ -131,6 +138,9 @@ describe('Login Polling (Working)', () => {
     )
 
     expect(result.status).toBe('success')
+    if (result.status !== 'success') {
+      throw new Error(`Expected polling success but received ${result.status}`)
+    }
     expect(fetchMock.mock.calls.length).toBe(1)
   })
 
@@ -200,12 +210,20 @@ describe('Login Polling (Working)', () => {
     )
 
     expect(result.status).toBe('success')
+    if (result.status !== 'success') {
+      throw new Error(`Expected polling success but received ${result.status}`)
+    }
     expect(fetchMock.mock.calls.length).toBeGreaterThan(1)
-    expect(
-      logger.error.mock.calls.some(([payload]) =>
-        JSON.stringify(payload).includes('network failed'),
-      ),
-    ).toBe(true)
+    const errorCalls = logger.error.mock.calls as Array<
+      Parameters<Logger['error']>
+    >
+    const sawNetworkFailure = errorCalls.some(([payload]) => {
+      if (!payload || typeof payload !== 'object') {
+        return false
+      }
+      return JSON.stringify(payload as any).includes('network failed')
+    })
+    expect(sawNetworkFailure).toBe(true)
   })
 
   test('P0: fetchLoginUrl wrapper - should hit backend and return payload', async () => {

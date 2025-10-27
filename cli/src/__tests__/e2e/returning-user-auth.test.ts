@@ -98,10 +98,9 @@ describe('Returning User Authentication helpers', () => {
       logger,
     })
 
-    expect(result).toEqual({
-      id: RETURNING_USER.id,
-      email: RETURNING_USER.email,
-    })
+    expect(RETURNING_USER.id).toBeDefined()
+    expect(result.id).toBe(RETURNING_USER.id!)
+    expect(result.email).toBe(RETURNING_USER.email)
     expect(mockGetUserInfoFromApiKey).toHaveBeenCalledTimes(1)
   })
 })

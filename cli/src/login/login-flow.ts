@@ -205,8 +205,9 @@ export async function pollLoginStatus(
       continue
     }
 
-    const user = (data as Record<string, unknown> | null)?.user
-    if (user && typeof user === 'object') {
+    const rawUser = (data as { user?: unknown } | null)?.user
+    if (rawUser && typeof rawUser === 'object') {
+      const user = rawUser as Record<string, unknown>
       logger.info(
         {
           attempts,

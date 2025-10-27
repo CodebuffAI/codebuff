@@ -10,8 +10,6 @@ import {
   type User,
 } from '../../utils/auth'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-
 const ORIGINAL_USER: User = {
   id: 'user-001',
   name: 'CLI Tester',
@@ -27,13 +25,6 @@ const RELOGIN_USER: User = {
   fingerprintId: 'fingerprint-new',
   fingerprintHash: 'fingerprint-hash-new',
 }
-
-const createLogger = (): Logger & Record<string, ReturnType<typeof mock>> => ({
-  info: mock(() => {}),
-  error: mock(() => {}),
-  warn: mock(() => {}),
-  debug: mock(() => {}),
-})
 
 describe('Logout and Re-login helpers', () => {
   let tempConfigDir: string
@@ -64,7 +55,7 @@ describe('Logout and Re-login helpers', () => {
     const credentialsPath = path.join(tempConfigDir, 'credentials.json')
     expect(fs.existsSync(credentialsPath)).toBe(true)
 
-    const result = await logoutUser(createLogger())
+    const result = await logoutUser()
     expect(result).toBe(true)
     expect(fs.existsSync(credentialsPath)).toBe(false)
   })
@@ -76,7 +67,7 @@ describe('Logout and Re-login helpers', () => {
     const firstLoaded = getUserCredentials()
     expect(firstLoaded?.authToken).toBe('token-original')
 
-    await logoutUser(createLogger())
+    await logoutUser()
     expect(getUserCredentials()).toBeNull()
 
     saveUserCredentials(RELOGIN_USER)
@@ -88,10 +79,10 @@ describe('Logout and Re-login helpers', () => {
   test('logoutUser is idempotent when credentials are already missing', async () => {
     mockConfigPaths()
 
-    const resultFirst = await logoutUser(createLogger())
+    const resultFirst = await logoutUser()
     expect(resultFirst).toBe(true)
 
-    const resultSecond = await logoutUser(createLogger())
+    const resultSecond = await logoutUser()
     expect(resultSecond).toBe(true)
   })
 })

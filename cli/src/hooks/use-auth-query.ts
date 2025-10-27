@@ -26,6 +26,11 @@ interface ValidateAuthParams {
   logger?: Logger
 }
 
+type ValidatedUserInfo = {
+  id: string
+  email: string
+}
+
 /**
  * Validates an API key by calling the backend
  *
@@ -36,18 +41,20 @@ export async function validateApiKey({
   apiKey,
   getUserInfoFromApiKey = defaultGetUserInfoFromApiKey,
   logger = defaultLogger,
-}: ValidateAuthParams) {
+}: ValidateAuthParams): Promise<ValidatedUserInfo> {
+  const requestedFields = ['id', 'email'] as const
+
   logger.info(
     {
       apiKeyPrefix: apiKey.substring(0, 10) + '...',
-      fields: ['id', 'email'],
+      fields: requestedFields,
     },
     '🔐 Validating API key via getUserInfoFromApiKey',
   )
 
   const authResult = await getUserInfoFromApiKey({
     apiKey,
-    fields: ['id', 'email'],
+    fields: requestedFields,
     logger,
   })
 
