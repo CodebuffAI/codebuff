@@ -2,7 +2,7 @@
 
 /**
  * Proof of Concept: tmux-based CLI testing
- * 
+ *
  * This script demonstrates how to:
  * 1. Create a tmux session
  * 2. Run the CLI in that session
@@ -53,7 +53,7 @@ async function capturePane(sessionName: string): Promise<string> {
 // Main test function
 async function testCLIWithTmux() {
   const sessionName = 'codebuff-test-' + Date.now()
-  
+
   console.log('🚀 Starting tmux-based CLI test...')
   console.log(`📦 Session: ${sessionName}`)
 
@@ -64,7 +64,9 @@ async function testCLIWithTmux() {
     console.error('  macOS:   brew install tmux')
     console.error('  Ubuntu:  sudo apt-get install tmux')
     console.error('  Windows: Use WSL and run sudo apt-get install tmux')
-    console.error('\nℹ️  This is just a proof-of-concept. See the documentation for alternatives.')
+    console.error(
+      '\nℹ️  This is just a proof-of-concept. See the documentation for alternatives.',
+    )
     process.exit(1)
   }
 
@@ -77,10 +79,16 @@ async function testCLIWithTmux() {
     await tmux([
       'new-session',
       '-d',
-      '-s', sessionName,
-      '-x', '120',  // width
-      '-y', '30',   // height
-      'bun', 'run', 'src/index.tsx', '--help'
+      '-s',
+      sessionName,
+      '-x',
+      '120', // width
+      '-y',
+      '30', // height
+      'bun',
+      'run',
+      'src/index.tsx',
+      '--help',
     ])
     console.log('✅ Session created')
 
@@ -91,7 +99,7 @@ async function testCLIWithTmux() {
     console.log('\n📸 Capturing initial output...')
     const initialOutput = await capturePane(sessionName)
     const cleanOutput = stripAnsi(initialOutput)
-    
+
     console.log('\n--- Output ---')
     console.log(cleanOutput)
     console.log('--- End Output ---\n')
@@ -105,11 +113,15 @@ async function testCLIWithTmux() {
 
     console.log('🔍 Verification:')
     checks.forEach(({ text, pass }) => {
-      console.log(`  ${pass ? '✅' : '❌'} Contains "${text}"${pass ? '' : ' - NOT FOUND'}`)
+      console.log(
+        `  ${pass ? '✅' : '❌'} Contains "${text}"${pass ? '' : ' - NOT FOUND'}`,
+      )
     })
 
-    const allPassed = checks.every(c => c.pass)
-    console.log(`\n${allPassed ? '🎉 All checks passed!' : '⚠️  Some checks failed'}`)
+    const allPassed = checks.every((c) => c.pass)
+    console.log(
+      `\n${allPassed ? '🎉 All checks passed!' : '⚠️  Some checks failed'}`,
+    )
 
     // 6. Example: Send interactive command (commented out for --help test)
     /*
@@ -123,7 +135,6 @@ async function testCLIWithTmux() {
     console.log(stripAnsi(responseOutput))
     console.log('--- End Response ---')
     */
-
   } catch (error) {
     console.error('\n❌ Test failed:', error)
   } finally {

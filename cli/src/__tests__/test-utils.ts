@@ -2,7 +2,6 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-
 /**
  * Check if tmux is available on the system
  */
@@ -33,7 +32,8 @@ export function isSDKBuilt(): boolean {
 /**
  * Sleep utility for async delays
  */
-export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+export const sleep = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms))
 
 let cachedEnv: Record<string, string> | null = null
 
@@ -48,16 +48,22 @@ function loadCliEnv(): Record<string, string> {
       env: Record<string, unknown>
     }
 
-    cachedEnv = Object.entries(env).reduce<Record<string, string>>((acc, [key, value]) => {
-      if (value !== undefined && value !== null) {
-        acc[key] = String(value)
-      }
-      return acc
-    }, {})
+    cachedEnv = Object.entries(env).reduce<Record<string, string>>(
+      (acc, [key, value]) => {
+        if (value !== undefined && value !== null) {
+          acc[key] = String(value)
+        }
+        return acc
+      },
+      {},
+    )
 
     return cachedEnv
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'unknown error loading environment'
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'unknown error loading environment'
     throw new Error(
       `Failed to load CLI environment via packages/internal/src/env: ${message}. ` +
         'Run commands via "infisical run -- bun …" or export the required variables.',

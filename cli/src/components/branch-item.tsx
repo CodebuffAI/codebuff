@@ -57,11 +57,7 @@ export const BranchItem = ({
   const toggleLabel = `${isCollapsed ? '▸' : '▾'} `
 
   const isTextRenderable = (value: ReactNode): boolean => {
-    if (
-      value === null ||
-      value === undefined ||
-      typeof value === 'boolean'
-    ) {
+    if (value === null || value === undefined || typeof value === 'boolean') {
       return false
     }
 
@@ -127,7 +123,10 @@ export const BranchItem = ({
       return (
         <box key="expanded-array" style={{ flexDirection: 'column', gap: 0 }}>
           {value.map((child, idx) => (
-            <box key={`expanded-array-${idx}`} style={{ flexDirection: 'column', gap: 0 }}>
+            <box
+              key={`expanded-array-${idx}`}
+              style={{ flexDirection: 'column', gap: 0 }}
+            >
               {child}
             </box>
           ))}
@@ -164,13 +163,8 @@ export const BranchItem = ({
           onMouseDown={onToggle}
         >
           <text wrap>
-            <span fg={toggleTextColor}>
-              {toggleLabel}
-            </span>
-            <span
-              fg={toggleTextColor}
-              attributes={TextAttributes.BOLD}
-            >
+            <span fg={toggleTextColor}>{toggleLabel}</span>
+            <span fg={toggleTextColor} attributes={TextAttributes.BOLD}>
               {name}
             </span>
           </text>

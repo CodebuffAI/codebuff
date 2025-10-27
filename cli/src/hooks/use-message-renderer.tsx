@@ -13,7 +13,6 @@ import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 import type { ChatMessage } from '../chat'
 import type { ChatTheme } from '../utils/theme-system'
 
-
 interface UseMessageRendererProps {
   messages: ChatMessage[]
   messageTree: Map<string, ChatMessage[]>
@@ -30,7 +29,9 @@ interface UseMessageRendererProps {
   scrollToAgent: (agentId: string, retries?: number) => void
 }
 
-export const useMessageRenderer = (props: UseMessageRendererProps): ReactNode[] => {
+export const useMessageRenderer = (
+  props: UseMessageRendererProps,
+): ReactNode[] => {
   const {
     messages,
     messageTree,
@@ -175,22 +176,22 @@ export const useMessageRenderer = (props: UseMessageRendererProps): ReactNode[] 
                     ? theme.agentResponseCount
                     : theme.agentPrefix,
                   paddingLeft: 1,
-          paddingRight: 1,
-        }}
-        onMouseDown={handleTitleClick}
-      >
-        <text wrap>
-          <span fg={theme.agentToggleText}>
-            {isCollapsed ? '▸ ' : '▾ '}
-          </span>
-          <span
-            fg={theme.agentToggleText}
-            attributes={TextAttributes.BOLD}
-          >
-            {agentInfo.agentName}
-          </span>
-        </text>
-      </box>
+                  paddingRight: 1,
+                }}
+                onMouseDown={handleTitleClick}
+              >
+                <text wrap>
+                  <span fg={theme.agentToggleText}>
+                    {isCollapsed ? '▸ ' : '▾ '}
+                  </span>
+                  <span
+                    fg={theme.agentToggleText}
+                    attributes={TextAttributes.BOLD}
+                  >
+                    {agentInfo.agentName}
+                  </span>
+                </text>
+              </box>
               <box
                 style={{ flexShrink: 1, marginBottom: isCollapsed ? 1 : 0 }}
                 onMouseDown={handleContentClick}
@@ -282,7 +283,10 @@ export const useMessageRenderer = (props: UseMessageRendererProps): ReactNode[] 
       const markdownOptions = { codeBlockWidth, palette: paletteForMessage }
 
       const isLoading =
-        isAi && message.content === '' && !message.blocks && isWaitingForResponse
+        isAi &&
+        message.content === '' &&
+        !message.blocks &&
+        isWaitingForResponse
 
       const agentChildren = messageTree.get(message.id) ?? []
       const hasAgentChildren = agentChildren.length > 0

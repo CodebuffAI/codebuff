@@ -1,4 +1,12 @@
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -34,7 +42,9 @@ describe('Returning User Authentication helpers', () => {
   let tempConfigDir: string
 
   beforeEach(() => {
-    tempConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manicode-returning-'))
+    tempConfigDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'manicode-returning-'),
+    )
     originalEnv.CODEBUFF_API_KEY = process.env.CODEBUFF_API_KEY
   })
 
@@ -47,7 +57,8 @@ describe('Returning User Authentication helpers', () => {
   })
 
   test('should load auth token from credentials file for returning user', () => {
-    const authModule = require('../../utils/auth') as typeof import('../../utils/auth')
+    const authModule =
+      require('../../utils/auth') as typeof import('../../utils/auth')
 
     spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
     spyOn(authModule, 'getCredentialsPath').mockReturnValue(
@@ -62,7 +73,8 @@ describe('Returning User Authentication helpers', () => {
   })
 
   test('should fall back to CODEBUFF_API_KEY when credentials are missing', () => {
-    const authModule = require('../../utils/auth') as typeof import('../../utils/auth')
+    const authModule =
+      require('../../utils/auth') as typeof import('../../utils/auth')
 
     spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
     spyOn(authModule, 'getCredentialsPath').mockReturnValue(
@@ -77,7 +89,8 @@ describe('Returning User Authentication helpers', () => {
   })
 
   test('should validate stored credentials without blocking the UI thread', async () => {
-    const authModule = require('../../utils/auth') as typeof import('../../utils/auth')
+    const authModule =
+      require('../../utils/auth') as typeof import('../../utils/auth')
 
     spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
     spyOn(authModule, 'getCredentialsPath').mockReturnValue(
@@ -87,10 +100,12 @@ describe('Returning User Authentication helpers', () => {
     saveUserCredentials(RETURNING_USER)
 
     const logger = createLogger()
-    const mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn = mock(async () => ({
-      id: RETURNING_USER.id,
-      email: RETURNING_USER.email,
-    })) as GetUserInfoFromApiKeyFn
+    const mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn = mock(
+      async () => ({
+        id: RETURNING_USER.id,
+        email: RETURNING_USER.email,
+      }),
+    ) as GetUserInfoFromApiKeyFn
 
     const result = await validateApiKey({
       apiKey: RETURNING_USER.authToken,

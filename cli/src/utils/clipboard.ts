@@ -56,8 +56,7 @@ function getDefaultSuccessMessage(text: string): string | null {
   if (!preview) {
     return null
   }
-  const truncated =
-    preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
+  const truncated = preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
   return `Copied: "${truncated}"`
 }
 
@@ -115,10 +114,9 @@ export async function copyTextToClipboard(
   } catch (error) {
     logger.error(error, 'Failed to copy to clipboard')
     if (!suppressGlobalMessage) {
-      showClipboardMessage(
-        errorMessage ?? 'Failed to copy to clipboard',
-        { durationMs },
-      )
+      showClipboardMessage(errorMessage ?? 'Failed to copy to clipboard', {
+        durationMs,
+      })
     }
     throw error
   }

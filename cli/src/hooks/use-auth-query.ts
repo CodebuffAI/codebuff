@@ -199,10 +199,7 @@ export interface UseLogoutMutationDeps {
  */
 export function useLogoutMutation(deps: UseLogoutMutationDeps = {}) {
   const queryClient = useQueryClient()
-  const {
-    logoutUser = logoutUserUtil,
-    logger = defaultLogger,
-  } = deps
+  const { logoutUser = logoutUserUtil, logger = defaultLogger } = deps
 
   return useMutation({
     mutationFn: logoutUser,

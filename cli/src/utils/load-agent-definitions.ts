@@ -1,8 +1,10 @@
 import fs from 'fs'
 import path from 'path'
+
+import { findAgentsDirectory } from './local-agent-registry'
+
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
-const AGENTS_DIR_NAME = '.agents'
 const DISPLAY_NAME_REGEX = /displayName\s*:\s*['"`]([^'"`]+)['"`]/i
 const ID_REGEX = /id\s*:\s*['"`]([^'"`]+)['"`]/i
 
@@ -19,30 +21,6 @@ const shouldSkipDirectory = (dirName: string): boolean => {
     'node_modules',
   ])
   return skipped.has(dirName)
-}
-
-const findAgentsDir = (): string | null => {
-  let currentDir = process.cwd()
-  const rootDir = path.parse(currentDir).root
-
-  while (true) {
-    const candidate = path.join(currentDir, AGENTS_DIR_NAME)
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-      return candidate
-    }
-
-    if (currentDir === rootDir) {
-      break
-    }
-
-    const parentDir = path.dirname(currentDir)
-    if (parentDir === currentDir) {
-      break
-    }
-    currentDir = parentDir
-  }
-
-  return null
 }
 
 const gatherAgentFiles = (dir: string): string[] => {
@@ -85,7 +63,7 @@ const gatherAgentFiles = (dir: string): string[] => {
  * Note: The SDK's processAgentDefinitions will handle converting handleSteps functions to strings
  */
 export const loadAgentDefinitions = (): AgentDefinition[] => {
-  const agentsDir = findAgentsDir()
+  const agentsDir = findAgentsDirectory()
   if (!agentsDir) {
     return []
   }
@@ -98,6 +76,9 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
       // Use require to load the TypeScript file (works with ts-node/bun)
       const agentModule = require(filePath)
       const agentDef = agentModule.default
+      if (require.cache[filePath]) {
+        delete require.cache[filePath]
+      }
 
       if (!agentDef || !agentDef.id || !agentDef.model) {
         continue

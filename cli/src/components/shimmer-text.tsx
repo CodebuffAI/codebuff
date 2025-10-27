@@ -226,7 +226,11 @@ export const ShimmerText = ({
       currentText += char
     } else {
       if (currentText) {
-        parts.push({ text: currentText, color: currentColor, attr: currentAttr })
+        parts.push({
+          text: currentText,
+          color: currentColor,
+          attr: currentAttr,
+        })
       }
       currentText = char
       currentColor = charColor

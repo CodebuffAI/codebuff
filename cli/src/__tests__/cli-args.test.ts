@@ -14,7 +14,7 @@ describe('CLI Argument Parsing', () => {
 
   function parseTestArgs(args: string[]) {
     process.argv = ['node', 'codecane', ...args]
-    
+
     const program = new Command()
     program
       .name('codecane')
@@ -32,7 +32,10 @@ describe('CLI Argument Parsing', () => {
       if (error instanceof Error && error.message.includes('(outputHelp)')) {
         return { help: true }
       }
-      if (error instanceof Error && (error.message.includes('(version)') || error.message.includes('1.0.0'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('(version)') || error.message.includes('1.0.0'))
+      ) {
         return { version: true }
       }
       throw error
@@ -49,13 +52,21 @@ describe('CLI Argument Parsing', () => {
   }
 
   test('parses --agent flag correctly', () => {
-    const result = parseTestArgs(['--agent', 'file-picker', 'find all TypeScript files'])
+    const result = parseTestArgs([
+      '--agent',
+      'file-picker',
+      'find all TypeScript files',
+    ])
     expect(result.agent).toBe('file-picker')
     expect(result.initialPrompt).toBe('find all TypeScript files')
   })
 
   test('parses --agent with full agent ID', () => {
-    const result = parseTestArgs(['--agent', 'codebuff/base-lite@1.0.0', 'hello'])
+    const result = parseTestArgs([
+      '--agent',
+      'codebuff/base-lite@1.0.0',
+      'hello',
+    ])
     expect(result.agent).toBe('codebuff/base-lite@1.0.0')
     expect(result.initialPrompt).toBe('hello')
   })
@@ -73,7 +84,12 @@ describe('CLI Argument Parsing', () => {
   })
 
   test('handles multiple flags together', () => {
-    const result = parseTestArgs(['--agent', 'reviewer', '--clear-logs', 'review my code'])
+    const result = parseTestArgs([
+      '--agent',
+      'reviewer',
+      '--clear-logs',
+      'review my code',
+    ])
     expect(result.agent).toBe('reviewer')
     expect(result.clearLogs).toBe(true)
     expect(result.initialPrompt).toBe('review my code')
@@ -94,7 +110,11 @@ describe('CLI Argument Parsing', () => {
   })
 
   test('handles multi-word prompt', () => {
-    const result = parseTestArgs(['--agent', 'base', 'fix the bug in auth.ts file'])
+    const result = parseTestArgs([
+      '--agent',
+      'base',
+      'fix the bug in auth.ts file',
+    ])
     expect(result.agent).toBe('base')
     expect(result.initialPrompt).toBe('fix the bug in auth.ts file')
   })

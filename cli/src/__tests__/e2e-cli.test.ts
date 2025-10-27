@@ -10,11 +10,13 @@ const sdkBuilt = isSDKBuilt()
 
 ensureCliTestEnv()
 
-function runCLI(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+function runCLI(
+  args: string[],
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   return new Promise((resolve, reject) => {
     const proc = spawn('bun', ['run', CLI_PATH, ...args], {
       cwd: path.join(__dirname, '../..'),
-      stdio: 'pipe'
+      stdio: 'pipe',
     })
 
     let stdout = ''
@@ -46,96 +48,124 @@ function runCLI(args: string[]): Promise<{ stdout: string; stderr: string; exitC
 }
 
 describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
-  test('CLI shows help with --help flag', async () => {
-    const { stdout, stderr, exitCode } = await runCLI(['--help'])
-    
-    const cleanOutput = stripAnsi(stdout + stderr)
-    expect(cleanOutput).toContain('--agent')
-    expect(cleanOutput).toContain('Usage:')
-    expect(exitCode).toBe(0)
-  }, TIMEOUT_MS)
+  test(
+    'CLI shows help with --help flag',
+    async () => {
+      const { stdout, stderr, exitCode } = await runCLI(['--help'])
 
-  test('CLI shows help with -h flag', async () => {
-    const { stdout, stderr, exitCode } = await runCLI(['-h'])
-    
-    const cleanOutput = stripAnsi(stdout + stderr)
-    expect(cleanOutput).toContain('--agent')
-    expect(exitCode).toBe(0)
-  }, TIMEOUT_MS)
+      const cleanOutput = stripAnsi(stdout + stderr)
+      expect(cleanOutput).toContain('--agent')
+      expect(cleanOutput).toContain('Usage:')
+      expect(exitCode).toBe(0)
+    },
+    TIMEOUT_MS,
+  )
 
-  test('CLI shows version with --version flag', async () => {
-    const { stdout, stderr, exitCode } = await runCLI(['--version'])
-    
-    const cleanOutput = stripAnsi(stdout + stderr)
-    expect(cleanOutput).toMatch(/\d+\.\d+\.\d+|dev/)
-    expect(exitCode).toBe(0)
-  }, TIMEOUT_MS)
+  test(
+    'CLI shows help with -h flag',
+    async () => {
+      const { stdout, stderr, exitCode } = await runCLI(['-h'])
 
-  test('CLI shows version with -v flag', async () => {
-    const { stdout, stderr, exitCode } = await runCLI(['-v'])
-    
-    const cleanOutput = stripAnsi(stdout + stderr)
-    expect(cleanOutput).toMatch(/\d+\.\d+\.\d+|dev/)
-    expect(exitCode).toBe(0)
-  }, TIMEOUT_MS)
+      const cleanOutput = stripAnsi(stdout + stderr)
+      expect(cleanOutput).toContain('--agent')
+      expect(exitCode).toBe(0)
+    },
+    TIMEOUT_MS,
+  )
 
-  test('CLI accepts --agent flag', async () => {
-    // Note: This will timeout and exit because we can't interact with stdin
-    // But we can verify it starts without errors
-    const proc = spawn('bun', ['run', CLI_PATH, '--agent', 'ask'], {
-      cwd: path.join(__dirname, '../..'),
-      stdio: 'pipe'
-    })
+  test(
+    'CLI shows version with --version flag',
+    async () => {
+      const { stdout, stderr, exitCode } = await runCLI(['--version'])
 
-    let started = false
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => {
-        resolve()
-      }, 800)
+      const cleanOutput = stripAnsi(stdout + stderr)
+      expect(cleanOutput).toMatch(/\d+\.\d+\.\d+|dev/)
+      expect(exitCode).toBe(0)
+    },
+    TIMEOUT_MS,
+  )
 
-      proc.stdout?.once('data', () => {
-        started = true
-        clearTimeout(timeout)
-        resolve()
+  test(
+    'CLI shows version with -v flag',
+    async () => {
+      const { stdout, stderr, exitCode } = await runCLI(['-v'])
+
+      const cleanOutput = stripAnsi(stdout + stderr)
+      expect(cleanOutput).toMatch(/\d+\.\d+\.\d+|dev/)
+      expect(exitCode).toBe(0)
+    },
+    TIMEOUT_MS,
+  )
+
+  test(
+    'CLI accepts --agent flag',
+    async () => {
+      // Note: This will timeout and exit because we can't interact with stdin
+      // But we can verify it starts without errors
+      const proc = spawn('bun', ['run', CLI_PATH, '--agent', 'ask'], {
+        cwd: path.join(__dirname, '../..'),
+        stdio: 'pipe',
       })
-    })
 
-    proc.kill('SIGTERM')
+      let started = false
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve()
+        }, 800)
 
-    expect(started).toBe(true)
-  }, TIMEOUT_MS)
-
-  test('CLI accepts --clear-logs flag', async () => {
-    const proc = spawn('bun', ['run', CLI_PATH, '--clear-logs'], {
-      cwd: path.join(__dirname, '../..'),
-      stdio: 'pipe'
-    })
-
-    let started = false
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => {
-        resolve()
-      }, 800)
-
-      proc.stdout?.once('data', () => {
-        started = true
-        clearTimeout(timeout)
-        resolve()
+        proc.stdout?.once('data', () => {
+          started = true
+          clearTimeout(timeout)
+          resolve()
+        })
       })
-    })
 
-    proc.kill('SIGTERM')
+      proc.kill('SIGTERM')
 
-    expect(started).toBe(true)
-  }, TIMEOUT_MS)
+      expect(started).toBe(true)
+    },
+    TIMEOUT_MS,
+  )
 
-  test('CLI handles invalid flags gracefully', async () => {
-    const { stderr, exitCode } = await runCLI(['--invalid-flag'])
-    
-    // Commander should show an error
-    expect(exitCode).not.toBe(0)
-    expect(stripAnsi(stderr)).toContain('error')
-  }, TIMEOUT_MS)
+  test(
+    'CLI accepts --clear-logs flag',
+    async () => {
+      const proc = spawn('bun', ['run', CLI_PATH, '--clear-logs'], {
+        cwd: path.join(__dirname, '../..'),
+        stdio: 'pipe',
+      })
+
+      let started = false
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve()
+        }, 800)
+
+        proc.stdout?.once('data', () => {
+          started = true
+          clearTimeout(timeout)
+          resolve()
+        })
+      })
+
+      proc.kill('SIGTERM')
+
+      expect(started).toBe(true)
+    },
+    TIMEOUT_MS,
+  )
+
+  test(
+    'CLI handles invalid flags gracefully',
+    async () => {
+      const { stderr, exitCode } = await runCLI(['--invalid-flag'])
+
+      // Commander should show an error
+      expect(exitCode).not.toBe(0)
+      expect(stripAnsi(stderr)).toContain('error')
+    },
+    TIMEOUT_MS,
+  )
 })
 
 // Show message when SDK tests are skipped

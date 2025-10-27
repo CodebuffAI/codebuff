@@ -69,6 +69,12 @@ export type ContentBlock =
       blocks?: ContentBlock[]
       initialPrompt?: string
     }
+  | {
+      type: 'agent-list'
+      id: string
+      agents: Array<{ id: string; displayName: string }>
+      agentsDir: string
+    }
 
 export type ChatMessage = {
   id: string
@@ -89,11 +95,16 @@ export const App = ({
   agentId,
   requireAuth,
   hasInvalidCredentials,
+  loadedAgentsData,
 }: {
   initialPrompt: string | null
   agentId?: string
   requireAuth: boolean | null
   hasInvalidCredentials: boolean
+  loadedAgentsData: {
+    agents: Array<{ id: string; displayName: string }>
+    agentsDir: string
+  } | null
 }) => {
   const renderer = useRenderer()
   const { width: measuredWidth } = useTerminalDimensions()
@@ -128,7 +139,7 @@ export const App = ({
 
   // If requireAuth is null (checking), assume not authenticated until proven otherwise
   const [isAuthenticated, setIsAuthenticated] = useState(
-    requireAuth === false ? true : false
+    requireAuth === false ? true : false,
   )
   const [user, setUser] = useState<User | null>(null)
 
@@ -172,6 +183,31 @@ export const App = ({
       'Chat App component mounted',
     )
   }, [])
+
+  // Initialize with loaded agents message
+  useEffect(() => {
+    if (loadedAgentsData && messages.length === 0) {
+      const agentListId = 'loaded-agents-list'
+      const initialMessage: ChatMessage = {
+        id: `system-loaded-agents-${Date.now()}`,
+        variant: 'ai',
+        content: '', // Content is in the block
+        blocks: [
+          {
+            type: 'agent-list',
+            id: agentListId,
+            agents: loadedAgentsData.agents,
+            agentsDir: loadedAgentsData.agentsDir,
+          },
+        ],
+        timestamp: new Date().toISOString(),
+      }
+
+      // Set as collapsed by default
+      setCollapsedAgents((prev) => new Set([...prev, agentListId]))
+      setMessages([initialMessage])
+    }
+  }, [loadedAgentsData]) // Only run when loadedAgentsData changes
 
   const {
     inputValue,
@@ -253,7 +289,10 @@ export const App = ({
       setIsAuthenticated(true)
       logger.info('✅ isAuthenticated set to true - modal should close now')
 
-      logger.info({ user: loggedInUser.name }, '🎉 Login flow completed successfully!')
+      logger.info(
+        { user: loggedInUser.name },
+        '🎉 Login flow completed successfully!',
+      )
     },
     [resetChatStore, setInputFocused],
   )
@@ -726,7 +765,7 @@ export const App = ({
       abortControllerRef.current?.abort()
       stopStreaming()
       setCanProcessQueue(false)
-      
+
       logoutMutation.mutate(undefined, {
         onSettled: () => {
           const msg = {

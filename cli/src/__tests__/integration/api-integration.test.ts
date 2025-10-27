@@ -100,9 +100,7 @@ describe('API Integration', () => {
         fields: userColumns.join(','),
       }).toString()
 
-      expect(requestedUrl).toBe(
-        `${WEBSITE_URL}/api/v1/me?${expectedQuery}`,
-      )
+      expect(requestedUrl).toBe(`${WEBSITE_URL}/api/v1/me?${expectedQuery}`)
     })
 
     test('should handle 200 OK responses from /api/v1/me correctly', async () => {

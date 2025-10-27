@@ -109,8 +109,6 @@ export const LoginModal = ({
     },
   })
 
-
-
   // Copy to clipboard function
   const copyToClipboard = useCallback(async (text: string) => {
     if (!text || text.trim().length === 0) return
@@ -156,11 +154,11 @@ export const LoginModal = ({
   // Store mutation and callback in refs to prevent effect re-runs
   const loginMutationRef = useRef(loginMutation)
   const onLoginSuccessRef = useRef(onLoginSuccess)
-  
+
   useEffect(() => {
     loginMutationRef.current = loginMutation
   }, [loginMutation])
-  
+
   useEffect(() => {
     onLoginSuccessRef.current = onLoginSuccess
   }, [onLoginSuccess])
@@ -274,13 +272,7 @@ export const LoginModal = ({
     return () => {
       active = false
     }
-  }, [
-    loginUrl,
-    fingerprintHash,
-    expiresAt,
-    isWaitingForEnter,
-    fingerprintId,
-  ])
+  }, [loginUrl, fingerprintHash, expiresAt, isWaitingForEnter, fingerprintId])
 
   // Listen for Enter key to fetch URL and open browser, and 'c' key to copy URL
   useKeyboard(
@@ -405,8 +397,8 @@ export const LoginModal = ({
     [logoLines, contentMaxWidth],
   )
 
-  // Show full logo only on large terminals to save space
-  const showFullLogo = isLarge && contentMaxWidth >= 60
+  // Show full logo on all terminal sizes as long as width allows
+  const showFullLogo = contentMaxWidth >= 60
   // Show simple header on smaller terminals
   const showHeader = true
 
@@ -462,192 +454,191 @@ export const LoginModal = ({
           gap: 0,
         }}
       >
-
-          {/* Header - Logo or simple text based on terminal size */}
-          {showHeader && (
-            <>
-              {showFullLogo ? (
-                <box
-                  key="codebuff-logo"
-                  style={{
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    marginTop: headerMarginTop,
-                    marginBottom: headerMarginBottom,
-                    flexShrink: 0,
-                  }}
-                >
-                  {logoDisplayLines.map((line, lineIndex) => (
-                    <text key={`logo-line-${lineIndex}`} wrap={false}>
-                      {line
-                        .split('')
-                        .map((char, charIndex) =>
-                          applySheenToChar(char, charIndex),
-                        )}
-                    </text>
-                  ))}
-                </box>
-              ) : (
-                <box
-                  style={{
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    marginTop: headerMarginTop,
-                    marginBottom: headerMarginBottom,
-                    flexShrink: 0,
-                  }}
-                >
-                  <text wrap={false}>
-                    <b>
-                      <span fg={theme.chromeText}>
-                        {isNarrow ? 'Codebuff' : 'Codebuff CLI'}
-                      </span>
-                    </b>
+        {/* Header - Logo or simple text based on terminal size */}
+        {showHeader && (
+          <>
+            {showFullLogo ? (
+              <box
+                key="codebuff-logo"
+                style={{
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  marginTop: headerMarginTop,
+                  marginBottom: headerMarginBottom,
+                  flexShrink: 0,
+                }}
+              >
+                {logoDisplayLines.map((line, lineIndex) => (
+                  <text key={`logo-line-${lineIndex}`} wrap={false}>
+                    {line
+                      .split('')
+                      .map((char, charIndex) =>
+                        applySheenToChar(char, charIndex),
+                      )}
                   </text>
-                </box>
-              )}
-
-
-            </>
-          )}
-
-          {/* Loading state */}
-          {loading && (
-            <box
-              style={{
-                flexDirection: 'column',
-                alignItems: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <text wrap={false}>
-                <span fg={theme.statusSecondary}>Loading...</span>
-              </text>
-            </box>
-          )}
-
-          {/* Error state */}
-          {error && (
-            <box
-              style={{
-                flexDirection: 'column',
-                alignItems: 'center',
-                marginBottom: sectionMarginBottom,
-                maxWidth: contentMaxWidth,
-                flexShrink: 0,
-              }}
-            >
-              <text wrap={true}>
-                <span fg="red">Error: {error}</span>
-              </text>
-              {!isVerySmall && (
-                <text wrap={true}>
-                  <span fg={theme.statusSecondary}>
-                    {isNarrow
-                      ? 'Please try again'
-                      : 'Please restart the CLI and try again'}
-                  </span>
+                ))}
+              </box>
+            ) : (
+              <box
+                style={{
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  marginTop: headerMarginTop,
+                  marginBottom: headerMarginBottom,
+                  flexShrink: 0,
+                }}
+              >
+                <text wrap={false}>
+                  <b>
+                    <span fg={theme.chromeText}>
+                      {isNarrow ? 'Codebuff' : 'Codebuff CLI'}
+                    </span>
+                  </b>
                 </text>
-              )}
-            </box>
-          )}
+              </box>
+            )}
+          </>
+        )}
 
-          {/* Login instructions - before opening browser */}
-          {!loading && !error && !hasOpenedBrowser && (
-            <box
-              style={{
-                flexDirection: 'column',
-                alignItems: 'center',
-                marginBottom: sectionMarginBottom,
-                maxWidth: contentMaxWidth,
-                flexShrink: 0,
-              }}
-            >
-              <text wrap={true}>
-                <span fg={theme.statusAccent}>
-                  {isNarrow
-                    ? 'Press ENTER to login...'
-                    : 'Press ENTER to open your browser and finish logging in...'}
-                </span>
-              </text>
-            </box>
-          )}
+        {/* Loading state */}
+        {loading && (
+          <box
+            style={{
+              flexDirection: 'column',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <text wrap={false}>
+              <span fg={theme.statusSecondary}>Loading...</span>
+            </text>
+          </box>
+        )}
 
-          {/* After opening browser - show URL as fallback */}
-          {!loading && !error && loginUrl && hasOpenedBrowser && (
-            <box
-              style={{
-                flexDirection: 'column',
-                alignItems: 'center',
-                marginBottom: sectionMarginBottom,
-                maxWidth: contentMaxWidth,
-                flexShrink: 0,
-                gap: isVerySmall ? 0 : 1,
-              }}
-            >
+        {/* Error state */}
+        {error && (
+          <box
+            style={{
+              flexDirection: 'column',
+              alignItems: 'center',
+              marginBottom: sectionMarginBottom,
+              maxWidth: contentMaxWidth,
+              flexShrink: 0,
+            }}
+          >
+            <text wrap={true}>
+              <span fg="red">Error: {error}</span>
+            </text>
+            {!isVerySmall && (
               <text wrap={true}>
                 <span fg={theme.statusSecondary}>
-                  {isNarrow ? 'Click to copy:' : 'Click link to copy:'}
+                  {isNarrow
+                    ? 'Please try again'
+                    : 'Please restart the CLI and try again'}
                 </span>
               </text>
-              {loginUrl && (
-                <box
-                  style={{
-                    marginTop: 0,
-                    width: '100%',
-                    flexShrink: 0,
-                  }}
-                >
-                  <TerminalLink
-                    text={loginUrl}
-                    maxWidth={maxUrlWidth}
-                    formatLines={(text, width) =>
-                      formatUrl(text, width ?? maxUrlWidth)
+            )}
+          </box>
+        )}
+
+        {/* Login instructions - before opening browser */}
+        {!loading && !error && !hasOpenedBrowser && (
+          <box
+            style={{
+              flexDirection: 'column',
+              alignItems: 'center',
+              marginBottom: sectionMarginBottom,
+              maxWidth: contentMaxWidth,
+              flexShrink: 0,
+            }}
+          >
+            <text wrap={true}>
+              <span fg={theme.statusAccent}>
+                {isNarrow
+                  ? 'Press ENTER to login...'
+                  : 'Press ENTER to open your browser and finish logging in...'}
+              </span>
+            </text>
+          </box>
+        )}
+
+        {/* After opening browser - show URL as fallback */}
+        {!loading && !error && loginUrl && hasOpenedBrowser && (
+          <box
+            style={{
+              flexDirection: 'column',
+              alignItems: 'center',
+              marginBottom: sectionMarginBottom,
+              maxWidth: contentMaxWidth,
+              flexShrink: 0,
+              gap: isVerySmall ? 0 : 1,
+            }}
+          >
+            <text wrap={true}>
+              <span fg={theme.statusSecondary}>
+                {isNarrow ? 'Click to copy:' : 'Click link to copy:'}
+              </span>
+            </text>
+            {loginUrl && (
+              <box
+                style={{
+                  marginTop: 0,
+                  width: '100%',
+                  flexShrink: 0,
+                }}
+              >
+                <TerminalLink
+                  text={loginUrl}
+                  maxWidth={maxUrlWidth}
+                  formatLines={(text, width) =>
+                    formatUrl(text, width ?? maxUrlWidth)
+                  }
+                  color={
+                    hasClickedLink ? LINK_COLOR_CLICKED : LINK_COLOR_DEFAULT
+                  }
+                  activeColor={LINK_COLOR_CLICKED}
+                  underlineOnHover={true}
+                  isActive={justCopied}
+                  onActivate={async () => {
+                    try {
+                      await open(loginUrl)
+                    } catch (err) {
+                      logger.error(err, 'Failed to open browser on link click')
                     }
-                    color={hasClickedLink ? LINK_COLOR_CLICKED : LINK_COLOR_DEFAULT}
-                    activeColor={LINK_COLOR_CLICKED}
-                    underlineOnHover={true}
-                    isActive={justCopied}
-                    onActivate={async () => {
-                      try {
-                        await open(loginUrl)
-                      } catch (err) {
-                        logger.error(err, 'Failed to open browser on link click')
-                      }
-                      return copyToClipboard(loginUrl)
-                    }}
-                    containerStyle={{
-                      alignItems: 'flex-start',
-                      flexShrink: 0,
-                    }}
-                  />
-                </box>
-              )}
-              {copyMessage && (
-                <box
-                  style={{
-                    marginTop: isVerySmall ? 0 : 1,
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    width: '100%',
+                    return copyToClipboard(loginUrl)
+                  }}
+                  containerStyle={{
+                    alignItems: 'flex-start',
                     flexShrink: 0,
                   }}
-                >
-                  <text wrap={false}>
-                    <span
-                      fg={
-                        copyMessage.startsWith('✓')
-                          ? COPY_SUCCESS_COLOR
-                          : COPY_ERROR_COLOR
-                      }
-                    >
-                      {copyMessage}
-                    </span>
-                  </text>
-                </box>
-              )}
-            </box>
-          )}
+                />
+              </box>
+            )}
+            {copyMessage && (
+              <box
+                style={{
+                  marginTop: isVerySmall ? 0 : 1,
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  width: '100%',
+                  flexShrink: 0,
+                }}
+              >
+                <text wrap={false}>
+                  <span
+                    fg={
+                      copyMessage.startsWith('✓')
+                        ? COPY_SUCCESS_COLOR
+                        : COPY_ERROR_COLOR
+                    }
+                  >
+                    {copyMessage}
+                  </span>
+                </text>
+              </box>
+            )}
+          </box>
+        )}
       </box>
     </box>
   )

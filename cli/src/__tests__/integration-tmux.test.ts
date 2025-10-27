@@ -42,105 +42,122 @@ function tmux(args: string[]): Promise<string> {
   })
 }
 
-describe.skipIf(!tmuxAvailable || !sdkBuilt)('CLI Integration Tests with tmux', () => {
-  beforeAll(async () => {
-    if (!tmuxAvailable) {
-      console.log('\n⚠️  Skipping tmux tests - tmux not installed')
-      console.log('📦 Install with: brew install tmux (macOS) or sudo apt-get install tmux (Linux)\n')
-    }
-    if (!sdkBuilt) {
-      console.log('\n⚠️  Skipping tmux tests - SDK not built')
-      console.log('🔨 Build SDK: cd sdk && bun run build\n')
-    }
-    if (tmuxAvailable && sdkBuilt) {
-      const envVars = getDefaultCliEnv()
-      const entries = Object.entries(envVars)
-      // Propagate environment into tmux server so sessions inherit required vars
-      await Promise.all(
-        entries.map(([key, value]) =>
-          tmux(['set-environment', '-g', key, value]).catch(() => {
-            // Ignore failures; environment might already be set
-          }),
-        ),
-      )
-    }
-  })
+describe.skipIf(!tmuxAvailable || !sdkBuilt)(
+  'CLI Integration Tests with tmux',
+  () => {
+    beforeAll(async () => {
+      if (!tmuxAvailable) {
+        console.log('\n⚠️  Skipping tmux tests - tmux not installed')
+        console.log(
+          '📦 Install with: brew install tmux (macOS) or sudo apt-get install tmux (Linux)\n',
+        )
+      }
+      if (!sdkBuilt) {
+        console.log('\n⚠️  Skipping tmux tests - SDK not built')
+        console.log('🔨 Build SDK: cd sdk && bun run build\n')
+      }
+      if (tmuxAvailable && sdkBuilt) {
+        const envVars = getDefaultCliEnv()
+        const entries = Object.entries(envVars)
+        // Propagate environment into tmux server so sessions inherit required vars
+        await Promise.all(
+          entries.map(([key, value]) =>
+            tmux(['set-environment', '-g', key, value]).catch(() => {
+              // Ignore failures; environment might already be set
+            }),
+          ),
+        )
+      }
+    })
 
-  test('CLI starts and displays help output', async () => {
-    const sessionName = 'codebuff-test-' + Date.now()
-    
-    try {
-      // Create session with --help flag and keep it alive with '; sleep 2'
-      await tmux([
-        'new-session',
-        '-d',
-        '-s', sessionName,
-        '-x', '120',
-        '-y', '30',
-        `bun run ${CLI_PATH} --help; sleep 2`
-      ])
+    test(
+      'CLI starts and displays help output',
+      async () => {
+        const sessionName = 'codebuff-test-' + Date.now()
 
-      // Wait for output
-      await sleep(400)
+        try {
+          // Create session with --help flag and keep it alive with '; sleep 2'
+          await tmux([
+            'new-session',
+            '-d',
+            '-s',
+            sessionName,
+            '-x',
+            '120',
+            '-y',
+            '30',
+            `bun run ${CLI_PATH} --help; sleep 2`,
+          ])
 
-      let cleanOutput = ''
-      for (let i = 0; i < 5; i += 1) {
-        await sleep(200)
-        const output = await tmux(['capture-pane', '-t', sessionName, '-p'])
-        cleanOutput = stripAnsi(output)
-        if (cleanOutput.includes('--agent')) {
-          break
+          // Wait for output
+          await sleep(400)
+
+          let cleanOutput = ''
+          for (let i = 0; i < 5; i += 1) {
+            await sleep(200)
+            const output = await tmux(['capture-pane', '-t', sessionName, '-p'])
+            cleanOutput = stripAnsi(output)
+            if (cleanOutput.includes('--agent')) {
+              break
+            }
+          }
+
+          expect(cleanOutput).toContain('--agent')
+          expect(cleanOutput).toContain('Usage:')
+        } finally {
+          // Cleanup
+          try {
+            await tmux(['kill-session', '-t', sessionName])
+          } catch {
+            // Session may have already exited
+          }
         }
-      }
+      },
+      TIMEOUT_MS,
+    )
 
-      expect(cleanOutput).toContain('--agent')
-      expect(cleanOutput).toContain('Usage:')
+    test(
+      'CLI accepts --agent flag',
+      async () => {
+        const sessionName = 'codebuff-test-' + Date.now()
 
-    } finally {
-      // Cleanup
-      try {
-        await tmux(['kill-session', '-t', sessionName])
-      } catch {
-        // Session may have already exited
-      }
-    }
-  }, TIMEOUT_MS)
+        try {
+          // Start CLI with --agent flag (it will wait for input, so we can capture)
+          await tmux([
+            'new-session',
+            '-d',
+            '-s',
+            sessionName,
+            '-x',
+            '120',
+            '-y',
+            '30',
+            `bun run ${CLI_PATH} --agent ask`,
+          ])
 
-  test('CLI accepts --agent flag', async () => {
-    const sessionName = 'codebuff-test-' + Date.now()
-    
-    try {
-      // Start CLI with --agent flag (it will wait for input, so we can capture)
-      await tmux([
-        'new-session',
-        '-d',
-        '-s', sessionName,
-        '-x', '120',
-        '-y', '30',
-        `bun run ${CLI_PATH} --agent ask`
-      ])
+          let output = ''
+          for (let i = 0; i < 5; i += 1) {
+            await sleep(200)
+            output = await tmux(['capture-pane', '-t', sessionName, '-p'])
+            if (output.length > 0) {
+              break
+            }
+          }
 
-      let output = ''
-      for (let i = 0; i < 5; i += 1) {
-        await sleep(200)
-        output = await tmux(['capture-pane', '-t', sessionName, '-p'])
-        if (output.length > 0) {
-          break
+          // Should have started without errors
+          expect(output.length).toBeGreaterThan(0)
+        } finally {
+          try {
+            await tmux(['kill-session', '-t', sessionName])
+          } catch {
+            // Session may have already exited
+          }
         }
-      }
-      
-      // Should have started without errors
-      expect(output.length).toBeGreaterThan(0)
-
-    } finally {
-      try {
-        await tmux(['kill-session', '-t', sessionName])
-      } catch {
-        // Session may have already exited
-      }
-    }
-  }, TIMEOUT_MS)
-})
+      },
+      TIMEOUT_MS,
+    )
+  },
+)
 
 // Always show installation message when tmux tests are skipped
 if (!tmuxAvailable) {

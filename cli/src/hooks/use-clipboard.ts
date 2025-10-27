@@ -11,8 +11,7 @@ function formatDefaultClipboardMessage(text: string): string | null {
   if (!preview) {
     return null
   }
-  const truncated =
-    preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
+  const truncated = preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
   return `Copied: "${truncated}"`
 }
 

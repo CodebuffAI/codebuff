@@ -1,14 +1,17 @@
 import fs from 'fs'
 import path from 'path'
 
+import { pluralize } from '@codebuff/common/util/string'
+
+import { getProjectRoot } from '../project-files'
+
 export interface LocalAgentInfo {
   id: string
   displayName: string
   filePath: string
 }
 
-const DISPLAY_NAME_REGEX =
-  /displayName\s*:\s*['"`]([^'"`]+)['"`]/i
+const DISPLAY_NAME_REGEX = /displayName\s*:\s*['"`]([^'"`]+)['"`]/i
 const ID_REGEX = /id\s*:\s*['"`]([^'"`]+)['"`]/i
 const AGENTS_DIR_NAME = '.agents'
 
@@ -82,41 +85,55 @@ const gatherAgentFiles = (dir: string, results: LocalAgentInfo[]) => {
   }
 }
 
+export const findAgentsDirectory = (): string | null => {
+  if (cachedAgentsDir && fs.existsSync(cachedAgentsDir)) {
+    return cachedAgentsDir
+  }
+
+  const projectRoot = getProjectRoot() || process.cwd()
+  if (projectRoot) {
+    const rootCandidate = path.join(projectRoot, AGENTS_DIR_NAME)
+    if (
+      fs.existsSync(rootCandidate) &&
+      fs.statSync(rootCandidate).isDirectory()
+    ) {
+      cachedAgentsDir = rootCandidate
+      return cachedAgentsDir
+    }
+  }
+
+  let currentDir = process.cwd()
+  const filesystemRoot = path.parse(currentDir).root
+
+  while (true) {
+    const candidate = path.join(currentDir, AGENTS_DIR_NAME)
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      cachedAgentsDir = candidate
+      return cachedAgentsDir
+    }
+
+    if (currentDir === filesystemRoot) {
+      break
+    }
+
+    const parentDir = path.dirname(currentDir)
+    if (parentDir === currentDir) {
+      break
+    }
+
+    currentDir = parentDir
+  }
+
+  cachedAgentsDir = null
+  return null
+}
+
 export const loadLocalAgents = (): LocalAgentInfo[] => {
   if (cachedAgents) {
     return cachedAgents
   }
 
-  const findAgentsDir = (): string | null => {
-    if (cachedAgentsDir && fs.existsSync(cachedAgentsDir)) {
-      return cachedAgentsDir
-    }
-
-    let currentDir = process.cwd()
-    const rootDir = path.parse(currentDir).root
-
-    while (true) {
-      const candidate = path.join(currentDir, AGENTS_DIR_NAME)
-      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-        cachedAgentsDir = candidate
-        return candidate
-      }
-
-      if (currentDir === rootDir) {
-        break
-      }
-
-      const parentDir = path.dirname(currentDir)
-      if (parentDir === currentDir) {
-        break
-      }
-      currentDir = parentDir
-    }
-
-    return null
-  }
-
-  const agentsDir = findAgentsDir()
+  const agentsDir = findAgentsDirectory()
 
   if (!agentsDir) {
     cachedAgents = []
@@ -132,8 +149,72 @@ export const loadLocalAgents = (): LocalAgentInfo[] => {
     return cachedAgents
   }
 
-  cachedAgents = results
-    .sort((a, b) => a.displayName.localeCompare(b.displayName, 'en'))
+  cachedAgents = results.sort((a, b) =>
+    a.displayName.localeCompare(b.displayName, 'en'),
+  )
 
   return cachedAgents
+}
+
+export const announceLoadedAgents = (): void => {
+  const agents = loadLocalAgents()
+  const agentsDir = findAgentsDirectory()
+
+  if (!agentsDir) {
+    console.log('[agents] No .agents directory found in this project.')
+    return
+  }
+
+  if (!agents.length) {
+    console.log(`[agents] No agent files found in ${agentsDir}`)
+    return
+  }
+
+  console.log(
+    `[agents] Loaded ${pluralize(agents.length, 'local agent')} from ${agentsDir}`,
+  )
+  for (const agent of agents) {
+    const identifier =
+      agent.displayName && agent.displayName !== agent.id
+        ? `${agent.displayName} (${agent.id})`
+        : agent.displayName || agent.id
+    console.log(`  - ${identifier}`)
+  }
+}
+
+export const getLoadedAgentsMessage = (): string | null => {
+  const agents = loadLocalAgents()
+  const agentsDir = findAgentsDirectory()
+
+  if (!agentsDir || !agents.length) {
+    return null
+  }
+
+  const agentCount = agents.length
+  const header = `Loaded ${pluralize(agentCount, 'local agent')} from ${agentsDir}`
+  const agentList = agents
+    .map((agent) => {
+      const identifier =
+        agent.displayName && agent.displayName !== agent.id
+          ? `${agent.displayName} (${agent.id})`
+          : agent.displayName || agent.id
+      return `  - ${identifier}`
+    })
+    .join('\n')
+
+  return `${header}\n${agentList}`
+}
+
+export const getLoadedAgentsData = (): {
+  agents: LocalAgentInfo[]
+  agentsDir: string
+} | null => {
+  const agents = loadLocalAgents()
+  const agentsDir = findAgentsDirectory()
+
+  if (!agentsDir || !agents.length) {
+    return null
+  }
+
+  return { agents, agentsDir }
 }

@@ -1,6 +1,8 @@
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
+import { pluralize } from '@codebuff/common/util/string'
+
 import { BranchItem } from './branch-item'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
@@ -71,18 +73,17 @@ export const MessageBlock = ({
     sourceBlocks: ContentBlock[] | undefined,
     currentIndex: number,
   ): boolean =>
-    !!sourceBlocks?.slice(currentIndex + 1).some(
-      (candidate) => candidate.type === 'tool' || candidate.type === 'agent',
-    )
+    !!sourceBlocks
+      ?.slice(currentIndex + 1)
+      .some(
+        (candidate) => candidate.type === 'tool' || candidate.type === 'agent',
+      )
 
   const getAgentMarkdownOptions = (indentLevel: number) => {
     const indentationOffset = indentLevel * 2
 
     return {
-      codeBlockWidth: Math.max(
-        10,
-        availableWidth - 12 - indentationOffset,
-      ),
+      codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
       palette: {
         ...markdownPalette,
         inlineCodeFg: theme.agentText,
@@ -113,9 +114,7 @@ export const MessageBlock = ({
       : ''
     const fullContent = inputContent + resultContent
 
-    const lines = fullContent
-      .split('\n')
-      .filter((line) => line.trim())
+    const lines = fullContent.split('\n').filter((line) => line.trim())
     const firstLine = lines[0] || ''
     const lastLine = lines[lines.length - 1] || firstLine
     const commandPreview =
@@ -193,9 +192,7 @@ export const MessageBlock = ({
         ?.filter((nested) => nested.type === 'text')
         .map((nested) => (nested as any).content)
         .join('') || ''
-    const lines = allTextContent
-      .split('\n')
-      .filter((line) => line.trim())
+    const lines = allTextContent.split('\n').filter((line) => line.trim())
     const firstLine = lines[0] || ''
 
     const streamingPreview = isStreaming
@@ -245,6 +242,75 @@ export const MessageBlock = ({
     )
   }
 
+  function renderAgentListBranch(
+    agentListBlock: Extract<ContentBlock, { type: 'agent-list' }>,
+    isLastBranch: boolean,
+    keyPrefix: string,
+  ): React.ReactNode {
+    const TRUNCATE_LIMIT = 5
+    const isCollapsed = collapsedAgents.has(agentListBlock.id)
+    const { agents, agentsDir } = agentListBlock
+
+    const agentCount = agents.length
+    const shouldTruncate = agentCount > TRUNCATE_LIMIT
+    const displayAgents =
+      shouldTruncate && isCollapsed ? agents.slice(0, TRUNCATE_LIMIT) : agents
+
+    const remainingCount =
+      shouldTruncate && isCollapsed ? agentCount - TRUNCATE_LIMIT : 0
+
+    const agentListContent = (
+      <box style={{ flexDirection: 'column', gap: 0 }}>
+        {displayAgents.map((agent, idx) => {
+          const identifier =
+            agent.displayName && agent.displayName !== agent.id
+              ? `${agent.displayName} (${agent.id})`
+              : agent.displayName || agent.id
+          return (
+            <text key={`agent-${idx}`} wrap fg={theme.agentText}>
+              {`  • ${identifier}`}
+            </text>
+          )
+        })}
+        {remainingCount > 0 && (
+          <text
+            wrap
+            fg={theme.agentResponseCount}
+            attributes={TextAttributes.ITALIC}
+          >
+            {`  ... ${pluralize(remainingCount, 'more agent')}`}
+          </text>
+        )}
+      </box>
+    )
+
+    const headerText = `Loaded ${pluralize(agentCount, 'local agent')}`
+    const finishedPreview =
+      shouldTruncate && isCollapsed
+        ? `${TRUNCATE_LIMIT} agents shown, ${remainingCount} more available`
+        : ''
+
+    return (
+      <box
+        key={keyPrefix}
+        ref={(el: any) => registerAgentRef(agentListBlock.id, el)}
+      >
+        <BranchItem
+          name={headerText}
+          content={agentListContent}
+          agentId={agentListBlock.id}
+          isCollapsed={isCollapsed}
+          isStreaming={false}
+          branchChar=""
+          streamingPreview=""
+          finishedPreview={finishedPreview}
+          theme={theme}
+          onToggle={() => onToggleCollapsed(agentListBlock.id)}
+        />
+      </box>
+    )
+  }
+
   function renderAgentBody(
     agentBlock: Extract<ContentBlock, { type: 'agent' }>,
     indentLevel: number,
@@ -269,10 +335,7 @@ export const MessageBlock = ({
         const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
         const renderedContent = hasMarkdown(rawNestedContent)
           ? isNestedStreamingText
-            ? renderStreamingMarkdown(
-                rawNestedContent,
-                markdownOptionsForLevel,
-              )
+            ? renderStreamingMarkdown(rawNestedContent, markdownOptionsForLevel)
             : renderMarkdown(rawNestedContent, markdownOptionsForLevel)
           : rawNestedContent
         nodes.push(
@@ -350,11 +413,7 @@ export const MessageBlock = ({
                   ? 0
                   : 0
               return (
-                <text
-                  key={renderKey}
-                  wrap
-                  style={{ fg: textColor, marginTop }}
-                >
+                <text key={renderKey} wrap style={{ fg: textColor, marginTop }}>
                   {renderedContent}
                 </text>
               )
@@ -373,6 +432,13 @@ export const MessageBlock = ({
                 0,
                 isLastBranch,
                 `${messageId}-agent-${block.agentId}`,
+              )
+            } else if (block.type === 'agent-list') {
+              const isLastBranch = !hasBranchAfter(blocks, idx)
+              return renderAgentListBranch(
+                block,
+                isLastBranch,
+                `${messageId}-agent-list-${block.id}`,
               )
             }
             return null

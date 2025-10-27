@@ -1,4 +1,12 @@
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -41,7 +49,8 @@ describe('Logout and Re-login helpers', () => {
   })
 
   const mockConfigPaths = () => {
-    const authModule = require('../../utils/auth') as typeof import('../../utils/auth')
+    const authModule =
+      require('../../utils/auth') as typeof import('../../utils/auth')
     spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
     spyOn(authModule, 'getCredentialsPath').mockReturnValue(
       path.join(tempConfigDir, 'credentials.json'),

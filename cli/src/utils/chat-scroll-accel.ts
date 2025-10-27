@@ -105,7 +105,10 @@ class InertialScrollAccel implements ScrollAcceleration {
     private readonly options: Required<InertialOptions>,
   ) {}
 
-  tick(now = Date.now(), direction: 'up' | 'down' | 'left' | 'right' = 'down'): number {
+  tick(
+    now = Date.now(),
+    direction: 'up' | 'down' | 'left' | 'right' = 'down',
+  ): number {
     const {
       baseMultiplier,
       minMultiplier,
@@ -125,7 +128,9 @@ class InertialScrollAccel implements ScrollAcceleration {
 
     const baseValue = this.base.tick(now)
 
-    const dt = this.lastTickTime ? now - this.lastTickTime : Number.POSITIVE_INFINITY
+    const dt = this.lastTickTime
+      ? now - this.lastTickTime
+      : Number.POSITIVE_INFINITY
     this.lastTickTime = now
 
     if (dt === Number.POSITIVE_INFINITY || dt > idleResetMs) {
@@ -166,14 +171,22 @@ class InertialScrollAccel implements ScrollAcceleration {
       )
     }
 
-    let baseContribution = clamp(baseValue * baseMultiplier, minMultiplier, maxMultiplier)
+    let baseContribution = clamp(
+      baseValue * baseMultiplier,
+      minMultiplier,
+      maxMultiplier,
+    )
 
     if (dt === Number.POSITIVE_INFINITY) {
       baseContribution = minMultiplier
     } else if (gentleWindowMs > 0 && dt > gentleWindowMs) {
       const ratio = gentleWindowMs / dt
       const gentleFactor = Math.pow(Math.max(ratio, 0), 1.6)
-      baseContribution = clamp(baseContribution * gentleFactor, minMultiplier, maxMultiplier)
+      baseContribution = clamp(
+        baseContribution * gentleFactor,
+        minMultiplier,
+        maxMultiplier,
+      )
     }
 
     const directionalBoost = this.directionMomentum[direction] * 0.65
@@ -196,7 +209,9 @@ class InertialScrollAccel implements ScrollAcceleration {
   }
 }
 
-export const createChatScrollAcceleration = (): ScrollAcceleration | undefined => {
+export const createChatScrollAcceleration = ():
+  | ScrollAcceleration
+  | undefined => {
   const environment = resolveScrollEnvironment()
 
   if (!environment.enabled) {

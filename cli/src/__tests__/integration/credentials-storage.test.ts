@@ -1,20 +1,32 @@
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
 import * as authModule from '../../utils/auth'
-import { saveUserCredentials, getUserCredentials, logoutUser } from '../../utils/auth'
+import {
+  saveUserCredentials,
+  getUserCredentials,
+  logoutUser,
+} from '../../utils/auth'
 import type { User } from '../../utils/auth'
 
 /**
  * Integration tests for credential storage and retrieval
- * 
+ *
  * These tests verify the complete flow of saving, loading, and managing
  * user credentials on the file system. Credentials are stored in:
  * - Dev: ~/.config/manicode-dev/credentials.json
  * - Prod: ~/.config/manicode/credentials.json
- * 
+ *
  * Tests ensure:
  * - Directories are created if missing
  * - JSON format is correct and parseable
@@ -44,7 +56,7 @@ describe('Credentials Storage Integration', () => {
     // Mock getConfigDir to use temp directory
     spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
     spyOn(authModule, 'getCredentialsPath').mockReturnValue(
-      path.join(tempConfigDir, 'credentials.json')
+      path.join(tempConfigDir, 'credentials.json'),
     )
   })
 
@@ -53,7 +65,7 @@ describe('Credentials Storage Integration', () => {
     if (fs.existsSync(tempConfigDir)) {
       fs.rmSync(tempConfigDir, { recursive: true, force: true })
     }
-    
+
     process.env.NEXT_PUBLIC_CB_ENVIRONMENT = originalEnv
     mock.restore()
   })
@@ -298,12 +310,16 @@ describe('Credentials Storage Integration', () => {
 
     test('should handle write permission errors gracefully', () => {
       // Mock fs.writeFileSync to throw EACCES error
-      const writeError = new Error('EACCES: permission denied') as NodeJS.ErrnoException
+      const writeError = new Error(
+        'EACCES: permission denied',
+      ) as NodeJS.ErrnoException
       writeError.code = 'EACCES'
 
-      const writeFileSyncSpy = spyOn(fs, 'writeFileSync').mockImplementation(() => {
-        throw writeError
-      })
+      const writeFileSyncSpy = spyOn(fs, 'writeFileSync').mockImplementation(
+        () => {
+          throw writeError
+        },
+      )
 
       // Attempt to save credentials - should throw since we're not catching in saveUserCredentials
       expect(() => {
@@ -316,7 +332,9 @@ describe('Credentials Storage Integration', () => {
 
     test('should show clear error message on permission denial', () => {
       // This test verifies that when permission is denied, the error is logged
-      const writeError = new Error('EACCES: permission denied, open \'/test/credentials.json\'') as NodeJS.ErrnoException
+      const writeError = new Error(
+        "EACCES: permission denied, open '/test/credentials.json'",
+      ) as NodeJS.ErrnoException
       writeError.code = 'EACCES'
 
       spyOn(fs, 'writeFileSync').mockImplementation(() => {
@@ -335,7 +353,9 @@ describe('Credentials Storage Integration', () => {
     test('should gracefully degrade if credentials cannot be written', () => {
       // This tests that the error is thrown (not silently swallowed)
       // The caller (login mutation) is responsible for handling the error gracefully
-      const writeError = new Error('ENOSPC: no space left on device') as NodeJS.ErrnoException
+      const writeError = new Error(
+        'ENOSPC: no space left on device',
+      ) as NodeJS.ErrnoException
       writeError.code = 'ENOSPC'
 
       spyOn(fs, 'writeFileSync').mockImplementation(() => {
@@ -368,7 +388,7 @@ describe('Credentials Storage Integration', () => {
       }
 
       // Call saveUserCredentials 5 times rapidly
-      users.forEach(user => saveUserCredentials(user))
+      users.forEach((user) => saveUserCredentials(user))
 
       // Read final credentials
       const credentialsPath = path.join(tempConfigDir, 'credentials.json')

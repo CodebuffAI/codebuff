@@ -137,18 +137,20 @@ export type MultilineInputHandle = {
   focus: () => void
 }
 
-export const MultilineInput = forwardRef<MultilineInputHandle, MultilineInputProps>(
-  function MultilineInput(
+export const MultilineInput = forwardRef<
+  MultilineInputHandle,
+  MultilineInputProps
+>(function MultilineInput(
   {
-  value,
-  onChange,
-  onSubmit,
-  placeholder = '',
-  focused = true,
-  maxHeight = 5,
-  theme,
-  width,
-  onKeyIntercept,
+    value,
+    onChange,
+    onSubmit,
+    placeholder = '',
+    focused = true,
+    maxHeight = 5,
+    theme,
+    width,
+    onKeyIntercept,
   }: MultilineInputProps,
   forwardedRef,
 ) {

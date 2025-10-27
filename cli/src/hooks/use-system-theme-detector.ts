@@ -30,9 +30,7 @@ export const useSystemThemeDetector = (): ThemeName => {
       const currentTheme = detectSystemTheme()
 
       if (currentTheme !== lastThemeRef.current) {
-
       } else {
-
       }
 
       // Only update state if theme actually changed

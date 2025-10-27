@@ -8,6 +8,7 @@ import { Command } from 'commander'
 import React from 'react'
 
 import { App } from './chat'
+import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { getUserCredentials } from './utils/auth'
 import { clearLogFile } from './utils/logger'
 
@@ -71,6 +72,8 @@ if (clearLogs) {
   clearLogFile()
 }
 
+const loadedAgentsData = getLoadedAgentsData()
+
 // Create QueryClient instance with CLI-optimized defaults
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -91,12 +94,14 @@ const queryClient = new QueryClient({
 // Wrapper component to handle async auth check
 const AppWithAsyncAuth = () => {
   const [requireAuth, setRequireAuth] = React.useState<boolean | null>(null)
-  const [hasInvalidCredentials, setHasInvalidCredentials] = React.useState(false)
+  const [hasInvalidCredentials, setHasInvalidCredentials] =
+    React.useState(false)
 
   React.useEffect(() => {
     // Check authentication asynchronously
     const userCredentials = getUserCredentials()
-    const apiKey = userCredentials?.authToken || process.env.CODEBUFF_API_KEY || ''
+    const apiKey =
+      userCredentials?.authToken || process.env.CODEBUFF_API_KEY || ''
 
     if (!apiKey) {
       // No credentials, require auth
@@ -116,6 +121,7 @@ const AppWithAsyncAuth = () => {
       agentId={agent}
       requireAuth={requireAuth}
       hasInvalidCredentials={hasInvalidCredentials}
+      loadedAgentsData={loadedAgentsData}
     />
   )
 }
