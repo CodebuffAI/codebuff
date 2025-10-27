@@ -64,6 +64,7 @@ async function build() {
     loader: {
       '.scm': 'text',
     },
+    env: 'NEXT_PUBLIC_*',
     plugins: [],
   })
 
@@ -84,6 +85,7 @@ async function build() {
     loader: {
       '.scm': 'text',
     },
+    env: 'NEXT_PUBLIC_*',
     plugins: [],
   })
 
