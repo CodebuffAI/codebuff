@@ -51,6 +51,35 @@ async function build() {
     'events',
   ]
 
+  // Environment variable overrides
+  const envOverrides: Record<string, string> = {
+    OPEN_ROUTER_API_KEY: '',
+    RELACE_API_KEY: '',
+    LINKUP_API_KEY: '',
+    GOOGLE_CLOUD_PROJECT_ID: '',
+    PORT: '0',
+    DATABASE_URL: '',
+    CODEBUFF_GITHUB_ID: '',
+    CODEBUFF_GITHUB_SECRET: '',
+    NEXTAUTH_SECRET: '',
+    STRIPE_SECRET_KEY: '',
+    STRIPE_WEBHOOK_SECRET_KEY: '',
+    STRIPE_USAGE_PRICE_ID: '',
+    STRIPE_TEAM_FEE_PRICE_ID: '',
+    LOOPS_API_KEY: '',
+    DISCORD_PUBLIC_KEY: '',
+    DISCORD_BOT_TOKEN: '',
+    DISCORD_APPLICATION_ID: '',
+    API_KEY_ENCRYPTION_SECRET: '',
+  }
+  const envOverridesDefine: Parameters<typeof Bun.build>[0]['define'] =
+    Object.fromEntries(
+      Object.entries(envOverrides).map(([key, value]) => [
+        `process.env.${key}`,
+        value,
+      ]),
+    )
+
   console.log('📦 Building ESM format...')
   await Bun.build({
     entrypoints: ['src/index.ts'],
@@ -61,10 +90,11 @@ async function build() {
     sourcemap: 'linked',
     external,
     naming: '[dir]/index.mjs',
+    define: envOverridesDefine,
+    env: 'NEXT_PUBLIC_*',
     loader: {
       '.scm': 'text',
     },
-    env: 'NEXT_PUBLIC_*',
     plugins: [],
   })
 
@@ -79,13 +109,14 @@ async function build() {
     external,
     naming: '[dir]/index.cjs',
     define: {
+      ...envOverridesDefine,
       'import.meta.url': 'undefined',
       'import.meta': 'undefined',
     },
+    env: 'NEXT_PUBLIC_*',
     loader: {
       '.scm': 'text',
     },
-    env: 'NEXT_PUBLIC_*',
     plugins: [],
   })
 

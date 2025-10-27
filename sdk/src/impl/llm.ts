@@ -1,28 +1,31 @@
 import path from 'path'
 
-import { OpenAICompatibleChatLanguageModel } from '@ai-sdk/openai-compatible'
-import { streamText, APICallError, generateText, generateObject } from 'ai'
-
-import { PROFIT_MARGIN } from '../../../common/src/old-constants'
-import { buildArray } from '../../../common/src/util/array'
-import { getErrorObject } from '../../../common/src/util/error'
-import { convertCbToModelMessages } from '../../../common/src/util/messages'
-import { StopSequenceHandler } from '../../../common/src/util/stop-sequence'
+import {
+  OpenAICompatibleChatLanguageModel,
+  VERSION,
+} from '@ai-sdk/openai-compatible'
 import {
   checkLiveUserInput,
   getLiveUserInputIds,
-} from '../../../packages/agent-runtime/src/live-user-inputs'
+} from '@codebuff/agent-runtime/live-user-inputs'
+import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
+import { buildArray } from '@codebuff/common/util/array'
+import { getErrorObject } from '@codebuff/common/util/error'
+import { convertCbToModelMessages } from '@codebuff/common/util/messages'
+import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
+import { streamText, APICallError, generateText, generateObject } from 'ai'
+
 import { WEBSITE_URL } from '../constants'
 
+import type { LanguageModelV2 } from '@ai-sdk/provider'
 import type {
   PromptAiSdkFn,
   PromptAiSdkStreamFn,
   PromptAiSdkStructuredInput,
   PromptAiSdkStructuredOutput,
-} from '../../../common/src/types/contracts/llm'
-import type { ParamsOf } from '../../../common/src/types/function-params'
-import type { LanguageModelV2 } from '@ai-sdk/provider'
+} from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { OpenRouterProviderOptions } from '@openrouter/ai-sdk-provider'
 import type z from 'zod/v4'
 
@@ -60,7 +63,7 @@ function getAiSdkModel(params: {
       new URL(path.join('/api/v1', endpoint), WEBSITE_URL).toString(),
     headers: () => ({
       Authorization: `Bearer ${apiKey}`,
-      'user-agent': `ai-sdk/codebuff/${process.env.NEXT_PUBLIC_NPM_APP_VERSION || 'unknown-version'}`,
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,
     }),
     metadataExtractor: {
       extractMetadata: async (...inputs) => {
