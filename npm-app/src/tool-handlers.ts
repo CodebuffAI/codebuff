@@ -311,19 +311,42 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
       let currentFile: string | null = null
 
       for (const line of lines) {
-        // Ripgrep output format: filename:line_number:content or filename:content
-        const colonIndex = line.indexOf(':')
-        if (colonIndex === -1) {
-          // This shouldn't happen with standard ripgrep output
-          if (currentFile) {
-            fileGroups.get(currentFile)!.push(line)
-          }
+        // Skip separator lines between result groups
+        if (line === '--') {
           continue
         }
 
-        const filename = line.substring(0, colonIndex)
+        // Ripgrep output format:
+        // - Match lines: filename:line_number:content
+        // - Context lines (with -A/-B/-C flags): filename-line_number-content
+        
+        // Use regex to find the pattern: separator + digits + separator
+        // This handles filenames with hyphens/colons by matching the line number pattern
+        let separatorIndex = -1
+        let filename = ''
+        
+        // Try match line pattern: filename:digits:content
+        const matchLinePattern = /(.*?):(\d+):(.*)$/
+        const matchLineMatch = line.match(matchLinePattern)
+        if (matchLineMatch) {
+          filename = matchLineMatch[1]
+          separatorIndex = matchLineMatch[1].length
+        } else {
+          // Try context line pattern: filename-digits-content
+          const contextLinePattern = /(.*?)-(\d+)-(.*)$/
+          const contextLineMatch = line.match(contextLinePattern)
+          if (contextLineMatch) {
+            filename = contextLineMatch[1]
+            separatorIndex = contextLineMatch[1].length
+          }
+        }
+        
+        if (separatorIndex === -1) {
+          // Malformed line, skip it
+          continue
+        }
 
-        // Check if this is a new file
+        // Check if this is a valid filename (not indented, not containing tabs)
         if (filename && !filename.includes('\t') && !filename.startsWith(' ')) {
           currentFile = filename
           if (!fileGroups.has(currentFile)) {
@@ -331,7 +354,7 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
           }
           fileGroups.get(currentFile)!.push(line)
         } else if (currentFile) {
-          // Continuation of previous result
+          // This shouldn't happen with proper ripgrep output
           fileGroups.get(currentFile)!.push(line)
         }
       }
