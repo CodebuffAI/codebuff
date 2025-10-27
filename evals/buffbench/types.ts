@@ -43,6 +43,7 @@ export interface EvalDataV2 {
   testRepoName?: string
   generationDate: string
   initCommand?: string
+  env?: Record<string, string>
   evalCommits: EvalCommitV2[]
 }
 

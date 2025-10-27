@@ -14,10 +14,11 @@ export const withTestRepo = async <T>(
     // The sha of the commit to checkout. If you have a commit with changes to replicate, you would check out the parent commit.
     parentSha: string
     initCommand?: string
+    env?: Record<string, string>
   },
   fn: (cwd: string) => Promise<T>,
 ): Promise<T> => {
-  const { repoUrl, parentSha, initCommand } = repoConfig
+  const { repoUrl, parentSha, initCommand, env } = repoConfig
 
   // Create a temporary directory for the test repo
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-eval-'))
@@ -35,7 +36,11 @@ export const withTestRepo = async <T>(
     if (initCommand) {
       console.log(`Running init command: ${initCommand}...`)
       try {
-        execSync(initCommand, { cwd: repoDir })
+        execSync(initCommand, {
+          cwd: repoDir,
+          stdio: 'ignore',
+          env: { ...process.env, ...env },
+        })
       } catch (error) {
         console.error(
           `Error running init command: ${getErrorObject(error).message}`,

@@ -40,9 +40,6 @@ export function runTerminalCommand({
       env: {
         ...process.env,
         ...(env ?? {}),
-        FORCE_COLOR: '1',
-        CLICOLOR: '1',
-        CLICOLOR_FORCE: '1',
       },
       stdio: 'pipe',
     })

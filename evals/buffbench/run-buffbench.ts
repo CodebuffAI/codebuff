@@ -22,6 +22,7 @@ async function runTask(options: {
   agents: string[]
   repoUrl: string
   initCommand?: string
+  env?: Record<string, string>
   logsDir: string
   index: number
   totalTasks: number
@@ -40,6 +41,7 @@ async function runTask(options: {
     agents,
     repoUrl,
     initCommand,
+    env,
     logsDir,
     index,
     totalTasks,
@@ -63,6 +65,7 @@ async function runTask(options: {
       commit,
       repoUrl,
       initCommand,
+      env,
       localAgentDefinitions,
       printEvents,
     })
@@ -300,6 +303,7 @@ export async function runBuffBench(options: {
         agents,
         repoUrl: evalData.repoUrl,
         initCommand: evalData.initCommand,
+        env: evalData.env,
         logsDir,
         index,
         totalTasks: commitsToRun.length,

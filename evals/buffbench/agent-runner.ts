@@ -19,6 +19,7 @@ export async function runAgentOnCommit({
   commit,
   repoUrl,
   initCommand,
+  env,
   localAgentDefinitions,
   printEvents,
 }: {
@@ -27,6 +28,7 @@ export async function runAgentOnCommit({
   commit: EvalCommitV2
   repoUrl: string
   initCommand?: string
+  env?: Record<string, string>
   localAgentDefinitions: any[]
   printEvents: boolean
 }): Promise<{
@@ -51,6 +53,7 @@ export async function runAgentOnCommit({
         repoUrl,
         parentSha: commit.parentSha,
         initCommand,
+        env,
       },
       async (repoDir) => {
         const timeoutMs = 30 * 60 * 1000 // 30 minutes
@@ -60,6 +63,7 @@ export async function runAgentOnCommit({
             prompt: commit.prompt,
             agentDefinitions: localAgentDefinitions,
             cwd: repoDir,
+            env,
             handleEvent: (event) => {
               if (
                 (event.type === 'tool_call' || event.type === 'tool_result') &&
