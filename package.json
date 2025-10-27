@@ -31,7 +31,7 @@
     "start-nushell": "bun --cwd npm-app start-nushell",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "release:npm-app": "bun run --cwd=npm-app release",
-    "release:sdk": "bun run --cwd=sdkrelease",
+    "release:sdk": "bun run --cwd=sdk release",
     "clean-ts": "find . -name '*.tsbuildinfo' -type f -delete && find . -name '.next' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'node_modules' -type d -exec rm -rf {} + 2>/dev/null || true && bun install",
     "typecheck": "bun --cwd=sdk run build:types && bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
     "test": "bun --filter='{@codebuff/backend,@codebuff/common,@codebuff/npm-app,@codebuff/agents}' run test",
