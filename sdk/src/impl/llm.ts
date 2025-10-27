@@ -66,9 +66,18 @@ function getAiSdkModel(params: {
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,
     }),
     metadataExtractor: {
-      extractMetadata: async (...inputs) => {
-        console.log(inputs, 'extractMetadata')
-        return undefined
+      extractMetadata: async ({ parsedBody }: { parsedBody: any }) => {
+        if (typeof parsedBody?.usage?.cost === 'number') {
+          openrouterUsage.cost = parsedBody.usage.cost
+        }
+        if (
+          typeof parsedBody?.usage?.cost_details?.upstream_inference_cost ===
+          'number'
+        ) {
+          openrouterUsage.cost =
+            parsedBody.usage.cost_details.upstream_inference_cost
+        }
+        return { codebuff: { usage: openrouterUsage } }
       },
       createStreamExtractor: () => ({
         processChunk: (parsedChunk: any) => {

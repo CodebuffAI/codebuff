@@ -5,7 +5,7 @@ import {
   VERSION,
 } from '@ai-sdk/openai-compatible'
 import { websiteUrl } from '@codebuff/npm-app/config'
-import { streamText } from 'ai'
+import { generateText } from 'ai'
 
 const apiKey = '12345'
 
@@ -21,7 +21,8 @@ const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(
     }),
     metadataExtractor: {
       extractMetadata: async (...inputs) => {
-        console.log(inputs, 'extractMetadata')
+        console.dir({ extractMetadata: inputs }, { depth: null })
+
         return undefined
       },
       createStreamExtractor: () => ({
@@ -43,10 +44,9 @@ const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(
   },
 )
 
-const response = streamText({
-  // const response = await streamText({
-  // const response = await generateText({
-  // model: codebuffBackendProvider('openai/gpt-5'),
+// const response = streamText({
+// const response = await generateObject({
+const response = await generateText({
   model: codebuffBackendModel,
   messages: [
     {
@@ -82,6 +82,7 @@ const response = streamText({
   },
 })
 
-for await (const chunk of response.fullStream) {
-  console.dir({ chunk }, { depth: null })
-}
+// for await (const chunk of response.fullStream) {
+//   console.dir({ chunk }, { depth: null })
+// }
+console.log(response.text)
