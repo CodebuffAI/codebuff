@@ -1,0 +1,57 @@
+name: Build and Publish SDK
+
+on:
+  workflow_call:
+    inputs:
+      new-version:
+        required: true
+        type: string
+        description: 'Version to build'
+      artifact-name:
+        required: true
+        type: string
+        description: 'Name for the artifact (updated-sdk-package)'
+      checkout-ref:
+        required: false
+        type: string
+        description: 'Git ref to checkout'
+        default: ''
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout-ref || github.sha }}
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: sdk/
+
+      - name: Build SDK
+        run: |
+          cd sdk
+          bun run build:verify
+        env:
+          BUILD_VERSION: ${{ inputs.new-version }}
+
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: Publish to npm
+        run: |
+          cd sdk
+          bun run publish-sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

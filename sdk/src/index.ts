@@ -1,3 +1,6 @@
+import { setEnv } from './set-env'
+setEnv()
+
 export type * from '../../common/src/types/json'
 export type * from '../../common/src/types/messages/codebuff-message'
 export type * from '../../common/src/types/messages/data-content'

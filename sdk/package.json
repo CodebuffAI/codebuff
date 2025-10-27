@@ -35,6 +35,7 @@
     "prepare-dist": "bun run scripts/publish.ts --dry-run",
     "publish-sdk": "bun run scripts/publish.ts --public",
     "publish-dry-run": "bun run build:verify && bun run scripts/publish.ts --dry-run",
+    "release": "bun run scripts/release.js",
     "fetch-ripgrep": "bun scripts/fetch-ripgrep.ts",
     "prepack": "bun run build",
     "typecheck": "tsc --noEmit -p .",
