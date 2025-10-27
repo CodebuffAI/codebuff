@@ -46,7 +46,8 @@ export function codeSearch({
       searchCwd = requestedPath
     }
 
-    const args = [...flagsArray, pattern, '.']
+    // Always include -n flag to ensure line numbers are in output for parsing
+    const args = ['-n', ...flagsArray, pattern, '.']
 
     const rgPath = getBundledRgPath(import.meta.url)
     const childProcess = spawn(rgPath, args, {

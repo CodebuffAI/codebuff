@@ -281,7 +281,8 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
       }
       searchCwd = requestedPath
     }
-    const args = [...flags, pattern, '.']
+    // Always include -n flag to ensure line numbers are in output for parsing
+    const args = ['-n', ...flags, pattern, '.']
 
     console.log()
     console.log(
