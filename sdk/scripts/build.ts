@@ -1,10 +1,11 @@
 // Build script for @codebuff/sdk using Bun's bundler with dual package support
 // Creates ESM + CJS bundles with TypeScript declarations
 
-import { execSync } from 'child_process'
 import { mkdir, cp, readFile, writeFile, rm } from 'fs/promises'
 import Module from 'module'
 import { delimiter, join } from 'path'
+
+import { generateDtsBundle } from 'dts-bundle-generator'
 
 const workspaceNodeModules = join(import.meta.dir, '..', 'node_modules')
 const existingNodePath = process.env.NODE_PATH ?? ''
@@ -122,12 +123,21 @@ async function build() {
 
   console.log('📝 Generating and bundling TypeScript declarations...')
   try {
-    execSync(
-      'bunx dts-bundle-generator -o dist/index.d.ts --no-check --export-referenced-types=false src/index.ts',
-      { stdio: 'inherit' },
+    const [bundle] = generateDtsBundle(
+      [
+        {
+          filePath: 'src/index.ts',
+          output: {
+            exportReferencedTypes: false,
+          },
+        },
+      ],
+      {
+        preferredConfigPath: join(import.meta.dir, '..', 'tsconfig.json'),
+      },
     )
 
-    // Fix duplicate imports in the generated file
+    await writeFile('dist/index.d.ts', bundle)
     await fixDuplicateImports()
     console.log('  ✓ Created bundled type definitions')
   } catch (error) {
