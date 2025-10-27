@@ -155,9 +155,9 @@ ${buildArray(
     `- IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.`,
   !hasNoValidation &&
     `- Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.`,
-  `- Inform the user that you have completed the task in one sentence without a final summary. Don't create any markdown summary files either, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
+  `- Inform the user that you have completed the task in one sentence or a few short bullet points. Don't create any markdown summary files, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
 ).join('\n')}`,
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and code-searcher to get codebase context${isMax ? ', and the base2-gpt-5-worker agent to do the planning and editing' : ''}. After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files, unless asked by the user. Then, end your turn.`,
+    stepPrompt: `${isMax ? "Keep working until the user's request is completely satisfied. " : ''}After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files, unless asked by the user. Then, end your turn.`,
     handleSteps: function* ({ params }) {
       let steps = 0
       while (true) {
