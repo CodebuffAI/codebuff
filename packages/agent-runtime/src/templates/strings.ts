@@ -142,25 +142,6 @@ export async function formatPrompt(
 }
 type StringField = 'systemPrompt' | 'instructionsPrompt' | 'stepPrompt'
 
-export async function collectParentInstructions(params: {
-  agentType: string
-  agentTemplates: Record<string, AgentTemplate>
-}): Promise<string[]> {
-  const { agentType, agentTemplates } = params
-  const instructions: string[] = []
-
-  for (const template of Object.values(agentTemplates)) {
-    if (template.parentInstructions) {
-      const instruction = template.parentInstructions[agentType]
-      if (instruction) {
-        instructions.push(instruction)
-      }
-    }
-  }
-
-  return instructions
-}
-
 const additionalPlaceholders = {
   systemPrompt: [PLACEHOLDER.TOOLS_PROMPT, PLACEHOLDER.AGENTS_PROMPT],
   instructionsPrompt: [],
@@ -189,11 +170,9 @@ export async function getAgentPrompt<T extends StringField>(
   const {
     agentTemplate,
     promptType,
-    fileContext,
     agentState,
     agentTemplates,
     additionalToolDefinitions,
-    logger,
   } = params
 
   let promptValue = agentTemplate[promptType.type]
@@ -203,20 +182,12 @@ export async function getAgentPrompt<T extends StringField>(
     }
   }
 
-  if (promptValue === undefined) {
-    return undefined
-  }
-
   let prompt = await formatPrompt({
     ...params,
     prompt: promptValue,
     tools: agentTemplate.toolNames,
     spawnableAgents: agentTemplate.spawnableAgents,
   })
-
-  if (prompt.trim() === '') {
-    return undefined
-  }
 
   let addendum = ''
 
@@ -227,36 +198,21 @@ export async function getAgentPrompt<T extends StringField>(
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
-    const hasTools = agentTemplate.toolNames.length > 0
     const toolsInstructions = agentTemplate.inheritParentSystemPrompt
       ? fullToolList(agentTemplate.toolNames, await additionalToolDefinitions())
       : getShortToolInstructions(
           agentTemplate.toolNames,
           await additionalToolDefinitions(),
         )
-    const hasSpawnableAgents = agentTemplate.spawnableAgents.length > 0
     addendum +=
-      (hasTools ? '\n\n' + toolsInstructions : '') +
-      (hasSpawnableAgents
-        ? '\n\n' +
-          (await buildSpawnableAgentsDescription({
-            ...params,
-            spawnableAgents: agentTemplate.spawnableAgents,
-            agentTemplates,
-          }))
-        : '')
-
-    const parentInstructions = await collectParentInstructions({
-      agentType: agentState.agentType,
-      agentTemplates,
-    })
-
-    if (parentInstructions.length > 0) {
-      addendum += '\n\n## Additional Instructions for Spawning Agents\n\n'
-      addendum += parentInstructions
-        .map((instruction) => `- ${instruction}`)
-        .join('\n')
-    }
+      '\n\n' +
+      toolsInstructions +
+      '\n\n' +
+      (await buildSpawnableAgentsDescription({
+        ...params,
+        spawnableAgents: agentTemplate.spawnableAgents,
+        agentTemplates,
+      }))
 
     // Add output schema information if defined
     if (agentTemplate.outputSchema) {
@@ -283,5 +239,10 @@ export async function getAgentPrompt<T extends StringField>(
     }
   }
 
-  return prompt + addendum
+  const combinedPrompt = (prompt + addendum).trim()
+  if (combinedPrompt === '') {
+    return undefined
+  }
+
+  return combinedPrompt
 }
