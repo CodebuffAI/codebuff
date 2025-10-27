@@ -1,7 +1,7 @@
 import { useRenderer, useTerminalDimensions } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 import stringWidth from 'string-width'
+import { useShallow } from 'zustand/react/shallow'
 
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { LoginModal } from './components/login-modal'
@@ -13,6 +13,7 @@ import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
+import { useAuthQuery, useLogoutMutation } from './hooks/use-auth-query'
 import { useClipboard } from './hooks/use-clipboard'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
@@ -23,17 +24,16 @@ import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { useChatStore } from './state/chat-store'
+import { flushAnalytics } from './utils/analytics'
+import { getUserCredentials } from './utils/auth'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
-import { flushAnalytics } from './utils/analytics'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { chatThemes, createMarkdownPalette } from './utils/theme-system'
 
 import type { User } from './utils/auth'
-import { logoutUser } from './utils/auth'
-
 import type { ToolName } from '@codebuff/sdk'
 import type { ScrollBoxRenderable } from '@opentui/core'
 
@@ -122,7 +122,10 @@ export const App = ({
   )
   const lastSigintTimeRef = useRef<number>(0)
 
-  // Track authentication state
+  // Track authentication state using TanStack Query
+  const authQuery = useAuthQuery()
+  const logoutMutation = useLogoutMutation()
+
   // If requireAuth is null (checking), assume not authenticated until proven otherwise
   const [isAuthenticated, setIsAuthenticated] = useState(
     requireAuth === false ? true : false
@@ -135,6 +138,27 @@ export const App = ({
       setIsAuthenticated(!requireAuth)
     }
   }, [requireAuth])
+
+  // Update authentication state based on query results
+  useEffect(() => {
+    if (authQuery.isSuccess && authQuery.data) {
+      setIsAuthenticated(true)
+      if (!user) {
+        // Convert authQuery data to User format if needed
+        const userCredentials = getUserCredentials()
+        const userData: User = {
+          id: authQuery.data.id,
+          name: userCredentials?.name || '',
+          email: authQuery.data.email || '',
+          authToken: userCredentials?.authToken || '',
+        }
+        setUser(userData)
+      }
+    } else if (authQuery.isError) {
+      setIsAuthenticated(false)
+      setUser(null)
+    }
+  }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
 
   // Log app initialization
   useEffect(() => {
@@ -204,11 +228,32 @@ export const App = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
+      logger.info(
+        {
+          userName: loggedInUser.name,
+          userEmail: loggedInUser.email,
+          userId: loggedInUser.id,
+        },
+        '🎊 handleLoginSuccess called - updating UI state',
+      )
+
+      logger.info('🔄 Resetting chat store...')
       resetChatStore()
+      logger.info('✅ Chat store reset')
+
+      logger.info('🎯 Setting input focused...')
       setInputFocused(true)
+      logger.info('✅ Input focused')
+
+      logger.info('👤 Setting user state...')
       setUser(loggedInUser)
+      logger.info('✅ User state set')
+
+      logger.info('🔓 Setting isAuthenticated to true...')
       setIsAuthenticated(true)
-      logger.info({ user: loggedInUser.name }, 'User logged in successfully')
+      logger.info('✅ isAuthenticated set to true - modal should close now')
+
+      logger.info({ user: loggedInUser.name }, '🎉 Login flow completed successfully!')
     },
     [resetChatStore, setInputFocused],
   )
@@ -678,13 +723,12 @@ export const App = ({
       return
     }
     if (cmd === 'logout' || cmd === 'signout') {
-      ;(async () => {
-        try {
-          await logoutUser()
-        } finally {
-          abortControllerRef.current?.abort()
-          stopStreaming()
-          setCanProcessQueue(false)
+      abortControllerRef.current?.abort()
+      stopStreaming()
+      setCanProcessQueue(false)
+      
+      logoutMutation.mutate(undefined, {
+        onSettled: () => {
           const msg = {
             id: `sys-${Date.now()}`,
             variant: 'ai' as const,
@@ -697,8 +741,8 @@ export const App = ({
             setUser(null)
             setIsAuthenticated(false)
           }, 300)
-        }
-      })()
+        },
+      })
       return
     }
 

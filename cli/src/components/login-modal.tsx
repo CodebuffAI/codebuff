@@ -1,10 +1,8 @@
 import { useKeyboard, useRenderer } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import open from 'open'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { saveUserCredentials } from '../utils/auth'
-import { copyTextToClipboard } from '../utils/clipboard'
-import { logger } from '../utils/logger'
 import {
   formatUrl,
   generateFingerprintId,
@@ -13,13 +11,15 @@ import {
   parseLogoLines,
 } from './login-modal-utils'
 import { TerminalLink } from './terminal-link'
+import { useLoginMutation } from '../hooks/use-auth-query'
+import { generateLoginUrl, pollLoginStatus } from '../login/login-flow'
+import { copyTextToClipboard } from '../utils/clipboard'
+import { logger } from '../utils/logger'
 
 import type { User } from '../utils/auth'
 import type { ChatTheme } from '../utils/theme-system'
 
-// Get the backend URLs from environment or use defaults
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL || 'https://app.codebuff.com'
+// Get the website URL from environment or use default
 const WEBSITE_URL =
   process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
 
@@ -41,7 +41,6 @@ const LOGO = `
 
 const LINK_COLOR_DEFAULT = '#3b82f6'
 const LINK_COLOR_CLICKED = '#1e40af'
-const LINK_COLOR_SUCCESS = '#22c55e'
 const COPY_SUCCESS_COLOR = '#22c55e'
 const COPY_ERROR_COLOR = '#ef4444'
 const WARNING_COLOR = '#ef4444'
@@ -66,6 +65,51 @@ export const LoginModal = ({
 
   // Generate fingerprint ID
   const fingerprintId = useMemo(() => generateFingerprintId(), [])
+
+  // Use TanStack Query for login mutation
+  const loginMutation = useLoginMutation()
+
+  // Mutation for fetching login URL
+  const fetchLoginUrlMutation = useMutation({
+    mutationFn: async (fingerprintId: string) => {
+      return generateLoginUrl(
+        {
+          fetch,
+          logger,
+        },
+        {
+          baseUrl: WEBSITE_URL,
+          fingerprintId,
+        },
+      )
+    },
+    onSuccess: async (data) => {
+      setLoginUrl(data.loginUrl)
+      setFingerprintHash(data.fingerprintHash)
+      setExpiresAt(data.expiresAt)
+      setIsWaitingForEnter(true)
+      setHasOpenedBrowser(true)
+
+      // Open browser after fetching URL
+      try {
+        await open(data.loginUrl)
+      } catch (err) {
+        logger.error(err, 'Failed to open browser')
+        // Don't show error, user can still click the URL
+      }
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to get login URL')
+      logger.error(
+        {
+          error: err instanceof Error ? err.message : String(err),
+        },
+        'Failed to get login URL',
+      )
+    },
+  })
+
+
 
   // Copy to clipboard function
   const copyToClipboard = useCallback(async (text: string) => {
@@ -93,7 +137,7 @@ export const LoginModal = ({
     }
   }, [])
 
-  // Fetch login URL and open browser
+  // Fetch login URL and open browser using mutation
   const fetchLoginUrlAndOpenBrowser = useCallback(async () => {
     if (loading || hasOpenedBrowser) return
 
@@ -102,89 +146,140 @@ export const LoginModal = ({
 
     logger.debug({ fingerprintId }, 'Fetching login URL')
 
-    try {
-      const response = await fetch(`${WEBSITE_URL}/api/auth/cli/code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fingerprintId }),
-      })
+    fetchLoginUrlMutation.mutate(fingerprintId, {
+      onSettled: () => {
+        setLoading(false)
+      },
+    })
+  }, [fingerprintId, loading, hasOpenedBrowser, fetchLoginUrlMutation])
 
-      if (!response.ok) {
-        throw new Error('Failed to get login URL')
-      }
+  // Store mutation and callback in refs to prevent effect re-runs
+  const loginMutationRef = useRef(loginMutation)
+  const onLoginSuccessRef = useRef(onLoginSuccess)
+  
+  useEffect(() => {
+    loginMutationRef.current = loginMutation
+  }, [loginMutation])
+  
+  useEffect(() => {
+    onLoginSuccessRef.current = onLoginSuccess
+  }, [onLoginSuccess])
 
-      const data = await response.json()
-      setLoginUrl(data.loginUrl)
-      setFingerprintHash(data.fingerprintHash)
-      setExpiresAt(data.expiresAt)
-      setIsWaitingForEnter(true)
-      setHasOpenedBrowser(true)
-
-      // Open browser after fetching URL
-      try {
-        await open(data.loginUrl)
-      } catch (err) {
-        logger.error(err, 'Failed to open browser')
-        // Don't show error, user can still click the URL
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get login URL')
-      logger.error(err, 'Failed to get login URL')
-    } finally {
-      setLoading(false)
-    }
-  }, [fingerprintId, loading, hasOpenedBrowser])
-
-  // Poll for login status
+  // Poll for login status using shared helper
   useEffect(() => {
     if (!loginUrl || !fingerprintHash || !expiresAt || !isWaitingForEnter) {
+      logger.debug(
+        {
+          loginUrl: !!loginUrl,
+          fingerprintHash: !!fingerprintHash,
+          expiresAt: !!expiresAt,
+          isWaitingForEnter,
+        },
+        '🔍 Polling prerequisites not met, skipping setup',
+      )
       return
     }
 
-    const pollInterval = setInterval(async () => {
-      try {
-        const statusResponse = await fetch(
-          `${WEBSITE_URL}/api/auth/cli/status?fingerprintId=${fingerprintId}&fingerprintHash=${fingerprintHash}&expiresAt=${expiresAt}`,
-        )
+    let active = true
 
-        if (statusResponse.ok) {
-          const data = await statusResponse.json()
-          if (data.user) {
-            // Login successful!
-            saveUserCredentials(data.user)
-            clearInterval(pollInterval)
-            onLoginSuccess(data.user)
-          }
-        }
-      } catch (err) {
-        // Ignore errors during polling (e.g., 401 while waiting)
-        logger.debug(err, 'Error polling login status')
-      }
-    }, 5000) // Poll every 5 seconds
-
-    // Cleanup after 5 minutes
-    const timeout = setTimeout(
-      () => {
-        clearInterval(pollInterval)
-        setError('Login timed out. Please try again.')
-        setIsWaitingForEnter(false)
+    logger.info(
+      {
+        fingerprintId,
+        fingerprintHash,
+        expiresAt,
+        loginUrl,
       },
-      5 * 60 * 1000,
+      '🚀 Starting login polling session',
     )
 
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, ms)
+      })
+
+    pollLoginStatus(
+      {
+        fetch,
+        sleep,
+        logger,
+      },
+      {
+        baseUrl: WEBSITE_URL,
+        fingerprintId,
+        fingerprintHash,
+        expiresAt,
+        shouldContinue: () => active,
+      },
+    )
+      .then((result) => {
+        if (!active) {
+          return
+        }
+
+        if (result.status === 'success') {
+          const user = result.user as User
+          logger.info(
+            {
+              attempts: result.attempts,
+              user: user.name,
+            },
+            '✅ Polling returned authenticated user',
+          )
+
+          loginMutationRef.current.mutate(user, {
+            onSuccess: (validatedUser) => {
+              if (!active) return
+              logger.info(
+                {
+                  user: validatedUser.name,
+                  validatedFields: Object.keys(validatedUser),
+                },
+                '✅ Login mutation succeeded, notifying parent',
+              )
+              onLoginSuccessRef.current(validatedUser)
+            },
+            onError: (error) => {
+              logger.error(
+                {
+                  error: error instanceof Error ? error.message : String(error),
+                },
+                '❌ Login validation failed, proceeding with raw user',
+              )
+              if (!active) return
+              onLoginSuccessRef.current(user)
+            },
+          })
+        } else if (result.status === 'timeout') {
+          logger.warn('Login polling timed out after configured limit')
+          setError('Login timed out. Please try again.')
+          setIsWaitingForEnter(false)
+        }
+      })
+      .catch((error) => {
+        if (!active) {
+          return
+        }
+        logger.error(
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+          '💥 Unexpected error while polling login status',
+        )
+        setError(
+          error instanceof Error ? error.message : 'Failed to complete login',
+        )
+        setIsWaitingForEnter(false)
+      })
+
     return () => {
-      clearInterval(pollInterval)
-      clearTimeout(timeout)
+      active = false
     }
   }, [
     loginUrl,
     fingerprintHash,
     expiresAt,
-    fingerprintId,
     isWaitingForEnter,
-    onLoginSuccess,
+    fingerprintId,
   ])
 
   // Listen for Enter key to fetch URL and open browser, and 'c' key to copy URL
@@ -295,11 +390,11 @@ export const LoginModal = ({
   // Responsive breakpoints based on terminal width
   const isNarrow = terminalWidth < 60
 
-  // Dynamic spacing based on terminal size
-  const containerPadding = isVerySmall ? 1 : isSmall ? 1 : 2
-  const headerMarginTop = isVerySmall ? 0 : isSmall ? 1 : isLarge ? 3 : 2
-  const headerMarginBottom = isVerySmall ? 1 : isSmall ? 1 : 2
-  const sectionMarginBottom = isVerySmall ? 1 : isSmall ? 1 : 2
+  // Dynamic spacing based on terminal size - compressed to prevent scrolling
+  const containerPadding = isVerySmall ? 0 : 1
+  const headerMarginTop = 0
+  const headerMarginBottom = isVerySmall ? 0 : 1
+  const sectionMarginBottom = isVerySmall ? 0 : 1
   const contentMaxWidth = Math.max(
     10,
     Math.min(terminalWidth - (containerPadding * 2 + 4), 80),
@@ -310,24 +405,24 @@ export const LoginModal = ({
     [logoLines, contentMaxWidth],
   )
 
-  // Show full logo only on medium+ terminals and when width is sufficient
-  const showFullLogo = !isVerySmall && contentMaxWidth >= 60
-  // Show any header on very small terminals
-  const showHeader = !isVerySmall
+  // Show full logo only on large terminals to save space
+  const showFullLogo = isLarge && contentMaxWidth >= 60
+  // Show simple header on smaller terminals
+  const showHeader = true
 
   // Format URL for display (wrap if needed)
   return (
     <box
       position="absolute"
       left={Math.floor(terminalWidth * 0.05)}
-      top={Math.floor((renderer?.height || 24) * 0.1)}
+      top={1}
       border
       borderStyle="double"
       borderColor={theme.statusAccent}
       style={{
         width: Math.floor(terminalWidth * 0.9),
-        height: Math.floor((renderer?.height || 24) * 0.8),
-        maxHeight: Math.floor((renderer?.height || 24) * 0.8),
+        height: Math.min(Math.floor((renderer?.height || 24) - 2), 22),
+        maxHeight: Math.min(Math.floor((renderer?.height || 24) - 2), 22),
         backgroundColor: theme.background,
         padding: 0,
         overflow: 'hidden',
@@ -356,35 +451,17 @@ export const LoginModal = ({
         </box>
       )}
 
-      <scrollbox
-        scrollX={false}
-        scrollbarOptions={{ visible: false }}
+      <box
         style={{
-          rootOptions: {
-            width: '100%',
-            height: '100%',
-            padding: 0,
-            overflow: 'hidden',
-          },
-          wrapperOptions: {
-            border: false,
-            overflow: 'hidden',
-          },
-          contentOptions: {
-            flexDirection: 'column',
-            padding: containerPadding,
-          },
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: '100%',
+          height: '100%',
+          backgroundColor: theme.background,
+          padding: containerPadding,
+          gap: 0,
         }}
       >
-        <box
-          style={{
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-            minHeight: '100%',
-            backgroundColor: theme.background,
-          }}
-        >
 
           {/* Header - Logo or simple text based on terminal size */}
           {showHeader && (
@@ -430,29 +507,7 @@ export const LoginModal = ({
                 </box>
               )}
 
-              {/* Welcome message - only show on medium+ terminals */}
-              {isMedium && !isNarrow && (
-                <box
-                  style={{
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    marginBottom: sectionMarginBottom,
-                    maxWidth: contentMaxWidth,
-                    flexShrink: 0,
-                  }}
-                >
-                  <text wrap={true}>
-                    <span fg={theme.chromeText}>Welcome to Codebuff CLI!</span>
-                  </text>
-                  {isLarge && (
-                    <text wrap={true}>
-                      <span fg={theme.statusSecondary}>
-                        Your AI pair programmer in the terminal
-                      </span>
-                    </text>
-                  )}
-                </box>
-              )}
+
             </>
           )}
 
@@ -530,26 +585,11 @@ export const LoginModal = ({
                 gap: isVerySmall ? 0 : 1,
               }}
             >
-              {!isVerySmall && (
-                <>
-                  <text wrap={true}>
-                    <span fg={theme.chromeText}>
-                      {isNarrow
-                        ? 'Browser opened!'
-                        : 'Opened a browser window to log you in!'}
-                    </span>
-                  </text>
-                  {!isSmall && (
-                    <text wrap={true}>
-                      <span fg={theme.statusSecondary}>
-                        {isNarrow
-                          ? 'Click link to copy:'
-                          : "If it doesn't open automatically, click this link to copy:"}
-                      </span>
-                    </text>
-                  )}
-                </>
-              )}
+              <text wrap={true}>
+                <span fg={theme.statusSecondary}>
+                  {isNarrow ? 'Click to copy:' : 'Click link to copy:'}
+                </span>
+              </text>
               {loginUrl && (
                 <box
                   style={{
@@ -608,8 +648,7 @@ export const LoginModal = ({
               )}
             </box>
           )}
-        </box>
-      </scrollbox>
+      </box>
     </box>
   )
 }

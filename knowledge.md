@@ -394,3 +394,73 @@ index('idx_table_optimized')
   .on(table.column1, table.column2)
   .where(sql`${table.status} = 'completed'`)
 ```
+
+## CLI Testing with OpenTUI and React 19
+
+The CLI uses **OpenTUI** for terminal rendering, which requires **React 19**. This creates specific testing challenges.
+
+### Known Testing Issues
+
+**React Testing Library + React 19 + Bun Incompatibility**
+
+- **Issue**: `renderHook()` from React Testing Library returns `result.current = null` when testing hooks
+- **Affected**: All hook unit tests in `cli/src/__tests__/hooks/`
+- **Root Cause**: React 19 is very new (Dec 2024) and has compatibility issues with:
+  - React Testing Library's renderHook implementation
+  - Bun's test runner environment
+  - Both happy-dom and jsdom DOM implementations
+- **Cannot Downgrade**: React 19 is required by OpenTUI for terminal rendering
+
+### Testing Strategy
+
+**For React Hooks in CLI:**
+
+Use **integration tests** instead of isolated hook unit tests:
+
+```typescript
+// ❌ Doesn't work: Hook unit test with renderHook()
+test('hook behavior', () => {
+  const { result } = renderHook(() => useMyHook())
+  // result.current is null - test fails
+})
+
+// ✅ Works: Integration test with actual component
+test('hook behavior in component', () => {
+  const TestComponent = () => {
+    const hookResult = useMyHook()
+    return <div>{/* use hookResult */}</div>
+  }
+  const { getByText } = render(<TestComponent />)
+  // Test the component behavior
+})
+```
+
+**For Non-Hook Code:**
+
+- Direct function tests work fine
+- Dependency injection pattern makes testing easy
+- See: `cli/src/__tests__/hooks/use-auth-query.test.ts` for examples
+
+**Dependency Injection Pattern:**
+
+All CLI hooks follow DI pattern for easier testing:
+
+```typescript
+// Hook with optional dependencies
+export function useMyHook(deps: {
+  myDep?: MyDepFn
+} = {}) {
+  const { myDep = defaultMyDep } = deps
+  // Use myDep
+}
+
+// Test with mocked dependencies
+const mockDep = mock(() => {})
+const component = <TestComponent deps={{ myDep: mockDep }} />
+```
+
+### Test Coverage Notes
+
+- **Passing**: Function/utility tests (validateApiKey, SDK integration)
+- **Blocked**: Hook-specific tests pending React 19 ecosystem updates
+- **Workaround**: Integration tests via components provide coverage

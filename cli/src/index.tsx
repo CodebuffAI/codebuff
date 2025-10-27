@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 import './polyfills/bun-strip-ansi'
-import { render } from '@opentui/react'
-import React from 'react'
 import { createRequire } from 'module'
+
+import { render } from '@opentui/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
-import { getUserInfoFromApiKey } from '@codebuff/sdk'
+import React from 'react'
 
 import { App } from './chat'
-import { clearLogFile, logger } from './utils/logger'
 import { getUserCredentials } from './utils/auth'
+import { clearLogFile } from './utils/logger'
 
 const require = createRequire(import.meta.url)
 
@@ -70,6 +71,23 @@ if (clearLogs) {
   clearLogFile()
 }
 
+// Create QueryClient instance with CLI-optimized defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes - auth tokens don't change frequently
+      gcTime: 10 * 60 * 1000, // 10 minutes - keep cached data a bit longer
+      retry: false, // Don't retry failed auth queries automatically
+      refetchOnWindowFocus: false, // CLI doesn't have window focus
+      refetchOnReconnect: true, // Refetch when network reconnects
+      refetchOnMount: false, // Don't refetch on every mount
+    },
+    mutations: {
+      retry: 1, // Retry mutations once on failure
+    },
+  },
+})
+
 // Wrapper component to handle async auth check
 const AppWithAsyncAuth = () => {
   const [requireAuth, setRequireAuth] = React.useState<boolean | null>(null)
@@ -83,46 +101,13 @@ const AppWithAsyncAuth = () => {
     if (!apiKey) {
       // No credentials, require auth
       setRequireAuth(true)
+      setHasInvalidCredentials(false)
       return
     }
 
-    // We have credentials - show the banner immediately while we verify them
+    // We have credentials - require auth but show invalid credentials banner until validation succeeds
     setHasInvalidCredentials(true)
-
-    // Start async auth check with timeout
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Auth check timeout')), 5000)
-    })
-
-    Promise.race([
-      getUserInfoFromApiKey({
-        apiKey,
-        fields: ['id'],
-        logger,
-      }),
-      timeoutPromise,
-    ])
-      .then((authResult) => {
-        if (authResult) {
-          // Auth succeeded - clear the banner and allow access
-          setRequireAuth(false)
-          setHasInvalidCredentials(false)
-        } else {
-          // Auth failed - credentials are invalid, keep showing banner
-          logger.warn('Authentication check failed - credentials may be invalid')
-          setRequireAuth(true)
-          // hasInvalidCredentials already true
-        }
-      })
-      .catch((error) => {
-        // Auth check timed out or errored - keep showing banner
-        logger.error(
-          { error: error instanceof Error ? error.message : String(error) },
-          'Failed to check authentication in background',
-        )
-        setRequireAuth(true)
-        // hasInvalidCredentials already true
-      })
+    setRequireAuth(false)
   }, [])
 
   return (
@@ -135,9 +120,13 @@ const AppWithAsyncAuth = () => {
   )
 }
 
-// Start app immediately
+// Start app immediately with QueryClientProvider
 function startApp() {
-  render(<AppWithAsyncAuth />)
+  render(
+    <QueryClientProvider client={queryClient}>
+      <AppWithAsyncAuth />
+    </QueryClientProvider>,
+  )
 }
 
 startApp()

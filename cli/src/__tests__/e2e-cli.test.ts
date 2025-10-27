@@ -2,11 +2,13 @@ import { describe, test, expect } from 'bun:test'
 import { spawn } from 'child_process'
 import stripAnsi from 'strip-ansi'
 import path from 'path'
-import { isSDKBuilt } from './test-utils'
+import { isSDKBuilt, ensureCliTestEnv } from './test-utils'
 
 const CLI_PATH = path.join(__dirname, '../index.tsx')
 const TIMEOUT_MS = 10000
 const sdkBuilt = isSDKBuilt()
+
+ensureCliTestEnv()
 
 function runCLI(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   return new Promise((resolve, reject) => {
@@ -86,11 +88,18 @@ describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
     })
 
     let started = false
-    proc.stdout?.on('data', () => {
-      started = true
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve()
+      }, 800)
+
+      proc.stdout?.once('data', () => {
+        started = true
+        clearTimeout(timeout)
+        resolve()
+      })
     })
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
     proc.kill('SIGTERM')
 
     expect(started).toBe(true)
@@ -103,11 +112,18 @@ describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
     })
 
     let started = false
-    proc.stdout?.on('data', () => {
-      started = true
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve()
+      }, 800)
+
+      proc.stdout?.once('data', () => {
+        started = true
+        clearTimeout(timeout)
+        resolve()
+      })
     })
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
     proc.kill('SIGTERM')
 
     expect(started).toBe(true)

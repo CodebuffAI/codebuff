@@ -2,12 +2,20 @@ import { describe, test, expect, beforeAll } from 'bun:test'
 import { spawn } from 'child_process'
 import stripAnsi from 'strip-ansi'
 import path from 'path'
-import { isTmuxAvailable, isSDKBuilt, sleep } from './test-utils'
+import {
+  isTmuxAvailable,
+  isSDKBuilt,
+  sleep,
+  ensureCliTestEnv,
+  getDefaultCliEnv,
+} from './test-utils'
 
 const CLI_PATH = path.join(__dirname, '../index.tsx')
 const TIMEOUT_MS = 15000
 const tmuxAvailable = isTmuxAvailable()
 const sdkBuilt = isSDKBuilt()
+
+ensureCliTestEnv()
 
 // Utility to run tmux commands
 function tmux(args: string[]): Promise<string> {
@@ -35,7 +43,7 @@ function tmux(args: string[]): Promise<string> {
 }
 
 describe.skipIf(!tmuxAvailable || !sdkBuilt)('CLI Integration Tests with tmux', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     if (!tmuxAvailable) {
       console.log('\n⚠️  Skipping tmux tests - tmux not installed')
       console.log('📦 Install with: brew install tmux (macOS) or sudo apt-get install tmux (Linux)\n')
@@ -43,6 +51,18 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)('CLI Integration Tests with tmux', 
     if (!sdkBuilt) {
       console.log('\n⚠️  Skipping tmux tests - SDK not built')
       console.log('🔨 Build SDK: cd sdk && bun run build\n')
+    }
+    if (tmuxAvailable && sdkBuilt) {
+      const envVars = getDefaultCliEnv()
+      const entries = Object.entries(envVars)
+      // Propagate environment into tmux server so sessions inherit required vars
+      await Promise.all(
+        entries.map(([key, value]) =>
+          tmux(['set-environment', '-g', key, value]).catch(() => {
+            // Ignore failures; environment might already be set
+          }),
+        ),
+      )
     }
   })
 
@@ -61,13 +81,18 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)('CLI Integration Tests with tmux', 
       ])
 
       // Wait for output
-      await sleep(500)
+      await sleep(400)
 
-      // Capture pane content
-      const output = await tmux(['capture-pane', '-t', sessionName, '-p'])
-      const cleanOutput = stripAnsi(output)
+      let cleanOutput = ''
+      for (let i = 0; i < 5; i += 1) {
+        await sleep(200)
+        const output = await tmux(['capture-pane', '-t', sessionName, '-p'])
+        cleanOutput = stripAnsi(output)
+        if (cleanOutput.includes('--agent')) {
+          break
+        }
+      }
 
-      // Verify help text
       expect(cleanOutput).toContain('--agent')
       expect(cleanOutput).toContain('Usage:')
 
@@ -95,10 +120,14 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)('CLI Integration Tests with tmux', 
         `bun run ${CLI_PATH} --agent ask`
       ])
 
-      await sleep(1000)
-
-      // Capture to verify it started
-      const output = await tmux(['capture-pane', '-t', sessionName, '-p'])
+      let output = ''
+      for (let i = 0; i < 5; i += 1) {
+        await sleep(200)
+        output = await tmux(['capture-pane', '-t', sessionName, '-p'])
+        if (output.length > 0) {
+          break
+        }
+      }
       
       // Should have started without errors
       expect(output.length).toBeGreaterThan(0)
