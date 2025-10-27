@@ -1,6 +1,7 @@
 import { publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import { JSONObject, JSONValue } from 'types/util-types'
 
 interface ListDirectoryQuery {
   path: string
@@ -31,9 +32,9 @@ const directoryLister: SecretAgentDefinition = {
     'Mechanically lists multiple directories and returns their contents',
   model: 'anthropic/claude-sonnet-4.5',
   publisher,
-  outputMode: 'all_messages',
   includeMessageHistory: false,
-  toolNames: ['list_directory'],
+  outputMode: 'structured_output',
+  toolNames: ['list_directory', 'set_output'],
   spawnableAgents: [],
   inputSchema: {
     params: paramsSchema,
@@ -41,13 +42,31 @@ const directoryLister: SecretAgentDefinition = {
   handleSteps: function* ({ params }) {
     const directories: ListDirectoryQuery[] = params?.directories ?? []
 
+    const toolResults: JSONValue[] = []
     for (const directory of directories) {
-      yield {
+      const { toolResult } = yield {
         toolName: 'list_directory',
         input: {
           path: directory.path,
         },
       }
+      if (toolResult) {
+        toolResults.push(
+          ...toolResult
+            .filter((result) => result.type === 'json')
+            .map((result) => ({
+              path: directory.path,
+              ...(result.value as JSONObject),
+            })),
+        )
+      }
+    }
+
+    yield {
+      toolName: 'set_output',
+      input: {
+        results: toolResults,
+      },
     }
   },
 }
