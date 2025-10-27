@@ -31,6 +31,7 @@ const envSchema = {
   client: clientEnvSchema,
   // Only expose NEXT_PUBLIC_* values here; server secrets stay in process.env.
   experimental__runtimeEnv: clientRuntimeEnv,
+  skipValidation: process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test',
 }
 let envTemp
 try {
