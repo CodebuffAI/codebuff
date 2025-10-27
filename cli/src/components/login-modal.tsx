@@ -1,4 +1,4 @@
-import { useKeyboard, useRenderer } from '@opentui/react'
+import { useKeyboard } from '@opentui/react'
 import { useMutation } from '@tanstack/react-query'
 import open from 'open'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -12,6 +12,7 @@ import {
 } from './login-modal-utils'
 import { TerminalLink } from './terminal-link'
 import { useLoginMutation } from '../hooks/use-auth-query'
+import { useTerminalBreakpoints } from '../hooks/use-terminal-breakpoints'
 import { generateLoginUrl, pollLoginStatus } from '../login/login-flow'
 import { copyTextToClipboard } from '../utils/clipboard'
 import { logger } from '../utils/logger'
@@ -50,7 +51,7 @@ export const LoginModal = ({
   theme,
   hasInvalidCredentials = false,
 }: LoginModalProps) => {
-  const renderer = useRenderer()
+  const breakpoints = useTerminalBreakpoints()
   const [loginUrl, setLoginUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -329,14 +330,14 @@ export const LoginModal = ({
   useEffect(() => {
     const interval = setInterval(() => {
       setSheenPosition((prev) => {
-        const modulo = Math.max(10, Math.min((renderer?.width || 80) - 4, 100))
+        const modulo = Math.max(10, Math.min(breakpoints.width - 4, 100))
         const next = (prev + 1) % modulo
         return next
       })
     }, 150) // Update every 150ms for smooth animation with less CPU usage
 
     return () => clearInterval(interval)
-  }, [])
+  }, [breakpoints.width])
 
   // Determine if we're in light mode by checking background color luminance
   const isLightMode = useMemo(
@@ -368,19 +369,9 @@ export const LoginModal = ({
   // Memoize logo lines to prevent recalculation
   const logoLines = useMemo(() => parseLogoLines(LOGO), [])
 
-  // Calculate terminal width and height for responsive display
-  const terminalWidth = renderer?.width || 80
-  const terminalHeight = renderer?.height || 24
-  const maxUrlWidth = Math.min(terminalWidth - 10, 100)
-
-  // Responsive breakpoints based on terminal height
-  const isVerySmall = terminalHeight < 15 // Minimal UI
-  const isSmall = terminalHeight >= 15 && terminalHeight < 20 // Compact UI
-  const isMedium = terminalHeight >= 20 && terminalHeight < 30 // Standard UI
-  const isLarge = terminalHeight >= 30 // Spacious UI
-
-  // Responsive breakpoints based on terminal width
-  const isNarrow = terminalWidth < 60
+  // Calculate responsive dimensions using breakpoints
+  const { width, height, isVerySmall, isNarrow, isTall } = breakpoints
+  const maxUrlWidth = Math.min(width - 10, 100)
 
   // Dynamic spacing based on terminal size - compressed to prevent scrolling
   const containerPadding = isVerySmall ? 0 : 1
@@ -389,7 +380,7 @@ export const LoginModal = ({
   const sectionMarginBottom = isVerySmall ? 0 : 1
   const contentMaxWidth = Math.max(
     10,
-    Math.min(terminalWidth - (containerPadding * 2 + 4), 80),
+    Math.min(width - (containerPadding * 2 + 4), 80),
   )
 
   const logoDisplayLines = useMemo(
@@ -398,7 +389,7 @@ export const LoginModal = ({
   )
 
   // Show full logo on all terminal sizes as long as width allows
-  const showFullLogo = contentMaxWidth >= 60
+  const showFullLogo = isTall && contentMaxWidth >= 60
   // Show simple header on smaller terminals
   const showHeader = true
 
@@ -406,15 +397,15 @@ export const LoginModal = ({
   return (
     <box
       position="absolute"
-      left={Math.floor(terminalWidth * 0.05)}
+      left={Math.floor(width * 0.05)}
       top={1}
       border
       borderStyle="double"
       borderColor={theme.statusAccent}
       style={{
-        width: Math.floor(terminalWidth * 0.9),
-        height: Math.min(Math.floor((renderer?.height || 24) - 2), 22),
-        maxHeight: Math.min(Math.floor((renderer?.height || 24) - 2), 22),
+        width: Math.floor(width * 0.9),
+        height: Math.min(Math.floor(height - 2), 22),
+        maxHeight: Math.min(Math.floor(height - 2), 22),
         backgroundColor: theme.background,
         padding: 0,
         overflow: 'hidden',
