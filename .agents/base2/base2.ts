@@ -11,10 +11,14 @@ export const createBase2: (
   options?: {
     hasNoValidation?: boolean
     hasDecomposingThinker?: boolean
+    usesTodos?: boolean
   },
 ) => Omit<SecretAgentDefinition, 'id'> = (mode, options) => {
-  const { hasNoValidation = false, hasDecomposingThinker = false } =
-    options ?? {}
+  const {
+    hasNoValidation = false,
+    hasDecomposingThinker = false,
+    usesTodos = false,
+  } = options ?? {}
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
 
@@ -45,6 +49,7 @@ export const createBase2: (
       'spawn_agents',
       isMax && 'spawn_agent_inline',
       'read_files',
+      usesTodos && 'write_todos',
       'str_replace',
       'write_file',
     ),
@@ -149,8 +154,13 @@ ${buildArray(
   `- Consider spawning other agents or reading more files as needed to gather comprehensive context to answer the user's request.`,
   hasDecomposingThinker &&
     `- Spawn a decomposing-thinker agent to ask key questions and plan your response. Make sure to include all the relevant file paths in the params.`,
-  isFast && '- Write out your implementation plan as a bullet point list.',
-  isFast && `- Use the str_replace or write_file tool to make the changes.`,
+  usesTodos &&
+    `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes.'}`,
+  isFast &&
+    !usesTodos &&
+    '- Write out your implementation plan as a bullet point list.',
+  isFast &&
+    `- Use the str_replace or write_file tool to make the changes. (Pause after making all the changes to see the tool results of your edits and double check they went through correctly.)`,
   isMax &&
     `- IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.`,
   !hasNoValidation &&
