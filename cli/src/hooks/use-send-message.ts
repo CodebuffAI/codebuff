@@ -510,7 +510,6 @@ export const useSendMessage = ({
           agentDefinitions: agentDefinitions as AgentDefinition[],
 
           handleStreamChunk: (event) => {
-            logger.info({event}, 'asdf')
             if (typeof event !== 'string') {
               const { agentId, chunk } = event
 
