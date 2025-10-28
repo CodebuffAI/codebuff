@@ -229,13 +229,10 @@ export function convertCbToModelMessages({
   }
 
   // Add cache control to specific messages (max of 4 can be marked for caching!):
-  // - The message right before the three tagged messages
+  // - The message right before the two tagged messages
+  // - The message right before the last assistant message
   // - Last message
-  for (const tag of [
-    'USER_PROMPT',
-    'INSTRUCTIONS_PROMPT',
-    'STEP_PROMPT',
-  ] as const) {
+  for (const tag of ['USER_PROMPT', 'INSTRUCTIONS_PROMPT'] as const) {
     const index = aggregated.findLastIndex((m) => m.tags?.includes(tag))
     if (index <= 0) {
       continue
@@ -249,6 +246,24 @@ export function convertCbToModelMessages({
     contentBlock[contentBlock.length - 1] = withCacheControl(
       contentBlock[contentBlock.length - 1],
     )
+  }
+
+  // Currently used for alloy2 agent, not sure if this is useful for other agents.
+  const lastAssistantMessageIndex = aggregated.findLastIndex(
+    (m) => m.role === 'assistant',
+  )
+  if (lastAssistantMessageIndex > 0) {
+    const prevMessage = aggregated[lastAssistantMessageIndex - 1]
+    const contentBlock = prevMessage.content
+    if (typeof contentBlock === 'string') {
+      aggregated[lastAssistantMessageIndex - 1] = withCacheControl(
+        aggregated[lastAssistantMessageIndex - 1],
+      )
+    } else {
+      contentBlock[contentBlock.length - 1] = withCacheControl(
+        contentBlock[contentBlock.length - 1],
+      )
+    }
   }
 
   const lastMessage = aggregated[aggregated.length - 1]
