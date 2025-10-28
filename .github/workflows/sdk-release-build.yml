@@ -16,6 +16,11 @@ on:
         type: string
         description: 'Git ref to checkout'
         default: ''
+      env-overrides:
+        required: false
+        type: string
+        description: 'JSON object of environment variables to override defaults'
+        default: '{}'
 
 jobs:
   build-and-publish:
