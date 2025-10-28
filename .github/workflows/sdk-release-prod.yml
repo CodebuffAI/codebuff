@@ -74,7 +74,5 @@ jobs:
     with:
       new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
       artifact-name: updated-sdk-package
-      checkout-ref: ${{ github.sha }}
       env-overrides: '{"NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets: inherit
-

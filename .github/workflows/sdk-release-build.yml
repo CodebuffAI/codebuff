@@ -11,11 +11,6 @@ on:
         required: true
         type: string
         description: 'Name for the artifact (updated-sdk-package)'
-      checkout-ref:
-        required: false
-        type: string
-        description: 'Git ref to checkout'
-        default: ''
       env-overrides:
         required: false
         type: string
@@ -30,8 +25,6 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.checkout-ref || github.sha }}
 
       - uses: ./.github/actions/setup-project
 
