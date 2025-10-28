@@ -24,6 +24,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['signout'],
   },
   {
+    id: 'exit',
+    label: 'exit',
+    description: 'Quit the CLI',
+    aliases: ['quit', 'q'],
+  },
+  {
     id: 'diff',
     label: 'diff',
     description: 'Show the diff for the last assistant change',

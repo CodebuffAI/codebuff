@@ -743,6 +743,15 @@ export const App = ({
       return
     }
 
+    if (cmd === 'exit' || cmd === 'quit') {
+      abortControllerRef.current?.abort()
+      stopStreaming()
+      setCanProcessQueue(false)
+      setInputValue('')
+      handleCtrlC()
+      return
+    }
+
     saveToHistory(trimmed)
     setInputValue('')
 
@@ -771,6 +780,7 @@ export const App = ({
     streamMessageIdRef,
     isChainInProgressRef,
     scrollToLatest,
+    handleCtrlC,
   ])
 
   useKeyboardHandlers({
