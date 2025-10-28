@@ -61,7 +61,7 @@ describe('Auto Top-up System', () => {
       }))
 
       // Mock Stripe payment intent creation
-      mockModule('@codebuff/common/util/stripe', () => ({
+      mockModule('@codebuff/internal/util/stripe', () => ({
         stripeServer: {
           paymentIntents: {
             create: mock(() =>
