@@ -1,5 +1,6 @@
 import { trackEvent } from '@codebuff/common/analytics'
-import db from '@codebuff/common/db'
+import db from '@codebuff/internal/db'
+
 import type { NextRequest } from 'next/server'
 
 import { agentRunsPost } from '@/api/v1/agent-runs'

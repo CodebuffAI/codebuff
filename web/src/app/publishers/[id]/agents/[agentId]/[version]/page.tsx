@@ -1,23 +1,24 @@
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { BackButton } from '@/components/ui/back-button'
-import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
 
-import { cn } from '@/lib/utils'
 import { AgentUsageMetrics } from './agent-usage-metrics'
-import { RunAgentButton } from './run-agent-button'
 import { CopyIdButton } from './copy-id-button'
+import { RunAgentButton } from './run-agent-button'
 import { SaveAgentButton } from './save-agent-button'
 import { VersionUsageBadge } from './version-usage-badge'
+
+import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { BackButton } from '@/components/ui/back-button'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 interface AgentDetailPageProps {
   params: {

@@ -1,6 +1,7 @@
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
+
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 
 // List of admin user emails - single source of truth
 const CODEBUFF_ADMIN_USER_EMAILS = [

@@ -1,17 +1,16 @@
 'use server'
 
 import { MAX_DATE } from '@codebuff/common/old-constants'
-import { db } from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
 import { genAuthCode } from '@codebuff/common/util/credentials'
 import { env } from '@codebuff/internal'
+import { db } from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { and, eq, gt } from 'drizzle-orm'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
-import { redeemReferralCode } from '../api/referrals/helpers'
 
 import CardWithBeams from '@/components/card-with-beams'
 import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
@@ -89,7 +88,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
   const fingerprintHash = genAuthCode(
     fingerprintId,
     expiresAt,
-    env.NEXTAUTH_SECRET
+    env.NEXTAUTH_SECRET,
   )
   if (receivedfingerprintHash !== fingerprintHash) {
     return CardWithBeams({
@@ -127,13 +126,13 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
     .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
     .leftJoin(
       schema.fingerprint,
-      eq(schema.session.fingerprint_id, schema.fingerprint.id)
+      eq(schema.session.fingerprint_id, schema.fingerprint.id),
     )
     .where(
       and(
         eq(schema.fingerprint.sig_hash, fingerprintHash),
-        eq(schema.user.id, user.id)
-      )
+        eq(schema.user.id, user.id),
+      ),
     )
     .limit(1)
   if (fingerprintExists.length > 0) {
@@ -155,8 +154,8 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
     .where(
       and(
         eq(schema.session.fingerprint_id, fingerprintId),
-        gt(schema.session.expires, new Date())
-      )
+        gt(schema.session.expires, new Date()),
+      ),
     )
     .limit(1)
 
@@ -170,7 +169,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
         attemptedUserId: user.id,
         event: 'fingerprint_ownership_conflict',
       },
-      'Attempt to associate fingerprint with different user'
+      'Attempt to associate fingerprint with different user',
     )
 
     return CardWithBeams({

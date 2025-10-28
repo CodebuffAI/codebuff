@@ -1,8 +1,8 @@
 'use server'
 
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
 import { env } from '@codebuff/internal'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
