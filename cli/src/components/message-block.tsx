@@ -249,45 +249,51 @@ export const MessageBlock = ({
   ): React.ReactNode {
     const TRUNCATE_LIMIT = 5
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
-    const { agents, agentsDir } = agentListBlock
+    const { agents } = agentListBlock
 
-    const agentCount = agents.length
-    const shouldTruncate = agentCount > TRUNCATE_LIMIT
-    const displayAgents =
-      shouldTruncate && isCollapsed ? agents.slice(0, TRUNCATE_LIMIT) : agents
+    const sortedAgents = [...agents].sort((a, b) => {
+      const aLabel = (a.displayName || a.id).toLowerCase()
+      const bLabel = (b.displayName || b.id).toLowerCase()
+      return aLabel.localeCompare(bLabel)
+    })
 
+    const agentCount = sortedAgents.length
+    const previewAgents = sortedAgents.slice(0, TRUNCATE_LIMIT)
     const remainingCount =
-      shouldTruncate && isCollapsed ? agentCount - TRUNCATE_LIMIT : 0
+      agentCount > TRUNCATE_LIMIT ? agentCount - TRUNCATE_LIMIT : 0
+
+    const formatIdentifier = (agent: { id: string; displayName: string }) =>
+      agent.displayName && agent.displayName !== agent.id
+        ? `${agent.displayName} (${agent.id})`
+        : agent.displayName || agent.id
 
     const agentListContent = (
       <box style={{ flexDirection: 'column', gap: 0 }}>
-        {displayAgents.map((agent, idx) => {
-          const identifier =
-            agent.displayName && agent.displayName !== agent.id
-              ? `${agent.displayName} (${agent.id})`
-              : agent.displayName || agent.id
+        {sortedAgents.map((agent, idx) => {
+          const identifier = formatIdentifier(agent)
           return (
             <text key={`agent-${idx}`} wrap fg={theme.agentText}>
               {`  • ${identifier}`}
             </text>
           )
         })}
-        {remainingCount > 0 && (
-          <text
-            wrap
-            fg={theme.agentResponseCount}
-            attributes={TextAttributes.ITALIC}
-          >
-            {`  ... ${pluralize(remainingCount, 'more agent')}`}
-          </text>
-        )}
       </box>
     )
 
-    const headerText = `Loaded ${pluralize(agentCount, 'local agent')}`
+    const headerText = pluralize(agentCount, 'local agent')
+    const previewLines = previewAgents.map(
+      (agent) => `  • ${formatIdentifier(agent)}`,
+    )
     const finishedPreview =
-      shouldTruncate && isCollapsed
-        ? `${TRUNCATE_LIMIT} agents shown, ${remainingCount} more available`
+      isCollapsed
+        ? [
+            ...previewLines,
+            remainingCount > 0
+              ? `  ... ${pluralize(remainingCount, 'more agent')} available`
+              : null,
+          ]
+            .filter(Boolean)
+            .join('\n')
         : ''
 
     return (

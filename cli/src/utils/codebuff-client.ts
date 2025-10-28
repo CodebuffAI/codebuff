@@ -1,9 +1,10 @@
 import { CodebuffClient } from '@codebuff/sdk'
 
-import { findGitRoot } from './git'
-import { logger } from './logger'
-import { getAuthTokenDetails } from './auth'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { findGitRoot } from './git'
+import { getAuthTokenDetails } from './auth'
+import { loadAgentDefinitions } from './load-agent-definitions'
+import { logger } from './logger'
 
 let clientInstance: CodebuffClient | null = null
 
@@ -21,9 +22,11 @@ export function getCodebuffClient(): CodebuffClient | null {
 
     const gitRoot = findGitRoot()
     try {
+      const agentDefinitions = loadAgentDefinitions()
       clientInstance = new CodebuffClient({
         apiKey,
         cwd: gitRoot,
+        agentDefinitions,
       })
     } catch (error) {
       logger.error(error, 'Failed to initialize CodebuffClient')

@@ -26,6 +26,7 @@ import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
+import { LOGO } from './login/constants'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
@@ -41,6 +42,10 @@ type ChatVariant = 'ai' | 'user' | 'agent'
 
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
+
+const LOGO_BLOCK = LOGO.split('\n')
+  .filter((line) => line.length > 0)
+  .join('\n')
 
 type AgentMessage = {
   agentName: string
@@ -137,17 +142,20 @@ export const App = ({
   const authQuery = useAuthQuery()
   const logoutMutation = useLogoutMutation()
 
-  // If requireAuth is null (checking), assume not authenticated until proven otherwise
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    requireAuth === false ? true : false,
+  // If requireAuth is null (checking), defer showing auth UI until resolved
+  const initialAuthState =
+    requireAuth === false ? true : requireAuth === true ? false : null
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(
+    initialAuthState,
   )
   const [user, setUser] = useState<User | null>(null)
 
   // Update authentication state when requireAuth changes
   useEffect(() => {
-    if (requireAuth !== null) {
-      setIsAuthenticated(!requireAuth)
+    if (requireAuth === null) {
+      return
     }
+    setIsAuthenticated(!requireAuth)
   }, [requireAuth])
 
   // Update authentication state based on query results
@@ -188,18 +196,44 @@ export const App = ({
   useEffect(() => {
     if (loadedAgentsData && messages.length === 0) {
       const agentListId = 'loaded-agents-list'
+      const userCredentials = getUserCredentials()
+      const greeting = userCredentials?.name?.trim().length
+        ? `Welcome back, ${userCredentials.name.trim()}!`
+        : null
+
+      const blocks: ContentBlock[] = [
+        {
+          type: 'text',
+          content: '\n\n' + LOGO_BLOCK,
+        },
+      ]
+
+      if (greeting) {
+        blocks.push({
+          type: 'text',
+          content: greeting,
+        })
+      }
+
+      blocks.push(
+        {
+          type: 'text',
+          content:
+            'Codebuff can read and write files in this repository, and run terminal commands to help you build.',
+        },
+        {
+          type: 'agent-list',
+          id: agentListId,
+          agents: loadedAgentsData.agents,
+          agentsDir: loadedAgentsData.agentsDir,
+        },
+      )
+
       const initialMessage: ChatMessage = {
         id: `system-loaded-agents-${Date.now()}`,
         variant: 'ai',
         content: '', // Content is in the block
-        blocks: [
-          {
-            type: 'agent-list',
-            id: agentListId,
-            agents: loadedAgentsData.agents,
-            agentsDir: loadedAgentsData.agentsDir,
-          },
-        ],
+        blocks,
         timestamp: new Date().toISOString(),
       }
 
@@ -298,7 +332,7 @@ export const App = ({
   )
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (isAuthenticated !== true) return
 
     setInputFocused(true)
 
@@ -1010,7 +1044,7 @@ export const App = ({
       </box>
 
       {/* Login Modal Overlay - show when not authenticated */}
-      {!isAuthenticated && (
+      {isAuthenticated === false && (
         <LoginModal
           onLoginSuccess={handleLoginSuccess}
           theme={theme}
