@@ -1,5 +1,6 @@
+import { withRetry } from '@codebuff/common/util/promise'
+
 import db from './index'
-import { withRetry } from '../util/promise'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 

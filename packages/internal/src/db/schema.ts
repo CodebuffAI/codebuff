@@ -14,7 +14,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
-import { GrantTypeValues } from '../types/grant'
+import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { ReferralStatusValues } from '../types/referral'
 
 import type { SQL } from 'drizzle-orm'
