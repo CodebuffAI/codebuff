@@ -53,7 +53,20 @@ jobs:
           echo "New production version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
+      - uses: ./.github/actions/setup-project
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push version bump
+        run: |
           git stash
+          git pull --rebase origin main
+          git stash pop
+          git add sdk/package.json
+          git commit -m "Bump SDK version to ${{ steps.bump_version.outputs.new_version }}"
+          git push
 
   build-and-publish-sdk:
     needs: prepare-and-commit-prod
@@ -65,26 +78,3 @@ jobs:
       env-overrides: '{"NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets: inherit
 
-  push-to-git:
-    runs-on: ubuntu-latest
-    needs: build-and-publish-sdk
-    outputs:
-      new_version: ${{ steps.bump_version.outputs.new_version }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: ./.github/actions/setup-project
-      - name: Configure git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit and push version bump
-        run: |
-          git pull --rebase origin main
-          git stash pop
-          git add sdk/package.json
-          git commit -m "Bump SDK version to ${{ steps.bump_version.outputs.new_version }}"
-          git push
