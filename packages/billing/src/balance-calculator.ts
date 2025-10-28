@@ -1,11 +1,12 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { withSerializableTransaction } from '@codebuff/common/db/transaction'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { failure, getErrorObject, success } from '@codebuff/common/util/error'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
-import { withSerializableTransaction } from '@codebuff/internal/db/transaction'
 import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
 
+import type { GrantType } from '@codebuff/common/db/schema'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
@@ -13,7 +14,6 @@ import type {
   OptionalFields,
 } from '@codebuff/common/types/function-params'
 import type { ErrorOr } from '@codebuff/common/util/error'
-import type { GrantType } from '@codebuff/internal/db/schema'
 
 export interface CreditBalance {
   totalRemaining: number

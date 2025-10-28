@@ -1,8 +1,8 @@
 'use server'
 
 import { AFFILIATE_USER_REFFERAL_LIMIT } from '@codebuff/common/old-constants'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getServerSession } from 'next-auth'
@@ -48,7 +48,7 @@ const HandleSchema = z
   .max(20, 'Handle cannot be longer than 20 characters.')
   .regex(
     /^[a-zA-Z0-9_]+$/,
-    'Handle can only contain letters, numbers, and underscores.',
+    'Handle can only contain letters, numbers, and underscores.'
   )
   .transform((str) => str.toLowerCase())
   .refine((handle) => !RESERVED_HANDLES.includes(handle), {
@@ -65,7 +65,7 @@ export interface SetHandleFormState {
 
 export async function setAffiliateHandleAction(
   prevState: SetHandleFormState,
-  formData: FormData,
+  formData: FormData
 ): Promise<SetHandleFormState> {
   const session = await getServerSession(authOptions)
 
@@ -104,7 +104,7 @@ export async function setAffiliateHandleAction(
     const existingUser = await db.query.user.findFirst({
       where: and(
         eq(schema.user.handle, desiredHandle),
-        ne(schema.user.id, userId),
+        ne(schema.user.id, userId)
       ),
       columns: { id: true },
     })

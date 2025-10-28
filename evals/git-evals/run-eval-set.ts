@@ -22,7 +22,7 @@ import {
 
 import type { EvalConfig, EvalResult } from './types'
 import type { AgentConfig } from './run-eval-set-multi-agent'
-import type { GitEvalResultRequest } from '@codebuff/internal/db/schema'
+import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
 
 const DEFAULT_OUTPUT_DIR = 'git-evals'
 const MOCK_PATH = 'git-evals/eval-result-codebuff-mock.json'

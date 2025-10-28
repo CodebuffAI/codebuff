@@ -1,23 +1,23 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { AgentUsageMetrics } from './agent-usage-metrics'
-import { CopyIdButton } from './copy-id-button'
-import { RunAgentButton } from './run-agent-button'
-import { SaveAgentButton } from './save-agent-button'
-import { VersionUsageBadge } from './version-usage-badge'
-
-import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BackButton } from '@/components/ui/back-button'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
+
 import { cn } from '@/lib/utils'
+import { AgentUsageMetrics } from './agent-usage-metrics'
+import { RunAgentButton } from './run-agent-button'
+import { CopyIdButton } from './copy-id-button'
+import { SaveAgentButton } from './save-agent-button'
+import { VersionUsageBadge } from './version-usage-badge'
+import { Button } from '@/components/ui/button'
 
 interface AgentDetailPageProps {
   params: {
@@ -36,14 +36,14 @@ export async function generateMetadata({ params }: AgentDetailPageProps) {
     .from(schema.agentConfig)
     .innerJoin(
       schema.publisher,
-      eq(schema.agentConfig.publisher_id, schema.publisher.id),
+      eq(schema.agentConfig.publisher_id, schema.publisher.id)
     )
     .where(
       and(
         eq(schema.publisher.id, params.id),
         eq(schema.agentConfig.id, params.agentId),
-        eq(schema.agentConfig.version, params.version),
-      ),
+        eq(schema.agentConfig.version, params.version)
+      )
     )
     .limit(1)
 
@@ -89,8 +89,8 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
       and(
         eq(schema.agentConfig.publisher_id, params.id),
         eq(schema.agentConfig.id, params.agentId),
-        eq(schema.agentConfig.version, params.version),
-      ),
+        eq(schema.agentConfig.version, params.version)
+      )
     )
     .limit(1)
 
@@ -114,8 +114,8 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
     .where(
       and(
         eq(schema.agentConfig.publisher_id, params.id),
-        eq(schema.agentConfig.id, params.agentId),
-      ),
+        eq(schema.agentConfig.id, params.agentId)
+      )
     )
     .orderBy(schema.agentConfig.created_at)
 
@@ -123,7 +123,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
   const latestVersion =
     allVersions.sort(
       (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )[0]?.version || params.version
 
   const fullAgentId = `${params.id}/${params.agentId}@${latestVersion}`
@@ -185,7 +185,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',
-                        },
+                        }
                       )}
                     </span>
                   </div>
@@ -221,7 +221,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                     .sort(
                       (a, b) =>
                         new Date(b.created_at).getTime() -
-                        new Date(a.created_at).getTime(),
+                        new Date(a.created_at).getTime()
                     )
                     .map((version, index) => (
                       <Link
@@ -256,7 +256,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                                   'text-xs px-1.5 py-0 border pointer-events-none',
                                   version.version === params.version
                                     ? 'bg-background text-foreground border-background'
-                                    : 'bg-muted text-muted-foreground border-muted',
+                                    : 'bg-muted text-muted-foreground border-muted'
                                 )}
                               >
                                 Latest

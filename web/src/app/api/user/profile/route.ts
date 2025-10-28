@@ -1,6 +1,6 @@
 import { validateAutoTopupStatus } from '@codebuff/billing'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -51,11 +51,11 @@ export async function GET() {
   } catch (error) {
     logger.error(
       { error, userId: session.user.id },
-      'Error fetching user profile',
+      'Error fetching user profile'
     )
     return NextResponse.json(
       { error: 'Internal Server Error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

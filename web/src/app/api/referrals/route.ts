@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -39,7 +39,7 @@ export async function GET() {
     const referralCode = user?.referral_code
     if (!referralCode) {
       throw new Error(
-        `No referral code found for user with id ${session.user.id}`,
+        `No referral code found for user with id ${session.user.id}`
       )
     }
 
@@ -107,7 +107,7 @@ export async function GET() {
     console.error('Error fetching referral data:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
       if (!referralCode) {
         return NextResponse.json(
           { error: 'Missing referral code' },
-          { status: 400 },
+          { status: 400 }
         )
       }
       return redeemReferralCode(referralCode, session.user.id)
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     console.error('Error processing referral:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 

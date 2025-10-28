@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
         {
           error: 'Threshold and amount are required when enabling auto top-up',
         },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
           {
             error: `Top-up amount must be between ${minTopUpCredits} and ${maxTopUpCredits} credits`,
           },
-          { status: 400 },
+          { status: 400 }
         )
       }
     }
@@ -77,14 +77,14 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', issues: error.issues },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
     console.error('Error updating auto top-up settings:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

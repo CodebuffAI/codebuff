@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -18,7 +18,7 @@ export type ReferralCodeResponse = {
 
 export async function GET(
   _req: Request,
-  { params }: { params: { code: string } },
+  { params }: { params: { code: string } }
 ): Promise<NextResponse<ReferralCodeResponse | { error: string }>> {
   const { code } = params
   const session = await getServerSession(authOptions)
@@ -35,7 +35,7 @@ export async function GET(
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid referral code' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -51,7 +51,7 @@ export async function GET(
     console.error(error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

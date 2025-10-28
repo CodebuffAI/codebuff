@@ -1,6 +1,6 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 
 import type {

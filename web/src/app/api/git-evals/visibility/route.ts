@@ -1,5 +1,5 @@
-import { db } from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import { db } from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -23,7 +23,7 @@ export async function PATCH(request: NextRequest) {
     if (!id || typeof is_public !== 'boolean') {
       return NextResponse.json(
         { error: 'Missing or invalid required fields: id, is_public' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest) {
     if (!updatedResult) {
       return NextResponse.json(
         { error: 'Eval result not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest) {
         is_public,
         adminUserId: authResult.id,
       },
-      'Updated eval result visibility',
+      'Updated eval result visibility'
     )
 
     return NextResponse.json(updatedResult)
@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest) {
     logger.error({ error }, 'Error updating eval result visibility')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   if (!clientRequestId) {
     return NextResponse.json(
       { error: 'Missing required parameter: clientRequestId' },
-      { status: 400 },
+      { status: 400 }
     )
   }
 
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (mainMessage.length === 0) {
       return NextResponse.json(
         { error: 'No messages found for this client request ID' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // Build timeline events from messages using utility function
     const timelineEvents = buildTimelineFromMessages(
       allMessages,
-      clientRequestId,
+      clientRequestId
     )
 
     logger.info(
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         clientRequestId,
         eventCount: timelineEvents.length,
       },
-      'Admin fetched timeline events',
+      'Admin fetched timeline events'
     )
 
     return NextResponse.json({ events: timelineEvents })
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     logger.error({ error, clientRequestId }, 'Error building timeline')
     return NextResponse.json(
       { error: 'Failed to build timeline' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

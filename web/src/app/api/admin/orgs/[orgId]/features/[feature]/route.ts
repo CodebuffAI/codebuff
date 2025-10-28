@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -17,7 +17,7 @@ interface RouteParams {
 // GET handler to fetch feature configuration
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   const authResult = await checkAdminAuth()
   if (authResult instanceof NextResponse) {
@@ -33,8 +33,8 @@ export async function GET(
       .where(
         and(
           eq(schema.orgFeature.org_id, orgId),
-          eq(schema.orgFeature.feature, feature),
-        ),
+          eq(schema.orgFeature.feature, feature)
+        )
       )
       .limit(1)
 
@@ -47,7 +47,7 @@ export async function GET(
     console.error('Error fetching feature config:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -55,7 +55,7 @@ export async function GET(
 // POST handler to create or update feature configuration
 export async function POST(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   const authResult = await checkAdminAuth()
   if (authResult instanceof NextResponse) {
@@ -87,7 +87,7 @@ export async function POST(
     console.error('Error saving feature config:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

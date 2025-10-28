@@ -1,8 +1,8 @@
 import { writeFileSync } from 'fs'
 
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { pluralize } from '@codebuff/common/util/string'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 
 async function exportUserEmails(): Promise<void> {
   console.log('Exporting user emails...\n')

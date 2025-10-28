@@ -1,6 +1,6 @@
+import { db } from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { getErrorObject } from '@codebuff/common/util/error'
-import { db } from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { and, gte, lt, sql } from 'drizzle-orm'
 
 async function calculateMonthlyUsage(month: string) {

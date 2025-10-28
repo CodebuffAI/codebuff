@@ -1,7 +1,7 @@
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { env } from '@codebuff/internal'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { eq, and, gte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -17,7 +17,7 @@ interface RouteParams {
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -34,15 +34,15 @@ export async function GET(
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -79,8 +79,8 @@ export async function GET(
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, lastHour),
-        ),
+          gte(schema.message.finished_at, lastHour)
+        )
       )
 
     const currentVelocity = recentUsage[0]?.credits_used || 0
@@ -96,8 +96,8 @@ export async function GET(
         and(
           eq(schema.message.org_id, orgId),
           gte(schema.message.finished_at, previousHour),
-          sql`${schema.message.finished_at} < ${lastHour}`,
-        ),
+          sql`${schema.message.finished_at} < ${lastHour}`
+        )
       )
 
     const previousVelocity = previousHourUsage[0]?.credits_used || 0
@@ -117,8 +117,8 @@ export async function GET(
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, last24Hours),
-        ),
+          gte(schema.message.finished_at, last24Hours)
+        )
       )
 
     const weeklyUsage = await db
@@ -129,8 +129,8 @@ export async function GET(
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, lastWeek),
-        ),
+          gte(schema.message.finished_at, lastWeek)
+        )
       )
 
     const dailyBurnRate = dailyUsage[0]?.credits_used || 0
@@ -148,7 +148,7 @@ export async function GET(
         headers: {
           Cookie: request.headers.get('Cookie') || '',
         },
-      },
+      }
     )
 
     let alertsData = { alerts: [] }
@@ -157,10 +157,10 @@ export async function GET(
     }
 
     const criticalAlerts = alertsData.alerts.filter(
-      (alert: any) => alert.severity === 'critical',
+      (alert: any) => alert.severity === 'critical'
     ).length
     const warningAlerts = alertsData.alerts.filter(
-      (alert: any) => alert.severity === 'warning',
+      (alert: any) => alert.severity === 'warning'
     ).length
     const totalAlerts = alertsData.alerts.length
 
@@ -205,7 +205,7 @@ export async function GET(
     console.error('Error fetching organization monitoring data:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

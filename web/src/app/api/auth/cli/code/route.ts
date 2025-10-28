@@ -1,7 +1,7 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { genAuthCode } from '@codebuff/common/util/credentials'
 import { env } from '@codebuff/internal'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { and, eq, gt } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const fingerprintHash = genAuthCode(
       fingerprintId,
       expiresAt.toString(),
-      env.NEXTAUTH_SECRET,
+      env.NEXTAUTH_SECRET
     )
 
     // Check if this fingerprint has any active sessions
@@ -38,8 +38,8 @@ export async function POST(req: Request) {
       .where(
         and(
           eq(schema.session.fingerprint_id, fingerprintId),
-          gt(schema.session.expires, new Date()),
-        ),
+          gt(schema.session.expires, new Date())
+        )
       )
       .limit(1)
 
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
           existingUserId: existingSession[0].userId,
           event: 'relogin_attempt_with_active_session',
         },
-        'Login attempt for fingerprint with active session',
+        'Login attempt for fingerprint with active session'
       )
     }
 
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     logger.error({ error }, 'Error generating login code')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

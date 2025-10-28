@@ -1,12 +1,10 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
-import { eq, and } from 'drizzle-orm'
 import { getServerSession } from 'next-auth'
-
-import type { OrganizationRole } from '@codebuff/common/types/organization'
-import type { Publisher } from '@codebuff/common/types/publisher'
-
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { eq, and } from 'drizzle-orm'
+import { OrganizationRole } from '@codebuff/common/types/organization'
+import { Publisher } from '@codebuff/common/types/publisher'
 import { logger } from '@/util/logger'
 
 export interface PublisherPermissionResult {
@@ -24,7 +22,7 @@ export interface PublisherPermissionResult {
  * Checks if a user can edit a publisher based on the unified ownership model
  */
 export async function checkPublisherPermission(
-  publisherId: string,
+  publisherId: string
 ): Promise<PublisherPermissionResult> {
   try {
     const session = await getServerSession(authOptions)
@@ -76,8 +74,8 @@ export async function checkPublisherPermission(
         .where(
           and(
             eq(schema.orgMember.org_id, publisher.org_id),
-            eq(schema.orgMember.user_id, userId),
-          ),
+            eq(schema.orgMember.user_id, userId)
+          )
         )
         .limit(1)
 
@@ -121,7 +119,10 @@ export async function checkPublisherPermission(
       publisherId,
     }
   } catch (error) {
-    logger.error({ publisherId, error }, 'Error checking publisher permissions')
+    logger.error(
+      { publisherId, error },
+      'Error checking publisher permissions'
+    )
     return {
       success: false,
       error: 'Internal server error',
@@ -149,7 +150,9 @@ export function getPublisherBillingEntity(publisher: Publisher): {
 /**
  * Checks if a user can create a publisher for an organization
  */
-export async function checkOrgPublisherAccess(organizationId: string): Promise<{
+export async function checkOrgPublisherAccess(
+  organizationId: string
+): Promise<{
   success: boolean
   error?: string
   status?: number
@@ -174,8 +177,8 @@ export async function checkOrgPublisherAccess(organizationId: string): Promise<{
       .where(
         and(
           eq(schema.orgMember.org_id, organizationId),
-          eq(schema.orgMember.user_id, userId),
-        ),
+          eq(schema.orgMember.user_id, userId)
+        )
       )
       .limit(1)
 
@@ -204,7 +207,7 @@ export async function checkOrgPublisherAccess(organizationId: string): Promise<{
   } catch (error) {
     logger.error(
       { organizationId, error },
-      'Error checking organization publisher creation permissions',
+      'Error checking organization publisher creation permissions'
     )
     return {
       success: false,

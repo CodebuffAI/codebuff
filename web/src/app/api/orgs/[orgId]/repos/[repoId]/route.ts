@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -28,15 +28,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -44,7 +44,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (role !== 'owner' && role !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -53,14 +53,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .select()
       .from(schema.orgRepo)
       .where(
-        and(eq(schema.orgRepo.id, repoId), eq(schema.orgRepo.org_id, orgId)),
+        and(eq(schema.orgRepo.id, repoId), eq(schema.orgRepo.org_id, orgId))
       )
       .limit(1)
 
     if (repository.length === 0) {
       return NextResponse.json(
         { error: 'Repository not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -72,7 +72,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     console.error('Error removing repository:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -94,15 +94,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -110,7 +110,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (role !== 'owner' && role !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -119,14 +119,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .select()
       .from(schema.orgRepo)
       .where(
-        and(eq(schema.orgRepo.id, repoId), eq(schema.orgRepo.org_id, orgId)),
+        and(eq(schema.orgRepo.id, repoId), eq(schema.orgRepo.org_id, orgId))
       )
       .limit(1)
 
     if (repository.length === 0) {
       return NextResponse.json(
         { error: 'Repository not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -141,7 +141,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     console.error('Error updating repository:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

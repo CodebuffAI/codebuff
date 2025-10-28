@@ -1,11 +1,9 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import { NextResponse, NextRequest } from 'next/server'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, eq, ne } from 'drizzle-orm'
-import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-
-import type { NextRequest } from 'next/server'
+import { cookies } from 'next/headers'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { siteConfig } from '@/lib/constant'
@@ -49,15 +47,15 @@ export async function POST(request: NextRequest) {
       and(
         eq(schema.session.userId, session.user.id),
         ne(schema.session.sessionToken, currentToken),
-        eq(schema.session.type, 'web'), // Only delete web sessions
-      ),
+        eq(schema.session.type, 'web') // Only delete web sessions
+      )
     )
   } else {
     await db.delete(schema.session).where(
       and(
         eq(schema.session.userId, session.user.id),
-        eq(schema.session.type, 'web'), // Only delete web sessions
-      ),
+        eq(schema.session.type, 'web') // Only delete web sessions
+      )
     )
   }
 

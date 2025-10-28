@@ -1,5 +1,5 @@
 import { trackEvent } from '@codebuff/common/analytics'
-import db from '@codebuff/internal/db'
+import db from '@codebuff/common/db'
 
 import type { NextRequest } from 'next/server'
 
@@ -9,7 +9,7 @@ import { logger } from '@/util/logger'
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { runId: string } },
+  { params }: { params: { runId: string } }
 ) {
   const { runId } = params
   return agentRunsStepsPost({

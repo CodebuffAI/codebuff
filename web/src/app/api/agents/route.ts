@@ -1,8 +1,8 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { sql, eq, and, gte } from 'drizzle-orm'
-import { unstable_cache } from 'next/cache'
 import { NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 
 import { logger } from '@/util/logger'
 
@@ -32,7 +32,7 @@ const getCachedAgents = unstable_cache(
       .from(schema.agentConfig)
       .innerJoin(
         schema.publisher,
-        sql`${schema.agentConfig.publisher_id} = ${schema.publisher.id}`,
+        sql`${schema.agentConfig.publisher_id} = ${schema.publisher.id}`
       )
       .orderBy(sql`${schema.agentConfig.created_at} DESC`)
 
@@ -53,8 +53,8 @@ const getCachedAgents = unstable_cache(
           eq(schema.agentRun.status, 'completed'),
           sql`${schema.agentRun.agent_id} != 'test-agent'`,
           sql`${schema.agentRun.publisher_id} IS NOT NULL`,
-          sql`${schema.agentRun.agent_name} IS NOT NULL`,
-        ),
+          sql`${schema.agentRun.agent_name} IS NOT NULL`
+        )
       )
       .groupBy(schema.agentRun.publisher_id, schema.agentRun.agent_name)
 
@@ -73,8 +73,8 @@ const getCachedAgents = unstable_cache(
           gte(schema.agentRun.created_at, oneWeekAgo),
           sql`${schema.agentRun.agent_id} != 'test-agent'`,
           sql`${schema.agentRun.publisher_id} IS NOT NULL`,
-          sql`${schema.agentRun.agent_name} IS NOT NULL`,
-        ),
+          sql`${schema.agentRun.agent_name} IS NOT NULL`
+        )
       )
       .groupBy(schema.agentRun.publisher_id, schema.agentRun.agent_name)
 
@@ -97,13 +97,13 @@ const getCachedAgents = unstable_cache(
           sql`${schema.agentRun.agent_id} != 'test-agent'`,
           sql`${schema.agentRun.publisher_id} IS NOT NULL`,
           sql`${schema.agentRun.agent_name} IS NOT NULL`,
-          sql`${schema.agentRun.agent_version} IS NOT NULL`,
-        ),
+          sql`${schema.agentRun.agent_version} IS NOT NULL`
+        )
       )
       .groupBy(
         schema.agentRun.publisher_id,
         schema.agentRun.agent_name,
-        schema.agentRun.agent_version,
+        schema.agentRun.agent_version
       )
 
     // Get per-version weekly usage metrics
@@ -123,13 +123,13 @@ const getCachedAgents = unstable_cache(
           sql`${schema.agentRun.agent_id} != 'test-agent'`,
           sql`${schema.agentRun.publisher_id} IS NOT NULL`,
           sql`${schema.agentRun.agent_name} IS NOT NULL`,
-          sql`${schema.agentRun.agent_version} IS NOT NULL`,
-        ),
+          sql`${schema.agentRun.agent_version} IS NOT NULL`
+        )
       )
       .groupBy(
         schema.agentRun.publisher_id,
         schema.agentRun.agent_name,
-        schema.agentRun.agent_version,
+        schema.agentRun.agent_version
       )
 
     // Create weekly metrics map by publisher/agent_name
@@ -262,7 +262,7 @@ const getCachedAgents = unstable_cache(
           version_stats,
           tags: agentData.tags || [],
         }
-      },
+      }
     )
 
     // Sort by weekly usage (most prominent metric)
@@ -274,7 +274,7 @@ const getCachedAgents = unstable_cache(
   {
     revalidate: 600, // 10 minutes
     tags: ['agents', 'api'],
-  },
+  }
 )
 
 export async function GET() {
@@ -286,7 +286,7 @@ export async function GET() {
     // Add optimized cache headers for better performance
     response.headers.set(
       'Cache-Control',
-      'public, max-age=300, s-maxage=600, stale-while-revalidate=3600',
+      'public, max-age=300, s-maxage=600, stale-while-revalidate=3600'
     )
 
     // Add compression and optimization headers
@@ -299,7 +299,7 @@ export async function GET() {
     logger.error({ error }, 'Error fetching agents')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

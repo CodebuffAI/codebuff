@@ -1,11 +1,10 @@
-import crypto from 'crypto'
-
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
 import { z } from 'zod/v4'
+import { getServerSession } from 'next-auth'
+import crypto from 'crypto'
 
 import type { NextRequest } from 'next/server'
 
@@ -31,7 +30,7 @@ export async function GET(request: NextRequest) {
       })
       .from(schema.session)
       .where(
-        and(eq(schema.session.userId, userId), eq(schema.session.type, 'pat')),
+        and(eq(schema.session.userId, userId), eq(schema.session.type, 'pat'))
       )
 
     const tokens = patSessions.map((session) => ({
@@ -44,14 +43,14 @@ export async function GET(request: NextRequest) {
 
     logger.info(
       { userId, tokenCount: tokens.length },
-      'Successfully retrieved API Keys',
+      'Successfully retrieved API Keys'
     )
     return NextResponse.json({ tokens }, { status: 200 })
   } catch (error) {
     logger.error({ error, userId }, 'Failed to retrieve API Keys')
     return NextResponse.json(
       { error: 'Failed to retrieve API Keys' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -99,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     logger.info(
       { userId, tokenDisplay, expiresInDays },
-      'Successfully created API Key',
+      'Successfully created API Key'
     )
 
     return NextResponse.json(
@@ -108,13 +107,13 @@ export async function POST(request: NextRequest) {
         expires: expires.toISOString(),
         message: 'API Key created successfully',
       },
-      { status: 201 },
+      { status: 201 }
     )
   } catch (error) {
     logger.error({ error, userId }, 'Failed to create API Key')
     return NextResponse.json(
       { error: 'Failed to create API Key' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

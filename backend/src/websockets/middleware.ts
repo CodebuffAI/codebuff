@@ -7,9 +7,9 @@ import {
   extractOwnerAndRepo,
   findOrganizationForRepository,
 } from '@codebuff/billing'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { pluralize } from '@codebuff/common/util/string'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 
 import { getUserInfoFromApiKey } from './auth'

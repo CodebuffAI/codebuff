@@ -1,7 +1,7 @@
 import { grantCreditOperation } from '@codebuff/billing'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -23,7 +23,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           error:
             "You've already been referred by someone. Each user can only be referred once.",
         },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -48,7 +48,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
         },
         {
           status: 404,
-        },
+        }
       )
     }
     if (referringUser.userId === userId) {
@@ -58,7 +58,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
         },
         {
           status: 400,
-        },
+        }
       )
     }
 
@@ -69,8 +69,8 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       .where(
         and(
           eq(schema.referral.referrer_id, userId),
-          eq(schema.referral.referred_id, referringUser.userId),
-        ),
+          eq(schema.referral.referred_id, referringUser.userId)
+        )
       )
       .limit(1)
     if (doubleDipping.length > 0) {
@@ -79,7 +79,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           error:
             'You were referred by this user already. No double dipping, refer someone new!',
         },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -92,7 +92,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       logger.warn({ referralCode }, 'Referrer not found.')
       return NextResponse.json(
         { error: 'Invalid referral code.' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -104,7 +104,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
     if (!referred) {
       logger.warn(
         { userId },
-        'Referred user not found during referral redemption.',
+        'Referred user not found during referral redemption.'
       )
       return NextResponse.json({ error: 'User not found.' }, { status: 404 })
     }
@@ -114,7 +114,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
     if (referralStatus.reason) {
       return NextResponse.json(
         { error: referralStatus.details?.msg || referralStatus.reason },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -173,10 +173,10 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
                 role: 'referrer',
                 creditsToGrant: CREDITS_REFERRAL_BONUS,
               },
-              'Failed to process referral credit grant',
+              'Failed to process referral credit grant'
             )
             return false
-          }),
+          })
       )
 
       // Process Referred User
@@ -200,10 +200,10 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
                 role: 'referred',
                 creditsToGrant: CREDITS_REFERRAL_BONUS,
               },
-              'Failed to process referral credit grant',
+              'Failed to process referral credit grant'
             )
             return false
-          }),
+          })
       )
 
       const results = await Promise.all(grantPromises)
@@ -212,13 +212,13 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       if (results.some((result: boolean) => !result)) {
         logger.error(
           { operationId, referrerId: referrer.id, referredId: userId },
-          'One or more credit grants failed. Rolling back transaction.',
+          'One or more credit grants failed. Rolling back transaction.'
         )
         throw new Error('Failed to create credit grants for referral.')
       } else {
         logger.info(
           { operationId, referrerId: referrer.id, referredId: userId },
-          'Credit grants created successfully for referral.',
+          'Credit grants created successfully for referral.'
         )
       }
     }) // End transaction
@@ -231,18 +231,18 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       },
       {
         status: 200,
-      },
+      }
     )
   } catch (error) {
     logger.error(
       { userId, referralCode, error },
-      'Error applying referral code',
+      'Error applying referral code'
     )
     const errorMessage =
       error instanceof Error ? error.message : 'Internal Server Error'
     return NextResponse.json(
       { error: 'Failed to apply referral code. Please try again later.' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

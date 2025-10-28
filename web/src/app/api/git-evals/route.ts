@@ -1,11 +1,11 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { utils } from '@codebuff/internal'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import type { GitEvalResultRequest } from '@codebuff/internal/db/schema'
+import type { GitEvalResultRequest } from '@codebuff/common/db/schema'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         reasoner_model,
         agent_model,
       },
-      'Created new git eval result',
+      'Created new git eval result'
     )
 
     return NextResponse.json(newEvalResult, { status: 201 })
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     logger.error({ error }, 'Error creating git eval result')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     if (isNaN(limit) || limit <= 0 || limit > 1000) {
       return NextResponse.json(
         { error: 'Limit must be a positive number between 1 and 1000' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
         limit,
         isAdmin: !!isAdmin,
       },
-      'Retrieved git eval results',
+      'Retrieved git eval results'
     )
 
     return NextResponse.json({
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     logger.error({ error }, 'Error retrieving git eval results')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

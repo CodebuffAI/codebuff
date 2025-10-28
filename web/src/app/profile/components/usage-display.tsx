@@ -13,7 +13,7 @@ import {
 import React from 'react'
 
 import type { CreditBalance } from '@codebuff/billing'
-import type { GrantType } from '@codebuff/internal/db/schema'
+import type { GrantType } from '@codebuff/common/db/schema'
 
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
 import {
@@ -104,7 +104,7 @@ const CreditLeaf = ({
       <div
         className={cn(
           'absolute left-0 w-px bg-border/20',
-          isLast ? 'top-0 h-[calc(50%+2px)]' : 'top-0 bottom-0',
+          isLast ? 'top-0 h-[calc(50%+2px)]' : 'top-0 bottom-0'
         )}
       />
       <div className="absolute left-0 top-1/2 w-4 h-px bg-border/30" />
@@ -236,7 +236,7 @@ export const UsageDisplay = ({
       const principalVal = principals[typeKey] || currentBalanceVal
       usedCredits[typeKey as FilteredGrantType] = Math.max(
         0,
-        principalVal - currentBalanceVal,
+        principalVal - currentBalanceVal
       )
     }
   })
@@ -247,22 +247,22 @@ export const UsageDisplay = ({
 
   const expiringTotal = expiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),
-    0,
+    0
   )
 
   const expiringUsed = expiringTypes.reduce(
     (acc, type) => acc + (usedCredits[type] || 0),
-    0,
+    0
   )
 
   const nonExpiringTotal = nonExpiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),
-    0,
+    0
   )
 
   const nonExpiringUsed = nonExpiringTypes.reduce(
     (acc, type) => acc + (usedCredits[type] || 0),
-    0,
+    0
   )
 
   return (
@@ -353,7 +353,7 @@ export const UsageDisplay = ({
             <span
               className={cn(
                 'text-xl font-bold',
-                netBalance < 0 && 'text-red-500',
+                netBalance < 0 && 'text-red-500'
               )}
             >
               {netBalance.toLocaleString()}

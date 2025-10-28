@@ -1,5 +1,5 @@
-import { db } from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import { db } from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -29,15 +29,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (userMembership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -56,8 +56,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgInvite.org_id, orgId),
-          isNull(schema.orgInvite.accepted_at),
-        ),
+          isNull(schema.orgInvite.accepted_at)
+        )
       )
 
     return NextResponse.json({ invitations })
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     console.error('Error fetching organization invitations:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -87,15 +87,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (userRole !== 'owner' && userRole !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -115,15 +115,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         and(
           eq(schema.orgInvite.org_id, orgId),
           eq(schema.orgInvite.email, body.email),
-          isNull(schema.orgInvite.accepted_at),
-        ),
+          isNull(schema.orgInvite.accepted_at)
+        )
       )
       .limit(1)
 
     if (existingInvitation.length > 0) {
       return NextResponse.json(
         { error: 'Invitation already exists for this email' },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     logger.info(
       { orgId, email: body.email, role: body.role },
-      'Organization invitation created',
+      'Organization invitation created'
     )
 
     return NextResponse.json({ success: true }, { status: 201 })
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.error('Error creating invitation:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

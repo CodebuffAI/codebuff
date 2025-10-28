@@ -1,15 +1,15 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import * as schema from '@codebuff/common/db/schema'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
-import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
+import type { CodebuffPgDatabase } from '@codebuff/common/db/types'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { CodebuffPgDatabase } from '@codebuff/internal/db/types'
 import type { NextRequest } from 'next/server'
 
 import { extractApiKeyFromHeader } from '@/util/auth'

@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   if (!clientId) {
     return NextResponse.json(
       { error: 'Missing required parameter: clientId' },
-      { status: 400 },
+      { status: 400 }
     )
   }
 
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (messages.length === 0) {
       return NextResponse.json(
         { error: 'No messages found for this client ID' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         messageCount: messages.length,
         totalCredits,
       },
-      'Admin fetched client session',
+      'Admin fetched client session'
     )
 
     return NextResponse.json(session)
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     logger.error({ error, clientId }, 'Error fetching client session')
     return NextResponse.json(
       { error: 'Failed to fetch client session' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

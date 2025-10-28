@@ -1,7 +1,7 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { getReferralLink } from '@codebuff/common/util/referral'
 import { env } from '@codebuff/internal'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 export type ReferralStatus =
@@ -21,7 +21,7 @@ export type ReferralStatus =
     }
 
 export async function hasMaxedReferrals(
-  userId: string,
+  userId: string
 ): Promise<ReferralStatus> {
   try {
     const referralCount = await db

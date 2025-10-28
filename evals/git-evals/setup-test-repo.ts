@@ -211,16 +211,24 @@ export async function setupTestRepo(
         },
       )
 
-      await executeGitCommandWithRetry('git', ['fetch', 'origin', commitSha], {
-        cwd: repoDir,
-        stdio: 'inherit',
-        env: gitEnv,
-      })
+      await executeGitCommandWithRetry(
+        'git',
+        ['fetch', 'origin', commitSha],
+        {
+          cwd: repoDir,
+          stdio: 'inherit',
+          env: gitEnv,
+        },
+      )
 
-      await executeGitCommandWithRetry('git', ['checkout', commitSha], {
-        cwd: repoDir,
-        stdio: 'inherit',
-      })
+      await executeGitCommandWithRetry(
+        'git',
+        ['checkout', commitSha],
+        {
+          cwd: repoDir,
+          stdio: 'inherit',
+        },
+      )
     }
 
     console.log('Repository cloned successfully!')

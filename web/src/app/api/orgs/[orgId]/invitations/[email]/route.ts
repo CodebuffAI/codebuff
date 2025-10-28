@@ -1,5 +1,5 @@
-import { db } from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import { db } from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -30,15 +30,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -46,7 +46,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (userRole !== 'owner' && userRole !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -57,13 +57,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         and(
           eq(schema.orgInvite.org_id, orgId),
           eq(schema.orgInvite.email, decodedEmail),
-          isNull(schema.orgInvite.accepted_at),
-        ),
+          isNull(schema.orgInvite.accepted_at)
+        )
       )
 
     logger.info(
       { orgId, email: decodedEmail },
-      'Organization invitation cancelled',
+      'Organization invitation cancelled'
     )
 
     return NextResponse.json({ success: true })
@@ -71,7 +71,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     console.error('Error cancelling invitation:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

@@ -1,19 +1,19 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-
-import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { sha256 } from '@/lib/crypto'
 import { logger } from '@/util/logger'
 
+import type { NextRequest } from 'next/server'
+
 // Helper: revoke web/cli sessions for a user
 async function revokeStandardSessions(
   userId: string,
-  providedSessionIds: string[],
+  providedSessionIds: string[]
 ) {
   // Load user sessions (token, type, fingerprint)
   const userSessions = await db
@@ -28,7 +28,7 @@ async function revokeStandardSessions(
   // Map provided ids which may be raw tokens or sha256(token)
   const tokenSet = new Set(userSessions.map((s) => s.sessionToken))
   const hashToToken = new Map(
-    userSessions.map((s) => [sha256(s.sessionToken), s.sessionToken] as const),
+    userSessions.map((s) => [sha256(s.sessionToken), s.sessionToken] as const)
   )
 
   const tokensToDelete: string[] = []
@@ -46,15 +46,15 @@ async function revokeStandardSessions(
   const sessionsToDelete = userSessions.filter(
     (s) =>
       tokensToDelete.includes(s.sessionToken) &&
-      (s.type === 'web' || s.type === 'cli'),
+      (s.type === 'web' || s.type === 'cli')
   )
 
   const cliFingerprintIds = Array.from(
     new Set(
       sessionsToDelete
         .filter((s) => s.type === 'cli' && s.fingerprintId)
-        .map((s) => s.fingerprintId!),
-    ),
+        .map((s) => s.fingerprintId!)
+    )
   )
 
   // Unclaim CLI fingerprints and delete sessions in a single transaction
@@ -73,8 +73,8 @@ async function revokeStandardSessions(
           eq(schema.session.userId, userId),
           inArray(schema.session.sessionToken, tokensToDelete),
           // Explicitly restrict to web/cli to avoid PATs here
-          inArray(schema.session.type, ['web', 'cli'] as any),
-        ),
+          inArray(schema.session.type, ['web', 'cli'] as any)
+        )
       )
       .returning({ sessionToken: schema.session.sessionToken })
 
@@ -93,8 +93,8 @@ async function revokeApiTokens(userId: string, tokenIds: string[]) {
       and(
         eq(schema.session.userId, userId),
         eq(schema.session.type, 'pat'),
-        inArray(schema.session.sessionToken, tokenIds),
-      ),
+        inArray(schema.session.sessionToken, tokenIds)
+      )
     )
     .returning({ sessionToken: schema.session.sessionToken })
   return result.length
@@ -140,7 +140,7 @@ export async function DELETE(req: NextRequest) {
   } catch (e: any) {
     logger.error(
       { error: e?.message ?? String(e), stack: e?.stack },
-      'Error in DELETE /api/sessions',
+      'Error in DELETE /api/sessions'
     )
     return new NextResponse(e?.message ?? 'Internal error', { status: 500 })
   }

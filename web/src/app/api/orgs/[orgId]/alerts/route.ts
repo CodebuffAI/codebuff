@@ -1,6 +1,6 @@
 import { getOrganizationAlerts } from '@codebuff/billing'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -16,7 +16,7 @@ interface RouteParams {
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -33,15 +33,15 @@ export async function GET(
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -62,7 +62,7 @@ export async function GET(
     console.error('Error fetching billing alerts:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

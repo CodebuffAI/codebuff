@@ -1,15 +1,14 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { LoopsClient, APIError } from 'loops'
 
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
-
 import type { LoopsEmailData, SendEmailResult } from './types'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
   OptionalFields,
 } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const ORGANIZATION_INVITATION_TRANSACTIONAL_ID = 'cmbikixxm15xo4a0iiemzkzw1'
 const BASIC_TRANSACTIONAL_ID = 'cmb8pafk92r820w0i7lkplkt2'

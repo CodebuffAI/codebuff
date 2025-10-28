@@ -1,6 +1,6 @@
+import { db } from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { utils } from '@codebuff/internal'
-import { db } from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod/v4'

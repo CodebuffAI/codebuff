@@ -1,14 +1,9 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { PublisherIdSchema } from '@codebuff/common/types/publisher'
 import { eq, and, or } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-
-import type {
-  CreatePublisherRequest,
-  PublisherProfileResponse,
-} from '@codebuff/common/types/publisher'
-import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { checkOrgPublisherAccess } from '@/lib/publisher-permissions'
@@ -17,6 +12,12 @@ import {
   validatePublisherId,
 } from '@/lib/validators/publisher'
 import { logger } from '@/util/logger'
+
+import type {
+  CreatePublisherRequest,
+  PublisherProfileResponse,
+} from '@codebuff/common/types/publisher'
+import type { NextRequest } from 'next/server'
 
 export async function GET(): Promise<
   NextResponse<PublisherProfileResponse[] | { error: string }>
@@ -41,8 +42,8 @@ export async function GET(): Promise<
         schema.orgMember,
         and(
           eq(schema.orgMember.org_id, schema.publisher.org_id),
-          eq(schema.orgMember.user_id, userId),
-        ),
+          eq(schema.orgMember.user_id, userId)
+        )
       )
       .where(
         or(
@@ -51,10 +52,10 @@ export async function GET(): Promise<
             eq(schema.orgMember.user_id, userId),
             or(
               eq(schema.orgMember.role, 'owner'),
-              eq(schema.orgMember.role, 'admin'),
-            ),
-          ),
-        ),
+              eq(schema.orgMember.role, 'admin')
+            )
+          )
+        )
       )
 
     const response: PublisherProfileResponse[] = await Promise.all(
@@ -72,7 +73,7 @@ export async function GET(): Promise<
           ownershipType: publisher.user_id ? 'user' : 'organization',
           organizationName: organization?.name,
         }
-      }),
+      })
     )
 
     return NextResponse.json(response)
@@ -80,7 +81,7 @@ export async function GET(): Promise<
     logger.error({ error }, 'Error fetching publisher profiles')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
       if (!permissionCheck.success) {
         return NextResponse.json(
           { error: permissionCheck.error },
-          { status: permissionCheck.status || 500 },
+          { status: permissionCheck.status || 500 }
         )
       }
     }
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
     if (existingPublisher.length > 0) {
       return NextResponse.json(
         { error: 'This publisher ID is already taken' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
         orgId: org_id,
         ownershipType: org_id ? 'organization' : 'user',
       },
-      'Created new publisher profile',
+      'Created new publisher profile'
     )
 
     const response: PublisherProfileResponse = {
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
     logger.error({ error }, 'Error creating publisher profile')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

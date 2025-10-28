@@ -1,14 +1,11 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
-import { eq } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-
-import type { NextRequest } from 'next/server'
-
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
-import { checkOrganizationPermission } from '@/lib/organization-permissions'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { eq, and } from 'drizzle-orm'
 import { checkPublisherPermission } from '@/lib/publisher-permissions'
+import { checkOrganizationPermission } from '@/lib/organization-permissions'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
@@ -18,7 +15,7 @@ interface RouteParams {
 // Link publisher to organization
 export async function POST(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -32,7 +29,7 @@ export async function POST(
     if (!org_id) {
       return NextResponse.json(
         { error: 'Organization ID is required' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -41,19 +38,16 @@ export async function POST(
     if (!publisherPermission.success) {
       return NextResponse.json(
         { error: publisherPermission.error },
-        { status: publisherPermission.status || 500 },
+        { status: publisherPermission.status || 500 }
       )
     }
 
     // Check if user can manage the target organization
-    const orgPermission = await checkOrganizationPermission(org_id, [
-      'owner',
-      'admin',
-    ])
+    const orgPermission = await checkOrganizationPermission(org_id, ['owner', 'admin'])
     if (!orgPermission.success) {
       return NextResponse.json(
         { error: 'Insufficient permissions for target organization' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -63,7 +57,7 @@ export async function POST(
     if (publisher.org_id) {
       return NextResponse.json(
         { error: 'Publisher is already linked to an organization' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -71,7 +65,7 @@ export async function POST(
     if (!publisher.user_id) {
       return NextResponse.json(
         { error: 'Publisher must be user-owned to link to organization' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -92,7 +86,7 @@ export async function POST(
         orgId: org_id,
         userId: session.user.id,
       },
-      'Linked publisher to organization',
+      'Linked publisher to organization'
     )
 
     return NextResponse.json({
@@ -103,7 +97,7 @@ export async function POST(
     logger.error({ error }, 'Error linking publisher to organization')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -111,7 +105,7 @@ export async function POST(
 // Unlink publisher from organization
 export async function DELETE(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -126,7 +120,7 @@ export async function DELETE(
     if (!publisherPermission.success) {
       return NextResponse.json(
         { error: publisherPermission.error },
-        { status: publisherPermission.status || 500 },
+        { status: publisherPermission.status || 500 }
       )
     }
 
@@ -136,7 +130,7 @@ export async function DELETE(
     if (!publisher.org_id) {
       return NextResponse.json(
         { error: 'Publisher is not linked to an organization' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -158,7 +152,7 @@ export async function DELETE(
         userId: session.user.id,
         newOwnerId: publisher.created_by,
       },
-      'Unlinked publisher from organization',
+      'Unlinked publisher from organization'
     )
 
     return NextResponse.json({
@@ -169,7 +163,7 @@ export async function DELETE(
     logger.error({ error }, 'Error unlinking publisher from organization')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

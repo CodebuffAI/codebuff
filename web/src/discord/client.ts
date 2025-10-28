@@ -1,6 +1,6 @@
+import db from '@codebuff/common/db'
+import { user } from '@codebuff/common/db/schema'
 import { env } from '@codebuff/internal'
-import db from '@codebuff/internal/db'
-import { user } from '@codebuff/internal/db/schema'
 import { Client, Events, GatewayIntentBits } from 'discord.js'
 import { eq, or } from 'drizzle-orm'
 
@@ -80,7 +80,7 @@ export function startDiscordBot() {
           })
           .from(user)
           .where(
-            or(eq(user.discord_id, command.user.id), eq(user.email, email)),
+            or(eq(user.discord_id, command.user.id), eq(user.email, email))
           )
 
         // Find the user with this email
@@ -118,7 +118,7 @@ export function startDiscordBot() {
                 discordId: command.user.id,
                 discordUsername: command.user.username,
               },
-              'Added verified role to user',
+              'Added verified role to user'
             )
           } catch (error) {
             logger.error({ error }, 'Failed to add verified role to user')

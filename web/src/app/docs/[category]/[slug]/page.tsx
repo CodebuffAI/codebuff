@@ -92,10 +92,8 @@ export default function DocPage({ params }: DocPageProps) {
 
         {React.createElement(
           dynamic(() =>
-            import(`@/content/${doc.category}/_cta.mdx`).catch(
-              () => () => null,
-            ),
-          ),
+            import(`@/content/${doc.category}/_cta.mdx`).catch(() => () => null)
+          )
         )}
       </article>
 

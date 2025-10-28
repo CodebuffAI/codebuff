@@ -1,9 +1,9 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { getErrorObject } from '@codebuff/common/util/error'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
 
 import { calculateOrganizationUsageAndBalance } from './org-billing'

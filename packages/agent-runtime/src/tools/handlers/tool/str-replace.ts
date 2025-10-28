@@ -1,5 +1,8 @@
 import { processStrReplace } from '../../../process-str-replace'
-import { getFileProcessingValues, postStreamProcessing } from './write-file'
+import {
+  getFileProcessingValues,
+  postStreamProcessing,
+} from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {

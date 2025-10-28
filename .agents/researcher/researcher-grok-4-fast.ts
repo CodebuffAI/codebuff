@@ -10,7 +10,11 @@ const definition: SecretAgentDefinition = {
   model: 'x-ai/grok-4-fast',
   displayName: 'Grok 4 Fast Researcher',
   toolNames: ['spawn_agents'],
-  spawnableAgents: ['file-explorer', 'researcher-web', 'researcher-docs'],
+  spawnableAgents: [
+    'file-explorer',
+    'researcher-web',
+    'researcher-docs',
+  ],
 
   inputSchema: {
     prompt: {

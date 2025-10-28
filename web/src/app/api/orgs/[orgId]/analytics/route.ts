@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -30,7 +30,7 @@ interface AnalyticsData {
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse<AnalyticsData | { error: string }>> {
   try {
     const session = await getServerSession(authOptions)
@@ -47,15 +47,15 @@ export async function GET(
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -75,8 +75,8 @@ export async function GET(
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, currentMonthStart),
-        ),
+          gte(schema.message.finished_at, currentMonthStart)
+        )
       )
       .groupBy(schema.message.user_id, schema.user.name)
       .orderBy(desc(sql`SUM(${schema.message.credits})`))
@@ -92,8 +92,8 @@ export async function GET(
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, currentMonthStart),
-        ),
+          gte(schema.message.finished_at, currentMonthStart)
+        )
       )
       .groupBy(schema.message.repo_url)
       .orderBy(desc(sql`SUM(${schema.message.credits})`))
@@ -110,8 +110,8 @@ export async function GET(
       .where(
         and(
           eq(schema.message.org_id, orgId),
-          gte(schema.message.finished_at, thirtyDaysAgo),
-        ),
+          gte(schema.message.finished_at, thirtyDaysAgo)
+        )
       )
       .groupBy(sql`DATE(${schema.message.finished_at})`)
       .orderBy(sql`DATE(${schema.message.finished_at})`)
@@ -135,7 +135,7 @@ export async function GET(
     console.error('Error fetching organization analytics:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

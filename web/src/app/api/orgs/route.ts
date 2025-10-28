@@ -1,6 +1,6 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { env } from '@codebuff/internal'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'

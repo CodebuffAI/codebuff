@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, eq, gt, desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -21,7 +21,7 @@ async function forwardToBackend(
   userId: string,
   method: string,
   token: string,
-  body?: any,
+  body?: any
 ): Promise<Response> {
   const backendUrl = getBackendUrl()
   const url = `${backendUrl}/api/admin/relabel-for-user?userId=${userId}`
@@ -51,8 +51,8 @@ async function getActiveSessionToken(userId: string): Promise<string | null> {
     .where(
       and(
         eq(schema.session.userId, userId),
-        gt(schema.session.expires, new Date()),
-      ),
+        gt(schema.session.expires, new Date())
+      )
     )
     .orderBy(desc(schema.session.expires))
     .limit(1)
@@ -71,7 +71,7 @@ async function handleBackendResponse(response: Response) {
       // If JSON parsing fails, return status text
       return NextResponse.json(
         { error: response.statusText || 'Request failed' },
-        { status: response.status },
+        { status: response.status }
       )
     }
   }
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
   if (!userId) {
     return NextResponse.json(
       { error: 'Missing required parameter: userId' },
-      { status: 400 },
+      { status: 400 }
     )
   }
 
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
     if (!sessionToken) {
       logger.error(
         { userId: authResult.id },
-        'No active session token found for admin user',
+        'No active session token found for admin user'
       )
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
     logger.error({ error }, 'Error proxying request to backend')
     return NextResponse.json(
       { error: 'Failed to connect to backend service' },
-      { status: 502 },
+      { status: 502 }
     )
   }
 }
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json(
       { error: 'Missing required parameter: userId' },
-      { status: 400 },
+      { status: 400 }
     )
   }
 
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     if (!sessionToken) {
       logger.error(
         { userId: authResult.id },
-        'No active session token found for admin user',
+        'No active session token found for admin user'
       )
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
     logger.error({ error }, 'Error proxying request to backend')
     return NextResponse.json(
       { error: 'Failed to connect to backend service' },
-      { status: 502 },
+      { status: 502 }
     )
   }
 }

@@ -3,7 +3,7 @@
 import { getLogoForModel, models } from '@codebuff/common/old-constants'
 import { useState } from 'react'
 
-import type * as schema from '@codebuff/internal/db/schema'
+import type * as schema from '@codebuff/common/db/schema'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,7 +37,7 @@ interface EvalsTableProps {
 
 export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
   const [updatingVisibility, setUpdatingVisibility] = useState<Set<string>>(
-    new Set(),
+    new Set()
   )
   const [error, setError] = useState('')
 
@@ -156,7 +156,7 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
     const logo = getLogoForModel(
       result.agent_model ||
         result.reasoner_model ||
-        models.openrouter_claude_sonnet_4,
+        models.openrouter_claude_sonnet_4
     )
 
     if (result.agent_model && result.reasoner_model) {
@@ -241,7 +241,7 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
     } catch (err) {
       console.error('Error updating visibility:', err)
       setError(
-        err instanceof Error ? err.message : 'Failed to update visibility',
+        err instanceof Error ? err.message : 'Failed to update visibility'
       )
     } finally {
       setUpdatingVisibility((prev) => {

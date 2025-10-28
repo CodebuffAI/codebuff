@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getServerSession } from 'next-auth'
 
@@ -23,7 +23,7 @@ export interface OrganizationPermissionResult {
  */
 export async function checkOrganizationPermission(
   organizationId: string,
-  requiredRole: OrganizationRole | OrganizationRole[] = 'member',
+  requiredRole: OrganizationRole | OrganizationRole[] = 'member'
 ): Promise<OrganizationPermissionResult> {
   try {
     const session = await getServerSession(authOptions)
@@ -48,8 +48,8 @@ export async function checkOrganizationPermission(
       .where(
         and(
           eq(schema.orgMember.org_id, organizationId),
-          eq(schema.orgMember.user_id, userId),
-        ),
+          eq(schema.orgMember.user_id, userId)
+        )
       )
       .limit(1)
 
@@ -81,7 +81,7 @@ export async function checkOrganizationPermission(
     if (userRoleLevel < requiredLevel) {
       logger.warn(
         { userId, organizationId, userRole: role, requiredRoles: allowedRoles },
-        'User lacks required organization permissions',
+        'User lacks required organization permissions'
       )
       return {
         success: false,
@@ -103,7 +103,7 @@ export async function checkOrganizationPermission(
   } catch (error) {
     logger.error(
       { organizationId, requiredRole, error },
-      'Error checking organization permissions',
+      'Error checking organization permissions'
     )
     return {
       success: false,
@@ -117,20 +117,20 @@ export async function checkOrganizationPermission(
  * Middleware wrapper for organization permission checking
  */
 export function withOrganizationPermission(
-  requiredRole: OrganizationRole | OrganizationRole[] = 'member',
+  requiredRole: OrganizationRole | OrganizationRole[] = 'member'
 ) {
   return async function <T extends { params: { orgId: string } }>(
     handler: (
       request: Request,
       context: T,
-      permissionResult: OrganizationPermissionResult,
-    ) => Promise<Response>,
+      permissionResult: OrganizationPermissionResult
+    ) => Promise<Response>
   ) {
     return async (request: Request, context: T): Promise<Response> => {
       const { orgId } = context.params
       const permissionResult = await checkOrganizationPermission(
         orgId,
-        requiredRole,
+        requiredRole
       )
 
       if (!permissionResult.success) {
@@ -150,7 +150,7 @@ export function withOrganizationPermission(
  */
 export async function checkRepositoryAccess(
   organizationId: string,
-  repositoryUrl: string,
+  repositoryUrl: string
 ): Promise<{ approved: boolean; repositoryId?: string }> {
   try {
     const repository = await db
@@ -160,8 +160,8 @@ export async function checkRepositoryAccess(
         and(
           eq(schema.orgRepo.org_id, organizationId),
           eq(schema.orgRepo.repo_url, repositoryUrl),
-          eq(schema.orgRepo.is_active, true),
-        ),
+          eq(schema.orgRepo.is_active, true)
+        )
       )
       .limit(1)
 
@@ -172,7 +172,7 @@ export async function checkRepositoryAccess(
   } catch (error) {
     logger.error(
       { organizationId, repositoryUrl, error },
-      'Error checking repository access',
+      'Error checking repository access'
     )
     return { approved: false }
   }
@@ -185,7 +185,7 @@ export async function logOrganizationAction(
   organizationId: string,
   userId: string,
   action: string,
-  details?: Record<string, any>,
+  details?: Record<string, any>
 ) {
   try {
     logger.info(
@@ -196,13 +196,13 @@ export async function logOrganizationAction(
         details,
         timestamp: new Date().toISOString(),
       },
-      'Organization action logged',
+      'Organization action logged'
     )
     // TODO: Store in dedicated audit log table when implemented
   } catch (error) {
     logger.error(
       { organizationId, userId, action, error },
-      'Failed to log organization action',
+      'Failed to log organization action'
     )
   }
 }

@@ -10,12 +10,6 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./db": {
-      "bun": "./src/db/index.ts",
-      "import": "./src/db/index.ts",
-      "types": "./src/db/index.ts",
-      "default": "./src/db/index.ts"
-    },
     "./loops": {
       "bun": "./src/loops/index.ts",
       "import": "./src/loops/index.ts",

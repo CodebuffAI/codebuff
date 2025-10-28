@@ -1,5 +1,7 @@
 import { consumeCredits, consumeOrganizationCredits } from '@codebuff/billing'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import db from '@codebuff/common/db/index'
+import * as schema from '@codebuff/common/db/schema'
 import {
   models,
   PROFIT_MARGIN,
@@ -7,8 +9,6 @@ import {
 } from '@codebuff/common/old-constants'
 import { withRetry } from '@codebuff/common/util/promise'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
-import db from '@codebuff/internal/db/index'
-import * as schema from '@codebuff/internal/db/schema'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'

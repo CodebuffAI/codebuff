@@ -5,8 +5,8 @@ import { NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, desc } from 'drizzle-orm'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     console.error('Error exporting organizations:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

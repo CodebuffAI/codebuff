@@ -1,15 +1,12 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
-import { eq } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-
-import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
-import type { NextRequest } from 'next/server'
-
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
+import { eq } from 'drizzle-orm'
 import { checkOrganizationPermission } from '@/lib/organization-permissions'
 import { logger } from '@/util/logger'
+import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
 interface RouteParams {
   params: { orgId: string }
@@ -18,7 +15,7 @@ interface RouteParams {
 // Get all publishers for organization
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -29,15 +26,11 @@ export async function GET(
     const { orgId } = params
 
     // Check if user has access to this organization
-    const orgPermission = await checkOrganizationPermission(orgId, [
-      'owner',
-      'admin',
-      'member',
-    ])
+    const orgPermission = await checkOrganizationPermission(orgId, ['owner', 'admin', 'member'])
     if (!orgPermission.success) {
       return NextResponse.json(
         { error: orgPermission.error },
-        { status: orgPermission.status || 500 },
+        { status: orgPermission.status || 500 }
       )
     }
 
@@ -73,18 +66,15 @@ export async function GET(
           agentCount,
           ownershipType: 'organization' as const,
         }
-      }),
+      })
     )
 
     return NextResponse.json({ publishers: response })
   } catch (error) {
-    logger.error(
-      { error, orgId: params.orgId },
-      'Error fetching organization publishers',
-    )
+    logger.error({ error, orgId: params.orgId }, 'Error fetching organization publishers')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

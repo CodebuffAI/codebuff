@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!publisherId || !agentId) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!publisher) {
       return NextResponse.json(
         { error: 'Publisher not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -46,13 +46,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.agentConfig.id, agentId),
-          eq(schema.agentConfig.publisher_id, publisher.id),
-        ),
+          eq(schema.agentConfig.publisher_id, publisher.id)
+        )
       )
       .orderBy(
         desc(schema.agentConfig.major),
         desc(schema.agentConfig.minor),
-        desc(schema.agentConfig.patch),
+        desc(schema.agentConfig.patch)
       )
       .limit(1)
       .then((rows) => rows[0])
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     logger.error({ error }, 'Error handling latest agent retrieval request')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

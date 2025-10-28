@@ -1,14 +1,14 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq } from 'drizzle-orm'
 import { User, Mail, Calendar, CheckCircle, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { BackButton } from '@/components/ui/back-button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { BackButton } from '@/components/ui/back-button'
 
 interface PublisherPageProps {
   params: {
@@ -121,7 +121,7 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
   })
 
   const groupedAgentsList = Object.values(groupedAgents).sort((a, b) =>
-    a.name.localeCompare(b.name),
+    a.name.localeCompare(b.name)
   )
 
   return (
@@ -187,7 +187,7 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',
-                        },
+                        }
                       )}
                     </span>
                   </div>
@@ -239,7 +239,7 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
                   const sortedVersions = groupedAgent.versions.sort(
                     (a, b) =>
                       new Date(b.created_at).getTime() -
-                      new Date(a.created_at).getTime(),
+                      new Date(a.created_at).getTime()
                   )
                   const latestVersionData = sortedVersions[0]
 

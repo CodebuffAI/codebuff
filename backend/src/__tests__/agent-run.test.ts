@@ -1,10 +1,10 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
   mockModule,
   clearMockedModules,
 } from '@codebuff/common/testing/mock-modules'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import {
   spyOn,
   beforeEach,

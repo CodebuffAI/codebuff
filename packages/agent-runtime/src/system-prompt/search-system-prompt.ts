@@ -1,4 +1,7 @@
-import { countTokens, countTokensJson } from '../util/token-counter'
+import {
+  countTokens,
+  countTokensJson,
+} from '../util/token-counter'
 import { insertTrace } from '@codebuff/bigquery'
 import { buildArray } from '@codebuff/common/util/array'
 

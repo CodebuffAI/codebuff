@@ -1,4 +1,5 @@
 import * as analytics from '@codebuff/common/analytics'
+import db from '@codebuff/common/db'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
@@ -7,7 +8,6 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import db from '@codebuff/internal/db'
 import {
   afterAll,
   afterEach,

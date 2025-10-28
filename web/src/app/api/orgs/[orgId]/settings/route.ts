@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -14,7 +14,7 @@ interface RouteParams {
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -31,15 +31,15 @@ export async function GET(
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -47,7 +47,7 @@ export async function GET(
     if (userRole !== 'owner' && userRole !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -61,7 +61,7 @@ export async function GET(
     if (organization.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -88,14 +88,14 @@ export async function GET(
     console.error('Error fetching organization settings:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -112,15 +112,15 @@ export async function PATCH(
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -128,7 +128,7 @@ export async function PATCH(
     if (userRole !== 'owner' && userRole !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -167,14 +167,14 @@ export async function PATCH(
     console.error('Error updating organization settings:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: RouteParams,
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -191,15 +191,15 @@ export async function DELETE(
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -207,7 +207,7 @@ export async function DELETE(
     if (userRole !== 'owner') {
       return NextResponse.json(
         { error: 'Only organization owners can delete organizations' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -219,7 +219,7 @@ export async function DELETE(
     console.error('Error deleting organization:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

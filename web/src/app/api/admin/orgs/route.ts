@@ -1,6 +1,6 @@
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, sql, desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             lastActivity[0]?.finished_at.toISOString() ||
             org.created_at.toISOString(),
         }
-      }),
+      })
     )
 
     return NextResponse.json({ organizations: organizationSummaries })
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     console.error('Error fetching admin organizations:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

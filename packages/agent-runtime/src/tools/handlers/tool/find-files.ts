@@ -5,7 +5,10 @@ import {
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
 import { renderReadFilesResult } from '../../../util/render-read-files-result'
-import { countTokens, countTokensJson } from '../../../util/token-counter'
+import {
+  countTokens,
+  countTokensJson,
+} from '../../../util/token-counter'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {

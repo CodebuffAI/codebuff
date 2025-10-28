@@ -1,5 +1,5 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and, not } from 'drizzle-orm/expressions'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
@@ -37,13 +37,13 @@ export async function GET() {
     .from(schema.session)
     .leftJoin(
       schema.fingerprint,
-      eq(schema.session.fingerprint_id, schema.fingerprint.id),
+      eq(schema.session.fingerprint_id, schema.fingerprint.id)
     )
     .where(
       and(
         eq(schema.session.userId, session.user.id),
-        not(eq(schema.session.type, 'pat')),
-      ),
+        not(eq(schema.session.type, 'pat'))
+      )
     )
 
   const currentToken = getCurrentSessionTokenFromCookies()

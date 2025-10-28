@@ -1,6 +1,6 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { validateSingleAgent } from '@codebuff/common/templates/agent-validation'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 
 import type { FetchAgentFromDatabaseFn } from '@codebuff/common/types/contracts/database'

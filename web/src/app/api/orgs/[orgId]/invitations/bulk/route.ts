@@ -1,6 +1,6 @@
 import { updateStripeSubscriptionQuantity } from '@codebuff/billing'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and, inArray, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     ) {
       return NextResponse.json(
         { error: 'Invalid invitations array' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -62,15 +62,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (userRole !== 'owner' && userRole !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -100,9 +100,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           eq(schema.orgMember.org_id, orgId),
           inArray(
             schema.orgMember.user_id,
-            users.map((u) => u.id),
-          ),
-        ),
+            users.map((u) => u.id)
+          )
+        )
       )
 
     const existingMemberIds = new Set(existingMemberships.map((m) => m.user_id))
@@ -176,13 +176,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         added: addedCount,
         skipped,
       },
-      { status: 201 },
+      { status: 201 }
     )
   } catch (error) {
     console.error('Error bulk inviting members:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

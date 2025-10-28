@@ -2,8 +2,8 @@ import {
   validateAndNormalizeRepositoryUrl,
   extractOwnerAndRepo,
 } from '@codebuff/billing'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -33,15 +33,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     console.error('Error fetching repositories:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -91,15 +91,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (role !== 'owner' && role !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!validation.isValid) {
       return NextResponse.json(
         { error: validation.error || 'Invalid repository URL' },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -133,15 +133,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgRepo.org_id, orgId),
-          eq(schema.orgRepo.repo_url, normalizedUrl),
-        ),
+          eq(schema.orgRepo.repo_url, normalizedUrl)
+        )
       )
       .limit(1)
 
     if (existingRepo.length > 0) {
       return NextResponse.json(
         { error: 'Repository already added to organization' },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.error('Error adding repository:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

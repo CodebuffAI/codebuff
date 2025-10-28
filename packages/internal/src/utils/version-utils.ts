@@ -1,7 +1,6 @@
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
-
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 
 export type Version = { major: number; minor: number; patch: number }
 

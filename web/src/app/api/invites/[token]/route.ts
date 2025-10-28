@@ -1,6 +1,6 @@
 import { updateStripeSubscriptionQuantity } from '@codebuff/billing'
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { eq, and, gt, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (invitation.length === 0) {
       return NextResponse.json(
         { error: 'Invalid invitation token' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (inv.expires_at < new Date()) {
       return NextResponse.json(
         { error: 'Invitation has expired' },
-        { status: 410 },
+        { status: 410 }
       )
     }
 
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (inv.accepted_at) {
       return NextResponse.json(
         { error: 'Invitation has already been accepted' },
-        { status: 410 },
+        { status: 410 }
       )
     }
 
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     logger.error({ token: params.token, error }, 'Error fetching invitation')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
@@ -99,15 +99,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         and(
           eq(schema.orgInvite.token, token),
           gt(schema.orgInvite.expires_at, new Date()),
-          isNull(schema.orgInvite.accepted_at),
-        ),
+          isNull(schema.orgInvite.accepted_at)
+        )
       )
       .limit(1)
 
     if (invitation.length === 0) {
       return NextResponse.json(
         { error: 'Invalid or expired invitation' },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (inv.email !== session.user.email) {
       return NextResponse.json(
         { error: 'Invitation email does not match your account' },
-        { status: 403 },
+        { status: 403 }
       )
     }
 
@@ -129,15 +129,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, inv.org_id),
-          eq(schema.orgMember.user_id, session.user.id),
-        ),
+          eq(schema.orgMember.user_id, session.user.id)
+        )
       )
       .limit(1)
 
     if (existingMember.length > 0) {
       return NextResponse.json(
         { error: 'You are already a member of this organization' },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         email: session.user!.email!,
         role: inv.role,
       },
-      'User accepted organization invitation',
+      'User accepted organization invitation'
     )
 
     return NextResponse.json({
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     logger.error({ token: params.token, error }, 'Error accepting invitation')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

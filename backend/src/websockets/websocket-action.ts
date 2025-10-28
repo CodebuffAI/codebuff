@@ -5,8 +5,8 @@ import {
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import db from '@codebuff/internal/db/index'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db/index'
+import * as schema from '@codebuff/common/db/schema'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { eq } from 'drizzle-orm'
 

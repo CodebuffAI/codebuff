@@ -14,7 +14,11 @@ const definition: AgentDefinition = {
   },
 
   toolNames: ['spawn_agents'],
-  spawnableAgents: ['gpt5-thinker', 'sonnet-thinker', 'gemini-thinker'],
+  spawnableAgents: [
+    'gpt5-thinker',
+    'sonnet-thinker',
+    'gemini-thinker',
+  ],
 
   includeMessageHistory: true,
   inputSchema: {

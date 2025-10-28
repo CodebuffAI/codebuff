@@ -1,8 +1,9 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
+import db from '@codebuff/common/db'
+import * as schema from '@codebuff/common/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
+import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
 
 import { logger } from '@/util/logger'
 
@@ -28,8 +29,8 @@ export async function POST(req: Request) {
         and(
           eq(schema.session.sessionToken, authToken),
           eq(schema.session.userId, userId),
-          eq(schema.session.fingerprint_id, fingerprintId),
-        ),
+          eq(schema.session.fingerprint_id, fingerprintId)
+        )
       )
       .returning({
         id: schema.session.sessionToken,
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
     if (validDeletion.length === 0) {
       logger.info(
         { fingerprintId },
-        'Logout attempted with invalid/expired token - treating as successful no-op',
+        'Logout attempted with invalid/expired token - treating as successful no-op'
       )
       return NextResponse.json({ success: true })
     }
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
     logger.error({ error }, 'Error during logout')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

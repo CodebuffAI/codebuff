@@ -6,8 +6,8 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 
+import type { GrantType } from '@codebuff/common/db/schema'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { GrantType } from '@codebuff/internal/db/schema'
 
 describe('Usage Calculation System', () => {
   const logger: Logger = {
