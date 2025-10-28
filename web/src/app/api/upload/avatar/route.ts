@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
         { error: 'Invalid file type. Only JPEG, PNG, and WebP are allowed.' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: 'File too large. Maximum size is 5MB.' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         fileSize: file.size,
         fileType: file.type,
       },
-      'Avatar uploaded successfully'
+      'Avatar uploaded successfully',
     )
 
     return NextResponse.json({ avatar_url: avatarUrl })
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     logger.error({ error }, 'Error uploading avatar')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

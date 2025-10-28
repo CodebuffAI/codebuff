@@ -20,7 +20,7 @@ export async function checkAdminAuth(): Promise<
     if (session?.user?.id) {
       logger.warn(
         { userId: session.user.id },
-        'Unauthorized access attempt to admin endpoint'
+        'Unauthorized access attempt to admin endpoint',
       )
     }
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -33,7 +33,7 @@ export async function checkAdminAuth(): Promise<
  * Higher-order function to wrap admin API routes with authentication
  */
 export function withAdminAuth<T extends any[]>(
-  handler: (adminUser: utils.AdminUser, ...args: T) => Promise<NextResponse>
+  handler: (adminUser: utils.AdminUser, ...args: T) => Promise<NextResponse>,
 ) {
   return async (...args: T): Promise<NextResponse> => {
     const authResult = await checkAdminAuth()

@@ -92,7 +92,7 @@ export default function OrganizationAnalyticsPage() {
     } catch (error) {
       console.error('Error fetching analytics:', error)
       setAnalyticsError(
-        error instanceof Error ? error.message : 'Failed to load analytics'
+        error instanceof Error ? error.message : 'Failed to load analytics',
       )
     } finally {
       setAnalyticsLoading(false)
@@ -104,7 +104,7 @@ export default function OrganizationAnalyticsPage() {
 
     try {
       const response = await fetch(
-        `/api/orgs/${organization.id}/analytics/export?format=${format}`
+        `/api/orgs/${organization.id}/analytics/export?format=${format}`,
       )
 
       if (!response.ok) {

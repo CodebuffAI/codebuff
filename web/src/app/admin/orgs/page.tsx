@@ -48,7 +48,7 @@ export default function AdminOrganizationsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortOrder, setSortOrder] = useState('desc')
   const [selectedOrg, setSelectedOrg] = useState<OrganizationSummary | null>(
-    null
+    null,
   )
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -303,7 +303,7 @@ export default function AdminOrganizationsPage() {
               <div className="text-2xl font-bold text-red-600">
                 {
                   organizations.filter(
-                    (org) => org.health_status === 'critical'
+                    (org) => org.health_status === 'critical',
                   ).length
                 }
               </div>

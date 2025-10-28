@@ -402,19 +402,19 @@ export function GithubCopilotVisualization({
 
   const realityDistortion = Math.min(
     0.9,
-    ((100 - accuracyForEffects) / 100) * 1.3
+    ((100 - accuracyForEffects) / 100) * 1.3,
   )
   const codeCorruption = Math.max(
     0,
-    Math.min(0.8, (100 - accuracyForEffects - 20) / 80)
+    Math.min(0.8, (100 - accuracyForEffects - 20) / 80),
   )
   const hallucinationFog = Math.min(
     0.9,
-    ((100 - accuracyForEffects) / 100) * 1.1
+    ((100 - accuracyForEffects) / 100) * 1.1,
   )
   const matrixEffect = Math.max(
     0,
-    Math.min(0.7, (100 - accuracyForEffects - 60) / 40)
+    Math.min(0.7, (100 - accuracyForEffects - 60) / 40),
   )
 
   const showFirstSuggestion = currentAccuracy < 90
@@ -425,7 +425,7 @@ export function GithubCopilotVisualization({
   // Calculate how many hallucinations to show based on progress
   const displayedCodeCount = Math.min(
     codeHallucinations.length,
-    Math.floor((codeHallucinations.length * (isActive ? progress : 0)) / 100)
+    Math.floor((codeHallucinations.length * (isActive ? progress : 0)) / 100),
   )
 
   const displayedCode = codeHallucinations.slice(0, displayedCodeCount)
@@ -515,7 +515,7 @@ export function GithubCopilotVisualization({
                       'text-white/80',
                       line.includes('fake') || line.includes('wrong')
                         ? 'text-red-400'
-                        : ''
+                        : '',
                     )}
                   >
                     <MeltingText
@@ -523,7 +523,7 @@ export function GithubCopilotVisualization({
                       meltFactor={Math.min(
                         1,
                         hallucinationFog * 0.8 +
-                          (index / displayedCode.length) * 0.4
+                          (index / displayedCode.length) * 0.4,
                       )}
                     />
                   </motion.div>

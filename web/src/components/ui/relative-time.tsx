@@ -14,7 +14,7 @@ export function RelativeTime({ date }: RelativeTimeProps) {
   useEffect(() => {
     setIsClient(true)
     setRelativeTime(formatRelativeTime(date))
-    
+
     // Update every minute to keep relative time fresh
     const interval = setInterval(() => {
       setRelativeTime(formatRelativeTime(date))

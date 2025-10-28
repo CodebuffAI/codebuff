@@ -47,7 +47,7 @@ export const VersionUsageBadge = ({
   })
 
   const agent = agents?.find(
-    (agent) => agent.id === agentId && agent.publisher.id === publisherId
+    (agent) => agent.id === agentId && agent.publisher.id === publisherId,
   )
 
   const totalRuns = agent?.version_stats?.[version]?.total_invocations || 0

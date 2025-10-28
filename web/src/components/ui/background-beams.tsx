@@ -35,7 +35,7 @@ export function BackgroundBeams({ className }: BackgroundBeamsProps) {
       ref={containerRef}
       className={cn(
         'absolute inset-0 overflow-hidden [--x:0px] [--y:0px]',
-        className
+        className,
       )}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent opacity-0 transition-opacity duration-500 hover:opacity-100" />

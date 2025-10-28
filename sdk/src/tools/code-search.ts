@@ -79,12 +79,12 @@ export function codeSearch({
         // Ripgrep output format:
         // - Match lines: filename:line_number:content
         // - Context lines (with -A/-B/-C flags): filename-line_number-content
-        
+
         // Use regex to find the pattern: separator + digits + separator
         // This handles filenames with hyphens/colons by matching the line number pattern
         let separatorIndex = -1
         let filename = ''
-        
+
         // Try match line pattern: filename:digits:content
         const matchLinePattern = /(.*?):(\d+):(.*)$/
         const matchLineMatch = line.match(matchLinePattern)
@@ -100,7 +100,7 @@ export function codeSearch({
             separatorIndex = contextLineMatch[1].length
           }
         }
-        
+
         if (separatorIndex === -1) {
           // Malformed line, skip it
           continue

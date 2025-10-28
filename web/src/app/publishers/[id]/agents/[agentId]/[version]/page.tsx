@@ -5,7 +5,6 @@ import { Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-
 import { AgentUsageMetrics } from './agent-usage-metrics'
 import { CopyIdButton } from './copy-id-button'
 import { RunAgentButton } from './run-agent-button'
@@ -37,14 +36,14 @@ export async function generateMetadata({ params }: AgentDetailPageProps) {
     .from(schema.agentConfig)
     .innerJoin(
       schema.publisher,
-      eq(schema.agentConfig.publisher_id, schema.publisher.id)
+      eq(schema.agentConfig.publisher_id, schema.publisher.id),
     )
     .where(
       and(
         eq(schema.publisher.id, params.id),
         eq(schema.agentConfig.id, params.agentId),
-        eq(schema.agentConfig.version, params.version)
-      )
+        eq(schema.agentConfig.version, params.version),
+      ),
     )
     .limit(1)
 
@@ -90,8 +89,8 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
       and(
         eq(schema.agentConfig.publisher_id, params.id),
         eq(schema.agentConfig.id, params.agentId),
-        eq(schema.agentConfig.version, params.version)
-      )
+        eq(schema.agentConfig.version, params.version),
+      ),
     )
     .limit(1)
 
@@ -115,8 +114,8 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
     .where(
       and(
         eq(schema.agentConfig.publisher_id, params.id),
-        eq(schema.agentConfig.id, params.agentId)
-      )
+        eq(schema.agentConfig.id, params.agentId),
+      ),
     )
     .orderBy(schema.agentConfig.created_at)
 
@@ -124,7 +123,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
   const latestVersion =
     allVersions.sort(
       (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )[0]?.version || params.version
 
   const fullAgentId = `${params.id}/${params.agentId}@${latestVersion}`
@@ -186,7 +185,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',
-                        }
+                        },
                       )}
                     </span>
                   </div>
@@ -222,7 +221,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                     .sort(
                       (a, b) =>
                         new Date(b.created_at).getTime() -
-                        new Date(a.created_at).getTime()
+                        new Date(a.created_at).getTime(),
                     )
                     .map((version, index) => (
                       <Link
@@ -257,7 +256,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                                   'text-xs px-1.5 py-0 border pointer-events-none',
                                   version.version === params.version
                                     ? 'bg-background text-foreground border-background'
-                                    : 'bg-muted text-muted-foreground border-muted'
+                                    : 'bg-muted text-muted-foreground border-muted',
                                 )}
                               >
                                 Latest

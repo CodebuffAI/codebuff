@@ -51,7 +51,7 @@ interface CreditMonitorProps {
 }
 
 async function fetchCreditStatus(
-  organizationId: string
+  organizationId: string,
 ): Promise<CreditStatus> {
   const response = await fetch(`/api/orgs/${organizationId}/usage`)
   if (!response.ok) {
@@ -74,7 +74,7 @@ async function fetchCreditStatus(
 }
 
 async function fetchOrganizationSettings(
-  organizationId: string
+  organizationId: string,
 ): Promise<OrganizationSettings> {
   const response = await fetch(`/api/orgs/${organizationId}/settings`)
   if (!response.ok) {
@@ -159,7 +159,7 @@ export function CreditMonitor({
       <Card
         className={cn(
           'w-full',
-          noCardWrapper && 'border-0 shadow-none bg-transparent'
+          noCardWrapper && 'border-0 shadow-none bg-transparent',
         )}
       >
         <CardHeader
@@ -188,7 +188,7 @@ export function CreditMonitor({
       <Card
         className={cn(
           'w-full',
-          noCardWrapper && 'border-0 shadow-none bg-transparent'
+          noCardWrapper && 'border-0 shadow-none bg-transparent',
         )}
       >
         <CardHeader
@@ -230,7 +230,7 @@ export function CreditMonitor({
     <Card
       className={cn(
         'w-full',
-        noCardWrapper && 'border-0 shadow-none bg-transparent'
+        noCardWrapper && 'border-0 shadow-none bg-transparent',
       )}
     >
       <CardHeader

@@ -65,6 +65,6 @@ export default async function SponseePage({
   }
 
   redirect(
-    `/referrals/${referralCode}?referrer=${encodeURIComponent(sponseeName)}`
+    `/referrals/${referralCode}?referrer=${encodeURIComponent(sponseeName)}`,
   )
 }

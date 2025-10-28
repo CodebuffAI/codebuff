@@ -72,7 +72,7 @@ export function CompetitionSection() {
       {
         rootMargin: '-10% 0px',
         threshold: 0.1, // Trigger when at least 10% of the section is visible
-      }
+      },
     )
 
     if (sectionRef.current) {

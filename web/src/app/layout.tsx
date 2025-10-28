@@ -62,7 +62,7 @@ export default function RootLayout({
       <body
         className={cn(
           'flex flex-col min-h-screen font-sans bg-white text-black dark:bg-black dark:text-white',
-          fonts
+          fonts,
         )}
       >
         <ThemeProvider attribute="class">

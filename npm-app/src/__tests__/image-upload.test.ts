@@ -276,7 +276,10 @@ describe('Image Upload Functionality', () => {
       const filePath = path.join(TEST_DIR, spacedFilename)
       writeFileSync(filePath, MINIMAL_PNG)
 
-      const result = await processImageFile('My\\ Screenshot\\ \(Final\).png', TEST_DIR)
+      const result = await processImageFile(
+        'My\\ Screenshot\\ (Final).png',
+        TEST_DIR,
+      )
 
       expect(result.success).toBe(true)
       expect(result.imagePart?.filename).toBe(spacedFilename)

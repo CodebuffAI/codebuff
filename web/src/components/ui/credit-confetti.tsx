@@ -88,7 +88,7 @@ export function CreditConfetti({ amount }: { amount: number }) {
           }}
           onAnimationComplete={() => {
             setParticles((current) =>
-              current.filter((p) => p.id !== particle.id)
+              current.filter((p) => p.id !== particle.id),
             )
           }}
         >

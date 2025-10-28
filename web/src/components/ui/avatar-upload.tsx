@@ -44,7 +44,7 @@ export function AvatarUpload({
       }
       reader.readAsDataURL(file)
     },
-    [onChange]
+    [onChange],
   )
 
   const handleDrop = useCallback(
@@ -61,7 +61,7 @@ export function AvatarUpload({
         handleFile(imageFile)
       }
     },
-    [handleFile, disabled]
+    [handleFile, disabled],
   )
 
   const handleDragOver = useCallback(
@@ -71,7 +71,7 @@ export function AvatarUpload({
         setIsDragOver(true)
       }
     },
-    [disabled]
+    [disabled],
   )
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -86,7 +86,7 @@ export function AvatarUpload({
         handleFile(file)
       }
     },
-    [handleFile]
+    [handleFile],
   )
 
   const handleRemove = useCallback(() => {
@@ -113,7 +113,7 @@ export function AvatarUpload({
           'relative w-32 h-32 mx-auto rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer transition-colors',
           isDragOver && 'border-blue-500 bg-blue-50',
           disabled && 'cursor-not-allowed opacity-50',
-          !disabled && 'hover:border-gray-400'
+          !disabled && 'hover:border-gray-400',
         )}
         onDrop={handleDrop}
         onDragOver={handleDragOver}

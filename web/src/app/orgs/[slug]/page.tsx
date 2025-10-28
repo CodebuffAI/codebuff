@@ -81,7 +81,7 @@ export default function OrganizationPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
@@ -93,7 +93,7 @@ export default function OrganizationPage() {
 
       // Redirect to Stripe Checkout
       const stripe = await loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
       )
 
       if (stripe) {
@@ -119,7 +119,7 @@ export default function OrganizationPage() {
   }
 
   const handleSectionToggle = (
-    section: 'members' | 'repositories' | 'creditBalance'
+    section: 'members' | 'repositories' | 'creditBalance',
   ) => {
     setActiveSection(activeSection === section ? null : section)
   }

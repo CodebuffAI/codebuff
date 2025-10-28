@@ -25,7 +25,7 @@ const ReviewCard = ({
         'relative w-[320px] min-h-[220px] shrink-0 overflow-hidden rounded-xl p-6',
         'bg-gradient-to-br from-white to-gray-50 hover:to-gray-100 border border-gray-200/50 shadow-lg hover:shadow-xl',
         'dark:from-gray-800 dark:to-gray-900 dark:hover:to-gray-800 dark:border-gray-700/50',
-        'transition-all duration-200 hover:-translate-y-1'
+        'transition-all duration-200 hover:-translate-y-1',
       )}
     >
       <div className="flex justify-between">
@@ -82,7 +82,7 @@ export function TestimonialsSection() {
         <h2
           className={cn(
             'feature-heading',
-            SECTION_THEMES.testimonials.textColor
+            SECTION_THEMES.testimonials.textColor,
           )}
         >
           What Developers Are Saying
@@ -91,7 +91,7 @@ export function TestimonialsSection() {
         <span
           className={cn(
             'text-xs font-semibold uppercase tracking-wider mt-2 inline-block opacity-70',
-            SECTION_THEMES.testimonials.textColor
+            SECTION_THEMES.testimonials.textColor,
           )}
         >
           Watch them rave about Codebuff (previously &quot;Manicode&quot;)
@@ -105,7 +105,7 @@ export function TestimonialsSection() {
               <div
                 className={cn(
                   'flex items-center gap-6 animate-marquee group-hover:[animation-play-state:paused]',
-                  rowIndex % 2 === 1 && '[animation-direction:reverse]'
+                  rowIndex % 2 === 1 && '[animation-direction:reverse]',
                 )}
               >
                 {row.map((testimonial, i) => (
@@ -123,7 +123,7 @@ export function TestimonialsSection() {
                 key={rowIndex}
                 className={cn(
                   'flex flex-nowrap gap-6 overflow-hidden [--gap:1.5rem] hover:pause-animation group py-4',
-                  '[--duration:35s]'
+                  '[--duration:35s]',
                 )}
               >
                 {renderedRow}

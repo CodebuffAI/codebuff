@@ -126,7 +126,7 @@ const FileTreeItem = ({
       <div
         className={cn(
           'flex items-center text-sm text-zinc-300 hover:bg-zinc-800/50 rounded px-2 py-1 cursor-pointer group transition-colors duration-150',
-          item.active && 'bg-zinc-800'
+          item.active && 'bg-zinc-800',
         )}
         style={{ paddingLeft: `${depth * 1.2 + 0.5}rem` }}
         onClick={() => setIsOpen(!isOpen)}
@@ -217,7 +217,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
       () => {
         setExpandTerminal(true)
       },
-      SHOW_IDE_DELAY + HIDE_TERMINAL_DELAY + EXPAND_TERMINAL_DELAY
+      SHOW_IDE_DELAY + HIDE_TERMINAL_DELAY + EXPAND_TERMINAL_DELAY,
     )
     timeoutIds.push(timer3)
 
@@ -251,7 +251,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
 
         const wordsToAdd = Math.min(
           Math.floor(Math.random() * 4) + 1,
-          words.length - currentWordIndex
+          words.length - currentWordIndex,
         )
 
         const nextSegment = words
@@ -367,14 +367,14 @@ export function IDEDemo({ className }: IDEDemoProps) {
               : isMobile
                 ? 'h-[300px]'
                 : 'h-[400px]',
-            className
+            className,
           )}
         >
           {isMobile && (
             <div
               className={cn(
                 'absolute inset-0 bg-black transition-all duration-1000 z-20',
-                showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+                showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95',
               )}
             >
               <div className="flex flex-col h-full">
@@ -408,7 +408,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 <div
                   className={cn(
                     'flex-1 p-3 text-xs font-dm-mono relative bg-black/60 transition-all duration-500',
-                    expandTerminal && 'h-[30%]'
+                    expandTerminal && 'h-[30%]',
                   )}
                 >
                   <div className="flex relative z-0">
@@ -434,7 +434,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 <div
                   className={cn(
                     'border-t border-zinc-800 bg-black/80 transition-all duration-1000',
-                    expandTerminal ? 'h-[70%]' : 'h-[50%]'
+                    expandTerminal ? 'h-[70%]' : 'h-[50%]',
                   )}
                 >
                   <div className="flex items-center border-b border-zinc-800 px-3 py-1 bg-black/40">
@@ -497,7 +497,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
             <div
               className={cn(
                 'absolute inset-0 bg-black transition-all duration-1000',
-                showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+                showIDE ? 'opacity-100 scale-100' : 'opacity-0 scale-95',
               )}
             >
               <div className="flex h-full">
@@ -525,7 +525,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                 <div
                   className={cn(
                     'border-r border-zinc-800 transition-all duration-1000 bg-black/20 relative',
-                    showIDE ? 'w-64' : 'w-0'
+                    showIDE ? 'w-64' : 'w-0',
                   )}
                 >
                   <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/50 pointer-events-none z-10" />
@@ -575,7 +575,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                   <div
                     className={cn(
                       'flex-1 p-4 font-mono text-sm relative transition-all duration-1000',
-                      expandTerminal && 'h-[20%]'
+                      expandTerminal && 'h-[20%]',
                     )}
                     ref={editorRef}
                   >
@@ -690,7 +690,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
                         ? expandTerminal
                           ? 'h-[70%]'
                           : 'h-[300px]'
-                        : 'h-full'
+                        : 'h-full',
                     )}
                   >
                     <div className="flex items-center border-b border-zinc-800 px-4 py-1">
@@ -735,7 +735,7 @@ export function IDEDemo({ className }: IDEDemoProps) {
             <div
               className={cn(
                 'absolute inset-0 transition-all duration-1000',
-                showIDE ? 'opacity-0' : 'opacity-100'
+                showIDE ? 'opacity-0' : 'opacity-100',
               )}
             >
               <Terminal

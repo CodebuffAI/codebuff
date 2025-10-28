@@ -43,7 +43,7 @@ interface BillingStatusProps {
 }
 
 async function fetchBillingStatus(
-  organizationId: string
+  organizationId: string,
 ): Promise<BillingStatus> {
   const response = await fetch(`/api/orgs/${organizationId}/billing/status`)
   if (!response.ok) {
@@ -74,7 +74,7 @@ export function BillingStatus({
       <Card
         className={cn(
           'w-full',
-          noCardWrapper && 'border-0 shadow-none bg-transparent'
+          noCardWrapper && 'border-0 shadow-none bg-transparent',
         )}
       >
         <CardHeader
@@ -102,7 +102,7 @@ export function BillingStatus({
       <Card
         className={cn(
           'w-full',
-          noCardWrapper && 'border-0 shadow-none bg-transparent'
+          noCardWrapper && 'border-0 shadow-none bg-transparent',
         )}
       >
         <CardHeader
@@ -173,7 +173,7 @@ export function BillingStatus({
     <Card
       className={cn(
         'w-full',
-        noCardWrapper && 'border-0 shadow-none bg-transparent'
+        noCardWrapper && 'border-0 shadow-none bg-transparent',
       )}
     >
       <CardHeader
@@ -262,11 +262,11 @@ export function BillingStatus({
                   Current billing period:{' '}
                   {new Date(
                     billingStatus.subscriptionDetails.current_period_start *
-                      1000
+                      1000,
                   ).toLocaleDateString()}{' '}
                   -{' '}
                   {new Date(
-                    billingStatus.subscriptionDetails.current_period_end * 1000
+                    billingStatus.subscriptionDetails.current_period_end * 1000,
                   ).toLocaleDateString()}
                 </p>
               </div>

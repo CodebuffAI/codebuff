@@ -46,7 +46,7 @@ export const getAgentsData = unstable_cache(
         console.error(
           'Failed to fetch agents:',
           response.status,
-          response.statusText
+          response.statusText,
         )
         return []
       }
@@ -61,7 +61,7 @@ export const getAgentsData = unstable_cache(
   {
     revalidate: 600, // Cache for 10 minutes
     tags: ['agents', 'store'],
-  }
+  },
 )
 
 // Helper function for on-demand revalidation (can be used in webhooks/admin actions)

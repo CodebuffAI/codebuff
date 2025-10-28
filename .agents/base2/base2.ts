@@ -143,7 +143,8 @@ ${buildArray(
   '- You must spawn a file-researcher to find relevant files; consider also spawning a web and/or docs researcher to find relevant information online.',
   '- Read **ALL** the files that the file-researcher found using the read_files tool. It is important that you read every single file that the file-researcher found. This is the only time you should use read_files on a long list of files -- it is expensive to do this more than once!',
   `- Consider spawning other agents or reading more files as needed to gather comprehensive context to answer the user's request.`,
-  isFast && `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes.'}`,
+  isFast &&
+    `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes.'}`,
   isFast &&
     `- Use the str_replace or write_file tool to make the changes. (Pause after making all the changes to see the tool results of your edits and double check they went through correctly.)`,
   isMax &&

@@ -26,7 +26,7 @@ export function HeroButtons({ className }: HeroButtonsProps) {
     <div
       className={cn(
         'flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl mx-auto',
-        className
+        className,
       )}
     >
       <div
@@ -50,7 +50,7 @@ export function HeroButtons({ className }: HeroButtonsProps) {
               'relative w-full',
               'px-8 py-4 h-auto text-base font-medium',
               'bg-white text-black hover:bg-white',
-              'transition-all duration-300'
+              'transition-all duration-300',
             )}
             onClick={handleTryFreeClick}
             aria-label="Get Started"

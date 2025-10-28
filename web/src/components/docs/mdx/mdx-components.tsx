@@ -24,7 +24,7 @@ interface MdxProps {
 // Helper function to create heading components with copy link functionality
 const createHeadingWithCopyLink = (
   HeadingComponent: 'h1' | 'h2' | 'h3' | 'h4',
-  defaultClasses: string
+  defaultClasses: string,
 ) => {
   const HeadingWithCopyLink = ({
     className,
@@ -80,7 +80,7 @@ const createHeadingWithCopyLink = (
           className={cn(
             'hover:cursor-pointer hover:underline scroll-m-20',
             defaultClasses,
-            className
+            className,
           )}
         >
           {children}
@@ -113,13 +113,13 @@ const createHeadingWithCopyLink = (
     const marginClasses =
       defaultClasses
         .match(
-          /(?:^|\s)(mt-\S+|mb-\S+|my-\S+|m-\S+|first:mt-\S+|first:mb-\S+)(?=\s|$)/g
+          /(?:^|\s)(mt-\S+|mb-\S+|my-\S+|m-\S+|first:mt-\S+|first:mb-\S+)(?=\s|$)/g,
         )
         ?.join(' ') || ''
     const textClasses = defaultClasses
       .replace(
         /(?:^|\s)(?:mt-\S+|mb-\S+|my-\S+|m-\S+|first:mt-\S+|first:mb-\S+)(?=\s|$)/g,
-        ''
+        '',
       )
       .trim()
 
@@ -132,7 +132,7 @@ const createHeadingWithCopyLink = (
             className={cn(
               'relative hover:cursor-pointer hover:underline scroll-m-20',
               textClasses,
-              className
+              className,
             )}
             onClick={handleClick}
           >
@@ -187,26 +187,26 @@ const components = {
     <a
       className={cn(
         'text-primary underline underline-offset-4 hover:no-underline font-medium',
-        className
+        className,
       )}
       {...props}
     />
   ),
   h1: createHeadingWithCopyLink(
     'h1',
-    'mt-6 text-3xl font-semibold tracking-tight first:mt-0 first:mb-0'
+    'mt-6 text-3xl font-semibold tracking-tight first:mt-0 first:mb-0',
   ),
   h2: createHeadingWithCopyLink(
     'h2',
-    'mt-8 text-2xl font-semibold tracking-tight'
+    'mt-8 text-2xl font-semibold tracking-tight',
   ),
   h3: createHeadingWithCopyLink(
     'h3',
-    'mt-6 text-xl font-semibold tracking-tight'
+    'mt-6 text-xl font-semibold tracking-tight',
   ),
   h4: createHeadingWithCopyLink(
     'h4',
-    'mt-4 text-lg font-semibold tracking-tight'
+    'mt-4 text-lg font-semibold tracking-tight',
   ),
   p: ({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) => (
     <p
@@ -227,7 +227,7 @@ const components = {
     <blockquote
       className={cn(
         'mt-4 border-l-2 pl-4 italic text-muted-foreground',
-        className
+        className,
       )}
       {...props}
     />
@@ -252,7 +252,7 @@ const components = {
     <th
       className={cn(
         'border px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right',
-        className
+        className,
       )}
       {...props}
     />
@@ -261,7 +261,7 @@ const components = {
     <td
       className={cn(
         'border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right',
-        className
+        className,
       )}
       {...props}
     />
@@ -270,7 +270,7 @@ const components = {
     <pre
       className={cn(
         'mb-4 mt-4 overflow-x-auto rounded-lg border bg-black/5 dark:bg-white/5 py-4',
-        className
+        className,
       )}
       {...props}
     />
@@ -279,7 +279,7 @@ const components = {
     <code
       className={cn(
         'relative rounded px-[0.3rem] py-[0.2rem] mx-2 font-mono text-sm bg-muted',
-        className
+        className,
       )}
       {...props}
     />

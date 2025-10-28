@@ -17,15 +17,25 @@ export type LoginStoreState = {
 }
 
 type LoginStoreActions = {
-  setLoginUrl: (value: string | null | ((prev: string | null) => string | null)) => void
+  setLoginUrl: (
+    value: string | null | ((prev: string | null) => string | null),
+  ) => void
   setLoading: (loading: boolean) => void
-  setError: (value: string | null | ((prev: string | null) => string | null)) => void
-  setFingerprintHash: (value: string | null | ((prev: string | null) => string | null)) => void
-  setExpiresAt: (value: string | null | ((prev: string | null) => string | null)) => void
+  setError: (
+    value: string | null | ((prev: string | null) => string | null),
+  ) => void
+  setFingerprintHash: (
+    value: string | null | ((prev: string | null) => string | null),
+  ) => void
+  setExpiresAt: (
+    value: string | null | ((prev: string | null) => string | null),
+  ) => void
   setIsWaitingForEnter: (waiting: boolean) => void
   setHasOpenedBrowser: (opened: boolean) => void
   setSheenPosition: (value: number | ((prev: number) => number)) => void
-  setCopyMessage: (value: string | null | ((prev: string | null) => string | null)) => void
+  setCopyMessage: (
+    value: string | null | ((prev: string | null) => string | null),
+  ) => void
   setJustCopied: (copied: boolean) => void
   setHasClickedLink: (clicked: boolean) => void
   resetLoginState: () => void

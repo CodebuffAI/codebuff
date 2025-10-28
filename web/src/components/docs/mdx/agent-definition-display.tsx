@@ -24,7 +24,7 @@ export function AgentDefinitionDisplay() {
       } catch (err) {
         console.error('Error loading agent definition:', err)
         setError(
-          err instanceof Error ? err.message : 'Failed to load file content'
+          err instanceof Error ? err.message : 'Failed to load file content',
         )
       } finally {
         setIsLoading(false)

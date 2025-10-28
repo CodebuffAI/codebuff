@@ -1,6 +1,5 @@
 // Test TypeScript types for ripgrep bundling functionality
 import { getBundledRgPath, ToolHelpers } from '@codebuff/sdk'
-
 ;(async () => {
   console.log('🧪 Testing ripgrep TypeScript types...')
 

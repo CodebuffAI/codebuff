@@ -1,16 +1,16 @@
-import type { OpenRouterProviderSettings } from './provider';
+import type { OpenRouterProviderSettings } from './provider'
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
-} from './types/openrouter-chat-settings';
+} from './types/openrouter-chat-settings'
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
-} from './types/openrouter-completion-settings';
+} from './types/openrouter-completion-settings'
 
-import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
-import { OpenRouterChatLanguageModel } from './chat';
-import { OpenRouterCompletionLanguageModel } from './completion';
+import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils'
+import { OpenRouterChatLanguageModel } from './chat'
+import { OpenRouterCompletionLanguageModel } from './completion'
 
 /**
 @deprecated Use `createOpenRouter` instead.
@@ -20,18 +20,18 @@ export class OpenRouter {
 Use a different URL prefix for API calls, e.g. to use proxy servers.
 The default prefix is `https://openrouter.ai/api/v1`.
    */
-  readonly baseURL: string;
+  readonly baseURL: string
 
   /**
 API key that is being sent using the `Authorization` header.
 It defaults to the `OPENROUTER_API_KEY` environment variable.
  */
-  readonly apiKey?: string;
+  readonly apiKey?: string
 
   /**
 Custom headers to include in the requests.
    */
-  readonly headers?: Record<string, string>;
+  readonly headers?: Record<string, string>
 
   /**
    * Creates a new OpenRouter provider instance.
@@ -39,9 +39,9 @@ Custom headers to include in the requests.
   constructor(options: OpenRouterProviderSettings = {}) {
     this.baseURL =
       withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-      'https://openrouter.ai/api/v1';
-    this.apiKey = options.apiKey;
-    this.headers = options.headers;
+      'https://openrouter.ai/api/v1'
+    this.apiKey = options.apiKey
+    this.headers = options.headers
   }
 
   private get baseConfig() {
@@ -55,7 +55,7 @@ Custom headers to include in the requests.
         })}`,
         ...this.headers,
       }),
-    };
+    }
   }
 
   chat(modelId: OpenRouterChatModelId, settings: OpenRouterChatSettings = {}) {
@@ -64,7 +64,7 @@ Custom headers to include in the requests.
       ...this.baseConfig,
       compatibility: 'strict',
       url: ({ path }) => `${this.baseURL}${path}`,
-    });
+    })
   }
 
   completion(
@@ -76,6 +76,6 @@ Custom headers to include in the requests.
       ...this.baseConfig,
       compatibility: 'strict',
       url: ({ path }) => `${this.baseURL}${path}`,
-    });
+    })
   }
 }

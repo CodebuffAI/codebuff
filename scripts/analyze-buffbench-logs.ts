@@ -29,10 +29,7 @@ interface AnalysisFile {
   results: AgentResult[]
 }
 
-function analyzeBuffbenchLogs(
-  logDirectory: string,
-  filterBottom25 = false,
-) {
+function analyzeBuffbenchLogs(logDirectory: string, filterBottom25 = false) {
   const files = readdirSync(logDirectory)
   const analysisFiles = files.filter((f) => f.includes('ANALYSIS'))
 
@@ -105,15 +102,16 @@ function analyzeBuffbenchLogs(
       data.completionScores.reduce((a, b) => a + b, 0) /
       data.completionScores.length
     const avgQuality =
-      data.qualityScores.reduce((a, b) => a + b, 0) /
-      data.qualityScores.length
+      data.qualityScores.reduce((a, b) => a + b, 0) / data.qualityScores.length
 
     const minOverall = Math.min(...data.scores)
-    
+
     // Calculate standard deviation
     const variance =
-      data.scores.reduce((sum, score) => sum + Math.pow(score - avgOverall, 2), 0) /
-      data.scores.length
+      data.scores.reduce(
+        (sum, score) => sum + Math.pow(score - avgOverall, 2),
+        0,
+      ) / data.scores.length
     const stdDev = Math.sqrt(variance)
 
     const avgCost = data.costs.reduce((a, b) => a + b, 0) / data.costs.length
@@ -144,9 +142,12 @@ const logDirectory = process.argv[2] || 'evals/buffbench/logs/2025-10-13T20-07'
 
 console.log(`Analyzing logs from: ${logDirectory}\n`)
 
-function printTable(results: ReturnType<typeof analyzeBuffbenchLogs>, title: string) {
+function printTable(
+  results: ReturnType<typeof analyzeBuffbenchLogs>,
+  title: string,
+) {
   console.log(title)
-  console.log('=' .repeat(130))
+  console.log('='.repeat(130))
   console.log(
     'Agent ID'.padEnd(20),
     'Count'.padEnd(8),
@@ -158,7 +159,7 @@ function printTable(results: ReturnType<typeof analyzeBuffbenchLogs>, title: str
     'Cost ($)'.padEnd(10),
     'Duration (s)',
   )
-  console.log('=' .repeat(130))
+  console.log('='.repeat(130))
 
   for (const result of results) {
     console.log(
@@ -174,7 +175,7 @@ function printTable(results: ReturnType<typeof analyzeBuffbenchLogs>, title: str
     )
   }
 
-  console.log('=' .repeat(130))
+  console.log('='.repeat(130))
   console.log(`Total agents analyzed: ${results.length}`)
 }
 

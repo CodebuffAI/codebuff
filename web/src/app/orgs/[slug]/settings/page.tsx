@@ -361,7 +361,7 @@ export default function OrganizationSettingsPage() {
                                   <span>
                                     Created{' '}
                                     {new Date(
-                                      publisher.created_at
+                                      publisher.created_at,
                                     ).toLocaleDateString()}
                                   </span>
                                 </div>

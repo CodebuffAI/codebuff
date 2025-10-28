@@ -76,7 +76,7 @@ export function CreditPurchaseSection({
 
   const handleCreditSelection = (credits: number) => {
     setSelectedCredits((currentSelected) =>
-      currentSelected === credits ? null : credits
+      currentSelected === credits ? null : credits,
     )
     setCustomCredits('')
     setCustomError('')
@@ -119,7 +119,7 @@ export function CreditPurchaseSection({
         {creditOptions.map((credits) => {
           const optionCostInCents = convertCreditsToUsdCents(
             credits,
-            CENTS_PER_CREDIT
+            CENTS_PER_CREDIT,
           )
           const optionCostInDollars = formatDollars(optionCostInCents)
 
@@ -132,7 +132,7 @@ export function CreditPurchaseSection({
                 'flex flex-col p-4 h-auto gap-1 transition-colors',
                 selectedCredits === credits
                   ? 'border-primary bg-accent'
-                  : 'hover:bg-accent/50'
+                  : 'hover:bg-accent/50',
               )}
               disabled={
                 isProcessing || isPending || isPurchasePending || cooldownActive
@@ -194,7 +194,7 @@ export function CreditPurchaseSection({
                     isPending ||
                     isPurchasePending ||
                     cooldownActive) &&
-                    'opacity-50'
+                    'opacity-50',
                 )}
                 neonColors={{
                   firstColor: '#4F46E5',

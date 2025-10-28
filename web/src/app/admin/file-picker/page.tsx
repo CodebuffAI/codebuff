@@ -83,7 +83,7 @@ export default function FilePicker() {
       // Allow normal horizontal scrolling within elements
       const target = e.target as Element
       const isScrollableElement = target.closest(
-        '.overflow-auto, .overflow-x-auto, .overflow-scroll, .overflow-x-scroll'
+        '.overflow-auto, .overflow-x-auto, .overflow-scroll, .overflow-x-scroll',
       )
 
       // If we're scrolling within a scrollable element, allow it
@@ -128,12 +128,12 @@ export default function FilePicker() {
       setError('')
 
       const response = await fetch(
-        `/api/admin/relabel-for-user?userId=${userId}`
+        `/api/admin/relabel-for-user?userId=${userId}`,
       )
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch: ${response.status} ${response.statusText}`
+          `Failed to fetch: ${response.status} ${response.statusText}`,
         )
       }
 
@@ -149,7 +149,7 @@ export default function FilePicker() {
     } catch (err) {
       console.error('Error fetching traces:', err)
       setError(
-        err instanceof Error ? err.message : 'Failed to fetch user traces'
+        err instanceof Error ? err.message : 'Failed to fetch user traces',
       )
     } finally {
       setIsLoading(false)
@@ -184,12 +184,12 @@ export default function FilePicker() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ limit }),
-        }
+        },
       )
 
       if (!response.ok) {
         throw new Error(
-          `Failed to run relabelling: ${response.status} ${response.statusText}`
+          `Failed to run relabelling: ${response.status} ${response.statusText}`,
         )
       }
 
@@ -208,7 +208,7 @@ export default function FilePicker() {
 
   // Get unique model names from all results
   const modelNames = Array.from(
-    new Set(results.flatMap((result) => Object.keys(result.outputs)))
+    new Set(results.flatMap((result) => Object.keys(result.outputs))),
   )
 
   // Define the desired column order
@@ -231,7 +231,7 @@ export default function FilePicker() {
 
   // Filter out hidden columns
   const visibleModelNames = sortedModelNames.filter(
-    (model) => !hiddenColumns.has(model)
+    (model) => !hiddenColumns.has(model),
   )
 
   const toggleColumn = (model: string) => {

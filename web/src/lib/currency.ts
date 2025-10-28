@@ -35,7 +35,7 @@ export const creditsToDollars = (credits: number) => {
  */
 export const dollarsToCreditsWithRate = (
   dollars: number,
-  centsPerCredit: number
+  centsPerCredit: number,
 ) => Math.round((dollars * 100) / centsPerCredit)
 
 /**
@@ -45,7 +45,7 @@ export const dollarsToCreditsWithRate = (
  */
 export const creditsToDollarsWithRate = (
   credits: number,
-  centsPerCredit: number
+  centsPerCredit: number,
 ) => {
   const dollars = (credits * centsPerCredit) / 100
   return dollars % 1 === 0 ? Math.floor(dollars).toString() : dollars.toFixed(2)

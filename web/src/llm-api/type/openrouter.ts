@@ -106,7 +106,7 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
                     name: z.string().nullish(),
                     arguments: z.string().nullish(),
                   }),
-                })
+                }),
               )
               .nullish(),
 
@@ -121,7 +121,7 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
                     url: z.string(),
                     content: z.string().optional(),
                   }),
-                })
+                }),
               )
               .nullish(),
           })
@@ -137,16 +137,16 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
                     z.object({
                       token: z.string(),
                       logprob: z.number(),
-                    })
+                    }),
                   ),
-                })
+                }),
               )
               .nullable(),
           })
           .nullish(),
         finish_reason: z.string().nullable().optional(),
         index: z.number().nullish(),
-      })
+      }),
     ),
   }),
   OpenRouterErrorResponseSchema,
