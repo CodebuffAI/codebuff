@@ -47,7 +47,7 @@ The CI pipeline consists of two main jobs:
 - Uses Bun v1.2.12 for all jobs
 - Tests use retry logic (max 5 attempts, 10 min timeout)
 - Dependencies are cached between jobs using `actions/cache@v3`
-- Environment variables are set from GitHub secrets using `scripts/generate-ci-env.js`
+- Environment variables are set from GitHub secrets using `scripts/generate-ci-env.ts`
 
 ### Test Strategy
 
@@ -67,7 +67,7 @@ Each test job:
 
 ### Environment Variables
 
-- Secrets are extracted using `scripts/generate-ci-env.js`
+- Secrets are extracted using `scripts/generate-ci-env.ts`
 - Environment variables are set dynamically from GitHub secrets
 - Test environment flags are set for proper test execution
 
