@@ -728,7 +728,7 @@ export const detectSystemTheme = (): ThemeName => {
 
 const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
-    background: '#000000',
+    background: 'transparent',
     chromeBg: '#000000',
     chromeText: '#9ca3af',
     accentBg: '#facc15',
@@ -781,7 +781,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     },
   },
   light: {
-    background: '#ffffff',
+    background: 'transparent',
     chromeBg: '#f3f4f6',
     chromeText: '#374151',
     accentBg: '#f59e0b',
