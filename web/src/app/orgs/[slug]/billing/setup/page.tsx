@@ -47,7 +47,7 @@ export default function BillingSetupPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
@@ -59,7 +59,7 @@ export default function BillingSetupPage() {
 
       // Redirect to Stripe Checkout
       const stripe = (await import('@stripe/stripe-js')).loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
       )
 
       const stripeInstance = await stripe

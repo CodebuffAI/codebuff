@@ -43,7 +43,7 @@ function LearnMoreLink({
           ? `${textColor} ${textColor.replace('text-', 'border-')}/40 hover:text-blue-500 hover:border-blue-500`
           : isLight
             ? 'text-black border-black/40 hover:text-blue-600 hover:border-blue-600'
-            : 'text-white/80 border-white/40 hover:text-blue-400 hover:border-blue-400'
+            : 'text-white/80 border-white/40 hover:text-blue-400 hover:border-blue-400',
       )}
     >
       {text} →
@@ -129,13 +129,13 @@ export function FeatureSection({
         className={cn(
           'text-white max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
           { 'text-black': isLight },
-          textColor
+          textColor,
         )}
       >
         <div
           className={cn(
             'grid gap-8 items-center',
-            isMobile ? 'grid-cols-1' : 'lg:grid-cols-2 lg:gap-16'
+            isMobile ? 'grid-cols-1' : 'lg:grid-cols-2 lg:gap-16',
           )}
         >
           {/* Mobile view always has content first, illustration second */}

@@ -62,7 +62,7 @@ export default function InvitationPage({ params }: PageProps) {
   const acceptInvitation = async () => {
     if (!session) {
       router.push(
-        `/login?callbackUrl=${encodeURIComponent(window.location.href)}`
+        `/login?callbackUrl=${encodeURIComponent(window.location.href)}`,
       )
       return
     }
@@ -214,7 +214,7 @@ export default function InvitationPage({ params }: PageProps) {
                   <Button
                     onClick={() =>
                       router.push(
-                        `/login?callbackUrl=${encodeURIComponent(window.location.href)}`
+                        `/login?callbackUrl=${encodeURIComponent(window.location.href)}`,
                       )
                     }
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"

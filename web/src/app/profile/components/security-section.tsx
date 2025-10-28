@@ -72,12 +72,12 @@ export function SecuritySection() {
 
   const webSessions = useMemo(
     () => allSessions.filter((session) => session.sessionType === 'web'),
-    [allSessions]
+    [allSessions],
   )
 
   const cliSessions = useMemo(
     () => allSessions.filter((session) => session.sessionType === 'cli'),
-    [allSessions]
+    [allSessions],
   )
 
   const [activeTab, setActiveTab] = useState<'web' | 'cli'>('web')

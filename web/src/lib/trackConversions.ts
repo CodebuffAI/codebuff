@@ -20,7 +20,7 @@ export const storeSearchParams = (searchParams: URLSearchParams) => {
 }
 
 export const trackUpgrade = (
-  markConversionComplete: boolean
+  markConversionComplete: boolean,
 ): URLSearchParams => {
   const params = new URLSearchParams()
 

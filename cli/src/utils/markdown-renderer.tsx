@@ -86,9 +86,7 @@ function nodeToPlainText(node: Content | Root): string {
       return (node as Root).children.map(nodeToPlainText).join('')
 
     case 'paragraph':
-      return (
-        (node as Paragraph).children.map(nodeToPlainText).join('') + '\n\n'
-      )
+      return (node as Paragraph).children.map(nodeToPlainText).join('') + '\n\n'
 
     case 'text':
       return (node as Text).value

@@ -33,10 +33,10 @@ const PublishersPage = () => {
   })
 
   const personalPublishers = publishers.filter(
-    (p) => p.ownershipType === 'user'
+    (p) => p.ownershipType === 'user',
   )
   const orgPublishers = publishers.filter(
-    (p) => p.ownershipType === 'organization'
+    (p) => p.ownershipType === 'organization',
   )
 
   if (status === 'loading') {
@@ -208,7 +208,7 @@ const PublishersPage = () => {
                             <span>
                               Created{' '}
                               {new Date(
-                                publisher.created_at
+                                publisher.created_at,
                               ).toLocaleDateString()}
                             </span>
                           </div>
@@ -266,7 +266,7 @@ const PublishersPage = () => {
                             <span>
                               Created{' '}
                               {new Date(
-                                publisher.created_at
+                                publisher.created_at,
                               ).toLocaleDateString()}
                             </span>
                           </div>

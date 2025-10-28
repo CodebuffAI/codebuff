@@ -1,9 +1,9 @@
-import type { LanguageModelV2, LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV2, LanguageModelV2Prompt } from '@ai-sdk/provider'
 
-export type { LanguageModelV2, LanguageModelV2Prompt };
+export type { LanguageModelV2, LanguageModelV2Prompt }
 
 export type OpenRouterProviderOptions = {
-  models?: string[];
+  models?: string[]
 
   /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
@@ -11,31 +11,31 @@ export type OpenRouterProviderOptions = {
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
    */
   reasoning?: {
-    enabled?: boolean;
-    exclude?: boolean;
+    enabled?: boolean
+    exclude?: boolean
   } & (
     | {
-        max_tokens: number;
+        max_tokens: number
       }
     | {
-        effort: 'high' | 'medium' | 'low';
+        effort: 'high' | 'medium' | 'low'
       }
-  );
+  )
 
   /**
    * A unique identifier representing your end-user, which can
    * help OpenRouter to monitor and detect abuse.
    */
-  user?: string;
-};
+  user?: string
+}
 
 export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
   /**
    * @deprecated use `reasoning` instead
    */
-  includeReasoning?: boolean;
+  includeReasoning?: boolean
 
-  extraBody?: Record<string, unknown>;
+  extraBody?: Record<string, unknown>
 
   /**
    * Enable usage accounting to get detailed token usage information.
@@ -45,26 +45,26 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
     /**
      * When true, includes token usage information in the response.
      */
-    include: boolean;
-  };
-};
+    include: boolean
+  }
+}
 
 /**
  * Usage accounting response
  * @see https://openrouter.ai/docs/use-cases/usage-accounting
  */
 export type OpenRouterUsageAccounting = {
-  promptTokens: number;
+  promptTokens: number
   promptTokensDetails?: {
-    cachedTokens: number;
-  };
-  completionTokens: number;
+    cachedTokens: number
+  }
+  completionTokens: number
   completionTokensDetails?: {
-    reasoningTokens: number;
-  };
-  totalTokens: number;
-  cost?: number;
+    reasoningTokens: number
+  }
+  totalTokens: number
+  cost?: number
   costDetails: {
-    upstreamInferenceCost: number;
-  };
-};
+    upstreamInferenceCost: number
+  }
+}

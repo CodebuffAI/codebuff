@@ -45,7 +45,7 @@ export const EnhancedCopyButton = forwardRef<
         'text-white/60 hover:text-white',
         'hover:bg-white/5 focus:outline-none',
         'transition-colors duration-200',
-        className
+        className,
       )}
       onClick={handleCopy}
       whileTap={{ scale: 0.95 }}
@@ -90,7 +90,7 @@ export function TerminalCopyButton({
       className={cn(
         'w-full md:w-auto md:min-w-[320px] relative',
         size === 'large' && 'md:min-w-[380px]',
-        className
+        className,
       )}
       style={{
         ...(size === 'large' ? { height: '56px' } : {}),
@@ -116,7 +116,7 @@ export function TerminalCopyButton({
             ? `border-[${BlockColor.AcidMatrix}80]`
             : `border-zinc-700/50 hover:border-[${BlockColor.AcidMatrix}50] hover:shadow-[var(--acid-matrix-shadow)]`,
           'flex items-center justify-between h-full',
-          'transition-all duration-300'
+          'transition-all duration-300',
         )}
       >
         <div className="flex items-center space-x-2">
@@ -127,7 +127,7 @@ export function TerminalCopyButton({
           <code
             className={cn(
               'font-mono text-white/90 select-all',
-              size === 'default' ? 'text-sm' : 'text-base'
+              size === 'default' ? 'text-sm' : 'text-base',
             )}
             style={{ fontFamily: '"DM Mono", var(--font-mono), monospace' }}
           >

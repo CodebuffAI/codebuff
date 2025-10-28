@@ -92,7 +92,9 @@ export function BasicInfoStep({
           <p className="text-sm text-red-600">{idValidationResult.error}</p>
         )}
         {!errors.id && idValidationResult?.valid && (
-          <p className="text-sm text-green-600">This publisher ID is available!</p>
+          <p className="text-sm text-green-600">
+            This publisher ID is available!
+          </p>
         )}
         <p className="text-sm text-muted-foreground">
           This will be your unique URL: codebuff.com/publishers/

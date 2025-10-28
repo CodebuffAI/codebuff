@@ -18,7 +18,7 @@ export function OnboardClientWrapper({
 }: OnboardClientWrapperProps) {
   const [hasStoredReferral, setHasStoredReferral] = useState(false)
   const [storedReferralCode, setStoredReferralCode] = useState<string | null>(
-    null
+    null,
   )
 
   useEffect(() => {

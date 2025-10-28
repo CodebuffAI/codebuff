@@ -55,7 +55,7 @@ const getIframeContent = (
   content: string,
   showError: boolean,
   isRainbow: boolean,
-  theme: PreviewTheme
+  theme: PreviewTheme,
 ) => {
   const styles = `
     <style>
@@ -185,7 +185,7 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
   return (
     <div
       className={cn(
-        'rounded-lg overflow-hidden w-full flex flex-col min-h-[200px]'
+        'rounded-lg overflow-hidden w-full flex flex-col min-h-[200px]',
       )}
     >
       <div className="rounded-lg bg-white dark:bg-gray-900 flex flex-col flex-1">
@@ -210,7 +210,7 @@ const BrowserPreview: React.FC<BrowserPreviewProps> = ({
             'flex-1 border rounded-b-lg border-gray-200 dark:border-gray-700 relative',
             theme === 'light' && 'bg-white',
             theme === 'terminal-y' && 'bg-black',
-            theme === 'retro' && 'bg-[#002448]'
+            theme === 'retro' && 'bg-[#002448]',
           )}
         >
           {isLoading ? (
@@ -465,7 +465,7 @@ const TerminalDemo = () => {
           // 3% chance to start auto-typing
           setIsAutoTyping(true)
           setAutoTypeIndex(
-            Math.floor(Math.random() * exampleCommands.current.length)
+            Math.floor(Math.random() * exampleCommands.current.length),
           )
         }
       }, 5000)
@@ -617,12 +617,12 @@ const TerminalDemo = () => {
               </div>
             </div>`)
           }, 2000)
-        }
+        },
       )
       .with(
         P.when(
           (s: string) =>
-            s.includes('fix') && (s.includes('memory') || s.includes('leak'))
+            s.includes('fix') && (s.includes('memory') || s.includes('leak')),
         ),
         () => {
           posthog.capture(AnalyticsEvent.DEMO_TERMINAL_FIX_MEMORY_LEAK)
@@ -708,7 +708,7 @@ const TerminalDemo = () => {
           }, 2000)
 
           setPreviewTheme('default')
-        }
+        },
       )
       .with(
         P.when((s: string) => s.includes('refactor') && s.includes('auth')),
@@ -808,12 +808,12 @@ const TerminalDemo = () => {
               </div>
             </div>`)
           }, 2000)
-        }
+        },
       )
       .with(
         P.when(
           (s: string) =>
-            (s.includes('dark') || s.includes('light')) && s.includes('mode')
+            (s.includes('dark') || s.includes('light')) && s.includes('mode'),
         ),
         () => {
           posthog.capture(AnalyticsEvent.DEMO_TERMINAL_FEATURE_REQUESTED)
@@ -899,7 +899,7 @@ const TerminalDemo = () => {
               </div>
             </div>`)
           }, 2000)
-        }
+        },
       )
       .with('change theme', () => {
         const themes: PreviewTheme[] = ['terminal-y', 'retro', 'light']
@@ -1009,7 +1009,7 @@ const TerminalDemo = () => {
           // Add characters one by one
           ;(inputEl as HTMLElement).innerText = commandToType.substring(
             0,
-            i + 1
+            i + 1,
           )
           i++
         }, 150)
@@ -1056,7 +1056,7 @@ const TerminalDemo = () => {
               <div
                 className={cn(
                   'flex flex-col text-sm whitespace-pre-wrap',
-                  demoMutation.isPending && 'opacity-50'
+                  demoMutation.isPending && 'opacity-50',
                 )}
               >
                 {terminalLines}

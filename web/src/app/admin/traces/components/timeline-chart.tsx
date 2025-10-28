@@ -86,7 +86,7 @@ export function TimelineChart({
       return { minTime: 0, maxTime: 0, scale: 1, timelineWidth: 1200 }
 
     const minTime = Math.min(
-      ...processedEvents.map((e) => e.startTime.getTime())
+      ...processedEvents.map((e) => e.startTime.getTime()),
     )
     const maxTime = Math.max(...processedEvents.map((e) => e.endTime.getTime()))
     const duration = maxTime - minTime
@@ -208,7 +208,7 @@ export function TimelineChart({
   const getEventColor = (
     type: string,
     isHovered: boolean,
-    isSelected: boolean
+    isSelected: boolean,
   ) => {
     const baseColors = {
       agent_step: 'bg-blue-500',

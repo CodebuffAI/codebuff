@@ -125,10 +125,7 @@ function printTaskResult(taskResult: {
   console.log('='.repeat(80) + '\n')
 }
 
-function savePartialResults(
-  partialPath: string,
-  evalData: EvalDataV2,
-): void {
+function savePartialResults(partialPath: string, evalData: EvalDataV2): void {
   fs.writeFileSync(partialPath, JSON.stringify(evalData, null, 2))
   console.log(`💾 Saved partial results to ${partialPath}`)
 }

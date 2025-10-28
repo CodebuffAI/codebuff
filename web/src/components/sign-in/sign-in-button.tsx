@@ -56,7 +56,7 @@ export const SignInButton = ({
           callbackUrl = `/onboard?${searchParams.toString()}`
           console.log(
             '🔵 SignInButton: CLI flow detected, callback:',
-            callbackUrl
+            callbackUrl,
           )
         } else if (referralCode) {
           // Store referral code and use absolute URL for better preservation
@@ -64,14 +64,14 @@ export const SignInButton = ({
           callbackUrl = `${window.location.origin}/onboard?referral_code=${referralCode}`
           console.log(
             '🔵 SignInButton: Referral flow detected, absolute callback:',
-            callbackUrl
+            callbackUrl,
           )
         } else {
           // Regular web login
           callbackUrl = '/'
           console.log(
             '🔵 SignInButton: Regular web login, callback:',
-            callbackUrl
+            callbackUrl,
           )
         }
       } else {
@@ -81,7 +81,7 @@ export const SignInButton = ({
           localStorage.setItem('referral_code', referralCode)
           console.log(
             '🔵 SignInButton: Stored referral code in localStorage:',
-            referralCode
+            referralCode,
           )
         }
       }

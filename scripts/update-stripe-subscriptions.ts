@@ -1,10 +1,9 @@
 import fs from 'fs'
 
-import { db } from '@codebuff/common/db'
-import { eq } from 'drizzle-orm'
-
-import * as schema from '../common/src/db/schema'
+import { db } from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { stripeServer } from '@codebuff/internal/util/stripe'
+import { eq } from 'drizzle-orm'
 
 import type Stripe from 'stripe'
 

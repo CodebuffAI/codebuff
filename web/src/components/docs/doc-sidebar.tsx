@@ -86,7 +86,7 @@ export function DocSidebar({
         subsections: newsArticles,
       },
     ],
-    [newsArticles]
+    [newsArticles],
   )
 
   useEffect(() => {
@@ -112,7 +112,7 @@ export function DocSidebar({
             }}
             className={cn(
               'block px-3 py-2 hover:bg-accent rounded-md transition-all text-sm font-medium',
-              pathname === section.href && 'bg-accent text-accent-foreground'
+              pathname === section.href && 'bg-accent text-accent-foreground',
             )}
           >
             {section.title}
@@ -132,7 +132,7 @@ export function DocSidebar({
                   className={cn(
                     'block w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded-md transition-all text-muted-foreground hover:text-foreground',
                     pathname === subsection.href &&
-                      'bg-accent text-accent-foreground'
+                      'bg-accent text-accent-foreground',
                   )}
                 >
                   {subsection.title}

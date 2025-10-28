@@ -172,7 +172,10 @@ function splitArray(params: { arr: any[]; maxSize: number }): Chunk<any[]>[] {
         chunks.push(currentChunk)
       }
 
-      const items = splitDataWithLengths({ data: element, maxChunkSize: maxSize - 2 })
+      const items = splitDataWithLengths({
+        data: element,
+        maxChunkSize: maxSize - 2,
+      })
 
       for (const [index, item] of items.entries()) {
         if (index < items.length - 1) {
@@ -250,10 +253,7 @@ function splitDataWithLengths(params: {
   return result
 }
 
-export function splitData(params: {
-  data: any
-  maxChunkSize?: number
-}): any[] {
+export function splitData(params: { data: any; maxChunkSize?: number }): any[] {
   const { data, maxChunkSize = 99_000 } = params
   return splitDataWithLengths({ data, maxChunkSize }).map((cwjl) => cwjl.data)
 }

@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
+import { NextResponse } from 'next/server'
+
+import type { NextRequest } from 'next/server'
+
 import { validatePublisherId } from '@/lib/validators/publisher'
 
 // Force dynamic rendering for this route
@@ -15,7 +18,7 @@ export async function GET(request: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { valid: false, error: 'Publisher ID is required' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -24,7 +27,7 @@ export async function GET(request: NextRequest) {
     if (formatError) {
       return NextResponse.json(
         { valid: false, error: formatError },
-        { status: 200 }
+        { status: 200 },
       )
     }
 
@@ -38,7 +41,7 @@ export async function GET(request: NextRequest) {
     if (existingPublisher.length > 0) {
       return NextResponse.json(
         { valid: false, error: 'This publisher ID is already taken' },
-        { status: 200 }
+        { status: 200 },
       )
     }
 
@@ -47,7 +50,7 @@ export async function GET(request: NextRequest) {
     console.error('Error validating publisher ID:', error)
     return NextResponse.json(
       { valid: false, error: 'Failed to validate publisher ID' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

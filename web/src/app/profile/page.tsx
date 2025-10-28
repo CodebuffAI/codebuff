@@ -65,7 +65,8 @@ function ProfileSidebar({
             }}
             className={cn(
               'w-full flex items-center gap-3 px-3 py-2 hover:bg-accent rounded-md transition-all text-sm font-medium text-left',
-              activeSection === section.id && 'bg-accent text-accent-foreground'
+              activeSection === section.id &&
+                'bg-accent text-accent-foreground',
             )}
           >
             <Icon className="h-4 w-4" />
