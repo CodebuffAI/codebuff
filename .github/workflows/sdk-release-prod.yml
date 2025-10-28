@@ -86,14 +86,3 @@ jobs:
           git add sdk/package.json
           git commit -m "Bump SDK version to ${{ steps.bump_version.outputs.new_version }}"
           git push
-
-      - name: Create and push production tag
-        run: |
-          git tag "sdk-v${{ steps.bump_version.outputs.new_version }}"
-          git push origin "sdk-v${{ steps.bump_version.outputs.new_version }}"
-
-      - name: Upload updated package
-        uses: actions/upload-artifact@v4
-        with:
-          name: updated-sdk-package
-          path: sdk/

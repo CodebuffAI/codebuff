@@ -30,12 +30,6 @@ jobs:
 
       - uses: ./.github/actions/setup-project
 
-      - name: Download updated package
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.artifact-name }}
-          path: sdk/
-
       - name: Set environment variables
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
