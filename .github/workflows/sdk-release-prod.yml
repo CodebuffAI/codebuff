@@ -74,5 +74,5 @@ jobs:
     with:
       new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
       artifact-name: updated-sdk-package
-      env-overrides: '{"NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
+      env-overrides: '{"OPEN_ROUTER_API_KEY": ".", "RELACE_API_KEY": ".", "LINKUP_API_KEY": ".", "GOOGLE_CLOUD_PROJECT_ID": ".", "PORT": "1000", "DATABASE_URL": ".", "CODEBUFF_GITHUB_ID": ".", "CODEBUFF_GITHUB_SECRET": ".", "NEXTAUTH_SECRET": ".", "STRIPE_SECRET_KEY": ".", "STRIPE_WEBHOOK_SECRET_KEY": ".", "STRIPE_USAGE_PRICE_ID": ".", "STRIPE_TEAM_FEE_PRICE_ID": ".", "LOOPS_API_KEY": ".", "DISCORD_PUBLIC_KEY": ".", "DISCORD_BOT_TOKEN": ".", "DISCORD_APPLICATION_ID": ".", "API_KEY_ENCRYPTION_SECRET": "................................", "NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets: inherit
