@@ -38,11 +38,18 @@ export interface EvalCommitV2 {
   fileDiffs: FileDiff[]
 }
 
+export interface BinInstall {
+  name: string
+  installScript: string
+  binPath: string
+}
+
 export interface EvalDataV2 {
   repoUrl: string
   testRepoName?: string
   generationDate: string
   initCommand?: string
+  binInstalls?: BinInstall[]
   env?: Record<string, string>
   evalCommits: EvalCommitV2[]
 }

@@ -1,5 +1,7 @@
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
+import { execSync } from 'child_process'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
@@ -198,6 +200,54 @@ async function runTask(options: {
   return { commit, agentResults, commitTraces }
 }
 
+/**
+ * Install binaries specified in binInstalls config to a temporary directory
+ * Returns the temporary directory path and updated env with PATH
+ */
+function installBinaries(binInstalls: EvalDataV2['binInstalls']): {
+  tempDir: string | null
+  env: Record<string, string>
+} {
+  if (!binInstalls || binInstalls.length === 0) {
+    return { tempDir: null, env: {} }
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-bins-'))
+
+  const binPaths: string[] = []
+
+  for (const bin of binInstalls) {
+    try {
+      execSync(bin.installScript, {
+        cwd: tempDir,
+        stdio: 'ignore',
+        env: { ...process.env, INSTALL_DIR: tempDir },
+      })
+
+      const fullBinPath = path.join(tempDir, bin.binPath)
+      if (fs.existsSync(fullBinPath)) {
+        binPaths.push(path.dirname(fullBinPath))
+        console.log(`✓ ${bin.name} installed at ${fullBinPath}`)
+      } else {
+        console.warn(
+          `Warning: Expected binary not found at ${fullBinPath} after installing ${bin.name}`,
+        )
+      }
+    } catch (error) {
+      console.error(`Error installing ${bin.name}:`, error)
+      throw error
+    }
+  }
+
+  // Prepend all bin paths to PATH
+  const updatedPath = [...binPaths, process.env.PATH].filter(Boolean).join(':')
+
+  return {
+    tempDir,
+    env: { PATH: updatedPath },
+  }
+}
+
 export async function runBuffBench(options: {
   evalDataPath: string
   agents: string[]
@@ -217,6 +267,14 @@ export async function runBuffBench(options: {
   const evalData: EvalDataV2 = JSON.parse(
     fs.readFileSync(evalDataPath, 'utf-8'),
   )
+
+  // Install binaries once at the beginning
+  const { tempDir: binsTempDir, env: binsEnv } = installBinaries(
+    evalData.binInstalls,
+  )
+
+  // Merge binaries env with eval data env
+  const mergedEnv = { ...binsEnv, ...evalData.env }
 
   let commitsToRun: EvalDataV2['evalCommits']
   if (taskIds && taskIds.length > 0) {
@@ -303,7 +361,7 @@ export async function runBuffBench(options: {
         agents,
         repoUrl: evalData.repoUrl,
         initCommand: evalData.initCommand,
-        env: evalData.env,
+        env: mergedEnv,
         logsDir,
         index,
         totalTasks: commitsToRun.length,
@@ -413,6 +471,16 @@ export async function runBuffBench(options: {
 
   const finalResultsPath = path.join(logsDir, 'FINAL_RESULTS.json')
   fs.writeFileSync(finalResultsPath, JSON.stringify(finalResults, null, 2))
+
+  // Cleanup binaries installation
+  if (binsTempDir) {
+    try {
+      fs.rmSync(binsTempDir, { recursive: true, force: true })
+      console.log(`✓ Cleaned up binaries installation at ${binsTempDir}.`)
+    } catch (error) {
+      console.warn(`Warning: Failed to cleanup binaries directory:`, error)
+    }
+  }
 
   console.log(`Traces saved to ${logsDir}`)
   if (commitShasWithErrors.size > 0) {

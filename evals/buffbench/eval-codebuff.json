@@ -1,6 +1,13 @@
 {
   "repoUrl": "https://github.com/CodebuffAI/codebuff",
   "generationDate": "2025-10-12T05:55:40.855Z",
+  "binInstalls": [
+    {
+      "name": "bun",
+      "installScript": "curl -fsSL https://bun.sh/install | BUN_INSTALL=$INSTALL_DIR bash -s 'bun-v1.2.23'",
+      "binPath": "bin/bun"
+    }
+  ],
   "initCommand": "bun install",
   "env": {
     "ANTHROPIC_API_KEY": "test-key",
