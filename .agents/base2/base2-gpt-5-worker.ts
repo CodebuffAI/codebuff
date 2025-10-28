@@ -27,13 +27,11 @@ const definition: SecretAgentDefinition = {
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn two different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
-1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
-2a. Read all the relevant files using the read_files tool.
-3. Use the str_replace or write_file tool to make the changes.
-4. Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.
-5. End your turn.`,
+- Gather context on the user's request
+- Use the write_todos tool to write out your step-by-step implementation plan.
+- Use the str_replace or write_file tool to make the changes.
+- Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.
+- End your turn.`,
 
   stepPrompt: undefined,
 }
