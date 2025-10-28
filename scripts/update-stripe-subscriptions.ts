@@ -4,7 +4,7 @@ import { db } from '@codebuff/common/db'
 import { eq } from 'drizzle-orm'
 
 import * as schema from '../common/src/db/schema'
-import { stripeServer } from '../common/src/util/stripe'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 
 import type Stripe from 'stripe'
 

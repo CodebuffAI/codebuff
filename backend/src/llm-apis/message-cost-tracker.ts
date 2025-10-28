@@ -8,8 +8,8 @@ import {
   TEST_USER_ID,
 } from '@codebuff/common/old-constants'
 import { withRetry } from '@codebuff/common/util/promise'
-import { stripeServer } from '@codebuff/common/util/stripe'
 import { logSyncFailure } from '@codebuff/common/util/sync-failure'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { WebSocket } from 'ws'

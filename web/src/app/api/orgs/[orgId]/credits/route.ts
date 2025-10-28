@@ -3,8 +3,8 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         {
           error: `Minimum purchase is ${ORG_MIN_PURCHASE_CREDITS.toLocaleString()} credits`,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -47,14 +47,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         eq(schema.orgMember.org_id, orgId),
         eq(schema.orgMember.user_id, session.user.id),
         // Only owners can purchase credits for now
-        eq(schema.orgMember.role, 'owner')
+        eq(schema.orgMember.role, 'owner'),
       ),
     })
 
     if (!membership) {
       return NextResponse.json(
         { error: 'Forbidden or Organization not found' },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!organization) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           error:
             'Organization billing not set up. Please set up billing first.',
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           error:
             'Organization subscription not found. Please set up billing first.',
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Get customer's default payment method
     const customer = await stripeServer.customers.retrieve(
-      organization.stripe_customer_id
+      organization.stripe_customer_id,
     )
 
     // Check if customer is not deleted and has invoice settings
@@ -129,21 +129,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 invoice_settings: {
                   default_payment_method: singleCard.id,
                 },
-              }
+              },
             )
 
             defaultPaymentMethodId = singleCard.id
 
             logger.info(
               { organizationId: orgId, paymentMethodId: singleCard.id },
-              'Automatically set single valid card as default payment method for organization'
+              'Automatically set single valid card as default payment method for organization',
             )
           }
         }
       } catch (error: any) {
         logger.warn(
           { organizationId: orgId, error: error.message },
-          'Failed to check or set default payment method for organization'
+          'Failed to check or set default payment method for organization',
         )
         // Continue without setting default - will fall back to checkout
       }
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (defaultPaymentMethodId) {
       try {
         const paymentMethod = await stripeServer.paymentMethods.retrieve(
-          defaultPaymentMethodId
+          defaultPaymentMethodId,
         )
 
         // Check if payment method is valid (not expired for cards)
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             paymentMethod.card.exp_month &&
             new Date(
               paymentMethod.card.exp_year,
-              paymentMethod.card.exp_month - 1
+              paymentMethod.card.exp_month - 1,
             ) > new Date())
 
         if (isValid) {
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 operationId,
                 paymentIntentId: paymentIntent.id,
               },
-              'Successfully processed direct organization credit purchase'
+              'Successfully processed direct organization credit purchase',
             )
 
             return NextResponse.json({
@@ -225,7 +225,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             error: error.message,
             errorCode: error.code,
           },
-          'Direct charge failed for organization, falling back to checkout'
+          'Direct charge failed for organization, falling back to checkout',
         )
       }
     }
@@ -278,11 +278,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!checkoutSession.url) {
       logger.error(
         { organizationId: orgId, userId: session.user.id, credits },
-        'Stripe checkout session created without a URL.'
+        'Stripe checkout session created without a URL.',
       )
       return NextResponse.json(
         { error: 'Could not create Stripe checkout session.' },
-        { status: 500 }
+        { status: 500 },
       )
     }
 
@@ -294,7 +294,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         operationId,
         sessionId: checkoutSession.id,
       },
-      'Created Stripe checkout session for organization credit purchase'
+      'Created Stripe checkout session for organization credit purchase',
     )
 
     return NextResponse.json({
@@ -313,7 +313,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         error: 'Failed to create credit purchase session',
         details: errorMessage,
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

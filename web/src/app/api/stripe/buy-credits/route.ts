@@ -3,8 +3,8 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json(
         { error: 'Invalid input', issues: validation.error.issues },
-        { status: 400 }
+        { status: 400 },
       )
     }
     data = validation.data
@@ -56,11 +56,11 @@ export async function POST(req: NextRequest) {
     if (!user?.stripe_customer_id) {
       logger.error(
         { userId },
-        'User attempting to buy credits has no Stripe customer ID.'
+        'User attempting to buy credits has no Stripe customer ID.',
       )
       return NextResponse.json(
         { error: 'Stripe customer not found.' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -70,11 +70,11 @@ export async function POST(req: NextRequest) {
     if (amountInCents <= 0) {
       logger.error(
         { userId, credits, centsPerCredit },
-        'Calculated zero or negative amount in cents for credit purchase.'
+        'Calculated zero or negative amount in cents for credit purchase.',
       )
       return NextResponse.json(
         { error: 'Invalid credit amount calculation.' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     // Get customer's default payment method
     const customer = await stripeServer.customers.retrieve(
-      user.stripe_customer_id
+      user.stripe_customer_id,
     )
 
     // Check if customer is not deleted and has invoice settings
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     if (defaultPaymentMethodId) {
       try {
         const paymentMethod = await stripeServer.paymentMethods.retrieve(
-          defaultPaymentMethodId
+          defaultPaymentMethodId,
         )
 
         // Check if payment method is valid (not expired for cards)
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
             paymentMethod.card.exp_month &&
             new Date(
               paymentMethod.card.exp_year,
-              paymentMethod.card.exp_month - 1
+              paymentMethod.card.exp_month - 1,
             ) > new Date())
 
         if (isValid) {
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
                 operationId,
                 paymentIntentId: paymentIntent.id,
               },
-              'Successfully processed direct credit purchase'
+              'Successfully processed direct credit purchase',
             )
 
             return NextResponse.json({ success: true, credits })
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         // If direct charge fails, fall back to checkout
         logger.warn(
           { userId, error: error.message },
-          'Direct charge failed, falling back to checkout'
+          'Direct charge failed, falling back to checkout',
         )
       }
     }
@@ -199,24 +199,24 @@ export async function POST(req: NextRequest) {
     if (!checkoutSession.url) {
       logger.error(
         { userId, credits },
-        'Stripe checkout session created without a URL.'
+        'Stripe checkout session created without a URL.',
       )
       return NextResponse.json(
         { error: 'Could not create Stripe checkout session.' },
-        { status: 500 }
+        { status: 500 },
       )
     }
 
     logger.info(
       { userId, credits, operationId, sessionId: checkoutSession.id },
-      'Created Stripe checkout session for credit purchase'
+      'Created Stripe checkout session for credit purchase',
     )
 
     return NextResponse.json({ sessionId: checkoutSession.id })
   } catch (error: any) {
     logger.error(
       { error: error.message, userId, credits },
-      'Failed to process credit purchase'
+      'Failed to process credit purchase',
     )
     const stripeErrorMessage =
       error?.raw?.message || 'Internal server error processing purchase.'

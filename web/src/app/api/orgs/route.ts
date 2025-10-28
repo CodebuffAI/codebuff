@@ -1,7 +1,7 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -73,8 +73,8 @@ export async function GET(): Promise<
             .where(
               and(
                 eq(schema.orgRepo.org_id, organization.id),
-                eq(schema.orgRepo.is_active, true)
-              )
+                eq(schema.orgRepo.is_active, true),
+              ),
             )
             .then((result) => result.length),
         ])
@@ -87,7 +87,7 @@ export async function GET(): Promise<
           memberCount,
           repositoryCount,
         }
-      })
+      }),
     )
 
     return NextResponse.json({ organizations })
@@ -95,7 +95,7 @@ export async function GET(): Promise<
     console.error('Error fetching organizations:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -196,12 +196,12 @@ export async function POST(request: NextRequest) {
             stripeCustomerId,
             customerEmail: session.user.email,
           },
-          'Created Stripe customer for new organization'
+          'Created Stripe customer for new organization',
         )
       } catch (error) {
         logger.error(
           { organizationId: newOrg.id, error },
-          'Failed to create Stripe customer for organization'
+          'Failed to create Stripe customer for organization',
         )
         // Continue without Stripe setup - organization can still be created
       }
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating organization:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

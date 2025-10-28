@@ -1,6 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { stripeServer } from '@codebuff/common/util/stripe'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -36,15 +36,15 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
+          eq(schema.orgMember.user_id, session.user.id),
+        ),
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
@@ -54,7 +54,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     if (role !== 'owner' && role !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -62,7 +62,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     if (!organization.stripe_subscription_id) {
       return NextResponse.json(
         { error: 'No active subscription found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
@@ -81,18 +81,18 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     logger.info(
       { orgId, subscriptionId: organization.stripe_subscription_id },
-      'Successfully cancelled organization subscription'
+      'Successfully cancelled organization subscription',
     )
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
     logger.error(
       { error: error.message, orgId },
-      'Failed to cancel subscription'
+      'Failed to cancel subscription',
     )
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

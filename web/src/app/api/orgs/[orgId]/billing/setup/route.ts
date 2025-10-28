@@ -1,8 +1,8 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { pluralize } from '@codebuff/common/util/string'
-import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -38,15 +38,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
+          eq(schema.orgMember.user_id, session.user.id),
+        ),
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (role !== 'owner' && role !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       } catch (error) {
         logger.warn(
           { orgId, error },
-          'Failed to check existing payment methods'
+          'Failed to check existing payment methods',
         )
       }
     }
@@ -95,11 +95,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   } catch (error: any) {
     logger.error(
       { error: error.message, orgId },
-      'Failed to get billing setup status'
+      'Failed to get billing setup status',
     )
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -124,15 +124,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
+          eq(schema.orgMember.user_id, session.user.id),
+        ),
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (role !== 'owner' && role !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -180,7 +180,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
       logger.info(
         { orgId, stripeCustomerId },
-        'Created Stripe customer for organization'
+        'Created Stripe customer for organization',
       )
     }
 
@@ -218,24 +218,24 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       logger.error({ orgId }, 'Stripe checkout session created without a URL')
       return NextResponse.json(
         { error: 'Could not create Stripe checkout session' },
-        { status: 500 }
+        { status: 500 },
       )
     }
 
     logger.info(
       { orgId, sessionId: checkoutSession.id, seatCount },
-      'Created Stripe checkout session for billing setup with seat-based pricing'
+      'Created Stripe checkout session for billing setup with seat-based pricing',
     )
 
     return NextResponse.json({ sessionId: checkoutSession.id })
   } catch (error: any) {
     logger.error(
       { error: error.message, orgId },
-      'Failed to create billing setup session'
+      'Failed to create billing setup session',
     )
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

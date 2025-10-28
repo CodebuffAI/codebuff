@@ -5,8 +5,8 @@ import {
 } from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { stripeServer } from '@codebuff/common/util/stripe'
 import { env } from '@codebuff/internal'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -21,7 +21,7 @@ async function handleCustomerCreated(customer: Stripe.Customer) {
 }
 
 async function handleCheckoutSessionCompleted(
-  session: Stripe.Checkout.Session
+  session: Stripe.Checkout.Session,
 ) {
   const sessionId = session.id
   const metadata = session.metadata
@@ -29,7 +29,7 @@ async function handleCheckoutSessionCompleted(
 
   logger.debug(
     { sessionId, metadata },
-    'Entering handleCheckoutSessionCompleted'
+    'Entering handleCheckoutSessionCompleted',
   )
 
   // Handle subscription setup completion
@@ -40,7 +40,7 @@ async function handleCheckoutSessionCompleted(
   ) {
     logger.debug(
       { sessionId, subscriptionId: session.subscription },
-      'Updating organization with subscription ID'
+      'Updating organization with subscription ID',
     )
     // Update organization with subscription ID and enable auto top-up by default
     await db
@@ -56,7 +56,7 @@ async function handleCheckoutSessionCompleted(
 
     logger.info(
       { sessionId, organizationId, subscriptionId: session.subscription },
-      'Enabled auto top-up by default for new organization subscription'
+      'Enabled auto top-up by default for new organization subscription',
     )
 
     // Set the first payment method as default if available
@@ -64,7 +64,7 @@ async function handleCheckoutSessionCompleted(
       try {
         logger.debug(
           { sessionId, customerId: session.customer },
-          'Checking for payment methods to set as default'
+          'Checking for payment methods to set as default',
         )
 
         const paymentMethods = await stripeServer.paymentMethods.list({
@@ -76,7 +76,7 @@ async function handleCheckoutSessionCompleted(
 
           logger.debug(
             { sessionId, paymentMethodId: firstPaymentMethod.id },
-            'Setting first payment method as default for organization'
+            'Setting first payment method as default for organization',
           )
 
           await stripeServer.customers.update(session.customer, {
@@ -93,24 +93,24 @@ async function handleCheckoutSessionCompleted(
               paymentMethodId: firstPaymentMethod.id,
               subscriptionId: session.subscription,
             },
-            'Successfully set first payment method as default for organization subscription'
+            'Successfully set first payment method as default for organization subscription',
           )
         } else {
           logger.warn(
             { sessionId, organizationId, customerId: session.customer },
-            'No payment methods found for organization customer'
+            'No payment methods found for organization customer',
           )
         }
       } catch (paymentMethodError) {
         logger.warn(
           { sessionId, organizationId, error: paymentMethodError },
-          'Failed to set default payment method for organization subscription, but subscription was created'
+          'Failed to set default payment method for organization subscription, but subscription was created',
         )
       }
     } else {
       logger.warn(
         { sessionId, organizationId, subscriptionId: session.subscription },
-        'No customer ID found in subscription checkout session'
+        'No customer ID found in subscription checkout session',
       )
     }
 
@@ -121,12 +121,12 @@ async function handleCheckoutSessionCompleted(
         customerId: session.customer,
         subscriptionId: session.subscription,
       },
-      'Successfully set up subscription for organization'
+      'Successfully set up subscription for organization',
     )
   } else {
     logger.warn(
       { sessionId },
-      'No subscription ID found in session for subscription_setup'
+      'No subscription ID found in session for subscription_setup',
     )
   }
 
@@ -146,7 +146,7 @@ async function handleCheckoutSessionCompleted(
     if (paymentStatus === 'paid') {
       logger.info(
         { sessionId, userId, credits, operationId },
-        'Checkout session completed and paid for user credit purchase.'
+        'Checkout session completed and paid for user credit purchase.',
       )
 
       await processAndGrantCredit({
@@ -161,7 +161,7 @@ async function handleCheckoutSessionCompleted(
     } else {
       logger.warn(
         { sessionId, userId, credits, operationId, paymentStatus },
-        "Checkout session completed but payment status is not 'paid'. No credits granted."
+        "Checkout session completed but payment status is not 'paid'. No credits granted.",
       )
     }
   }
@@ -175,7 +175,7 @@ async function handleCheckoutSessionCompleted(
   ) {
     logger.debug(
       { sessionId, metadata },
-      'Handling organization credit purchase'
+      'Handling organization credit purchase',
     )
     const organizationId = metadata.organizationId
     const userId = metadata.userId
@@ -186,7 +186,7 @@ async function handleCheckoutSessionCompleted(
     if (paymentStatus === 'paid') {
       logger.info(
         { sessionId, organizationId, userId, credits, operationId },
-        'Checkout session completed and paid for organization credit purchase.'
+        'Checkout session completed and paid for organization credit purchase.',
       )
 
       await grantOrganizationCredits({
@@ -207,13 +207,13 @@ async function handleCheckoutSessionCompleted(
           operationId,
           paymentStatus,
         },
-        "Checkout session completed but payment status is not 'paid'. No organization credits granted."
+        "Checkout session completed but payment status is not 'paid'. No organization credits granted.",
       )
     }
   } else {
     logger.info(
       { sessionId, metadata },
-      'Checkout session completed for non-credit purchase or missing metadata.'
+      'Checkout session completed for non-credit purchase or missing metadata.',
     )
   }
 }
@@ -228,13 +228,13 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
       customerId: subscription.customer,
       organizationId,
     },
-    'Subscription event received'
+    'Subscription event received',
   )
 
   if (!organizationId) {
     logger.warn(
       { subscriptionId: subscription.id },
-      'Subscription event received without organization_id in metadata'
+      'Subscription event received without organization_id in metadata',
     )
     return
   }
@@ -253,7 +253,7 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
 
       logger.info(
         { subscriptionId: subscription.id, organizationId },
-        'Updated organization after subscription cancellation'
+        'Updated organization after subscription cancellation',
       )
     }
     // Handle subscription updates (status changes, etc.)
@@ -279,14 +279,14 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
 
         logger.info(
           { subscriptionId: subscription.id, organizationId },
-          'Updated organization with subscription ID'
+          'Updated organization with subscription ID',
         )
       }
     }
   } catch (error) {
     logger.error(
       { subscriptionId: subscription.id, organizationId, error },
-      'Failed to handle subscription event'
+      'Failed to handle subscription event',
     )
   }
 }
@@ -309,7 +309,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         creditNoteIds: creditNotes.data.map((cn) => cn.id),
         customerId,
       },
-      'Invoice paid with existing credit notes - no action needed'
+      'Invoice paid with existing credit notes - no action needed',
     )
   } else {
     logger.warn(
@@ -317,7 +317,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         invoiceId: invoice.id,
         customerId,
       },
-      'Invoice paid but no credit notes found - this may indicate a missing credit note from draft stage'
+      'Invoice paid but no credit notes found - this may indicate a missing credit note from draft stage',
     )
   }
 }
@@ -331,17 +331,17 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
     event = stripeServer.webhooks.constructEvent(
       buf,
       sig,
-      env.STRIPE_WEBHOOK_SECRET_KEY
+      env.STRIPE_WEBHOOK_SECRET_KEY,
     )
   } catch (err) {
     const error = err as Error
     logger.error(
       { error: error.message },
-      'Webhook signature verification failed'
+      'Webhook signature verification failed',
     )
     return NextResponse.json(
       { error: { message: `Webhook Error: ${error.message}` } },
-      { status: 400 }
+      { status: 400 },
     )
   }
 
@@ -366,14 +366,14 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
           const paymentIntent = await stripeServer.paymentIntents.retrieve(
             typeof paymentIntentId === 'string'
               ? paymentIntentId
-              : paymentIntentId.toString()
+              : paymentIntentId.toString(),
           )
 
           if (paymentIntent.metadata?.operationId) {
             const operationId = paymentIntent.metadata.operationId
             logger.info(
               { chargeId: charge.id, paymentIntentId, operationId },
-              'Processing refund, attempting to revoke credits'
+              'Processing refund, attempting to revoke credits',
             )
 
             const revoked = await revokeGrantByOperationId({
@@ -385,13 +385,13 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
             if (!revoked) {
               logger.error(
                 { chargeId: charge.id, operationId },
-                'Failed to revoke credits for refund - grant may not exist or credits already spent'
+                'Failed to revoke credits for refund - grant may not exist or credits already spent',
               )
             }
           } else {
             logger.warn(
               { chargeId: charge.id, paymentIntentId },
-              'Refund received but no operation ID found in payment intent metadata'
+              'Refund received but no operation ID found in payment intent metadata',
             )
           }
         }
@@ -399,7 +399,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       }
       case 'checkout.session.completed': {
         await handleCheckoutSessionCompleted(
-          event.data.object as Stripe.Checkout.Session
+          event.data.object as Stripe.Checkout.Session,
         )
         break
       }
@@ -419,7 +419,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
           if (userId) {
             logger.warn(
               { invoiceId: invoice.id, userId },
-              `Invoice payment failed for user auto-topup. Disabling setting for user ${userId}.`
+              `Invoice payment failed for user auto-topup. Disabling setting for user ${userId}.`,
             )
             await db
               .update(schema.user)
@@ -428,7 +428,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
           } else if (organizationId) {
             logger.warn(
               { invoiceId: invoice.id, organizationId },
-              `Invoice payment failed for organization auto-topup. Disabling setting for organization ${organizationId}.`
+              `Invoice payment failed for organization auto-topup. Disabling setting for organization ${organizationId}.`,
             )
             await db
               .update(schema.org)
@@ -446,11 +446,11 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
     const error = err as Error
     logger.error(
       { error: error.message, eventType: event.type },
-      'Error processing webhook'
+      'Error processing webhook',
     )
     return NextResponse.json(
       { error: { message: `Webhook handler error: ${error.message}` } },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

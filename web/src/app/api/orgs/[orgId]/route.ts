@@ -1,7 +1,7 @@
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { stripeServer } from '@codebuff/common/util/stripe'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -18,7 +18,7 @@ interface RouteParams {
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams
+  { params }: RouteParams,
 ): Promise<NextResponse<OrganizationDetailsResponse | { error: string }>> {
   try {
     const session = await getServerSession(authOptions)
@@ -39,15 +39,15 @@ export async function GET(
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
+          eq(schema.orgMember.user_id, session.user.id),
+        ),
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
@@ -66,8 +66,8 @@ export async function GET(
         .where(
           and(
             eq(schema.orgRepo.org_id, orgId),
-            eq(schema.orgRepo.is_active, true)
-          )
+            eq(schema.orgRepo.is_active, true),
+          ),
         )
         .then((result) => result.length),
     ])
@@ -114,7 +114,7 @@ export async function GET(
     console.error('Error fetching organization details:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -136,15 +136,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
+          eq(schema.orgMember.user_id, session.user.id),
+        ),
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
@@ -152,7 +152,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (role !== 'owner' && role !== 'admin') {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -172,7 +172,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     console.error('Error updating organization:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -196,15 +196,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(schema.orgMember.org_id, orgId),
-          eq(schema.orgMember.user_id, session.user.id)
-        )
+          eq(schema.orgMember.user_id, session.user.id),
+        ),
       )
       .limit(1)
 
     if (membership.length === 0) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
@@ -212,7 +212,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (role !== 'owner') {
       return NextResponse.json(
         { error: 'Only organization owners can delete organizations' },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -221,7 +221,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       try {
         logger.info(
           { orgId, stripeCustomerId: organization.stripe_customer_id },
-          'Starting Stripe cleanup for organization deletion'
+          'Starting Stripe cleanup for organization deletion',
         )
 
         // First, cancel all active subscriptions
@@ -234,7 +234,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           await stripeServer.subscriptions.cancel(subscription.id)
           logger.info(
             { orgId, subscriptionId: subscription.id },
-            'Cancelled Stripe subscription for organization'
+            'Cancelled Stripe subscription for organization',
           )
         }
 
@@ -242,7 +242,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         await stripeServer.customers.del(organization.stripe_customer_id)
         logger.info(
           { orgId, stripeCustomerId: organization.stripe_customer_id },
-          'Deleted Stripe customer for organization'
+          'Deleted Stripe customer for organization',
         )
       } catch (stripeError) {
         // Log Stripe errors but continue with local deletion
@@ -252,7 +252,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             stripeCustomerId: organization.stripe_customer_id,
             error: stripeError,
           },
-          'Failed to clean up Stripe resources during organization deletion'
+          'Failed to clean up Stripe resources during organization deletion',
         )
       }
     }
@@ -262,7 +262,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     logger.info(
       { orgId, organizationName: organization.name },
-      'Successfully deleted organization'
+      'Successfully deleted organization',
     )
 
     return NextResponse.json({ success: true })
@@ -270,7 +270,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     logger.error({ orgId, error }, 'Error deleting organization')
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

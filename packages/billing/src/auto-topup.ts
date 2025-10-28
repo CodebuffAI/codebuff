@@ -5,7 +5,7 @@ import * as schema from '@codebuff/common/db/schema'
 import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
-import { stripeServer } from '@codebuff/common/util/stripe'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 
 import { calculateUsageAndBalance } from './balance-calculator'

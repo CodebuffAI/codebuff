@@ -3,7 +3,7 @@ import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
 import { withSerializableTransaction } from '@codebuff/common/db/transaction'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
-import { stripeServer } from '@codebuff/common/util/stripe'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { env } from '@codebuff/internal/env'
 import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
 
