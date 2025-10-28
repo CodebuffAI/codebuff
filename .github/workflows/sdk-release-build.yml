@@ -33,6 +33,7 @@ jobs:
       - name: Set environment variables
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+          ENV_OVERRIDES: ${{ inputs.env-overrides }}
         shell: bash
         run: |
           VAR_NAMES=$(bun scripts/generate-ci-env.js)
@@ -40,8 +41,15 @@ jobs:
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV
 
+          # Set default environment variables
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+          # Apply environment variable overrides
+          if [ "$ENV_OVERRIDES" != "{}" ]; then
+            echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
+          fi
 
       - name: Build SDK
         run: |
@@ -49,11 +57,6 @@ jobs:
           bun run build:verify
         env:
           BUILD_VERSION: ${{ inputs.new-version }}
-
-      - name: Open interactive debug shell
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15 # optional guard
 
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4

@@ -53,6 +53,8 @@ jobs:
           echo "New production version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
+          git stash
+
   build-and-publish-sdk:
     needs: prepare-and-commit-prod
     uses: ./.github/workflows/sdk-release-build.yml
@@ -60,6 +62,7 @@ jobs:
       new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
       artifact-name: updated-sdk-package
       checkout-ref: ${{ github.sha }}
+      env-overrides: '{"NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets: inherit
 
   push-to-git:
@@ -80,7 +83,6 @@ jobs:
 
       - name: Commit and push version bump
         run: |
-          git stash
           git pull --rebase origin main
           git stash pop
           git add sdk/package.json
