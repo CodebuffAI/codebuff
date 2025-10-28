@@ -1,6 +1,6 @@
 import db from '@codebuff/common/db'
 import * as schema from '@codebuff/common/db/schema'
-import { validateAgentsWithSpawnableAgents } from '@codebuff/common/templates/agent-validation'
+import { validateAgentsWithSpawnableAgents } from '@codebuff/internal/templates/agent-validation'
 import { publishAgentsRequestSchema } from '@codebuff/common/types/api/agents/publish'
 import {
   determineNextVersion,
