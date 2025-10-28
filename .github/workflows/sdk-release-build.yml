@@ -56,6 +56,11 @@ jobs:
         env:
           BUILD_VERSION: ${{ inputs.new-version }}
 
+      - name: Open interactive debug shell
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15 # optional guard
+
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4
         with:
