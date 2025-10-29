@@ -35,8 +35,7 @@ export const getConfigDir = (): string => {
     '.config',
     'manicode' +
       // on a development stack?
-      (env.NEXT_PUBLIC_CB_ENVIRONMENT &&
-      env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
+      (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
         ? `-${env.NEXT_PUBLIC_CB_ENVIRONMENT}`
         : ''),
   )

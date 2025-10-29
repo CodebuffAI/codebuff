@@ -155,37 +155,48 @@ describe('Credentials Storage Integration', () => {
       expect(keys[0]).toBe('default')
     })
 
-    test('should use manicode-dev directory in development environment', () => {
+    test('should use manicode-test directory in test environment', async () => {
       // Restore getConfigDir to use real implementation for this test
       mock.restore()
-      mockModule('@codebuff/common/env', () => {
-        return {
-          env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'dev' },
-        }
-      })
+
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' },
+      }))
 
       // Call real getConfigDir to verify it includes '-dev'
       const configDir = authModule.getConfigDir()
-      expect(configDir).toContain('manicode-dev')
-      expect(configDir).not.toContain('manicode/')
-      expect(configDir).not.toBe(path.join(os.homedir(), '.config', 'manicode'))
+      expect(configDir).toEqual(
+        path.join(os.homedir(), '.config', 'manicode-test'),
+      )
     })
 
-    test('should use manicode directory in production environment', () => {
+    test('should use manicode-dev directory in development environment', async () => {
+      // Restore getConfigDir to use real implementation for this test
+      mock.restore()
+
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'dev' },
+      }))
+
+      // Call real getConfigDir to verify it includes '-dev'
+      const configDir = authModule.getConfigDir()
+      expect(configDir).toEqual(
+        path.join(os.homedir(), '.config', 'manicode-dev'),
+      )
+    })
+
+    test('should use manicode directory in production environment', async () => {
       // Restore getConfigDir to use real implementation
       mock.restore()
 
       // Set environment to prod (or unset it)
-      mockModule('@codebuff/common/env', () => {
-        return {
-          env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'prod' },
-        }
-      })
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'prod' },
+      }))
 
       // Call real getConfigDir to verify it doesn't include '-dev'
       const configDir = authModule.getConfigDir()
-      expect(configDir).toBe(path.join(os.homedir(), '.config', 'manicode'))
-      expect(configDir).not.toContain('manicode-dev')
+      expect(configDir).toEqual(path.join(os.homedir(), '.config', 'manicode'))
     })
 
     test('should allow credentials to persist across simulated CLI restarts', () => {
