@@ -73,6 +73,6 @@ function generateGitHubEnv() {
   console.log(JSON.stringify(selected))
 }
 
-console.log({ asdfenv: process.env }, 'asdf')
+console.error({ asdfenv: process.env }, 'asdf')
 
 generateGitHubEnv()
