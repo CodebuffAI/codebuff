@@ -5,6 +5,7 @@ import type { ChatTheme } from '../utils/theme-system'
 
 interface ToolItemProps {
   name: string
+  titleAccessory?: ReactNode
   content: ReactNode
   isCollapsed: boolean
   isStreaming: boolean
@@ -57,6 +58,7 @@ const renderContent = (value: ReactNode, theme: ChatTheme): ReactNode => {
 
 export const ToolItem = ({
   name,
+  titleAccessory,
   content,
   isCollapsed,
   isStreaming,
@@ -68,6 +70,10 @@ export const ToolItem = ({
   const toggleColor = theme.statusSecondary
   const toggleIcon = isCollapsed ? '▸' : '▾'
   const previewColor = isStreaming ? theme.agentText : theme.agentResponseCount
+  const hasTitleAccessory =
+    titleAccessory !== undefined &&
+    titleAccessory !== null &&
+    !(typeof titleAccessory === 'string' && titleAccessory.length === 0)
 
   return (
     <box style={{ flexDirection: 'column', gap: 0 }}>
@@ -87,6 +93,12 @@ export const ToolItem = ({
           <span fg={toggleColor} attributes={TextAttributes.BOLD}>
             {name}
           </span>
+          {hasTitleAccessory ? (
+            <>
+              {' '}
+              {titleAccessory}
+            </>
+          ) : null}
         </text>
       </box>
       {isCollapsed ? (

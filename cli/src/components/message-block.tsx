@@ -5,6 +5,7 @@ import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
 import { ToolItem } from './tool-item'
+import { getToolRenderConfig } from './tool-renderer'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
   renderMarkdown,
@@ -92,6 +93,13 @@ export const MessageBlock = ({
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
     const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
     const isStreaming = streamingAgents.has(toolBlock.toolCallId)
+    const indentationOffset = indentLevel * 2
+
+    const { titleAccessory, content: customContent, collapsedPreview } =
+      getToolRenderConfig(toolBlock, theme, {
+        availableWidth,
+        indentationOffset,
+      })
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
     const codeBlockLang =
@@ -137,11 +145,15 @@ export const MessageBlock = ({
     }
 
     const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
-    const displayContent = hasMarkdown(fullContent)
-      ? renderMarkdown(fullContent, agentMarkdownOptions)
-      : fullContent
+    const displayContent =
+      customContent ??
+      (hasMarkdown(fullContent)
+        ? renderMarkdown(fullContent, agentMarkdownOptions)
+        : fullContent)
 
-    const indentationOffset = indentLevel * 2
+    if (!isStreaming && isCollapsed && collapsedPreview) {
+      finishedPreview = collapsedPreview
+    }
 
     return (
       <box
@@ -151,6 +163,7 @@ export const MessageBlock = ({
       >
         <ToolItem
           name={displayInfo.name}
+          titleAccessory={titleAccessory}
           content={displayContent}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}

@@ -1105,6 +1105,7 @@ export const useSendMessage = ({
                           toolName,
                           input,
                           agentId,
+                          outputRaw: undefined,
                         }
 
                         return {
@@ -1134,6 +1135,7 @@ export const useSendMessage = ({
                       toolName,
                       input,
                       agentId,
+                      outputRaw: undefined,
                     }
 
                     return {
@@ -1247,6 +1249,8 @@ export const useSendMessage = ({
               const updateToolBlock = (
                 blocks: ContentBlock[],
               ): ContentBlock[] => {
+                const rawOutput = event.output
+
                 return blocks.map((block) => {
                   if (
                     block.type === 'tool' &&
@@ -1265,7 +1269,7 @@ export const useSendMessage = ({
                     } else {
                       output = formatToolOutput(event.output)
                     }
-                    return { ...block, output }
+                    return { ...block, output, outputRaw: rawOutput }
                   } else if (block.type === 'agent' && block.blocks) {
                     return { ...block, blocks: updateToolBlock(block.blocks) }
                   }

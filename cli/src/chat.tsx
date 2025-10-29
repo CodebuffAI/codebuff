@@ -61,6 +61,7 @@ export type ContentBlock =
       toolName: ToolName
       input: any
       output?: string
+      outputRaw?: unknown
       agentId?: string
     }
   | {
