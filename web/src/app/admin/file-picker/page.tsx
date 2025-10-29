@@ -1,6 +1,7 @@
 'use client'
 
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
+import { env } from '@codebuff/internal/env'
 import { Info, Settings } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
@@ -47,9 +48,7 @@ const nameOverrides = {
 
 // Choose user list based on environment
 const suggestedUsers =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-    ? localUsers
-    : productionUsers
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' ? localUsers : productionUsers
 
 type Result = {
   timestamp: string

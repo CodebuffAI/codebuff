@@ -1,6 +1,6 @@
-import { env } from '@codebuff/internal'
 import db from '@codebuff/internal/db'
 import { user } from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/internal/env'
 import { Client, Events, GatewayIntentBits } from 'discord.js'
 import { eq, or } from 'drizzle-orm'
 

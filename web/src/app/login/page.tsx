@@ -1,6 +1,6 @@
 'use server'
 
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/internal/env'
 
 import { LoginCard } from '@/components/login/login-card'
 import {

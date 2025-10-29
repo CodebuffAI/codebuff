@@ -33,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useOrganizationData } from '@/hooks/use-organization-data'
+import { env } from '@codebuff/internal/env'
 
 export default function OrganizationPage() {
   const { data: session, status } = useSession()
@@ -93,7 +94,7 @@ export default function OrganizationPage() {
 
       // Redirect to Stripe Checkout
       const stripe = await loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+        env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
       )
 
       if (stripe) {

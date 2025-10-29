@@ -1,4 +1,4 @@
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/common/env'
 import { PostHog } from 'posthog-node'
 
 import type { AnalyticsEvent } from './constants/analytics-events'

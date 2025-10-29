@@ -1,18 +1,17 @@
 'use client'
 
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/internal/env'
 import { loadStripe } from '@stripe/stripe-js'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
 import { UsageDisplay } from './usage-display'
+
 import { CreditManagementSection } from '@/components/credits/CreditManagementSection'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreditConfetti } from '@/components/ui/credit-confetti'
 import { toast } from '@/components/ui/use-toast'
-import { ProfileSection } from './profile-section'
 
 const ManageCreditsCard = ({ isLoading = false }: { isLoading?: boolean }) => {
   const { data: session } = useSession()

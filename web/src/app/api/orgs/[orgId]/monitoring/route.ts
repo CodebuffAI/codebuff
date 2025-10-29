@@ -1,7 +1,7 @@
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
-import { env } from '@codebuff/internal'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/internal/env'
 import { eq, and, gte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'

@@ -1,3 +1,4 @@
+import { env } from '@codebuff/internal/env'
 import { unstable_cache } from 'next/cache'
 
 // Types
@@ -27,8 +28,7 @@ interface AgentData {
 // Server-side data fetching function with ISR
 export const getAgentsData = unstable_cache(
   async (): Promise<AgentData[]> => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
+    const baseUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
 
     try {
       const response = await fetch(`${baseUrl}/api/agents`, {
