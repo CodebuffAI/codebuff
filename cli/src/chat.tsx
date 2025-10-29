@@ -100,7 +100,6 @@ export const App = ({
   requireAuth,
   hasInvalidCredentials,
   loadedAgentsData,
-  initialToggleState,
 }: {
   initialPrompt: string | null
   agentId?: string
@@ -110,7 +109,6 @@ export const App = ({
     agents: Array<{ id: string; displayName: string }>
     agentsDir: string
   } | null
-  initialToggleState: 'open' | 'closed' | null
 }) => {
   const renderer = useRenderer()
   const { width: measuredWidth } = useTerminalDimensions()
@@ -130,7 +128,6 @@ export const App = ({
 
   const theme = chatTheme
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
-  const shouldCollapseByDefault = initialToggleState !== 'open'
 
   const [exitWarning, setExitWarning] = useState<string | null>(null)
   const exitArmedRef = useRef(false)
@@ -241,13 +238,11 @@ export const App = ({
         timestamp: new Date().toISOString(),
       }
 
-      // Set as collapsed by default unless forced open
-      if (shouldCollapseByDefault) {
-        setCollapsedAgents((prev) => new Set([...prev, agentListId]))
-      }
+      // Set as collapsed by default
+      setCollapsedAgents((prev) => new Set([...prev, agentListId]))
       setMessages([initialMessage])
     }
-  }, [loadedAgentsData, theme, shouldCollapseByDefault]) // Only run when loadedAgentsData changes
+  }, [loadedAgentsData, theme]) // Only run when loadedAgentsData changes
 
   const {
     inputValue,

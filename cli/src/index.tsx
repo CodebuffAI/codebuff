@@ -37,7 +37,6 @@ type ParsedArgs = {
   initialPrompt: string | null
   agent?: string
   clearLogs: boolean
-  toggleState: 'open' | 'closed' | null
 }
 
 function parseArgs(): ParsedArgs {
@@ -52,10 +51,6 @@ function parseArgs(): ParsedArgs {
       'Specify which agent to use (e.g., "base", "ask", "file-picker")',
     )
     .option('--clear-logs', 'Remove any existing CLI log files before starting')
-    .option(
-      '--toggle <state>',
-      'Force initial toggle state (open | closed)',
-    )
     .helpOption('-h, --help', 'Show this help message')
     .argument('[prompt...]', 'Initial prompt to send to the agent')
     .allowExcessArguments(true)
@@ -68,18 +63,10 @@ function parseArgs(): ParsedArgs {
     initialPrompt: args.length > 0 ? args.join(' ') : null,
     agent: options.agent,
     clearLogs: options.clearLogs || false,
-    toggleState:
-      typeof options.toggle === 'string'
-        ? options.toggle.trim().toLowerCase() === 'open'
-          ? 'open'
-          : options.toggle.trim().toLowerCase() === 'closed'
-            ? 'closed'
-            : null
-        : null,
   }
 }
 
-const { initialPrompt, agent, clearLogs, toggleState } = parseArgs()
+const { initialPrompt, agent, clearLogs } = parseArgs()
 
 if (clearLogs) {
   clearLogFile()
@@ -135,7 +122,6 @@ const AppWithAsyncAuth = () => {
       requireAuth={requireAuth}
       hasInvalidCredentials={hasInvalidCredentials}
       loadedAgentsData={loadedAgentsData}
-      initialToggleState={toggleState}
     />
   )
 }
