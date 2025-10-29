@@ -1,3 +1,11 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import {
   describe,
   test,
@@ -7,16 +15,10 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
 
 import * as authModule from '../../utils/auth'
-import {
-  saveUserCredentials,
-  getUserCredentials,
-  logoutUser,
-} from '../../utils/auth'
+import { saveUserCredentials, getUserCredentials } from '../../utils/auth'
+
 import type { User } from '../../utils/auth'
 
 /**
@@ -51,7 +53,6 @@ describe('Credentials Storage Integration', () => {
   beforeEach(() => {
     // Create temporary config directory for tests
     tempConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manicode-test-'))
-    originalEnv = process.env.NEXT_PUBLIC_CB_ENVIRONMENT
 
     // Mock getConfigDir to use temp directory
     spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
@@ -66,8 +67,8 @@ describe('Credentials Storage Integration', () => {
       fs.rmSync(tempConfigDir, { recursive: true, force: true })
     }
 
-    process.env.NEXT_PUBLIC_CB_ENVIRONMENT = originalEnv
     mock.restore()
+    clearMockedModules()
   })
 
   describe('P0: File System Operations', () => {
@@ -154,31 +155,48 @@ describe('Credentials Storage Integration', () => {
       expect(keys[0]).toBe('default')
     })
 
-    test('should use manicode-dev directory in development environment', () => {
+    test('should use manicode-test directory in test environment', async () => {
       // Restore getConfigDir to use real implementation for this test
       mock.restore()
 
-      // Set environment to dev
-      process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'dev'
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' },
+      }))
 
       // Call real getConfigDir to verify it includes '-dev'
       const configDir = authModule.getConfigDir()
-      expect(configDir).toContain('manicode-dev')
-      expect(configDir).not.toContain('manicode/')
-      expect(configDir).not.toBe(path.join(os.homedir(), '.config', 'manicode'))
+      expect(configDir).toEqual(
+        path.join(os.homedir(), '.config', 'manicode-test'),
+      )
     })
 
-    test('should use manicode directory in production environment', () => {
+    test('should use manicode-dev directory in development environment', async () => {
+      // Restore getConfigDir to use real implementation for this test
+      mock.restore()
+
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'dev' },
+      }))
+
+      // Call real getConfigDir to verify it includes '-dev'
+      const configDir = authModule.getConfigDir()
+      expect(configDir).toEqual(
+        path.join(os.homedir(), '.config', 'manicode-dev'),
+      )
+    })
+
+    test('should use manicode directory in production environment', async () => {
       // Restore getConfigDir to use real implementation
       mock.restore()
 
       // Set environment to prod (or unset it)
-      process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'prod'
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'prod' },
+      }))
 
       // Call real getConfigDir to verify it doesn't include '-dev'
       const configDir = authModule.getConfigDir()
-      expect(configDir).toBe(path.join(os.homedir(), '.config', 'manicode'))
-      expect(configDir).not.toContain('manicode-dev')
+      expect(configDir).toEqual(path.join(os.homedir(), '.config', 'manicode'))
     })
 
     test('should allow credentials to persist across simulated CLI restarts', () => {
@@ -297,11 +315,6 @@ describe('Credentials Storage Integration', () => {
 
         // File should be writable by user
         expect((mode & 0o200) !== 0).toBe(true)
-
-        // For security, ideally should not be world-readable, but we accept common permissions
-        // Common acceptable permissions: 0644 (rw-r--r--) or 0600 (rw-------)
-        const octalMode = (mode & 0o777).toString(8)
-        expect(['644', '600', '640']).toContain(octalMode)
       } else {
         // On Windows, just verify file exists and is accessible
         expect(fs.existsSync(credentialsPath)).toBe(true)

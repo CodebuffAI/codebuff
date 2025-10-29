@@ -32,7 +32,7 @@ describe('Auto Top-up System', () => {
       warn: () => {},
     }
 
-    beforeAll(() => {
+    beforeAll(async () => {
       // Set up default mocks
       dbMock = mock(() =>
         Promise.resolve({
@@ -45,7 +45,7 @@ describe('Auto Top-up System', () => {
       )
 
       // Mock the database
-      mockModule('@codebuff/internal/db', () => ({
+      await mockModule('@codebuff/internal/db', () => ({
         default: {
           query: {
             user: {
@@ -61,7 +61,7 @@ describe('Auto Top-up System', () => {
       }))
 
       // Mock Stripe payment intent creation
-      mockModule('@codebuff/internal/util/stripe', () => ({
+      await mockModule('@codebuff/internal/util/stripe', () => ({
         stripeServer: {
           paymentIntents: {
             create: mock(() =>

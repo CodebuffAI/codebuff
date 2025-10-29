@@ -1,5 +1,4 @@
 import { withTimeout } from '@codebuff/common/util/promise'
-import { env } from '@codebuff/internal/env'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
@@ -64,7 +63,7 @@ export async function searchLibraries(params: {
     const response = await withTimeout(
       fetch(url, {
         headers: {
-          Authorization: `Bearer ${env.CONTEXT7_API_KEY}`,
+          Authorization: `Bearer ${process.env['CONTEXT7_API_KEY']}`,
         },
       }),
       FETCH_TIMEOUT_MS,
@@ -197,7 +196,7 @@ export async function fetchContext7LibraryDocumentation(
     const response = await withTimeout(
       fetch(url, {
         headers: {
-          Authorization: `Bearer ${env.CONTEXT7_API_KEY}`,
+          Authorization: `Bearer ${process.env['CONTEXT7_API_KEY']}`,
           'X-Context7-Source': 'codebuff',
         },
       }),

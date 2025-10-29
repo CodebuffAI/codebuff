@@ -1,5 +1,5 @@
 import { withTimeout } from '@codebuff/common/util/promise'
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/common/env'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -32,6 +32,10 @@ export async function searchWeb(options: {
   const { query, depth = 'standard', logger, fetch } = options
   const apiStartTime = Date.now()
 
+  if (!process.env.LINKUP_API_KEY) {
+    return 'No API key found. Please set LINKUP_API_KEY in your environment.'
+  }
+
   const requestBody = {
     q: query,
     depth,
@@ -53,7 +57,7 @@ export async function searchWeb(options: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${env.LINKUP_API_KEY}`,
+          Authorization: `Bearer ${process.env.LINKUP_API_KEY}`,
         },
         body: JSON.stringify(requestBody),
       }),

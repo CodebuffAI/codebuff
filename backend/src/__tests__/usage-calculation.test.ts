@@ -17,9 +17,9 @@ describe('Usage Calculation System', () => {
     warn: () => {},
   }
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Mock the database module before importing the function
-    mockModule('@codebuff/internal/db', () => ({
+    await mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -61,7 +61,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module with the test data
-    mockModule('@codebuff/internal/db', () => ({
+    await  mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -98,7 +98,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module with the test data
-    mockModule('@codebuff/internal/db', () => ({
+    await mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -145,7 +145,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module with the test data
-    mockModule('@codebuff/internal/db', () => ({
+    await mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -201,7 +201,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module with the test data
-    mockModule('@codebuff/internal/db', () => ({
+    await mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({

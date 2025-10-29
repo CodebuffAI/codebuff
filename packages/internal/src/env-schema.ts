@@ -1,6 +1,7 @@
-import z from 'zod'
+import { clientEnvSchema } from '@codebuff/common/env-schema'
+import z from 'zod/v4'
 
-export const serverEnvSchema = {
+export const serverEnvSchema = clientEnvSchema.extend({
   // Backend variables
   CODEBUFF_API_KEY: z.string().optional(),
   OPEN_ROUTER_API_KEY: z.string().min(1),
@@ -15,7 +16,7 @@ export const serverEnvSchema = {
   GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
   CODEBUFF_GITHUB_ID: z.string().min(1),
   CODEBUFF_GITHUB_SECRET: z.string().min(1),
-  NEXTAUTH_URL: z.string().url().optional(),
+  NEXTAUTH_URL: z.url().optional(),
   NEXTAUTH_SECRET: z.string().min(1),
   STRIPE_SECRET_KEY: z.string().min(1),
   STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
@@ -28,17 +29,10 @@ export const serverEnvSchema = {
 
   // Common variables
   API_KEY_ENCRYPTION_SECRET: z.string().length(32),
+})
+export const serverEnvVars = serverEnvSchema.keyof().options
+export type ServerEnvVar = (typeof serverEnvVars)[number]
+export type ServerInput = {
+  [K in (typeof serverEnvVars)[number]]: string | undefined
 }
-export const clientEnvSchema = {
-  NEXT_PUBLIC_CB_ENVIRONMENT: z.string().min(1),
-  NEXT_PUBLIC_CODEBUFF_APP_URL: z.string().url().min(1),
-  NEXT_PUBLIC_CODEBUFF_BACKEND_URL: z.string().min(1),
-  NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().min(1),
-  NEXT_PUBLIC_POSTHOG_API_KEY: z.string().optional().default(''),
-  NEXT_PUBLIC_POSTHOG_HOST_URL: z.string().url().optional(),
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
-  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.string().url().min(1),
-  NEXT_PUBLIC_LINKEDIN_PARTNER_ID: z.string().optional(),
-  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
-  NEXT_PUBLIC_WEB_PORT: z.coerce.number().min(1000).optional().default(3000),
-}
+export type ServerEnv = z.infer<typeof serverEnvSchema>

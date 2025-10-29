@@ -15,7 +15,7 @@ import {
   sendSubagentChunkWs,
 } from '@codebuff/backend/client-wrapper'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { API_KEY_ENV_VAR, TEST_USER_ID } from '@codebuff/common/old-constants'
 import { mockModule } from '@codebuff/common/testing/mock-modules'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { handleToolCall } from '@codebuff/npm-app/tool-handlers'
@@ -76,8 +76,8 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
 
 let toolCalls: ClientToolCall[] = []
 let toolResults: ToolResultPart[] = []
-export function createFileReadingMock(projectRoot: string) {
-  mockModule('@codebuff/backend/websockets/websocket-action', () => ({
+export async function createFileReadingMock(projectRoot: string) {
+  await mockModule('@codebuff/backend/websockets/websocket-action', () => ({
     requestFiles: ((params: { ws: WebSocket; filePaths: string[] }) => {
       const files: Record<string, string | null> = {}
       for (const filePath of params.filePaths) {
@@ -200,7 +200,7 @@ export async function runAgentStepScaffolding(
     sendSubagentChunk: (params) =>
       sendSubagentChunkWs({ ...params, ws: mockWs }),
     sendAction: (params) => sendActionWs({ ...params, ws: mockWs }),
-    apiKey: process.env.CODEBUFF_API_KEY ?? '',
+    apiKey: process.env[API_KEY_ENV_VAR] ?? '',
   }
   const result = await runAgentStep({
     ...EVALS_AGENT_RUNTIME_IMPL,

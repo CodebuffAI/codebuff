@@ -3,7 +3,7 @@ import path from 'path'
 import { format } from 'util'
 
 import { splitData } from '@codebuff/common/util/split-data'
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/internal/env'
 import pino from 'pino'
 
 import {
@@ -28,7 +28,7 @@ export const withLoggerContext = <T>(
 const debugDir = path.join(__dirname, '../../../debug')
 if (
   env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
-  process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
+  process.env['CODEBUFF_GITHUB_ACTIONS'] !== 'true'
 ) {
   try {
     mkdirSync(debugDir, { recursive: true })
@@ -52,7 +52,7 @@ const pinoLogger = pino(
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
   env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
-    process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
+    process.env['CODEBUFF_GITHUB_ACTIONS'] !== 'true'
     ? pino.transport({
         target: 'pino/file',
         options: {
@@ -95,7 +95,7 @@ function splitAndLog(
 }
 
 export const logger: Record<LogLevel, pino.LogFn> =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
     ? pinoLogger
     : (Object.fromEntries(
         loggingLevels.map((level) => {

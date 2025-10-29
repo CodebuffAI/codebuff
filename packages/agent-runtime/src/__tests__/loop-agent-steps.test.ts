@@ -40,11 +40,11 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   let llmCallCount: number
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
-  beforeAll(() => {
+  beforeAll(async () => {
     disableLiveUserInputCheck()
 
     // Mock bigquery
-    mockModule('@codebuff/bigquery', () => ({
+    await mockModule('@codebuff/bigquery', () => ({
       insertTrace: () => {},
     }))
   })
