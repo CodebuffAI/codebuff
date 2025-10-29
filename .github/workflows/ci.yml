@@ -43,6 +43,7 @@ jobs:
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
         run: |
+          echo $NEXT_PUBLIC_CB_ENVIRONMENT
           VAR_NAMES=$(bun scripts/generate-ci-env.ts)
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
