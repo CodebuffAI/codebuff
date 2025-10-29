@@ -83,6 +83,24 @@ describe('markdown renderer', () => {
     expect(flattenChildren(heading.props.children)).toEqual(['Heading One'])
   })
 
+  test('renders inline emphasis inside headings without extra spacing', () => {
+    const output = renderMarkdown(
+      '# Other**.github/** - GitHub workflows and config',
+    )
+    const nodes = flattenNodes(output)
+
+    const heading = nodes[0] as React.ReactElement
+    const contents = flattenChildren(heading.props.children)
+
+    expect(contents[0]).toBe('Other')
+
+    const strong = contents[1] as React.ReactElement
+    expect(strong.props.attributes).toBe(TextAttributes.BOLD)
+    expect(flattenChildren(strong.props.children)).toEqual(['.github/'])
+
+    expect(contents[2]).toBe(' - GitHub workflows and config')
+  })
+
   test('renders blockquotes with prefix', () => {
     const output = renderMarkdown('> note')
     const nodes = flattenNodes(output)
