@@ -1,5 +1,6 @@
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 import { publisher } from '../../constants'
+import { ToolCall } from 'types/agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'base2-best-of-n-editor',
@@ -9,7 +10,7 @@ const definition: SecretAgentDefinition = {
   spawnerPrompt:
     'Parses the selected implementation and applies all code changes',
 
-  toolNames: ['str_replace', 'write_file'],
+  toolNames: ['str_replace', 'write_file', 'set_output'],
   spawnableAgents: [],
 
   inputSchema: {
@@ -18,9 +19,9 @@ const definition: SecretAgentDefinition = {
       description: '',
     },
   },
-  outputMode: 'last_message',
+  outputMode: 'structured_output',
 
-  instructionsPrompt: `You are the best-of-n editor agent. You have been provided with a selected implementation.
+  instructionsPrompt: `You are an editor agent. You have been provided with a selected implementation.
 
 The implementation contains tool calls in the following format:
 
@@ -51,6 +52,42 @@ Your task is to:
 IMPORTANT: You must execute ALL tool calls from the implementation. Do not skip any changes.
 
 After completing the tool calls with tool results that confirm the changes were applied, please end your turn and do not write anything else.`,
+
+  handleSteps: function* () {
+    const { agentState } = yield 'STEP'
+    const { messageHistory } = agentState
+
+    const assistantMessage = messageHistory.findLast(
+      (message) => message.role === 'assistant',
+    )
+    const response = assistantMessage
+      ? typeof assistantMessage.content === 'string'
+        ? assistantMessage.content
+        : assistantMessage.content
+            .filter((content) => content.type === 'text')
+            .map((content) => content.text)
+            .join('\n')
+      : ''
+
+    const toolResults = messageHistory
+      .filter((message) => message.role === 'tool')
+      .filter(
+        (message) =>
+          message.content.toolName === 'str_replace' ||
+          message.content.toolName === 'write_file',
+      )
+      .flatMap((message) => message.content.output)
+      .filter((output) => output.type === 'json')
+      .map((output) => output.value)
+
+    yield {
+      toolName: 'set_output',
+      input: {
+        response,
+        toolResults,
+      },
+    } satisfies ToolCall<'set_output'>
+  },
 }
 
 export default definition

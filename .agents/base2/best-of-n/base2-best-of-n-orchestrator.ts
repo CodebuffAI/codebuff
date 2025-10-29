@@ -1,5 +1,6 @@
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 import { publisher } from '../../constants'
+import { ToolCall } from 'types/agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'base2-best-of-n-orchestrator',
@@ -64,7 +65,7 @@ const definition: SecretAgentDefinition = {
           },
         ],
       },
-    }
+    } satisfies ToolCall<'spawn_agents'>
 
     // Extract chosen implementation from selector output
     const selectorOutput =
@@ -85,12 +86,12 @@ const definition: SecretAgentDefinition = {
       yield {
         toolName: 'set_output',
         input: { error: 'Failed to choose an implementation.' },
-      }
+      } satisfies ToolCall<'set_output'>
       return
     }
 
     // Spawn editor to apply the chosen implementation
-    yield {
+    const { toolResult: editorResults } = yield {
       toolName: 'spawn_agents',
       input: {
         agents: [
@@ -102,13 +103,23 @@ const definition: SecretAgentDefinition = {
       },
     }
 
+    const spawnedEditorResult = (editorResults ?? [])
+      .filter((result) => result.type === 'json')
+      .map((result) => result.value)
+      .flat()[0] as {
+      agentType: string
+      value: { value: { response: string; toolResults: any[] } }
+    }
+    const { response, toolResults } = spawnedEditorResult.value.value
+
     // Set output with the chosen implementation and reasoning
     yield {
       toolName: 'set_output',
       input: {
-        implementation: chosenImplementation.content,
+        response,
+        toolResults,
       },
-    }
+    } satisfies ToolCall<'set_output'>
   },
 }
 
