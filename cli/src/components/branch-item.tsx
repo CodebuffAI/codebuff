@@ -150,7 +150,7 @@ export const BranchItem = ({
         gap: 0,
         flexShrink: 0,
         marginTop: 1,
-        marginBottom: 1,
+        marginBottom: 0,
       }}
     >
       <box style={{ flexDirection: 'column', gap: 0 }}>
@@ -188,7 +188,7 @@ export const BranchItem = ({
             </text>
           )}
           {!isCollapsed && (
-            <box style={{ flexDirection: 'column', gap: 1 }}>
+            <box style={{ flexDirection: 'column', gap: 0 }}>
               {content && (
                 <box
                   border
@@ -220,7 +220,7 @@ export const BranchItem = ({
                 frameColor={collapseButtonFrame}
                 textColor={collapseButtonText}
                 onPress={onToggle}
-                style={{ alignSelf: 'flex-end', marginTop: 1 }}
+                style={{ alignSelf: 'flex-end' }}
               />
             </box>
           )}
