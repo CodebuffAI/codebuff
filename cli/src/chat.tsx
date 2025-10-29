@@ -1,10 +1,21 @@
+import { TextAttributes } from '@opentui/core'
 import { useRenderer, useTerminalDimensions } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import open from 'open'
+import path from 'path'
+import React, {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import stringWidth from 'string-width'
 import { useShallow } from 'zustand/react/shallow'
 
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { LoginModal } from './components/login-modal'
+import { TerminalLink } from './components/terminal-link'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -55,7 +66,18 @@ type AgentMessage = {
 }
 
 export type ContentBlock =
-  | { type: 'text'; content: string }
+  | {
+      type: 'text'
+      content: string
+      marginTop?: number
+      marginBottom?: number
+    }
+  | {
+      type: 'html'
+      marginTop?: number
+      marginBottom?: number
+      render: (context: { textColor: string; theme: ChatTheme }) => ReactNode
+    }
   | {
       type: 'tool'
       toolCallId: string
@@ -101,6 +123,7 @@ export const App = ({
   requireAuth,
   hasInvalidCredentials,
   loadedAgentsData,
+  validationErrors,
 }: {
   initialPrompt: string | null
   agentId?: string
@@ -110,6 +133,7 @@ export const App = ({
     agents: Array<{ id: string; displayName: string }>
     agentsDir: string
   } | null
+  validationErrors: Array<{ id: string; message: string }>
 }) => {
   const renderer = useRenderer()
   const { width: measuredWidth } = useTerminalDimensions()
@@ -215,19 +239,141 @@ export const App = ({
         })
       }
 
-      blocks.push(
-        {
+      blocks.push({
+        type: 'text',
+        content:
+          'Codebuff can read and write files in this repository, and run terminal commands to help you build.',
+      })
+
+      // Add validation errors if any exist
+      if (validationErrors.length > 0) {
+        const errorCount = validationErrors.length
+        const errorHeader =
+          errorCount === 1
+            ? '**⚠️  1 agent has validation issues**'
+            : `**⚠️  ${errorCount} agents have validation issues**`
+
+        // Add header
+        blocks.push({
           type: 'text',
-          content:
-            'Codebuff can read and write files in this repository, and run terminal commands to help you build.',
-        },
-        {
-          type: 'agent-list',
-          id: agentListId,
-          agents: loadedAgentsData.agents,
-          agentsDir: loadedAgentsData.agentsDir,
-        },
-      )
+          content: `\n${errorHeader}`,
+        })
+
+        // Add each error as a separate, nicely formatted block
+        const agentInfoById = new Map(
+          loadedAgentsData.agents.map((agent) => [agent.id, agent]),
+        )
+
+        const normalizeRelativePath = (filePath: string): string => {
+          const relativeToAgentsDir = path.relative(
+            loadedAgentsData.agentsDir,
+            filePath,
+          )
+          const normalized = relativeToAgentsDir.replace(/\\/g, '/')
+          return `.agents/${normalized}`
+        }
+
+        validationErrors.forEach((error, errorIndex) => {
+          // Extract just the key error message, removing verbose schema details
+          let message = error.message
+            .replace(/Agent "[^"]+"\s*(?:\([^)]+\))?\s*:\s*/, '')
+            .replace(/Schema validation failed:\s*/i, '')
+            .trim()
+
+          // If message starts with JSON array, extract first error
+          if (message.startsWith('[')) {
+            try {
+              const errors = JSON.parse(message)
+              if (Array.isArray(errors) && errors.length > 0) {
+                const firstError = errors[0]
+                // Get the field path and message
+                const field = firstError.path?.join('.') || 'field'
+                message = `${field}: ${firstError.message}`
+              }
+            } catch {
+              // Keep original message if parsing fails
+            }
+          }
+
+          // Clean up common validation messages to be more user-friendly
+          message = message
+            .replace(/Invalid input: expected (\w+), received (\w+)/i, 'Expected $1, got $2')
+            .replace(/Agent ID must contain only lowercase letters, numbers, and hyphens/i, 'ID must be lowercase with hyphens only')
+            .replace(/Cannot specify both (\w+) and (\w+)\..*/i, 'Cannot use both $1 and $2')
+
+          // Take first line only and limit length
+          message = message.split('\n')[0]
+          if (message.length > 80) {
+            message = message.substring(0, 77) + '...'
+          }
+
+          const agentId = error.id.replace(/_\d+$/, '')
+          const agentInfo = agentInfoById.get(agentId)
+          const relativePath = agentInfo
+            ? normalizeRelativePath(agentInfo.filePath)
+            : null
+
+          const fieldMatch = message.match(/^([^:]+):\s*(.+)$/)
+          const fieldName = fieldMatch ? fieldMatch[1] : null
+          const errorBody = fieldMatch ? fieldMatch[2] : message
+
+          blocks.push({
+            type: 'html',
+            marginTop: errorIndex === 0 ? 1 : 0,
+            render: ({ textColor }) => (
+              <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
+                <text wrap style={{ fg: textColor }}>
+                  <span attributes={TextAttributes.BOLD}>{agentId}</span>
+                </text>
+                {relativePath ? (
+                  <TerminalLink
+                    text={`(${relativePath})`}
+                    containerStyle={{
+                      width: 'auto',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                    formatLines={(text) => [text]}
+                  />
+                ) : null}
+              </box>
+            ),
+          })
+
+          blocks.push({
+            type: 'html',
+            marginBottom: 1,
+            render: ({ textColor }) => (
+              <text wrap style={{ fg: textColor, marginLeft: 2 }}>
+                {fieldName ? (
+                  <>
+                    <span attributes={TextAttributes.ITALIC}>
+                      {`${fieldName}:`}
+                    </span>{' '}
+                    {errorBody}
+                  </>
+                ) : (
+                  errorBody
+                )}
+              </text>
+            ),
+          })
+        })
+
+        // Add closing instruction
+        blocks.push({
+          type: 'text',
+          content: '*Fix these in your .agents directory.*',
+          marginTop: 1,
+        })
+      }
+
+      blocks.push({
+        type: 'agent-list',
+        id: agentListId,
+        agents: loadedAgentsData.agents,
+        agentsDir: loadedAgentsData.agentsDir,
+      })
 
       const initialMessage: ChatMessage = {
         id: `system-loaded-agents-${Date.now()}`,

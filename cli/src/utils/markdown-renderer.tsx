@@ -1,3 +1,5 @@
+import { TextAttributes } from '@opentui/core'
+import React from 'react'
 import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 
@@ -7,14 +9,18 @@ import type {
   Blockquote,
   Code,
   Content,
+  Emphasis,
   Heading,
   InlineCode,
+  Link,
   List,
   ListItem,
   Paragraph,
   Root,
+  Strong,
   Text,
 } from 'mdast'
+import type { ReactNode } from 'react'
 
 export interface MarkdownPalette {
   inlineCodeFg: string
@@ -31,6 +37,7 @@ export interface MarkdownPalette {
 
 export interface MarkdownRenderOptions {
   palette?: Partial<MarkdownPalette>
+  codeBlockWidth?: number
 }
 
 const defaultPalette: MarkdownPalette = {
@@ -80,7 +87,95 @@ const resolvePalette = (
 
 const processor = unified().use(remarkParse)
 
-function nodeToPlainText(node: Content | Root): string {
+type MarkdownNode = Content | Root
+
+interface RenderState {
+  palette: MarkdownPalette
+  codeBlockWidth: number
+  nextKey: () => string
+}
+
+const createRenderState = (
+  palette: MarkdownPalette,
+  codeBlockWidth: number,
+): RenderState => {
+  let counter = 0
+  return {
+    palette,
+    codeBlockWidth,
+    nextKey: () => {
+      counter += 1
+      return `markdown-${counter}`
+    },
+  }
+}
+
+const flattenChildren = (lists: ReactNode[][]): ReactNode[] => {
+  const flattened: ReactNode[] = []
+  for (const list of lists) {
+    for (const item of list) {
+      if (item === null || item === undefined || item === false) {
+        continue
+      }
+      flattened.push(item)
+    }
+  }
+  return flattened
+}
+
+const trimTrailingWhitespaceNodes = (nodes: ReactNode[]): ReactNode[] => {
+  let end = nodes.length
+  while (end > 0) {
+    const value = nodes[end - 1]
+    if (typeof value === 'string' && value.trim().length === 0) {
+      end -= 1
+      continue
+    }
+    break
+  }
+  if (end === nodes.length) {
+    return nodes
+  }
+  return nodes.slice(0, end)
+}
+
+const trimTrailingBreaks = (nodes: ReactNode[]): ReactNode[] => {
+  let end = nodes.length
+  while (end > 0) {
+    const value = nodes[end - 1]
+    if (typeof value === 'string' && (value === '\n' || value === '\n\n')) {
+      end -= 1
+      continue
+    }
+    break
+  }
+  if (end === nodes.length) {
+    return nodes
+  }
+  return nodes.slice(0, end)
+}
+
+const splitNodesByNewline = (nodes: ReactNode[]): ReactNode[][] => {
+  const lines: ReactNode[][] = [[]]
+  nodes.forEach((node) => {
+    if (typeof node === 'string') {
+      const parts = node.split('\n')
+      parts.forEach((part, idx) => {
+        if (part.length > 0) {
+          lines[lines.length - 1].push(part)
+        }
+        if (idx < parts.length - 1) {
+          lines.push([])
+        }
+      })
+    } else {
+      lines[lines.length - 1].push(node)
+    }
+  })
+  return lines
+}
+
+const nodeToPlainText = (node: MarkdownNode): string => {
   switch (node.type) {
     case 'root':
       return (node as Root).children.map(nodeToPlainText).join('')
@@ -93,8 +188,14 @@ function nodeToPlainText(node: Content | Root): string {
     case 'text':
       return (node as Text).value
 
+    case 'strong':
+      return (node as Strong).children.map(nodeToPlainText).join('')
+
+    case 'emphasis':
+      return (node as Emphasis).children.map(nodeToPlainText).join('')
+
     case 'inlineCode':
-      return `\`${(node as InlineCode).value}\``
+      return (node as InlineCode).value
 
     case 'heading': {
       const heading = node as Heading
@@ -108,7 +209,7 @@ function nodeToPlainText(node: Content | Root): string {
       return (
         list.children
           .map((item, idx) => {
-            const marker = list.ordered ? `${idx + 1}. ` : '- '
+            const marker = list.ordered ? `${(list.start ?? 1) + idx}. ` : '- '
             const text = (item as ListItem).children
               .map(nodeToPlainText)
               .join('')
@@ -138,22 +239,378 @@ function nodeToPlainText(node: Content | Root): string {
       return `${header}${code.value}\n\`\`\`\n\n`
     }
 
-    default:
+    case 'break':
+      return '\n'
+
+    case 'thematicBreak':
+      return '---\n\n'
+
+    case 'link': {
+      const link = node as Link
+      const label =
+        link.children.length > 0
+          ? link.children.map(nodeToPlainText).join('')
+          : link.url
+      return label
+    }
+
+    default: {
+      const anyNode = node as any
+      if (Array.isArray(anyNode.children)) {
+        return (anyNode.children as MarkdownNode[])
+          .map(nodeToPlainText)
+          .join('')
+      }
       return ''
+    }
   }
+}
+
+const renderNodes = (
+  children: MarkdownNode[],
+  state: RenderState,
+  parentType: MarkdownNode['type'],
+): ReactNode[] => {
+  const results: ReactNode[] = []
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index]
+    const nextSibling = children[index + 1] as MarkdownNode | undefined
+    results.push(...renderNode(child, state, parentType, nextSibling))
+  }
+  return results
+}
+
+const renderCodeBlock = (code: Code, state: RenderState): ReactNode[] => {
+  const { palette, nextKey } = state
+  const lines = code.value.split('\n')
+  const nodes: ReactNode[] = []
+
+  if (code.lang) {
+    nodes.push(
+      <span key={nextKey()} fg={palette.codeHeaderFg}>
+        {`// ${code.lang}`}
+      </span>,
+      '\n',
+    )
+  }
+
+  lines.forEach((line, index) => {
+    const displayLine = line === '' ? ' ' : line
+    nodes.push(
+      <span
+        key={nextKey()}
+        fg={palette.codeTextFg}
+        bg={palette.codeMonochrome ? undefined : palette.codeBackground}
+      >
+        {displayLine}
+      </span>,
+    )
+    if (index < lines.length - 1) {
+      nodes.push('\n')
+    }
+  })
+
+  nodes.push('\n\n')
+  return nodes
+}
+
+const renderBlockquote = (
+  blockquote: Blockquote,
+  state: RenderState,
+): ReactNode[] => {
+  const { palette, nextKey } = state
+  const childNodes = renderNodes(
+    blockquote.children as MarkdownNode[],
+    state,
+    blockquote.type,
+  )
+  const lines = splitNodesByNewline(childNodes)
+  const nodes: ReactNode[] = []
+
+  lines.forEach((line, index) => {
+    if (line.length === 0) {
+      return
+    }
+    nodes.push(
+      <span key={nextKey()} fg={palette.blockquoteBorderFg}>
+        {'> '}
+      </span>,
+    )
+    nodes.push(
+      <span key={nextKey()} fg={palette.blockquoteTextFg}>
+        {line.map((segment, idx) => (
+          <React.Fragment key={nextKey() + '-' + idx}>{segment}</React.Fragment>
+        ))}
+      </span>,
+    )
+    if (index < lines.length - 1) {
+      nodes.push('\n')
+    }
+  })
+
+  nodes.push('\n\n')
+  return nodes
+}
+
+const renderList = (list: List, state: RenderState): ReactNode[] => {
+  const { palette, nextKey } = state
+  const nodes: ReactNode[] = []
+  const start = list.start ?? 1
+
+  list.children.forEach((item, idx) => {
+    const listItem = item as ListItem
+    const marker =
+      listItem.checked === true
+        ? '[x] '
+        : listItem.checked === false
+          ? '[ ] '
+          : list.ordered
+            ? `${start + idx}. `
+            : '- '
+
+    nodes.push(
+      <span key={nextKey()} fg={palette.listBulletFg}>
+        {marker}
+      </span>,
+    )
+
+    const itemNodes = trimTrailingBreaks(
+      renderNodes(listItem.children as MarkdownNode[], state, listItem.type),
+    )
+    if (itemNodes.length === 0) {
+      nodes.push('\n')
+    } else {
+      nodes.push(
+        <React.Fragment key={nextKey()}>
+          {itemNodes.map((segment, segmentIdx) => (
+            <React.Fragment key={nextKey() + '-' + segmentIdx}>
+              {segment}
+            </React.Fragment>
+          ))}
+        </React.Fragment>,
+      )
+      nodes.push('\n')
+    }
+  })
+
+  if (nodes.length > 0) {
+    nodes.push('\n')
+  }
+
+  return nodes
+}
+
+const renderHeading = (heading: Heading, state: RenderState): ReactNode[] => {
+  const { palette, nextKey } = state
+  const depth = Math.max(1, Math.min(heading.depth, 6))
+  const color = palette.headingFg[depth] ?? palette.headingFg[6]
+  const childNodes = renderNodes(
+    heading.children as MarkdownNode[],
+    state,
+    heading.type,
+  )
+
+  return [
+    <span key={nextKey()} fg={color} attributes={TextAttributes.BOLD}>
+      {childNodes.map((segment, idx) => (
+        <React.Fragment key={nextKey() + '-' + idx}>{segment}</React.Fragment>
+      ))}
+    </span>,
+    '\n\n',
+  ]
+}
+
+const renderInlineCode = (
+  inlineCode: InlineCode,
+  state: RenderState,
+): ReactNode[] => {
+  const { palette, nextKey } = state
+  const content = inlineCode.value || ' '
+  return [
+    <span
+      key={nextKey()}
+      fg={palette.inlineCodeFg}
+      bg={palette.codeMonochrome ? undefined : palette.codeBackground}
+    >
+      {` ${content} `}
+    </span>,
+  ]
+}
+
+const renderLink = (link: Link, state: RenderState): ReactNode[] => {
+  const { palette, nextKey } = state
+  const labelNodes = renderNodes(
+    link.children as MarkdownNode[],
+    state,
+    link.type,
+  )
+  const label = labelNodes.length > 0 ? labelNodes : [link.url]
+
+  return [
+    <span key={nextKey()} fg={palette.inlineCodeFg}>
+      {label.map((segment, idx) => (
+        <React.Fragment key={nextKey() + '-' + idx}>{segment}</React.Fragment>
+      ))}
+    </span>,
+  ]
+}
+
+const renderNode = (
+  node: MarkdownNode,
+  state: RenderState,
+  parentType: MarkdownNode['type'],
+  nextSibling?: MarkdownNode,
+): ReactNode[] => {
+  switch (node.type) {
+    case 'root':
+      return renderNodes(
+        (node as Root).children as MarkdownNode[],
+        state,
+        node.type,
+      )
+
+    case 'paragraph': {
+      const children = renderNodes(
+        (node as Paragraph).children as MarkdownNode[],
+        state,
+        node.type,
+      )
+      const nodes = [...children]
+      if (parentType === 'listItem') {
+        nodes.push('\n')
+      } else if (parentType === 'blockquote') {
+        nodes.push('\n')
+      } else {
+        const isTightFollowup =
+          parentType === 'root' &&
+          nextSibling &&
+          (nextSibling.type === 'blockquote' || nextSibling.type === 'list')
+        nodes.push(isTightFollowup ? '\n' : '\n\n')
+      }
+      return nodes
+    }
+
+    case 'text':
+      return [(node as Text).value]
+
+    case 'strong': {
+      const children = renderNodes(
+        (node as Strong).children as MarkdownNode[],
+        state,
+        node.type,
+      )
+      return [
+        <span key={state.nextKey()} attributes={TextAttributes.BOLD}>
+          {children.map((segment, idx) => (
+            <React.Fragment key={state.nextKey() + '-' + idx}>
+              {segment}
+            </React.Fragment>
+          ))}
+        </span>,
+      ]
+    }
+
+    case 'emphasis': {
+      const children = renderNodes(
+        (node as Emphasis).children as MarkdownNode[],
+        state,
+        node.type,
+      )
+      return [
+        <span key={state.nextKey()} attributes={TextAttributes.ITALIC}>
+          {children.map((segment, idx) => (
+            <React.Fragment key={state.nextKey() + '-' + idx}>
+              {segment}
+            </React.Fragment>
+          ))}
+        </span>,
+      ]
+    }
+
+    case 'inlineCode':
+      return renderInlineCode(node as InlineCode, state)
+
+    case 'heading':
+      return renderHeading(node as Heading, state)
+
+    case 'list':
+      return renderList(node as List, state)
+
+    case 'listItem': {
+      return renderNodes(
+        (node as ListItem).children as MarkdownNode[],
+        state,
+        node.type,
+      )
+    }
+
+    case 'blockquote':
+      return renderBlockquote(node as Blockquote, state)
+
+    case 'code':
+      return renderCodeBlock(node as Code, state)
+
+    case 'break':
+      return ['\n']
+
+    case 'thematicBreak': {
+      const width = Math.max(10, Math.min(state.codeBlockWidth, 80))
+      const divider = '─'.repeat(width)
+      return [
+        <span key={state.nextKey()} fg={state.palette.dividerFg}>
+          {divider}
+        </span>,
+        '\n\n',
+      ]
+    }
+
+    case 'link':
+      return renderLink(node as Link, state)
+
+    default: {
+      const fallbackText = nodeToPlainText(node)
+      if (fallbackText) {
+        return [fallbackText]
+      }
+
+      const anyNode = node as any
+      if (Array.isArray(anyNode.children)) {
+        return renderNodes(anyNode.children as MarkdownNode[], state, node.type)
+      }
+
+      return []
+    }
+  }
+}
+
+const normalizeOutput = (nodes: ReactNode[]): ReactNode => {
+  const trimmed = trimTrailingWhitespaceNodes(nodes)
+  if (trimmed.length === 0) {
+    return ''
+  }
+  if (trimmed.length === 1) {
+    return trimmed[0]
+  }
+  return (
+    <>
+      {trimmed.map((node, idx) => (
+        <React.Fragment key={`markdown-out-${idx}`}>{node}</React.Fragment>
+      ))}
+    </>
+  )
 }
 
 export function renderMarkdown(
   markdown: string,
   options: MarkdownRenderOptions = {},
-): string {
+): ReactNode {
   try {
     const palette = resolvePalette(options.palette)
-    void palette // Keep signature compatibility for future color styling
-
-    const ast = processor.parse(markdown)
-    const text = nodeToPlainText(ast).replace(/\s+$/g, '')
-    return text
+    const codeBlockWidth = options.codeBlockWidth ?? 80
+    const state = createRenderState(palette, codeBlockWidth)
+    const ast = processor.parse(markdown) as Root
+    const nodes = renderNode(ast, state, ast.type, undefined)
+    return normalizeOutput(nodes)
   } catch (error) {
     logger.error(error, 'Failed to parse markdown')
     return markdown
@@ -173,10 +630,29 @@ export function hasIncompleteCodeFence(content: string): boolean {
   return fenceCount % 2 === 1
 }
 
+const mergeStreamingSegments = (segments: ReactNode[]): ReactNode => {
+  if (segments.length === 0) {
+    return ''
+  }
+  if (segments.length === 1) {
+    return segments[0]
+  }
+
+  return (
+    <>
+      {segments.map((segment, idx) => (
+        <React.Fragment key={`stream-segment-${idx}`}>
+          {segment}
+        </React.Fragment>
+      ))}
+    </>
+  )
+}
+
 export function renderStreamingMarkdown(
   content: string,
   options: MarkdownRenderOptions = {},
-): string {
+): ReactNode {
   if (!hasMarkdown(content)) {
     return content
   }
@@ -193,15 +669,15 @@ export function renderStreamingMarkdown(
   const completeSection = content.slice(0, lastFenceIndex)
   const pendingSection = content.slice(lastFenceIndex)
 
-  const parts: string[] = []
+  const segments: ReactNode[] = []
 
   if (completeSection.length > 0) {
-    parts.push(renderMarkdown(completeSection, options))
+    segments.push(renderMarkdown(completeSection, options))
   }
 
   if (pendingSection.length > 0) {
-    parts.push(pendingSection)
+    segments.push(pendingSection)
   }
 
-  return parts.join('')
+  return mergeStreamingSegments(segments)
 }

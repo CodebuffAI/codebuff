@@ -344,6 +344,7 @@ export const MessageBlock = ({
             ? renderStreamingMarkdown(rawNestedContent, markdownOptionsForLevel)
             : renderMarkdown(rawNestedContent, markdownOptionsForLevel)
           : rawNestedContent
+        const marginBottom = nestedBlock.marginBottom ?? 0
         nodes.push(
           <text
             key={renderKey}
@@ -351,10 +352,27 @@ export const MessageBlock = ({
             style={{
               fg: theme.agentText,
               marginLeft: Math.max(0, indentLevel * 2),
+              marginBottom,
             }}
           >
             {renderedContent}
           </text>,
+        )
+      } else if (nestedBlock.type === 'html') {
+        const marginTop = nestedBlock.marginTop ?? 0
+        const marginBottom = nestedBlock.marginBottom ?? 0
+        nodes.push(
+          <box
+            key={`${keyPrefix}-html-${nestedIdx}`}
+            style={{
+              flexDirection: 'column',
+              gap: 0,
+              marginTop,
+              marginBottom,
+            }}
+          >
+            {nestedBlock.render({ textColor: theme.agentText, theme })}
+          </box>,
         )
       } else if (nestedBlock.type === 'tool') {
         const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
@@ -417,11 +435,33 @@ export const MessageBlock = ({
                 prevBlock &&
                 (prevBlock.type === 'tool' || prevBlock.type === 'agent')
                   ? 0
-                  : 0
+                  : block.marginTop ?? 0
+              const marginBottom = block.marginBottom ?? 0
               return (
-                <text key={renderKey} wrap style={{ fg: textColor, marginTop }}>
+                <text
+                  key={renderKey}
+                  wrap
+                  style={{ fg: textColor, marginTop, marginBottom }}
+                >
                   {renderedContent}
                 </text>
+              )
+            } else if (block.type === 'html') {
+              const marginTop = block.marginTop ?? 0
+              const marginBottom = block.marginBottom ?? 0
+              return (
+                <box
+                  key={`${messageId}-html-${idx}`}
+                  style={{
+                    flexDirection: 'column',
+                    gap: 0,
+                    marginTop,
+                    marginBottom,
+                    width: '100%',
+                  }}
+                >
+                  {block.render({ textColor, theme })}
+                </box>
               )
             } else if (block.type === 'tool') {
               const isLastBranch = !hasBranchAfter(blocks, idx)

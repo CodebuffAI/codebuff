@@ -26,3 +26,9 @@ export { formatState } from '../../common/src/websockets/websocket-client'
 export type { ReadyState } from '../../common/src/websockets/websocket-client'
 
 export { getUserInfoFromApiKey } from './impl/database'
+
+export { validateAgents } from './validate-agents'
+export type {
+  ValidationResult,
+  ValidateAgentsOptions,
+} from './validate-agents'
