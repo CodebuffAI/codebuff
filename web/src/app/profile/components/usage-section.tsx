@@ -1,6 +1,6 @@
 'use client'
 
-import { env } from '@codebuff/internal/env'
+import { env } from '@codebuff/common/env'
 import { loadStripe } from '@stripe/stripe-js'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'

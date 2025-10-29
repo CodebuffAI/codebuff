@@ -1,7 +1,7 @@
 import { getReferralLink } from '@codebuff/common/util/referral'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { env } from '@codebuff/internal/env'
+import { env } from '@codebuff/common/env'
 import { eq, sql } from 'drizzle-orm'
 
 export type ReferralStatus =

@@ -1,5 +1,6 @@
 'use client'
 
+import { env } from '@codebuff/common/env'
 import { loadStripe } from '@stripe/stripe-js'
 import {
   ArrowLeft,
@@ -33,7 +34,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-import { env } from '@codebuff/internal/env'
 
 export default function OrganizationPage() {
   const { data: session, status } = useSession()
@@ -93,9 +93,7 @@ export default function OrganizationPage() {
       const { sessionId } = await response.json()
 
       // Redirect to Stripe Checkout
-      const stripe = await loadStripe(
-        env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
-      )
+      const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
       if (stripe) {
         const { error } = await stripe.redirectToCheckout({

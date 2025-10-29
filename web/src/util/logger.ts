@@ -2,8 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import { format } from 'util'
 
+import { env } from '@codebuff/common/env'
 import { splitData } from '@codebuff/common/util/split-data'
-import { env } from '@codebuff/internal/env'
 import pino from 'pino'
 
 // --- Constants ---

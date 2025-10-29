@@ -1,4 +1,4 @@
-import { env } from '@codebuff/internal/env'
+import { env } from '@codebuff/common/env'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getServerSession } from 'next-auth'

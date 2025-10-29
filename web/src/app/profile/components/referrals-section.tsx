@@ -1,8 +1,8 @@
 'use client'
 
+import { env } from '@codebuff/common/env'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import { getReferralLink } from '@codebuff/common/util/referral'
-import { env } from '@codebuff/internal/env'
 import { useQuery } from '@tanstack/react-query'
 import { CopyIcon, Forward } from 'lucide-react'
 import { useSession } from 'next-auth/react'
