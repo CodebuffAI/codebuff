@@ -76,5 +76,3 @@ const serverProcessEnv: ServerInput = {
 }
 
 export const env = serverEnvSchema.parse(serverProcessEnv)
-
-console.log({ server: 'env' }, 'asdf')

@@ -31,7 +31,8 @@ export type ClientEnv = z.infer<typeof clientEnvSchema>
 export const clientProcessEnv: ClientInput = {
   NEXT_PUBLIC_CB_ENVIRONMENT: process.env.NEXT_PUBLIC_CB_ENVIRONMENT,
   NEXT_PUBLIC_CODEBUFF_APP_URL: process.env.NEXT_PUBLIC_CODEBUFF_APP_URL,
-  NEXT_PUBLIC_CODEBUFF_BACKEND_URL: process.env.CODEBUFF_BACKEND_URL,
+  NEXT_PUBLIC_CODEBUFF_BACKEND_URL:
+    process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL,
   NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
   NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY,
   NEXT_PUBLIC_POSTHOG_HOST_URL: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
@@ -46,5 +47,3 @@ export const clientProcessEnv: ClientInput = {
 }
 
 export const env = clientEnvSchema.parse(clientProcessEnv)
-
-console.log({ client: 'env' }, 'asdf')
