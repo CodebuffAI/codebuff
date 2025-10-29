@@ -373,6 +373,18 @@ export const App = ({
         agentsDir: loadedAgentsData.agentsDir,
       })
 
+      const agentDisplayId = agentId ?? 'base2-fast'
+      const agentSectionHeader = agentId
+        ? `**Active agent: ${agentId}**`
+        : `**Active agent:** *fast default (base2-fast)*`
+
+      blocks.push({
+        type: 'text',
+        content: agentSectionHeader,
+        marginTop: 1,
+        marginBottom: 0,
+      })
+
       const initialMessage: ChatMessage = {
         id: `system-loaded-agents-${Date.now()}`,
         variant: 'ai',
