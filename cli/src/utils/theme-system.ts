@@ -65,8 +65,8 @@ const BASE_THEMES: Record<'dark' | 'light', ChatTheme> = {
     userLine: '#38bdf8',
     timestampAi: '#4ade80',
     timestampUser: '#60a5fa',
-    messageAiText: '#ffffff',
-    messageUserText: '#ffffff',
+    messageAiText: '#9aa5ce',
+    messageUserText: '#9aa5ce',
     messageBg: 'transparent',
     statusAccent: '#facc15',
     statusSecondary: '#d9e2ff',
@@ -119,8 +119,8 @@ const BASE_THEMES: Record<'dark' | 'light', ChatTheme> = {
     userLine: '#3b82f6',
     timestampAi: '#047857',
     timestampUser: '#2563eb',
-    messageAiText: '#111827',
-    messageUserText: '#1f2937',
+    messageAiText: '#9aa5ce',
+    messageUserText: '#9aa5ce',
     messageBg: 'transparent',
     statusAccent: '#f59e0b',
     statusSecondary: '#6b7280',
@@ -307,9 +307,6 @@ const parseOscColor = (payload: string): [number, number, number] | null => {
 
   return null
 }
-
-let detectedTerminalBackground: [number, number, number] | null = null
-
 const detectThemeFromTerminalBackground = (): 'dark' | 'light' | null => {
   if (process.platform === 'win32') return null
   if (!process.stdout.isTTY) return null
@@ -362,7 +359,6 @@ const detectThemeFromTerminalBackground = (): 'dark' | 'light' | null => {
 
     const rgb = parseOscColor(match[1])
     if (!rgb) return null
-    detectedTerminalBackground = rgb
 
     const brightness = estimateBrightness(rgb)
     return brightness >= 160 ? 'light' : 'dark'
@@ -404,92 +400,20 @@ const resolvedThemeName: 'dark' | 'light' =
   detectThemeFromSystemAppearance() ??
   'light'
 
-const resolveAutoTextColor = (
-  baseTheme: ChatTheme,
-  themeName: 'dark' | 'light',
-  background: [number, number, number] | null,
-): string => {
-  const DARK_NEUTRAL = '#e2e8f0'
-  const LIGHT_NEUTRAL = '#475569'
-
-  const fallback = themeName === 'dark' ? DARK_NEUTRAL : LIGHT_NEUTRAL
-
-  if (background) {
-    const brightness = estimateBrightness(background)
-    if (brightness <= 150) {
-      return DARK_NEUTRAL
+const baseTheme = BASE_THEMES[resolvedThemeName]
+const markdown = baseTheme.markdown
+  ? {
+      ...baseTheme.markdown,
+      headingFg: baseTheme.markdown.headingFg
+        ? { ...baseTheme.markdown.headingFg }
+        : undefined,
     }
-    if (brightness >= 195) {
-      return LIGHT_NEUTRAL
-    }
-    // Blend between the two neutrals for mid-tone backgrounds
-    const ratio = (brightness - 150) / (195 - 150)
-    const mix = (start: number, end: number) =>
-      Math.round(start + (end - start) * ratio)
+  : undefined
 
-    const startRgb = {
-      r: Number.parseInt(DARK_NEUTRAL.slice(1, 3), 16),
-      g: Number.parseInt(DARK_NEUTRAL.slice(3, 5), 16),
-      b: Number.parseInt(DARK_NEUTRAL.slice(5, 7), 16),
-    }
-    const endRgb = {
-      r: Number.parseInt(LIGHT_NEUTRAL.slice(1, 3), 16),
-      g: Number.parseInt(LIGHT_NEUTRAL.slice(3, 5), 16),
-      b: Number.parseInt(LIGHT_NEUTRAL.slice(5, 7), 16),
-    }
-
-    const blended = [
-      mix(startRgb.r, endRgb.r),
-      mix(startRgb.g, endRgb.g),
-      mix(startRgb.b, endRgb.b),
-    ]
-      .map((value) => value.toString(16).padStart(2, '0'))
-      .join('')
-
-    return `#${blended}`
-  }
-
-  return fallback
+export const chatTheme: ChatTheme = {
+  ...baseTheme,
+  markdown,
 }
-
-const copyThemeWithAutoText = (
-  baseTheme: ChatTheme,
-  themeName: 'dark' | 'light',
-  background: [number, number, number] | null,
-): ChatTheme => {
-  const autoTextColor = resolveAutoTextColor(baseTheme, themeName, background)
-  const markdown = baseTheme.markdown
-    ? {
-        ...baseTheme.markdown,
-        inlineCodeFg: autoTextColor,
-        codeTextFg: autoTextColor,
-        blockquoteTextFg: autoTextColor,
-      }
-    : undefined
-
-  return {
-    ...baseTheme,
-    messageAiText: autoTextColor,
-    messageUserText: autoTextColor,
-    inputFg: autoTextColor,
-    inputFocusedFg: autoTextColor,
-    agentText: autoTextColor,
-    agentContentText: autoTextColor,
-    chromeText:
-      themeName === 'dark' && autoTextColor === '#f8fafc'
-        ? '#f8fafc'
-        : themeName === 'light' && autoTextColor === '#111827'
-          ? '#111827'
-          : baseTheme.chromeText,
-    markdown,
-  }
-}
-
-export const chatTheme: ChatTheme = copyThemeWithAutoText(
-  BASE_THEMES[resolvedThemeName],
-  resolvedThemeName,
-  detectedTerminalBackground,
-)
 
 export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
   const headingDefaults: Record<MarkdownHeadingLevel, string> = {

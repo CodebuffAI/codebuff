@@ -23,7 +23,6 @@ import {
 import {
   formatUrl,
   generateFingerprintId,
-  isLightModeColor,
   parseLogoLines,
   calculateResponsiveLayout,
   calculateModalDimensions,
@@ -222,14 +221,7 @@ export const LoginModal = ({
     }
   }, [hasOpenedBrowser, loginUrl, copyToClipboard])
 
-  // Determine if we're in light mode by checking background color luminance
-  const isLightMode = useMemo(
-    () => isLightModeColor(theme.background),
-    [theme.background],
-  )
-
-  // Use pure black/white for logo
-  const logoColor = isLightMode ? '#000000' : '#ffffff'
+  const logoColor = theme.chromeText
 
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({

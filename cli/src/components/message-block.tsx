@@ -4,6 +4,7 @@ import React, { type ReactNode } from 'react'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
+import { ToolItem } from './tool-item'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
   renderMarkdown,
@@ -66,19 +67,6 @@ export const MessageBlock = ({
   onToggleCollapsed,
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
-  const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>
-    `${'  '.repeat(indentLevel)}${isLastBranch ? '└─ ' : '├─ '}`
-
-  const hasBranchAfter = (
-    sourceBlocks: ContentBlock[] | undefined,
-    currentIndex: number,
-  ): boolean =>
-    !!sourceBlocks
-      ?.slice(currentIndex + 1)
-      .some(
-        (candidate) => candidate.type === 'tool' || candidate.type === 'agent',
-      )
-
   const getAgentMarkdownOptions = (indentLevel: number) => {
     const indentationOffset = indentLevel * 2
 
@@ -95,7 +83,6 @@ export const MessageBlock = ({
   const renderToolBranch = (
     toolBlock: Extract<ContentBlock, { type: 'tool' }>,
     indentLevel: number,
-    isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode => {
     if (toolBlock.toolName === 'end_turn') {
@@ -154,20 +141,19 @@ export const MessageBlock = ({
       ? renderMarkdown(fullContent, agentMarkdownOptions)
       : fullContent
 
-    const branchChar = computeBranchChar(indentLevel, isLastBranch)
+    const indentationOffset = indentLevel * 2
 
     return (
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
+        style={{ flexDirection: 'column', gap: 0, marginLeft: indentationOffset }}
       >
-        <BranchItem
+        <ToolItem
           name={displayInfo.name}
           content={displayContent}
-          agentId={toolBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
-          branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
@@ -180,7 +166,6 @@ export const MessageBlock = ({
   function renderAgentBranch(
     agentBlock: Extract<ContentBlock, { type: 'agent' }>,
     indentLevel: number,
-    isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
     const isCollapsed = collapsedAgents.has(agentBlock.agentId)
@@ -206,7 +191,6 @@ export const MessageBlock = ({
         ? sanitizePreview(agentBlock.initialPrompt)
         : ''
 
-    const branchChar = computeBranchChar(indentLevel, isLastBranch)
     const childNodes = renderAgentBody(
       agentBlock,
       indentLevel + 1,
@@ -218,12 +202,22 @@ export const MessageBlock = ({
       childNodes.length > 0 ? (
         <box style={{ flexDirection: 'column', gap: 0 }}>{childNodes}</box>
       ) : null
+    const indentationOffset = indentLevel * 2
+    const branchWidth = Math.max(1, availableWidth - indentationOffset)
+    const isActive = isStreaming || agentBlock.status === 'running'
+    const statusLabel = isActive
+      ? 'running'
+      : agentBlock.status === 'complete'
+        ? 'completed'
+        : agentBlock.status
+    const statusColor = isActive ? theme.statusAccent : theme.agentResponseCount
+    const statusIndicator = isActive ? '●' : '✓'
 
     return (
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(agentBlock.agentId, el)}
-        style={{ flexDirection: 'column', gap: 0 }}
+        style={{ flexDirection: 'column', gap: 0, marginLeft: indentationOffset }}
       >
         <BranchItem
           name={agentBlock.agentName}
@@ -232,9 +226,12 @@ export const MessageBlock = ({
           agentId={agentBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
-          branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
+          availableWidth={branchWidth}
+          statusLabel={statusLabel}
+          statusColor={statusColor}
+          statusIndicator={statusIndicator}
           theme={theme}
           onToggle={() => onToggleCollapsed(agentBlock.agentId)}
         />
@@ -244,7 +241,6 @@ export const MessageBlock = ({
 
   function renderAgentListBranch(
     agentListBlock: Extract<ContentBlock, { type: 'agent-list' }>,
-    isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
     const TRUNCATE_LIMIT = 5
@@ -306,9 +302,9 @@ export const MessageBlock = ({
           agentId={agentListBlock.id}
           isCollapsed={isCollapsed}
           isStreaming={false}
-          branchChar=""
           streamingPreview=""
           finishedPreview={finishedPreview}
+          availableWidth={availableWidth}
           theme={theme}
           onToggle={() => onToggleCollapsed(agentListBlock.id)}
         />
@@ -355,22 +351,18 @@ export const MessageBlock = ({
           </text>,
         )
       } else if (nestedBlock.type === 'tool') {
-        const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
         nodes.push(
           renderToolBranch(
             nestedBlock,
             indentLevel,
-            isLastBranch,
             `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
           ),
         )
       } else if (nestedBlock.type === 'agent') {
-        const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
         nodes.push(
           renderAgentBranch(
             nestedBlock,
             indentLevel,
-            isLastBranch,
             `${keyPrefix}-agent-${nestedIdx}`,
           ),
         )
@@ -423,26 +415,20 @@ export const MessageBlock = ({
                 </text>
               )
             } else if (block.type === 'tool') {
-              const isLastBranch = !hasBranchAfter(blocks, idx)
               return renderToolBranch(
                 block,
                 0,
-                isLastBranch,
                 `${messageId}-tool-${block.toolCallId}`,
               )
             } else if (block.type === 'agent') {
-              const isLastBranch = !hasBranchAfter(blocks, idx)
               return renderAgentBranch(
                 block,
                 0,
-                isLastBranch,
                 `${messageId}-agent-${block.agentId}`,
               )
             } else if (block.type === 'agent-list') {
-              const isLastBranch = !hasBranchAfter(blocks, idx)
               return renderAgentListBranch(
                 block,
-                isLastBranch,
                 `${messageId}-agent-list-${block.id}`,
               )
             }

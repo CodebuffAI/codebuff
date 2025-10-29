@@ -125,6 +125,7 @@ export const useSendMessage = ({
   const rootStreamBufferRef = useRef('')
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
   const rootStreamSeenRef = useRef(false)
+  const rootLevelAgentsToCollapseRef = useRef<Set<string>>(new Set())
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -241,8 +242,23 @@ export const useSendMessage = ({
     }
   }, [flushPendingUpdates])
 
+  const collapseQueuedRootAgents = useCallback(() => {
+    if (rootLevelAgentsToCollapseRef.current.size === 0) {
+      return
+    }
+    setCollapsedAgents((prev) => {
+      const next = new Set(prev)
+      for (const id of rootLevelAgentsToCollapseRef.current) {
+        next.add(id)
+      }
+      return next
+    })
+    rootLevelAgentsToCollapseRef.current.clear()
+  }, [setCollapsedAgents])
+
   const sendMessage = useCallback(
     async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
+      collapseQueuedRootAgents()
       const { agentMode } = params
       const timestamp = formatTimestamp()
       const userMessage: ChatMessage = {
@@ -686,6 +702,8 @@ export const useSendMessage = ({
                       },
                       'setMessages: matching spawn_agents block found',
                     )
+                    let resolvedAsRoot = !event.parentAgentId
+
                     applyMessageUpdate((prev) =>
                       prev.map((msg) => {
                         if (msg.id === aiMessageId && msg.blocks) {
@@ -766,6 +784,7 @@ export const useSendMessage = ({
 
                             // If parent found, use updated blocks; otherwise add to top level
                             if (parentFound) {
+                              resolvedAsRoot = false
                               blocks = updatedBlocks
                             } else {
                               logger.info(
@@ -776,10 +795,12 @@ export const useSendMessage = ({
                                 },
                                 'setMessages: spawn_agents parent not found, adding to top level',
                               )
+                              resolvedAsRoot = true
                               blocks = [...blocks, blockToMove]
                             }
                           } else {
                             // No parent - add back at top level with new ID
+                            resolvedAsRoot = true
                             blocks = [...blocks, blockToMove]
                           }
 
@@ -789,16 +810,24 @@ export const useSendMessage = ({
                       }),
                     )
 
+                    const isRootAgent = resolvedAsRoot
+
                     setStreamingAgents((prev) => {
                       const next = new Set(prev)
                       next.delete(tempId)
                       next.add(event.agentId)
                       return next
                     })
+                    if (isRootAgent) {
+                      rootLevelAgentsToCollapseRef.current.delete(tempId)
+                      rootLevelAgentsToCollapseRef.current.add(event.agentId)
+                    }
                     setCollapsedAgents((prev) => {
                       const next = new Set(prev)
                       next.delete(tempId)
-                      next.add(event.agentId)
+                      if (!isRootAgent) {
+                        next.add(event.agentId)
+                      }
                       return next
                     })
 
@@ -869,6 +898,7 @@ export const useSendMessage = ({
 
                         // If parent was found, use updated blocks; otherwise add to top level
                         if (parentFound) {
+                          resolvedAsRoot = false
                           return { ...msg, blocks: updatedBlocks }
                         } else {
                           logger.info(
@@ -879,6 +909,7 @@ export const useSendMessage = ({
                             'Parent agent not found, adding to top level',
                           )
                           // Parent doesn't exist - add at top level as fallback
+                          resolvedAsRoot = true
                           return {
                             ...msg,
                             blocks: [...blocks, newAgentBlock],
@@ -887,6 +918,7 @@ export const useSendMessage = ({
                       }
 
                       // No parent - add to top level
+                      resolvedAsRoot = true
                       return {
                         ...msg,
                         blocks: [...blocks, newAgentBlock],
@@ -894,8 +926,18 @@ export const useSendMessage = ({
                     }),
                   )
 
+                const isRootAgent = resolvedAsRoot
                   setStreamingAgents((prev) => new Set(prev).add(event.agentId))
-                  setCollapsedAgents((prev) => new Set(prev).add(event.agentId))
+                  if (isRootAgent) {
+                    rootLevelAgentsToCollapseRef.current.add(event.agentId)
+                    setCollapsedAgents((prev) => {
+                      const next = new Set(prev)
+                      next.delete(event.agentId)
+                      return next
+                    })
+                  } else {
+                    setCollapsedAgents((prev) => new Set(prev).add(event.agentId))
+                  }
                 }
               }
             } else if (
@@ -908,6 +950,8 @@ export const useSendMessage = ({
                 }
                 agentStreamAccumulatorsRef.current.delete(event.agentId)
                 removeActiveSubagent(event.agentId)
+
+                let resolvedAsRoot = !event.parentAgentId
 
                 applyMessageUpdate((prev) =>
                   prev.map((msg) => {
@@ -994,11 +1038,22 @@ export const useSendMessage = ({
                   }),
                 )
 
-                agents.forEach((_: any, index: number) => {
-                  const agentId = `${toolCallId}-${index}`
+                const spawnAgentIds = agents.map(
+                  (_: any, index: number) => `${toolCallId}-${index}`,
+                )
+
+                spawnAgentIds.forEach((agentId) => {
                   setStreamingAgents((prev) => new Set(prev).add(agentId))
-                  setCollapsedAgents((prev) => new Set(prev).add(agentId))
+                  rootLevelAgentsToCollapseRef.current.add(agentId)
                 })
+
+                if (spawnAgentIds.length > 0) {
+                  setCollapsedAgents((prev) => {
+                    const next = new Set(prev)
+                    spawnAgentIds.forEach((id) => next.delete(id))
+                    return next
+                  })
+                }
 
                 return
               }
@@ -1090,7 +1145,16 @@ export const useSendMessage = ({
               }
 
               setStreamingAgents((prev) => new Set(prev).add(toolCallId))
-              setCollapsedAgents((prev) => new Set(prev).add(toolCallId))
+              if (agentId) {
+                setCollapsedAgents((prev) => new Set(prev).add(toolCallId))
+              } else {
+                rootLevelAgentsToCollapseRef.current.add(toolCallId)
+                setCollapsedAgents((prev) => {
+                  const next = new Set(prev)
+                  next.delete(toolCallId)
+                  return next
+                })
+              }
             } else if (event.type === 'tool_result' && event.toolCallId) {
               const { toolCallId } = event
 
@@ -1343,6 +1407,7 @@ export const useSendMessage = ({
       updateChainInProgress,
       addActiveSubagent,
       removeActiveSubagent,
+      collapseQueuedRootAgents,
     ],
   )
 

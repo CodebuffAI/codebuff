@@ -66,8 +66,6 @@ export const useMessageRenderer = (
     const renderAgentMessage = (
       message: ChatMessage,
       depth: number,
-      isLastSibling: boolean,
-      ancestorBranches: boolean[] = [],
     ): ReactNode => {
       const agentInfo = message.agent!
       const isCollapsed = collapsedAgents.has(message.id)
@@ -79,13 +77,6 @@ export const useMessageRenderer = (
           : theme.agentPrefix
 
       const agentChildren = messageTree.get(message.id) ?? []
-
-      let branchPrefix = ''
-      for (let i = 0; i < ancestorBranches.length; i++) {
-        branchPrefix += '   '
-      }
-      const treeBranch = isLastSibling ? '└─ ' : '├─ '
-      const fullPrefix = branchPrefix + treeBranch
 
       const lines = message.content.split('\n').filter((line) => line.trim())
       const firstLine = lines[0] || ''
@@ -100,6 +91,16 @@ export const useMessageRenderer = (
         !isStreaming && isCollapsed
           ? lastLine.replace(/[#*_`~\[\]()]/g, '').trim()
           : ''
+
+      const statusColor = isStreaming
+        ? theme.statusAccent
+        : theme.agentResponseCount
+      const statusLabel = isStreaming ? 'running' : 'completed'
+      const statusIndicator = isStreaming ? '●' : '✓'
+      const statusText =
+        statusIndicator === '✓'
+          ? `${statusLabel} ${statusIndicator}`
+          : `${statusIndicator} ${statusLabel}`
 
       const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
       const agentPalette: MarkdownPalette = {
@@ -168,67 +169,61 @@ export const useMessageRenderer = (
             flexDirection: 'column',
             gap: 0,
             flexShrink: 0,
+            marginLeft: Math.max(0, depth * 2),
           }}
         >
           <box
             style={{
-              flexDirection: 'row',
-              flexShrink: 0,
+              flexDirection: 'column',
+              gap: 0,
+              flexShrink: 1,
+              flexGrow: 1,
             }}
           >
-            <text style={{ wrapMode: 'none' }}>
-              <span fg={theme.agentPrefix}>{fullPrefix}</span>
-            </text>
             <box
               style={{
-                flexDirection: 'column',
-                gap: 0,
-                flexShrink: 1,
-                flexGrow: 1,
+                flexDirection: 'row',
+                alignSelf: 'flex-start',
+                paddingLeft: 1,
+                paddingRight: 1,
               }}
+              onMouseDown={handleTitleClick}
             >
-              <box
-                style={{
-                  flexDirection: 'row',
-                  alignSelf: 'flex-start',
-                  paddingLeft: 1,
-                  paddingRight: 1,
-                }}
-                onMouseDown={handleTitleClick}
-              >
-                <text>
-                  <span fg={toggleColor}>{isCollapsed ? '▸ ' : '▾ '}</span>
-                  <span fg={toggleColor} attributes={TextAttributes.BOLD}>
-                    {agentInfo.agentName}
-                  </span>
+              <text>
+                <span fg={toggleColor}>{isCollapsed ? '▸ ' : '▾ '}</span>
+                <span fg={toggleColor} attributes={TextAttributes.BOLD}>
+                  {agentInfo.agentName}
+                </span>
+                <span fg={statusColor} attributes={TextAttributes.DIM}>
+                  {` ${statusText}`}
+                </span>
+              </text>
+            </box>
+            <box
+              style={{ flexShrink: 1, marginBottom: isCollapsed ? 1 : 0 }}
+              onMouseDown={handleContentClick}
+            >
+              {isStreaming && isCollapsed && streamingPreview && (
+                <text fg={theme.agentText} attributes={TextAttributes.ITALIC}>
+                  {streamingPreview}
                 </text>
-              </box>
-              <box
-                style={{ flexShrink: 1, marginBottom: isCollapsed ? 1 : 0 }}
-                onMouseDown={handleContentClick}
-              >
-                {isStreaming && isCollapsed && streamingPreview && (
-                  <text fg={theme.agentText} attributes={TextAttributes.ITALIC}>
-                    {streamingPreview}
-                  </text>
-                )}
-                {!isStreaming && isCollapsed && finishedPreview && (
-                  <text
-                    fg={theme.agentResponseCount}
-                    attributes={TextAttributes.ITALIC}
-                  >
-                    {finishedPreview}
-                  </text>
-                )}
-                {!isCollapsed && (
-                  <text
-                    key={`agent-content-${message.id}`}
-                    fg={theme.agentContentText}
-                  >
-                    {displayContent}
-                  </text>
-                )}
-              </box>
+              )}
+              {!isStreaming && isCollapsed && finishedPreview && (
+                <text
+                  fg={theme.agentResponseCount}
+                  attributes={TextAttributes.ITALIC}
+                >
+                  {finishedPreview}
+                </text>
+              )}
+              {!isCollapsed && (
+                <text
+                  key={`agent-content-${message.id}`}
+                  fg={theme.agentContentText}
+                >
+                  {displayContent}
+                </text>
+              )}
             </box>
           </box>
           {agentChildren.length > 0 && (
@@ -239,14 +234,9 @@ export const useMessageRenderer = (
                 flexShrink: 0,
               }}
             >
-              {agentChildren.map((childAgent, idx) => (
+              {agentChildren.map((childAgent) => (
                 <box key={childAgent.id} style={{ flexShrink: 0 }}>
-                  {renderMessageWithAgents(
-                    childAgent,
-                    depth + 1,
-                    idx === agentChildren.length - 1,
-                    [...ancestorBranches, !isLastSibling],
-                  )}
+                  {renderMessageWithAgents(childAgent, depth + 1)}
                 </box>
               ))}
             </box>
@@ -258,19 +248,12 @@ export const useMessageRenderer = (
     const renderMessageWithAgents = (
       message: ChatMessage,
       depth = 0,
-      isLastSibling = false,
-      ancestorBranches: boolean[] = [],
       isLastMessage = false,
     ): ReactNode => {
       const isAgent = message.variant === 'agent'
 
       if (isAgent) {
-        return renderAgentMessage(
-          message,
-          depth,
-          isLastSibling,
-          ancestorBranches,
-        )
+        return renderAgentMessage(message, depth)
       }
 
       const isAi = message.variant === 'ai'
@@ -437,13 +420,9 @@ export const useMessageRenderer = (
 
           {hasAgentChildren && (
             <box style={{ flexDirection: 'column', width: '100%', gap: 0 }}>
-              {agentChildren.map((agent, idx) => (
+              {agentChildren.map((agent) => (
                 <box key={agent.id} style={{ width: '100%' }}>
-                  {renderMessageWithAgents(
-                    agent,
-                    depth + 1,
-                    idx === agentChildren.length - 1,
-                  )}
+                  {renderMessageWithAgents(agent, depth + 1)}
                 </box>
               ))}
             </box>
@@ -452,10 +431,9 @@ export const useMessageRenderer = (
       )
     }
 
-    return topLevelMessages.map((message, idx) => {
-      const isLast = idx === topLevelMessages.length - 1
-      return renderMessageWithAgents(message, 0, false, [], isLast)
-    })
+    return topLevelMessages.map((message, idx) =>
+      renderMessageWithAgents(message, 0, idx === topLevelMessages.length - 1),
+    )
   }, [
     messages,
     messageTree,
