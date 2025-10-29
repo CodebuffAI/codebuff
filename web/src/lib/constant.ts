@@ -1,4 +1,4 @@
-import { env } from '@codebuff/internal/env'
+import { env } from '@codebuff/common/env'
 
 export const siteConfig = {
   title: 'Codebuff',

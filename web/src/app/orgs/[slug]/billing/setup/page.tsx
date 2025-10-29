@@ -1,6 +1,6 @@
 'use client'
 
-import { env } from '@codebuff/internal/env'
+import { env } from '@codebuff/common/env'
 import { ArrowLeft, CreditCard, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'

@@ -1,6 +1,6 @@
 'use client'
 
-import { env } from '@codebuff/internal/env'
+import { env } from '@codebuff/common/env'
 import { loadStripe } from '@stripe/stripe-js'
 import {
   ArrowLeft,
