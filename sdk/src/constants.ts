@@ -6,9 +6,7 @@ export const IS_DEV = env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
 export const IS_TEST = env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test'
 export const IS_PROD = !IS_DEV && !IS_TEST
 
-export const WEBSITE_URL =
-  env.NEXT_PUBLIC_CODEBUFF_APP_URL ||
-  (IS_PROD ? 'https://codebuff.com' : 'http://localhost:3000')
+export const WEBSITE_URL = env.NEXT_PUBLIC_CODEBUFF_APP_URL
 
 const DEFAULT_BACKEND_URL = 'manicode-backend.onrender.com'
 const DEFAULT_BACKEND_URL_DEV = 'localhost:4242'
