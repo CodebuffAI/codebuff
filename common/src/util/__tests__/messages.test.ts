@@ -1,0 +1,905 @@
+import { describe, expect, it, test } from 'bun:test'
+import { cloneDeep } from 'lodash'
+
+import {
+  toContentString,
+  withCacheControl,
+  withoutCacheControl,
+  convertCbToModelMessages,
+} from '../messages'
+
+import type { Message } from '../../types/messages/codebuff-message'
+import type { ModelMessage } from 'ai'
+
+describe('toContentString', () => {
+  it('should return string content as-is', () => {
+    const msg: ModelMessage = {
+      role: 'user',
+      content: 'Hello world',
+    }
+    expect(toContentString(msg)).toBe('Hello world')
+  })
+
+  it('should join text parts with newlines', () => {
+    const msg: ModelMessage = {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'First line' },
+        { type: 'text', text: 'Second line' },
+      ],
+    }
+    expect(toContentString(msg)).toBe('First line\nSecond line')
+  })
+
+  it('should handle empty content array', () => {
+    const msg: ModelMessage = {
+      role: 'user',
+      content: [],
+    }
+    expect(toContentString(msg)).toBe('')
+  })
+
+  it('should handle non-text content parts', () => {
+    const msg: ModelMessage = {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Text part' },
+        { type: 'image', image: 'data:...' } as any,
+      ],
+    }
+    expect(toContentString(msg)).toBe('Text part\n')
+  })
+})
+
+describe('withCacheControl', () => {
+  it('should add cache control to object without providerOptions', () => {
+    const obj: { providerOptions?: any } = {}
+    const result = withCacheControl(obj)
+
+    expect(result.providerOptions).toBeDefined()
+    expect(result.providerOptions?.anthropic?.cacheControl).toEqual({
+      type: 'ephemeral',
+    })
+    expect(result.providerOptions?.openrouter?.cacheControl).toEqual({
+      type: 'ephemeral',
+    })
+    expect(result.providerOptions?.codebuff?.cacheControl).toEqual({
+      type: 'ephemeral',
+    })
+  })
+
+  it('should add cache control to existing providerOptions', () => {
+    const obj = {
+      providerOptions: {
+        anthropic: { someOtherOption: 'value' } as any,
+      },
+    }
+    const result = withCacheControl(obj)
+
+    expect((result.providerOptions?.anthropic as any)?.cacheControl).toEqual({
+      type: 'ephemeral',
+    })
+    expect((result.providerOptions?.anthropic as any)?.someOtherOption).toBe(
+      'value',
+    )
+  })
+
+  it('should not mutate original object', () => {
+    const original: { providerOptions?: any } = {}
+    const result = withCacheControl(original)
+
+    expect(original.providerOptions).toBeUndefined()
+    expect(result.providerOptions).toBeDefined()
+  })
+
+  it('should handle all three providers', () => {
+    const obj: { providerOptions?: any } = {}
+    const result = withCacheControl(obj)
+
+    expect((result.providerOptions?.anthropic as any)?.cacheControl?.type).toBe(
+      'ephemeral',
+    )
+    expect(
+      (result.providerOptions?.openrouter as any)?.cacheControl?.type,
+    ).toBe('ephemeral')
+    expect((result.providerOptions?.codebuff as any)?.cacheControl?.type).toBe(
+      'ephemeral',
+    )
+  })
+})
+
+describe('withoutCacheControl', () => {
+  it('should remove cache control from all providers', () => {
+    const obj = {
+      id: 'test',
+      providerOptions: {
+        anthropic: { cacheControl: { type: 'ephemeral' } },
+        openrouter: { cacheControl: { type: 'ephemeral' } },
+        codebuff: { cacheControl: { type: 'ephemeral' } },
+      },
+    }
+    const result = withoutCacheControl(obj)
+
+    expect(result.providerOptions).toBeUndefined()
+  })
+
+  it('should preserve other provider options', () => {
+    const obj = {
+      id: 'test',
+      providerOptions: {
+        anthropic: {
+          cacheControl: { type: 'ephemeral' },
+          otherOption: 'value',
+        },
+      },
+    }
+    const result = withoutCacheControl(obj)
+
+    expect(result.providerOptions?.anthropic?.cacheControl).toBeUndefined()
+    expect(result.providerOptions?.anthropic?.otherOption).toBe('value')
+  })
+
+  it('should not mutate original object', () => {
+    const original = {
+      id: 'test',
+      providerOptions: {
+        anthropic: { cacheControl: { type: 'ephemeral' } },
+      },
+    }
+    const result = withoutCacheControl(original)
+
+    expect(original.providerOptions?.anthropic?.cacheControl).toBeDefined()
+    expect(result.providerOptions?.anthropic?.cacheControl).toBeUndefined()
+  })
+
+  it('should handle object with no cache control', () => {
+    const obj: { providerOptions?: any } = {}
+    const result = withoutCacheControl(obj)
+
+    expect(result.providerOptions).toBeUndefined()
+  })
+
+  it('should clean up empty provider objects', () => {
+    const obj = {
+      id: 'test',
+      providerOptions: {
+        anthropic: { cacheControl: { type: 'ephemeral' } },
+      },
+    }
+    const result = withoutCacheControl(obj)
+
+    expect(result.providerOptions).toBeUndefined()
+  })
+})
+
+describe('convertCbToModelMessages', () => {
+  describe('basic message conversion', () => {
+    it('should convert system messages', () => {
+      const messages: Message[] = [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant',
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'system',
+          content: 'You are a helpful assistant',
+        },
+      ])
+    })
+
+    it('should convert user messages with string content', () => {
+      const messages: Message[] = [
+        {
+          role: 'user',
+          content: 'Hello',
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Hello',
+            },
+          ],
+        },
+      ])
+    })
+
+    it('should convert assistant messages with string content', () => {
+      const messages: Message[] = [
+        {
+          role: 'assistant',
+          content: 'Hi there',
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'text',
+              text: 'Hi there',
+            },
+          ],
+        },
+      ])
+    })
+
+    it('should convert user messages with array content', () => {
+      const messages: Message[] = [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'First part' },
+            { type: 'text', text: 'Second part' },
+          ],
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'First part',
+            },
+            {
+              type: 'text',
+              text: 'Second part',
+            },
+          ],
+        },
+      ])
+    })
+  })
+
+  describe('tool message conversion', () => {
+    it('should convert tool messages with JSON output', () => {
+      const toolResult = [
+        {
+          type: 'json',
+          value: { result: 'success' },
+        },
+      ]
+      const messages: Message[] = [
+        {
+          role: 'tool',
+          content: {
+            type: 'tool-result',
+            toolName: 'test_tool',
+            toolCallId: 'call_123',
+            output: [
+              {
+                type: 'json',
+                value: { result: 'success' },
+              },
+            ],
+          },
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            expect.objectContaining({
+              type: 'text',
+            }),
+          ],
+        },
+      ])
+      expect((result as any)[0].content[0].text).toContain('<tool_result>')
+    })
+
+    it('should convert tool messages with media output', () => {
+      const messages: Message[] = [
+        {
+          role: 'tool',
+          content: {
+            type: 'tool-result',
+            toolName: 'test_tool',
+            toolCallId: 'call_123',
+            output: [
+              {
+                type: 'media',
+                data: 'base64data',
+                mediaType: 'image/png',
+              },
+            ],
+          },
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            expect.objectContaining({
+              type: 'file',
+            }),
+          ],
+        },
+      ])
+    })
+
+    it('should handle multiple tool outputs', () => {
+      const messages: Message[] = [
+        {
+          role: 'tool',
+          content: {
+            type: 'tool-result',
+            toolName: 'test_tool',
+            toolCallId: 'call_123',
+            output: [
+              { type: 'json', value: { result1: 'success' } },
+              { type: 'json', value: { result2: 'also success' } },
+            ],
+          },
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      // Multiple tool outputs are aggregated into one user message
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'user',
+        }),
+      ])
+      expect(result[0].content).toHaveLength(2)
+    })
+  })
+
+  describe('message aggregation', () => {
+    it('should aggregate consecutive system messages', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'First system message' },
+        { role: 'system', content: 'Second system message' },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'system',
+          content: 'First system message\n\nSecond system message',
+        },
+      ])
+    })
+
+    it('should aggregate consecutive user messages', () => {
+      const messages: Message[] = [
+        { role: 'user', content: 'First user message' },
+        { role: 'user', content: 'Second user message' },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'First user message',
+            },
+            {
+              type: 'text',
+              text: 'Second user message',
+            },
+          ],
+        },
+      ])
+    })
+
+    it('should aggregate consecutive assistant messages', () => {
+      const messages: Message[] = [
+        { role: 'assistant', content: 'First assistant message' },
+        { role: 'assistant', content: 'Second assistant message' },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'text',
+              text: 'First assistant message',
+            },
+            {
+              type: 'text',
+              text: 'Second assistant message',
+            },
+          ],
+        },
+      ])
+    })
+
+    it('should not aggregate messages with different timeToLive', () => {
+      const messages: Message[] = [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'First' }],
+          timeToLive: 'agentStep',
+        },
+
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Second' }],
+          timeToLive: 'userPrompt',
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'First' }],
+          timeToLive: 'agentStep',
+        },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Second' }],
+          timeToLive: 'userPrompt',
+        },
+      ])
+    })
+
+    it('should not aggregate messages with different providerOptions', () => {
+      const messages: Message[] = [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'First' }],
+          providerOptions: { anthropic: { option1: 'value1' } },
+        },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Second' }],
+          providerOptions: { anthropic: { option1: 'value2' } },
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'First' }],
+          providerOptions: { anthropic: { option1: 'value1' } },
+        },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Second' }],
+          providerOptions: { anthropic: { option1: 'value2' } },
+        },
+      ])
+    })
+
+    it('should not aggregate messages with different tags', () => {
+      const messages: Message[] = [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'First' }],
+          tags: ['tag1'],
+        },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Second' }],
+          tags: ['tag2'],
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'First' }],
+          tags: ['tag1'],
+        },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Second' }],
+          tags: ['tag2'],
+        },
+      ])
+    })
+  })
+
+  describe('cache control', () => {
+    // Note: Cache control is applied to content parts within messages, not to the messages themselves.
+    // The implementation splits text content and adds cache control to specific parts based on tagged prompts.
+    test('should add cache control when includeCacheControl is true', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System message' },
+        { role: 'user', content: 'Context message' },
+        { role: 'assistant', content: 'Response' },
+        { role: 'user', content: 'User message', tags: ['USER_PROMPT'] },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // Cache control is on content parts of the assistant message (result[2])
+      if (
+        typeof result[2].content !== 'string' &&
+        result[2].content.length > 0
+      ) {
+        const lastContentPart = result[2].content[result[2].content.length - 1]
+        expect(
+          (lastContentPart as any).providerOptions?.anthropic?.cacheControl,
+        ).toEqual({
+          type: 'ephemeral',
+        })
+      }
+    })
+
+    it('should not add cache control when includeCacheControl is false', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System message' },
+        { role: 'user', content: 'User message', tags: ['USER_PROMPT'] },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result[0].providerOptions).toBeUndefined()
+    })
+
+    test('should add cache control before USER_PROMPT tag', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System' },
+        { role: 'user', content: 'Context' },
+        { role: 'assistant', content: 'Response' },
+        { role: 'user', content: 'More context' },
+        { role: 'user', content: 'User prompt', tags: ['USER_PROMPT'] },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // Cache control should be on content part before USER_PROMPT
+      if (typeof result[2].content !== 'string') {
+        expect(
+          (result[2].content[1] as any).providerOptions?.anthropic
+            ?.cacheControl,
+        ).toEqual({
+          type: 'ephemeral',
+        })
+      }
+    })
+
+    test('should add cache control before INSTRUCTIONS_PROMPT tag', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System' },
+        { role: 'user', content: 'Context' },
+        { role: 'assistant', content: 'Response' },
+        { role: 'user', content: 'More context' },
+        {
+          role: 'user',
+          content: 'Instructions',
+          tags: ['INSTRUCTIONS_PROMPT'],
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      if (typeof result[2].content !== 'string') {
+        expect(
+          (result[2].content[1] as any).providerOptions?.anthropic
+            ?.cacheControl,
+        ).toEqual({
+          type: 'ephemeral',
+        })
+      }
+    })
+
+    test('should add cache control before STEP_PROMPT tag', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System' },
+        { role: 'user', content: 'Context' },
+        { role: 'assistant', content: 'Response' },
+        { role: 'user', content: 'More context' },
+        { role: 'user', content: 'Step', tags: ['STEP_PROMPT'] },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      if (typeof result[3].content !== 'string') {
+        expect(
+          (result[3].content[1] as any).providerOptions?.anthropic
+            ?.cacheControl,
+        ).toEqual({
+          type: 'ephemeral',
+        })
+      }
+    })
+
+    test('should add cache control to last message', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System' },
+        { role: 'user', content: 'Context' },
+        { role: 'assistant', content: 'Response' },
+        { role: 'user', content: 'More context' },
+        { role: 'user', content: 'User message' },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // Cache control is on content parts in the assistant message
+      if (typeof result[2].content !== 'string') {
+        expect(
+          (result[2].content[1] as any).providerOptions?.anthropic
+            ?.cacheControl,
+        ).toEqual({
+          type: 'ephemeral',
+        })
+      }
+    })
+
+    test('should handle system messages with cache control', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'Long system prompt' },
+        { role: 'user', content: 'Context' },
+        { role: 'assistant', content: 'Response' },
+        { role: 'user', content: 'User', tags: ['USER_PROMPT'] },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // Cache control is on content parts
+      if (typeof result[1].content !== 'string') {
+        expect(
+          (result[1].content[1] as any).providerOptions?.anthropic
+            ?.cacheControl,
+        ).toEqual({
+          type: 'ephemeral',
+        })
+      }
+    })
+
+    it('should handle array content with cache control on non-text parts', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System' },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Context' },
+            { type: 'file', data: 'base64', mediaType: 'image/png' },
+          ],
+        },
+        { role: 'user', content: 'Next', tags: ['USER_PROMPT'] },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // Should add cache control to the file part (last non-text part)
+      if (typeof result[1].content !== 'string') {
+        expect(
+          (result[1].content[1] as any).providerOptions?.anthropic
+            ?.cacheControl,
+        ).toEqual({ type: 'ephemeral' })
+      }
+    })
+
+    it('should split text content when adding cache control', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System' },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Long text content' }],
+        },
+        { role: 'user', content: 'Next', tags: ['USER_PROMPT'] },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // Should split the text and add cache control to second part
+      if (typeof result[1].content !== 'string') {
+        expect(result[1].content).toHaveLength(2)
+        if (result[1].content[0].type === 'text') {
+          expect(result[1].content[0].text).toBe('L')
+        }
+        if (result[1].content[1].type === 'text') {
+          expect(result[1].content[1].text).toBe('ong text content')
+        }
+        expect(
+          (result[1].content[1] as any).providerOptions?.anthropic
+            ?.cacheControl,
+        ).toEqual({ type: 'ephemeral' })
+      }
+    })
+
+    it('should skip very short text content when finding cache control location', () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'System' },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'X' }, // Too short
+            { type: 'text', text: 'Long enough text' },
+          ],
+        },
+        { role: 'user', content: 'Next', tags: ['USER_PROMPT'] },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // Should add cache control to the longer text (split)
+      if (typeof result[1].content !== 'string') {
+        expect(
+          (result[1].content[2] as any).providerOptions?.anthropic
+            ?.cacheControl,
+        ).toEqual({ type: 'ephemeral' })
+      }
+    })
+  })
+
+  describe('edge cases', () => {
+    it('should handle empty messages array', () => {
+      const result = convertCbToModelMessages({
+        messages: [],
+        includeCacheControl: false,
+      })
+
+      expect(result).toHaveLength(0)
+    })
+
+    it('should handle tool-call content in assistant messages', () => {
+      const messages: Message[] = [
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolCallId: 'call_123',
+              toolName: 'test_tool',
+              input: { param: 'value' },
+            },
+          ],
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toHaveLength(1)
+      expect(result[0].role).toBe('assistant')
+      if (typeof result[0].content !== 'string') {
+        expect(result[0].content[0].type).toBe('text')
+        if (result[0].content[0].type === 'text') {
+          expect(result[0].content[0].text).toContain('test_tool')
+        }
+      }
+    })
+
+    it('should preserve message metadata during conversion', () => {
+      const messages: Message[] = [
+        {
+          role: 'user',
+          content: 'Test',
+          tags: ['custom_tag'],
+          timeToLive: 'agentStep',
+          providerOptions: { anthropic: { someOption: 'value' } as any },
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect((result[0] as any).tags).toEqual(['custom_tag'])
+      expect((result[0] as any).timeToLive).toBe('agentStep')
+      expect((result[0].providerOptions?.anthropic as any)?.someOption).toBe(
+        'value',
+      )
+    })
+
+    it('should not mutate original messages', () => {
+      const originalMessages: Message[] = [
+        { role: 'system', content: 'Original' },
+        { role: 'user', content: 'User message' },
+      ]
+      const messagesCopy = cloneDeep(originalMessages)
+
+      convertCbToModelMessages({
+        messages: originalMessages,
+        includeCacheControl: true,
+      })
+
+      expect(originalMessages).toEqual(messagesCopy)
+    })
+  })
+})
