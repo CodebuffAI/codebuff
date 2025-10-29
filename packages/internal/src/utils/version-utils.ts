@@ -1,7 +1,8 @@
 import { and, desc, eq } from 'drizzle-orm'
 
-import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+
+import type { CodebuffPgDatabase } from '../db/types'
 
 export type Version = { major: number; minor: number; patch: number }
 
@@ -50,10 +51,13 @@ export function isGreater(v1: Version, v2: Version): boolean {
 /**
  * Get the latest version for an agent from the database
  */
-export async function getLatestAgentVersion(
-  agentId: string,
-  publisherId: string,
-): Promise<Version> {
+export async function getLatestAgentVersion(params: {
+  agentId: string
+  publisherId: string
+  db: CodebuffPgDatabase
+}): Promise<Version> {
+  const { agentId, publisherId, db } = params
+
   const latestAgent = await db
     .select({
       major: schema.agentConfig.major,
@@ -88,12 +92,19 @@ export async function getLatestAgentVersion(
  * - If no version is provided and agent doesn't exist, use '0.0.1'
  * - If version is provided, validate and use it
  */
-export async function determineNextVersion(
-  agentId: string,
-  publisherId: string,
-  providedVersion?: string,
-): Promise<Version> {
-  const latestVersion = await getLatestAgentVersion(agentId, publisherId)
+export async function determineNextVersion(params: {
+  agentId: string
+  publisherId: string
+  providedVersion?: string
+  db: CodebuffPgDatabase
+}): Promise<Version> {
+  const { agentId, publisherId, providedVersion, db } = params
+
+  const latestVersion = await getLatestAgentVersion({
+    agentId,
+    publisherId,
+    db,
+  })
 
   if (!providedVersion) {
     return incrementPatchVersion(latestVersion)
@@ -122,11 +133,14 @@ export async function determineNextVersion(
 /**
  * Check if a specific version already exists for an agent
  */
-export async function versionExists(
-  agentId: string,
-  version: Version,
-  publisherId: string,
-): Promise<boolean> {
+export async function versionExists(params: {
+  agentId: string
+  version: Version
+  publisherId: string
+  db: CodebuffPgDatabase
+}): Promise<boolean> {
+  const { agentId, version, publisherId, db } = params
+
   const existingAgent = await db
     .select()
     .from(schema.agentConfig)
