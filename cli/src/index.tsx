@@ -82,7 +82,7 @@ let validationErrors: Array<{ id: string; message: string }> = []
 if (loadedAgentsData) {
   const agentDefinitions = loadAgentDefinitions()
   const validationResult = await validateAgents(agentDefinitions, {
-    remote: false, // Use local validation only for startup
+    remote: true, // Use remote validation to ensure spawnable agents exist
   })
 
   if (!validationResult.success) {
