@@ -218,3 +218,12 @@ export const getLoadedAgentsData = (): {
 
   return { agents, agentsDir }
 }
+
+/**
+ * Clear cached agent listings. Intended for test scenarios that need to
+ * re-evaluate the filesystem state between cases.
+ */
+export const __resetLocalAgentRegistryForTests = (): void => {
+  cachedAgents = null
+  cachedAgentsDir = null
+}
