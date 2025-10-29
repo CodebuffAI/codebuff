@@ -288,7 +288,7 @@ export function RepositoryManagement({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ isActive: true }),
-        }
+        },
       )
 
       if (!response.ok) {
@@ -325,7 +325,7 @@ export function RepositoryManagement({
         `/api/orgs/${organizationId}/repos/${repoToRemove.id}`,
         {
           method: 'DELETE',
-        }
+        },
       )
 
       if (!response.ok) {
@@ -368,7 +368,7 @@ export function RepositoryManagement({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ isActive: false }),
-        }
+        },
       )
 
       if (!response.ok) {
@@ -546,7 +546,7 @@ export function RepositoryManagement({
                           onClick={() =>
                             handleRemoveRepository(
                               repo.id,
-                              repo.repository_name
+                              repo.repository_name,
                             )
                           }
                           className={

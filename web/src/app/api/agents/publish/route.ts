@@ -1,12 +1,12 @@
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
-import { validateAgentsWithSpawnableAgents } from '@codebuff/internal/templates/agent-validation'
 import { publishAgentsRequestSchema } from '@codebuff/common/types/api/agents/publish'
 import {
   determineNextVersion,
   stringifyVersion,
   versionExists,
 } from '@codebuff/internal'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { validateAgentsWithSpawnableAgents } from '@codebuff/internal/templates/agent-validation'
 import { eq, and, or, desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -189,18 +189,20 @@ export async function POST(request: NextRequest) {
     // First, determine versions for all agents and check for conflicts
     for (const agent of agents) {
       try {
-        const version = await determineNextVersion(
-          agent.id,
-          publisher.id,
-          agent.version,
-        )
+        const version = await determineNextVersion({
+          agentId: agent.id,
+          publisherId: publisher.id,
+          providedVersion: agent.version,
+          db,
+        })
 
         // Check if this version already exists
-        const versionAlreadyExists = await versionExists(
-          agent.id,
+        const versionAlreadyExists = await versionExists({
+          agentId: agent.id,
           version,
-          publisher.id,
-        )
+          publisherId: publisher.id,
+          db,
+        })
         if (versionAlreadyExists) {
           return NextResponse.json(
             {

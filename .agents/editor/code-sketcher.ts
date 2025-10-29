@@ -11,7 +11,8 @@ const definition: SecretAgentDefinition = {
   inputSchema: {
     prompt: {
       type: 'string',
-      description: 'The coding task to sketch out, including the key sections of logic or interfaces it should focus on.',
+      description:
+        'The coding task to sketch out, including the key sections of logic or interfaces it should focus on.',
     },
   },
   outputMode: 'last_message',

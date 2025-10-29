@@ -11,7 +11,7 @@ const commands = [
       option
         .setName('email')
         .setDescription('The email address you used to register with Codebuff')
-        .setRequired(true)
+        .setRequired(true),
     ),
 ]
 

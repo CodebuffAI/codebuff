@@ -147,7 +147,7 @@ export function OnboardingFlow({
       }
       localStorage.setItem(
         'codebuff_onboarding_progress',
-        JSON.stringify(toSave)
+        JSON.stringify(toSave),
       )
     }
   }, [progress, mounted])
@@ -319,7 +319,8 @@ export function OnboardingFlow({
       {referralCode && (
         <div className="bg-terminal-yellow/20 border border-terminal-yellow/30 rounded-lg p-4">
           <p className="text-yellow-900 dark:text-terminal-yellow font-semibold">
-            🎁 You're almost there! Follow the next steps to redeem your referral code for bonus credits.
+            🎁 You're almost there! Follow the next steps to redeem your
+            referral code for bonus credits.
           </p>
         </div>
       )}
@@ -333,7 +334,7 @@ export function OnboardingFlow({
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors relative',
               progress.packageManager === pm
                 ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                : 'text-muted-foreground hover:text-foreground',
             )}
             onClick={() => handlePMChange(pm)}
           >
@@ -416,7 +417,7 @@ export function OnboardingFlow({
             <div
               className={cn(
                 'w-5 h-5 relative flex-shrink-0',
-                editor.needsWhiteBg && 'bg-white rounded-sm p-[1px]'
+                editor.needsWhiteBg && 'bg-white rounded-sm p-[1px]',
               )}
             >
               <Image
@@ -555,7 +556,7 @@ export function OnboardingFlow({
                       ? 'w-3 h-3 bg-primary' // Current step
                       : index < progress.currentStep - 1
                         ? 'w-2 h-2 bg-primary' // Completed steps
-                        : 'w-2 h-2 bg-muted' // Future steps
+                        : 'w-2 h-2 bg-muted', // Future steps
                   )}
                 />
               ))}
@@ -566,7 +567,7 @@ export function OnboardingFlow({
         <div
           className={cn(
             'flex-1 overflow-y-auto p-8 md:min-h-[400px]',
-            isMobile && 'pb-24' // Add bottom padding on mobile to account for fixed buttons
+            isMobile && 'pb-24', // Add bottom padding on mobile to account for fixed buttons
           )}
         >
           {/* Render steps */}
@@ -584,7 +585,7 @@ export function OnboardingFlow({
           className={cn(
             'flex items-center justify-between p-8 md:pt-6 pt-4 pb-4 md:pb-8 border-t mt-auto',
             isMobile &&
-              'fixed bottom-0 left-0 right-0 bg-background border-t border-border z-10 rounded-none'
+              'fixed bottom-0 left-0 right-0 bg-background border-t border-border z-10 rounded-none',
           )}
         >
           <div className="w-24">
@@ -612,7 +613,7 @@ export function OnboardingFlow({
                       ? 'w-3 h-3 bg-primary' // Current step
                       : index < progress.currentStep - 1
                         ? 'w-2 h-2 bg-primary' // Completed steps
-                        : 'w-2 h-2 bg-muted' // Future steps
+                        : 'w-2 h-2 bg-muted', // Future steps
                   )}
                 />
               ))}

@@ -283,7 +283,7 @@ export function AdvancedMonitor({
               <Progress
                 value={Math.max(
                   0,
-                  Math.min(100, (data.burnRate.daysRemaining / 30) * 100)
+                  Math.min(100, (data.burnRate.daysRemaining / 30) * 100),
                 )}
                 className="mt-2"
               />

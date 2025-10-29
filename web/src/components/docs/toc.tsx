@@ -29,7 +29,7 @@ export function TableOfContents() {
           }
         })
       },
-      { rootMargin: '0% 0% -80% 0%' }
+      { rootMargin: '0% 0% -80% 0%' },
     )
 
     elements.forEach((element) => observer.observe(element))

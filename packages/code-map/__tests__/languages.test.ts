@@ -31,27 +31,27 @@ describe('languages module', () => {
     })
 
     it('should support TypeScript files', () => {
-      const tsConfig = languageTable.find(c => c.extensions.includes('.ts'))
+      const tsConfig = languageTable.find((c) => c.extensions.includes('.ts'))
       expect(tsConfig).toBeDefined()
       expect(tsConfig?.wasmFile).toBe('tree-sitter-typescript.wasm')
       expect(tsConfig?.queryPathOrContent).toBeDefined()
     })
 
     it('should support TSX files', () => {
-      const tsxConfig = languageTable.find(c => c.extensions.includes('.tsx'))
+      const tsxConfig = languageTable.find((c) => c.extensions.includes('.tsx'))
       expect(tsxConfig).toBeDefined()
       expect(tsxConfig?.wasmFile).toBe('tree-sitter-tsx.wasm')
     })
 
     it('should support JavaScript files', () => {
-      const jsConfig = languageTable.find(c => c.extensions.includes('.js'))
+      const jsConfig = languageTable.find((c) => c.extensions.includes('.js'))
       expect(jsConfig).toBeDefined()
       expect(jsConfig?.wasmFile).toBe('tree-sitter-javascript.wasm')
       expect(jsConfig?.extensions).toContain('.jsx')
     })
 
     it('should support Python files', () => {
-      const pyConfig = languageTable.find(c => c.extensions.includes('.py'))
+      const pyConfig = languageTable.find((c) => c.extensions.includes('.py'))
       expect(pyConfig).toBeDefined()
       expect(pyConfig?.wasmFile).toBe('tree-sitter-python.wasm')
     })
@@ -73,7 +73,7 @@ describe('languages module', () => {
       ]
 
       expectedLanguages.forEach(({ ext, wasm }) => {
-        const config = languageTable.find(c => c.extensions.includes(ext))
+        const config = languageTable.find((c) => c.extensions.includes(ext))
         expect(config).toBeDefined()
         expect(config?.wasmFile).toBe(wasm)
       })
@@ -95,7 +95,7 @@ describe('languages module', () => {
         'tree-sitter-typescript.wasm',
       ] as const
 
-      expectedFiles.forEach(file => {
+      expectedFiles.forEach((file) => {
         expect(WASM_FILES[file as keyof typeof WASM_FILES]).toBe(file)
       })
     })
@@ -112,7 +112,7 @@ describe('languages module', () => {
       const testDir = '/custom/wasm/path'
       setWasmDir(testDir)
       expect(getWasmDir()).toBe(testDir)
-      
+
       // Reset for other tests
       setWasmDir('')
     })
@@ -125,10 +125,10 @@ describe('languages module', () => {
     it('should allow changing WASM directory multiple times', () => {
       setWasmDir('/first/path')
       expect(getWasmDir()).toBe('/first/path')
-      
+
       setWasmDir('/second/path')
       expect(getWasmDir()).toBe('/second/path')
-      
+
       // Reset for other tests
       setWasmDir('')
     })
@@ -188,7 +188,7 @@ describe('languages module', () => {
     it('should return undefined for unsupported file extensions', async () => {
       const mockLoader: RuntimeLanguageLoader = {
         initParser: mock(async () => {}),
-        loadLanguage: mock(async () => ({} as any)),
+        loadLanguage: mock(async () => ({}) as any),
       }
 
       const result = await createLanguageConfig('test.unknown', mockLoader)
@@ -211,7 +211,7 @@ describe('languages module', () => {
         wasmFile: 'test.wasm',
         queryPathOrContent: 'test query',
       }
-      
+
       expect(config.extensions).toEqual(['.test'])
       expect(config.wasmFile).toBe('test.wasm')
       expect(config.queryPathOrContent).toBe('test query')
@@ -225,9 +225,9 @@ describe('languages module', () => {
     it('should enforce proper interface implementation', () => {
       const loader: RuntimeLanguageLoader = {
         initParser: async () => {},
-        loadLanguage: async (wasmFile: string) => ({} as any),
+        loadLanguage: async (wasmFile: string) => ({}) as any,
       }
-      
+
       expect(typeof loader.initParser).toBe('function')
       expect(typeof loader.loadLanguage).toBe('function')
     })

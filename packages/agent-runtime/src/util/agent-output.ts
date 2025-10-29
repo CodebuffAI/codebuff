@@ -1,6 +1,9 @@
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { AssistantMessage } from '@codebuff/common/types/messages/codebuff-message'
-import type { AgentState, AgentOutput } from '@codebuff/common/types/session-state'
+import type {
+  AgentState,
+  AgentOutput,
+} from '@codebuff/common/types/session-state'
 
 export function getAgentOutput(
   agentState: AgentState,

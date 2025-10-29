@@ -71,7 +71,7 @@ export function GlitchText({
       className={cn(
         'font-mono inline-block transition-all duration-75',
         isGlitching && 'text-red-400',
-        className
+        className,
       )}
       onMouseEnter={handleMouseEnter}
       animate={

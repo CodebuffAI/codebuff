@@ -139,7 +139,7 @@ export function ReferralsSection() {
                   <Skeleton className="h-4 w-5/6" />
                   <Skeleton className="h-4 w-4/6" />
                 </div>
-              )
+              ),
             )
             .with(
               {
@@ -208,7 +208,7 @@ export function ReferralsSection() {
                     </ul>
                   )}
                 </div>
-              )
+              ),
             )
             .otherwise(() => (
               <p>

@@ -18,7 +18,7 @@ export function ReferralRedirect() {
       if (storedReferralCode) {
         console.log(
           '🟠 ReferralRedirect: Found stored referral code, redirecting:',
-          storedReferralCode
+          storedReferralCode,
         )
         // Clear the stored code and redirect
         localStorage.removeItem('referral_code')

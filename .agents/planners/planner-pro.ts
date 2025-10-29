@@ -9,7 +9,8 @@ const definition: SecretAgentDefinition = {
   model: 'openai/gpt-5-pro',
   publisher,
   displayName: 'Planner Pro',
-  spawnerPrompt: 'Uses deep thinking to generate an implementation plan for a user request.',
+  spawnerPrompt:
+    'Uses deep thinking to generate an implementation plan for a user request.',
   inputSchema: {},
   outputMode: 'last_message',
   spawnableAgents: [],

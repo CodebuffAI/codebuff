@@ -1,5 +1,4 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { mockModule } from '@codebuff/common/testing/mock-modules'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import {
   describe,
@@ -9,7 +8,6 @@ import {
   afterEach,
   spyOn,
   mock,
-  beforeAll,
 } from 'bun:test'
 
 import {
@@ -68,44 +66,6 @@ const mockStaticTemplates: Record<string, AgentTemplate> = {
 
 describe('Agent Registry', () => {
   let mockFileContext: ProjectFileContext
-
-  beforeAll(() => {
-    // Mock the database module
-    mockModule('@codebuff/common/db', () => ({
-      default: {
-        select: () => ({
-          from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => Promise.resolve([]),
-              }),
-              then: (fn: (rows: any[]) => any) => fn([]),
-            }),
-          }),
-        }),
-      },
-    }))
-
-    // Mock the schema module
-    mockModule('@codebuff/common/db/schema', () => ({
-      agentConfig: {
-        id: 'id',
-        publisher_id: 'publisher_id',
-        version: 'version',
-        major: 'major',
-        minor: 'minor',
-        patch: 'patch',
-        data: 'data',
-      },
-    }))
-
-    // Mock drizzle-orm
-    mockModule('drizzle-orm', () => ({
-      and: (...args: any[]) => ({ type: 'and', args }),
-      desc: (field: any) => ({ type: 'desc', field }),
-      eq: (field: any, value: any) => ({ type: 'eq', field, value }),
-    }))
-  })
 
   beforeEach(async () => {
     agentRuntimeImpl = {

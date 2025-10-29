@@ -36,7 +36,7 @@ export function ClientSessionViewer({
     try {
       setLoading(true)
       const response = await fetch(
-        `/api/admin/traces/client/${clientId}/sessions`
+        `/api/admin/traces/client/${clientId}/sessions`,
       )
 
       if (!response.ok) {

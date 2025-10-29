@@ -8,7 +8,6 @@ import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-
 describe('agentRunsStepsPost', () => {
   let mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   let mockLogger: Logger
@@ -19,12 +18,18 @@ describe('agentRunsStepsPost', () => {
     mockGetUserInfoFromApiKey = async ({ apiKey, fields }) => {
       if (apiKey === 'valid-key') {
         return Object.fromEntries(
-          fields.map((field) => [field, field === 'id' ? 'user-123' : undefined])
+          fields.map((field) => [
+            field,
+            field === 'id' ? 'user-123' : undefined,
+          ]),
         ) as any
       }
       if (apiKey === 'test-key') {
         return Object.fromEntries(
-          fields.map((field) => [field, field === 'id' ? TEST_USER_ID : undefined])
+          fields.map((field) => [
+            field,
+            field === 'id' ? TEST_USER_ID : undefined,
+          ]),
         ) as any
       }
       return null
@@ -55,10 +60,13 @@ describe('agentRunsStepsPost', () => {
   })
 
   test('returns 401 when no API key provided', async () => {
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      body: JSON.stringify({ stepNumber: 1 }),
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        body: JSON.stringify({ stepNumber: 1 }),
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,
@@ -75,11 +83,14 @@ describe('agentRunsStepsPost', () => {
   })
 
   test('returns 404 when API key is invalid', async () => {
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer invalid-key' },
-      body: JSON.stringify({ stepNumber: 1 }),
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer invalid-key' },
+        body: JSON.stringify({ stepNumber: 1 }),
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,
@@ -96,11 +107,14 @@ describe('agentRunsStepsPost', () => {
   })
 
   test('returns 400 when request body is invalid JSON', async () => {
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-      body: 'invalid json',
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-key' },
+        body: 'invalid json',
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,
@@ -117,11 +131,14 @@ describe('agentRunsStepsPost', () => {
   })
 
   test('returns 400 when schema validation fails', async () => {
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-      body: JSON.stringify({ stepNumber: -1 }), // Invalid: negative
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-key' },
+        body: JSON.stringify({ stepNumber: -1 }), // Invalid: negative
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,
@@ -149,11 +166,14 @@ describe('agentRunsStepsPost', () => {
       }),
     } as any
 
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-      body: JSON.stringify({ stepNumber: 1 }),
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-key' },
+        body: JSON.stringify({ stepNumber: 1 }),
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,
@@ -181,11 +201,14 @@ describe('agentRunsStepsPost', () => {
       }),
     } as any
 
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-      body: JSON.stringify({ stepNumber: 1 }),
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-key' },
+        body: JSON.stringify({ stepNumber: 1 }),
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,
@@ -202,11 +225,14 @@ describe('agentRunsStepsPost', () => {
   })
 
   test('returns test step ID for test user', async () => {
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer test-key' },
-      body: JSON.stringify({ stepNumber: 1 }),
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-key' },
+        body: JSON.stringify({ stepNumber: 1 }),
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,
@@ -223,17 +249,20 @@ describe('agentRunsStepsPost', () => {
   })
 
   test('successfully adds agent step', async () => {
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-      body: JSON.stringify({
-        stepNumber: 1,
-        credits: 100,
-        childRunIds: ['child-1', 'child-2'],
-        messageId: 'msg-123',
-        status: 'completed',
-      }),
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-key' },
+        body: JSON.stringify({
+          stepNumber: 1,
+          credits: 100,
+          childRunIds: ['child-1', 'child-2'],
+          messageId: 'msg-123',
+          status: 'completed',
+        }),
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,
@@ -267,11 +296,14 @@ describe('agentRunsStepsPost', () => {
       }),
     } as any
 
-    const req = new NextRequest('http://localhost/api/v1/agent-runs/run-123/steps', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-      body: JSON.stringify({ stepNumber: 1 }),
-    })
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-key' },
+        body: JSON.stringify({ stepNumber: 1 }),
+      },
+    )
 
     const response = await agentRunsStepsPost({
       req,

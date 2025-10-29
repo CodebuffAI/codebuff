@@ -28,7 +28,7 @@ export function WorkflowIllustration({ steps }: WorkflowIllustrationProps) {
             <div
               className={cn(
                 'flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-xl mr-3',
-                'bg-white/10'
+                'bg-white/10',
               )}
             >
               {step.icon}

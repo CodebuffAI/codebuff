@@ -139,7 +139,7 @@ describe('buildTimelineFromMessages', () => {
 
     // Next two should be spawned agents
     const spawnedAgentEvents = timeline.filter(
-      (e) => e.type === 'spawned_agent'
+      (e) => e.type === 'spawned_agent',
     )
     expect(spawnedAgentEvents).toHaveLength(2)
     expect(spawnedAgentEvents[0].name).toBe('file_picker')
@@ -148,11 +148,11 @@ describe('buildTimelineFromMessages', () => {
     // Check metadata
     expect(spawnedAgentEvents[0].metadata.agentType).toBe('file_picker')
     expect(spawnedAgentEvents[0].metadata.result.prompt).toBe(
-      'Find relevant files'
+      'Find relevant files',
     )
     expect(spawnedAgentEvents[1].metadata.agentType).toBe('reviewer')
     expect(spawnedAgentEvents[1].metadata.result.prompt).toBe(
-      'Review the changes'
+      'Review the changes',
     )
 
     // Check parent relationship

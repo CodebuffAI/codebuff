@@ -63,7 +63,7 @@ export default function OrganizationBillingPurchasePage() {
           headers: {
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
@@ -78,7 +78,7 @@ export default function OrganizationBillingPurchasePage() {
 
       // Redirect to Stripe Checkout
       const stripe = await loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
       )
 
       if (stripe) {

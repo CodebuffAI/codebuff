@@ -45,7 +45,7 @@ describe('Auto Top-up System', () => {
       )
 
       // Mock the database
-      mockModule('@codebuff/common/db', () => ({
+      mockModule('@codebuff/internal/db', () => ({
         default: {
           query: {
             user: {

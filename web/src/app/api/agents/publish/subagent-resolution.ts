@@ -20,7 +20,7 @@ export async function resolveAndValidateSubagents(params: {
   // Returns latest published version string or null if none
   getLatestPublishedVersion: (
     publisherId: string,
-    agentId: string
+    agentId: string,
   ) => Promise<string | null>
   // Checks if a fully-qualified ref exists within the same publisher context
   existsInSamePublisher: (fullyQualifiedRef: string) => boolean
@@ -33,7 +33,7 @@ export async function resolveAndValidateSubagents(params: {
   } = params
 
   const publishingVersionsById = new Map<string, string>(
-    agents.map(({ id, version }) => [id, version])
+    agents.map(({ id, version }) => [id, version]),
   )
 
   const fqRegex = /^([^/]+)\/(.+)@(.+)$/
@@ -59,7 +59,7 @@ export async function resolveAndValidateSubagents(params: {
         if (pub === requestedPublisherId) {
           if (!existsInSamePublisher(fullKey)) {
             throw new SubagentResolutionError(
-              `Invalid spawnable agent: '${sub}' is not published and not included in this request.`
+              `Invalid spawnable agent: '${sub}' is not published and not included in this request.`,
             )
           }
         }
@@ -86,13 +86,13 @@ export async function resolveAndValidateSubagents(params: {
       } else {
         resolvedVersion = await getLatestPublishedVersion(
           targetPublisher,
-          targetId
+          targetId,
         )
       }
 
       if (!resolvedVersion) {
         throw new SubagentResolutionError(
-          `Invalid spawnable agent: '${sub}' has no published versions to resolve to.`
+          `Invalid spawnable agent: '${sub}' has no published versions to resolve to.`,
         )
       }
 
@@ -103,7 +103,7 @@ export async function resolveAndValidateSubagents(params: {
         !existsInSamePublisher(full)
       ) {
         throw new SubagentResolutionError(
-          `Invalid spawnable agent: '${sub}' resolves to '${full}' but is not published and not included in this request.`
+          `Invalid spawnable agent: '${sub}' resolves to '${full}' but is not published and not included in this request.`,
         )
       }
 

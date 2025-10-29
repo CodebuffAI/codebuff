@@ -52,7 +52,7 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
   const queryClient = useQueryClient()
   const [isEnabled, setIsEnabled] = useState(false)
   const [threshold, setThreshold] = useState<number>(
-    ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS
+    ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS,
   )
   const [topUpAmountDollars, setTopUpAmountDollars] =
     useState<number>(MIN_TOPUP_DOLLARS)
@@ -85,18 +85,18 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
           autoTopupThreshold: clamp(
             thresholdCredits,
             ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS,
-            ORG_AUTO_TOPUP_CONSTANTS.MAX_THRESHOLD_CREDITS
+            ORG_AUTO_TOPUP_CONSTANTS.MAX_THRESHOLD_CREDITS,
           ),
           autoTopupAmount: clamp(
             topUpAmount,
             ORG_AUTO_TOPUP_CONSTANTS.MIN_TOPUP_CREDITS,
             (ORG_AUTO_TOPUP_CONSTANTS.MAX_TOPUP_DOLLARS * 100) /
-              ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT
+              ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT,
           ),
           initialTopUpDollars: clamp(
             topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS,
             MIN_TOPUP_DOLLARS,
-            ORG_AUTO_TOPUP_CONSTANTS.MAX_TOPUP_DOLLARS
+            ORG_AUTO_TOPUP_CONSTANTS.MAX_TOPUP_DOLLARS,
           ),
         }
       },
@@ -110,7 +110,7 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
       setIsEnabled(organizationSettings.autoTopupEnabled ?? false)
       setThreshold(
         organizationSettings.autoTopupThreshold ??
-          ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS
+          ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS,
       )
       const topUpDollars =
         (organizationSettings.autoTopupAmount *
@@ -129,7 +129,7 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
         autoTopupEnabled: boolean
         autoTopupThreshold: number
         autoTopupAmount: number
-      }>
+      }>,
     ) => {
       const payload = {
         autoTopupEnabled: settings.autoTopupEnabled,
@@ -216,18 +216,18 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
           setIsEnabled(updatedData.autoTopupEnabled ?? false)
           setThreshold(
             updatedData.autoTopupThreshold ??
-              ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS
+              ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS,
           )
           const topUpDollars =
             (updatedData.autoTopupAmount *
               ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT) /
             100
           setTopUpAmountDollars(
-            topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS
+            topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS,
           )
 
           return updatedData
-        }
+        },
       )
 
       pendingSettings.current = null
@@ -242,14 +242,14 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
         setIsEnabled(organizationSettings.autoTopupEnabled ?? false)
         setThreshold(
           organizationSettings.autoTopupThreshold ??
-            ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS
+            ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS,
         )
         const topUpDollars =
           (organizationSettings.autoTopupAmount *
             ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT) /
           100
         setTopUpAmountDollars(
-          topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS
+          topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS,
         )
       }
       pendingSettings.current = null
@@ -265,7 +265,7 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
         topUpAmountDollars: currentTopUpDollars,
       } = pendingSettings.current
       const currentTopUpCredits = Math.round(
-        (currentTopUpDollars * 100) / ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT
+        (currentTopUpDollars * 100) / ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT,
       )
 
       if (
@@ -283,7 +283,7 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
         autoTopupAmount: currentTopUpCredits,
       })
     }, 750),
-    [autoTopupMutation, organizationSettings]
+    [autoTopupMutation, organizationSettings],
   )
 
   const handleThresholdChange = (rawValue: number) => {
@@ -295,7 +295,7 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
       const validValue = clamp(
         rawValue,
         ORG_AUTO_TOPUP_CONSTANTS.MIN_THRESHOLD_CREDITS,
-        ORG_AUTO_TOPUP_CONSTANTS.MAX_THRESHOLD_CREDITS
+        ORG_AUTO_TOPUP_CONSTANTS.MAX_THRESHOLD_CREDITS,
       )
       pendingSettings.current = { threshold: validValue, topUpAmountDollars }
 
@@ -318,7 +318,7 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
       const validValue = clamp(
         rawValue,
         MIN_TOPUP_DOLLARS,
-        ORG_AUTO_TOPUP_CONSTANTS.MAX_TOPUP_DOLLARS
+        ORG_AUTO_TOPUP_CONSTANTS.MAX_TOPUP_DOLLARS,
       )
       pendingSettings.current = { threshold, topUpAmountDollars: validValue }
 
@@ -365,7 +365,7 @@ export function useOrgAutoTopup(organizationId: string): OrgAutoTopupState {
       }
 
       const topUpCredits = Math.round(
-        (topUpAmountDollars * 100) / ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT
+        (topUpAmountDollars * 100) / ORG_AUTO_TOPUP_CONSTANTS.CENTS_PER_CREDIT,
       )
 
       try {

@@ -96,7 +96,7 @@ export function TeamManagement({
   const [inviting, setInviting] = useState(false)
   const [bulkInviting, setBulkInviting] = useState(false)
   const [resendingInvites, setResendingInvites] = useState<Set<string>>(
-    new Set()
+    new Set(),
   )
   const [refreshing, setRefreshing] = useState(false)
   const [confirmResendDialogOpen, setConfirmResendDialogOpen] = useState(false)
@@ -271,7 +271,7 @@ export function TeamManagement({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ invitations }),
-        }
+        },
       )
 
       const data = await response.json()
@@ -326,7 +326,7 @@ export function TeamManagement({
         `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}/resend`,
         {
           method: 'POST',
-        }
+        },
       )
 
       const data = await response.json()
@@ -376,7 +376,7 @@ export function TeamManagement({
         `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}/resend`,
         {
           method: 'POST',
-        }
+        },
       )
 
       const data = await response.json()
@@ -416,7 +416,7 @@ export function TeamManagement({
         `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}`,
         {
           method: 'DELETE',
-        }
+        },
       )
 
       if (!response.ok) {
@@ -454,7 +454,7 @@ export function TeamManagement({
         `/api/orgs/${organizationId}/invitations/${encodeURIComponent(email)}`,
         {
           method: 'DELETE',
-        }
+        },
       )
 
       if (!response.ok) {
@@ -484,7 +484,7 @@ export function TeamManagement({
 
   const handleUpdateMemberRole = async (
     userId: string,
-    newRole: 'admin' | 'member'
+    newRole: 'admin' | 'member',
   ) => {
     try {
       const response = await fetch(
@@ -495,7 +495,7 @@ export function TeamManagement({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ role: newRole }),
-        }
+        },
       )
 
       if (!response.ok) {
@@ -537,7 +537,7 @@ export function TeamManagement({
         `/api/orgs/${organizationId}/members/${userId}`,
         {
           method: 'DELETE',
-        }
+        },
       )
 
       if (!response.ok) {
@@ -983,13 +983,13 @@ export function TeamManagement({
                             title="Resend invitation"
                             className={cn(
                               isMobile ? 'px-2 py-1 text-xs' : 'text-xs', // Adjusted padding/text for mobile
-                              isExpired && 'opacity-50 cursor-not-allowed'
+                              isExpired && 'opacity-50 cursor-not-allowed',
                             )}
                           >
                             <RefreshCw
                               className={cn(
                                 'mr-1 h-3 w-3 sm:h-4 sm:w-4', // Adjusted icon size and margin
-                                isResending ? 'animate-spin' : ''
+                                isResending ? 'animate-spin' : '',
                               )}
                             />
                             {isResending ? 'Resending...' : 'Resend Invite'}
@@ -1043,7 +1043,7 @@ export function TeamManagement({
             <Button
               onClick={handleConfirmResend}
               disabled={resendingInvites.has(
-                currentInvitationToResend?.email || ''
+                currentInvitationToResend?.email || '',
               )}
             >
               {resendingInvites.has(currentInvitationToResend?.email || '')

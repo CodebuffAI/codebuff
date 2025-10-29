@@ -1,13 +1,13 @@
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import {
-  clearMockedModules,
   mockModule,
+  clearMockedModules,
 } from '@codebuff/common/testing/mock-modules'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 
-import type { GrantType } from '@codebuff/common/db/schema'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { GrantType } from '@codebuff/internal/db/schema'
 
 describe('Usage Calculation System', () => {
   const logger: Logger = {
@@ -19,7 +19,7 @@ describe('Usage Calculation System', () => {
 
   beforeAll(() => {
     // Mock the database module before importing the function
-    mockModule('@codebuff/common/db', () => ({
+    mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -61,7 +61,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module with the test data
-    mockModule('@codebuff/common/db', () => ({
+    mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -98,7 +98,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module with the test data
-    mockModule('@codebuff/common/db', () => ({
+    mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -145,7 +145,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module with the test data
-    mockModule('@codebuff/common/db', () => ({
+    mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({
@@ -201,7 +201,7 @@ describe('Usage Calculation System', () => {
     ]
 
     // Mock the database module with the test data
-    mockModule('@codebuff/common/db', () => ({
+    mockModule('@codebuff/internal/db', () => ({
       default: {
         select: () => ({
           from: () => ({

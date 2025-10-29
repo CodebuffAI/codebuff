@@ -49,7 +49,7 @@ export function TraceViewer({ clientRequestId, onClose }: TraceViewerProps) {
 
       // Fetch messages
       const messagesResponse = await fetch(
-        `/api/admin/traces/${clientRequestId}/messages`
+        `/api/admin/traces/${clientRequestId}/messages`,
       )
       if (!messagesResponse.ok) {
         throw new Error('Failed to fetch messages')
@@ -59,7 +59,7 @@ export function TraceViewer({ clientRequestId, onClose }: TraceViewerProps) {
 
       // Fetch timeline
       const timelineResponse = await fetch(
-        `/api/admin/traces/${clientRequestId}/timeline`
+        `/api/admin/traces/${clientRequestId}/timeline`,
       )
       if (!timelineResponse.ok) {
         throw new Error('Failed to fetch timeline')
@@ -101,7 +101,7 @@ export function TraceViewer({ clientRequestId, onClose }: TraceViewerProps) {
       pairs.push({
         userMessage: extractActualUserMessage(userMsg.request),
         assistantResponse: extractActualAssistantResponse(
-          finalResponse.response
+          finalResponse.response,
         ),
         message: finalResponse, // Use final response for metadata
         index: 0,
@@ -115,7 +115,7 @@ export function TraceViewer({ clientRequestId, onClose }: TraceViewerProps) {
   const handleToolReferenceClick = (toolName: string, stepIndex: number) => {
     // Find the corresponding tool call event in the timeline
     const agentStepEvents = timelineEvents.filter(
-      (event) => event.type === 'agent_step' && !event.parentId
+      (event) => event.type === 'agent_step' && !event.parentId,
     )
 
     if (stepIndex < agentStepEvents.length) {
@@ -126,7 +126,7 @@ export function TraceViewer({ clientRequestId, onClose }: TraceViewerProps) {
         (event) =>
           event.type === 'tool_call' &&
           event.parentId === agentStepEvent.id &&
-          event.metadata.toolName === toolName
+          event.metadata.toolName === toolName,
       )
 
       if (toolCallEvent) {
