@@ -163,7 +163,7 @@ export const ShimmerText = ({
   const generateColors = (length: number, colorPalette: string[]): string[] => {
     if (length === 0) return []
     if (colorPalette.length === 0) {
-      return Array.from({ length }, () => '#ffffff')
+      return Array.from({ length }, () => '#dbeafe')
     }
     if (colorPalette.length === 1) {
       return Array.from({ length }, () => colorPalette[0])

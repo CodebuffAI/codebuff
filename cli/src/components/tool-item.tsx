@@ -19,6 +19,7 @@ interface ToolItemProps {
   theme: ChatTheme
   branchMeta: ToolBranchMeta
   onToggle: () => void
+  titleColor?: string
 }
 
 const renderContent = (value: ReactNode, theme: ChatTheme): ReactNode => {
@@ -73,10 +74,11 @@ export const ToolItem = ({
   theme,
   branchMeta,
   onToggle,
+  titleColor: customTitleColor,
 }: ToolItemProps) => {
   const branchColor = theme.agentResponseCount
   const branchAttributes = TextAttributes.DIM
-  const titleColor = theme.statusSecondary
+  const titleColor = customTitleColor ?? theme.statusSecondary
   const previewColor = isStreaming ? theme.agentText : theme.agentResponseCount
   const connectorSymbol = branchMeta.hasNext ? '├' : '└'
   const continuationPrefix = branchMeta.hasNext ? '│ ' : '  '

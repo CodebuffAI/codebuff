@@ -88,6 +88,7 @@ interface MultilineInputProps {
     inputFocusedFg: string
     inputPlaceholder: string
     cursor: string
+    statusAccent: string
   }
   width: number
 }
@@ -579,6 +580,33 @@ export const MultilineInput = forwardRef<
     maxHeight,
   ])
 
+  const resolveFg = (
+    color?: string,
+    fallback?: string,
+  ): string | undefined => {
+    if (color && color !== 'default') return color
+    if (fallback && fallback !== 'default') return fallback
+    return undefined
+  }
+
+  const resolvedInputColor = resolveFg(
+    isPlaceholder
+      ? theme.inputPlaceholder
+      : focused
+        ? theme.inputFocusedFg ?? theme.inputFg
+        : theme.inputFg,
+  )
+
+  const textStyle: Record<string, unknown> = { bg: 'transparent' }
+  if (resolvedInputColor) {
+    textStyle.fg = resolvedInputColor
+  }
+  if (isPlaceholder) {
+    textStyle.attributes = TextAttributes.DIM
+  }
+
+  const cursorFg = resolveFg(theme.cursor, theme.statusAccent)
+
   return (
     <scrollbox
       ref={scrollBoxRef}
@@ -606,24 +634,22 @@ export const MultilineInput = forwardRef<
         },
       }}
     >
-      <text
-        style={{
-          fg: isPlaceholder
-            ? theme.inputPlaceholder
-            : focused
-              ? theme.inputFocusedFg
-              : theme.inputFg,
-        }}
-      >
+      <text style={textStyle}>
         {showCursor ? (
           <>
             {beforeCursor}
             {shouldHighlight ? (
-              <span fg={theme.cursor} attributes={TextAttributes.UNDERLINE}>
+              <span
+                {...(cursorFg ? { fg: cursorFg } : undefined)}
+                attributes={TextAttributes.UNDERLINE}
+              >
                 {activeChar === ' ' ? '\u00a0' : activeChar}
               </span>
             ) : (
-              <span fg={theme.cursor} attributes={TextAttributes.BOLD}>
+              <span
+                {...(cursorFg ? { fg: cursorFg } : undefined)}
+                attributes={TextAttributes.BOLD}
+              >
                 {CURSOR_CHAR}
               </span>
             )}

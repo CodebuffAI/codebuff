@@ -31,19 +31,30 @@ export const RaisedPill = ({
   onPress,
   style,
 }: RaisedPillProps): React.ReactNode => {
-  const leftRightPadding =
-    padding > 0 ? [{ text: ' '.repeat(padding), fg: textColor }] : []
+  const resolveFg = (color?: string): string | undefined =>
+    color && color !== 'default' ? color : undefined
 
-  const normalizedSegments: Array<{ text: string; fg: string; attr?: number }> =
-    [
-      ...leftRightPadding,
-      ...segments.map((segment) => ({
-        text: segment.text,
-        fg: segment.fg ?? textColor,
-        attr: segment.attr,
-      })),
-      ...leftRightPadding,
-    ]
+  const resolvedFrameColor = resolveFg(frameColor)
+  const resolvedTextColor = resolveFg(textColor)
+
+  const leftRightPadding =
+    padding > 0
+      ? [{ text: ' '.repeat(padding), fg: resolvedTextColor }]
+      : []
+
+  const normalizedSegments: Array<{
+    text: string
+    fg?: string
+    attr?: number
+  }> = [
+    ...leftRightPadding,
+    ...segments.map((segment) => ({
+      text: segment.text,
+      fg: resolveFg(segment.fg ?? textColor),
+      attr: segment.attr,
+    })),
+    ...leftRightPadding,
+  ]
 
   const contentText = normalizedSegments.map((segment) => segment.text).join('')
   const contentWidth = Math.max(0, stringWidth(contentText))
@@ -60,24 +71,32 @@ export const RaisedPill = ({
       onMouseDown={onPress}
     >
       <text>
-        <span fg={frameColor}>{`╭${horizontal}╮`}</span>
+        <span
+          {...(resolvedFrameColor ? { fg: resolvedFrameColor } : undefined)}
+        >{`╭${horizontal}╮`}</span>
       </text>
       <text>
-        <span fg={frameColor}>│</span>
+        <span {...(resolvedFrameColor ? { fg: resolvedFrameColor } : undefined)}>
+          │
+        </span>
         {normalizedSegments.map((segment, idx) => (
           <span
             key={idx}
-            fg={segment.fg}
+            {...(segment.fg ? { fg: segment.fg } : undefined)}
             bg={fillColor ?? 'transparent'}
             attributes={segment.attr}
           >
             {segment.text}
           </span>
         ))}
-        <span fg={frameColor}>│</span>
+        <span {...(resolvedFrameColor ? { fg: resolvedFrameColor } : undefined)}>
+          │
+        </span>
       </text>
       <text>
-        <span fg={frameColor}>{`╰${horizontal}╯`}</span>
+        <span
+          {...(resolvedFrameColor ? { fg: resolvedFrameColor } : undefined)}
+        >{`╰${horizontal}╯`}</span>
       </text>
     </box>
   )

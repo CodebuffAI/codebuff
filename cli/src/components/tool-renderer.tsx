@@ -124,10 +124,13 @@ const getListDirectoryRender = (
     return {}
   }
 
+  const summaryColor = theme.agentContentText
+  const pathColor = theme.statusAccent
+
   const content =
     summaryLine !== null ? (
       <text
-        fg={theme.agentResponseCount}
+        fg={summaryColor}
         attributes={TextAttributes.ITALIC}
         style={{ wrapMode: 'word' }}
       >
@@ -138,7 +141,7 @@ const getListDirectoryRender = (
   const collapsedPreview = summaryLine ?? undefined
 
   const titleAccessory = path ? (
-    <span fg={theme.agentText} attributes={TextAttributes.BOLD}>
+    <span fg={pathColor} attributes={TextAttributes.BOLD}>
       {path}
     </span>
   ) : undefined

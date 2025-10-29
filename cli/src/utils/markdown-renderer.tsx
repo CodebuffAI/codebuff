@@ -45,11 +45,11 @@ const defaultPalette: MarkdownPalette = {
     5: 'green',
     6: 'green',
   },
-  listBulletFg: 'white',
+  listBulletFg: '#d9e2ff',
   blockquoteBorderFg: 'gray',
   blockquoteTextFg: 'gray',
   dividerFg: '#666',
-  codeTextFg: 'brightWhite',
+  codeTextFg: '#d1d5db',
   codeMonochrome: false,
 }
 

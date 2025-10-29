@@ -39,6 +39,10 @@ export interface ChatTheme {
   agentToggleText: string
   agentToggleExpandedBg: string
   agentContentBg: string
+  modeToggleFastBg: string
+  modeToggleFastText: string
+  modeToggleMaxBg: string
+  modeToggleMaxText: string
   markdown?: {
     headingFg?: Partial<Record<MarkdownHeadingLevel, string>>
     inlineCodeFg?: string
@@ -71,23 +75,27 @@ const BASE_THEMES: Record<'dark' | 'light', ChatTheme> = {
     statusAccent: '#facc15',
     statusSecondary: '#d9e2ff',
     inputBg: 'transparent',
-    inputFg: '#ffffff',
+    inputFg: '#e2e8f0',
     inputFocusedBg: 'transparent',
-    inputFocusedFg: '#ffffff',
-    inputPlaceholder: '#cbd5f5',
+    inputFocusedFg: '#e2e8f0',
+    inputPlaceholder: 'default',
     cursor: '#22c55e',
     agentPrefix: '#22c55e',
     agentName: '#4ade80',
-    agentText: '#ffffff',
+    agentText: '#e2e8f0',
     agentCheckmark: '#22c55e',
     agentResponseCount: '#94a3b8',
     agentFocusedBg: 'transparent',
     agentContentText: '#e2e8f0',
-    agentToggleHeaderBg: '#475569',
-    agentToggleHeaderText: '#f8fafc',
-    agentToggleText: '#f8fafc',
+    agentToggleHeaderBg: 'default',
+    agentToggleHeaderText: 'default',
+    agentToggleText: 'default',
     agentToggleExpandedBg: '#047857',
     agentContentBg: 'transparent',
+    modeToggleFastBg: '#f97316',
+    modeToggleFastText: '#f97316',
+    modeToggleMaxBg: '#dc2626',
+    modeToggleMaxText: '#dc2626',
     markdown: {
       codeBackground: 'transparent',
       codeHeaderFg: '#d9e2ff',
@@ -103,7 +111,7 @@ const BASE_THEMES: Record<'dark' | 'light', ChatTheme> = {
       },
       listBulletFg: '#d9e2ff',
       blockquoteBorderFg: '#4b5563',
-      blockquoteTextFg: '#ffffff',
+      blockquoteTextFg: '#f1f5f9',
       dividerFg: '#334155',
       codeMonochrome: true,
     },
@@ -125,9 +133,9 @@ const BASE_THEMES: Record<'dark' | 'light', ChatTheme> = {
     statusAccent: '#f59e0b',
     statusSecondary: '#6b7280',
     inputBg: 'transparent',
-    inputFg: '#111827',
+    inputFg: '#334155',
     inputFocusedBg: 'transparent',
-    inputFocusedFg: '#000000',
+    inputFocusedFg: '#334155',
     inputPlaceholder: '#9ca3af',
     cursor: '#3b82f6',
     agentPrefix: '#059669',
@@ -142,6 +150,10 @@ const BASE_THEMES: Record<'dark' | 'light', ChatTheme> = {
     agentToggleText: '#f8fafc',
     agentToggleExpandedBg: '#047857',
     agentContentBg: 'transparent',
+    modeToggleFastBg: '#f97316',
+    modeToggleFastText: '#f97316',
+    modeToggleMaxBg: '#dc2626',
+    modeToggleMaxText: '#dc2626',
     markdown: {
       codeBackground: 'transparent',
       codeHeaderFg: '#4b5563',

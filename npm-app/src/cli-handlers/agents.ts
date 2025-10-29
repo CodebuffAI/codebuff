@@ -304,17 +304,15 @@ function buildAllContentLines() {
         const cleanDescription = agent.description
           ? agent.description.replace(/\u001b\[[0-9;]*m/g, '')
           : ''
-        const availableWidth = terminalWidth - 4 // Account for padding
 
         if (isSelected) {
           const headerWidth = Math.min(terminalWidth - 6, 60)
           lines.push(`  ${cyan('┌' + '─'.repeat(headerWidth + 2) + '┐')}`)
 
-          // Right-aligned title with separator line
-          const titlePadding = Math.max(0, headerWidth - cleanName.length - 4)
-          const separatorLine = '─'.repeat(titlePadding)
+          // Title row inside the header box
+          const namePadding = Math.max(0, headerWidth - cleanName.length)
           lines.push(
-            `  ${cyan('│')} ${gray(separatorLine)}  ${agent.name} ${cyan('│')}`,
+            `  ${cyan('│')} ${agent.name}${' '.repeat(namePadding)} ${cyan('│')}`,
           )
 
           if (agent.description) {
@@ -328,13 +326,8 @@ function buildAllContentLines() {
           }
           lines.push(`  ${cyan('└' + '─'.repeat(headerWidth + 2) + '┘')}`)
         } else {
-          // Right-aligned title with separator line for unselected
-          const titlePadding = Math.max(
-            0,
-            availableWidth - cleanName.length - 4,
-          )
-          const separatorLine = gray('─'.repeat(titlePadding))
-          lines.push(`  ${separatorLine}  ${agent.name}`)
+          // Title line when header is not selected
+          lines.push(`  ${agent.name}`)
 
           if (agent.description) {
             lines.push(`  ${agent.description}`)

@@ -193,6 +193,7 @@ export const MessageBlock = ({
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
+          titleColor={textColor}
           branchMeta={branchMeta}
           onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
         />

@@ -23,6 +23,19 @@ export const SuggestionMenu = ({
   maxVisible = 5,
   prefix = '/',
 }: SuggestionMenuProps) => {
+  const resolveFg = (
+    color?: string,
+    fallback?: string,
+  ): string | undefined => {
+    if (color && color !== 'default') return color
+    if (fallback && fallback !== 'default') return fallback
+    return undefined
+  }
+  const fallbackTextColor =
+    resolveFg(theme.agentContentText) ?? resolveFg(theme.chromeText) ?? '#d1d5e5'
+  const fallbackDescriptionColor =
+    resolveFg(theme.timestampUser) ?? fallbackTextColor
+
   if (items.length === 0) {
     return null
   }
@@ -76,6 +89,11 @@ export const SuggestionMenu = ({
           const descriptionColor = isSelected
             ? theme.statusAccent
             : theme.timestampUser
+          const textFg = resolveFg(textColor, fallbackTextColor)
+          const descriptionFg = resolveFg(
+            descriptionColor,
+            fallbackDescriptionColor,
+          )
           return (
             <box
               key={item.id}
@@ -92,7 +110,7 @@ export const SuggestionMenu = ({
             >
               <text
                 style={{
-                  fg: textColor,
+                  ...(textFg ? { fg: textFg } : undefined),
                   marginBottom: 0,
                   wrapMode: 'none',
                 }}
@@ -100,7 +118,11 @@ export const SuggestionMenu = ({
                 <span fg={theme.agentPrefix}>{effectivePrefix}</span>
                 <span>{item.label}</span>
                 <span>{padding}</span>
-                <span fg={descriptionColor}>{item.description}</span>
+                <span
+                  {...(descriptionFg ? { fg: descriptionFg } : undefined)}
+                >
+                  {item.description}
+                </span>
               </text>
             </box>
           )

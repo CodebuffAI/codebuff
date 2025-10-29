@@ -44,13 +44,25 @@ export const BranchItem = ({
   isStreaming,
   streamingPreview,
   finishedPreview,
-  availableWidth,
   statusLabel,
   statusColor,
   statusIndicator = '●',
   theme,
   onToggle,
 }: BranchItemProps) => {
+  const resolveFg = (
+    color?: string,
+    fallback?: string,
+  ): string | undefined => {
+    if (color && color !== 'default') return color
+    if (fallback && fallback !== 'default') return fallback
+    return undefined
+  }
+  const fallbackTextColor =
+    resolveFg(theme.agentContentText) ??
+    resolveFg(theme.chromeText) ??
+    '#d1d5e5'
+
   const isExpanded = !isCollapsed
   const toggleFrameColor = isExpanded
     ? theme.agentToggleExpandedBg
@@ -62,10 +74,10 @@ export const BranchItem = ({
   const toggleLabel = `${isCollapsed ? '▸' : '▾'} `
   const collapseButtonFrame = theme.agentToggleExpandedBg
   const collapseButtonText = collapseButtonFrame
-  const separatorColor = theme.agentResponseCount
-  const innerContentWidth = Math.max(0, Math.floor(availableWidth) - 4)
-  const horizontalLine =
-    innerContentWidth > 0 ? '─'.repeat(innerContentWidth) : ''
+  const toggleFrameFg = resolveFg(toggleFrameColor, fallbackTextColor)
+  const toggleIconFg = resolveFg(toggleIconColor, fallbackTextColor)
+  const toggleLabelFg = resolveFg(toggleLabelColor, fallbackTextColor)
+  const headerFg = resolveFg(theme.agentToggleHeaderText, fallbackTextColor)
   const statusText =
     statusLabel && statusLabel.length > 0
       ? statusIndicator === '✓'
@@ -172,7 +184,7 @@ export const BranchItem = ({
       <box
         border
         borderStyle="single"
-        borderColor={toggleFrameColor}
+        borderColor={toggleFrameFg ?? undefined}
         customBorderChars={containerBorderChars}
         style={{
           flexDirection: 'column',
@@ -196,7 +208,7 @@ export const BranchItem = ({
               width: '100%',
             }}
           >
-            <text fg={theme.agentToggleHeaderText}>Prompt</text>
+            <text {...(headerFg ? { fg: headerFg } : undefined)}>Prompt</text>
             <text fg={theme.agentText} style={{ wrapMode: 'word' }}>
               {prompt}
             </text>
@@ -215,9 +227,11 @@ export const BranchItem = ({
           onMouseDown={onToggle}
         >
           <text style={{ wrapMode: 'none' }}>
-            <span fg={toggleIconColor}>{toggleLabel}</span>
+            <span {...(toggleIconFg ? { fg: toggleIconFg } : undefined)}>
+              {toggleLabel}
+            </span>
             <span
-              fg={toggleLabelColor}
+              {...(toggleLabelFg ? { fg: toggleLabelFg } : undefined)}
               attributes={isExpanded ? TextAttributes.BOLD : undefined}
             >
               {name}
@@ -252,55 +266,49 @@ export const BranchItem = ({
             </box>
           ) : null
         ) : (
-          <>
-            {horizontalLine && (
-              <box style={{ paddingLeft: 1, paddingRight: 1 }}>
-                <text style={{ wrapMode: 'none' }}>
-                  <span fg={separatorColor}>{horizontalLine}</span>
+          <box
+            style={{
+              flexDirection: 'column',
+              gap: 1,
+              paddingLeft: 1,
+              paddingRight: 1,
+              paddingTop: 0,
+              paddingBottom: 0,
+            }}
+          >
+            {prompt && (
+              <box
+                style={{
+                  flexDirection: 'column',
+                  gap: 0,
+                  marginBottom: content ? 1 : 0,
+                }}
+              >
+                <text {...(headerFg ? { fg: headerFg } : undefined)}>Prompt</text>
+                <text fg={theme.agentText} style={{ wrapMode: 'word' }}>
+                  {prompt}
                 </text>
+                {content && (
+                  <text
+                    {...(headerFg ? { fg: headerFg } : undefined)}
+                    style={{ marginTop: 1 }}
+                  >
+                    Response
+                  </text>
+                )}
               </box>
             )}
-            <box
-              style={{
-                flexDirection: 'column',
-                gap: 0,
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-              }}
-            >
-              {prompt && (
-                <box
-                  style={{
-                    flexDirection: 'column',
-                    gap: 0,
-                    marginBottom: content ? 1 : 0,
-                  }}
-                >
-                  <text fg={theme.agentToggleHeaderText}>Prompt</text>
-                  <text fg={theme.agentText} style={{ wrapMode: 'word' }}>
-                    {prompt}
-                  </text>
-                  {content && (
-                    <text fg={theme.agentToggleHeaderText} style={{ marginTop: 1 }}>
-                      Response
-                    </text>
-                  )}
-                </box>
-              )}
-              {renderExpandedContent(content)}
-              <box style={{ alignSelf: 'flex-end', marginTop: content ? 0 : 1 }}>
-                <RaisedPill
-                  segments={[{ text: 'Collapse', fg: collapseButtonText }]}
-                  frameColor={collapseButtonFrame}
-                  textColor={collapseButtonText}
-                  padding={0}
-                  onPress={onToggle}
-                />
-              </box>
+            {renderExpandedContent(content)}
+            <box style={{ alignSelf: 'flex-end', marginTop: content ? 0 : 1 }}>
+              <RaisedPill
+                segments={[{ text: 'Collapse', fg: collapseButtonText }]}
+                frameColor={collapseButtonFrame}
+                textColor={collapseButtonText}
+                padding={0}
+                onPress={onToggle}
+              />
             </box>
-          </>
+          </box>
         )}
       </box>
     </box>

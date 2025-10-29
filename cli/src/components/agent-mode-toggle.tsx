@@ -11,10 +11,8 @@ export const AgentModeToggle = ({
   onToggle: () => void
 }) => {
   const isFast = mode === 'FAST'
-  const frameColor = isFast
-    ? theme.agentToggleHeaderBg
-    : theme.agentToggleExpandedBg
-  const textColor = frameColor
+  const frameColor = isFast ? theme.modeToggleFastBg : theme.modeToggleMaxBg
+  const textColor = isFast ? theme.modeToggleFastText : theme.modeToggleMaxText
   const label = isFast ? 'FAST' : '💪 MAX'
 
   return (
