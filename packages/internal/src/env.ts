@@ -75,4 +75,6 @@ const serverProcessEnv: ServerInput = {
   API_KEY_ENCRYPTION_SECRET: process.env.API_KEY_ENCRYPTION_SECRET,
 }
 
+console.error({ serverProcessEnv }, 'asdf')
+
 export const env = serverEnvSchema.parse(serverProcessEnv)

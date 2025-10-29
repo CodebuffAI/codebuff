@@ -46,4 +46,6 @@ export const clientProcessEnv: ClientInput = {
   NEXT_PUBLIC_WEB_PORT: process.env.NEXT_PUBLIC_WEB_PORT,
 }
 
+console.error({ clientProcessEnv }, 'asdf')
+
 export const env = clientEnvSchema.parse(clientProcessEnv)
