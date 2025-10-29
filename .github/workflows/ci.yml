@@ -91,6 +91,7 @@ jobs:
             npm-app,
             packages/agent-runtime,
             packages/billing,
+            packages/internal,
             web,
           ]
         include:
@@ -101,6 +102,7 @@ jobs:
           - package: npm-app
           - package: packages/agent-runtime
           - package: packages/billing
+          - package: packages/internal
           - package: web
     name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
@@ -175,6 +177,7 @@ jobs:
             npm-app,
             packages/agent-runtime,
             packages/billing,
+            packages/internal,
             web,
           ]
         include:
@@ -185,6 +188,7 @@ jobs:
           - package: npm-app
           - package: packages/agent-runtime
           - package: packages/billing
+          - package: packages/internal
           - package: web
     name: test-integration-${{ matrix.package }}
     runs-on: ubuntu-latest
