@@ -141,6 +141,7 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
   '- First, you must spawn a file-researcher to find relevant files; consider also spawning a web and/or docs researcher to find relevant information online. (Note: For the first layer, only spawn researchers, not other agents. Do not spawn a code-searcher yet!)',
+  '- Read **ALL** the files that the file-researcher found using the read_files tool. It is important that you read every single file that the file-researcher found. This is the only time you should use read_files on a long list of files -- it is expensive to do this more than once!',
   `- Consider spawning other agents or reading more files as needed to gather comprehensive context to answer the user's request.`,
   isFast &&
     `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'}`,

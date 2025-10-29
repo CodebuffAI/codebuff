@@ -57,6 +57,7 @@ export async function runAgentOnCommit({
       },
       async (repoDir) => {
         const timeoutMs = 30 * 60 * 1000 // 30 minutes
+        const maxAgentSteps = 40
         const result = await withTimeout(
           client.run({
             agent: agentId,
@@ -64,6 +65,7 @@ export async function runAgentOnCommit({
             agentDefinitions: localAgentDefinitions,
             cwd: repoDir,
             env,
+            maxAgentSteps,
             handleEvent: (event) => {
               if (
                 (event.type === 'tool_call' || event.type === 'tool_result') &&

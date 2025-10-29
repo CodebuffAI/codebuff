@@ -508,6 +508,7 @@ export const useSendMessage = ({
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,
           agentDefinitions: agentDefinitions as AgentDefinition[],
+          maxAgentSteps: 40,
 
           handleStreamChunk: (event) => {
             if (typeof event !== 'string') {
