@@ -87,6 +87,7 @@ base-lite "fix this bug"             # Works right away!
 - For automated operations, prefer non-interactive git commands when possible (e.g., `git rebase --continue` after resolving conflicts programmatically)
 
 **Common Interactive Git Commands (require tmux):**
+
 - `git rebase --continue` - Continue rebase after resolving conflicts
 - `git rebase --skip` - Skip current commit during rebase
 - `git rebase --abort` - Abort rebase operation
@@ -106,6 +107,7 @@ base-lite "fix this bug"             # Works right away!
 - Any git command that opens an editor (commit messages, rebase todo list, etc.)
 
 **Example:**
+
 ```bash
 # ❌ Bad: Will hang waiting for input
 git rebase --continue
@@ -270,7 +272,8 @@ spyOn(Date, 'now').mockImplementation(() => 1234567890)
 Only use for overriding module constants when absolutely necessary:
 
 - Use wrapper functions in `@codebuff/common/testing/mock-modules.ts`
-- Call `clearMockedModules()` in `afterAll`
+  - Use `await mockModule(...)` as a drop-in replacement for `mock.module`
+  - Call `clearMockedModules()` in `afterAll` (or `afterEach`)
 
 ### Test Setup Patterns
 

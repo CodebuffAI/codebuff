@@ -13,10 +13,10 @@ let mockModuleCache: Record<string, MockResult> = {}
  * @param renderMocks - function to generate mocks (by their named or default exports)
  * @returns an object
  */
-export const mockModule = async (
+export async function mockModule(
   modulePath: string,
   renderMocks: () => Record<string, any>,
-): Promise<MockResult> => {
+): Promise<MockResult> {
   let original = originalModuleCache[modulePath] ?? {
     ...(await import(modulePath)),
   }
