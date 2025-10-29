@@ -38,8 +38,8 @@ const definition: SecretAgentDefinition = {
   outputSchema: {
     type: 'object',
     properties: {
-      reasoning: { type: 'string' },
-      implementationId: { id: 'string' },
+      reasoning: { type: 'string', description: 'Brief explanation of why this implementation was selected'},
+      implementationId: { type: 'string', description: 'The id of the chosen implementation' },
     },
     required: ['reasoning', 'implementationId'],
   },
@@ -62,13 +62,7 @@ Your task is to:
    - Clarity and readability
 
 4. Select the best implementation
-5. Call set_output with the selected implementation
-
-Format your set_output call with:
-{
-  "reasoning": "Brief explanation of why this implementation was selected"
-  "implementationId": "The id of the chosen implementation",
-}`,
+5. Call set_output with the selected implementation`,
 }
 
 export default definition

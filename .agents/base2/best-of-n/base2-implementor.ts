@@ -56,7 +56,6 @@ Your implementation should:
 - Follow the project's conventions and patterns
 - Be as simple and maintainable as possible
 - Reuse existing code wherever possible
-- Include proper error handling
 - Be well-structured and organized
 
 Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
