@@ -62,7 +62,7 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
       onMouseDown={handleActivate}
     >
       {displayLines.map((line, index) => (
-        <text key={index} wrap={lineWrap}>
+        <text key={index} style={{ wrapMode: lineWrap ? 'word' : 'none' }}>
           {shouldUnderline ? (
             <u>
               <span fg={displayColor}>{line}</span>

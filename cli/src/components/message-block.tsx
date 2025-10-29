@@ -272,7 +272,7 @@ export const MessageBlock = ({
         {sortedAgents.map((agent, idx) => {
           const identifier = formatIdentifier(agent)
           return (
-            <text key={`agent-${idx}`} wrap fg={theme.agentText}>
+            <text key={`agent-${idx}`} fg={theme.agentText}>
               {`  • ${identifier}`}
             </text>
           )
@@ -284,17 +284,16 @@ export const MessageBlock = ({
     const previewLines = previewAgents.map(
       (agent) => `  • ${formatIdentifier(agent)}`,
     )
-    const finishedPreview =
-      isCollapsed
-        ? [
-            ...previewLines,
-            remainingCount > 0
-              ? `  ... ${pluralize(remainingCount, 'more agent')} available`
-              : null,
-          ]
-            .filter(Boolean)
-            .join('\n')
-        : ''
+    const finishedPreview = isCollapsed
+      ? [
+          ...previewLines,
+          remainingCount > 0
+            ? `  ... ${pluralize(remainingCount, 'more agent')} available`
+            : null,
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : ''
 
     return (
       <box
@@ -347,7 +346,6 @@ export const MessageBlock = ({
         nodes.push(
           <text
             key={renderKey}
-            wrap
             style={{
               fg: theme.agentText,
               marginLeft: Math.max(0, indentLevel * 2),
@@ -386,13 +384,13 @@ export const MessageBlock = ({
     <>
       {isUser && (
         <text
-          wrap={false}
           attributes={TextAttributes.DIM}
           style={{
             fg: timestampColor,
             marginTop: 0,
             marginBottom: 0,
             alignSelf: 'flex-start',
+            wrapMode: 'none',
           }}
         >
           {`[${timestamp}]`}
@@ -418,8 +416,9 @@ export const MessageBlock = ({
                 (prevBlock.type === 'tool' || prevBlock.type === 'agent')
                   ? 0
                   : 0
+              const blockTextColor = block.color ?? textColor
               return (
-                <text key={renderKey} wrap style={{ fg: textColor, marginTop }}>
+                <text key={renderKey} style={{ fg: blockTextColor, marginTop }}>
                   {renderedContent}
                 </text>
               )
@@ -464,7 +463,6 @@ export const MessageBlock = ({
           return (
             <text
               key={`message-content-${messageId}`}
-              wrap
               style={{ fg: textColor }}
             >
               {displayContent}
@@ -474,13 +472,13 @@ export const MessageBlock = ({
       )}
       {isAi && isComplete && (completionTime || credits) && (
         <text
-          wrap={false}
           attributes={TextAttributes.DIM}
           style={{
             fg: theme.statusSecondary,
             marginTop: 0,
             marginBottom: 0,
             alignSelf: 'flex-start',
+            wrapMode: 'none',
           }}
         >
           {completionTime}

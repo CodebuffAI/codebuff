@@ -22,7 +22,6 @@ import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
-import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
@@ -32,7 +31,7 @@ import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
-import { chatThemes, createMarkdownPalette } from './utils/theme-system'
+import { chatTheme, createMarkdownPalette } from './utils/theme-system'
 
 import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
@@ -55,7 +54,7 @@ type AgentMessage = {
 }
 
 export type ContentBlock =
-  | { type: 'text'; content: string }
+  | { type: 'text'; content: string; color?: string }
   | {
       type: 'tool'
       toolCallId: string
@@ -127,8 +126,7 @@ export const App = ({
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
-  const themeName = useSystemThemeDetector()
-  const theme = chatThemes[themeName]
+  const theme = chatTheme
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
   const [exitWarning, setExitWarning] = useState<string | null>(null)
@@ -205,6 +203,7 @@ export const App = ({
         {
           type: 'text',
           content: '\n\n' + LOGO_BLOCK,
+          color: theme.agentToggleExpandedBg,
         },
       ]
 
@@ -212,6 +211,7 @@ export const App = ({
         blocks.push({
           type: 'text',
           content: greeting,
+          color: theme.agentResponseCount,
         })
       }
 
@@ -220,6 +220,7 @@ export const App = ({
           type: 'text',
           content:
             'Codebuff can read and write files in this repository, and run terminal commands to help you build.',
+          color: theme.agentResponseCount,
         },
         {
           type: 'agent-list',
@@ -241,7 +242,7 @@ export const App = ({
       setCollapsedAgents((prev) => new Set([...prev, agentListId]))
       setMessages([initialMessage])
     }
-  }, [loadedAgentsData]) // Only run when loadedAgentsData changes
+  }, [loadedAgentsData, theme]) // Only run when loadedAgentsData changes
 
   const {
     inputValue,
@@ -372,10 +373,6 @@ export const App = ({
   useEffect(() => {
     activeSubagentsRef.current = activeSubagents
   }, [activeSubagents])
-
-  useEffect(() => {
-    renderer?.setBackgroundColor(theme.background)
-  }, [renderer, theme.background])
 
   useEffect(() => {
     if (exitArmedRef.current && inputValue.length > 0) {
@@ -872,7 +869,10 @@ export const App = ({
 
   const virtualizationNotice =
     shouldVirtualize && hiddenTopLevelCount > 0 ? (
-      <text key="virtualization-notice" wrap={false} style={{ width: '100%' }}>
+      <text
+        key="virtualization-notice"
+        style={{ width: '100%', wrapMode: 'none' }}
+      >
         <span fg={theme.statusSecondary}>
           Showing latest {virtualTopLevelMessages.length} of{' '}
           {topLevelMessages.length} messages. Scroll up to load more.
@@ -910,7 +910,7 @@ export const App = ({
           paddingRight: 0,
           paddingTop: 0,
           paddingBottom: 0,
-          backgroundColor: theme.panelBg,
+          backgroundColor: 'transparent',
         }}
       >
         <scrollbox
@@ -928,20 +928,20 @@ export const App = ({
               gap: 0,
               flexDirection: 'column',
               shouldFill: true,
-              backgroundColor: theme.panelBg,
+              backgroundColor: 'transparent',
             },
             wrapperOptions: {
               flexGrow: 1,
               border: false,
               shouldFill: true,
-              backgroundColor: theme.panelBg,
+              backgroundColor: 'transparent',
             },
             contentOptions: {
               flexDirection: 'column',
               gap: 0,
               shouldFill: true,
               justifyContent: 'flex-end',
-              backgroundColor: theme.panelBg,
+              backgroundColor: 'transparent',
             },
           }}
         >
@@ -955,7 +955,7 @@ export const App = ({
           flexShrink: 0,
           paddingLeft: 0,
           paddingRight: 0,
-          backgroundColor: theme.panelBg,
+          backgroundColor: 'transparent',
         }}
       >
         {shouldShowStatusLine && (
@@ -966,7 +966,7 @@ export const App = ({
               width: '100%',
             }}
           >
-            <text wrap={false}>
+            <text style={{ wrapMode: 'none' }}>
               {hasStatus ? statusIndicatorNode : null}
               {hasStatus && (exitWarning || shouldShowQueuePreview) ? '  ' : ''}
               {exitWarning ? (
@@ -974,7 +974,7 @@ export const App = ({
               ) : null}
               {exitWarning && shouldShowQueuePreview ? '  ' : ''}
               {shouldShowQueuePreview ? (
-                <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
+                <span fg={theme.statusSecondary}>
                   {' '}
                   {formatQueuedPreview(
                     queuedMessages,

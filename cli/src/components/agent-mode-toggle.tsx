@@ -1,4 +1,5 @@
 import type { ChatTheme } from '../utils/theme-system'
+import { RaisedPill } from './raised-pill'
 
 export const AgentModeToggle = ({
   mode,
@@ -10,25 +11,18 @@ export const AgentModeToggle = ({
   onToggle: () => void
 }) => {
   const isFast = mode === 'FAST'
-
-  const bgColor = isFast ? '#0a6515' : '#ac1626'
-  const textColor = '#ffffff'
+  const frameColor = isFast
+    ? theme.agentToggleHeaderBg
+    : theme.agentToggleExpandedBg
+  const textColor = frameColor
   const label = isFast ? 'FAST' : '💪 MAX'
 
   return (
-    <box
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: bgColor,
-        paddingLeft: isFast ? 2 : 1,
-        paddingRight: isFast ? 2 : 1,
-      }}
-      onMouseDown={onToggle}
-    >
-      <text wrap={false}>
-        <span fg={textColor}>{label}</span>
-      </text>
-    </box>
+    <RaisedPill
+      segments={[{ text: label, fg: textColor }]}
+      frameColor={frameColor}
+      textColor={textColor}
+      onPress={onToggle}
+    />
   )
 }

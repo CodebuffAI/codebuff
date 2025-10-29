@@ -14,47 +14,6 @@ import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 
 import type { PasteEvent, ScrollBoxRenderable } from '@opentui/core'
 
-const mixColors = (
-  foreground: string,
-  background: string,
-  alpha = 0.4,
-): string => {
-  const parseHex = (hex: string) => {
-    const normalized = hex.trim().replace('#', '')
-    const full =
-      normalized.length === 3
-        ? normalized
-            .split('')
-            .map((ch) => ch + ch)
-            .join('')
-        : normalized
-    const value = parseInt(full, 16)
-    return {
-      r: (value >> 16) & 0xff,
-      g: (value >> 8) & 0xff,
-      b: value & 0xff,
-    }
-  }
-
-  const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)))
-
-  try {
-    const fg = parseHex(foreground)
-    const bg = parseHex(background)
-
-    const blend = {
-      r: clamp(alpha * fg.r + (1 - alpha) * bg.r),
-      g: clamp(alpha * fg.g + (1 - alpha) * bg.g),
-      b: clamp(alpha * fg.b + (1 - alpha) * bg.b),
-    }
-
-    const toHex = (value: number) => value.toString(16).padStart(2, '0')
-    return `#${toHex(blend.r)}${toHex(blend.g)}${toHex(blend.b)}`
-  } catch {
-    return foreground
-  }
-}
-
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
   let pos = Math.max(0, Math.min(cursor, text.length))
@@ -587,11 +546,6 @@ export const MultilineInput = forwardRef<
   const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
   const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
   const activeChar = afterCursor.charAt(0) || ' '
-  const highlightBg = mixColors(
-    theme.cursor,
-    isPlaceholder ? theme.inputBg : theme.inputFocusedBg,
-    0.4,
-  )
   const shouldHighlight =
     showCursor &&
     !isPlaceholder &&
@@ -638,7 +592,7 @@ export const MultilineInput = forwardRef<
         rootOptions: {
           width: '100%',
           height: height,
-          backgroundColor: focused ? theme.inputFocusedBg : theme.inputBg,
+          backgroundColor: 'transparent',
           flexGrow: 0,
           flexShrink: 0,
         },
@@ -653,7 +607,6 @@ export const MultilineInput = forwardRef<
       }}
     >
       <text
-        wrap
         style={{
           fg: isPlaceholder
             ? theme.inputPlaceholder
@@ -666,7 +619,7 @@ export const MultilineInput = forwardRef<
           <>
             {beforeCursor}
             {shouldHighlight ? (
-              <span fg={theme.inputFocusedFg} bg={highlightBg}>
+              <span fg={theme.cursor} attributes={TextAttributes.UNDERLINE}>
                 {activeChar === ' ' ? '\u00a0' : activeChar}
               </span>
             ) : (

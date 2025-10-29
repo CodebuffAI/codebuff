@@ -1,474 +1,9 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
-import { homedir } from 'os'
-import { join } from 'path'
+import fs from 'node:fs'
+import { execSync } from 'node:child_process'
 
 import type { MarkdownPalette } from './markdown-renderer'
 
-const IDE_THEME_INFERENCE = {
-  dark: [
-    'dark',
-    'midnight',
-    'night',
-    'noir',
-    'black',
-    'charcoal',
-    'dim',
-    'dracula',
-    'darcula',
-    'moon',
-    'nebula',
-    'obsidian',
-    'shadow',
-    'storm',
-    'monokai',
-    'ayu mirage',
-    'material darker',
-    'tokyo',
-    'abyss',
-    'zed dark',
-  ],
-  light: [
-    'light',
-    'day',
-    'dawn',
-    'bright',
-    'paper',
-    'sun',
-    'snow',
-    'cloud',
-    'white',
-    'solarized light',
-    'pastel',
-    'cream',
-    'zed light',
-  ],
-} as const
-
-const VS_CODE_FAMILY_ENV_KEYS = [
-  'VSCODE_PID',
-  'VSCODE_CWD',
-  'VSCODE_IPC_HOOK_CLI',
-  'VSCODE_LOG_NATIVE',
-  'VSCODE_NLS_CONFIG',
-  'CURSOR_SESSION_ID',
-  'CURSOR',
-]
-
-const VS_CODE_PRODUCT_DIRS = [
-  'Code',
-  'Code - Insiders',
-  'Code - OSS',
-  'VSCodium',
-  'VSCodium - Insiders',
-  'Cursor',
-]
-
-const JETBRAINS_ENV_KEYS = [
-  'JB_PRODUCT_CODE',
-  'JB_SYSTEM_PATH',
-  'JB_INSTALLATION_HOME',
-  'IDEA_INITIAL_DIRECTORY',
-  'IDE_CONFIG_DIR',
-  'JB_IDE_CONFIG_DIR',
-]
-
-const normalizeThemeName = (themeName: string): string =>
-  themeName.trim().toLowerCase()
-
-const inferThemeFromName = (themeName: string): ThemeName | null => {
-  const normalized = normalizeThemeName(themeName)
-
-  for (const hint of IDE_THEME_INFERENCE.dark) {
-    if (normalized.includes(hint)) {
-      return 'dark'
-    }
-  }
-
-  for (const hint of IDE_THEME_INFERENCE.light) {
-    if (normalized.includes(hint)) {
-      return 'light'
-    }
-  }
-
-  return null
-}
-
-const stripJsonStyleComments = (raw: string): string =>
-  raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
-
-const safeReadFile = (filePath: string): string | null => {
-  try {
-    return readFileSync(filePath, 'utf8')
-  } catch {
-    return null
-  }
-}
-
-const collectExistingPaths = (candidates: string[]): string[] => {
-  const seen = new Set<string>()
-  for (const candidate of candidates) {
-    if (!candidate) continue
-    try {
-      if (existsSync(candidate)) {
-        seen.add(candidate)
-      }
-    } catch {
-      // Ignore filesystem errors when probing paths
-    }
-  }
-  return [...seen]
-}
-
-const resolveVSCodeSettingsPaths = (): string[] => {
-  const settings: string[] = []
-  const home = homedir()
-
-  if (process.platform === 'darwin') {
-    const base = join(home, 'Library', 'Application Support')
-    for (const product of VS_CODE_PRODUCT_DIRS) {
-      settings.push(join(base, product, 'User', 'settings.json'))
-    }
-  } else if (process.platform === 'win32') {
-    const appData = process.env.APPDATA
-    if (appData) {
-      for (const product of VS_CODE_PRODUCT_DIRS) {
-        settings.push(join(appData, product, 'User', 'settings.json'))
-      }
-    }
-  } else {
-    const configDir = process.env.XDG_CONFIG_HOME ?? join(home, '.config')
-    for (const product of VS_CODE_PRODUCT_DIRS) {
-      settings.push(join(configDir, product, 'User', 'settings.json'))
-    }
-  }
-
-  return settings
-}
-
-const resolveJetBrainsLafPaths = (): string[] => {
-  const candidates: string[] = []
-
-  for (const key of ['IDE_CONFIG_DIR', 'JB_IDE_CONFIG_DIR']) {
-    const raw = process.env[key]
-    if (raw) {
-      candidates.push(join(raw, 'options', 'laf.xml'))
-    }
-  }
-
-  const home = homedir()
-
-  const baseDirs: string[] = []
-  if (process.platform === 'darwin') {
-    baseDirs.push(join(home, 'Library', 'Application Support', 'JetBrains'))
-  } else if (process.platform === 'win32') {
-    const appData = process.env.APPDATA
-    if (appData) {
-      baseDirs.push(join(appData, 'JetBrains'))
-    }
-  } else {
-    baseDirs.push(join(home, '.config', 'JetBrains'))
-    baseDirs.push(join(home, '.local', 'share', 'JetBrains'))
-  }
-
-  for (const base of baseDirs) {
-    try {
-      if (!existsSync(base)) continue
-      const entries = readdirSync(base)
-      for (const entry of entries) {
-        const dirPath = join(base, entry)
-        try {
-          if (!statSync(dirPath).isDirectory()) continue
-        } catch {
-          continue
-        }
-
-        candidates.push(join(dirPath, 'options', 'laf.xml'))
-      }
-    } catch {
-      // Ignore unreadable directories
-    }
-  }
-
-  return candidates
-}
-
-const resolveZedSettingsPaths = (): string[] => {
-  const home = homedir()
-  const paths: string[] = []
-
-  const configDirs = new Set<string>()
-
-  const xdgConfig = process.env.XDG_CONFIG_HOME ?? join(home, '.config')
-  configDirs.add(join(xdgConfig, 'zed'))
-  configDirs.add(join(xdgConfig, 'dev.zed.Zed'))
-
-  if (process.platform === 'darwin') {
-    configDirs.add(join(home, 'Library', 'Application Support', 'Zed'))
-    configDirs.add(join(home, 'Library', 'Application Support', 'dev.zed.Zed'))
-  } else if (process.platform === 'win32') {
-    const appData = process.env.APPDATA
-    if (appData) {
-      configDirs.add(join(appData, 'Zed'))
-      configDirs.add(join(appData, 'dev.zed.Zed'))
-    }
-  } else {
-    configDirs.add(join(home, '.config', 'zed'))
-    configDirs.add(join(home, '.config', 'dev.zed.Zed'))
-    configDirs.add(join(home, '.local', 'share', 'zed'))
-    configDirs.add(join(home, '.local', 'share', 'dev.zed.Zed'))
-  }
-
-  const legacyConfig = join(home, '.zed')
-  configDirs.add(legacyConfig)
-
-  for (const dir of configDirs) {
-    paths.push(join(dir, 'settings.json'))
-  }
-
-  return paths
-}
-
-const extractVSCodeTheme = (content: string): ThemeName | null => {
-  const colorThemeMatch = content.match(
-    /"workbench\.colorTheme"\s*:\s*"([^"]+)"/i,
-  )
-  if (colorThemeMatch) {
-    const inferred = inferThemeFromName(colorThemeMatch[1])
-    if (inferred) return inferred
-  }
-
-  const themeKindEnv =
-    process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
-  if (themeKindEnv) {
-    const normalized = themeKindEnv.trim().toLowerCase()
-    if (normalized === 'dark' || normalized === 'hc') return 'dark'
-    if (normalized === 'light') return 'light'
-  }
-
-  return null
-}
-
-const extractJetBrainsTheme = (content: string): ThemeName | null => {
-  const normalized = content.toLowerCase()
-  if (normalized.includes('darcula') || normalized.includes('dark')) {
-    return 'dark'
-  }
-
-  if (normalized.includes('light')) {
-    return 'light'
-  }
-
-  return null
-}
-
-const isVSCodeFamilyTerminal = (): boolean => {
-  if (process.env.TERM_PROGRAM?.toLowerCase() === 'vscode') {
-    return true
-  }
-
-  for (const key of VS_CODE_FAMILY_ENV_KEYS) {
-    if (process.env[key]) {
-      return true
-    }
-  }
-
-  return false
-}
-
-const isJetBrainsTerminal = (): boolean => {
-  if (process.env.TERMINAL_EMULATOR?.toLowerCase().includes('jetbrains')) {
-    return true
-  }
-
-  for (const key of JETBRAINS_ENV_KEYS) {
-    if (process.env[key]) {
-      return true
-    }
-  }
-
-  return false
-}
-
-const detectVSCodeTheme = (): ThemeName | null => {
-  if (!isVSCodeFamilyTerminal()) {
-    return null
-  }
-
-  const settingsPaths = collectExistingPaths(resolveVSCodeSettingsPaths())
-
-  for (const settingsPath of settingsPaths) {
-    const content = safeReadFile(settingsPath)
-    if (!content) continue
-    const theme = extractVSCodeTheme(content)
-    if (theme) {
-      return theme
-    }
-  }
-
-  const themeKindEnv =
-    process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
-  if (themeKindEnv) {
-    const normalized = themeKindEnv.trim().toLowerCase()
-    if (normalized === 'dark' || normalized === 'hc') return 'dark'
-    if (normalized === 'light') return 'light'
-  }
-
-  return null
-}
-
-const detectJetBrainsTheme = (): ThemeName | null => {
-  if (!isJetBrainsTerminal()) {
-    return null
-  }
-
-  const lafPaths = collectExistingPaths(resolveJetBrainsLafPaths())
-
-  for (const lafPath of lafPaths) {
-    const content = safeReadFile(lafPath)
-    if (!content) continue
-    const theme = extractJetBrainsTheme(content)
-    if (theme) {
-      return theme
-    }
-  }
-
-  return null
-}
-
-const extractZedTheme = (content: string): ThemeName | null => {
-  try {
-    const sanitized = stripJsonStyleComments(content)
-    const parsed = JSON.parse(sanitized) as Record<string, unknown>
-    const candidates: unknown[] = []
-
-    const themeSetting = parsed.theme
-    if (typeof themeSetting === 'string') {
-      candidates.push(themeSetting)
-    } else if (themeSetting && typeof themeSetting === 'object') {
-      const themeConfig = themeSetting as Record<string, unknown>
-      const modeRaw = themeConfig.mode
-      if (typeof modeRaw === 'string') {
-        const mode = modeRaw.toLowerCase()
-        if (mode === 'dark' || mode === 'light') {
-          candidates.push(mode)
-          const modeTheme = themeConfig[mode]
-          if (typeof modeTheme === 'string') {
-            candidates.push(modeTheme)
-          }
-        } else if (mode === 'system') {
-          const platformTheme = detectPlatformTheme()
-          candidates.push(platformTheme)
-          const platformThemeName = themeConfig[platformTheme]
-          if (typeof platformThemeName === 'string') {
-            candidates.push(platformThemeName)
-          }
-        }
-      }
-
-      const darkTheme = themeConfig.dark
-      if (typeof darkTheme === 'string') {
-        candidates.push(darkTheme)
-      }
-
-      const lightTheme = themeConfig.light
-      if (typeof lightTheme === 'string') {
-        candidates.push(lightTheme)
-      }
-    }
-
-    const appearance = parsed.appearance
-    if (appearance && typeof appearance === 'object') {
-      const appearanceTheme = (appearance as Record<string, unknown>).theme
-      if (typeof appearanceTheme === 'string') {
-        candidates.push(appearanceTheme)
-      }
-
-      const preference = (appearance as Record<string, unknown>)
-        .theme_preference
-      if (typeof preference === 'string') {
-        candidates.push(preference)
-      }
-    }
-
-    const ui = parsed.ui
-    if (ui && typeof ui === 'object') {
-      const uiTheme = (ui as Record<string, unknown>).theme
-      if (typeof uiTheme === 'string') {
-        candidates.push(uiTheme)
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (typeof candidate !== 'string') continue
-
-      const inferred = inferThemeFromName(candidate)
-      if (inferred) {
-        return inferred
-      }
-    }
-  } catch {
-    // Ignore malformed or partially written files
-  }
-
-  return null
-}
-
-const detectZedTheme = (): ThemeName | null => {
-  const settingsPaths = collectExistingPaths(resolveZedSettingsPaths())
-  for (const settingsPath of settingsPaths) {
-    const content = safeReadFile(settingsPath)
-    if (!content) continue
-
-    const theme = extractZedTheme(content)
-    if (theme) {
-      return theme
-    }
-  }
-
-  return null
-}
-
-const detectIDETheme = (): ThemeName | null => {
-  const detectors = [detectVSCodeTheme, detectJetBrainsTheme, detectZedTheme]
-  for (const detector of detectors) {
-    const theme = detector()
-    if (theme) {
-      return theme
-    }
-  }
-  return null
-}
-
-export const getIDEThemeConfigPaths = (): string[] => {
-  const paths = new Set<string>()
-  for (const path of resolveVSCodeSettingsPaths()) {
-    paths.add(path)
-  }
-  for (const path of resolveJetBrainsLafPaths()) {
-    paths.add(path)
-  }
-  for (const path of resolveZedSettingsPaths()) {
-    paths.add(path)
-  }
-  return [...paths]
-}
-
-export type ThemeName = 'dark' | 'light'
-
 type MarkdownHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
-
-interface MarkdownThemeOverrides {
-  codeBackground?: string
-  codeHeaderFg?: string
-  inlineCodeFg?: string
-  codeTextFg?: string
-  headingFg?: Partial<Record<MarkdownHeadingLevel, string>>
-  listBulletFg?: string
-  blockquoteBorderFg?: string
-  blockquoteTextFg?: string
-  dividerFg?: string
-  codeMonochrome?: boolean
-}
 
 export interface ChatTheme {
   background: string
@@ -502,269 +37,62 @@ export interface ChatTheme {
   agentToggleHeaderBg: string
   agentToggleHeaderText: string
   agentToggleText: string
+  agentToggleExpandedBg: string
   agentContentBg: string
-  markdown?: MarkdownThemeOverrides
-}
-
-type ChatThemeOverrides = Partial<Omit<ChatTheme, 'markdown'>> & {
-  markdown?: MarkdownThemeOverrides
-}
-
-type ThemeOverrideConfig = Partial<Record<ThemeName, ChatThemeOverrides>> & {
-  all?: ChatThemeOverrides
-}
-
-const CHAT_THEME_ENV_KEYS = [
-  'OPEN_TUI_CHAT_THEME_OVERRIDES',
-  'OPENTUI_CHAT_THEME_OVERRIDES',
-]
-
-const mergeMarkdownOverrides = (
-  base: MarkdownThemeOverrides | undefined,
-  override: MarkdownThemeOverrides | undefined,
-): MarkdownThemeOverrides | undefined => {
-  if (!base && !override) return undefined
-  if (!override)
-    return base
-      ? {
-          ...base,
-          headingFg: base.headingFg ? { ...base.headingFg } : undefined,
-        }
-      : undefined
-
-  const mergedHeading = {
-    ...(base?.headingFg ?? {}),
-    ...(override.headingFg ?? {}),
-  }
-
-  return {
-    ...(base ?? {}),
-    ...override,
-    headingFg:
-      Object.keys(mergedHeading).length > 0
-        ? (mergedHeading as Partial<Record<MarkdownHeadingLevel, string>>)
-        : undefined,
+  markdown?: {
+    headingFg?: Partial<Record<MarkdownHeadingLevel, string>>
+    inlineCodeFg?: string
+    codeBackground?: string
+    codeHeaderFg?: string
+    listBulletFg?: string
+    blockquoteBorderFg?: string
+    blockquoteTextFg?: string
+    dividerFg?: string
+    codeTextFg?: string
+    codeMonochrome?: boolean
   }
 }
 
-const mergeTheme = (
-  base: ChatTheme,
-  override?: ChatThemeOverrides,
-): ChatTheme => {
-  if (!override) {
-    return {
-      ...base,
-      markdown: base.markdown
-        ? {
-            ...base.markdown,
-            headingFg: base.markdown.headingFg
-              ? { ...base.markdown.headingFg }
-              : undefined,
-          }
-        : undefined,
-    }
-  }
-
-  return {
-    ...base,
-    ...override,
-    markdown: mergeMarkdownOverrides(base.markdown, override.markdown),
-  }
-}
-
-const parseThemeOverrides = (
-  raw: string,
-): Partial<Record<ThemeName, ChatThemeOverrides>> => {
-  try {
-    const parsed = JSON.parse(raw) as ThemeOverrideConfig
-    if (!parsed || typeof parsed !== 'object') return {}
-
-    const result: Partial<Record<ThemeName, ChatThemeOverrides>> = {}
-    const common =
-      typeof parsed.all === 'object' && parsed.all ? parsed.all : undefined
-
-    for (const themeName of ['dark', 'light'] as ThemeName[]) {
-      const specific =
-        typeof parsed?.[themeName] === 'object' && parsed?.[themeName]
-          ? parsed?.[themeName]
-          : undefined
-
-      const mergedOverrides =
-        common || specific
-          ? {
-              ...(common ?? {}),
-              ...(specific ?? {}),
-              markdown: mergeMarkdownOverrides(
-                common?.markdown,
-                specific?.markdown,
-              ),
-            }
-          : undefined
-
-      if (mergedOverrides) {
-        result[themeName] = mergedOverrides
-      }
-    }
-
-    return result
-  } catch {
-    return {}
-  }
-}
-
-const loadThemeOverrides = (): Partial<
-  Record<ThemeName, ChatThemeOverrides>
-> => {
-  for (const key of CHAT_THEME_ENV_KEYS) {
-    const raw = process.env[key]
-    if (raw && raw.trim().length > 0) {
-      return parseThemeOverrides(raw)
-    }
-  }
-  return {}
-}
-
-const textDecoder = new TextDecoder()
-
-const readSpawnOutput = (output: unknown): string => {
-  if (!output) return ''
-  if (typeof output === 'string') return output.trim()
-  if (output instanceof Uint8Array) return textDecoder.decode(output).trim()
-  return ''
-}
-
-const runSystemCommand = (command: string[]): string | null => {
-  if (typeof Bun === 'undefined') return null
-  if (command.length === 0) return null
-
-  const [binary] = command
-  if (!binary) return null
-
-  const resolvedBinary =
-    Bun.which(binary) ??
-    (process.platform === 'win32' ? Bun.which(`${binary}.exe`) : null)
-  if (!resolvedBinary) return null
-
-  try {
-    const result = Bun.spawnSync({
-      cmd: [resolvedBinary, ...command.slice(1)],
-      stdout: 'pipe',
-      stderr: 'pipe',
-    })
-    if (result.exitCode !== 0) return null
-    return readSpawnOutput(result.stdout)
-  } catch {
-    return null
-  }
-}
-
-function detectPlatformTheme(): ThemeName {
-  if (typeof Bun !== 'undefined') {
-    if (process.platform === 'darwin') {
-      const value = runSystemCommand([
-        'defaults',
-        'read',
-        '-g',
-        'AppleInterfaceStyle',
-      ])
-      if (value?.toLowerCase() === 'dark') return 'dark'
-      return 'light'
-    }
-
-    if (process.platform === 'win32') {
-      const value = runSystemCommand([
-        'powershell',
-        '-NoProfile',
-        '-Command',
-        '(Get-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize).AppsUseLightTheme',
-      ])
-      if (value === '0') return 'dark'
-      if (value === '1') return 'light'
-    }
-
-    if (process.platform === 'linux') {
-      const value = runSystemCommand([
-        'gsettings',
-        'get',
-        'org.gnome.desktop.interface',
-        'color-scheme',
-      ])
-      if (value?.toLowerCase().includes('dark')) return 'dark'
-      if (value?.toLowerCase().includes('light')) return 'light'
-    }
-  }
-
-  return 'dark'
-}
-
-export const detectSystemTheme = (): ThemeName => {
-  const envPreference = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
-  const normalizedEnv = envPreference?.toLowerCase()
-
-  if (normalizedEnv === 'dark' || normalizedEnv === 'light') {
-    return normalizedEnv
-  }
-
-  // Detect Ghostty terminal and default to dark.
-  if (
-    (typeof Bun !== 'undefined' &&
-      Bun.env.GHOSTTY_RESOURCES_DIR !== undefined) ||
-    process.env.GHOSTTY_RESOURCES_DIR !== undefined ||
-    (process.env.TERM ?? '').toLowerCase() === 'xterm-ghostty'
-  ) {
-    return 'dark'
-  }
-
-  const ideTheme = detectIDETheme()
-  const platformTheme = detectPlatformTheme()
-  const preferredTheme = ideTheme ?? platformTheme
-
-  if (normalizedEnv === 'opposite') {
-    return preferredTheme === 'dark' ? 'light' : 'dark'
-  }
-
-  return preferredTheme
-}
-
-const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+const BASE_THEMES: Record<'dark' | 'light', ChatTheme> = {
   dark: {
     background: 'transparent',
-    chromeBg: '#000000',
-    chromeText: '#9ca3af',
-    accentBg: '#facc15',
-    accentText: '#1c1917',
-    panelBg: '#000000',
+    chromeBg: 'transparent',
+    chromeText: '#e2e8f0',
+    accentBg: 'transparent',
+    accentText: '#facc15',
+    panelBg: 'transparent',
     aiLine: '#34d399',
     userLine: '#38bdf8',
     timestampAi: '#4ade80',
     timestampUser: '#60a5fa',
-    messageAiText: '#f1f5f9',
-    messageUserText: '#dbeafe',
-    messageBg: '#000000',
+    messageAiText: '#ffffff',
+    messageUserText: '#ffffff',
+    messageBg: 'transparent',
     statusAccent: '#facc15',
-    statusSecondary: '#a3aed0',
-    inputBg: '#000000',
-    inputFg: '#f5f5f5',
-    inputFocusedBg: '#000000',
+    statusSecondary: '#d9e2ff',
+    inputBg: 'transparent',
+    inputFg: '#ffffff',
+    inputFocusedBg: 'transparent',
     inputFocusedFg: '#ffffff',
-    inputPlaceholder: '#a3a3a3',
+    inputPlaceholder: '#cbd5f5',
     cursor: '#22c55e',
     agentPrefix: '#22c55e',
     agentName: '#4ade80',
-    agentText: '#d1d5db',
+    agentText: '#ffffff',
     agentCheckmark: '#22c55e',
-    agentResponseCount: '#9ca3af',
-    agentFocusedBg: '#334155',
-    agentContentText: '#ffffff',
-    agentToggleHeaderBg: '#f97316',
-    agentToggleHeaderText: '#ffffff',
-    agentToggleText: '#ffffff',
-    agentContentBg: '#000000',
+    agentResponseCount: '#94a3b8',
+    agentFocusedBg: 'transparent',
+    agentContentText: '#e2e8f0',
+    agentToggleHeaderBg: '#475569',
+    agentToggleHeaderText: '#f8fafc',
+    agentToggleText: '#f8fafc',
+    agentToggleExpandedBg: '#047857',
+    agentContentBg: 'transparent',
     markdown: {
-      codeBackground: '#1f2933',
-      codeHeaderFg: '#5b647a',
-      inlineCodeFg: '#f1f5f9',
-      codeTextFg: '#f1f5f9',
+      codeBackground: 'transparent',
+      codeHeaderFg: '#d9e2ff',
+      inlineCodeFg: '#e2e8f0',
+      codeTextFg: '#e2e8f0',
       headingFg: {
         1: '#facc15',
         2: '#facc15',
@@ -773,32 +101,32 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
         5: '#facc15',
         6: '#facc15',
       },
-      listBulletFg: '#a3aed0',
-      blockquoteBorderFg: '#334155',
-      blockquoteTextFg: '#e2e8f0',
-      dividerFg: '#283042',
+      listBulletFg: '#d9e2ff',
+      blockquoteBorderFg: '#4b5563',
+      blockquoteTextFg: '#ffffff',
+      dividerFg: '#334155',
       codeMonochrome: true,
     },
   },
   light: {
     background: 'transparent',
-    chromeBg: '#f3f4f6',
-    chromeText: '#374151',
-    accentBg: '#f59e0b',
-    accentText: '#111827',
-    panelBg: '#ffffff',
+    chromeBg: 'transparent',
+    chromeText: '#334155',
+    accentBg: 'transparent',
+    accentText: '#f59e0b',
+    panelBg: 'transparent',
     aiLine: '#059669',
     userLine: '#3b82f6',
     timestampAi: '#047857',
     timestampUser: '#2563eb',
     messageAiText: '#111827',
     messageUserText: '#1f2937',
-    messageBg: '#ffffff',
+    messageBg: 'transparent',
     statusAccent: '#f59e0b',
     statusSecondary: '#6b7280',
-    inputBg: '#f9fafb',
+    inputBg: 'transparent',
     inputFg: '#111827',
-    inputFocusedBg: '#ffffff',
+    inputFocusedBg: 'transparent',
     inputFocusedFg: '#000000',
     inputPlaceholder: '#9ca3af',
     cursor: '#3b82f6',
@@ -806,18 +134,19 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     agentName: '#047857',
     agentText: '#1f2937',
     agentCheckmark: '#059669',
-    agentResponseCount: '#6b7280',
-    agentFocusedBg: '#f3f4f6',
-    agentContentText: '#111827',
-    agentToggleHeaderBg: '#ea580c',
-    agentToggleHeaderText: '#ffffff',
-    agentToggleText: '#ffffff',
-    agentContentBg: '#ffffff',
+    agentResponseCount: '#64748b',
+    agentFocusedBg: 'transparent',
+    agentContentText: '#475569',
+    agentToggleHeaderBg: '#94a3b8',
+    agentToggleHeaderText: '#f8fafc',
+    agentToggleText: '#f8fafc',
+    agentToggleExpandedBg: '#047857',
+    agentContentBg: 'transparent',
     markdown: {
-      codeBackground: '#f3f4f6',
-      codeHeaderFg: '#6b7280',
+      codeBackground: 'transparent',
+      codeHeaderFg: '#4b5563',
       inlineCodeFg: '#dc2626',
-      codeTextFg: '#111827',
+      codeTextFg: '#475569',
       headingFg: {
         1: '#dc2626',
         2: '#dc2626',
@@ -835,13 +164,332 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   },
 }
 
-export const chatThemes = (() => {
-  const overrides = loadThemeOverrides()
-  return {
-    dark: mergeTheme(DEFAULT_CHAT_THEMES.dark, overrides.dark),
-    light: mergeTheme(DEFAULT_CHAT_THEMES.light, overrides.light),
+const getNormalizedEnvTheme = (): 'dark' | 'light' | null => {
+  const raw = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
+  if (!raw) return null
+  const normalized = raw.trim().toLowerCase()
+  if (normalized === 'dark' || normalized === 'light') {
+    return normalized
   }
-})()
+  return null
+}
+
+const ANSI_BASE_COLORS: Array<[number, number, number]> = [
+  [0, 0, 0],
+  [128, 0, 0],
+  [0, 128, 0],
+  [128, 128, 0],
+  [0, 0, 128],
+  [128, 0, 128],
+  [0, 128, 128],
+  [192, 192, 192],
+  [128, 128, 128],
+  [255, 0, 0],
+  [0, 255, 0],
+  [255, 255, 0],
+  [0, 0, 255],
+  [255, 0, 255],
+  [0, 255, 255],
+  [255, 255, 255],
+]
+
+const ANSI_COLOR_CUBE_STEPS = [0, 95, 135, 175, 215, 255]
+
+const coerceAnsiIndexToRgb = (index: number): [number, number, number] => {
+  if (!Number.isFinite(index) || index < 0) {
+    return [0, 0, 0]
+  }
+
+  if (index < ANSI_BASE_COLORS.length) {
+    return ANSI_BASE_COLORS[index]
+  }
+
+  if (index >= 232) {
+    const level = Math.min(23, Math.max(0, index - 232))
+    const value = 8 + level * 10
+    return [value, value, value]
+  }
+
+  const cubeIndex = Math.min(215, Math.max(0, index - 16))
+  const r = Math.floor(cubeIndex / 36)
+  const g = Math.floor((cubeIndex % 36) / 6)
+  const b = cubeIndex % 6
+  return [
+    ANSI_COLOR_CUBE_STEPS[r],
+    ANSI_COLOR_CUBE_STEPS[g],
+    ANSI_COLOR_CUBE_STEPS[b],
+  ]
+}
+
+const estimateBrightness = (rgb: [number, number, number]): number => {
+  const [r, g, b] = rgb
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+const detectThemeFromColorFgbg = (): 'dark' | 'light' | null => {
+  const colorFgbg = process.env.COLORFGBG
+  if (!colorFgbg) return null
+  const parts = colorFgbg.split(';')
+  if (parts.length === 0) return null
+  const backgroundRaw = parts[parts.length - 1]
+  const backgroundValue = Number.parseInt(backgroundRaw, 10)
+  if (Number.isNaN(backgroundValue)) return null
+
+  const brightness = estimateBrightness(coerceAnsiIndexToRgb(backgroundValue))
+  return brightness >= 160 ? 'light' : 'dark'
+}
+
+const OSC_BACKGROUND_QUERY = '\u001b]11;?\u0007'
+
+const parseOscColorComponent = (component: string): number | null => {
+  if (!component) return null
+  if (!/^[0-9A-Fa-f]+$/.test(component)) return null
+  const value = Number.parseInt(component, 16)
+  if (!Number.isFinite(value)) return null
+  const bitLength = component.length * 4
+  const maxValue = (1 << bitLength) - 1
+  if (maxValue <= 0) return null
+  return Math.round((value / maxValue) * 255)
+}
+
+const parseOscColor = (payload: string): [number, number, number] | null => {
+  if (!payload) return null
+  const trimmed = payload.trim()
+  const lowerTrimmed = trimmed.toLowerCase()
+
+  if (lowerTrimmed.startsWith('rgb:') || lowerTrimmed.startsWith('rgba:')) {
+    const separatorIndex = trimmed.indexOf(':')
+    const parts = trimmed
+      .slice(separatorIndex + 1)
+      .split('/')
+      .filter((part) => part.length > 0)
+
+    if (parts.length < 3) return null
+
+    const [r, g, b] = parts.slice(0, 3).map(parseOscColorComponent)
+    if (
+      r === null ||
+      g === null ||
+      b === null ||
+      Number.isNaN(r) ||
+      Number.isNaN(g) ||
+      Number.isNaN(b)
+    ) {
+      return null
+    }
+    return [r, g, b]
+  }
+
+  if (trimmed.startsWith('#')) {
+    const hex = trimmed.slice(1)
+
+    if (hex.length === 3 || hex.length === 4) {
+      const r = Number.parseInt(hex[0] + hex[0], 16)
+      const g = Number.parseInt(hex[1] + hex[1], 16)
+      const b = Number.parseInt(hex[2] + hex[2], 16)
+      if ([r, g, b].some((value) => Number.isNaN(value))) {
+        return null
+      }
+      return [r, g, b]
+    }
+
+    if (hex.length === 6 || hex.length === 8) {
+      const baseHex = hex.length === 8 ? hex.slice(0, 6) : hex
+      const r = Number.parseInt(baseHex.slice(0, 2), 16)
+      const g = Number.parseInt(baseHex.slice(2, 4), 16)
+      const b = Number.parseInt(baseHex.slice(4, 6), 16)
+      if ([r, g, b].some((value) => Number.isNaN(value))) {
+        return null
+      }
+      return [r, g, b]
+    }
+  }
+
+  return null
+}
+
+let detectedTerminalBackground: [number, number, number] | null = null
+
+const detectThemeFromTerminalBackground = (): 'dark' | 'light' | null => {
+  if (process.platform === 'win32') return null
+  if (!process.stdout.isTTY) return null
+
+  let fd: number | null = null
+  try {
+    fd = fs.openSync(
+      '/dev/tty',
+      fs.constants.O_RDWR |
+        fs.constants.O_NOCTTY |
+        fs.constants.O_NONBLOCK,
+    )
+  } catch {
+    return null
+  }
+
+  try {
+    fs.writeSync(fd, OSC_BACKGROUND_QUERY)
+    const start = Date.now()
+    const buffer = Buffer.alloc(256)
+    let response = ''
+
+    while (Date.now() - start < 100) {
+      let bytesRead = 0
+      try {
+        bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null)
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          'code' in error &&
+          error.code === 'EAGAIN'
+        ) {
+          continue
+        }
+        return null
+      }
+
+      if (bytesRead > 0) {
+        response += buffer.toString('utf8', 0, bytesRead)
+        if (/\u0007|\u001b\\/.test(response)) {
+          break
+        }
+      } else {
+        break
+      }
+    }
+
+    const match = response.match(/\u001b]11;([^\u0007\u001b]*)(?:\u0007|\u001b\\)/)
+    if (!match) return null
+
+    const rgb = parseOscColor(match[1])
+    if (!rgb) return null
+    detectedTerminalBackground = rgb
+
+    const brightness = estimateBrightness(rgb)
+    return brightness >= 160 ? 'light' : 'dark'
+  } catch {
+    return null
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd)
+      } catch {
+        // Ignore close errors
+      }
+    }
+  }
+}
+
+const detectThemeFromSystemAppearance = (): 'dark' | 'light' | null => {
+  if (process.platform !== 'darwin') return null
+  try {
+    const output = execSync('defaults read -g AppleInterfaceStyle', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    }).trim()
+    if (!output) return 'light'
+    const normalized = output.toLowerCase()
+    if (normalized === 'dark' || normalized === 'light') {
+      return normalized
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+const resolvedThemeName: 'dark' | 'light' =
+  getNormalizedEnvTheme() ??
+  detectThemeFromColorFgbg() ??
+  detectThemeFromTerminalBackground() ??
+  detectThemeFromSystemAppearance() ??
+  'light'
+
+const resolveAutoTextColor = (
+  baseTheme: ChatTheme,
+  themeName: 'dark' | 'light',
+  background: [number, number, number] | null,
+): string => {
+  const DARK_NEUTRAL = '#e2e8f0'
+  const LIGHT_NEUTRAL = '#475569'
+
+  const fallback = themeName === 'dark' ? DARK_NEUTRAL : LIGHT_NEUTRAL
+
+  if (background) {
+    const brightness = estimateBrightness(background)
+    if (brightness <= 150) {
+      return DARK_NEUTRAL
+    }
+    if (brightness >= 195) {
+      return LIGHT_NEUTRAL
+    }
+    // Blend between the two neutrals for mid-tone backgrounds
+    const ratio = (brightness - 150) / (195 - 150)
+    const mix = (start: number, end: number) =>
+      Math.round(start + (end - start) * ratio)
+
+    const startRgb = {
+      r: Number.parseInt(DARK_NEUTRAL.slice(1, 3), 16),
+      g: Number.parseInt(DARK_NEUTRAL.slice(3, 5), 16),
+      b: Number.parseInt(DARK_NEUTRAL.slice(5, 7), 16),
+    }
+    const endRgb = {
+      r: Number.parseInt(LIGHT_NEUTRAL.slice(1, 3), 16),
+      g: Number.parseInt(LIGHT_NEUTRAL.slice(3, 5), 16),
+      b: Number.parseInt(LIGHT_NEUTRAL.slice(5, 7), 16),
+    }
+
+    const blended = [
+      mix(startRgb.r, endRgb.r),
+      mix(startRgb.g, endRgb.g),
+      mix(startRgb.b, endRgb.b),
+    ]
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('')
+
+    return `#${blended}`
+  }
+
+  return fallback
+}
+
+const copyThemeWithAutoText = (
+  baseTheme: ChatTheme,
+  themeName: 'dark' | 'light',
+  background: [number, number, number] | null,
+): ChatTheme => {
+  const autoTextColor = resolveAutoTextColor(baseTheme, themeName, background)
+  const markdown = baseTheme.markdown
+    ? {
+        ...baseTheme.markdown,
+        inlineCodeFg: autoTextColor,
+        codeTextFg: autoTextColor,
+        blockquoteTextFg: autoTextColor,
+      }
+    : undefined
+
+  return {
+    ...baseTheme,
+    messageAiText: autoTextColor,
+    messageUserText: autoTextColor,
+    inputFg: autoTextColor,
+    inputFocusedFg: autoTextColor,
+    agentText: autoTextColor,
+    agentContentText: autoTextColor,
+    chromeText:
+      themeName === 'dark' && autoTextColor === '#f8fafc'
+        ? '#f8fafc'
+        : themeName === 'light' && autoTextColor === '#111827'
+          ? '#111827'
+          : baseTheme.chromeText,
+    markdown,
+  }
+}
+
+export const chatTheme: ChatTheme = copyThemeWithAutoText(
+  BASE_THEMES[resolvedThemeName],
+  resolvedThemeName,
+  detectedTerminalBackground,
+)
 
 export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
   const headingDefaults: Record<MarkdownHeadingLevel, string> = {

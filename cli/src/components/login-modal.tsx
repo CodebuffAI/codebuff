@@ -268,7 +268,7 @@ export const LoginModal = ({
   // Render logo with sheen animation (memoized because it re-renders on sheen position changes)
   const renderedLogo = useMemo(() => {
     return logoDisplayLines.map((line, lineIndex) => (
-      <text key={`logo-line-${lineIndex}`} wrap={false}>
+      <text key={`logo-line-${lineIndex}`} style={{ wrapMode: 'none' }}>
         {line
           .split('')
           .map((char, charIndex) =>
@@ -301,7 +301,7 @@ export const LoginModal = ({
         width: Math.floor(terminalWidth * 0.95),
         height: modalHeight,
         maxHeight: modalHeight,
-        backgroundColor: theme.background,
+        backgroundColor: 'transparent',
         padding: 0,
         flexDirection: 'column',
       }}
@@ -312,13 +312,13 @@ export const LoginModal = ({
           style={{
             width: '100%',
             padding: 1,
-            backgroundColor: '#ff0000',
+            backgroundColor: 'transparent',
             borderStyle: 'single',
             borderColor: WARNING_COLOR,
             flexShrink: 0,
           }}
         >
-          <text wrap={true}>
+          <text>
             <span fg={theme.statusSecondary}>
               {isNarrow
                 ? "⚠ Found API key but it's invalid. Please log in again."
@@ -334,7 +334,7 @@ export const LoginModal = ({
           alignItems: 'center',
           width: '100%',
           height: '100%',
-          backgroundColor: theme.background,
+          backgroundColor: 'transparent',
           padding: containerPadding,
           gap: 0,
         }}
@@ -363,7 +363,7 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text wrap={false}>
+            <text style={{ wrapMode: 'none' }}>
               <b>
                 <span fg={theme.chromeText}>
                   {isNarrow ? 'Codebuff' : 'Codebuff CLI'}
@@ -382,7 +382,7 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text wrap={false}>
+            <text style={{ wrapMode: 'none' }}>
               <span fg={theme.statusSecondary}>Loading...</span>
             </text>
           </box>
@@ -399,11 +399,11 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text wrap={true}>
+            <text>
               <span fg="red">Error: {error}</span>
             </text>
             {!isVerySmall && (
-              <text wrap={true}>
+              <text>
                 <span fg={theme.statusSecondary}>
                   {isNarrow
                     ? 'Please try again'
@@ -425,7 +425,7 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text wrap={true}>
+            <text>
               <span fg={theme.statusAccent}>
                 {isNarrow
                   ? 'Press ENTER to login...'
@@ -447,7 +447,7 @@ export const LoginModal = ({
               gap: isVerySmall ? 0 : 1,
             }}
           >
-            <text wrap={true}>
+            <text>
               <span fg={theme.statusSecondary}>
                 {isNarrow ? 'Click to copy:' : 'Click link to copy:'}
               </span>
@@ -493,7 +493,7 @@ export const LoginModal = ({
                   flexShrink: 0,
                 }}
               >
-                <text wrap={false}>
+                <text style={{ wrapMode: 'none' }}>
                   <span
                     fg={
                       copyMessage.startsWith('✓')

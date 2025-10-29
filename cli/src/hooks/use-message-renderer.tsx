@@ -1,6 +1,20 @@
-import { TextAttributes } from '@opentui/core'
+import { TextAttributes, type BorderCharacters } from '@opentui/core'
 import { useMemo, type ReactNode } from 'react'
 import React from 'react'
+
+const verticalLineBorderChars: BorderCharacters = {
+  topLeft: ' ',
+  topRight: ' ',
+  bottomLeft: ' ',
+  bottomRight: ' ',
+  horizontal: ' ',
+  vertical: '│',
+  topT: ' ',
+  bottomT: ' ',
+  leftT: ' ',
+  rightT: ' ',
+  cross: ' ',
+}
 
 import { MessageBlock } from '../components/message-block'
 import {
@@ -58,6 +72,11 @@ export const useMessageRenderer = (
       const agentInfo = message.agent!
       const isCollapsed = collapsedAgents.has(message.id)
       const isStreaming = streamingAgents.has(message.id)
+      const toggleColor = isStreaming
+        ? theme.statusAccent
+        : isCollapsed
+          ? theme.agentResponseCount
+          : theme.agentPrefix
 
       const agentChildren = messageTree.get(message.id) ?? []
 
@@ -157,7 +176,7 @@ export const useMessageRenderer = (
               flexShrink: 0,
             }}
           >
-            <text wrap={false}>
+            <text style={{ wrapMode: 'none' }}>
               <span fg={theme.agentPrefix}>{fullPrefix}</span>
             </text>
             <box
@@ -172,22 +191,14 @@ export const useMessageRenderer = (
                 style={{
                   flexDirection: 'row',
                   alignSelf: 'flex-start',
-                  backgroundColor: isCollapsed
-                    ? theme.agentResponseCount
-                    : theme.agentPrefix,
                   paddingLeft: 1,
                   paddingRight: 1,
                 }}
                 onMouseDown={handleTitleClick}
               >
-                <text wrap>
-                  <span fg={theme.agentToggleText}>
-                    {isCollapsed ? '▸ ' : '▾ '}
-                  </span>
-                  <span
-                    fg={theme.agentToggleText}
-                    attributes={TextAttributes.BOLD}
-                  >
+                <text>
+                  <span fg={toggleColor}>{isCollapsed ? '▸ ' : '▾ '}</span>
+                  <span fg={toggleColor} attributes={TextAttributes.BOLD}>
                     {agentInfo.agentName}
                   </span>
                 </text>
@@ -197,17 +208,12 @@ export const useMessageRenderer = (
                 onMouseDown={handleContentClick}
               >
                 {isStreaming && isCollapsed && streamingPreview && (
-                  <text
-                    wrap
-                    fg={theme.agentText}
-                    attributes={TextAttributes.ITALIC}
-                  >
+                  <text fg={theme.agentText} attributes={TextAttributes.ITALIC}>
                     {streamingPreview}
                   </text>
                 )}
                 {!isStreaming && isCollapsed && finishedPreview && (
                   <text
-                    wrap
                     fg={theme.agentResponseCount}
                     attributes={TextAttributes.ITALIC}
                   >
@@ -217,7 +223,6 @@ export const useMessageRenderer = (
                 {!isCollapsed && (
                   <text
                     key={`agent-content-${message.id}`}
-                    wrap
                     fg={theme.agentContentText}
                   >
                     {displayContent}
@@ -319,16 +324,19 @@ export const useMessageRenderer = (
                 }}
               >
                 <box
+                  border
+                  borderStyle="single"
+                  borderColor={lineColor}
+                  customBorderChars={verticalLineBorderChars}
                   style={{
                     width: 1,
-                    backgroundColor: lineColor,
                     marginTop: 0,
                     marginBottom: 0,
                   }}
                 />
                 <box
                   style={{
-                    backgroundColor: theme.messageBg,
+                    backgroundColor: 'transparent',
                     padding: 0,
                     paddingLeft: 1,
                     paddingRight: 1,
@@ -378,7 +386,7 @@ export const useMessageRenderer = (
             ) : (
               <box
                 style={{
-                  backgroundColor: theme.messageBg,
+                  backgroundColor: 'transparent',
                   padding: 0,
                   paddingLeft: 0,
                   paddingRight: 0,

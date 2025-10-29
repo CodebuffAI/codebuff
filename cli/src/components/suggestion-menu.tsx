@@ -54,7 +54,7 @@ export const SuggestionMenu = ({
         paddingRight: 1,
         paddingTop: 0,
         paddingBottom: 0,
-        backgroundColor: theme.panelBg,
+        backgroundColor: 'transparent',
         width: '100%',
       }}
     >
@@ -62,7 +62,7 @@ export const SuggestionMenu = ({
         style={{
           flexDirection: 'column',
           gap: 0,
-          backgroundColor: theme.messageBg,
+          backgroundColor: 'transparent',
           width: '100%',
         }}
       >
@@ -72,9 +72,9 @@ export const SuggestionMenu = ({
           const labelLength = effectivePrefix.length + item.label.length
           const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
           const padding = ' '.repeat(paddingLength)
-          const textColor = isSelected ? theme.agentContentText : theme.inputFg
+          const textColor = isSelected ? theme.statusAccent : theme.inputFg
           const descriptionColor = isSelected
-            ? theme.agentContentText
+            ? theme.statusAccent
             : theme.timestampUser
           return (
             <box
@@ -86,17 +86,15 @@ export const SuggestionMenu = ({
                 paddingRight: 1,
                 paddingTop: 0,
                 paddingBottom: 0,
-                backgroundColor: isSelected
-                  ? theme.agentFocusedBg
-                  : theme.messageBg,
+                backgroundColor: 'transparent',
                 width: '100%',
               }}
             >
               <text
-                wrap={false}
                 style={{
                   fg: textColor,
                   marginBottom: 0,
+                  wrapMode: 'none',
                 }}
               >
                 <span fg={theme.agentPrefix}>{effectivePrefix}</span>
