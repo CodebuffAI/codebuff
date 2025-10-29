@@ -2,7 +2,7 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 
 import {
   calculateOrganizationUsageAndBalance,
@@ -80,12 +80,11 @@ const createDbMock = (options?: {
 }
 
 describe('Organization Billing', () => {
-  beforeAll(async () => {
-    await mockModule('@codebuff/common/db', () => ({
+  beforeEach(async () => {
+    await mockModule('@codebuff/internal/db', () => ({
       default: createDbMock(),
     }))
-
-    await mockModule('@codebuff/common/db/transaction', () => ({
+    await mockModule('@codebuff/internal/db/transaction', () => ({
       withSerializableTransaction: async ({
         callback,
       }: {
@@ -94,14 +93,8 @@ describe('Organization Billing', () => {
     }))
   })
 
-  afterAll(() => {
+  afterEach(() => {
     clearMockedModules()
-  })
-
-  afterEach(async () => {
-    await mockModule('@codebuff/common/db', () => ({
-      default: createDbMock(),
-    }))
   })
 
   describe('calculateOrganizationUsageAndBalance', () => {
@@ -130,7 +123,7 @@ describe('Organization Billing', () => {
 
     it('should handle organization with no grants', async () => {
       // Mock empty grants
-      await mockModule('@codebuff/common/db', () => ({
+      await mockModule('@codebuff/internal/db', () => ({
         default: createDbMock({ grants: [] }),
       }))
 
@@ -258,7 +251,7 @@ describe('Organization Billing', () => {
 
     it('should handle duplicate operation IDs gracefully', async () => {
       // Mock database constraint error
-      await mockModule('@codebuff/common/db', () => ({
+      await mockModule('@codebuff/internal/db', () => ({
         default: createDbMock({
           insert: () => ({
             values: () => {
