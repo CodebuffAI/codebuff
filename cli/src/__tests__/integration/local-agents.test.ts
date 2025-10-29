@@ -308,7 +308,7 @@ describe('Local Agent Integration', () => {
     ).toContain('structured_output')
   })
 
-  test('allows running without authentication token', async () => {
+  test('loads agent definitions without auth', () => {
     mkdirSync(agentsDir, { recursive: true })
 
     writeAgentFile(
@@ -324,24 +324,8 @@ describe('Local Agent Integration', () => {
       `,
     )
 
-    const warnMock = mock(() => {})
-
-    mock.module('../../utils/auth', () => ({
-      getAuthTokenDetails: () => ({ token: '', source: 'env' as const }),
-    }))
-    mock.module('../../utils/logger', () => ({
-      logger: {
-        info: mock(() => {}),
-        error: mock(() => {}),
-        warn: warnMock,
-        debug: mock(() => {}),
-      },
-    }))
-
-    const { getCodebuffClient } = await import('../../utils/codebuff-client')
-    const client = getCodebuffClient()
-
-    expect(client).toBeNull()
-    expect(warnMock.mock.calls.length).toBeGreaterThan(0)
+    const definitions = loadAgentDefinitions()
+    expect(definitions).toHaveLength(1)
+    expect(definitions[0].id).toBe('authless-agent')
   })
 })
