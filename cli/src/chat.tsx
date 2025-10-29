@@ -1,6 +1,5 @@
 import { TextAttributes } from '@opentui/core'
 import { useRenderer, useTerminalDimensions } from '@opentui/react'
-import open from 'open'
 import path from 'path'
 import React, {
   type ReactNode,
@@ -44,6 +43,7 @@ import { loadLocalAgents } from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { chatThemes, createMarkdownPalette } from './utils/theme-system'
+import { openFileAtPath } from './utils/open-file'
 
 import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
@@ -256,7 +256,8 @@ export const App = ({
         // Add header
         blocks.push({
           type: 'text',
-          content: `\n${errorHeader}`,
+          content: errorHeader,
+          marginTop: 1,
         })
 
         // Add each error as a separate, nicely formatted block
@@ -319,7 +320,7 @@ export const App = ({
 
           blocks.push({
             type: 'html',
-            marginTop: errorIndex === 0 ? 1 : 0,
+            marginTop: errorIndex === 0 ? 0 : 0,
             render: ({ textColor }) => (
               <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
                 <text wrap style={{ fg: textColor }}>
@@ -334,6 +335,8 @@ export const App = ({
                       alignItems: 'center',
                     }}
                     formatLines={(text) => [text]}
+                    underlineOnHover
+                    onActivate={() => openFileAtPath(agentInfo.filePath)}
                   />
                 ) : null}
               </box>
@@ -342,7 +345,7 @@ export const App = ({
 
           blocks.push({
             type: 'html',
-            marginBottom: 1,
+            marginBottom: 0,
             render: ({ textColor }) => (
               <text wrap style={{ fg: textColor, marginLeft: 2 }}>
                 {fieldName ? (
@@ -360,12 +363,7 @@ export const App = ({
           })
         })
 
-        // Add closing instruction
-        blocks.push({
-          type: 'text',
-          content: '*Fix these in your .agents directory.*',
-          marginTop: 1,
-        })
+        // No closing instruction to keep layout concise
       }
 
       blocks.push({
