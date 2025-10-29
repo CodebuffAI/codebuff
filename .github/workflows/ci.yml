@@ -82,14 +82,25 @@ jobs:
     needs: [build-and-check]
     strategy:
       matrix:
-        package: [.agents, backend, cli, common, npm-app, packages, web]
+        package:
+          [
+            .agents,
+            backend,
+            cli,
+            common,
+            npm-app,
+            packages/agent-runtime,
+            packages/billing,
+            web,
+          ]
         include:
           - package: .agents
           - package: backend
           - package: cli
           - package: common
           - package: npm-app
-          - package: packages
+          - package: packages/agent-runtime
+          - package: packages/billing
           - package: web
     name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
@@ -155,13 +166,15 @@ jobs:
     needs: [build-and-check]
     strategy:
       matrix:
-        package: [
+        package:
+          [
             .agents,
             backend,
             cli,
             common,
             npm-app,
-            packages
+            packages/agent-runtime,
+            packages/billing,
             web,
           ]
         include:
@@ -170,7 +183,8 @@ jobs:
           - package: cli
           - package: common
           - package: npm-app
-          - package: packages
+          - package: packages/agent-runtime
+          - package: packages/billing
           - package: web
     name: test-integration-${{ matrix.package }}
     runs-on: ubuntu-latest
