@@ -4,7 +4,7 @@ import React, { type ReactNode } from 'react'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
-import { ToolItem } from './tool-item'
+import { ToolItem, type ToolBranchMeta } from './tool-item'
 import { getToolRenderConfig } from './tool-renderer'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
@@ -81,10 +81,33 @@ export const MessageBlock = ({
     }
   }
 
+  const defaultToolBranchMeta: ToolBranchMeta = {
+    hasPrevious: false,
+    hasNext: false,
+  }
+
+  const buildToolBranchMeta = (
+    items: Array<ContentBlock | undefined>,
+  ): Map<number, ToolBranchMeta> => {
+    const toolIndices = items
+      .map((block, index) => (block && block.type === 'tool' ? index : -1))
+      .filter((index) => index !== -1) as number[]
+
+    const meta = new Map<number, ToolBranchMeta>()
+    toolIndices.forEach((blockIndex, position) => {
+      meta.set(blockIndex, {
+        hasPrevious: position > 0,
+        hasNext: position < toolIndices.length - 1,
+      })
+    })
+    return meta
+  }
+
   const renderToolBranch = (
     toolBlock: Extract<ContentBlock, { type: 'tool' }>,
     indentLevel: number,
     keyPrefix: string,
+    branchMeta: ToolBranchMeta,
   ): React.ReactNode => {
     if (toolBlock.toolName === 'end_turn') {
       return null
@@ -170,6 +193,7 @@ export const MessageBlock = ({
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
+          branchMeta={branchMeta}
           onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
         />
       </box>
@@ -333,6 +357,7 @@ export const MessageBlock = ({
   ): React.ReactNode[] {
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
+    const toolBranchMetaMap = buildToolBranchMeta(nestedBlocks)
 
     nestedBlocks.forEach((nestedBlock, nestedIdx) => {
       if (nestedBlock.type === 'text') {
@@ -364,11 +389,14 @@ export const MessageBlock = ({
           </text>,
         )
       } else if (nestedBlock.type === 'tool') {
+        const branchMeta =
+          toolBranchMetaMap.get(nestedIdx) ?? defaultToolBranchMeta
         nodes.push(
           renderToolBranch(
             nestedBlock,
             indentLevel,
             `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
+            branchMeta,
           ),
         )
       } else if (nestedBlock.type === 'agent') {
@@ -384,6 +412,8 @@ export const MessageBlock = ({
 
     return nodes
   }
+
+  const topLevelToolMeta = blocks ? buildToolBranchMeta(blocks) : null
 
   return (
     <>
@@ -422,18 +452,21 @@ export const MessageBlock = ({
                   ? 0
                   : 0
               const blockTextColor = block.color ?? textColor
-              return (
-                <text key={renderKey} style={{ fg: blockTextColor, marginTop }}>
-                  {renderedContent}
-                </text>
-              )
-            } else if (block.type === 'tool') {
-              return renderToolBranch(
-                block,
-                0,
-                `${messageId}-tool-${block.toolCallId}`,
-              )
-            } else if (block.type === 'agent') {
+            return (
+              <text key={renderKey} style={{ fg: blockTextColor, marginTop }}>
+                {renderedContent}
+              </text>
+            )
+          } else if (block.type === 'tool') {
+            const branchMeta =
+              topLevelToolMeta?.get(idx) ?? defaultToolBranchMeta
+            return renderToolBranch(
+              block,
+              0,
+              `${messageId}-tool-${block.toolCallId}`,
+              branchMeta,
+            )
+          } else if (block.type === 'agent') {
               return renderAgentBranch(
                 block,
                 0,
