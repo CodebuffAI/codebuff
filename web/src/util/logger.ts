@@ -3,7 +3,7 @@ import path from 'path'
 import { format } from 'util'
 
 import { splitData } from '@codebuff/common/util/split-data'
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/internal/env'
 import pino from 'pino'
 
 // --- Constants ---
@@ -106,7 +106,7 @@ function splitAndLog(
 }
 
 export const logger: Record<LogLevel, pino.LogFn> =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
     ? pinoLogger
     : (Object.fromEntries(
         loggingLevels.map((level) => {

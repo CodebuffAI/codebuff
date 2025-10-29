@@ -52,7 +52,7 @@ const VS_CODE_FAMILY_ENV_KEYS = [
   'VSCODE_NLS_CONFIG',
   'CURSOR_SESSION_ID',
   'CURSOR',
-]
+] as const
 
 const VS_CODE_PRODUCT_DIRS = [
   'Code',
@@ -61,7 +61,7 @@ const VS_CODE_PRODUCT_DIRS = [
   'VSCodium',
   'VSCodium - Insiders',
   'Cursor',
-]
+] as const
 
 const JETBRAINS_ENV_KEYS = [
   'JB_PRODUCT_CODE',
@@ -70,7 +70,7 @@ const JETBRAINS_ENV_KEYS = [
   'IDEA_INITIAL_DIRECTORY',
   'IDE_CONFIG_DIR',
   'JB_IDE_CONFIG_DIR',
-]
+] as const
 
 const normalizeThemeName = (themeName: string): string =>
   themeName.trim().toLowerCase()
@@ -517,7 +517,7 @@ type ThemeOverrideConfig = Partial<Record<ThemeName, ChatThemeOverrides>> & {
 const CHAT_THEME_ENV_KEYS = [
   'OPEN_TUI_CHAT_THEME_OVERRIDES',
   'OPENTUI_CHAT_THEME_OVERRIDES',
-]
+] as const
 
 const mergeMarkdownOverrides = (
   base: MarkdownThemeOverrides | undefined,

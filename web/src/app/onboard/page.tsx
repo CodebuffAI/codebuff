@@ -2,9 +2,9 @@
 
 import { MAX_DATE } from '@codebuff/common/old-constants'
 import { genAuthCode } from '@codebuff/common/util/credentials'
-import { env } from '@codebuff/internal'
 import { db } from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/internal/env'
 import { and, eq, gt } from 'drizzle-orm'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'

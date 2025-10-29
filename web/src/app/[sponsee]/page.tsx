@@ -1,6 +1,6 @@
 'use server'
 
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/internal/env'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'

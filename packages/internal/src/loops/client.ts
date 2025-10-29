@@ -3,6 +3,7 @@ import { LoopsClient, APIError } from 'loops'
 
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/internal/env'
 
 import type { LoopsEmailData, SendEmailResult } from './types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -16,8 +17,8 @@ const BASIC_TRANSACTIONAL_ID = 'cmb8pafk92r820w0i7lkplkt2'
 
 // Initialize Loops client
 let loopsClient: LoopsClient | null = null
-if (process.env.LOOPS_API_KEY) {
-  loopsClient = new LoopsClient(process.env.LOOPS_API_KEY)
+if (env.LOOPS_API_KEY) {
+  loopsClient = new LoopsClient(env.LOOPS_API_KEY)
 }
 
 async function sendTransactionalEmail(

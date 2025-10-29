@@ -1,5 +1,6 @@
 'use client'
 
+import { env } from '@codebuff/internal/env'
 import { ArrowLeft, CreditCard, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -59,7 +60,7 @@ export default function BillingSetupPage() {
 
       // Redirect to Stripe Checkout
       const stripe = (await import('@stripe/stripe-js')).loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+        env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
       )
 
       const stripeInstance = await stripe
