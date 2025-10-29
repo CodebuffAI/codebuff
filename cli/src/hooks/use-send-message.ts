@@ -499,11 +499,17 @@ export const useSendMessage = ({
       try {
         // Load local agent definitions from .agents directory
         const agentDefinitions = loadAgentDefinitions()
+        const selectedAgentDefinition =
+          agentId && agentDefinitions.length > 0
+            ? (agentDefinitions.find(
+                (definition) => definition.id === agentId,
+              ) as AgentDefinition | undefined)
+            : undefined
 
-        const agent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
+        const fallbackAgent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
         const result = await client.run({
           logger,
-          agent: agentId || agent,
+          agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,
