@@ -7,8 +7,8 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-import { CLIENT_ENV_PREFIX, clientEnvSchema } from '@codebuff/common/env-schema'
-import { serverEnvSchema } from '@codebuff/internal/env-schema'
+import { CLIENT_ENV_PREFIX, clientEnvVars } from '@codebuff/common/env-schema'
+import { serverEnvVars } from '@codebuff/internal/env-schema'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -50,8 +50,8 @@ function parseArgs() {
 function generateGitHubEnv() {
   const { prefix, scope } = parseArgs()
   const varsByScope = {
-    all: Object.keys(serverEnvSchema),
-    client: Object.keys(clientEnvSchema),
+    all: serverEnvVars,
+    client: clientEnvVars,
   }
 
   let selected: string[] = []
