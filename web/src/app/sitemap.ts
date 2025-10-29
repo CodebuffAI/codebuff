@@ -1,4 +1,4 @@
-import { env } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal'
 
 import type { MetadataRoute } from 'next'
 

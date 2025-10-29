@@ -1,16 +1,15 @@
-import { env } from '@codebuff/internal/env'
-import { headers } from 'next/headers'
+import { env } from '@codebuff/internal'
 import Link from 'next/link'
+import { headers } from 'next/headers'
 import { getServerSession } from 'next-auth'
 
-import { authOptions } from '../../api/auth/[...nextauth]/auth-options'
-
-import type { ReferralCodeResponse } from '../../api/referrals/[code]/route'
 import type { Metadata } from 'next'
+import type { ReferralCodeResponse } from '../../api/referrals/[code]/route'
 
+import { authOptions } from '../../api/auth/[...nextauth]/auth-options'
 import CardWithBeams from '@/components/card-with-beams'
-import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
 import { Button } from '@/components/ui/button'
+import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
 
 export const generateMetadata = async ({
   params,

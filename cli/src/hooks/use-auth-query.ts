@@ -1,4 +1,3 @@
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getUserInfoFromApiKey as defaultGetUserInfoFromApiKey } from '@codebuff/sdk'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -10,8 +9,8 @@ import {
 } from '../utils/auth'
 import { logger as defaultLogger } from '../utils/logger'
 
-import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 
 // Query keys for type-safe cache management
 export const authQueryKeys = {
@@ -96,7 +95,7 @@ export function useAuthQuery(deps: UseAuthQueryDeps = {}) {
 
   const userCredentials = getUserCredentials()
   const apiKey =
-    userCredentials?.authToken || process.env[API_KEY_ENV_VAR] || ''
+    userCredentials?.authToken || process.env.CODEBUFF_API_KEY || ''
 
   return useQuery({
     queryKey: authQueryKeys.validation(apiKey),

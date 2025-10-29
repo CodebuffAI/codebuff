@@ -15,7 +15,7 @@ import {
   sendSubagentChunkWs,
 } from '@codebuff/backend/client-wrapper'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
-import { API_KEY_ENV_VAR, TEST_USER_ID } from '@codebuff/common/old-constants'
+import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { mockModule } from '@codebuff/common/testing/mock-modules'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { handleToolCall } from '@codebuff/npm-app/tool-handlers'
@@ -200,7 +200,7 @@ export async function runAgentStepScaffolding(
     sendSubagentChunk: (params) =>
       sendSubagentChunkWs({ ...params, ws: mockWs }),
     sendAction: (params) => sendActionWs({ ...params, ws: mockWs }),
-    apiKey: process.env[API_KEY_ENV_VAR] ?? '',
+    apiKey: process.env.CODEBUFF_API_KEY ?? '',
   }
   const result = await runAgentStep({
     ...EVALS_AGENT_RUNTIME_IMPL,

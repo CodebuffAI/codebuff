@@ -7,12 +7,11 @@ import type { NextRequest } from 'next/server'
 
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { logger } from '@/util/logger'
-import { env } from '@codebuff/internal/env'
 
 // Helper to construct backend URL
 function getBackendUrl() {
   const backendUrl =
-    env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL || 'localhost:4242'
+    process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL || 'localhost:4242'
   const protocol = backendUrl.startsWith('localhost') ? 'http://' : 'https://'
   return `${protocol}${backendUrl}`
 }

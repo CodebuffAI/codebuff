@@ -1,7 +1,5 @@
 import { mkdirSync } from 'fs'
 import path, { dirname } from 'path'
-
-import { env } from '@codebuff/common/env'
 import { pino } from 'pino'
 
 let logPath: string | undefined = undefined
@@ -40,7 +38,7 @@ function initPinoLoggerWithPath(path: string): void {
 function log(level: LogLevel, data: any, msg?: string, ...args: any[]): void {
   if (
     process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
-    env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
+    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
   ) {
     const projectRoot = path.join(__dirname, '..')
     const logTarget = path.join(projectRoot, 'debug', 'evals.log')

@@ -1,4 +1,4 @@
-import { env } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal'
 import { REST, Routes, SlashCommandBuilder } from 'discord.js'
 
 import { logger } from '@/util/logger'

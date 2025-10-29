@@ -3,11 +3,10 @@ import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { env } from '@codebuff/common/env'
 import { pino } from 'pino'
 
-import { flushAnalytics, logError, trackEvent } from './analytics'
 import { getCurrentChatDir, getProjectRoot } from '../project-files'
+import { flushAnalytics, logError, trackEvent } from './analytics'
 
 export interface LoggerContext {
   userId?: string
@@ -96,12 +95,12 @@ function sendAnalyticsAndLog(
 ): void {
   if (
     process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
-    env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
+    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
   ) {
     const projectRoot = getProjectRoot() || process.cwd()
 
     const logTarget =
-      env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
+      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
         ? path.join(projectRoot, 'debug', 'cli.log')
         : (() => {
             try {
@@ -129,7 +128,7 @@ function sendAnalyticsAndLog(
   logAsErrorIfNeeded(toTrack)
 
   logOrStore: if (
-    env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'dev' &&
+    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'dev' &&
     normalizedData &&
     typeof normalizedData === 'object' &&
     'eventId' in normalizedData &&

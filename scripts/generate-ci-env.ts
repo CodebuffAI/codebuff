@@ -7,8 +7,7 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-import { CLIENT_ENV_PREFIX, clientEnvSchema } from '@codebuff/common/env'
-import { serverEnvSchema } from '@codebuff/internal/env'
+import { serverEnvSchema, clientEnvSchema } from '@codebuff/internal/env-schema'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -50,19 +49,19 @@ function parseArgs() {
 function generateGitHubEnv() {
   const { prefix, scope } = parseArgs()
   const varsByScope = {
-    all: Object.keys(serverEnvSchema),
+    server: Object.keys(serverEnvSchema),
     client: Object.keys(clientEnvSchema),
   }
 
   let selected: string[] = []
   if (scope === 'server') {
-    selected = varsByScope.all.filter(
-      (name) => !name.startsWith(CLIENT_ENV_PREFIX),
-    )
+    selected = varsByScope.server
   } else if (scope === 'client') {
     selected = varsByScope.client
   } else {
-    selected = varsByScope.all
+    selected = Array.from(
+      new Set([...varsByScope.server, ...varsByScope.client]),
+    )
   }
 
   if (prefix) {

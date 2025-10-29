@@ -1,7 +1,6 @@
-import { env } from '@codebuff/common/env'
-
 // Get the website URL from environment or use default
-export const WEBSITE_URL = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+export const WEBSITE_URL =
+  process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
 
 // Codebuff ASCII Logo - compact version for 80-width terminals
 export const LOGO = `

@@ -1,4 +1,3 @@
-import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { sql } from 'drizzle-orm'
 import {
   boolean,
@@ -15,6 +14,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
+import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { ReferralStatusValues } from '../types/referral'
 
 import type { SQL } from 'drizzle-orm'
