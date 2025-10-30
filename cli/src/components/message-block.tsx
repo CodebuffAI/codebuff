@@ -448,10 +448,11 @@ export const MessageBlock = ({
                 : rawContent
               const prevBlock = idx > 0 ? blocks[idx - 1] : null
               const marginTop =
-                prevBlock &&
-                (prevBlock.type === 'tool' || prevBlock.type === 'agent')
-                  ? 0
-                  : 0
+                prevBlock && prevBlock.type === 'text'
+                  ? 1
+                  : prevBlock && (prevBlock.type === 'tool' || prevBlock.type === 'agent')
+                    ? 0
+                    : 0
               const blockTextColor = block.color ?? textColor
             return (
               <text key={renderKey} style={{ fg: blockTextColor, marginTop }}>
@@ -497,6 +498,7 @@ export const MessageBlock = ({
             <text
               key={`message-content-${messageId}`}
               style={{ fg: textColor }}
+              attributes={isUser ? TextAttributes.ITALIC : undefined}
             >
               {displayContent}
             </text>

@@ -87,7 +87,7 @@ function nodeToPlainText(node: Content | Root): string {
 
     case 'paragraph':
       return (
-        (node as Paragraph).children.map(nodeToPlainText).join('') + '\n\n'
+        (node as Paragraph).children.map(nodeToPlainText).join('') + '\n'
       )
 
     case 'text':
@@ -100,7 +100,7 @@ function nodeToPlainText(node: Content | Root): string {
       const heading = node as Heading
       const prefix = '#'.repeat(Math.max(1, Math.min(heading.depth, 6)))
       const content = heading.children.map(nodeToPlainText).join('')
-      return `${prefix} ${content}\n\n`
+      return `${prefix} ${content}\n`
     }
 
     case 'list': {
@@ -115,7 +115,7 @@ function nodeToPlainText(node: Content | Root): string {
               .trimEnd()
             return marker + text
           })
-          .join('\n') + '\n\n'
+          .join('\n') + '\n'
       )
     }
 
@@ -129,13 +129,13 @@ function nodeToPlainText(node: Content | Root): string {
       const content = blockquote.children
         .map((child) => nodeToPlainText(child).replace(/^/gm, '> '))
         .join('')
-      return `${content}\n\n`
+      return `${content}\n`
     }
 
     case 'code': {
       const code = node as Code
       const header = code.lang ? `\`\`\`${code.lang}\n` : '```\n'
-      return `${header}${code.value}\n\`\`\`\n\n`
+      return `${header}${code.value}\n\`\`\`\n`
     }
 
     default:

@@ -280,6 +280,11 @@ export const useMessageRenderer = (
       const hasAgentChildren = agentChildren.length > 0
       const showVerticalLine = isUser
 
+      // Calculate height for vertical line
+      const contentLines = message.content ? message.content.split('\n').length : 1
+      const verticalLineHeight = Math.max(1, contentLines + 1) // +1 for timestamp
+      const verticalLineText = Array(verticalLineHeight).fill('│').join('\n')
+
       return (
         <box
           key={message.id}
@@ -307,16 +312,14 @@ export const useMessageRenderer = (
                 }}
               >
                 <box
-                  border
-                  borderStyle="single"
-                  borderColor={lineColor}
-                  customBorderChars={verticalLineBorderChars}
                   style={{
                     width: 1,
-                    marginTop: 0,
-                    marginBottom: 0,
+                    flexShrink: 0,
+                    flexDirection: 'column',
                   }}
-                />
+                >
+                  <text fg={lineColor}>{verticalLineText}</text>
+                </box>
                 <box
                   style={{
                     backgroundColor: 'transparent',
