@@ -236,14 +236,17 @@ export function convertCbToModelMessages({
   // - The message right before the three tagged messages
   // - Last message
   for (const tag of [
+    'LAST_ASSISTANT_MESSAGE',
     'USER_PROMPT',
-    'INSTRUCTIONS_PROMPT',
     'STEP_PROMPT',
     undefined, // Last message
   ] as const) {
-    let index = tag
-      ? aggregated.findLastIndex((m) => m.tags?.includes(tag))
-      : aggregated.length
+    let index =
+      tag === 'LAST_ASSISTANT_MESSAGE'
+        ? aggregated.findLastIndex((m) => m.role === 'assistant')
+        : tag
+          ? aggregated.findLastIndex((m) => m.tags?.includes(tag))
+          : aggregated.length
     if (index <= 0) {
       continue
     }
