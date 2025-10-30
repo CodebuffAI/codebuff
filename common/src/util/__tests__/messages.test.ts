@@ -655,16 +655,16 @@ describe('convertCbToModelMessages', () => {
       ])
     })
 
-    test('should add cache control before INSTRUCTIONS_PROMPT tag', () => {
+    test('should add cache control before LAST_ASSISTANT_MESSAGE tag', () => {
       const messages: Message[] = [
         { role: 'system', content: 'System' },
         { role: 'user', content: 'Context' },
         { role: 'assistant', content: 'Response' },
-        { role: 'user', content: 'More context' },
+        { role: 'user', content: 'Instructions' },
         {
-          role: 'user',
-          content: 'Instructions',
-          tags: ['INSTRUCTIONS_PROMPT'],
+          role: 'assistant',
+          content: 'Second response',
+          tags: ['LAST_ASSISTANT_MESSAGE'],
         },
       ]
 
@@ -682,11 +682,11 @@ describe('convertCbToModelMessages', () => {
           content: [
             {
               type: 'text',
-              text: 'M',
+              text: 'I',
             },
             {
               type: 'text',
-              text: 'ore context',
+              text: 'nstructions',
               providerOptions: expect.objectContaining({
                 codebuff: {
                   cacheControl: {
@@ -697,7 +697,7 @@ describe('convertCbToModelMessages', () => {
             },
           ],
         },
-        expect.objectContaining({ role: 'user' }),
+        expect.objectContaining({ role: 'assistant' }),
       ])
     })
 
