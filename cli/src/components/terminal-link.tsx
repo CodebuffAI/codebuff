@@ -55,6 +55,26 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
     return <span fg={displayColor}>{text}</span>
   }
 
+  const handleMouseOver = () => {
+    setIsHovered(true)
+  }
+
+  const handleMouseOut = () => {
+    setIsHovered(false)
+  }
+
+  const renderLine = (line: string, index: number) => (
+    <text key={index} wrap={lineWrap}>
+      {shouldUnderline ? (
+        <u>
+          <span fg={displayColor}>{line}</span>
+        </u>
+      ) : (
+        <span fg={displayColor}>{line}</span>
+      )}
+    </text>
+  )
+
   return (
     <box
       style={{
@@ -64,21 +84,11 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
         gap: 0,
         ...containerStyle,
       }}
-      onMouseOver={() => setIsHovered(true)}
-      onMouseOut={() => setIsHovered(false)}
+      onMouseOver={handleMouseOver}
+      onMouseOut={handleMouseOut}
       onMouseDown={handleActivate}
     >
-      {displayLines.map((line, index) => (
-        <text key={index} wrap={lineWrap}>
-          {shouldUnderline ? (
-            <u>
-              <span fg={displayColor}>{line}</span>
-            </u>
-          ) : (
-            <span fg={displayColor}>{line}</span>
-          )}
-        </text>
-      ))}
+      {displayLines.map(renderLine)}
     </box>
   )
 }

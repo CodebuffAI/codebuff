@@ -45,6 +45,46 @@ export const SuggestionMenu = ({
 
   const visibleItems = items.slice(start, start + visibleCount)
 
+  const renderSuggestionItem = (item: SuggestionItem, idx: number) => {
+    const absoluteIndex = start + idx
+    const isSelected = absoluteIndex === clampedSelected
+    const labelLength = effectivePrefix.length + item.label.length
+    const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
+    const padding = ' '.repeat(paddingLength)
+    const textColor = isSelected ? theme.agentContentText : theme.inputFg
+    const descriptionColor = isSelected
+      ? theme.agentContentText
+      : theme.timestampUser
+    return (
+      <box
+        key={item.id}
+        style={{
+          flexDirection: 'column',
+          gap: 0,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 0,
+          paddingBottom: 0,
+          backgroundColor: isSelected ? theme.agentFocusedBg : theme.messageBg,
+          width: '100%',
+        }}
+      >
+        <text
+          wrap={false}
+          style={{
+            fg: textColor,
+            marginBottom: 0,
+          }}
+        >
+          <span fg={theme.agentPrefix}>{effectivePrefix}</span>
+          <span>{item.label}</span>
+          <span>{padding}</span>
+          <span fg={descriptionColor}>{item.description}</span>
+        </text>
+      </box>
+    )
+  }
+
   return (
     <box
       style={{
@@ -66,47 +106,7 @@ export const SuggestionMenu = ({
           width: '100%',
         }}
       >
-        {visibleItems.map((item, idx) => {
-          const absoluteIndex = start + idx
-          const isSelected = absoluteIndex === clampedSelected
-          const labelLength = effectivePrefix.length + item.label.length
-          const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
-          const padding = ' '.repeat(paddingLength)
-          const textColor = isSelected ? theme.agentContentText : theme.inputFg
-          const descriptionColor = isSelected
-            ? theme.agentContentText
-            : theme.timestampUser
-          return (
-            <box
-              key={item.id}
-              style={{
-                flexDirection: 'column',
-                gap: 0,
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                backgroundColor: isSelected
-                  ? theme.agentFocusedBg
-                  : theme.messageBg,
-                width: '100%',
-              }}
-            >
-              <text
-                wrap={false}
-                style={{
-                  fg: textColor,
-                  marginBottom: 0,
-                }}
-              >
-                <span fg={theme.agentPrefix}>{effectivePrefix}</span>
-                <span>{item.label}</span>
-                <span>{padding}</span>
-                <span fg={descriptionColor}>{item.description}</span>
-              </text>
-            </box>
-          )
-        })}
+        {visibleItems.map(renderSuggestionItem)}
       </box>
     </box>
   )

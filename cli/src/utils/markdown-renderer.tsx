@@ -25,6 +25,16 @@ import type { ReactNode } from 'react'
 // Helper component to work around TypeScript's Fragment key typing issue
 const KeyedFragment = React.Fragment as React.FC<{ key?: string | number; children?: ReactNode }>
 
+// Helper to wrap segments in KeyedFragments
+const wrapSegmentsInFragments = (
+  segments: ReactNode[],
+  keyPrefix: string,
+): ReactNode => {
+  return segments.map((segment, idx) => (
+    <KeyedFragment key={keyPrefix + '-' + idx}>{segment}</KeyedFragment>
+  ))
+}
+
 export interface MarkdownPalette {
   inlineCodeFg: string
   codeBackground: string
@@ -514,9 +524,7 @@ const renderBlockquote = (
     )
     nodes.push(
       <span key={nextKey()} fg={palette.blockquoteTextFg}>
-        {line.map((segment, idx) => (
-          <KeyedFragment key={nextKey() + '-' + idx}>{segment}</KeyedFragment>
-        ))}
+        {wrapSegmentsInFragments(line, nextKey())}
       </span>,
     )
     if (index < lines.length - 1) {
@@ -558,11 +566,7 @@ const renderList = (list: List, state: RenderState): ReactNode[] => {
     } else {
       nodes.push(
         <KeyedFragment key={nextKey()}>
-          {itemNodes.map((segment, segmentIdx) => (
-            <KeyedFragment key={nextKey() + '-' + segmentIdx}>
-              {segment}
-            </KeyedFragment>
-          ))}
+          {wrapSegmentsInFragments(itemNodes, nextKey())}
         </KeyedFragment>,
       )
       nodes.push('\n')
@@ -624,9 +628,7 @@ const renderLink = (link: Link, state: RenderState): ReactNode[] => {
 
   return [
     <span key={nextKey()} fg={palette.inlineCodeFg}>
-      {label.map((segment, idx) => (
-        <KeyedFragment key={nextKey() + '-' + idx}>{segment}</KeyedFragment>
-      ))}
+      {wrapSegmentsInFragments(label, nextKey())}
     </span>,
   ]
 }
@@ -677,11 +679,7 @@ const renderNode = (
       )
       return [
         <span key={state.nextKey()} attributes={TextAttributes.BOLD}>
-          {children.map((segment, idx) => (
-            <KeyedFragment key={state.nextKey() + '-' + idx}>
-              {segment}
-            </KeyedFragment>
-          ))}
+          {wrapSegmentsInFragments(children, state.nextKey())}
         </span>,
       ]
     }
@@ -694,11 +692,7 @@ const renderNode = (
       )
       return [
         <span key={state.nextKey()} attributes={TextAttributes.ITALIC}>
-          {children.map((segment, idx) => (
-            <KeyedFragment key={state.nextKey() + '-' + idx}>
-              {segment}
-            </KeyedFragment>
-          ))}
+          {wrapSegmentsInFragments(children, state.nextKey())}
         </span>,
       ]
     }

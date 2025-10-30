@@ -244,6 +244,22 @@ export const LoginModal = ({
     maxUrlWidth,
   } = calculateResponsiveLayout(terminalWidth, terminalHeight)
 
+  // Format login URL lines
+  const formatLoginUrlLines = useCallback(
+    (text: string, width?: number) => formatUrl(text, width ?? maxUrlWidth),
+    [maxUrlWidth],
+  )
+
+  // Handle login URL activation
+  const handleActivateLoginUrl = useCallback(async () => {
+    try {
+      await open(loginUrl)
+    } catch (err) {
+      logger.error(err, 'Failed to open browser on link click')
+    }
+    return copyToClipboard(loginUrl)
+  }, [loginUrl, copyToClipboard])
+
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({
     logoColor,
@@ -423,21 +439,12 @@ export const LoginModal = ({
               <TerminalLink
                 text={loginUrl}
                 maxWidth={maxUrlWidth}
-                formatLines={(text, width) =>
-                  formatUrl(text, width ?? maxUrlWidth)
-                }
+                formatLines={formatLoginUrlLines}
                 color={hasClickedLink ? LINK_COLOR_CLICKED : LINK_COLOR_DEFAULT}
                 activeColor={LINK_COLOR_CLICKED}
                 underlineOnHover={true}
                 isActive={justCopied}
-                onActivate={async () => {
-                  try {
-                    await open(loginUrl)
-                  } catch (err) {
-                    logger.error(err, 'Failed to open browser on link click')
-                  }
-                  return copyToClipboard(loginUrl)
-                }}
+                onActivate={handleActivateLoginUrl}
                 containerStyle={{
                   alignItems: 'flex-start',
                   flexShrink: 0,
