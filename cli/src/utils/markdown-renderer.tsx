@@ -152,7 +152,7 @@ export function renderMarkdown(
     void palette // Keep signature compatibility for future color styling
 
     const ast = processor.parse(markdown)
-    const text = nodeToPlainText(ast).replace(/\s+$/g, '')
+    const text = nodeToPlainText(ast).replace(/\n+$/g, '')
     return text
   } catch (error) {
     logger.error(error, 'Failed to parse markdown')

@@ -437,22 +437,20 @@ export const MessageBlock = ({
           {blocks.map((block, idx) => {
             if (block.type === 'text') {
               const isStreamingText = isLoading || !isComplete
+              const hasMarkdownContent = hasMarkdown(block.content)
               const rawContent = isStreamingText
                 ? trimTrailingNewlines(block.content)
-                : block.content.trim()
+                : hasMarkdownContent
+                  ? block.content
+                  : block.content.trim()
               const renderKey = `${messageId}-text-${idx}`
-              const renderedContent = hasMarkdown(rawContent)
+              const renderedContent = hasMarkdownContent
                 ? isStreamingText
                   ? renderStreamingMarkdown(rawContent, markdownOptions)
                   : renderMarkdown(rawContent, markdownOptions)
                 : rawContent
               const prevBlock = idx > 0 ? blocks[idx - 1] : null
-              const marginTop =
-                prevBlock && prevBlock.type === 'text'
-                  ? 1
-                  : prevBlock && (prevBlock.type === 'tool' || prevBlock.type === 'agent')
-                    ? 0
-                    : 0
+              const marginTop = prevBlock && prevBlock.type === 'text' ? 1 : 0
               const blockTextColor = block.color ?? textColor
             return (
               <text key={renderKey} style={{ fg: blockTextColor, marginTop }}>
