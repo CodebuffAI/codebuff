@@ -28,6 +28,7 @@ import { useAuthQuery, useLogoutMutation } from './hooks/use-auth-query'
 import { useClipboard } from './hooks/use-clipboard'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
+import { useLogo } from './hooks/use-logo'
 import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
@@ -160,11 +161,21 @@ export const App = ({
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
-  // Determine which logo to use based on terminal width
-  const logoToUse = terminalWidth >= 80 ? LOGO : LOGO_SMALL
-  const logoBlock = logoToUse.split('\n')
-    .filter((line) => line.length > 0)
-    .join('\n')
+  // Determine which logo to use based on available content width
+  const contentMaxWidth = Math.max(10, Math.min(terminalWidth - 4, 80))
+  const logoVariant = useLogo(contentMaxWidth)
+
+  // Get logo string based on variant
+  const logoToUse =
+    logoVariant === 'text'
+      ? '' // Don't show ASCII art for text-only variant
+      : logoVariant === 'small'
+        ? LOGO_SMALL
+        : LOGO
+
+  const logoBlock = logoToUse
+    ? logoToUse.split('\n').filter((line) => line.length > 0).join('\n')
+    : ''
 
   const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]
@@ -343,6 +354,7 @@ export const App = ({
         const errorBlocks = createValidationErrorBlocks({
           errors: validationErrors,
           loadedAgentsData,
+          availableWidth: separatorWidth,
         })
 
         const validationErrorMessage: ChatMessage = {
@@ -846,6 +858,7 @@ export const App = ({
     onBeforeMessageSend: validateAgents,
     setMainAgentStreamStartTime,
     scrollToLatest,
+    availableWidth: separatorWidth,
   })
 
   sendMessageRef.current = sendMessage

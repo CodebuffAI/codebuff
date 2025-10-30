@@ -253,16 +253,11 @@ export const MessageBlock = ({
 
     const sortedAgents = [...agents].sort((a, b) => {
       // Sort by displayName first (empty string if missing), then by ID as tiebreaker
-      const aDisplayName = (a.displayName || '').toLowerCase()
-      const bDisplayName = (b.displayName || '').toLowerCase()
+      const displayNameComparison = (a.displayName || '')
+        .toLowerCase()
+        .localeCompare((b.displayName || '').toLowerCase())
 
-      const displayNameComparison = aDisplayName.localeCompare(bDisplayName)
-      if (displayNameComparison !== 0) {
-        return displayNameComparison
-      }
-
-      // If displayNames are identical (including both empty), sort by ID
-      return a.id.toLowerCase().localeCompare(b.id.toLowerCase())
+      return displayNameComparison || a.id.toLowerCase().localeCompare(b.id.toLowerCase())
     })
 
     const agentCount = sortedAgents.length

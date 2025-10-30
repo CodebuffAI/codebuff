@@ -7,6 +7,7 @@ import { useLoginMutation } from '../hooks/use-auth-query'
 import { useFetchLoginUrl } from '../hooks/use-fetch-login-url'
 import { useLoginKeyboardHandlers } from '../hooks/use-login-keyboard-handlers'
 import { useLoginPolling } from '../hooks/use-login-polling'
+import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import {
   LOGO,
@@ -246,8 +247,10 @@ export const LoginModal = ({
     sectionMarginBottom,
     contentMaxWidth,
     maxUrlWidth,
-    logoVariant,
   } = calculateResponsiveLayout(terminalWidth, terminalHeight)
+
+  // Determine which logo to use based on available content width
+  const logoVariant = useLogo(contentMaxWidth)
 
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({

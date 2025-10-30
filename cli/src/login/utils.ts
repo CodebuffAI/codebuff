@@ -123,11 +123,6 @@ export function calculateResponsiveLayout(terminalWidth: number, terminalHeight:
 
   const maxUrlWidth = Math.min(terminalWidth - 10, 100)
 
-  // Determine logo variant based on available width
-  // Always show some form of logo/header: full → small → text
-  const logoVariant: 'full' | 'small' | 'text' =
-    contentMaxWidth >= 60 ? 'full' : contentMaxWidth >= 20 ? 'small' : 'text'
-
   return {
     isVerySmall,
     isSmall,
@@ -140,7 +135,6 @@ export function calculateResponsiveLayout(terminalWidth: number, terminalHeight:
     sectionMarginBottom,
     contentMaxWidth,
     maxUrlWidth,
-    logoVariant,
   }
 }
 
