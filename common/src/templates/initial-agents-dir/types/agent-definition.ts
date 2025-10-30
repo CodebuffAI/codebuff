@@ -197,7 +197,7 @@ export interface AgentDefinition {
    * }
    */
   handleSteps?: (context: AgentStepContext) => Generator<
-    ToolCall | 'STEP' | 'STEP_ALL',
+    ToolCall | 'STEP' | 'STEP_ALL' | StepText,
     void,
     {
       agentState: AgentState
@@ -232,6 +232,8 @@ export interface AgentStepContext {
   params?: Record<string, any>
   logger: Logger
 }
+
+export type StepText = { type: 'STEP_TEXT'; text: string }
 
 /**
  * Tool call object for handleSteps generator

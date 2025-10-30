@@ -23,6 +23,7 @@ export const getAgentStreamFromTemplate = (params: {
   onCostCalculated?: (credits: number) => Promise<void>
   agentId?: string
   includeCacheControl?: boolean
+  textOverride: string | null
 
   template: AgentTemplate
   logger: Logger
@@ -31,7 +32,7 @@ export const getAgentStreamFromTemplate = (params: {
   liveUserInputRecord: UserInputRecord
   sessionConnections: SessionRecord
   trackEvent: TrackEventFn
-}) => {
+}): { getStream: (messages: Message[]) => ReturnType<PromptAiSdkStreamFn> } => {
   const {
     apiKey,
     runId,
@@ -42,6 +43,7 @@ export const getAgentStreamFromTemplate = (params: {
     onCostCalculated,
     agentId,
     includeCacheControl,
+    textOverride,
     template,
     logger,
     sendAction,
@@ -51,13 +53,22 @@ export const getAgentStreamFromTemplate = (params: {
     trackEvent,
   } = params
 
+  if (textOverride !== null) {
+    return {
+      getStream: async function* stream(): ReturnType<PromptAiSdkStreamFn> {
+        yield { type: 'text', text: textOverride!, agentId }
+        return null
+      },
+    }
+  }
+
   if (!template) {
     throw new Error('Agent template is null/undefined')
   }
 
   const { model } = template
 
-  const getStream = (messages: Message[]) => {
+  const getStream = (messages: Message[]): ReturnType<PromptAiSdkStreamFn> => {
     const aiSdkStreamParams: ParamsOf<PromptAiSdkStreamFn> = {
       apiKey,
       runId,

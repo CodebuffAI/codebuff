@@ -82,8 +82,10 @@ export type AgentTemplate<
   handleSteps?: StepHandler<P, T> | string // Function or string of the generator code for running in a sandbox
 }
 
+export type StepText = { type: 'STEP_TEXT'; text: string }
+
 export type StepGenerator = Generator<
-  Omit<ToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL', // Generic tool call type
+  Omit<ToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL' | StepText, // Generic tool call type
   void,
   {
     agentState: PublicAgentState

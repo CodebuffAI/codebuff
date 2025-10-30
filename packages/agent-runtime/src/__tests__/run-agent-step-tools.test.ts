@@ -163,6 +163,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
@@ -207,6 +208,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
@@ -257,6 +259,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
@@ -298,6 +301,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
@@ -394,6 +398,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
@@ -556,6 +561,7 @@ describe('runAgentStep - set_output tool', () => {
 
     const result = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       runId: 'test-run-id',
       repoId: undefined,
       repoUrl: undefined,
