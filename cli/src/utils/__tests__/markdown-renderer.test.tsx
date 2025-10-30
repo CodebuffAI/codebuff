@@ -152,4 +152,61 @@ describe('markdown renderer', () => {
     expect(flattenChildren(boldNode!.props.children)).toEqual(['done'])
     expect(nodes[nodes.length - 1]).toBe('```js\nconsole.log(')
   })
+
+  test('renders strikethrough text with GFM', () => {
+    const output = renderMarkdown('This is ~~deleted~~ text')
+    const nodes = flattenNodes(output)
+
+    expect(nodes[0]).toBe('This is ')
+
+    const strikethrough = nodes[1] as React.ReactElement
+    expect(strikethrough.props.attributes).toBe(TextAttributes.DIM)
+    expect(flattenChildren(strikethrough.props.children)).toEqual(['deleted'])
+
+    expect(nodes[2]).toBe(' text')
+  })
+
+  test('renders task lists with GFM', () => {
+    const output = renderMarkdown('- [ ] Todo\n- [x] Done')
+    const nodes = flattenNodes(output)
+
+    const checkboxSpans = nodes.filter(
+      (node): node is React.ReactElement =>
+        React.isValidElement(node) &&
+        node.type === 'span' &&
+        (flattenChildren(node.props.children).join('') === '[ ] ' ||
+          flattenChildren(node.props.children).join('') === '[x] '),
+    )
+
+    expect(checkboxSpans).toHaveLength(2)
+  })
+
+  test('renders tables with GFM', () => {
+    const markdown = `| Name | Age |
+| ---- | --- |
+| John | 30  |
+| Jane | 25  |`
+    const output = renderMarkdown(markdown)
+    const nodes = flattenNodes(output)
+
+    // Check that table structure is rendered (pipes and separators)
+    const textContent = nodes
+      .map((node) => {
+        if (typeof node === 'string') return node
+        if (React.isValidElement(node)) {
+          return flattenChildren(node.props.children).join('')
+        }
+        return ''
+      })
+      .join('')
+
+    expect(textContent).toContain('Name')
+    expect(textContent).toContain('Age')
+    expect(textContent).toContain('John')
+    expect(textContent).toContain('Jane')
+    expect(textContent).toContain('30')
+    expect(textContent).toContain('25')
+    expect(textContent).toContain('|')
+    expect(textContent).toContain('---')
+  })
 })

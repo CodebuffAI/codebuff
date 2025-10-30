@@ -59,32 +59,21 @@ export function createValidationErrorBlocks(
         .replace(/\\/g, '/')
       const filePath = agentInfo.filePath
 
-      // Simple layout: file path first, then agent ID and error
+      // Layout matching renderRepoPathInfo: agent ID, file path link, error message
       blocks.push({
         type: 'html',
         render: ({ textColor }) => (
           <box style={{ flexDirection: 'column', width: '100%' }}>
-            <box style={{ flexDirection: 'row', gap: 0, width: '100%' }}>
+            <text wrap={true} style={{ fg: textColor }}>
+              {agentId} in{' '}
               <TerminalLink
                 text={relativePathFromRoot}
-                containerStyle={{
-                  width: 'auto',
-                  flexDirection: 'row',
-                }}
-                formatLines={(text) => [text]}
-                underlineOnHover
+                color="#3b82f6"
+                inline={true}
                 onActivate={() => openFileAtPath(filePath)}
               />
-              <text style={{ fg: textColor }} wrap={false}>
-                {' '}
-                • {agentId}
-              </text>
-            </box>
-            <box style={{ paddingLeft: 2, width: '100%' }}>
-              <text style={{ fg: textColor }} wrap>
-                {errorMsg}
-              </text>
-            </box>
+              , {errorMsg}
+            </text>
           </box>
         ),
       })
