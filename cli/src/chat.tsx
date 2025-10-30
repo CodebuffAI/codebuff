@@ -38,7 +38,6 @@ import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
-import { LOGO, LOGO_SMALL } from './login/constants'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
 import {
@@ -161,21 +160,9 @@ export const App = ({
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
-  // Determine which logo to use based on available content width
+  // Get formatted logo for display in chat messages
   const contentMaxWidth = Math.max(10, Math.min(terminalWidth - 4, 80))
-  const logoVariant = useLogo(contentMaxWidth)
-
-  // Get logo string based on variant
-  const logoToUse =
-    logoVariant === 'text'
-      ? '' // Don't show ASCII art for text-only variant
-      : logoVariant === 'small'
-        ? LOGO_SMALL
-        : LOGO
-
-  const logoBlock = logoToUse
-    ? logoToUse.split('\n').filter((line) => line.length > 0).join('\n')
-    : ''
+  const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
   const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]

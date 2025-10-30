@@ -10,8 +10,6 @@ import { useLoginPolling } from '../hooks/use-login-polling'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import {
-  LOGO,
-  LOGO_SMALL,
   LINK_COLOR_DEFAULT,
   LINK_COLOR_CLICKED,
   COPY_SUCCESS_COLOR,
@@ -26,7 +24,6 @@ import {
   formatUrl,
   generateFingerprintId,
   isLightModeColor,
-  parseLogoLines,
   calculateResponsiveLayout,
   calculateModalDimensions,
 } from '../login/utils'
@@ -249,9 +246,6 @@ export const LoginModal = ({
     maxUrlWidth,
   } = calculateResponsiveLayout(terminalWidth, terminalHeight)
 
-  // Determine which logo to use based on available content width
-  const logoVariant = useLogo(contentMaxWidth)
-
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({
     logoColor,
@@ -260,27 +254,12 @@ export const LoginModal = ({
     setSheenPosition,
   })
 
-  // Parse logo lines based on logo variant
-  const logoLines = parseLogoLines(logoVariant === 'small' ? LOGO_SMALL : LOGO)
-
-  // Slice logo lines to fit terminal width
-  const logoDisplayLines = useMemo(
-    () => logoLines.map((line) => line.slice(0, contentMaxWidth)),
-    [logoLines, contentMaxWidth],
-  )
-
-  // Render logo with sheen animation (memoized because it re-renders on sheen position changes)
-  const renderedLogo = useMemo(() => {
-    return logoDisplayLines.map((line, lineIndex) => (
-      <text key={`logo-line-${lineIndex}`} wrap={false}>
-        {line
-          .split('')
-          .map((char, charIndex) =>
-            applySheenToChar(char, charIndex, lineIndex),
-          )}
-      </text>
-    ))
-  }, [logoDisplayLines, applySheenToChar])
+  // Get the logo component based on available content width
+  const { component: logoComponent } = useLogo({
+    availableWidth: contentMaxWidth,
+    applySheenToChar,
+    textColor: theme.chromeText,
+  })
 
   // Calculate modal dimensions
   const { modalHeight } = calculateModalDimensions(
@@ -343,39 +322,19 @@ export const LoginModal = ({
           gap: 0,
         }}
       >
-        {/* Header - Always show logo in one of three variants: full, small, or text */}
-        {logoVariant === 'text' ? (
-          <box
-            style={{
-              flexDirection: 'column',
-              alignItems: 'center',
-              marginTop: headerMarginTop,
-              marginBottom: headerMarginBottom,
-              flexShrink: 0,
-            }}
-          >
-            <text wrap={false}>
-              <b>
-                <span fg={theme.chromeText}>
-                  {isNarrow ? 'Codebuff' : 'Codebuff CLI'}
-                </span>
-              </b>
-            </text>
-          </box>
-        ) : (
-          <box
-            key="codebuff-logo"
-            style={{
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              marginTop: headerMarginTop,
-              marginBottom: headerMarginBottom,
-              flexShrink: 0,
-            }}
-          >
-            {renderedLogo}
-          </box>
-        )}
+        {/* Header - Logo rendered by useLogo hook */}
+        <box
+          key="codebuff-logo"
+          style={{
+            flexDirection: 'column',
+            alignItems: contentMaxWidth < 40 ? 'center' : 'flex-start',
+            marginTop: headerMarginTop,
+            marginBottom: headerMarginBottom,
+            flexShrink: 0,
+          }}
+        >
+          {logoComponent}
+        </box>
 
         {/* Loading state */}
         {loading && (
