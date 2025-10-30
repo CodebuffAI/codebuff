@@ -104,6 +104,7 @@ describe('useSendMessage timer', () => {
         abortControllerRef,
         setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
         scrollToLatest: mockScrollToLatest,
+        availableWidth: 80,
       }),
     )
 
@@ -161,6 +162,7 @@ describe('useSendMessage timer', () => {
         abortControllerRef,
         setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
         scrollToLatest: mockScrollToLatest,
+        availableWidth: 80,
       }),
     )
 
@@ -210,6 +212,7 @@ describe('useSendMessage timer', () => {
         abortControllerRef,
         setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
         scrollToLatest: mockScrollToLatest,
+        availableWidth: 80,
       }),
     )
 
