@@ -23,7 +23,18 @@ const definition: SecretAgentDefinition = {
   inputSchema: {},
   outputMode: 'structured_output',
 
-  handleSteps: function* ({ logger }) {
+  handleSteps: function* ({ agentState, logger }) {
+    // Remove userInstruction message for this agent.
+    const messages = agentState.messageHistory.concat()
+    messages.pop()
+    yield {
+      toolName: 'set_messages',
+      input: {
+        messages,
+      },
+      includeToolCall: false,
+    } satisfies ToolCall<'set_messages'>
+
     // Spawn 5 implementor agents in parallel
     const { toolResult: implementorsResult } = yield {
       toolName: 'spawn_agents',
