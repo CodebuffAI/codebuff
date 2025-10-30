@@ -1315,12 +1315,18 @@ export const useSendMessage = ({
           actualCredits = (result as any).credits
         }
 
+        // Calculate completion time
+        const elapsedMs = Date.now() - startTime
+        const elapsedSeconds = Math.floor(elapsedMs / 1000)
+        const completionTime = elapsedSeconds > 0 ? `${elapsedSeconds}s` : undefined
+
         applyMessageUpdate((prev) =>
           prev.map((msg) =>
             msg.id === aiMessageId
               ? {
                   ...msg,
                   isComplete: true,
+                  ...(completionTime && { completionTime }),
                   ...(actualCredits !== undefined && {
                     credits: actualCredits,
                   }),
