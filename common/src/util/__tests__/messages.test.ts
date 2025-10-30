@@ -627,14 +627,32 @@ describe('convertCbToModelMessages', () => {
       })
 
       // Cache control should be on content part before USER_PROMPT
-      if (typeof result[2].content !== 'string') {
-        expect(
-          (result[2].content[1] as any).providerOptions?.anthropic
-            ?.cacheControl,
-        ).toEqual({
-          type: 'ephemeral',
-        })
-      }
+      expect(result).toEqual([
+        expect.objectContaining({ role: 'system' }),
+        expect.objectContaining({ role: 'user' }),
+        expect.objectContaining({ role: 'assistant' }),
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'M',
+            },
+            {
+              type: 'text',
+              text: 'ore context',
+              providerOptions: expect.objectContaining({
+                codebuff: {
+                  cacheControl: {
+                    type: 'ephemeral',
+                  },
+                },
+              }),
+            },
+          ],
+        },
+        expect.objectContaining({ role: 'user' }),
+      ])
     })
 
     test('should add cache control before INSTRUCTIONS_PROMPT tag', () => {
@@ -655,14 +673,32 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: true,
       })
 
-      if (typeof result[2].content !== 'string') {
-        expect(
-          (result[2].content[1] as any).providerOptions?.anthropic
-            ?.cacheControl,
-        ).toEqual({
-          type: 'ephemeral',
-        })
-      }
+      expect(result).toEqual([
+        expect.objectContaining({ role: 'system' }),
+        expect.objectContaining({ role: 'user' }),
+        expect.objectContaining({ role: 'assistant' }),
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'M',
+            },
+            {
+              type: 'text',
+              text: 'ore context',
+              providerOptions: expect.objectContaining({
+                codebuff: {
+                  cacheControl: {
+                    type: 'ephemeral',
+                  },
+                },
+              }),
+            },
+          ],
+        },
+        expect.objectContaining({ role: 'user' }),
+      ])
     })
 
     test('should add cache control before STEP_PROMPT tag', () => {
@@ -679,14 +715,32 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: true,
       })
 
-      if (typeof result[3].content !== 'string') {
-        expect(
-          (result[3].content[1] as any).providerOptions?.anthropic
-            ?.cacheControl,
-        ).toEqual({
-          type: 'ephemeral',
-        })
-      }
+      expect(result).toEqual([
+        expect.objectContaining({ role: 'system' }),
+        expect.objectContaining({ role: 'user' }),
+        expect.objectContaining({ role: 'assistant' }),
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'M',
+            },
+            {
+              type: 'text',
+              text: 'ore context',
+              providerOptions: expect.objectContaining({
+                codebuff: {
+                  cacheControl: {
+                    type: 'ephemeral',
+                  },
+                },
+              }),
+            },
+          ],
+        },
+        expect.objectContaining({ role: 'user' }),
+      ])
     })
 
     test('should add cache control to last message', () => {
@@ -704,22 +758,40 @@ describe('convertCbToModelMessages', () => {
       })
 
       // Cache control is on content parts in the assistant message
-      if (typeof result[2].content !== 'string') {
-        expect(
-          (result[2].content[1] as any).providerOptions?.anthropic
-            ?.cacheControl,
-        ).toEqual({
-          type: 'ephemeral',
-        })
-      }
+      expect(result).toEqual([
+        expect.objectContaining({ role: 'system' }),
+        expect.objectContaining({ role: 'user' }),
+        expect.objectContaining({ role: 'assistant' }),
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'More context' },
+            {
+              type: 'text',
+              text: 'U',
+            },
+            {
+              type: 'text',
+              text: 'ser message',
+              providerOptions: expect.objectContaining({
+                codebuff: {
+                  cacheControl: {
+                    type: 'ephemeral',
+                  },
+                },
+              }),
+            },
+          ],
+        },
+      ])
     })
 
     test('should handle system messages with cache control', () => {
       const messages: Message[] = [
         { role: 'system', content: 'Long system prompt' },
-        { role: 'user', content: 'Context' },
-        { role: 'assistant', content: 'Response' },
         { role: 'user', content: 'User', tags: ['USER_PROMPT'] },
+        { role: 'assistant', content: 'Response' },
+        { role: 'user', content: 'User 2' },
       ]
 
       const result = convertCbToModelMessages({
@@ -727,15 +799,22 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: true,
       })
 
-      // Cache control is on content parts
-      if (typeof result[1].content !== 'string') {
-        expect(
-          (result[1].content[1] as any).providerOptions?.anthropic
-            ?.cacheControl,
-        ).toEqual({
-          type: 'ephemeral',
-        })
-      }
+      expect(result).toEqual([
+        {
+          role: 'system',
+          content: 'Long system prompt',
+          providerOptions: expect.objectContaining({
+            codebuff: {
+              cacheControl: {
+                type: 'ephemeral',
+              },
+            },
+          }),
+        },
+        expect.objectContaining({ role: 'user' }),
+        expect.objectContaining({ role: 'assistant' }),
+        expect.objectContaining({ role: 'user' }),
+      ])
     })
 
     it('should handle array content with cache control on non-text parts', () => {
@@ -757,43 +836,31 @@ describe('convertCbToModelMessages', () => {
       })
 
       // Should add cache control to the file part (last non-text part)
-      if (typeof result[1].content !== 'string') {
-        expect(
-          (result[1].content[1] as any).providerOptions?.anthropic
-            ?.cacheControl,
-        ).toEqual({ type: 'ephemeral' })
-      }
-    })
-
-    it('should split text content when adding cache control', () => {
-      const messages: Message[] = [
-        { role: 'system', content: 'System' },
+      expect(result).toEqual([
+        expect.objectContaining({ role: 'system' }),
         {
           role: 'user',
-          content: [{ type: 'text', text: 'Long text content' }],
+          content: [
+            {
+              type: 'text',
+              text: 'Context',
+            },
+            {
+              type: 'file',
+              data: 'base64',
+              mediaType: 'image/png',
+              providerOptions: expect.objectContaining({
+                codebuff: {
+                  cacheControl: {
+                    type: 'ephemeral',
+                  },
+                },
+              }),
+            },
+          ],
         },
-        { role: 'user', content: 'Next', tags: ['USER_PROMPT'] },
-      ]
-
-      const result = convertCbToModelMessages({
-        messages,
-        includeCacheControl: true,
-      })
-
-      // Should split the text and add cache control to second part
-      if (typeof result[1].content !== 'string') {
-        expect(result[1].content).toHaveLength(2)
-        if (result[1].content[0].type === 'text') {
-          expect(result[1].content[0].text).toBe('L')
-        }
-        if (result[1].content[1].type === 'text') {
-          expect(result[1].content[1].text).toBe('ong text content')
-        }
-        expect(
-          (result[1].content[1] as any).providerOptions?.anthropic
-            ?.cacheControl,
-        ).toEqual({ type: 'ephemeral' })
-      }
+        expect.objectContaining({ role: 'user' }),
+      ])
     })
 
     it('should skip very short text content when finding cache control location', () => {
@@ -802,8 +869,8 @@ describe('convertCbToModelMessages', () => {
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'X' }, // Too short
             { type: 'text', text: 'Long enough text' },
+            { type: 'text', text: 'X' }, // Too short
           ],
         },
         { role: 'user', content: 'Next', tags: ['USER_PROMPT'] },
@@ -814,13 +881,31 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: true,
       })
 
-      // Should add cache control to the longer text (split)
-      if (typeof result[1].content !== 'string') {
-        expect(
-          (result[1].content[2] as any).providerOptions?.anthropic
-            ?.cacheControl,
-        ).toEqual({ type: 'ephemeral' })
-      }
+      expect(result).toEqual([
+        expect.objectContaining({ role: 'system' }),
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'L' },
+            {
+              type: 'text',
+              text: 'ong enough text',
+              providerOptions: expect.objectContaining({
+                codebuff: {
+                  cacheControl: {
+                    type: 'ephemeral',
+                  },
+                },
+              }),
+            },
+            {
+              type: 'text',
+              text: 'X',
+            },
+          ],
+        },
+        expect.objectContaining({ role: 'user' }),
+      ])
     })
   })
 

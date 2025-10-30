@@ -249,18 +249,18 @@ export function convertCbToModelMessages({
     }
 
     // Iterate to find the last "valid" message that we can cache control
-    index--
-    let prevMessage: typeof aggregated[number]
-    let contentBlock: typeof prevMessage['content']
+    let prevMessage: (typeof aggregated)[number]
+    let contentBlock: (typeof prevMessage)['content']
     addCacheControlLoop: while (true) {
       index--
-      prevMessage = aggregated[index]
-      contentBlock = prevMessage.content
 
       // No message found
       if (index < 0) {
         break
       }
+
+      prevMessage = aggregated[index]
+      contentBlock = prevMessage.content
 
       if (typeof contentBlock === 'string') {
         // This must be a system message
