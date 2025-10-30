@@ -4,7 +4,7 @@ import React, { type ReactNode } from 'react'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
-import { useElapsedTime } from '../hooks/use-elapsed-time'
+import { useElapsedTimeFrom } from '../hooks/use-elapsed-time'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
   renderMarkdown,
@@ -70,7 +70,7 @@ export const MessageBlock = ({
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
   // Calculate elapsed time for streaming AI messages
-  const elapsedSeconds = useElapsedTime(
+  const elapsedSeconds = useElapsedTimeFrom(
     isAi && isLoading && !isComplete ? streamStartTime : null,
   )
   const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>

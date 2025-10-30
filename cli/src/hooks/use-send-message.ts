@@ -11,6 +11,7 @@ import { createValidationErrorBlocks } from '../utils/create-validation-error-bl
 import type { ChatMessage, ContentBlock } from '../chat'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
+import type { ElapsedTimeTracker } from './use-elapsed-time'
 
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
@@ -100,7 +101,7 @@ interface UseSendMessageOptions {
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
   onBeforeMessageSend?: () => Promise<{ success: boolean; errors: Array<{ id: string; message: string }> }>
-  setMainAgentStreamStartTime: (time: number | null) => void
+  mainAgentTimer: ElapsedTimeTracker
   scrollToLatest: () => void
   availableWidth?: number
 }
@@ -124,7 +125,7 @@ export const useSendMessage = ({
   abortControllerRef,
   agentId,
   onBeforeMessageSend,
-  setMainAgentStreamStartTime,
+  mainAgentTimer,
   scrollToLatest,
   availableWidth = 80,
 }: UseSendMessageOptions) => {
@@ -255,6 +256,9 @@ export const useSendMessage = ({
     async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
       const { agentMode } = params
       const timestamp = formatTimestamp()
+
+      // Start timer immediately when message is sent
+      mainAgentTimer.start()
 
       // Add user message to UI first
       const userMessage: ChatMessage = {
@@ -597,8 +601,6 @@ export const useSendMessage = ({
             if (!hasReceivedContent) {
               hasReceivedContent = true
               setIsWaitingForResponse(false)
-              // Main agent started streaming - set timer
-              setMainAgentStreamStartTime(Date.now())
             }
 
             const previous = rootStreamBufferRef.current ?? ''
@@ -637,7 +639,6 @@ export const useSendMessage = ({
               if (!hasReceivedContent && !event.agentId) {
                 hasReceivedContent = true
                 setIsWaitingForResponse(false)
-                setMainAgentStreamStartTime(Date.now())
               } else if (!hasReceivedContent) {
                 hasReceivedContent = true
                 setIsWaitingForResponse(false)
@@ -1309,7 +1310,7 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
-        setMainAgentStreamStartTime(null)
+        mainAgentTimer.stop()
 
         if ((result as any)?.credits !== undefined) {
           actualCredits = (result as any).credits
@@ -1344,7 +1345,7 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
-        setMainAgentStreamStartTime(null)
+        mainAgentTimer.stop()
 
         if (isAborted) {
           applyMessageUpdate((prev) =>
@@ -1421,7 +1422,7 @@ export const useSendMessage = ({
       addActiveSubagent,
       removeActiveSubagent,
       onBeforeMessageSend,
-      setMainAgentStreamStartTime,
+      mainAgentTimer,
       scrollToLatest,
       availableWidth,
     ],

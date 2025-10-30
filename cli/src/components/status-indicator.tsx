@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
-import { useElapsedTime } from '../hooks/use-elapsed-time'
+import { useElapsedTimeFrom } from '../hooks/use-elapsed-time'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { logger } from '../utils/logger'
 
@@ -37,26 +37,25 @@ const useConnectionStatus = () => {
 }
 
 export const StatusIndicator = ({
-  isProcessing,
   theme,
   clipboardMessage,
-  showThinking = false,
+  isActive = false,
   streamStartTime,
 }: {
-  isProcessing: boolean
   theme: ChatTheme
   clipboardMessage?: string | null
-  showThinking?: boolean
+  isActive?: boolean
   streamStartTime?: number | null
 }) => {
   const isConnected = useConnectionStatus()
-  const elapsedSeconds = useElapsedTime(streamStartTime)
+  // Use declarative hook to isolate re-renders to this component
+  const elapsedSeconds = useElapsedTimeFrom(streamStartTime)
 
   if (clipboardMessage) {
     return <span fg={theme.statusAccent}>{clipboardMessage}</span>
   }
 
-  const hasStatus = isConnected === false || isProcessing || showThinking
+  const hasStatus = isConnected === false || isActive
 
   if (!hasStatus) {
     return null
@@ -66,9 +65,9 @@ export const StatusIndicator = ({
     return <ShimmerText text="connecting..." />
   }
 
-  if (isProcessing || showThinking) {
-    // If we have a stream start time and elapsed > 0, show elapsed time
-    if (streamStartTime && elapsedSeconds > 0) {
+  if (isActive) {
+    // If we have elapsed time > 0, show it
+    if (elapsedSeconds > 0) {
       return (
         <span fg={theme.statusSecondary}>
           {elapsedSeconds}s
@@ -90,17 +89,15 @@ export const StatusIndicator = ({
 }
 
 export const useHasStatus = (
-  isProcessing: boolean,
+  isActive: boolean,
   clipboardMessage?: string | null,
-  showThinking?: boolean,
   streamStartTime?: number | null,
 ): boolean => {
   const isConnected = useConnectionStatus()
   return (
     isConnected === false ||
-    isProcessing ||
+    isActive ||
     !!clipboardMessage ||
-    !!showThinking ||
     !!streamStartTime
   )
 }

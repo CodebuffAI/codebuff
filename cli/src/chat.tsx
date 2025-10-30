@@ -27,6 +27,7 @@ import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthQuery, useLogoutMutation } from './hooks/use-auth-query'
 import { useClipboard } from './hooks/use-clipboard'
+import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
 import { useLogo } from './hooks/use-logo'
@@ -470,9 +471,8 @@ export const App = ({
 
   const { clipboardMessage } = useClipboard()
 
-  // Track main agent streaming start time for elapsed time display
-  const [mainAgentStreamStartTime, setMainAgentStreamStartTime] =
-    useState<number | null>(null)
+  // Track main agent streaming elapsed time
+  const mainAgentTimer = useElapsedTime()
 
 
   const agentRefsMap = useRef<Map<string, any>>(new Map())
@@ -829,7 +829,7 @@ export const App = ({
     abortControllerRef,
     agentId,
     onBeforeMessageSend: validateAgents,
-    setMainAgentStreamStartTime,
+    mainAgentTimer,
     scrollToLatest,
     availableWidth: separatorWidth,
   })
@@ -852,13 +852,12 @@ export const App = ({
     return undefined
   }, [initialPrompt, agentMode])
 
-  // Show thinking indicator even after waiting ends if we're still streaming
-  const showThinking = isStreaming && !isWaitingForResponse
+  // Status is active when waiting for response or streaming
+  const isStatusActive = isWaitingForResponse || isStreaming
   const hasStatus = useHasStatus(
-    isWaitingForResponse,
+    isStatusActive,
     clipboardMessage,
-    showThinking,
-    mainAgentStreamStartTime,
+    mainAgentTimer.startTime,
   )
 
   const handleSubmit = useCallback(() => {
@@ -989,7 +988,7 @@ export const App = ({
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
-    streamStartTime: mainAgentStreamStartTime,
+    streamStartTime: mainAgentTimer.startTime,
     setCollapsedAgents,
     setFocusedAgentId,
     registerAgentRef,
@@ -1014,11 +1013,10 @@ export const App = ({
 
   const statusIndicatorNode = (
     <StatusIndicator
-      isProcessing={isWaitingForResponse}
       theme={theme}
       clipboardMessage={clipboardMessage}
-      showThinking={showThinking}
-      streamStartTime={mainAgentStreamStartTime}
+      isActive={isStatusActive}
+      streamStartTime={mainAgentTimer.startTime}
     />
   )
 
