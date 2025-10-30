@@ -171,12 +171,7 @@ export async function pollLoginStatus(
     )
 
     if (!response.ok) {
-      if (response.status === 401) {
-        logger.debug(
-          { attempts },
-          '🔒 Poll attempt returned 401 (user not logged in yet)',
-        )
-      } else {
+      if (response.status !== 401) {
         logger.warn(
           {
             attempts,
@@ -222,10 +217,6 @@ export async function pollLoginStatus(
       return { status: 'success', user, attempts }
     }
 
-    logger.debug(
-      { attempts },
-      '⏳ Polling response did not include user yet, continuing',
-    )
     await sleep(intervalMs)
   }
 }

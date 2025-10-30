@@ -125,8 +125,6 @@ export const LoginModal = ({
     setLoading(true)
     setError(null)
 
-    logger.debug({ fingerprintId }, 'Fetching login URL')
-
     fetchLoginUrlMutation.mutate(fingerprintId, {
       onSettled: () => {
         setLoading(false)

@@ -102,11 +102,7 @@ const runCommand = async (command: string): Promise<boolean> => {
       detached: true,
     })
 
-    child.on('error', (error) => {
-      logger.debug(
-        { error, command },
-        'Failed to spawn editor command for file open request',
-      )
+    child.on('error', () => {
       resolve(false)
     })
 
@@ -129,7 +125,6 @@ export const openFileAtPath = async (filePath: string): Promise<boolean> => {
     // eslint-disable-next-line no-await-in-loop
     const success = await runCommand(command)
     if (success) {
-      logger.debug({ filePath, command }, 'Opened file with editor command')
       return true
     }
   }

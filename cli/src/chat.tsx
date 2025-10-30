@@ -221,18 +221,6 @@ export const App = ({
     }
   }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
 
-  // Log app initialization
-  useEffect(() => {
-    logger.debug(
-      {
-        requireAuth,
-        hasInvalidCredentials,
-        hasInitialPrompt: !!initialPrompt,
-        agentId,
-      },
-      'Chat App component mounted',
-    )
-  }, [])
 
   // Update logo when terminal width changes
   useEffect(() => {
@@ -486,13 +474,6 @@ export const App = ({
   const [mainAgentStreamStartTime, setMainAgentStreamStartTime] =
     useState<number | null>(null)
 
-  // Debug log when stream start time changes
-  useEffect(() => {
-    logger.debug(
-      { streamStartTime: mainAgentStreamStartTime },
-      '[STREAM TIMER] mainAgentStreamStartTime state changed',
-    )
-  }, [mainAgentStreamStartTime])
 
   const agentRefsMap = useRef<Map<string, any>>(new Map())
   const hasAutoSubmittedRef = useRef(false)
@@ -1030,25 +1011,6 @@ export const App = ({
     exitWarning || hasStatus || shouldShowQueuePreview,
   )
 
-  // Debug log status line conditions
-  useEffect(() => {
-    logger.debug(
-      {
-        shouldShowStatusLine,
-        hasStatus,
-        isWaitingForResponse,
-        showThinking,
-        mainAgentStreamStartTime,
-      },
-      '[STREAM TIMER] Status line conditions',
-    )
-  }, [
-    shouldShowStatusLine,
-    hasStatus,
-    isWaitingForResponse,
-    showThinking,
-    mainAgentStreamStartTime,
-  ])
 
   const statusIndicatorNode = (
     <StatusIndicator
