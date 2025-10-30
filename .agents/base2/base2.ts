@@ -11,9 +11,10 @@ export const createBase2: (
   options?: {
     hasNoValidation?: boolean
     bestOfN?: boolean
+    bestOfNFast?: boolean
   },
 ) => Omit<SecretAgentDefinition, 'id'> = (mode, options) => {
-  const { hasNoValidation = false, bestOfN = false } = options ?? {}
+  const { hasNoValidation = false, bestOfN = false, bestOfNFast = false } = options ?? {}
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
 
@@ -58,6 +59,7 @@ export const createBase2: (
       'researcher-docs',
       'commander',
       bestOfN && 'base2-best-of-n-orchestrator',
+      bestOfNFast && 'base2-best-of-n-fast-orchestrator',
       isMax && 'base2-gpt-5-worker',
       'context-pruner',
     ),
@@ -149,7 +151,9 @@ ${buildArray(
     `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'}`,
   bestOfN &&
     `- You must spawn the base2-best-of-n-orchestrator agent to implement the code changes, since it will generate multiple implementation proposals and select the best one, which the user wants you to do.`,
-  !bestOfN &&
+  bestOfNFast &&
+    `- You must spawn the base2-best-of-n-fast-orchestrator agent to implement the code changes, since it will generate multiple implementation proposals and select the best one, which the user wants you to do.`,
+  !bestOfN && !bestOfNFast &&
     isFast &&
     `- Use the str_replace or write_file tool to make the changes. (Pause after making all the changes to see the tool results of your edits and double check they went through correctly.)`,
   isMax &&
