@@ -51,13 +51,6 @@ export const StatusIndicator = ({
   const isConnected = useConnectionStatus()
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0)
 
-  // Debug log on every render
-  useEffect(() => {
-    logger.debug(
-      { streamStartTime, elapsedSeconds, isProcessing, showThinking },
-      '[STREAM TIMER] StatusIndicator rendered',
-    )
-  })
 
   // Update elapsed time every second while streaming
   useEffect(() => {
@@ -97,10 +90,6 @@ export const StatusIndicator = ({
   if (isProcessing || showThinking) {
     // If we have a stream start time and elapsed > 0, show elapsed time
     if (streamStartTime && elapsedSeconds > 0) {
-      logger.debug(
-        { streamStartTime, elapsedSeconds, isProcessing, showThinking },
-        '[STREAM TIMER] Showing elapsed time',
-      )
       return (
         <span fg={theme.statusSecondary}>
           {elapsedSeconds}s
@@ -109,10 +98,6 @@ export const StatusIndicator = ({
     }
 
     // Otherwise show thinking...
-    logger.debug(
-      { streamStartTime, elapsedSeconds, isProcessing, showThinking },
-      '[STREAM TIMER] Showing thinking... (no timer)',
-    )
     return (
       <ShimmerText
         text="thinking..."

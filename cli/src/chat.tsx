@@ -161,7 +161,7 @@ export const App = ({
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
   // Determine which logo to use based on terminal width
-  const logoToUse = terminalWidth >= 60 ? LOGO : LOGO_SMALL
+  const logoToUse = terminalWidth >= 80 ? LOGO : LOGO_SMALL
   const logoBlock = logoToUse.split('\n')
     .filter((line) => line.length > 0)
     .join('\n')
@@ -235,6 +235,29 @@ export const App = ({
     )
   }, [])
 
+  // Update logo when terminal width changes
+  useEffect(() => {
+    if (messages.length > 0) {
+      const systemMessage = messages.find(m => m.id.startsWith('system-loaded-agents-'))
+      if (systemMessage?.blocks) {
+        const logoBlockIndex = systemMessage.blocks.findIndex(b => b.type === 'text' && b.content.includes('█'))
+        if (logoBlockIndex !== -1) {
+          setMessages(prev => prev.map(msg => {
+            if (msg.id === systemMessage.id) {
+              const newBlocks = [...msg.blocks!]
+              newBlocks[logoBlockIndex] = {
+                type: 'text',
+                content: '\n\n' + logoBlock,
+              }
+              return { ...msg, blocks: newBlocks }
+            }
+            return msg
+          }))
+        }
+      }
+    }
+  }, [logoBlock])
+
   // Initialize with loaded agents message
   useEffect(() => {
     if (loadedAgentsData && messages.length === 0) {
@@ -258,10 +281,29 @@ export const App = ({
         })
       }
 
+      // Calculate relative path from cwd to repository root
+      // agentsDir is typically in the root, so use its parent as the repository root
+      const cwd = process.cwd()
+      const repoRoot = path.dirname(loadedAgentsData.agentsDir)
+      const relativePath = path.relative(cwd, repoRoot)
+      const displayPath = relativePath || '.'
+
       blocks.push({
-        type: 'text',
-        content:
-          'Codebuff can read and write files in this repository, and run terminal commands to help you build.',
+        type: 'html',
+        render: ({ textColor }) => (
+          <text>
+            Codebuff can read and write files in{' '}
+            <TerminalLink
+              text={displayPath}
+              color={textColor}
+              inline={true}
+              onActivate={async () => {
+                await openFileAtPath(repoRoot)
+              }}
+            />
+            , and run terminal commands to help you build.
+          </text>
+        ),
       })
 
       blocks.push({

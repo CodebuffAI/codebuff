@@ -252,9 +252,17 @@ export const MessageBlock = ({
     const { agents } = agentListBlock
 
     const sortedAgents = [...agents].sort((a, b) => {
-      const aLabel = (a.displayName || a.id).toLowerCase()
-      const bLabel = (b.displayName || b.id).toLowerCase()
-      return aLabel.localeCompare(bLabel)
+      // Sort by displayName first (empty string if missing), then by ID as tiebreaker
+      const aDisplayName = (a.displayName || '').toLowerCase()
+      const bDisplayName = (b.displayName || '').toLowerCase()
+
+      const displayNameComparison = aDisplayName.localeCompare(bDisplayName)
+      if (displayNameComparison !== 0) {
+        return displayNameComparison
+      }
+
+      // If displayNames are identical (including both empty), sort by ID
+      return a.id.toLowerCase().localeCompare(b.id.toLowerCase())
     })
 
     const agentCount = sortedAgents.length
@@ -284,17 +292,16 @@ export const MessageBlock = ({
     const previewLines = previewAgents.map(
       (agent) => `  • ${formatIdentifier(agent)}`,
     )
-    const finishedPreview =
-      isCollapsed
-        ? [
-            ...previewLines,
-            remainingCount > 0
-              ? `  ... ${pluralize(remainingCount, 'more agent')} available`
-              : null,
-          ]
-            .filter(Boolean)
-            .join('\n')
-        : ''
+    const finishedPreview = isCollapsed
+      ? [
+          ...previewLines,
+          remainingCount > 0
+            ? `  ... ${pluralize(remainingCount, 'more agent')} available`
+            : null,
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : ''
 
     return (
       <box
@@ -512,7 +519,7 @@ export const MessageBlock = ({
           )
         })()
       )}
-      {isAi && isComplete && credits && (
+      {isAi && isComplete && (completionTime || credits) && (
         <text
           wrap={false}
           attributes={TextAttributes.DIM}
@@ -523,7 +530,8 @@ export const MessageBlock = ({
             alignSelf: 'flex-start',
           }}
         >
-          {credits} credits
+          {completionTime}
+          {credits && ` • ${credits} credits`}
         </text>
       )}
     </>

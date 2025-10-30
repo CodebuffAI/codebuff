@@ -246,8 +246,7 @@ export const LoginModal = ({
     sectionMarginBottom,
     contentMaxWidth,
     maxUrlWidth,
-    showFullLogo,
-    showSmallLogo,
+    logoVariant,
   } = calculateResponsiveLayout(terminalWidth, terminalHeight)
 
   // Use custom hook for sheen animation
@@ -258,8 +257,8 @@ export const LoginModal = ({
     setSheenPosition,
   })
 
-  // Parse logo lines based on which logo to show
-  const logoLines = parseLogoLines(showSmallLogo ? LOGO_SMALL : LOGO)
+  // Parse logo lines based on logo variant
+  const logoLines = parseLogoLines(logoVariant === 'small' ? LOGO_SMALL : LOGO)
 
   // Slice logo lines to fit terminal width
   const logoDisplayLines = useMemo(
@@ -341,21 +340,8 @@ export const LoginModal = ({
           gap: 0,
         }}
       >
-        {/* Header - Logo or simple text based on terminal size */}
-        {showFullLogo || showSmallLogo ? (
-          <box
-            key="codebuff-logo"
-            style={{
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              marginTop: headerMarginTop,
-              marginBottom: headerMarginBottom,
-              flexShrink: 0,
-            }}
-          >
-            {renderedLogo}
-          </box>
-        ) : (
+        {/* Header - Always show logo in one of three variants: full, small, or text */}
+        {logoVariant === 'text' ? (
           <box
             style={{
               flexDirection: 'column',
@@ -372,6 +358,19 @@ export const LoginModal = ({
                 </span>
               </b>
             </text>
+          </box>
+        ) : (
+          <box
+            key="codebuff-logo"
+            style={{
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              marginTop: headerMarginTop,
+              marginBottom: headerMarginBottom,
+              flexShrink: 0,
+            }}
+          >
+            {renderedLogo}
           </box>
         )}
 
