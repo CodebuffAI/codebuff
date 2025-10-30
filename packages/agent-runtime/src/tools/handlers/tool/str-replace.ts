@@ -1,5 +1,5 @@
-import { processStrReplace } from '../../../process-str-replace'
 import { getFileProcessingValues, postStreamProcessing } from './write-file'
+import { processStrReplace } from '../../../process-str-replace'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -84,14 +84,26 @@ export function handleStrReplace(
   fileProcessingState.allPromises.push(newPromise)
 
   return {
-    result: previousToolCallFinished.then(async () => {
-      return await postStreamProcessing<'str_replace'>(
-        await newPromise,
+    result: (async () => {
+      await previousToolCallFinished
+
+      const strReplaceResult = await newPromise
+      const clientToolResult = await postStreamProcessing<'str_replace'>(
+        strReplaceResult,
         getLatestState(),
         writeToClient,
         requestClientToolCall,
       )
-    }),
+
+      const value = clientToolResult[0].value
+      if ('messages' in strReplaceResult && 'message' in value) {
+        value.message = [...strReplaceResult.messages, value.message].join(
+          '\n\n',
+        )
+      }
+
+      return clientToolResult
+    })(),
     state: fileProcessingState,
   }
 }
