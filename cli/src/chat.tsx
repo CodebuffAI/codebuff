@@ -53,6 +53,7 @@ import {
 } from './utils/theme-system'
 import { openFileAtPath } from './utils/open-file'
 import { formatValidationError } from './utils/validation-error-formatting'
+import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 
 import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
@@ -122,6 +123,7 @@ export type ChatMessage = {
   credits?: number
   completionTime?: string
   isComplete?: boolean
+  metadata?: Record<string, any>
 }
 
 export const App = ({
@@ -291,9 +293,30 @@ export const App = ({
 
       // Set as collapsed by default
       setCollapsedAgents((prev) => new Set([...prev, agentListId]))
-      setMessages([initialMessage])
+
+      const messagesToAdd: ChatMessage[] = [initialMessage]
+
+      // Add validation error message if there are errors
+      if (validationErrors.length > 0) {
+        const errorBlocks = createValidationErrorBlocks({
+          errors: validationErrors,
+          loadedAgentsData,
+        })
+
+        const validationErrorMessage: ChatMessage = {
+          id: `validation-error-${Date.now()}`,
+          variant: 'error',
+          content: '',
+          blocks: errorBlocks,
+          timestamp: new Date().toISOString(),
+        }
+
+        messagesToAdd.push(validationErrorMessage)
+      }
+
+      setMessages(messagesToAdd)
     }
-  }, [loadedAgentsData]) // Only run when loadedAgentsData changes
+  }, [loadedAgentsData, validationErrors]) // Run when loadedAgentsData or validationErrors change
 
   const {
     inputValue,
@@ -780,6 +803,7 @@ export const App = ({
     agentId,
     onBeforeMessageSend: validateAgents,
     setMainAgentStreamStartTime,
+    scrollToLatest,
   })
 
   sendMessageRef.current = sendMessage
@@ -1097,9 +1121,6 @@ export const App = ({
         flexGrow: 1,
       }}
     >
-      {/* Validation banner at the top */}
-      {renderValidationBanner()}
-
       <box
         style={{
           flexDirection: 'column',

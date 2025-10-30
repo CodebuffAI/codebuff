@@ -272,7 +272,7 @@ export const useMessageRenderer = (
       const isUser = message.variant === 'user'
       const isError = message.variant === 'error'
       const lineColor = isError ? 'red' : isAi ? theme.aiLine : theme.userLine
-      const textColor = isError ? 'red' : isAi ? theme.messageAiText : theme.messageUserText
+      const textColor = isError ? theme.messageAiText : isAi ? theme.messageAiText : theme.messageUserText
       const timestampColor = isError ? 'red' : isAi ? theme.timestampAi : theme.timestampUser
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)

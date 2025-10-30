@@ -10,9 +10,10 @@ export interface TerminalLinkProps {
   activeColor?: string
   underlineOnHover?: boolean
   isActive?: boolean
-  onActivate?: () => void | Promise<void>
+  onActivate?: () => void | Promise<any>
   containerStyle?: Record<string, unknown>
   lineWrap?: boolean
+  inline?: boolean
 }
 
 const defaultFormatLines: FormatLinesFn = (text) => [text]
@@ -28,6 +29,7 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
   onActivate,
   containerStyle,
   lineWrap = false,
+  inline = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -44,9 +46,14 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
 
   const handleActivate = useCallback(() => {
     if (onActivate) {
-      void onActivate()
+      onActivate()
     }
   }, [onActivate])
+
+  // For inline mode, render as a simple span (no hover/click in inline mode)
+  if (inline) {
+    return <span fg={displayColor}>{text}</span>
+  }
 
   return (
     <box

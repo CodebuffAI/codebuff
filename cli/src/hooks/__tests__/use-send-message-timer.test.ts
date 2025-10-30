@@ -24,6 +24,7 @@ describe('useSendMessage timer', () => {
   let mockSetIsStreaming: ReturnType<typeof mock>
   let mockSetCanProcessQueue: ReturnType<typeof mock>
   let mockSetMainAgentStreamStartTime: ReturnType<typeof mock>
+  let mockScrollToLatest: ReturnType<typeof mock>
   let inputRef: React.MutableRefObject<any>
   let activeSubagentsRef: React.MutableRefObject<Set<string>>
   let isChainInProgressRef: React.MutableRefObject<boolean>
@@ -60,6 +61,7 @@ describe('useSendMessage timer', () => {
     mockSetIsStreaming = mock(() => {})
     mockSetCanProcessQueue = mock(() => {})
     mockSetMainAgentStreamStartTime = mock(() => {})
+    mockScrollToLatest = mock(() => {})
     inputRef = { current: { focus: mock(() => {}) } }
     activeSubagentsRef = { current: new Set() }
     isChainInProgressRef = { current: false }
@@ -101,6 +103,7 @@ describe('useSendMessage timer', () => {
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
         setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
+        scrollToLatest: mockScrollToLatest,
       }),
     )
 
@@ -157,6 +160,7 @@ describe('useSendMessage timer', () => {
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
         setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
+        scrollToLatest: mockScrollToLatest,
       }),
     )
 
@@ -205,6 +209,7 @@ describe('useSendMessage timer', () => {
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
         setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
+        scrollToLatest: mockScrollToLatest,
       }),
     )
 

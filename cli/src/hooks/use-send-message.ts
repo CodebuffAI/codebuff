@@ -5,6 +5,8 @@ import { shouldHideAgent } from '../utils/constants'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { logger } from '../utils/logger'
+import { getLoadedAgentsData } from '../utils/local-agent-registry'
+import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
 
 import type { ChatMessage, ContentBlock } from '../chat'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
@@ -97,8 +99,9 @@ interface UseSendMessageOptions {
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
-  onBeforeMessageSend?: () => Promise<boolean>
+  onBeforeMessageSend?: () => Promise<{ success: boolean; errors: Array<{ id: string; message: string }> }>
   setMainAgentStreamStartTime: (time: number | null) => void
+  scrollToLatest: () => void
 }
 
 export const useSendMessage = ({
@@ -121,6 +124,7 @@ export const useSendMessage = ({
   agentId,
   onBeforeMessageSend,
   setMainAgentStreamStartTime,
+  scrollToLatest,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -247,47 +251,10 @@ export const useSendMessage = ({
 
   const sendMessage = useCallback(
     async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
-      // Validate agents before sending message (blocking)
-      if (onBeforeMessageSend) {
-        try {
-          const validationPassed = await onBeforeMessageSend()
-
-          if (!validationPassed) {
-            logger.warn('Message send blocked due to agent validation errors')
-
-            // Add an error message to the chat
-            const errorMessage: ChatMessage = {
-              id: `error-${Date.now()}`,
-              variant: 'error',
-              content: 'Cannot send message: Please fix agent validation errors first. Check the validation errors displayed above.',
-              timestamp: formatTimestamp(),
-            }
-
-            applyMessageUpdate((prev) => [...prev, errorMessage])
-            await yieldToEventLoop()
-
-            return
-          }
-        } catch (error) {
-          logger.error({ error }, 'Validation before message send failed with exception')
-
-          // Add an error message to the chat
-          const errorMessage: ChatMessage = {
-            id: `error-${Date.now()}`,
-            variant: 'error',
-            content: 'Cannot send message: Agent validation failed unexpectedly.',
-            timestamp: formatTimestamp(),
-          }
-
-          applyMessageUpdate((prev) => [...prev, errorMessage])
-          await yieldToEventLoop()
-
-          return
-        }
-      }
-
       const { agentMode } = params
       const timestamp = formatTimestamp()
+
+      // Add user message to UI first
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
         variant: 'user',
@@ -303,6 +270,54 @@ export const useSendMessage = ({
         return newMessages
       })
       await yieldToEventLoop()
+
+      // Scroll to bottom after user message appears
+      setTimeout(() => scrollToLatest(), 0)
+
+      // Validate agents before sending message (blocking)
+      if (onBeforeMessageSend) {
+        try {
+          const validationResult = await onBeforeMessageSend()
+
+          if (!validationResult.success) {
+            logger.warn('Message send blocked due to agent validation errors')
+
+            // Create validation error blocks with clickable file paths
+            const loadedAgentsData = getLoadedAgentsData()
+            const errorBlocks = createValidationErrorBlocks({
+              errors: validationResult.errors,
+              loadedAgentsData,
+            })
+
+            const errorMessage: ChatMessage = {
+              id: `error-${Date.now()}`,
+              variant: 'error',
+              content: '',
+              blocks: errorBlocks,
+              timestamp: formatTimestamp(),
+            }
+
+            applyMessageUpdate((prev) => [...prev, errorMessage])
+            await yieldToEventLoop()
+
+            return
+          }
+        } catch (error) {
+          logger.error({ error }, 'Validation before message send failed with exception')
+
+          const errorMessage: ChatMessage = {
+            id: `error-${Date.now()}`,
+            variant: 'error',
+            content: '⚠️ Agent validation failed unexpectedly. Please try again.',
+            timestamp: formatTimestamp(),
+          }
+
+          applyMessageUpdate((prev) => [...prev, errorMessage])
+          await yieldToEventLoop()
+
+          return
+        }
+      }
 
       setFocusedAgentId(null)
       setInputFocused(true)
@@ -1414,6 +1429,7 @@ export const useSendMessage = ({
       removeActiveSubagent,
       onBeforeMessageSend,
       setMainAgentStreamStartTime,
+      scrollToLatest,
     ],
   )
 
