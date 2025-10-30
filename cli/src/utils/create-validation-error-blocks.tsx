@@ -34,9 +34,12 @@ export function createValidationErrorBlocks(
   blocks.push({
     type: 'html',
     render: () => (
-      <text style={{ fg: 'red' }}>
-        ⚠️ <b>{pluralize(errorCount, 'agent')} has validation issues</b>
-      </text>
+      <box style={{ gap: 2, flexDirection: 'row', width: '100%' }}>
+        <text style={{ fg: 'red' }}> ⚠️ </text>
+        <text style={{ fg: 'red' }}>
+          <b>{pluralize(errorCount, 'agent')} has validation issues</b>
+        </text>
+      </box>
     ),
   })
 
