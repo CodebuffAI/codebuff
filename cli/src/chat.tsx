@@ -1,5 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { useRenderer, useTerminalDimensions } from '@opentui/react'
+import os from 'os'
 import path from 'path'
 import React, {
   type ReactNode,
@@ -279,12 +280,14 @@ export const App = ({
         })
       }
 
-      // Calculate relative path from cwd to repository root
+      // Calculate path from home directory to repository root
       // agentsDir is typically in the root, so use its parent as the repository root
-      const cwd = process.cwd()
+      const homeDir = os.homedir()
       const repoRoot = path.dirname(loadedAgentsData.agentsDir)
-      const relativePath = path.relative(cwd, repoRoot)
-      const displayPath = relativePath || '.'
+      const relativePath = path.relative(homeDir, repoRoot)
+      const displayPath = relativePath.startsWith('..')
+        ? repoRoot // If outside home dir, show absolute path
+        : `~/${relativePath}`
 
       blocks.push({
         type: 'html',
