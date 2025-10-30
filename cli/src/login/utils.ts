@@ -125,6 +125,7 @@ export function calculateResponsiveLayout(terminalWidth: number, terminalHeight:
 
   // Show full logo on all terminal sizes as long as width allows
   const showFullLogo = contentMaxWidth >= 60
+  const showSmallLogo = contentMaxWidth >= 20 && !showFullLogo
 
   return {
     isVerySmall,
@@ -139,6 +140,7 @@ export function calculateResponsiveLayout(terminalWidth: number, terminalHeight:
     contentMaxWidth,
     maxUrlWidth,
     showFullLogo,
+    showSmallLogo,
   }
 }
 

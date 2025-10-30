@@ -12,6 +12,14 @@ export const LOGO = `
   ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝
 `
 
+export const LOGO_SMALL = `
+  ██████╗ ██████╗
+ ██╔════╝ ██╔══██╗
+ ██║      ██████╔╝
+ ██║      ██╔══██╗
+ ╚██████╗ ██████╔╝
+  ╚═════╝ ╚═════╝
+`
 // UI Color constants
 export const LINK_COLOR_DEFAULT = '#3b82f6'
 export const LINK_COLOR_CLICKED = '#1e40af'

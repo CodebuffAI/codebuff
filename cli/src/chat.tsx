@@ -37,7 +37,7 @@ import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
-import { LOGO } from './login/constants'
+import { LOGO, LOGO_SMALL } from './login/constants'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
 import {
@@ -63,9 +63,7 @@ type ChatVariant = 'ai' | 'user' | 'agent' | 'error'
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
 
-const LOGO_BLOCK = LOGO.split('\n')
-  .filter((line) => line.length > 0)
-  .join('\n')
+// LOGO_BLOCK moved to component to be reactive to terminal width changes
 
 type AgentMessage = {
   agentName: string
@@ -160,6 +158,12 @@ export const App = ({
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
+  // Determine which logo to use based on terminal width
+  const logoToUse = terminalWidth >= 60 ? LOGO : LOGO_SMALL
+  const logoBlock = logoToUse.split('\n')
+    .filter((line) => line.length > 0)
+    .join('\n')
+
   const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
@@ -241,7 +245,7 @@ export const App = ({
       const blocks: ContentBlock[] = [
         {
           type: 'text',
-          content: '\n\n' + LOGO_BLOCK,
+          content: '\n\n' + logoBlock,
         },
       ]
 

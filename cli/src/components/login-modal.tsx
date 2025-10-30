@@ -10,6 +10,7 @@ import { useLoginPolling } from '../hooks/use-login-polling'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import {
   LOGO,
+  LOGO_SMALL,
   LINK_COLOR_DEFAULT,
   LINK_COLOR_CLICKED,
   COPY_SUCCESS_COLOR,
@@ -231,17 +232,6 @@ export const LoginModal = ({
   // Use pure black/white for logo
   const logoColor = isLightMode ? '#000000' : '#ffffff'
 
-  // Use custom hook for sheen animation
-  const { applySheenToChar } = useSheenAnimation({
-    logoColor,
-    terminalWidth: renderer?.width,
-    sheenPosition,
-    setSheenPosition,
-  })
-
-  // Parse logo lines
-  const logoLines = parseLogoLines(LOGO)
-
   // Calculate terminal width and height for responsive display
   const terminalWidth = renderer?.width || 80
   const terminalHeight = renderer?.height || 24
@@ -257,7 +247,19 @@ export const LoginModal = ({
     contentMaxWidth,
     maxUrlWidth,
     showFullLogo,
+    showSmallLogo,
   } = calculateResponsiveLayout(terminalWidth, terminalHeight)
+
+  // Use custom hook for sheen animation
+  const { applySheenToChar } = useSheenAnimation({
+    logoColor,
+    terminalWidth: renderer?.width,
+    sheenPosition,
+    setSheenPosition,
+  })
+
+  // Parse logo lines based on which logo to show
+  const logoLines = parseLogoLines(showSmallLogo ? LOGO_SMALL : LOGO)
 
   // Slice logo lines to fit terminal width
   const logoDisplayLines = useMemo(
@@ -340,7 +342,7 @@ export const LoginModal = ({
         }}
       >
         {/* Header - Logo or simple text based on terminal size */}
-        {showFullLogo ? (
+        {showFullLogo || showSmallLogo ? (
           <box
             key="codebuff-logo"
             style={{
