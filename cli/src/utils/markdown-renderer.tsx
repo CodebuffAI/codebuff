@@ -7,12 +7,14 @@ import type {
   Blockquote,
   Code,
   Content,
+  Emphasis,
   Heading,
   InlineCode,
   List,
   ListItem,
   Paragraph,
   Root,
+  Strong,
   Text,
 } from 'mdast'
 
@@ -95,6 +97,12 @@ function nodeToPlainText(node: Content | Root): string {
 
     case 'inlineCode':
       return `\`${(node as InlineCode).value}\``
+
+    case 'strong':
+      return (node as Strong).children.map(nodeToPlainText).join('')
+
+    case 'emphasis':
+      return (node as Emphasis).children.map(nodeToPlainText).join('')
 
     case 'heading': {
       const heading = node as Heading
