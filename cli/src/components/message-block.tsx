@@ -4,6 +4,7 @@ import React, { type ReactNode } from 'react'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
+import { useElapsedTime } from '../hooks/use-elapsed-time'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
   renderMarkdown,
@@ -32,6 +33,7 @@ interface MessageBlockProps {
   isComplete?: boolean
   completionTime?: string
   credits?: number
+  streamStartTime: number | null
   theme: ChatTheme
   textColor: string
   timestampColor: string
@@ -55,6 +57,7 @@ export const MessageBlock = ({
   isComplete,
   completionTime,
   credits,
+  streamStartTime,
   theme,
   textColor,
   timestampColor,
@@ -66,6 +69,10 @@ export const MessageBlock = ({
   onToggleCollapsed,
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
+  // Calculate elapsed time for streaming AI messages
+  const elapsedSeconds = useElapsedTime(
+    isAi && isLoading && !isComplete ? streamStartTime : null,
+  )
   const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>
     `${'  '.repeat(indentLevel)}${isLastBranch ? '└─ ' : '├─ '}`
 
@@ -514,20 +521,40 @@ export const MessageBlock = ({
           )
         })()
       )}
-      {isAi && isComplete && (completionTime || credits) && (
-        <text
-          wrap={false}
-          attributes={TextAttributes.DIM}
-          style={{
-            fg: theme.statusSecondary,
-            marginTop: 0,
-            marginBottom: 0,
-            alignSelf: 'flex-start',
-          }}
-        >
-          {completionTime}
-          {credits && ` • ${credits} credits`}
-        </text>
+      {isAi && (
+        <>
+          {/* Show elapsed time while streaming */}
+          {isLoading && !isComplete && elapsedSeconds > 0 && (
+            <text
+              wrap={false}
+              attributes={TextAttributes.DIM}
+              style={{
+                fg: theme.statusSecondary,
+                marginTop: 0,
+                marginBottom: 0,
+                alignSelf: 'flex-start',
+              }}
+            >
+              {elapsedSeconds}s
+            </text>
+          )}
+          {/* Show completion time and credits when complete */}
+          {isComplete && (completionTime || credits) && (
+            <text
+              wrap={false}
+              attributes={TextAttributes.DIM}
+              style={{
+                fg: theme.statusSecondary,
+                marginTop: 0,
+                marginBottom: 0,
+                alignSelf: 'flex-start',
+              }}
+            >
+              {completionTime}
+              {credits && ` • ${credits} credits`}
+            </text>
+          )}
+        </>
       )}
     </>
   )

@@ -1008,6 +1008,7 @@ export const App = ({
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
+    streamStartTime: mainAgentStreamStartTime,
     setCollapsedAgents,
     setFocusedAgentId,
     registerAgentRef,

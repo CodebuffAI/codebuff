@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
+import { useElapsedTime } from '../hooks/use-elapsed-time'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { logger } from '../utils/logger'
 
@@ -49,29 +50,7 @@ export const StatusIndicator = ({
   streamStartTime?: number | null
 }) => {
   const isConnected = useConnectionStatus()
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0)
-
-
-  // Update elapsed time every second while streaming
-  useEffect(() => {
-    if (!streamStartTime) {
-      setElapsedSeconds(0)
-      return
-    }
-
-    const updateElapsed = () => {
-      const elapsed = Math.floor((Date.now() - streamStartTime) / 1000)
-      setElapsedSeconds(elapsed)
-    }
-
-    // Update immediately
-    updateElapsed()
-
-    // Then update every second
-    const interval = setInterval(updateElapsed, 1000)
-
-    return () => clearInterval(interval)
-  }, [streamStartTime])
+  const elapsedSeconds = useElapsedTime(streamStartTime)
 
   if (clipboardMessage) {
     return <span fg={theme.statusAccent}>{clipboardMessage}</span>
