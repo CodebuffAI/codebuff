@@ -512,7 +512,7 @@ export const MessageBlock = ({
           )
         })()
       )}
-      {isAi && isComplete && (completionTime || credits) && (
+      {isAi && isComplete && credits && (
         <text
           wrap={false}
           attributes={TextAttributes.DIM}
@@ -523,8 +523,7 @@ export const MessageBlock = ({
             alignSelf: 'flex-start',
           }}
         >
-          {completionTime}
-          {credits && ` • ${credits} credits`}
+          {credits} credits
         </text>
       )}
     </>

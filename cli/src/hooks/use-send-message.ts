@@ -97,6 +97,8 @@ interface UseSendMessageOptions {
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
+  onBeforeMessageSend?: () => Promise<void>
+  setMainAgentStreamStartTime: (time: number | null) => void
 }
 
 export const useSendMessage = ({
@@ -117,6 +119,8 @@ export const useSendMessage = ({
   setCanProcessQueue,
   abortControllerRef,
   agentId,
+  onBeforeMessageSend,
+  setMainAgentStreamStartTime,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -243,6 +247,13 @@ export const useSendMessage = ({
 
   const sendMessage = useCallback(
     async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
+      // Trigger validation before sending message (non-blocking)
+      if (onBeforeMessageSend) {
+        onBeforeMessageSend().catch((error) => {
+          logger.error({ error }, 'Validation before message send failed')
+        })
+      }
+
       const { agentMode } = params
       const timestamp = formatTimestamp()
       const userMessage: ChatMessage = {
@@ -516,6 +527,11 @@ export const useSendMessage = ({
           agentDefinitions: agentDefinitions as AgentDefinition[],
 
           handleStreamChunk: (event) => {
+            logger.debug(
+              { eventType: typeof event, isString: typeof event === 'string' },
+              '[STREAM TIMER] handleStreamChunk called',
+            )
+
             if (typeof event !== 'string') {
               const { agentId, chunk } = event
 
@@ -538,6 +554,10 @@ export const useSendMessage = ({
             if (!hasReceivedContent) {
               hasReceivedContent = true
               setIsWaitingForResponse(false)
+              // Main agent started streaming - set timer
+              const streamStart = Date.now()
+              setMainAgentStreamStartTime(streamStart)
+              logger.info({ streamStart }, '[STREAM TIMER] Main agent streaming started')
             }
 
             const previous = rootStreamBufferRef.current ?? ''
@@ -563,8 +583,12 @@ export const useSendMessage = ({
 
           handleEvent: (event: any) => {
             logger.info(
-              { type: event.type, event },
+              { type: event.type, hasAgentId: !!event.agentId, event },
               `SDK ${JSON.stringify(event.type)} Event received (raw)`,
+            )
+            logger.debug(
+              { type: event.type, hasAgentId: !!event.agentId },
+              '[STREAM TIMER] handleEvent called',
             )
 
             if (event.type === 'text') {
@@ -572,9 +596,17 @@ export const useSendMessage = ({
 
               if (typeof text !== 'string' || !text) return
 
-              if (!hasReceivedContent) {
+              // Track if main agent (no agentId) started streaming
+              if (!hasReceivedContent && !event.agentId) {
                 hasReceivedContent = true
                 setIsWaitingForResponse(false)
+                const streamStart = Date.now()
+                setMainAgentStreamStartTime(streamStart)
+                logger.info({ streamStart, hasAgentId: !!event.agentId }, '[STREAM TIMER] Main agent text event - streaming started')
+              } else if (!hasReceivedContent) {
+                hasReceivedContent = true
+                setIsWaitingForResponse(false)
+                logger.info({ hasAgentId: !!event.agentId }, '[STREAM TIMER] Sub-agent text event - not starting timer')
               }
 
               if (event.agentId) {
@@ -1243,12 +1275,11 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
+        setMainAgentStreamStartTime(null)
 
         if ((result as any)?.credits !== undefined) {
           actualCredits = (result as any).credits
         }
-
-        const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1)
 
         applyMessageUpdate((prev) =>
           prev.map((msg) =>
@@ -1256,7 +1287,6 @@ export const useSendMessage = ({
               ? {
                   ...msg,
                   isComplete: true,
-                  completionTime: `${elapsedTime}s`,
                   ...(actualCredits !== undefined && {
                     credits: actualCredits,
                   }),
@@ -1274,6 +1304,7 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
+        setMainAgentStreamStartTime(null)
 
         if (isAborted) {
           applyMessageUpdate((prev) =>
@@ -1349,6 +1380,8 @@ export const useSendMessage = ({
       updateChainInProgress,
       addActiveSubagent,
       removeActiveSubagent,
+      onBeforeMessageSend,
+      setMainAgentStreamStartTime,
     ],
   )
 

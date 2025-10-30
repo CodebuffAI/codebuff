@@ -23,6 +23,7 @@ import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
+import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthQuery, useLogoutMutation } from './hooks/use-auth-query'
 import { useClipboard } from './hooks/use-clipboard'
 import { useInputHistory } from './hooks/use-input-history'
@@ -39,11 +40,19 @@ import { getUserCredentials } from './utils/auth'
 import { LOGO } from './login/constants'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
-import { loadLocalAgents } from './utils/local-agent-registry'
+import {
+  loadLocalAgents,
+  type LocalAgentInfo,
+} from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
-import { chatThemes, createMarkdownPalette } from './utils/theme-system'
+import {
+  chatThemes,
+  createMarkdownPalette,
+  type ChatTheme,
+} from './utils/theme-system'
 import { openFileAtPath } from './utils/open-file'
+import { formatValidationError } from './utils/validation-error-formatting'
 
 import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
@@ -155,6 +164,10 @@ export const App = ({
   const theme = chatThemes[themeName]
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
+  // Set up agent validation (manual trigger)
+  const { validationErrors: liveValidationErrors, validate: validateAgents } =
+    useAgentValidation(validationErrors)
+
   const [exitWarning, setExitWarning] = useState<string | null>(null)
   const exitArmedRef = useRef(false)
   const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -244,127 +257,6 @@ export const App = ({
         content:
           'Codebuff can read and write files in this repository, and run terminal commands to help you build.',
       })
-
-      // Add validation errors if any exist
-      if (validationErrors.length > 0) {
-        const errorCount = validationErrors.length
-        const errorHeader =
-          errorCount === 1
-            ? '**⚠️  1 agent has validation issues**'
-            : `**⚠️  ${errorCount} agents have validation issues**`
-
-        // Add header
-        blocks.push({
-          type: 'text',
-          content: errorHeader,
-          marginTop: 1,
-        })
-
-        // Add each error as a separate, nicely formatted block
-        const agentInfoById = new Map(
-          loadedAgentsData.agents.map((agent) => [agent.id, agent]),
-        )
-
-        const normalizeRelativePath = (filePath: string): string => {
-          const relativeToAgentsDir = path.relative(
-            loadedAgentsData.agentsDir,
-            filePath,
-          )
-          const normalized = relativeToAgentsDir.replace(/\\/g, '/')
-          return `.agents/${normalized}`
-        }
-
-        validationErrors.forEach((error, errorIndex) => {
-          // Extract just the key error message, removing verbose schema details
-          let message = error.message
-            .replace(/Agent "[^"]+"\s*(?:\([^)]+\))?\s*:\s*/, '')
-            .replace(/Schema validation failed:\s*/i, '')
-            .trim()
-
-          // If message starts with JSON array, extract first error
-          if (message.startsWith('[')) {
-            try {
-              const errors = JSON.parse(message)
-              if (Array.isArray(errors) && errors.length > 0) {
-                const firstError = errors[0]
-                // Get the field path and message
-                const field = firstError.path?.join('.') || 'field'
-                message = `${field}: ${firstError.message}`
-              }
-            } catch {
-              // Keep original message if parsing fails
-            }
-          }
-
-          // Clean up common validation messages to be more user-friendly
-          message = message
-            .replace(/Invalid input: expected (\w+), received (\w+)/i, 'Expected $1, got $2')
-            .replace(/Agent ID must contain only lowercase letters, numbers, and hyphens/i, 'ID must be lowercase with hyphens only')
-            .replace(/Cannot specify both (\w+) and (\w+)\..*/i, 'Cannot use both $1 and $2')
-
-          // Take first line only and limit length
-          message = message.split('\n')[0]
-          if (message.length > 80) {
-            message = message.substring(0, 77) + '...'
-          }
-
-          const agentId = error.id.replace(/_\d+$/, '')
-          const agentInfo = agentInfoById.get(agentId)
-          const relativePath = agentInfo
-            ? normalizeRelativePath(agentInfo.filePath)
-            : null
-
-          const fieldMatch = message.match(/^([^:]+):\s*(.+)$/)
-          const fieldName = fieldMatch ? fieldMatch[1] : null
-          const errorBody = fieldMatch ? fieldMatch[2] : message
-
-          blocks.push({
-            type: 'html',
-            marginTop: errorIndex === 0 ? 0 : 0,
-            render: ({ textColor }) => (
-              <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
-                <text wrap style={{ fg: textColor }}>
-                  <span attributes={TextAttributes.BOLD}>{agentId}</span>
-                </text>
-                {relativePath ? (
-                  <TerminalLink
-                    text={`(${relativePath})`}
-                    containerStyle={{
-                      width: 'auto',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                    }}
-                    formatLines={(text) => [text]}
-                    underlineOnHover
-                    onActivate={() => openFileAtPath(agentInfo.filePath)}
-                  />
-                ) : null}
-              </box>
-            ),
-          })
-
-          blocks.push({
-            type: 'html',
-            marginBottom: 0,
-            render: ({ textColor }) => (
-              <text wrap style={{ fg: textColor, marginLeft: 2 }}>
-                {fieldName ? (
-                  <>
-                    <span attributes={TextAttributes.ITALIC}>
-                      {`${fieldName}:`}
-                    </span>{' '}
-                    {errorBody}
-                  </>
-                ) : (
-                  errorBody
-                )}
-              </text>
-            ),
-          })
-        })
-
-        // No closing instruction to keep layout concise
-      }
 
       blocks.push({
         type: 'agent-list',
@@ -516,6 +408,18 @@ export const App = ({
   const isChainInProgressRef = useRef<boolean>(isChainInProgress)
 
   const { clipboardMessage } = useClipboard()
+
+  // Track main agent streaming start time for elapsed time display
+  const [mainAgentStreamStartTime, setMainAgentStreamStartTime] =
+    useState<number | null>(null)
+
+  // Debug log when stream start time changes
+  useEffect(() => {
+    logger.debug(
+      { streamStartTime: mainAgentStreamStartTime },
+      '[STREAM TIMER] mainAgentStreamStartTime state changed',
+    )
+  }, [mainAgentStreamStartTime])
 
   const agentRefsMap = useRef<Map<string, any>>(new Map())
   const hasAutoSubmittedRef = useRef(false)
@@ -870,6 +774,8 @@ export const App = ({
     setCanProcessQueue,
     abortControllerRef,
     agentId,
+    onBeforeMessageSend: validateAgents,
+    setMainAgentStreamStartTime,
   })
 
   sendMessageRef.current = sendMessage
@@ -890,7 +796,14 @@ export const App = ({
     return undefined
   }, [initialPrompt, agentMode])
 
-  const hasStatus = useHasStatus(isWaitingForResponse, clipboardMessage)
+  // Show thinking indicator even after waiting ends if we're still streaming
+  const showThinking = isStreaming && !isWaitingForResponse
+  const hasStatus = useHasStatus(
+    isWaitingForResponse,
+    clipboardMessage,
+    showThinking,
+    mainAgentStreamStartTime,
+  )
 
   const handleSubmit = useCallback(() => {
     const trimmed = inputValue.trim()
@@ -1040,13 +953,135 @@ export const App = ({
   const shouldShowStatusLine = Boolean(
     exitWarning || hasStatus || shouldShowQueuePreview,
   )
+
+  // Debug log status line conditions
+  useEffect(() => {
+    logger.debug(
+      {
+        shouldShowStatusLine,
+        hasStatus,
+        isWaitingForResponse,
+        showThinking,
+        mainAgentStreamStartTime,
+      },
+      '[STREAM TIMER] Status line conditions',
+    )
+  }, [
+    shouldShowStatusLine,
+    hasStatus,
+    isWaitingForResponse,
+    showThinking,
+    mainAgentStreamStartTime,
+  ])
+
   const statusIndicatorNode = (
     <StatusIndicator
       isProcessing={isWaitingForResponse}
       theme={theme}
       clipboardMessage={clipboardMessage}
+      showThinking={showThinking}
+      streamStartTime={mainAgentStreamStartTime}
     />
   )
+
+  // Render validation banner
+  const renderValidationBanner = () => {
+    if (liveValidationErrors.length === 0) {
+      return null
+    }
+
+    const MAX_VISIBLE_ERRORS = 5
+    const errorCount = liveValidationErrors.length
+    const visibleErrors = liveValidationErrors.slice(0, MAX_VISIBLE_ERRORS)
+    const hasMoreErrors = errorCount > MAX_VISIBLE_ERRORS
+
+    // Helper to normalize relative path
+    const normalizeRelativePath = (filePath: string): string => {
+      if (!loadedAgentsData) return filePath
+      const relativeToAgentsDir = path.relative(
+        loadedAgentsData.agentsDir,
+        filePath,
+      )
+      const normalized = relativeToAgentsDir.replace(/\\/g, '/')
+      return `.agents/${normalized}`
+    }
+
+    // Get agent info by ID
+    const agentInfoById = new Map<string, LocalAgentInfo>(
+      (loadedAgentsData?.agents.map((agent) => [
+        agent.id,
+        agent as LocalAgentInfo,
+      ]) || []) as [string, LocalAgentInfo][],
+    )
+
+    return (
+      <box
+        style={{
+          flexDirection: 'column',
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
+          paddingBottom: 1,
+          backgroundColor: theme.panelBg,
+          border: true,
+          borderStyle: 'single',
+          borderColor: '#FFA500',
+        }}
+      >
+        {/* Header */}
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingBottom: 0,
+          }}
+        >
+          <text wrap={false} style={{ fg: theme.messageAiText }}>
+            {`⚠️  ${errorCount === 1 ? '1 agent has validation issues' : `${errorCount} agents have validation issues`}`}
+            {hasMoreErrors &&
+              ` (showing ${MAX_VISIBLE_ERRORS} of ${errorCount})`}
+          </text>
+        </box>
+
+        {/* Error list - build as single text with newlines */}
+        <text wrap style={{ fg: theme.messageAiText }}>
+          {visibleErrors.map((error, index) => {
+            const agentId = error.id.replace(/_\d+$/, '')
+            const agentInfo = agentInfoById.get(agentId)
+            const relativePath = agentInfo
+              ? normalizeRelativePath(agentInfo.filePath)
+              : null
+
+            const { fieldName, message } = formatValidationError(error.message)
+            const errorMsg = fieldName ? `${fieldName}: ${message}` : message
+            const truncatedMsg = errorMsg.length > 68 ? errorMsg.substring(0, 65) + '...' : errorMsg
+
+            let output = index === 0 ? '\n' : '\n\n'
+            output += agentId
+            if (relativePath) {
+              output += ` (${relativePath})`
+            }
+            output += '\n  ' + truncatedMsg
+            return output
+          }).join('')}
+        </text>
+
+        {/* Show count of additional errors */}
+        {hasMoreErrors && (
+          <box
+            style={{
+              flexDirection: 'row',
+              paddingTop: 0,
+            }}
+          >
+            <text wrap={false} style={{ fg: theme.statusSecondary }}>
+              {`... and ${errorCount - MAX_VISIBLE_ERRORS} more`}
+            </text>
+          </box>
+        )}
+      </box>
+    )
+  }
 
   return (
     <box
@@ -1058,6 +1093,9 @@ export const App = ({
         flexGrow: 1,
       }}
     >
+      {/* Validation banner at the top */}
+      {renderValidationBanner()}
+
       <box
         style={{
           flexDirection: 'column',

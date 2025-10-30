@@ -1,35 +1,14 @@
 import { renderHook, waitFor } from '@testing-library/react'
-import { mock } from 'bun:test'
+import { mock, spyOn } from 'bun:test'
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
 import { useSendMessage } from '../use-send-message'
 import * as codebuffClient from '../../utils/codebuff-client'
+import * as loadAgentDefs from '../../utils/load-agent-definitions'
 import { logger } from '../../utils/logger'
 
-// Mock the codebuff client
-const mockRun = mock(async () => ({ credits: 100 }))
-const mockGetCodebuffClient = mock(() => ({
-  run: mockRun,
-}))
-
-mock.module('../../utils/codebuff-client', () => ({
-  getCodebuffClient: mockGetCodebuffClient,
-  formatToolOutput: mock(() => 'formatted output'),
-}))
-
-mock.module('../../utils/load-agent-definitions', () => ({
-  loadAgentDefinitions: mock(() => []),
-}))
-
-const mockLoggerInfo = mock(() => {})
-mock.module('../../utils/logger', () => ({
-  logger: {
-    info: mockLoggerInfo,
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    debug: mock(() => {}),
-  },
-}))
+// Type for logger call arguments
+type LoggerInfoCall = [data: Record<string, any>, message: string]
 
 describe('useSendMessage timer', () => {
   let mockSetMessages: ReturnType<typeof mock>
@@ -44,12 +23,14 @@ describe('useSendMessage timer', () => {
   let mockStopStreaming: ReturnType<typeof mock>
   let mockSetIsStreaming: ReturnType<typeof mock>
   let mockSetCanProcessQueue: ReturnType<typeof mock>
+  let mockSetMainAgentStreamStartTime: ReturnType<typeof mock>
   let inputRef: React.MutableRefObject<any>
   let activeSubagentsRef: React.MutableRefObject<Set<string>>
   let isChainInProgressRef: React.MutableRefObject<boolean>
   let abortControllerRef: React.MutableRefObject<AbortController | null>
 
   beforeEach(() => {
+    // Setup state setter mocks
     mockSetMessages = mock((fn: any) => {
       if (typeof fn === 'function') {
         fn([])
@@ -78,13 +59,22 @@ describe('useSendMessage timer', () => {
     mockStopStreaming = mock(() => {})
     mockSetIsStreaming = mock(() => {})
     mockSetCanProcessQueue = mock(() => {})
+    mockSetMainAgentStreamStartTime = mock(() => {})
     inputRef = { current: { focus: mock(() => {}) } }
     activeSubagentsRef = { current: new Set() }
     isChainInProgressRef = { current: false }
     abortControllerRef = { current: null }
 
-    mockLoggerInfo.mockClear()
-    mockRun.mockClear()
+    // Spy on external module functions
+    spyOn(codebuffClient, 'getCodebuffClient').mockReturnValue({
+      run: mock(async () => ({ credits: 100 })),
+    } as any)
+    spyOn(codebuffClient, 'formatToolOutput').mockReturnValue('formatted output')
+    spyOn(loadAgentDefs, 'loadAgentDefinitions').mockReturnValue([])
+    spyOn(logger, 'info').mockImplementation(() => {})
+    spyOn(logger, 'error').mockImplementation(() => {})
+    spyOn(logger, 'warn').mockImplementation(() => {})
+    spyOn(logger, 'debug').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -110,24 +100,32 @@ describe('useSendMessage timer', () => {
         setIsStreaming: mockSetIsStreaming,
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
+        setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
       }),
     )
 
     await result.current.sendMessage('test message', { agentMode: 'FAST' })
 
     await waitFor(() => {
+      const loggerInfoSpy = logger.info as ReturnType<typeof spyOn>
       // Find timer start log
-      const timerStartLog = mockLoggerInfo.mock.calls.find(
+      const timerStartLog = (loggerInfoSpy.mock.calls as LoggerInfoCall[]).find(
         (call) =>
-          call[1] && typeof call[1] === 'string' && call[1].includes('[TIMER] Timer START'),
+          call &&
+          call[1] &&
+          typeof call[1] === 'string' &&
+          call[1].includes('[TIMER] Timer START'),
       )
       expect(timerStartLog).toBeDefined()
       expect(timerStartLog?.[0]).toHaveProperty('startTime')
 
       // Find timer end log
-      const timerEndLog = mockLoggerInfo.mock.calls.find(
+      const timerEndLog = (loggerInfoSpy.mock.calls as LoggerInfoCall[]).find(
         (call) =>
-          call[1] && typeof call[1] === 'string' && call[1].includes('[TIMER] Timer END'),
+          call &&
+          call[1] &&
+          typeof call[1] === 'string' &&
+          call[1].includes('[TIMER] Timer END'),
       )
       expect(timerEndLog).toBeDefined()
       expect(timerEndLog?.[0]).toHaveProperty('startTime')
@@ -158,25 +156,30 @@ describe('useSendMessage timer', () => {
         setIsStreaming: mockSetIsStreaming,
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
+        setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
       }),
     )
 
     await result.current.sendMessage('test message', { agentMode: 'FAST' })
 
     await waitFor(() => {
-      const timerEndLog = mockLoggerInfo.mock.calls.find(
+      const loggerInfoSpy = logger.info as ReturnType<typeof spyOn>
+      const timerEndLog = (loggerInfoSpy.mock.calls as LoggerInfoCall[]).find(
         (call) =>
-          call[1] && typeof call[1] === 'string' && call[1].includes('[TIMER] Timer END'),
+          call &&
+          call[1] &&
+          typeof call[1] === 'string' &&
+          call[1].includes('[TIMER] Timer END'),
       )
 
       expect(timerEndLog).toBeDefined()
       const logData = timerEndLog?.[0]
-      expect(logData.elapsedMs).toBeGreaterThanOrEqual(0)
-      expect(logData.endTime).toBeGreaterThanOrEqual(logData.startTime)
-      expect(logData.elapsedMs).toBe(logData.endTime - logData.startTime)
+      expect(logData?.elapsedMs).toBeGreaterThanOrEqual(0)
+      expect(logData?.endTime).toBeGreaterThanOrEqual(logData?.startTime)
+      expect(logData?.elapsedMs).toBe(logData?.endTime - logData?.startTime)
 
       // Verify elapsed time string format
-      const elapsedTimeStr = logData.elapsedTime
+      const elapsedTimeStr = logData?.elapsedTime
       expect(typeof elapsedTimeStr).toBe('string')
       expect(parseFloat(elapsedTimeStr)).toBeGreaterThanOrEqual(0)
     })
@@ -201,6 +204,7 @@ describe('useSendMessage timer', () => {
         setIsStreaming: mockSetIsStreaming,
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
+        setMainAgentStreamStartTime: mockSetMainAgentStreamStartTime,
       }),
     )
 

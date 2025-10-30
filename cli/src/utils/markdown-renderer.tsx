@@ -22,6 +22,9 @@ import type {
 } from 'mdast'
 import type { ReactNode } from 'react'
 
+// Helper component to work around TypeScript's Fragment key typing issue
+const KeyedFragment = React.Fragment as React.FC<{ key?: string | number; children?: ReactNode }>
+
 export interface MarkdownPalette {
   inlineCodeFg: string
   codeBackground: string
@@ -512,7 +515,7 @@ const renderBlockquote = (
     nodes.push(
       <span key={nextKey()} fg={palette.blockquoteTextFg}>
         {line.map((segment, idx) => (
-          <React.Fragment key={nextKey() + '-' + idx}>{segment}</React.Fragment>
+          <KeyedFragment key={nextKey() + '-' + idx}>{segment}</KeyedFragment>
         ))}
       </span>,
     )
@@ -554,13 +557,13 @@ const renderList = (list: List, state: RenderState): ReactNode[] => {
       nodes.push('\n')
     } else {
       nodes.push(
-        <React.Fragment key={nextKey()}>
+        <KeyedFragment key={nextKey()}>
           {itemNodes.map((segment, segmentIdx) => (
-            <React.Fragment key={nextKey() + '-' + segmentIdx}>
+            <KeyedFragment key={nextKey() + '-' + segmentIdx}>
               {segment}
-            </React.Fragment>
+            </KeyedFragment>
           ))}
-        </React.Fragment>,
+        </KeyedFragment>,
       )
       nodes.push('\n')
     }
@@ -586,7 +589,7 @@ const renderHeading = (heading: Heading, state: RenderState): ReactNode[] => {
   return [
     <span key={nextKey()} fg={color} attributes={TextAttributes.BOLD}>
       {childNodes.map((segment, idx) => (
-        <React.Fragment key={nextKey() + '-' + idx}>{segment}</React.Fragment>
+        <KeyedFragment key={nextKey() + '-' + idx}>{segment}</KeyedFragment>
       ))}
     </span>,
     '\n\n',
@@ -622,7 +625,7 @@ const renderLink = (link: Link, state: RenderState): ReactNode[] => {
   return [
     <span key={nextKey()} fg={palette.inlineCodeFg}>
       {label.map((segment, idx) => (
-        <React.Fragment key={nextKey() + '-' + idx}>{segment}</React.Fragment>
+        <KeyedFragment key={nextKey() + '-' + idx}>{segment}</KeyedFragment>
       ))}
     </span>,
   ]
@@ -675,9 +678,9 @@ const renderNode = (
       return [
         <span key={state.nextKey()} attributes={TextAttributes.BOLD}>
           {children.map((segment, idx) => (
-            <React.Fragment key={state.nextKey() + '-' + idx}>
+            <KeyedFragment key={state.nextKey() + '-' + idx}>
               {segment}
-            </React.Fragment>
+            </KeyedFragment>
           ))}
         </span>,
       ]
@@ -692,9 +695,9 @@ const renderNode = (
       return [
         <span key={state.nextKey()} attributes={TextAttributes.ITALIC}>
           {children.map((segment, idx) => (
-            <React.Fragment key={state.nextKey() + '-' + idx}>
+            <KeyedFragment key={state.nextKey() + '-' + idx}>
               {segment}
-            </React.Fragment>
+            </KeyedFragment>
           ))}
         </span>,
       ]
@@ -767,7 +770,7 @@ const normalizeOutput = (nodes: ReactNode[]): ReactNode => {
   return (
     <>
       {trimmed.map((node, idx) => (
-        <React.Fragment key={`markdown-out-${idx}`}>{node}</React.Fragment>
+        <KeyedFragment key={`markdown-out-${idx}`}>{node}</KeyedFragment>
       ))}
     </>
   )
@@ -815,9 +818,9 @@ const mergeStreamingSegments = (segments: ReactNode[]): ReactNode => {
   return (
     <>
       {segments.map((segment, idx) => (
-        <React.Fragment key={`stream-segment-${idx}`}>
+        <KeyedFragment key={`stream-segment-${idx}`}>
           {segment}
-        </React.Fragment>
+        </KeyedFragment>
       ))}
     </>
   )

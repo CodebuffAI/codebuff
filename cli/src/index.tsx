@@ -12,7 +12,7 @@ import { validateAgents } from '@codebuff/sdk'
 import { App } from './chat'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { getUserCredentials } from './utils/auth'
-import { clearLogFile } from './utils/logger'
+import { clearLogFile, logger } from './utils/logger'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 
 const require = createRequire(import.meta.url)
