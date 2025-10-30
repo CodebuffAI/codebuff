@@ -84,7 +84,7 @@ export async function fetchAgentFromDatabase(
   const { publisherId, agentId, version } = parsedAgentId
 
   const url = new URL(
-    `/api/v1/agents/${publisherId}/${agentId}/${version}`,
+    `/api/v1/agents/${publisherId}/${agentId}/${version ? version : 'latest'}`,
     WEBSITE_URL,
   )
 
