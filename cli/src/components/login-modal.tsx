@@ -32,7 +32,7 @@ import { copyTextToClipboard } from '../utils/clipboard'
 import { logger } from '../utils/logger'
 
 import type { User } from '../utils/auth'
-import type { ChatTheme } from '../utils/theme-system'
+import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
 
 interface LoginModalProps {
   onLoginSuccess: (user: User) => void
@@ -221,7 +221,9 @@ export const LoginModal = ({
     }
   }, [hasOpenedBrowser, loginUrl, copyToClipboard])
 
-  const logoColor = theme.chromeText
+  const logoColor =
+    resolveThemeColor(theme.chromeText, theme.statusAccent) ??
+    theme.statusAccent
 
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({
@@ -357,7 +359,7 @@ export const LoginModal = ({
           >
             <text style={{ wrapMode: 'none' }}>
               <b>
-                <span fg={theme.chromeText}>
+                <span fg={resolveThemeColor(theme.chromeText, logoColor)}>
                   {isNarrow ? 'Codebuff' : 'Codebuff CLI'}
                 </span>
               </b>

@@ -24,8 +24,8 @@ export const SuggestionMenu = ({
   prefix = '/',
 }: SuggestionMenuProps) => {
   const resolveFg = (
-    color?: string,
-    fallback?: string,
+    color?: string | null,
+    fallback?: string | null,
   ): string | undefined => {
     if (color && color !== 'default') return color
     if (fallback && fallback !== 'default') return fallback

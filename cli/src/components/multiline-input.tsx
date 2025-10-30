@@ -13,6 +13,7 @@ import {
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 
 import type { PasteEvent, ScrollBoxRenderable } from '@opentui/core'
+import type { ChatTheme } from '../utils/theme-system'
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
@@ -81,15 +82,16 @@ interface MultilineInputProps {
   placeholder?: string
   focused?: boolean
   maxHeight?: number
-  theme: {
-    inputBg: string
-    inputFocusedBg: string
-    inputFg: string
-    inputFocusedFg: string
-    inputPlaceholder: string
-    cursor: string
-    statusAccent: string
-  }
+  theme: Pick<
+    ChatTheme,
+    | 'inputBg'
+    | 'inputFocusedBg'
+    | 'inputFg'
+    | 'inputFocusedFg'
+    | 'inputPlaceholder'
+    | 'cursor'
+    | 'statusAccent'
+  >
   width: number
 }
 
@@ -581,8 +583,8 @@ export const MultilineInput = forwardRef<
   ])
 
   const resolveFg = (
-    color?: string,
-    fallback?: string,
+    color?: string | null,
+    fallback?: string | null,
   ): string | undefined => {
     if (color && color !== 'default') return color
     if (fallback && fallback !== 'default') return fallback

@@ -132,6 +132,9 @@ function startApp() {
     <QueryClientProvider client={queryClient}>
       <AppWithAsyncAuth />
     </QueryClientProvider>,
+    {
+      backgroundColor: 'transparent',
+    },
   )
 }
 

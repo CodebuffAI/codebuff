@@ -31,7 +31,12 @@ import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
-import { chatTheme, createMarkdownPalette } from './utils/theme-system'
+import {
+  chatTheme,
+  createMarkdownPalette,
+  onThemeChange,
+  type ChatTheme,
+} from './utils/theme-system'
 
 import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
@@ -127,8 +132,47 @@ export const App = ({
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
-  const theme = chatTheme
-  const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
+  const cloneTheme = (input: ChatTheme): ChatTheme => ({
+    ...input,
+    markdown: input.markdown
+      ? {
+          ...input.markdown,
+          headingFg: input.markdown.headingFg
+            ? { ...input.markdown.headingFg }
+            : undefined,
+        }
+      : undefined,
+  })
+
+  const [theme, setTheme] = useState<ChatTheme>(() => cloneTheme(chatTheme))
+  const [resolvedThemeName, setResolvedThemeName] = useState<'dark' | 'light'>(
+    chatTheme.messageTextAttributes ? 'dark' : 'light',
+  )
+
+  useEffect(() => {
+    const unsubscribe = onThemeChange((updatedTheme, meta) => {
+      const nextTheme = cloneTheme(updatedTheme)
+      setTheme(nextTheme)
+      setResolvedThemeName(meta.resolvedThemeName)
+      if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+        logger.debug(
+          {
+            themeChange: {
+              source: meta.source,
+              resolvedThemeName: meta.resolvedThemeName,
+            },
+          },
+          'Applied theme change in chat component',
+        )
+      }
+    })
+    return unsubscribe
+  }, [])
+
+  const markdownPalette = useMemo(
+    () => createMarkdownPalette(theme),
+    [theme],
+  )
 
   const [exitWarning, setExitWarning] = useState<string | null>(null)
   const exitArmedRef = useRef(false)
@@ -191,16 +235,27 @@ export const App = ({
     )
   }, [])
 
-  // Initialize with loaded agents message
+  // Initialize and update loaded agents message when theme changes
   useEffect(() => {
-    if (loadedAgentsData && messages.length === 0) {
-      const agentListId = 'loaded-agents-list'
-      const userCredentials = getUserCredentials()
-      const greeting = userCredentials?.name?.trim().length
-        ? `Welcome back, ${userCredentials.name.trim()}!`
-        : null
+    if (!loadedAgentsData) {
+      return
+    }
 
-      const blocks: ContentBlock[] = [
+    const agentListId = 'loaded-agents-list'
+    const userCredentials = getUserCredentials()
+    const greeting = userCredentials?.name?.trim().length
+      ? `Welcome back, ${userCredentials.name.trim()}!`
+      : null
+
+    const baseTextColor =
+      resolvedThemeName === 'dark'
+        ? '#ffffff'
+        : theme.chromeText && theme.chromeText !== 'default'
+          ? theme.chromeText
+          : theme.agentResponseCount
+
+    const buildBlocks = (listId: string): ContentBlock[] => {
+      const result: ContentBlock[] = [
         {
           type: 'text',
           content: '\n\n' + LOGO_BLOCK,
@@ -209,41 +264,76 @@ export const App = ({
       ]
 
       if (greeting) {
-        blocks.push({
+        result.push({
           type: 'text',
           content: greeting,
-          color: theme.agentResponseCount,
+          color: baseTextColor,
         })
       }
 
-      blocks.push(
+      result.push(
         {
           type: 'text',
           content:
             'Codebuff can read and write files in this repository, and run terminal commands to help you build.',
-          color: theme.agentResponseCount,
+          color: baseTextColor,
         },
         {
           type: 'agent-list',
-          id: agentListId,
+          id: listId,
           agents: loadedAgentsData.agents,
           agentsDir: loadedAgentsData.agentsDir,
         },
       )
 
+      return result
+    }
+
+    if (messages.length === 0) {
+      const initialBlocks = buildBlocks(agentListId)
       const initialMessage: ChatMessage = {
         id: `system-loaded-agents-${Date.now()}`,
         variant: 'ai',
         content: '', // Content is in the block
-        blocks,
+        blocks: initialBlocks,
         timestamp: new Date().toISOString(),
       }
 
-      // Set as collapsed by default
       setCollapsedAgents((prev) => new Set([...prev, agentListId]))
       setMessages([initialMessage])
+      return
     }
-  }, [loadedAgentsData, theme]) // Only run when loadedAgentsData changes
+
+    setMessages((prev) => {
+      if (prev.length === 0) {
+        return prev
+      }
+
+      const [firstMessage, ...rest] = prev
+      if (!firstMessage.blocks) {
+        return prev
+      }
+
+      const agentListBlock = firstMessage.blocks.find(
+        (block): block is Extract<ContentBlock, { type: 'agent-list' }> =>
+          block.type === 'agent-list',
+      )
+
+      if (!agentListBlock) {
+        return prev
+      }
+
+      const updatedBlocks = buildBlocks(agentListBlock.id)
+
+      return [
+        {
+          ...firstMessage,
+          blocks: updatedBlocks,
+        },
+        ...rest,
+      ]
+    })
+  }, [loadedAgentsData, resolvedThemeName, theme])
 
   const {
     inputValue,

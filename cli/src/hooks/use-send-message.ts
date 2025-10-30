@@ -846,6 +846,8 @@ export const useSendMessage = ({
                     },
                     'setMessages: creating new agent block (no spawn_agents match)',
                   )
+                  let resolvedAsRoot = !event.parentAgentId
+
                   applyMessageUpdate((prev) =>
                     prev.map((msg) => {
                       if (msg.id !== aiMessageId) {
@@ -1042,7 +1044,7 @@ export const useSendMessage = ({
                   (_: any, index: number) => `${toolCallId}-${index}`,
                 )
 
-                spawnAgentIds.forEach((agentId) => {
+                spawnAgentIds.forEach((agentId: string) => {
                   setStreamingAgents((prev) => new Set(prev).add(agentId))
                   rootLevelAgentsToCollapseRef.current.add(agentId)
                 })
@@ -1050,7 +1052,7 @@ export const useSendMessage = ({
                 if (spawnAgentIds.length > 0) {
                   setCollapsedAgents((prev) => {
                     const next = new Set(prev)
-                    spawnAgentIds.forEach((id) => next.delete(id))
+                    spawnAgentIds.forEach((id: string) => next.delete(id))
                     return next
                   })
                 }

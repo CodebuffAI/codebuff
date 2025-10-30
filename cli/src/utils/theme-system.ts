@@ -1,14 +1,40 @@
 import fs from 'node:fs'
 import { execSync } from 'node:child_process'
+import os from 'node:os'
+import path from 'node:path'
+
+import { TextAttributes } from '@opentui/core'
 
 import type { MarkdownPalette } from './markdown-renderer'
+import { EventEmitter } from 'events'
+import { logger } from './logger'
 
 type MarkdownHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
+
+export type ThemeColor = string | null
+
+export const resolveThemeColor = (
+  color?: ThemeColor,
+  fallback?: ThemeColor,
+): string | undefined => {
+  if (typeof color === 'string') {
+    const normalized = color.trim().toLowerCase()
+    if (normalized.length > 0 && normalized !== 'default') {
+      return color
+    }
+  }
+
+  if (fallback !== undefined) {
+    return resolveThemeColor(fallback)
+  }
+
+  return undefined
+}
 
 export interface ChatTheme {
   background: string
   chromeBg: string
-  chromeText: string
+  chromeText: ThemeColor
   accentBg: string
   accentText: string
   panelBg: string
@@ -16,27 +42,27 @@ export interface ChatTheme {
   userLine: string
   timestampAi: string
   timestampUser: string
-  messageAiText: string
-  messageUserText: string
+  messageAiText: ThemeColor
+  messageUserText: ThemeColor
   messageBg: string
   statusAccent: string
   statusSecondary: string
   inputBg: string
-  inputFg: string
+  inputFg: ThemeColor
   inputFocusedBg: string
-  inputFocusedFg: string
-  inputPlaceholder: string
+  inputFocusedFg: ThemeColor
+  inputPlaceholder: ThemeColor
   cursor: string
   agentPrefix: string
   agentName: string
-  agentText: string
+  agentText: ThemeColor
   agentCheckmark: string
   agentResponseCount: string
   agentFocusedBg: string
-  agentContentText: string
+  agentContentText: ThemeColor
   agentToggleHeaderBg: string
-  agentToggleHeaderText: string
-  agentToggleText: string
+  agentToggleHeaderText: ThemeColor
+  agentToggleText: ThemeColor
   agentToggleExpandedBg: string
   agentContentBg: string
   modeToggleFastBg: string
@@ -55,125 +81,203 @@ export interface ChatTheme {
     codeTextFg?: string
     codeMonochrome?: boolean
   }
+  messageTextAttributes?: number
+}
+
+const TEXT_NEUTRALS: Record<'dark' | 'light', { primary: string; secondary: string }> = {
+  dark: {
+    primary: '#ffffff',
+    secondary: '#dbeafe',
+  },
+  light: {
+    primary: '#1f2937',
+    secondary: '#475569',
+  },
+}
+
+const IS_MAC_TERMINAL =
+  process.platform === 'darwin' && process.env.TERM_PROGRAM === 'Apple_Terminal'
+
+const NEUTRAL_THEME: ChatTheme = {
+  background: 'transparent',
+  chromeBg: 'transparent',
+  chromeText: null,
+  accentBg: 'transparent',
+  accentText: '#2563eb',
+  panelBg: 'transparent',
+  aiLine: '#2563eb',
+  userLine: '#22c55e',
+  timestampAi: '#2563eb',
+  timestampUser: '#0ea5e9',
+  messageAiText: null,
+  messageUserText: null,
+  messageBg: 'transparent',
+  statusAccent: '#2563eb',
+  statusSecondary: '#475569',
+  inputBg: 'transparent',
+  inputFg: null,
+  inputFocusedBg: 'transparent',
+  inputFocusedFg: null,
+  inputPlaceholder: '#94a3b8',
+  cursor: '#2563eb',
+  agentPrefix: '#2563eb',
+  agentName: '#0ea5e9',
+  agentText: null,
+  agentCheckmark: '#22c55e',
+  agentResponseCount: '#475569',
+  agentFocusedBg: 'transparent',
+  agentContentText: null,
+  agentToggleHeaderBg: 'transparent',
+  agentToggleHeaderText: null,
+  agentToggleText: null,
+  agentToggleExpandedBg: '#1d4ed8',
+  agentContentBg: 'transparent',
+  modeToggleFastBg: '#f97316',
+  modeToggleFastText: '#f97316',
+  modeToggleMaxBg: '#dc2626',
+  modeToggleMaxText: '#dc2626',
+  markdown: {
+    codeBackground: 'transparent',
+    codeHeaderFg: '#475569',
+    inlineCodeFg: '#2563eb',
+    codeTextFg: '#2563eb',
+    headingFg: {
+      1: '#2563eb',
+      2: '#2563eb',
+      3: '#2563eb',
+      4: '#2563eb',
+      5: '#2563eb',
+      6: '#2563eb',
+    },
+    listBulletFg: '#475569',
+    blockquoteBorderFg: '#94a3b8',
+    blockquoteTextFg: '#475569',
+    dividerFg: '#94a3b8',
+    codeMonochrome: true,
+  },
 }
 
 const BASE_THEMES: Record<'dark' | 'light', ChatTheme> = {
-  dark: {
-    background: 'transparent',
-    chromeBg: 'transparent',
-    chromeText: '#e2e8f0',
-    accentBg: 'transparent',
-    accentText: '#facc15',
-    panelBg: 'transparent',
-    aiLine: '#34d399',
-    userLine: '#0ea5e9',
-    timestampAi: '#4ade80',
-    timestampUser: '#60a5fa',
-    messageAiText: '#9aa5ce',
-    messageUserText: '#9aa5ce',
-    messageBg: 'transparent',
-    statusAccent: '#facc15',
-    statusSecondary: '#d9e2ff',
-    inputBg: 'transparent',
-    inputFg: '#e2e8f0',
-    inputFocusedBg: 'transparent',
-    inputFocusedFg: '#e2e8f0',
-    inputPlaceholder: 'default',
-    cursor: '#22c55e',
-    agentPrefix: '#22c55e',
-    agentName: '#4ade80',
-    agentText: '#e2e8f0',
-    agentCheckmark: '#22c55e',
-    agentResponseCount: '#94a3b8',
-    agentFocusedBg: 'transparent',
-    agentContentText: '#e2e8f0',
-    agentToggleHeaderBg: 'default',
-    agentToggleHeaderText: 'default',
-    agentToggleText: 'default',
-    agentToggleExpandedBg: '#047857',
-    agentContentBg: 'transparent',
-    modeToggleFastBg: '#f97316',
-    modeToggleFastText: '#f97316',
-    modeToggleMaxBg: '#dc2626',
-    modeToggleMaxText: '#dc2626',
-    markdown: {
-      codeBackground: 'transparent',
-      codeHeaderFg: '#d9e2ff',
-      inlineCodeFg: '#e2e8f0',
-      codeTextFg: '#e2e8f0',
-      headingFg: {
-        1: '#facc15',
-        2: '#facc15',
-        3: '#facc15',
-        4: '#facc15',
-        5: '#facc15',
-        6: '#facc15',
-      },
-      listBulletFg: '#d9e2ff',
-      blockquoteBorderFg: '#4b5563',
-      blockquoteTextFg: '#f1f5f9',
-      dividerFg: '#334155',
-      codeMonochrome: true,
-    },
-  },
-  light: {
-    background: 'transparent',
-    chromeBg: 'transparent',
-    chromeText: '#334155',
-    accentBg: 'transparent',
-    accentText: '#f59e0b',
-    panelBg: 'transparent',
-    aiLine: '#059669',
-    userLine: '#0284c7',
-    timestampAi: '#047857',
-    timestampUser: '#2563eb',
-    messageAiText: '#9aa5ce',
-    messageUserText: '#9aa5ce',
-    messageBg: 'transparent',
-    statusAccent: '#f59e0b',
-    statusSecondary: '#6b7280',
-    inputBg: 'transparent',
-    inputFg: '#334155',
-    inputFocusedBg: 'transparent',
-    inputFocusedFg: '#334155',
-    inputPlaceholder: '#9ca3af',
-    cursor: '#3b82f6',
-    agentPrefix: '#059669',
-    agentName: '#047857',
-    agentText: '#1f2937',
-    agentCheckmark: '#059669',
-    agentResponseCount: '#64748b',
-    agentFocusedBg: 'transparent',
-    agentContentText: '#475569',
-    agentToggleHeaderBg: '#94a3b8',
-    agentToggleHeaderText: '#f8fafc',
-    agentToggleText: '#f8fafc',
-    agentToggleExpandedBg: '#047857',
-    agentContentBg: 'transparent',
-    modeToggleFastBg: '#f97316',
-    modeToggleFastText: '#f97316',
-    modeToggleMaxBg: '#dc2626',
-    modeToggleMaxText: '#dc2626',
-    markdown: {
-      codeBackground: 'transparent',
-      codeHeaderFg: '#4b5563',
-      inlineCodeFg: '#dc2626',
-      codeTextFg: '#475569',
-      headingFg: {
-        1: '#dc2626',
-        2: '#dc2626',
-        3: '#dc2626',
-        4: '#dc2626',
-        5: '#dc2626',
-        6: '#dc2626',
-      },
-      listBulletFg: '#6b7280',
-      blockquoteBorderFg: '#d1d5db',
-      blockquoteTextFg: '#374151',
-      dividerFg: '#e5e7eb',
-      codeMonochrome: true,
-    },
-  },
+  dark: NEUTRAL_THEME,
+  light: NEUTRAL_THEME,
+}
+
+const applyNeutralTextDefaults = (
+  theme: ChatTheme,
+  mode: 'dark' | 'light',
+): { theme: ChatTheme; allowTerminalDefaults: boolean } => {
+  const neutrals = TEXT_NEUTRALS[mode]
+  const allowTerminalDefaults = !IS_MAC_TERMINAL
+
+  const resolveColor = (
+    color: ThemeColor | undefined,
+    fallback: string,
+    allowDefault: boolean,
+  ): string => {
+    if (typeof color === 'string' && color !== 'default') {
+      return color
+    }
+    return allowDefault ? 'default' : fallback
+  }
+
+  const adjustedTheme: ChatTheme = {
+    ...theme,
+    chromeText: theme.chromeText ?? neutrals.primary,
+    messageAiText: resolveColor(
+      theme.messageAiText,
+      neutrals.primary,
+      allowTerminalDefaults,
+    ),
+    messageUserText: resolveColor(
+      theme.messageUserText,
+      neutrals.primary,
+      allowTerminalDefaults,
+    ),
+    inputFg: resolveColor(
+      theme.inputFg,
+      neutrals.primary,
+      allowTerminalDefaults,
+    ),
+    inputFocusedFg: resolveColor(
+      theme.inputFocusedFg ?? theme.inputFg,
+      neutrals.primary,
+      allowTerminalDefaults,
+    ),
+    agentText: resolveColor(
+      theme.agentText,
+      neutrals.primary,
+      allowTerminalDefaults,
+    ),
+    agentContentText: resolveColor(
+      theme.agentContentText,
+      neutrals.secondary,
+      allowTerminalDefaults,
+    ),
+    agentToggleHeaderText: resolveColor(
+      theme.agentToggleHeaderText,
+      neutrals.primary,
+      allowTerminalDefaults,
+    ),
+    agentToggleText: resolveColor(
+      theme.agentToggleText,
+      neutrals.primary,
+      allowTerminalDefaults,
+    ),
+  }
+
+  if (mode === 'dark') {
+    adjustedTheme.messageAiText = '#ffffff'
+    adjustedTheme.messageUserText = '#ffffff'
+    adjustedTheme.inputFg = '#ffffff'
+    adjustedTheme.inputFocusedFg = '#ffffff'
+    adjustedTheme.agentText = '#ffffff'
+    adjustedTheme.agentContentText = '#dbeafe'
+    adjustedTheme.agentToggleHeaderText = '#ffffff'
+    adjustedTheme.agentToggleText = '#ffffff'
+    adjustedTheme.timestampAi = DARK_VARIANT_OVERRIDES.timestampAi
+    adjustedTheme.timestampUser = DARK_VARIANT_OVERRIDES.timestampUser
+    adjustedTheme.aiLine = DARK_VARIANT_OVERRIDES.aiLine
+    adjustedTheme.userLine = DARK_VARIANT_OVERRIDES.userLine
+    adjustedTheme.statusSecondary =
+      theme.statusSecondary === NEUTRAL_THEME.statusSecondary
+        ? '#bfdbfe'
+        : theme.statusSecondary
+    adjustedTheme.agentResponseCount =
+      theme.agentResponseCount === NEUTRAL_THEME.agentResponseCount
+        ? '#bfdbfe'
+        : theme.agentResponseCount
+    adjustedTheme.timestampAi = '#c7d2fe'
+    adjustedTheme.timestampUser = '#bfdbfe'
+    adjustedTheme.aiLine = '#60a5fa'
+    adjustedTheme.userLine = '#38bdf8'
+    adjustedTheme.messageTextAttributes =
+      theme.messageTextAttributes ?? TextAttributes.BOLD
+  } else {
+    adjustedTheme.messageAiText = neutrals.primary
+    adjustedTheme.messageUserText = neutrals.primary
+    adjustedTheme.inputFg = neutrals.primary
+    adjustedTheme.inputFocusedFg = neutrals.primary
+    adjustedTheme.agentText = neutrals.primary
+    adjustedTheme.agentContentText = neutrals.secondary
+    adjustedTheme.agentToggleHeaderText = neutrals.primary
+    adjustedTheme.agentToggleText = neutrals.primary
+    adjustedTheme.timestampAi = LIGHT_VARIANT_OVERRIDES.timestampAi
+    adjustedTheme.timestampUser = LIGHT_VARIANT_OVERRIDES.timestampUser
+    adjustedTheme.aiLine = LIGHT_VARIANT_OVERRIDES.aiLine
+    adjustedTheme.userLine = LIGHT_VARIANT_OVERRIDES.userLine
+    adjustedTheme.messageTextAttributes =
+      theme.messageTextAttributes ?? undefined
+  }
+
+  let finalTheme = adjustedTheme
+  if (IS_MAC_TERMINAL) {
+    finalTheme = mergeThemeOverrides(
+      adjustedTheme,
+      MAC_TERMINAL_THEME_OVERRIDES[mode],
+    )
+  }
+
+  return { theme: finalTheme, allowTerminalDefaults }
 }
 
 const getNormalizedEnvTheme = (): 'dark' | 'light' | null => {
@@ -387,6 +491,104 @@ const detectThemeFromTerminalBackground = (): 'dark' | 'light' | null => {
   }
 }
 
+const DARK_VARIANT_OVERRIDES = {
+  timestampAi: '#c7d2fe',
+  timestampUser: '#bfdbfe',
+  aiLine: '#60a5fa',
+  userLine: '#38bdf8',
+}
+
+const LIGHT_VARIANT_OVERRIDES = {
+  timestampAi: NEUTRAL_THEME.timestampAi,
+  timestampUser: NEUTRAL_THEME.timestampUser,
+  aiLine: NEUTRAL_THEME.aiLine,
+  userLine: NEUTRAL_THEME.userLine,
+}
+
+const MAC_TERMINAL_THEME_OVERRIDES: Record<'dark' | 'light', Partial<ChatTheme>> = {
+  light: {
+    statusAccent: '#0f62fe',
+    statusSecondary: '#334155',
+    agentResponseCount: '#0f62fe',
+    agentPrefix: '#0f62fe',
+    agentName: '#0f172a',
+    agentText: '#1f2937',
+    agentContentText: '#334155',
+    agentToggleHeaderText: '#0f172a',
+    agentToggleText: '#0f172a',
+    chromeText: '#0f172a',
+    inputPlaceholder: '#64748b',
+    markdown: {
+      inlineCodeFg: '#0f62fe',
+      codeTextFg: '#0f172a',
+      headingFg: {
+        1: '#0f62fe',
+        2: '#0f62fe',
+        3: '#0f62fe',
+        4: '#0f62fe',
+        5: '#0f62fe',
+        6: '#0f62fe',
+      },
+    },
+  },
+  dark: {
+    statusAccent: '#7dd3fc',
+    statusSecondary: '#dbeafe',
+    agentResponseCount: '#93c5fd',
+    agentPrefix: '#7dd3fc',
+    agentName: '#ffffff',
+    agentText: '#ffffff',
+    agentContentText: '#dbeafe',
+    agentToggleHeaderText: '#ffffff',
+    agentToggleText: '#ffffff',
+    chromeText: '#ffffff',
+    inputPlaceholder: '#cbd5f5',
+    markdown: {
+      inlineCodeFg: '#93c5fd',
+      codeTextFg: '#dbeafe',
+      headingFg: {
+        1: '#93c5fd',
+        2: '#93c5fd',
+        3: '#93c5fd',
+        4: '#93c5fd',
+        5: '#93c5fd',
+        6: '#93c5fd',
+      },
+    },
+  },
+}
+
+const mergeThemeOverrides = (
+  base: ChatTheme,
+  overrides: Partial<ChatTheme>,
+): ChatTheme => {
+  if (!overrides) return base
+
+  const { markdown: markdownOverrides, ...rest } = overrides
+  const merged: ChatTheme = {
+    ...base,
+    ...rest,
+  }
+
+  if (markdownOverrides) {
+    const baseMarkdown = base.markdown ?? {}
+    const headingOverrides = markdownOverrides.headingFg
+    const mergedMarkdown: NonNullable<ChatTheme['markdown']> = {
+      ...baseMarkdown,
+      ...markdownOverrides,
+    }
+    if (headingOverrides) {
+      mergedMarkdown.headingFg = {
+        ...(baseMarkdown.headingFg ?? {}),
+        ...headingOverrides,
+      }
+    }
+    merged.markdown = mergedMarkdown
+  }
+
+  return merged
+}
+
 const detectThemeFromSystemAppearance = (): 'dark' | 'light' | null => {
   if (process.platform !== 'darwin') return null
   try {
@@ -405,29 +607,423 @@ const detectThemeFromSystemAppearance = (): 'dark' | 'light' | null => {
   return null
 }
 
-const resolvedThemeName: 'dark' | 'light' =
-  getNormalizedEnvTheme() ??
-  detectThemeFromColorFgbg() ??
-  detectThemeFromTerminalBackground() ??
-  detectThemeFromSystemAppearance() ??
-  'light'
+const escapeRegex = (value: string): string =>
+  value.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
 
-const baseTheme = BASE_THEMES[resolvedThemeName]
-const markdown = baseTheme.markdown
-  ? {
-      ...baseTheme.markdown,
-      headingFg: baseTheme.markdown.headingFg
-        ? { ...baseTheme.markdown.headingFg }
-        : undefined,
+const detectThemeFromMacTerminal = (): 'dark' | 'light' | null => {
+  if (process.platform !== 'darwin') return null
+  if (process.env.TERM_PROGRAM !== 'Apple_Terminal') return null
+
+  const profile =
+    process.env.TERM_PROFILE ||
+    (() => {
+      try {
+        return execSync("defaults read com.apple.Terminal 'Default Window Settings'", {
+          stdio: ['ignore', 'pipe', 'ignore'],
+          encoding: 'utf8',
+        }).trim()
+      } catch {
+        return null
+      }
+    })()
+  if (!profile) {
+    return detectThemeFromSystemAppearance()
+  }
+
+  try {
+    const rawSettings = execSync(
+      "defaults read com.apple.Terminal 'Window Settings'",
+      {
+        stdio: ['ignore', 'pipe', 'ignore'],
+        encoding: 'utf8',
+      },
+    )
+
+    const profilePattern = new RegExp(
+      `\"${escapeRegex(profile)}\"\\s*=\\s*\\{[^}]*?BackgroundColor\\s*=\\s*\\(([^)]*)\\)`,
+      's',
+    )
+    const match = rawSettings.match(profilePattern)
+    if (!match) return null
+
+    const [r, g, b] = match[1]
+      .split(',')
+      .slice(0, 3)
+      .map((component) => Number.parseFloat(component.trim()))
+    if (
+      [r, g, b].some(
+        (component) => Number.isNaN(component) || !Number.isFinite(component),
+      )
+    ) {
+      return null
     }
-  : undefined
 
-export const chatTheme: ChatTheme = {
-  ...baseTheme,
-  markdown,
+    const brightness = estimateBrightness([
+      Math.round(Math.max(0, Math.min(1, r)) * 255),
+      Math.round(Math.max(0, Math.min(1, g)) * 255),
+      Math.round(Math.max(0, Math.min(1, b)) * 255),
+    ])
+
+    return brightness >= 160 ? 'light' : 'dark'
+  } catch {
+    return null
+  }
+}
+
+type ThemeDetectionStep = {
+  name: string
+  detect: () => 'dark' | 'light' | null
+}
+
+const THEME_DETECTION_STEPS: ThemeDetectionStep[] = [
+  {
+    name: 'env',
+    detect: getNormalizedEnvTheme,
+  },
+  {
+    name: 'colorFgbg',
+    detect: detectThemeFromColorFgbg,
+  },
+  {
+    name: 'terminalBackground',
+    detect: detectThemeFromTerminalBackground,
+  },
+  {
+    name: 'macTerminalProfileOrSystemFallback',
+    detect: detectThemeFromMacTerminal,
+  },
+  {
+    name: 'systemAppearance',
+    detect: detectThemeFromSystemAppearance,
+  },
+]
+
+type ThemeDetectionRecord = {
+  name: string
+  value: 'dark' | 'light' | null
+}
+
+interface ThemeComputationMeta {
+  theme: ChatTheme
+  resolvedThemeName: 'dark' | 'light'
+  allowTerminalDefaults: boolean
+  detectionTrail: ThemeDetectionRecord[]
+}
+
+const computeTheme = (): ThemeComputationMeta => {
+  const detectionTrail: ThemeDetectionRecord[] = []
+  let resolvedThemeName: 'dark' | 'light' | null = null
+
+  for (const step of THEME_DETECTION_STEPS) {
+    const value = step.detect()
+    detectionTrail.push({ name: step.name, value })
+    if (value) {
+      resolvedThemeName = value
+      break
+    }
+  }
+
+  if (!resolvedThemeName) {
+    resolvedThemeName = 'light'
+  }
+
+  const baseTheme = BASE_THEMES[resolvedThemeName]
+  const { theme: neutralizedTheme, allowTerminalDefaults } =
+    applyNeutralTextDefaults(baseTheme, resolvedThemeName)
+  const markdown = neutralizedTheme.markdown
+    ? {
+        ...neutralizedTheme.markdown,
+        headingFg: neutralizedTheme.markdown.headingFg
+          ? { ...neutralizedTheme.markdown.headingFg }
+          : undefined,
+      }
+    : undefined
+
+  const theme: ChatTheme = {
+    ...neutralizedTheme,
+    markdown,
+  }
+
+  return {
+    theme,
+    resolvedThemeName,
+    allowTerminalDefaults,
+    detectionTrail,
+  }
+}
+
+const themeEmitter = new EventEmitter()
+
+let currentChatTheme: ChatTheme = NEUTRAL_THEME
+
+export const chatTheme = new Proxy(currentChatTheme, {
+  get(target, prop, receiver) {
+    return Reflect.get(target, prop, receiver)
+  },
+  set(target, prop, value) {
+    Reflect.set(target, prop, value)
+    return true
+  },
+}) as ChatTheme
+
+const applyTheme = (meta: ThemeComputationMeta, source: string) => {
+  currentChatTheme = meta.theme
+  Object.assign(chatTheme, meta.theme)
+  themeEmitter.emit('theme-change', chatTheme, {
+    source,
+    resolvedThemeName: meta.resolvedThemeName,
+  })
+
+  if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+    logger.debug(
+      {
+        themeDetection: {
+          isMacTerminal: IS_MAC_TERMINAL,
+          termProgram: process.env.TERM_PROGRAM ?? null,
+          termProfile: process.env.TERM_PROFILE ?? null,
+          resolvedThemeName: meta.resolvedThemeName,
+          allowTerminalDefaults: meta.allowTerminalDefaults,
+          detectionTrail: meta.detectionTrail,
+          source,
+          colors: {
+            messageAiText: chatTheme.messageAiText,
+            messageUserText: chatTheme.messageUserText,
+            inputFg: chatTheme.inputFg,
+            agentText: chatTheme.agentText,
+            agentContentText: chatTheme.agentContentText,
+          },
+          messageTextAttributes: chatTheme.messageTextAttributes ?? null,
+        },
+      },
+      'Resolved chat theme configuration',
+    )
+  }
+}
+
+const initialComputation = computeTheme()
+applyTheme(initialComputation, 'initial')
+
+export const onThemeChange = (
+  listener: (
+    theme: ChatTheme,
+    meta: { source: string; resolvedThemeName: 'dark' | 'light' },
+  ) => void,
+) => {
+  themeEmitter.on('theme-change', listener)
+  return () => {
+    themeEmitter.off('theme-change', listener)
+  }
+}
+
+const recomputeTheme = (source: string) => {
+  const meta = computeTheme()
+  if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+    logger.debug(
+      { source, resolvedThemeName: meta.resolvedThemeName },
+      'Recomputing theme',
+    )
+  }
+  applyTheme(meta, source)
+}
+
+const pendingReasons = new Set<string>()
+let recomputeTimeout: NodeJS.Timeout | null = null
+
+const scheduleThemeRecompute = (reason: string, delay = 100) => {
+  pendingReasons.add(reason)
+  if (recomputeTimeout) {
+    clearTimeout(recomputeTimeout)
+  }
+  if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+    logger.debug(
+      { reason, delay, pending: Array.from(pendingReasons) },
+      'Scheduling theme recompute',
+    )
+  }
+  recomputeTimeout = setTimeout(() => {
+    recomputeTimeout = null
+    const combinedReason = Array.from(pendingReasons).join(',')
+    pendingReasons.clear()
+    if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+      logger.debug(
+        { combinedReason },
+        'Executing scheduled theme recompute',
+      )
+    }
+    recomputeTheme(combinedReason || reason)
+  }, delay)
+}
+
+const macWatchers = new Map<string, fs.FSWatcher>()
+const macWatcherRetryTimers = new Map<string, NodeJS.Timeout>()
+
+const detachMacWatcher = (target: string) => {
+  const watcher = macWatchers.get(target)
+  if (!watcher) return
+  try {
+    watcher.close()
+  } catch {
+    // ignore close errors
+  }
+  macWatchers.delete(target)
+}
+
+const scheduleMacWatcherRetry = (target: string, delay = 750) => {
+  const existing = macWatcherRetryTimers.get(target)
+  if (existing) {
+    clearTimeout(existing)
+  }
+  const timeout = setTimeout(() => {
+    macWatcherRetryTimers.delete(target)
+    attachMacWatcher(target)
+  }, delay)
+  macWatcherRetryTimers.set(target, timeout)
+}
+
+const attachMacWatcher = (target: string) => {
+  detachMacWatcher(target)
+
+  if (!fs.existsSync(target)) {
+    if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+      logger.debug({ target }, 'Theme watcher target missing, scheduling retry')
+    }
+    scheduleMacWatcherRetry(target)
+    return
+  }
+
+  try {
+    const watcher = fs.watch(target, { persistent: false }, (eventType) => {
+      if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+        logger.debug(
+          { target, eventType },
+          'Theme watcher detected change, scheduling recompute',
+        )
+      }
+      scheduleThemeRecompute(
+        `fs:${path.basename(target)}:${eventType}`,
+        250,
+      )
+
+      if (eventType === 'rename') {
+        if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+          logger.debug({ target }, 'Theme watcher received rename, reattaching')
+        }
+        scheduleMacWatcherRetry(target, 250)
+      }
+    })
+    watcher.on('error', (error) => {
+      logger.debug(
+        {
+          themeWatcherError:
+            error instanceof Error ? error.message : String(error),
+          target,
+        },
+        'Theme watcher encountered an error',
+      )
+      scheduleMacWatcherRetry(target)
+    })
+    macWatchers.set(target, watcher)
+    if (process.env.CODEBUFF_THEME_DEBUG === '1') {
+      logger.debug({ target }, 'Theme watcher attached')
+    }
+  } catch (error) {
+    logger.debug(
+      {
+        themeWatcherError:
+          error instanceof Error ? error.message : String(error),
+        target,
+      },
+      'Failed to start theme watcher',
+    )
+    scheduleMacWatcherRetry(target)
+  }
+}
+
+const setupMacThemeWatchers = () => {
+  if (process.platform !== 'darwin') return
+
+  const targets = [
+    path.join(os.homedir(), 'Library/Preferences/.GlobalPreferences.plist'),
+    path.join(os.homedir(), 'Library/Preferences/com.apple.Terminal.plist'),
+  ]
+
+  for (const target of targets) {
+    attachMacWatcher(target)
+  }
+}
+
+if (process.platform === 'darwin') {
+  setupMacThemeWatchers()
+}
+
+const POLL_INTERVAL_MS = Number.parseInt(
+  process.env.CODEBUFF_THEME_POLL_MS ?? '',
+  10,
+) || 5000
+
+let pollInterval: NodeJS.Timeout | null = null
+if (POLL_INTERVAL_MS > 0) {
+  pollInterval = setInterval(() => {
+    recomputeTheme('interval')
+  }, POLL_INTERVAL_MS)
+}
+
+process.on('exit', () => {
+  for (const watcher of macWatchers.values()) {
+    try {
+      watcher.close()
+    } catch {
+      // ignore
+    }
+  }
+  macWatchers.clear()
+  for (const timer of macWatcherRetryTimers.values()) {
+    clearTimeout(timer)
+  }
+  macWatcherRetryTimers.clear()
+  if (pollInterval) {
+    clearInterval(pollInterval)
+  }
+})
+
+process.on('SIGUSR2', () => {
+  recomputeTheme('signal:SIGUSR2')
+})
+
+export const forceThemeRecompute = (reason = 'manual') => {
+  recomputeTheme(reason)
 }
 
 export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
+  const inlineCodeFg =
+    resolveThemeColor(theme.markdown?.inlineCodeFg, theme.messageAiText) ??
+    theme.statusAccent
+  const codeBackground =
+    resolveThemeColor(theme.markdown?.codeBackground, theme.messageBg) ??
+    'transparent'
+  const codeHeaderFg =
+    resolveThemeColor(theme.markdown?.codeHeaderFg, theme.statusSecondary) ??
+    theme.statusSecondary
+  const listBulletFg =
+    resolveThemeColor(theme.markdown?.listBulletFg, theme.statusSecondary) ??
+    theme.statusSecondary
+  const blockquoteBorderFg =
+    resolveThemeColor(
+      theme.markdown?.blockquoteBorderFg,
+      theme.statusSecondary,
+    ) ?? theme.statusSecondary
+  const blockquoteTextFg =
+    resolveThemeColor(
+      theme.markdown?.blockquoteTextFg,
+      theme.agentContentText,
+    ) ?? theme.statusSecondary
+  const dividerFg =
+    resolveThemeColor(theme.markdown?.dividerFg, theme.statusSecondary) ??
+    theme.statusSecondary
+  const codeTextFg =
+    resolveThemeColor(theme.markdown?.codeTextFg, theme.agentContentText) ??
+    inlineCodeFg
+
   const headingDefaults: Record<MarkdownHeadingLevel, string> = {
     1: theme.statusAccent,
     2: theme.statusAccent,
@@ -440,19 +1036,18 @@ export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
   const overrides = theme.markdown?.headingFg ?? {}
 
   return {
-    inlineCodeFg: theme.markdown?.inlineCodeFg ?? theme.messageAiText,
-    codeBackground: theme.markdown?.codeBackground ?? theme.messageBg,
-    codeHeaderFg: theme.markdown?.codeHeaderFg ?? theme.statusSecondary,
+    inlineCodeFg,
+    codeBackground,
+    codeHeaderFg,
     headingFg: {
       ...headingDefaults,
       ...overrides,
     },
-    listBulletFg: theme.markdown?.listBulletFg ?? theme.statusSecondary,
-    blockquoteBorderFg:
-      theme.markdown?.blockquoteBorderFg ?? theme.statusSecondary,
-    blockquoteTextFg: theme.markdown?.blockquoteTextFg ?? theme.messageAiText,
-    dividerFg: theme.markdown?.dividerFg ?? theme.statusSecondary,
-    codeTextFg: theme.markdown?.codeTextFg ?? theme.messageAiText,
+    listBulletFg,
+    blockquoteBorderFg,
+    blockquoteTextFg,
+    dividerFg,
+    codeTextFg,
     codeMonochrome: theme.markdown?.codeMonochrome ?? true,
   }
 }

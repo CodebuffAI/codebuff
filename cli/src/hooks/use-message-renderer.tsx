@@ -25,7 +25,7 @@ import {
 import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
 import type { ChatMessage } from '../chat'
-import type { ChatTheme } from '../utils/theme-system'
+import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
 
 interface UseMessageRendererProps {
   messages: ChatMessage[]
@@ -103,10 +103,12 @@ export const useMessageRenderer = (
           : `${statusIndicator} ${statusLabel}`
 
       const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
+      const agentTextColor =
+        resolveThemeColor(theme.agentText) ?? markdownPalette.inlineCodeFg
       const agentPalette: MarkdownPalette = {
         ...markdownPalette,
-        inlineCodeFg: theme.agentText,
-        codeTextFg: theme.agentText,
+        inlineCodeFg: agentTextColor,
+        codeTextFg: agentTextColor,
       }
       const agentMarkdownOptions = {
         codeBlockWidth: agentCodeBlockWidth,
@@ -204,7 +206,10 @@ export const useMessageRenderer = (
               onMouseDown={handleContentClick}
             >
               {isStreaming && isCollapsed && streamingPreview && (
-                <text fg={theme.agentText} attributes={TextAttributes.ITALIC}>
+                <text
+                  fg={resolveThemeColor(theme.agentText)}
+                  attributes={TextAttributes.ITALIC}
+                >
                   {streamingPreview}
                 </text>
               )}
@@ -219,7 +224,7 @@ export const useMessageRenderer = (
               {!isCollapsed && (
                 <text
                   key={`agent-content-${message.id}`}
-                  fg={theme.agentContentText}
+                  fg={resolveThemeColor(theme.agentContentText)}
                 >
                   {displayContent}
                 </text>
@@ -259,14 +264,18 @@ export const useMessageRenderer = (
       const isAi = message.variant === 'ai'
       const isUser = message.variant === 'user'
       const lineColor = isAi ? theme.aiLine : theme.userLine
-      const textColor = isAi ? theme.messageAiText : theme.messageUserText
+      const textColor = resolveThemeColor(
+        isAi ? theme.messageAiText : theme.messageUserText,
+      )
+      const textAttributes =
+        textColor === undefined ? theme.messageTextAttributes : undefined
       const timestampColor = isAi ? theme.timestampAi : theme.timestampUser
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
       const paletteForMessage: MarkdownPalette = {
         ...markdownPalette,
-        inlineCodeFg: textColor,
-        codeTextFg: textColor,
+        inlineCodeFg: textColor ?? markdownPalette.inlineCodeFg,
+        codeTextFg: textColor ?? markdownPalette.codeTextFg,
       }
       const markdownOptions = { codeBlockWidth, palette: paletteForMessage }
 
@@ -334,21 +343,22 @@ export const useMessageRenderer = (
                     justifyContent: 'center',
                   }}
                 >
-                  <MessageBlock
-                    messageId={message.id}
-                    blocks={message.blocks}
-                    content={message.content}
-                    isUser={isUser}
-                    isAi={isAi}
-                    isLoading={isLoading}
-                    timestamp={message.timestamp}
-                    isComplete={message.isComplete}
-                    completionTime={message.completionTime}
-                    credits={message.credits}
-                    theme={theme}
-                    textColor={textColor}
-                    timestampColor={timestampColor}
-                    markdownOptions={markdownOptions}
+          <MessageBlock
+            messageId={message.id}
+            blocks={message.blocks}
+            content={message.content}
+            isUser={isUser}
+            isAi={isAi}
+            isLoading={isLoading}
+            timestamp={message.timestamp}
+            isComplete={message.isComplete}
+            completionTime={message.completionTime}
+            credits={message.credits}
+            theme={theme}
+            textColor={textColor}
+            textAttributes={textAttributes}
+            timestampColor={timestampColor}
+            markdownOptions={markdownOptions}
                     availableWidth={availableWidth}
                     markdownPalette={markdownPalette}
                     collapsedAgents={collapsedAgents}

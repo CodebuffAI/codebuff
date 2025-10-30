@@ -15,7 +15,7 @@ import {
 } from '../utils/markdown-renderer'
 
 import type { ContentBlock } from '../chat'
-import type { ChatTheme } from '../utils/theme-system'
+import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
 
 const trimTrailingNewlines = (value: string): string =>
   value.replace(/[\r\n]+$/g, '')
@@ -35,7 +35,8 @@ interface MessageBlockProps {
   completionTime?: string
   credits?: number
   theme: ChatTheme
-  textColor: string
+  textColor?: string
+  textAttributes?: number
   timestampColor: string
   markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
   availableWidth: number
@@ -59,6 +60,7 @@ export const MessageBlock = ({
   credits,
   theme,
   textColor,
+  textAttributes,
   timestampColor,
   markdownOptions,
   availableWidth,
@@ -70,13 +72,15 @@ export const MessageBlock = ({
 }: MessageBlockProps): ReactNode => {
   const getAgentMarkdownOptions = (indentLevel: number) => {
     const indentationOffset = indentLevel * 2
+    const agentTextColor =
+      resolveThemeColor(theme.agentText) ?? markdownPalette.inlineCodeFg
 
     return {
       codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
       palette: {
         ...markdownPalette,
-        inlineCodeFg: theme.agentText,
-        codeTextFg: theme.agentText,
+        inlineCodeFg: agentTextColor,
+        codeTextFg: agentTextColor,
       },
     }
   }
@@ -306,7 +310,11 @@ export const MessageBlock = ({
         {sortedAgents.map((agent, idx) => {
           const identifier = formatIdentifier(agent)
           return (
-            <text key={`agent-${idx}`} fg={theme.agentText}>
+            <text
+              key={`agent-${idx}`}
+              fg={resolveThemeColor(theme.agentText)}
+              attributes={theme.messageTextAttributes}
+            >
               {`  • ${identifier}`}
             </text>
           )
@@ -378,13 +386,18 @@ export const MessageBlock = ({
             ? renderStreamingMarkdown(rawNestedContent, markdownOptionsForLevel)
             : renderMarkdown(rawNestedContent, markdownOptionsForLevel)
           : rawNestedContent
+        const nestedTextColor = resolveThemeColor(theme.agentText)
+        const nestedTextStyle: Record<string, unknown> = {
+          marginLeft: Math.max(0, indentLevel * 2),
+        }
+        if (nestedTextColor) {
+          nestedTextStyle.fg = nestedTextColor
+        }
         nodes.push(
           <text
             key={renderKey}
-            style={{
-              fg: theme.agentText,
-              marginLeft: Math.max(0, indentLevel * 2),
-            }}
+            style={nestedTextStyle}
+            attributes={theme.messageTextAttributes}
           >
             {renderedContent}
           </text>,
@@ -415,6 +428,10 @@ export const MessageBlock = ({
   }
 
   const topLevelToolMeta = blocks ? buildToolBranchMeta(blocks) : null
+  const normalizedTextAttributes =
+    textAttributes !== undefined && textAttributes !== 0
+      ? textAttributes
+      : undefined
 
   return (
     <>
@@ -451,12 +468,20 @@ export const MessageBlock = ({
                 : rawContent
               const prevBlock = idx > 0 ? blocks[idx - 1] : null
               const marginTop = prevBlock && prevBlock.type === 'text' ? 1 : 0
-              const blockTextColor = block.color ?? textColor
-            return (
-              <text key={renderKey} style={{ fg: blockTextColor, marginTop }}>
-                {renderedContent}
-              </text>
-            )
+              const blockTextColor = resolveThemeColor(block.color, textColor)
+              const blockStyle: Record<string, unknown> = { marginTop }
+              if (blockTextColor) {
+                blockStyle.fg = blockTextColor
+              }
+              return (
+                <text
+                  key={renderKey}
+                  style={blockStyle}
+                  attributes={normalizedTextAttributes}
+                >
+                  {renderedContent}
+                </text>
+              )
           } else if (block.type === 'tool') {
             const branchMeta =
               topLevelToolMeta?.get(idx) ?? defaultToolBranchMeta
@@ -495,8 +520,12 @@ export const MessageBlock = ({
           return (
             <text
               key={`message-content-${messageId}`}
-              style={{ fg: textColor }}
-              attributes={isUser ? TextAttributes.ITALIC : undefined}
+              style={textColor ? { fg: textColor } : {}}
+              attributes={(() => {
+                const base = isUser ? TextAttributes.ITALIC : 0
+                const combined = (normalizedTextAttributes ?? 0) | base
+                return combined === 0 ? undefined : combined
+              })()}
             >
               {displayContent}
             </text>

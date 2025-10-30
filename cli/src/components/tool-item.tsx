@@ -1,7 +1,7 @@
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
-import type { ChatTheme } from '../utils/theme-system'
+import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
 
 export interface ToolBranchMeta {
   hasPrevious: boolean
@@ -23,6 +23,12 @@ interface ToolItemProps {
 }
 
 const renderContent = (value: ReactNode, theme: ChatTheme): ReactNode => {
+  const contentFg = resolveThemeColor(theme.agentContentText)
+  const contentAttributes =
+    theme.messageTextAttributes !== undefined && theme.messageTextAttributes !== 0
+      ? theme.messageTextAttributes
+      : undefined
+
   if (
     value === null ||
     value === undefined ||
@@ -34,7 +40,11 @@ const renderContent = (value: ReactNode, theme: ChatTheme): ReactNode => {
 
   if (typeof value === 'string' || typeof value === 'number') {
     return (
-      <text fg={theme.agentContentText} style={{ wrapMode: 'word' }}>
+      <text
+        fg={contentFg}
+        style={{ wrapMode: 'word' }}
+        attributes={contentAttributes}
+      >
         {value}
       </text>
     )
@@ -57,7 +67,11 @@ const renderContent = (value: ReactNode, theme: ChatTheme): ReactNode => {
   }
 
   return (
-    <text fg={theme.agentContentText} style={{ wrapMode: 'word' }}>
+    <text
+      fg={contentFg}
+      style={{ wrapMode: 'word' }}
+      attributes={contentAttributes}
+    >
       {value as any}
     </text>
   )
@@ -79,7 +93,12 @@ export const ToolItem = ({
   const branchColor = theme.agentResponseCount
   const branchAttributes = TextAttributes.DIM
   const titleColor = customTitleColor ?? theme.statusSecondary
-  const previewColor = isStreaming ? theme.agentText : theme.agentResponseCount
+  const previewColor =
+    resolveThemeColor(
+      isStreaming ? theme.agentText : theme.agentResponseCount,
+      theme.agentResponseCount,
+    ) ?? theme.agentResponseCount
+  const baseTextAttributes = theme.messageTextAttributes ?? 0
   const connectorSymbol = branchMeta.hasNext ? '├' : '└'
   const continuationPrefix = branchMeta.hasNext ? '│ ' : '  '
   const showBranchAbove = branchMeta.hasPrevious
@@ -152,7 +171,13 @@ export const ToolItem = ({
   const hasPreview =
     typeof previewText === 'string' ? previewText.length > 0 : false
   const previewNode = hasPreview ? (
-    <text fg={previewColor} attributes={TextAttributes.ITALIC}>
+    <text
+      fg={previewColor}
+      attributes={(() => {
+        const combined = baseTextAttributes | TextAttributes.ITALIC
+        return combined === 0 ? undefined : combined
+      })()}
+    >
       {previewText}
     </text>
   ) : null

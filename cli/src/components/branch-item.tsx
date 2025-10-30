@@ -51,8 +51,8 @@ export const BranchItem = ({
   onToggle,
 }: BranchItemProps) => {
   const resolveFg = (
-    color?: string,
-    fallback?: string,
+    color?: string | null,
+    fallback?: string | null,
   ): string | undefined => {
     if (color && color !== 'default') return color
     if (fallback && fallback !== 'default') return fallback
@@ -63,14 +63,20 @@ export const BranchItem = ({
     resolveFg(theme.chromeText) ??
     '#d1d5e5'
 
+  const baseTextAttributes = theme.messageTextAttributes ?? 0
+  const getAttributes = (extra: number = 0): number | undefined => {
+    const combined = baseTextAttributes | extra
+    return combined === 0 ? undefined : combined
+  }
+
   const isExpanded = !isCollapsed
   const toggleFrameColor = isExpanded
     ? theme.agentToggleExpandedBg
-    : theme.agentToggleHeaderBg
+    : theme.agentResponseCount ?? theme.agentToggleHeaderBg
   const toggleIconColor = isStreaming
     ? theme.statusAccent
-    : toggleFrameColor
-  const toggleLabelColor = toggleFrameColor
+    : theme.chromeText ?? toggleFrameColor
+  const toggleLabelColor = theme.chromeText ?? toggleFrameColor
   const toggleLabel = `${isCollapsed ? '▸' : '▾'} `
   const collapseButtonFrame = theme.agentToggleExpandedBg
   const collapseButtonText = collapseButtonFrame
@@ -131,7 +137,11 @@ export const BranchItem = ({
 
     if (isTextRenderable(value)) {
       return (
-        <text fg={theme.agentText} key="expanded-text">
+        <text
+          fg={resolveFg(theme.agentText)}
+          key="expanded-text"
+          attributes={getAttributes()}
+        >
           {value}
         </text>
       )
@@ -209,7 +219,11 @@ export const BranchItem = ({
             }}
           >
             <text {...(headerFg ? { fg: headerFg } : undefined)}>Prompt</text>
-            <text fg={theme.agentText} style={{ wrapMode: 'word' }}>
+            <text
+              fg={resolveFg(theme.agentText)}
+              style={{ wrapMode: 'word' }}
+              attributes={getAttributes()}
+            >
               {prompt}
             </text>
           </box>
@@ -254,12 +268,15 @@ export const BranchItem = ({
                 paddingLeft: 1,
                 paddingRight: 1,
                 paddingTop: 0,
-                paddingBottom: 1,
+              paddingBottom: 1,
               }}
             >
               <text
-                fg={isStreaming ? theme.agentText : theme.agentResponseCount}
-                attributes={TextAttributes.ITALIC}
+                fg={resolveFg(
+                  isStreaming ? theme.agentText : theme.agentResponseCount,
+                  fallbackTextColor,
+                )}
+                attributes={getAttributes(TextAttributes.ITALIC)}
               >
                 {isStreaming ? streamingPreview : finishedPreview}
               </text>
@@ -285,7 +302,11 @@ export const BranchItem = ({
                 }}
               >
                 <text {...(headerFg ? { fg: headerFg } : undefined)}>Prompt</text>
-                <text fg={theme.agentText} style={{ wrapMode: 'word' }}>
+                <text
+                  fg={resolveFg(theme.agentText)}
+                  style={{ wrapMode: 'word' }}
+                  attributes={getAttributes()}
+                >
                   {prompt}
                 </text>
                 {content && (
