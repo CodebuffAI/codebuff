@@ -13,7 +13,7 @@ export type ValidationError = {
 type UseAgentValidationResult = {
   validationErrors: ValidationError[]
   isValidating: boolean
-  validate: () => Promise<void>
+  validate: () => Promise<boolean>
 }
 
 /**
@@ -28,14 +28,15 @@ export const useAgentValidation = (
   const [isValidating, setIsValidating] = useState(false)
 
   // Validate agents and update state
-  const validate = useCallback(async () => {
+  // Returns true if validation passes, false if it fails
+  const validate = useCallback(async (): Promise<boolean> => {
     setIsValidating(true)
 
     try {
       const agentDefinitions = loadAgentDefinitions()
       logger.debug(
         { agentCount: agentDefinitions.length },
-        'Validating agents...',
+        'Validating agents before message send...',
       )
 
       const validationResult = await validateAgents(agentDefinitions, {
@@ -45,16 +46,20 @@ export const useAgentValidation = (
       if (validationResult.success) {
         logger.debug('Agent validation passed')
         setValidationErrors([])
+        return true
       } else {
         logger.debug(
           { errorCount: validationResult.validationErrors.length },
           'Agent validation found errors',
         )
         setValidationErrors(validationResult.validationErrors)
+        return false
       }
     } catch (error) {
       logger.error({ error }, 'Agent validation failed with exception')
       // Don't update validation errors on exception - keep previous state
+      // Return false to block message sending on validation errors
+      return false
     } finally {
       setIsValidating(false)
     }

@@ -97,7 +97,7 @@ interface UseSendMessageOptions {
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
-  onBeforeMessageSend?: () => Promise<void>
+  onBeforeMessageSend?: () => Promise<boolean>
   setMainAgentStreamStartTime: (time: number | null) => void
 }
 
@@ -247,11 +247,43 @@ export const useSendMessage = ({
 
   const sendMessage = useCallback(
     async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
-      // Trigger validation before sending message (non-blocking)
+      // Validate agents before sending message (blocking)
       if (onBeforeMessageSend) {
-        onBeforeMessageSend().catch((error) => {
-          logger.error({ error }, 'Validation before message send failed')
-        })
+        try {
+          const validationPassed = await onBeforeMessageSend()
+
+          if (!validationPassed) {
+            logger.warn('Message send blocked due to agent validation errors')
+
+            // Add an error message to the chat
+            const errorMessage: ChatMessage = {
+              id: `error-${Date.now()}`,
+              variant: 'error',
+              content: 'Cannot send message: Please fix agent validation errors first. Check the validation errors displayed above.',
+              timestamp: formatTimestamp(),
+            }
+
+            applyMessageUpdate((prev) => [...prev, errorMessage])
+            await yieldToEventLoop()
+
+            return
+          }
+        } catch (error) {
+          logger.error({ error }, 'Validation before message send failed with exception')
+
+          // Add an error message to the chat
+          const errorMessage: ChatMessage = {
+            id: `error-${Date.now()}`,
+            variant: 'error',
+            content: 'Cannot send message: Agent validation failed unexpectedly.',
+            timestamp: formatTimestamp(),
+          }
+
+          applyMessageUpdate((prev) => [...prev, errorMessage])
+          await yieldToEventLoop()
+
+          return
+        }
       }
 
       const { agentMode } = params

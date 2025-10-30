@@ -58,7 +58,7 @@ import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
 import type { ScrollBoxRenderable } from '@opentui/core'
 
-type ChatVariant = 'ai' | 'user' | 'agent'
+type ChatVariant = 'ai' | 'user' | 'agent' | 'error'
 
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
