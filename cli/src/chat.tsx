@@ -222,25 +222,30 @@ export const App = ({
     }
   }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
 
-
   // Update logo when terminal width changes
   useEffect(() => {
     if (messages.length > 0) {
-      const systemMessage = messages.find(m => m.id.startsWith('system-loaded-agents-'))
+      const systemMessage = messages.find((m) =>
+        m.id.startsWith('system-loaded-agents-'),
+      )
       if (systemMessage?.blocks) {
-        const logoBlockIndex = systemMessage.blocks.findIndex(b => b.type === 'text' && b.content.includes('█'))
+        const logoBlockIndex = systemMessage.blocks.findIndex(
+          (b) => b.type === 'text' && b.content.includes('█'),
+        )
         if (logoBlockIndex !== -1) {
-          setMessages(prev => prev.map(msg => {
-            if (msg.id === systemMessage.id) {
-              const newBlocks = [...msg.blocks!]
-              newBlocks[logoBlockIndex] = {
-                type: 'text',
-                content: '\n\n' + logoBlock,
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === systemMessage.id) {
+                const newBlocks = [...msg.blocks!]
+                newBlocks[logoBlockIndex] = {
+                  type: 'text',
+                  content: '\n\n' + logoBlock,
+                }
+                return { ...msg, blocks: newBlocks }
               }
-              return { ...msg, blocks: newBlocks }
-            }
-            return msg
-          }))
+              return msg
+            }),
+          )
         }
       }
     }
@@ -283,18 +288,17 @@ export const App = ({
       }
 
       const renderRepoPathInfo = () => (
-        <box style={{ flexDirection: 'row', gap: 0, flexWrap: 'wrap' }}>
-          <text wrap={false}>Codebuff can read and write files in </text>
+        <text wrap={true}>
+          Codebuff can read and write files in{' '}
           <TerminalLink
             text={displayPath}
             color="#3b82f6"
-            inline={false}
-            lineWrap={false}
-            containerStyle={{ flexDirection: 'row', width: 'auto' }}
+            inline={true}
+            underlineOnHover={true}
             onActivate={handleActivateRepoPath}
           />
-          <text wrap={false}>, and run terminal commands to help you build.</text>
-        </box>
+          , and run terminal commands to help you build.
+        </text>
       )
 
       blocks.push({
@@ -477,7 +481,6 @@ export const App = ({
 
   // Track main agent streaming elapsed time
   const mainAgentTimer = useElapsedTime()
-
 
   const agentRefsMap = useRef<Map<string, any>>(new Map())
   const hasAutoSubmittedRef = useRef(false)
@@ -1014,7 +1017,6 @@ export const App = ({
     exitWarning || hasStatus || shouldShowQueuePreview,
   )
 
-
   const statusIndicatorNode = (
     <StatusIndicator
       theme={theme}
@@ -1047,13 +1049,16 @@ export const App = ({
     }
 
     // Get agent info by ID
-    const createAgentInfoEntry = (
-      agent: any,
-    ): [string, LocalAgentInfo] => [agent.id, agent as LocalAgentInfo]
+    const createAgentInfoEntry = (agent: any): [string, LocalAgentInfo] => [
+      agent.id,
+      agent as LocalAgentInfo,
+    ]
 
     const agentInfoById = new Map<string, LocalAgentInfo>(
-      (loadedAgentsData?.agents.map(createAgentInfoEntry) ||
-        []) as [string, LocalAgentInfo][],
+      (loadedAgentsData?.agents.map(createAgentInfoEntry) || []) as [
+        string,
+        LocalAgentInfo,
+      ][],
     )
 
     const formatErrorLine = (
