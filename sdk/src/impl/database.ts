@@ -1,5 +1,8 @@
+import { validateSingleAgent } from '@codebuff/common/templates/agent-validation'
 import { userColumns } from '@codebuff/common/types/contracts/database'
+import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { getErrorObject } from '@codebuff/common/util/error'
+import z from 'zod/v4'
 
 import { WEBSITE_URL } from '../constants'
 
@@ -12,12 +15,18 @@ import type {
   StartAgentRunFn,
   UserColumn,
 } from '@codebuff/common/types/contracts/database'
+import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 
 const userInfoCache: Record<
   string,
   Awaited<GetUserInfoFromApiKeyOutput<UserColumn>>
 > = {}
+
+const agentsResponseSchema = z.object({
+  version: z.string(),
+  data: DynamicAgentTemplateSchema,
+})
 
 export async function getUserInfoFromApiKey<T extends UserColumn>(
   params: GetUserInfoFromApiKeyInput<T>,
@@ -100,7 +109,57 @@ export async function fetchAgentFromDatabase(
       logger.error({ response }, 'fetchAgentFromDatabase request failed')
       return null
     }
-    return response.json()
+
+    const responseJson = await response.json()
+    const parseResult = agentsResponseSchema.safeParse(responseJson)
+    if (!parseResult.success) {
+      logger.error(
+        { responseJson, parseResult },
+        `fetchAgentFromDatabase parse error`,
+      )
+      return null
+    }
+
+    const agentConfig = parseResult.data
+    const rawAgentData = agentConfig.data as DynamicAgentTemplate
+
+    // Validate the raw agent data with the original agentId (not full identifier)
+    const validationResult = validateSingleAgent({
+      template: { ...rawAgentData, id: agentId, version: agentConfig.version },
+      filePath: `${publisherId}/${agentId}@${agentConfig.version}`,
+    })
+
+    if (!validationResult.success) {
+      logger.error(
+        {
+          publisherId,
+          agentId,
+          version: agentConfig.version,
+          error: validationResult.error,
+        },
+        'fetchAgentFromDatabase: Agent validation failed',
+      )
+      return null
+    }
+
+    // Set the correct full agent ID for the final template
+    const agentTemplate = {
+      ...validationResult.agentTemplate!,
+      id: `${publisherId}/${agentId}@${agentConfig.version}`,
+    }
+
+    logger.debug(
+      {
+        publisherId,
+        agentId,
+        version: agentConfig.version,
+        fullAgentId: agentTemplate.id,
+        parsedAgentId,
+      },
+      'fetchAgentFromDatabase: Successfully loaded and validated agent from database',
+    )
+
+    return agentTemplate
   } catch (error) {
     logger.error(
       { error: getErrorObject(error), parsedAgentId },
