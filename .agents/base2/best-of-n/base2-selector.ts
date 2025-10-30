@@ -4,7 +4,7 @@ import { publisher } from '../../constants'
 const definition: SecretAgentDefinition = {
   id: 'base2-selector',
   publisher,
-  model: 'anthropic/claude-sonnet-4.5',
+  model: 'openai/gpt-5',
   displayName: 'Implementation Selector',
   spawnerPrompt:
     'Analyzes multiple implementation proposals and selects the best one',

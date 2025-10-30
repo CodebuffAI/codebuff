@@ -13,9 +13,10 @@ const definition: SecretAgentDefinition = {
   includeMessageHistory: true,
   inheritParentSystemPrompt: true,
 
-  toolNames: ['spawn_agents', 'set_output'],
+  toolNames: ['spawn_agents', 'set_messages', 'set_output'],
   spawnableAgents: [
-    'base2-implementor',
+    'base2-implementor-step',
+    'base2-implementor-step-gpt-5',
     'base2-selector',
     'base2-best-of-n-editor',
   ],
@@ -23,7 +24,7 @@ const definition: SecretAgentDefinition = {
   inputSchema: {},
   outputMode: 'structured_output',
 
-  handleSteps: function* ({ agentState, logger }) {
+  handleSteps: function* ({ agentState }) {
     // Remove userInstruction message for this agent.
     const messages = agentState.messageHistory.concat()
     messages.pop()
@@ -35,35 +36,45 @@ const definition: SecretAgentDefinition = {
       includeToolCall: false,
     } satisfies ToolCall<'set_messages'>
 
-    // Spawn 5 implementor agents in parallel
-    const { toolResult: implementorsResult } = yield {
+    // Spawn 1 of each model for easy prompt caching
+    const { toolResult: implementorsResult1 } = yield {
       toolName: 'spawn_agents',
       input: {
         agents: [
-          { agent_type: 'base2-implementor' },
-          { agent_type: 'base2-implementor' },
-          { agent_type: 'base2-implementor' },
-          { agent_type: 'base2-implementor' },
-          { agent_type: 'base2-implementor' },
+          { agent_type: 'base2-implementor-step' },
+          { agent_type: 'base2-implementor-step-gpt-5' },
         ],
       },
+      includeToolCall: false,
     }
+    // Spawn 3 more of each model in parallel
+    const { toolResult: implementorsResult2 } = yield {
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          { agent_type: 'base2-implementor-step' },
+          { agent_type: 'base2-implementor-step' },
+          { agent_type: 'base2-implementor-step' },
+          { agent_type: 'base2-implementor-step-gpt-5' },
+          { agent_type: 'base2-implementor-step-gpt-5' },
+          { agent_type: 'base2-implementor-step-gpt-5' },
+        ],
+      },
+      includeToolCall: false,
+    }
+
+    const implementorsResult = [
+      ...extractSpawnResults<string>(implementorsResult1),
+      ...extractSpawnResults<string>(implementorsResult2),
+    ]
 
     // Extract all the plans from the structured outputs
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     // Parse implementations from tool results
-    const implementations = (implementorsResult ?? [])
-      .filter((result) => result.type === 'json')
-      .map(
-        (result) =>
-          (result as any).value as { agentType: string; value: string }[],
-      )
-      .flatMap((results) =>
-        results.map((result, index) => ({
-          id: letters[index],
-          content: JSON.stringify((result.value as any).value),
-        })),
-      )
+    const implementations = implementorsResult.map((content, index) => ({
+      id: letters[index],
+      content,
+    }))
 
     // Spawn selector with implementations as params
     const { toolResult: selectorResult } = yield {
@@ -76,27 +87,29 @@ const definition: SecretAgentDefinition = {
           },
         ],
       },
+      includeToolCall: false,
     } satisfies ToolCall<'spawn_agents'>
 
-    // Extract chosen implementation from selector output
-    const selectorOutput =
-      (selectorResult ?? [])
-        .filter((result) => result.type === 'json')
-        .map(
-          (result) =>
-            result.value as {
-              value: { value: { implementationId: string; reasoning: string } }
-            }[],
-        )[0][0] || {}
+    const selectorOutput = extractSpawnResults<{
+      implementationId: string
+      reasoning: string
+    }>(selectorResult)[0]
 
-    const chosenImplementationId = selectorOutput.value.value.implementationId
+    if ('errorMessage' in selectorOutput) {
+      yield {
+        toolName: 'set_output',
+        input: { error: selectorOutput.errorMessage },
+      } satisfies ToolCall<'set_output'>
+      return
+    }
+    const { implementationId } = selectorOutput
     const chosenImplementation = implementations.find(
-      (implementation) => implementation.id === chosenImplementationId,
+      (implementation) => implementation.id === implementationId,
     )
     if (!chosenImplementation) {
       yield {
         toolName: 'set_output',
-        input: { error: 'Failed to choose an implementation.' },
+        input: { error: 'Failed to find chosen implementation.' },
       } satisfies ToolCall<'set_output'>
       return
     }
@@ -108,20 +121,28 @@ const definition: SecretAgentDefinition = {
         agents: [
           {
             agent_type: 'base2-best-of-n-editor',
-            prompt: chosenImplementation.content,
+            prompt:
+              typeof chosenImplementation.content === 'string'
+                ? chosenImplementation.content
+                : chosenImplementation.content.errorMessage,
           },
         ],
       },
+    } satisfies ToolCall<'spawn_agents'>
+
+    const spawnedEditorResult = extractSpawnResults<{
+      response: string
+      toolResults: any[]
+    }>(editorResults)[0]
+    if ('errorMessage' in spawnedEditorResult) {
+      yield {
+        toolName: 'set_output',
+        input: { error: spawnedEditorResult.errorMessage },
+      } satisfies ToolCall<'set_output'>
+      return
     }
 
-    const spawnedEditorResult = (editorResults ?? [])
-      .filter((result) => result.type === 'json')
-      .map((result) => result.value)
-      .flat()[0] as {
-      agentType: string
-      value: { value: { response: string; toolResults: any[] } }
-    }
-    const { response, toolResults } = spawnedEditorResult.value.value
+    const { response, toolResults } = spawnedEditorResult
 
     // Set output with the chosen implementation and reasoning
     yield {
@@ -131,6 +152,26 @@ const definition: SecretAgentDefinition = {
         toolResults,
       },
     } satisfies ToolCall<'set_output'>
+
+    function extractSpawnResults<T>(
+      results: any[] | undefined,
+    ): (T | { errorMessage: string })[] {
+      if (!results) return []
+      const spawnedResults = results
+        .filter((result) => result.type === 'json')
+        .map((result) => result.value)
+        .flat() as {
+        agentType: string
+        value: { value?: T; errorMessage?: string }
+      }[]
+      return spawnedResults.map(
+        (result) =>
+          result.value.value ?? {
+            errorMessage:
+              result.value.errorMessage ?? 'Error extracting spawn results',
+          },
+      )
+    }
   },
 }
 
