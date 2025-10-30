@@ -57,7 +57,7 @@ export const getAgentStreamFromTemplate = (params: {
     return {
       getStream: async function* stream(): ReturnType<PromptAiSdkStreamFn> {
         yield { type: 'text', text: textOverride!, agentId }
-        return null
+        return crypto.randomUUID()
       },
     }
   }
