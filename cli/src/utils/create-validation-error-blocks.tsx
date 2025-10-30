@@ -1,6 +1,8 @@
 import path from 'path'
 import React from 'react'
 
+import { pluralize } from '@codebuff/common/util/string'
+
 import { formatValidationError } from './validation-error-formatting'
 import { openFileAtPath } from './open-file'
 import { TerminalLink } from '../components/terminal-link'
@@ -15,6 +17,7 @@ export interface CreateValidationErrorBlocksOptions {
     agents: Array<{ id: string; displayName: string; filePath?: string }>
     agentsDir: string
   } | null
+  availableWidth?: number
 }
 
 /**
@@ -24,7 +27,7 @@ export interface CreateValidationErrorBlocksOptions {
 export function createValidationErrorBlocks(
   options: CreateValidationErrorBlocksOptions,
 ): ContentBlock[] {
-  const { errors, loadedAgentsData } = options
+  const { errors, loadedAgentsData, availableWidth = 80 } = options
   const errorCount = errors.length
   const blocks: ContentBlock[] = []
 
@@ -32,7 +35,7 @@ export function createValidationErrorBlocks(
     type: 'html',
     render: () => (
       <text style={{ fg: 'red' }}>
-        ⚠️  <b>{errorCount === 1 ? '1 agent has validation issues' : `${errorCount} agents have validation issues`}</b>
+        ⚠️ <b>{pluralize(errorCount, 'agent')} has validation issues</b>
       </text>
     ),
   })
@@ -53,13 +56,12 @@ export function createValidationErrorBlocks(
         .replace(/\\/g, '/')
       const filePath = agentInfo.filePath
 
-      // Create block with clickable file path only
+      // Simple layout: file path first, then agent ID and error
       blocks.push({
         type: 'html',
         render: ({ textColor }) => (
           <box style={{ flexDirection: 'column', width: '100%' }}>
             <box style={{ flexDirection: 'row', gap: 0, width: '100%' }}>
-              <text style={{ fg: textColor }}>{agentId}(</text>
               <TerminalLink
                 text={relativePathFromRoot}
                 containerStyle={{
@@ -70,10 +72,15 @@ export function createValidationErrorBlocks(
                 underlineOnHover
                 onActivate={() => openFileAtPath(filePath)}
               />
-              <text style={{ fg: textColor }}>)</text>
+              <text style={{ fg: textColor }} wrap={false}>
+                {' '}
+                • {agentId}
+              </text>
             </box>
             <box style={{ paddingLeft: 2, width: '100%' }}>
-              <text style={{ fg: textColor }}>{errorMsg}</text>
+              <text style={{ fg: textColor }} wrap>
+                {errorMsg}
+              </text>
             </box>
           </box>
         ),
