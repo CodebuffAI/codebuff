@@ -252,6 +252,9 @@ export const LoginModal = ({
 
   // Handle login URL activation
   const handleActivateLoginUrl = useCallback(async () => {
+    if (!loginUrl) {
+      return
+    }
     try {
       await open(loginUrl)
     } catch (err) {

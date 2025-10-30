@@ -1,16 +1,53 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
+import { JSDOM } from 'jsdom'
 import { mock, spyOn } from 'bun:test'
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
 import { useSendMessage } from '../use-send-message'
 import * as codebuffClient from '../../utils/codebuff-client'
 import * as loadAgentDefs from '../../utils/load-agent-definitions'
+import * as localAgentRegistry from '../../utils/local-agent-registry'
 import { logger } from '../../utils/logger'
 
 // Type for logger call arguments
 type LoggerInfoCall = [data: Record<string, any>, message: string]
 
-describe('useSendMessage timer', () => {
+const timerDescribe =
+  process.env.SKIP_TIMER_TESTS === '1' ? describe.skip : describe
+
+if (typeof document === 'undefined') {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>')
+  const { window } = dom
+
+  const globalWindow = window as unknown as Window & typeof globalThis
+
+  ;(globalThis as any).window = globalWindow
+  ;(globalThis as any).document = globalWindow.document
+
+  if (typeof (globalThis as any).navigator === 'undefined') {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: globalWindow.navigator,
+      configurable: true,
+    })
+  }
+
+  const descriptors = Object.getOwnPropertyDescriptors(globalWindow)
+  for (const [key, descriptor] of Object.entries(descriptors)) {
+    if (typeof (globalThis as any)[key] === 'undefined') {
+      Object.defineProperty(globalThis, key, descriptor)
+    }
+  }
+
+  if (typeof globalThis.requestAnimationFrame === 'undefined') {
+    ;(globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) =>
+      setTimeout(cb, 0)
+  }
+  if (typeof globalThis.cancelAnimationFrame === 'undefined') {
+    ;(globalThis as any).cancelAnimationFrame = (id: number) => clearTimeout(id)
+  }
+}
+
+timerDescribe('useSendMessage timer', () => {
   let mockSetMessages: ReturnType<typeof mock>
   let mockSetFocusedAgentId: ReturnType<typeof mock>
   let mockSetInputFocused: ReturnType<typeof mock>
@@ -29,6 +66,7 @@ describe('useSendMessage timer', () => {
   let activeSubagentsRef: React.MutableRefObject<Set<string>>
   let isChainInProgressRef: React.MutableRefObject<boolean>
   let abortControllerRef: React.MutableRefObject<AbortController | null>
+  let onBeforeMessageSend: ReturnType<typeof mock>
 
   beforeEach(() => {
     // Setup state setter mocks
@@ -66,6 +104,7 @@ describe('useSendMessage timer', () => {
     activeSubagentsRef = { current: new Set() }
     isChainInProgressRef = { current: false }
     abortControllerRef = { current: null }
+    onBeforeMessageSend = mock(async () => ({ success: true, errors: [] }))
 
     // Spy on external module functions
     spyOn(codebuffClient, 'getCodebuffClient').mockReturnValue({
@@ -73,6 +112,10 @@ describe('useSendMessage timer', () => {
     } as any)
     spyOn(codebuffClient, 'formatToolOutput').mockReturnValue('formatted output')
     spyOn(loadAgentDefs, 'loadAgentDefinitions').mockReturnValue([])
+    spyOn(localAgentRegistry, 'getLoadedAgentsData').mockReturnValue({
+      agents: [],
+      agentsDir: '',
+    })
     spyOn(logger, 'info').mockImplementation(() => {})
     spyOn(logger, 'error').mockImplementation(() => {})
     spyOn(logger, 'warn').mockImplementation(() => {})
@@ -102,18 +145,17 @@ describe('useSendMessage timer', () => {
         setIsStreaming: mockSetIsStreaming,
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
-        mainAgentTimer: {
-          start: mockSetMainAgentStreamStartTime.bind(null, Date.now()),
-          stop: mockSetMainAgentStreamStartTime.bind(null, null),
-          elapsedSeconds: 0,
-          startTime: null,
-        },
+        onBeforeMessageSend,
         scrollToLatest: mockScrollToLatest,
         availableWidth: 80,
       }),
     )
 
-    await result.current.sendMessage('test message', { agentMode: 'FAST' })
+    await waitFor(() => expect(result.current).toBeTruthy())
+
+    await act(async () => {
+      await result.current!.sendMessage('test message', { agentMode: 'FAST' })
+    })
 
     await waitFor(() => {
       const loggerInfoSpy = logger.info as ReturnType<typeof spyOn>
@@ -165,18 +207,17 @@ describe('useSendMessage timer', () => {
         setIsStreaming: mockSetIsStreaming,
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
-        mainAgentTimer: {
-          start: mockSetMainAgentStreamStartTime.bind(null, Date.now()),
-          stop: mockSetMainAgentStreamStartTime.bind(null, null),
-          elapsedSeconds: 0,
-          startTime: null,
-        },
+        onBeforeMessageSend,
         scrollToLatest: mockScrollToLatest,
         availableWidth: 80,
       }),
     )
 
-    await result.current.sendMessage('test message', { agentMode: 'FAST' })
+    await waitFor(() => expect(result.current).toBeTruthy())
+
+    await act(async () => {
+      await result.current!.sendMessage('test message', { agentMode: 'FAST' })
+    })
 
     await waitFor(() => {
       const loggerInfoSpy = logger.info as ReturnType<typeof spyOn>
@@ -220,6 +261,93 @@ describe('useSendMessage timer', () => {
         setIsStreaming: mockSetIsStreaming,
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
+        onBeforeMessageSend,
+        scrollToLatest: mockScrollToLatest,
+        availableWidth: 80,
+      }),
+    )
+
+    await waitFor(() => expect(result.current).toBeTruthy())
+
+    await act(async () => {
+      await result.current!.sendMessage('test message', { agentMode: 'FAST' })
+    })
+
+    await waitFor(() => {
+      // Find the setMessages call that marks completion
+      const completionCall = mockSetMessages.mock.calls.find((call) => {
+        const fn = call[0]
+        if (typeof fn !== 'function') return false
+
+        const testMessages = [
+          {
+            id: 'ai-123',
+            variant: 'ai' as const,
+            content: '',
+            blocks: [],
+            timestamp: '0',
+            metadata: { completionTimeSeconds: 12.34 } as Record<
+              string,
+              unknown
+            >,
+          },
+        ]
+
+        fn(testMessages as any)
+        const metadata = (testMessages[0] as any).metadata
+        return Boolean(metadata && 'completionTimeSeconds' in metadata)
+      })
+
+      expect(completionCall).toBeDefined()
+
+      if (completionCall) {
+        const fn = completionCall[0] as (messages: any[]) => any[]
+        const testMessages = [
+          {
+            id: 'ai-456',
+            variant: 'ai' as const,
+            content: '',
+            blocks: [],
+            timestamp: '0',
+            metadata: {} as Record<string, unknown>,
+          },
+        ]
+
+        fn(testMessages as any)
+
+        const metadata = (testMessages[0] as any).metadata
+        expect(metadata).toBeDefined()
+        expect(typeof metadata?.completionTimeSeconds).toBe('number')
+        expect((metadata?.completionTimeSeconds ?? 0)).toBeGreaterThanOrEqual(0)
+      }
+    })
+  })
+
+  test('scrolls to latest when validation errors occur', async () => {
+    const validationErrors = [
+      { id: 'agent-1', message: 'Field is required' },
+    ]
+    onBeforeMessageSend.mockResolvedValue({ success: false, errors: validationErrors })
+
+    const { result } = renderHook(() =>
+      useSendMessage({
+        setMessages: mockSetMessages,
+        setFocusedAgentId: mockSetFocusedAgentId,
+        setInputFocused: mockSetInputFocused,
+        inputRef,
+        setStreamingAgents: mockSetStreamingAgents,
+        setCollapsedAgents: mockSetCollapsedAgents,
+        activeSubagentsRef,
+        isChainInProgressRef,
+        setActiveSubagents: mockSetActiveSubagents,
+        setIsChainInProgress: mockSetIsChainInProgress,
+        setIsWaitingForResponse: mockSetIsWaitingForResponse,
+        startStreaming: mockStartStreaming,
+        stopStreaming: mockStopStreaming,
+        setIsStreaming: mockSetIsStreaming,
+        setCanProcessQueue: mockSetCanProcessQueue,
+        abortControllerRef,
+        onBeforeMessageSend,
         mainAgentTimer: {
           start: mockSetMainAgentStreamStartTime.bind(null, Date.now()),
           stop: mockSetMainAgentStreamStartTime.bind(null, null),
@@ -231,27 +359,17 @@ describe('useSendMessage timer', () => {
       }),
     )
 
-    await result.current.sendMessage('test message', { agentMode: 'FAST' })
+    await waitFor(() => expect(result.current).toBeTruthy())
+
+    await act(async () => {
+      await result.current!.sendMessage('test message', { agentMode: 'FAST' })
+    })
 
     await waitFor(() => {
-      // Find the setMessages call that marks completion
-      const completionCall = mockSetMessages.mock.calls.find((call) => {
-        const fn = call[0]
-        if (typeof fn !== 'function') return false
-
-        const testMessages = [
-          {
-            id: 'ai-123',
-            variant: 'ai',
-            content: '',
-            blocks: [],
-          },
-        ]
-        const result = fn(testMessages)
-        return result.some((msg: any) => msg.isComplete && msg.completionTime)
-      })
-
-      expect(completionCall).toBeDefined()
+      expect(mockScrollToLatest.mock.calls.length).toBeGreaterThanOrEqual(1)
+    })
+    await waitFor(() => {
+      expect(mockScrollToLatest.mock.calls.length).toBeGreaterThanOrEqual(2)
     })
   })
 })

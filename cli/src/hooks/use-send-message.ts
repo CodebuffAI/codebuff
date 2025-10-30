@@ -100,7 +100,10 @@ interface UseSendMessageOptions {
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
-  onBeforeMessageSend?: () => Promise<{ success: boolean; errors: Array<{ id: string; message: string }> }>
+  onBeforeMessageSend: () => Promise<{
+    success: boolean
+    errors: Array<{ id: string; message: string }>
+  }>
   mainAgentTimer: ElapsedTimeTracker
   scrollToLatest: () => void
   availableWidth?: number
@@ -305,6 +308,7 @@ export const useSendMessage = ({
 
           applyMessageUpdate((prev) => [...prev, errorMessage])
           await yieldToEventLoop()
+          setTimeout(() => scrollToLatest(), 0)
 
           return
         }
@@ -320,6 +324,7 @@ export const useSendMessage = ({
 
         applyMessageUpdate((prev) => [...prev, errorMessage])
         await yieldToEventLoop()
+        setTimeout(() => scrollToLatest(), 0)
 
         return
       }

@@ -1,4 +1,4 @@
-import { BACKEND_URL } from './constants'
+import { BACKEND_URL, WEBSITE_URL } from './constants'
 import { run } from './run'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 
@@ -63,11 +63,31 @@ export class CodebuffClient {
    */
   public async checkConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${BACKEND_URL}/healthz`, {
+      const response = await fetch(`${WEBSITE_URL}/api/healthz`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000), // 5 second timeout
       })
-      return response.ok && (await response.text()) === 'ok'
+      if (!response.ok) {
+        return false
+      }
+
+      let result: unknown
+      try {
+        result = await response.json()
+      } catch {
+        return false
+      }
+
+      if (
+        typeof result === 'object' &&
+        result !== null &&
+        'status' in result &&
+        (result as { status?: unknown }).status === 'ok'
+      ) {
+        return true
+      }
+
+      return false
     } catch (error) {
       return false
     }
