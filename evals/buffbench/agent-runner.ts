@@ -56,18 +56,18 @@ export async function runAgentOnCommit({
   let finalCheckOutputs: FinalCheckOutput[] | undefined
 
   try {
-    await withTestRepo(
-      {
-        repoUrl,
-        parentSha: commit.parentSha,
-        initCommand,
-        env,
-      },
-      async (repoDir) => {
-        const timeoutMs = 30 * 60 * 1000 // 30 minutes
-        const maxAgentSteps = 40
-        const result = await withTimeout(
-          client.run({
+    const timeoutMs = 30 * 60 * 1000 // 30 minutes
+    await withTimeout(
+      withTestRepo(
+        {
+          repoUrl,
+          parentSha: commit.parentSha,
+          initCommand,
+          env,
+        },
+        async (repoDir) => {
+          const maxAgentSteps = 40
+          const result = await client.run({
             agent: agentId,
             prompt: commit.prompt,
             agentDefinitions: localAgentDefinitions,
@@ -111,56 +111,56 @@ export async function runAgentOnCommit({
               }
               trace.push(event)
             },
-          }),
-          timeoutMs,
-          `Agent ${agentId} timed out after ${timeoutMs / 1000} seconds`,
-        )
-        cost = result.sessionState.mainAgentState.creditsUsed / 100
+          })
+          cost = result.sessionState.mainAgentState.creditsUsed / 100
 
-        execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
-        diff = execSync(`git diff ${commit.parentSha}`, {
-          cwd: repoDir,
-          encoding: 'utf-8',
-        })
+          execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
+          diff = execSync(`git diff ${commit.parentSha}`, {
+            cwd: repoDir,
+            encoding: 'utf-8',
+          })
 
-        const contextFilePaths = new Set<string>([
-          ...commit.supplementalFiles,
-          ...commit.fileDiffs.map((fd) => fd.path),
-        ])
-        for (const { status, path } of commit.fileDiffs) {
-          if (status === 'added') {
-            contextFilePaths.delete(path)
+          const contextFilePaths = new Set<string>([
+            ...commit.supplementalFiles,
+            ...commit.fileDiffs.map((fd) => fd.path),
+          ])
+          for (const { status, path } of commit.fileDiffs) {
+            if (status === 'added') {
+              contextFilePaths.delete(path)
+            }
           }
-        }
 
-        for (const filePath of contextFilePaths) {
-          try {
-            const content = execSync(
-              `git show ${commit.parentSha}:${JSON.stringify(filePath)}`,
-              {
-                cwd: repoDir,
-                encoding: 'utf-8',
-                maxBuffer: 10 * 1024 * 1024,
-              },
+          for (const filePath of contextFilePaths) {
+            try {
+              const content = execSync(
+                `git show ${commit.parentSha}:${JSON.stringify(filePath)}`,
+                {
+                  cwd: repoDir,
+                  encoding: 'utf-8',
+                  maxBuffer: 10 * 1024 * 1024,
+                },
+              )
+              contextFiles[filePath] = content
+            } catch (error) {
+              contextFiles[filePath] = ''
+            }
+          }
+
+          // Run final check commands if specified
+          if (finalCheckCommands && finalCheckCommands.length > 0) {
+            console.log(
+              `[${commit.id}] Running ${finalCheckCommands.length} final check commands...`,
             )
-            contextFiles[filePath] = content
-          } catch (error) {
-            contextFiles[filePath] = ''
+            finalCheckOutputs = await runFinalCheckCommands(
+              finalCheckCommands,
+              repoDir,
+              env,
+            )
           }
-        }
-
-        // Run final check commands if specified
-        if (finalCheckCommands && finalCheckCommands.length > 0) {
-          console.log(
-            `[${commit.id}] Running ${finalCheckCommands.length} final check commands...`,
-          )
-          finalCheckOutputs = await runFinalCheckCommands(
-            finalCheckCommands,
-            repoDir,
-            env,
-          )
-        }
-      },
+        },
+      ),
+      timeoutMs,
+      `Agent ${agentId} timed out after ${timeoutMs / 1000} seconds`,
     )
   } catch (e) {
     error = e instanceof Error ? `${e.message}\n${e.stack}` : String(e)
