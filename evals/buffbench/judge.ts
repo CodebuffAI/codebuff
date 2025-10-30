@@ -125,6 +125,7 @@ interface JudgeCommitResultInput {
   contextFiles: Record<string, string>
   agentDiff: string
   error?: string
+  finalCheckOutputs?: string
 }
 
 export async function judgeCommitResult(
@@ -137,6 +138,7 @@ export async function judgeCommitResult(
     contextFiles,
     agentDiff,
     error,
+    finalCheckOutputs,
   } = input
 
   const groundTruthDiffs = groundTruthFileDiffs
@@ -164,7 +166,8 @@ ${groundTruthDiffs}
 \`\`\`diff
 ${agentDiff || '(No changes made)'}
 \`\`\`
-${error ? `\n## Error Encountered\n${error}` : ''}`
+${error ? `\n## Error Encountered\n${error}` : ''}
+${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` : ''}`
 
   const agentOutput: string[] = []
   const judgeResult = await withTimeout(

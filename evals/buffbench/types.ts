@@ -51,7 +51,15 @@ export interface EvalDataV2 {
   initCommand?: string
   binInstalls?: BinInstall[]
   env?: Record<string, string>
+  finalCheckCommands?: string[]
   evalCommits: EvalCommitV2[]
+}
+
+export interface FinalCheckOutput {
+  command: string
+  exitCode: number
+  stdout: string
+  stderr: string
 }
 
 export interface EvalRun {
@@ -62,6 +70,7 @@ export interface EvalRun {
   cost: number
   durationMs: number
   error?: string
+  finalCheckOutputs?: FinalCheckOutput[]
 }
 
 export interface AgentEvalResults {

@@ -6,6 +6,8 @@ import { withTimeout } from '@codebuff/common/util/promise'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { truncateTrace } from './trace-utils'
 
+import type { FinalCheckOutput } from './types'
+
 export interface AgentTraceData {
   agentId: string
   commitSha: string
@@ -17,6 +19,7 @@ export interface AgentTraceData {
   durationMs: number
   error?: string
   timestamp: string
+  finalCheckOutputs?: FinalCheckOutput[]
 }
 
 const traceAnalyzerAgent: AgentDefinition = {
