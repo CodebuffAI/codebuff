@@ -291,12 +291,12 @@ export const App = ({
 
       blocks.push({
         type: 'html',
-        render: ({ textColor }) => (
+        render: () => (
           <text>
             Codebuff can read and write files in{' '}
             <TerminalLink
               text={displayPath}
-              color={textColor}
+              color="#3b82f6"
               inline={true}
               onActivate={async () => {
                 await openFileAtPath(repoRoot)
