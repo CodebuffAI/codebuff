@@ -50,26 +50,9 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
     }
   }, [onActivate])
 
-  // For inline mode, wrap in a text element with hover support
+  // For inline mode, render without hover/click support (spans don't support mouse events)
   if (inline) {
-    const content = shouldUnderline ? (
-      <u>
-        <span fg={displayColor}>{text}</span>
-      </u>
-    ) : (
-      <span fg={displayColor}>{text}</span>
-    )
-
-    return (
-      <text
-        wrap={false}
-        onMouseOver={() => setIsHovered(true)}
-        onMouseOut={() => setIsHovered(false)}
-        onMouseDown={handleActivate}
-      >
-        {content}
-      </text>
-    )
+    return <span fg={displayColor}>{text}</span>
   }
 
   return (

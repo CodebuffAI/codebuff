@@ -292,18 +292,20 @@ export const App = ({
       blocks.push({
         type: 'html',
         render: () => (
-          <text>
-            Codebuff can read and write files in{' '}
+          <box style={{ flexDirection: 'row', gap: 0, flexWrap: 'wrap' }}>
+            <text wrap={false}>Codebuff can read and write files in </text>
             <TerminalLink
               text={displayPath}
               color="#3b82f6"
-              inline={true}
+              inline={false}
+              lineWrap={false}
+              containerStyle={{ flexDirection: 'row', width: 'auto' }}
               onActivate={async () => {
                 await openFileAtPath(repoRoot)
               }}
             />
-            , and run terminal commands to help you build.
-          </text>
+            <text wrap={false}>, and run terminal commands to help you build.</text>
+          </box>
         ),
       })
 
