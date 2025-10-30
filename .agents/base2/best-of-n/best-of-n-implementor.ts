@@ -1,7 +1,8 @@
-import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 import { publisher } from '../../constants'
 
-export const createBase2ImplementorStep = (options: {
+import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
+
+export const createBestOfNImplementor = (options: {
   model: 'sonnet' | 'gpt-5'
 }): Omit<SecretAgentDefinition, 'id'> => {
   const { model } = options
@@ -76,7 +77,7 @@ Write out your complete implementation now, formatting all changes as tool calls
   }
 }
 const definition = {
-  ...createBase2ImplementorStep({ model: 'sonnet' }),
-  id: 'base2-implementor-step',
+  ...createBestOfNImplementor({ model: 'sonnet' }),
+  id: 'best-of-n-implementor',
 }
 export default definition

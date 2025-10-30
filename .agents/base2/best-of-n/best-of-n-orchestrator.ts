@@ -3,10 +3,10 @@ import { publisher } from '../../constants'
 import { StepText, ToolCall } from 'types/agent-definition'
 
 const definition: SecretAgentDefinition = {
-  id: 'base2-best-of-n-fast-orchestrator',
+  id: 'best-of-n-orchestrator',
   publisher,
   model: 'anthropic/claude-sonnet-4.5',
-  displayName: 'Best-of-N Fast Implementation Orchestrator',
+  displayName: 'Best-of-N Implementation Orchestrator',
   spawnerPrompt:
     'Orchestrates multiple implementor agents to generate implementation proposals and selects the best one',
 
@@ -21,9 +21,9 @@ const definition: SecretAgentDefinition = {
     'set_output',
   ],
   spawnableAgents: [
-    'base2-implementor-step',
-    'base2-implementor-step-gpt-5',
-    'base2-selector-fast',
+    'best-of-n-implementor',
+    'best-of-n-implementor-gpt-5',
+    'best-of-n-selector-gpt-5',
   ],
 
   inputSchema: {},
@@ -46,16 +46,32 @@ const definition: SecretAgentDefinition = {
       toolName: 'spawn_agents',
       input: {
         agents: [
-          { agent_type: 'base2-implementor-step' },
-          { agent_type: 'base2-implementor-step' },
-          { agent_type: 'base2-implementor-step' },
-          { agent_type: 'base2-implementor-step' },
-          { agent_type: 'base2-implementor-step' },
+          { agent_type: 'best-of-n-implementor' },
+          { agent_type: 'best-of-n-implementor-gpt-5' },
         ],
       },
       includeToolCall: false,
     }
-    const implementorsResult = extractSpawnResults<string>(implementorsResult1)
+    // Spawn 3 more of each model in parallel
+    const { toolResult: implementorsResult2 } = yield {
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          { agent_type: 'best-of-n-implementor' },
+          { agent_type: 'best-of-n-implementor' },
+          { agent_type: 'best-of-n-implementor' },
+          { agent_type: 'best-of-n-implementor-gpt-5' },
+          { agent_type: 'best-of-n-implementor-gpt-5' },
+          { agent_type: 'best-of-n-implementor-gpt-5' },
+        ],
+      },
+      includeToolCall: false,
+    }
+
+    const implementorsResult = [
+      ...extractSpawnResults<string>(implementorsResult1),
+      ...extractSpawnResults<string>(implementorsResult2),
+    ]
 
     // Extract all the plans from the structured outputs
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -71,7 +87,7 @@ const definition: SecretAgentDefinition = {
       input: {
         agents: [
           {
-            agent_type: 'base2-selector-fast',
+            agent_type: 'best-of-n-selector-gpt-5',
             params: { implementations },
           },
         ],
@@ -103,7 +119,7 @@ const definition: SecretAgentDefinition = {
       return
     }
 
-    // Spawn editor to apply the chosen implementation
+    // Apply the chosen implementation using STEP_TEXT
     const { agentState: postEditsAgentState } = yield {
       type: 'STEP_TEXT',
       text: chosenImplementation.content,
