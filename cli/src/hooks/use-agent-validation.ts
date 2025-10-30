@@ -39,24 +39,15 @@ export const useAgentValidation = (
 
     try {
       const agentDefinitions = loadAgentDefinitions()
-      logger.debug(
-        { agentCount: agentDefinitions.length },
-        'Validating agents before message send...',
-      )
 
       const validationResult = await validateAgents(agentDefinitions, {
-        remote: false, // Use local validation for speed, avoid network calls
+        remote: true,
       })
 
       if (validationResult.success) {
-        logger.debug('Agent validation passed')
         setValidationErrors([])
         return { success: true, errors: [] }
       } else {
-        logger.debug(
-          { errorCount: validationResult.validationErrors.length },
-          'Agent validation found errors',
-        )
         setValidationErrors(validationResult.validationErrors)
         return { success: false, errors: validationResult.validationErrors }
       }

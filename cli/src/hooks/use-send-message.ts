@@ -102,6 +102,7 @@ interface UseSendMessageOptions {
   onBeforeMessageSend?: () => Promise<{ success: boolean; errors: Array<{ id: string; message: string }> }>
   setMainAgentStreamStartTime: (time: number | null) => void
   scrollToLatest: () => void
+  availableWidth?: number
 }
 
 export const useSendMessage = ({
@@ -125,6 +126,7 @@ export const useSendMessage = ({
   onBeforeMessageSend,
   setMainAgentStreamStartTime,
   scrollToLatest,
+  availableWidth = 80,
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -275,40 +277,25 @@ export const useSendMessage = ({
       setTimeout(() => scrollToLatest(), 0)
 
       // Validate agents before sending message (blocking)
-      if (onBeforeMessageSend) {
-        try {
-          const validationResult = await onBeforeMessageSend()
+      try {
+        const validationResult = await onBeforeMessageSend()
 
-          if (!validationResult.success) {
-            logger.warn('Message send blocked due to agent validation errors')
+        if (!validationResult.success) {
+          logger.warn('Message send blocked due to agent validation errors')
 
-            // Create validation error blocks with clickable file paths
-            const loadedAgentsData = getLoadedAgentsData()
-            const errorBlocks = createValidationErrorBlocks({
-              errors: validationResult.errors,
-              loadedAgentsData,
-            })
-
-            const errorMessage: ChatMessage = {
-              id: `error-${Date.now()}`,
-              variant: 'error',
-              content: '',
-              blocks: errorBlocks,
-              timestamp: formatTimestamp(),
-            }
-
-            applyMessageUpdate((prev) => [...prev, errorMessage])
-            await yieldToEventLoop()
-
-            return
-          }
-        } catch (error) {
-          logger.error({ error }, 'Validation before message send failed with exception')
+          // Create validation error blocks with clickable file paths
+          const loadedAgentsData = getLoadedAgentsData()
+          const errorBlocks = createValidationErrorBlocks({
+            errors: validationResult.errors,
+            loadedAgentsData,
+            availableWidth,
+          })
 
           const errorMessage: ChatMessage = {
             id: `error-${Date.now()}`,
             variant: 'error',
-            content: '⚠️ Agent validation failed unexpectedly. Please try again.',
+            content: '',
+            blocks: errorBlocks,
             timestamp: formatTimestamp(),
           }
 
@@ -317,6 +304,20 @@ export const useSendMessage = ({
 
           return
         }
+      } catch (error) {
+        logger.error({ error }, 'Validation before message send failed with exception')
+
+        const errorMessage: ChatMessage = {
+          id: `error-${Date.now()}`,
+          variant: 'error',
+          content: '⚠️ Agent validation failed unexpectedly. Please try again.',
+          timestamp: formatTimestamp(),
+        }
+
+        applyMessageUpdate((prev) => [...prev, errorMessage])
+        await yieldToEventLoop()
+
+        return
       }
 
       setFocusedAgentId(null)
@@ -574,11 +575,6 @@ export const useSendMessage = ({
           agentDefinitions: agentDefinitions as AgentDefinition[],
 
           handleStreamChunk: (event) => {
-            logger.debug(
-              { eventType: typeof event, isString: typeof event === 'string' },
-              '[STREAM TIMER] handleStreamChunk called',
-            )
-
             if (typeof event !== 'string') {
               const { agentId, chunk } = event
 
@@ -602,9 +598,7 @@ export const useSendMessage = ({
               hasReceivedContent = true
               setIsWaitingForResponse(false)
               // Main agent started streaming - set timer
-              const streamStart = Date.now()
-              setMainAgentStreamStartTime(streamStart)
-              logger.info({ streamStart }, '[STREAM TIMER] Main agent streaming started')
+              setMainAgentStreamStartTime(Date.now())
             }
 
             const previous = rootStreamBufferRef.current ?? ''
@@ -633,10 +627,6 @@ export const useSendMessage = ({
               { type: event.type, hasAgentId: !!event.agentId, event },
               `SDK ${JSON.stringify(event.type)} Event received (raw)`,
             )
-            logger.debug(
-              { type: event.type, hasAgentId: !!event.agentId },
-              '[STREAM TIMER] handleEvent called',
-            )
 
             if (event.type === 'text') {
               const text = event.text
@@ -647,13 +637,10 @@ export const useSendMessage = ({
               if (!hasReceivedContent && !event.agentId) {
                 hasReceivedContent = true
                 setIsWaitingForResponse(false)
-                const streamStart = Date.now()
-                setMainAgentStreamStartTime(streamStart)
-                logger.info({ streamStart, hasAgentId: !!event.agentId }, '[STREAM TIMER] Main agent text event - streaming started')
+                setMainAgentStreamStartTime(Date.now())
               } else if (!hasReceivedContent) {
                 hasReceivedContent = true
                 setIsWaitingForResponse(false)
-                logger.info({ hasAgentId: !!event.agentId }, '[STREAM TIMER] Sub-agent text event - not starting timer')
               }
 
               if (event.agentId) {
@@ -1430,6 +1417,7 @@ export const useSendMessage = ({
       onBeforeMessageSend,
       setMainAgentStreamStartTime,
       scrollToLatest,
+      availableWidth,
     ],
   )
 
