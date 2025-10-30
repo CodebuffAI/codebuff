@@ -1,5 +1,7 @@
 import { TextAttributes } from '@opentui/core'
 import React from 'react'
+import remarkBreaks from 'remark-breaks'
+import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 
@@ -18,6 +20,9 @@ import type {
   Paragraph,
   Root,
   Strong,
+  Table,
+  TableCell,
+  TableRow,
   Text,
 } from 'mdast'
 import type { ReactNode } from 'react'
@@ -98,7 +103,10 @@ const resolvePalette = (
   return palette
 }
 
-const processor = unified().use(remarkParse)
+const processor = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkBreaks)
 
 type MarkdownNode = Content | Root
 
@@ -138,36 +146,30 @@ const flattenChildren = (lists: ReactNode[][]): ReactNode[] => {
   return flattened
 }
 
-const trimTrailingWhitespaceNodes = (nodes: ReactNode[]): ReactNode[] => {
+// Unified trim helper with predicate
+const trimTrailingNodes = (
+  nodes: ReactNode[],
+  predicate: (node: ReactNode) => boolean,
+): ReactNode[] => {
   let end = nodes.length
-  while (end > 0) {
-    const value = nodes[end - 1]
-    if (typeof value === 'string' && value.trim().length === 0) {
-      end -= 1
-      continue
-    }
-    break
+  while (end > 0 && predicate(nodes[end - 1])) {
+    end -= 1
   }
-  if (end === nodes.length) {
-    return nodes
-  }
-  return nodes.slice(0, end)
+  return end === nodes.length ? nodes : nodes.slice(0, end)
+}
+
+const trimTrailingWhitespaceNodes = (nodes: ReactNode[]): ReactNode[] => {
+  return trimTrailingNodes(
+    nodes,
+    (node) => typeof node === 'string' && node.trim().length === 0,
+  )
 }
 
 const trimTrailingBreaks = (nodes: ReactNode[]): ReactNode[] => {
-  let end = nodes.length
-  while (end > 0) {
-    const value = nodes[end - 1]
-    if (typeof value === 'string' && (value === '\n' || value === '\n\n')) {
-      end -= 1
-      continue
-    }
-    break
-  }
-  if (end === nodes.length) {
-    return nodes
-  }
-  return nodes.slice(0, end)
+  return trimTrailingNodes(
+    nodes,
+    (node) => typeof node === 'string' && /^\n+$/.test(node),
+  )
 }
 
 const splitNodesByNewline = (nodes: ReactNode[]): ReactNode[][] => {
@@ -361,24 +363,26 @@ const applyInlineFallbackFormatting = (node: MarkdownNode): void => {
   mutable.children = nextChildren
 }
 
+const getChildrenText = (children: MarkdownNode[]): string => {
+  return children.map(nodeToPlainText).join('')
+}
+
 const nodeToPlainText = (node: MarkdownNode): string => {
   switch (node.type) {
     case 'root':
-      return (node as Root).children.map(nodeToPlainText).join('')
+      return getChildrenText((node as Root).children as MarkdownNode[])
 
     case 'paragraph':
-      return (
-        (node as Paragraph).children.map(nodeToPlainText).join('') + '\n\n'
-      )
+      return getChildrenText((node as Paragraph).children as MarkdownNode[]) + '\n\n'
 
     case 'text':
       return (node as Text).value
 
     case 'strong':
-      return (node as Strong).children.map(nodeToPlainText).join('')
+      return getChildrenText((node as Strong).children as MarkdownNode[])
 
     case 'emphasis':
-      return (node as Emphasis).children.map(nodeToPlainText).join('')
+      return getChildrenText((node as Emphasis).children as MarkdownNode[])
 
     case 'inlineCode':
       return (node as InlineCode).value
@@ -386,7 +390,7 @@ const nodeToPlainText = (node: MarkdownNode): string => {
     case 'heading': {
       const heading = node as Heading
       const prefix = '#'.repeat(Math.max(1, Math.min(heading.depth, 6)))
-      const content = heading.children.map(nodeToPlainText).join('')
+      const content = getChildrenText(heading.children as MarkdownNode[])
       return `${prefix} ${content}\n\n`
     }
 
@@ -396,20 +400,15 @@ const nodeToPlainText = (node: MarkdownNode): string => {
         list.children
           .map((item, idx) => {
             const marker = list.ordered ? `${(list.start ?? 1) + idx}. ` : '- '
-            const text = (item as ListItem).children
-              .map(nodeToPlainText)
-              .join('')
-              .trimEnd()
+            const text = getChildrenText((item as ListItem).children as MarkdownNode[]).trimEnd()
             return marker + text
           })
           .join('\n') + '\n\n'
       )
     }
 
-    case 'listItem': {
-      const listItem = node as ListItem
-      return listItem.children.map(nodeToPlainText).join('')
-    }
+    case 'listItem':
+      return getChildrenText((node as ListItem).children as MarkdownNode[])
 
     case 'blockquote': {
       const blockquote = node as Blockquote
@@ -433,19 +432,41 @@ const nodeToPlainText = (node: MarkdownNode): string => {
 
     case 'link': {
       const link = node as Link
-      const label =
-        link.children.length > 0
-          ? link.children.map(nodeToPlainText).join('')
-          : link.url
+      const label = link.children.length > 0
+        ? getChildrenText(link.children as MarkdownNode[])
+        : link.url
       return label
+    }
+
+    case 'table': {
+      const table = node as Table
+      return table.children
+        .map((row) => {
+          const cells = (row as TableRow).children as TableCell[]
+          return cells.map((cell) => nodeToPlainText(cell)).join(' | ')
+        })
+        .join('\n') + '\n\n'
+    }
+
+    case 'tableRow':
+      return (node as TableRow).children.map(nodeToPlainText).join(' | ')
+
+    case 'tableCell':
+      return getChildrenText((node as TableCell).children as MarkdownNode[])
+
+    case 'delete': {
+      // Strikethrough - just return the text content
+      const deleteNode = node as any
+      if (Array.isArray(deleteNode.children)) {
+        return getChildrenText(deleteNode.children as MarkdownNode[])
+      }
+      return ''
     }
 
     default: {
       const anyNode = node as any
       if (Array.isArray(anyNode.children)) {
-        return (anyNode.children as MarkdownNode[])
-          .map(nodeToPlainText)
-          .join('')
+        return getChildrenText(anyNode.children as MarkdownNode[])
       }
       return ''
     }
@@ -633,6 +654,61 @@ const renderLink = (link: Link, state: RenderState): ReactNode[] => {
   ]
 }
 
+const renderTable = (table: Table, state: RenderState): ReactNode[] => {
+  const { palette, nextKey } = state
+  const nodes: ReactNode[] = []
+
+  // Calculate column widths
+  const columnWidths: number[] = []
+  table.children.forEach((row) => {
+    (row as TableRow).children.forEach((cell, colIdx) => {
+      const cellText = nodeToPlainText(cell as TableCell)
+      const width = cellText.length
+      columnWidths[colIdx] = Math.max(columnWidths[colIdx] || 0, width)
+    })
+  })
+
+  // Render each row
+  table.children.forEach((row, rowIdx) => {
+    const isHeader = rowIdx === 0
+    const cells = (row as TableRow).children as TableCell[]
+
+    // Render cells in the row
+    cells.forEach((cell, cellIdx) => {
+      const cellNodes = renderNodes(
+        cell.children as MarkdownNode[],
+        state,
+        cell.type,
+      )
+      const cellWidth = columnWidths[cellIdx] || 10
+      const cellText = nodeToPlainText(cell)
+      const padding = ' '.repeat(Math.max(0, cellWidth - cellText.length))
+
+      nodes.push(
+        <span key={nextKey()} fg={isHeader ? palette.headingFg[3] : undefined}>
+          {cellIdx === 0 ? '| ' : ' | '}
+          {wrapSegmentsInFragments(cellNodes, nextKey())}
+          {padding}
+        </span>,
+      )
+    })
+    nodes.push(' |\n')
+
+    // Add separator line after header
+    if (isHeader) {
+      nodes.push('|')
+      columnWidths.forEach((width, idx) => {
+        nodes.push(idx === 0 ? ' ' : ' | ')
+        nodes.push('-'.repeat(width))
+      })
+      nodes.push(' |\n')
+    }
+  })
+
+  nodes.push('\n')
+  return nodes
+}
+
 const renderNode = (
   node: MarkdownNode,
   state: RenderState,
@@ -736,6 +812,24 @@ const renderNode = (
 
     case 'link':
       return renderLink(node as Link, state)
+
+    case 'table':
+      return renderTable(node as Table, state)
+
+    case 'delete': {
+      // Strikethrough from GFM
+      const anyNode = node as any
+      const children = renderNodes(
+        anyNode.children as MarkdownNode[],
+        state,
+        node.type,
+      )
+      return [
+        <span key={state.nextKey()} attributes={TextAttributes.DIM}>
+          {wrapSegmentsInFragments(children, state.nextKey())}
+        </span>,
+      ]
+    }
 
     default: {
       const fallbackText = nodeToPlainText(node)
