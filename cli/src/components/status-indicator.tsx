@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
-import { useElapsedTimeFrom } from '../hooks/use-elapsed-time'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { logger } from '../utils/logger'
 
+import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ChatTheme } from '../utils/theme-system'
 
 const useConnectionStatus = () => {
-  const [isConnected, setIsConnected] = useState<boolean | null>(null)
+  const [isConnected, setIsConnected] = useState(true)
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -40,16 +40,15 @@ export const StatusIndicator = ({
   theme,
   clipboardMessage,
   isActive = false,
-  streamStartTime,
+  timer,
 }: {
   theme: ChatTheme
   clipboardMessage?: string | null
   isActive?: boolean
-  streamStartTime?: number | null
+  timer: ElapsedTimeTracker
 }) => {
   const isConnected = useConnectionStatus()
-  // Use declarative hook to isolate re-renders to this component
-  const elapsedSeconds = useElapsedTimeFrom(streamStartTime)
+  const elapsedSeconds = timer.elapsedSeconds
 
   if (clipboardMessage) {
     return <span fg={theme.statusAccent}>{clipboardMessage}</span>
@@ -68,11 +67,7 @@ export const StatusIndicator = ({
   if (isActive) {
     // If we have elapsed time > 0, show it
     if (elapsedSeconds > 0) {
-      return (
-        <span fg={theme.statusSecondary}>
-          {elapsedSeconds}s
-        </span>
-      )
+      return <span fg={theme.statusSecondary}>{elapsedSeconds}s</span>
     }
 
     // Otherwise show thinking...
@@ -91,13 +86,10 @@ export const StatusIndicator = ({
 export const useHasStatus = (
   isActive: boolean,
   clipboardMessage?: string | null,
-  streamStartTime?: number | null,
+  timer?: ElapsedTimeTracker,
 ): boolean => {
   const isConnected = useConnectionStatus()
   return (
-    isConnected === false ||
-    isActive ||
-    !!clipboardMessage ||
-    !!streamStartTime
+    isConnected === false || isActive || !!clipboardMessage || !!timer?.startTime
   )
 }

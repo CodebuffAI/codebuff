@@ -26,21 +26,13 @@ export interface ElapsedTimeTracker {
  * @returns ElapsedTimeTracker - Object with start/stop methods and current elapsed time
  *
  * @example
- * // Imperative API - for components that control timing
  * const timer = useElapsedTime()
  * timer.start() // Start timing
  * timer.stop()  // Stop and reset
  *
- * // Can also pass timer to useSendMessage
- * useSendMessage({ mainAgentTimer: timer, ... })
- *
- * @example
- * // Declarative API - for components that just display
- * const timer = useElapsedTime()
- * useEffect(() => {
- *   if (streamStartTime) timer.start()
- *   else timer.stop()
- * }, [streamStartTime])
+ * // Pass the timer object to components that need to display elapsed time
+ * <StatusIndicator timer={timer} />
+ * <MessageBlock timer={timer} />
  */
 export const useElapsedTime = (): ElapsedTimeTracker => {
   const [startTime, setStartTime] = useState<number | null>(null)
@@ -76,25 +68,4 @@ export const useElapsedTime = (): ElapsedTimeTracker => {
   }, [startTime])
 
   return { start, stop, elapsedSeconds, startTime }
-}
-
-/**
- * Declarative hook that tracks elapsed time when a start time is provided
- * Useful for components that don't control the timing themselves
- *
- * @param externalStartTime - Timestamp when timing should start, or null to stop
- * @returns elapsedSeconds - Number of seconds elapsed since startTime
- */
-export const useElapsedTimeFrom = (externalStartTime: number | null | undefined): number => {
-  const timer = useElapsedTime()
-
-  useEffect(() => {
-    if (externalStartTime) {
-      timer.start()
-    } else {
-      timer.stop()
-    }
-  }, [externalStartTime, timer])
-
-  return timer.elapsedSeconds
 }

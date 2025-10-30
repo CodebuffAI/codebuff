@@ -278,24 +278,28 @@ export const App = ({
         ? repoRoot // If outside home dir, show absolute path
         : `~/${relativePath}`
 
+      const handleActivateRepoPath = async () => {
+        await openFileAtPath(repoRoot)
+      }
+
+      const renderRepoPathInfo = () => (
+        <box style={{ flexDirection: 'row', gap: 0, flexWrap: 'wrap' }}>
+          <text wrap={false}>Codebuff can read and write files in </text>
+          <TerminalLink
+            text={displayPath}
+            color="#3b82f6"
+            inline={false}
+            lineWrap={false}
+            containerStyle={{ flexDirection: 'row', width: 'auto' }}
+            onActivate={handleActivateRepoPath}
+          />
+          <text wrap={false}>, and run terminal commands to help you build.</text>
+        </box>
+      )
+
       blocks.push({
         type: 'html',
-        render: () => (
-          <box style={{ flexDirection: 'row', gap: 0, flexWrap: 'wrap' }}>
-            <text wrap={false}>Codebuff can read and write files in </text>
-            <TerminalLink
-              text={displayPath}
-              color="#3b82f6"
-              inline={false}
-              lineWrap={false}
-              containerStyle={{ flexDirection: 'row', width: 'auto' }}
-              onActivate={async () => {
-                await openFileAtPath(repoRoot)
-              }}
-            />
-            <text wrap={false}>, and run terminal commands to help you build.</text>
-          </box>
-        ),
+        render: renderRepoPathInfo,
       })
 
       blocks.push({
@@ -857,7 +861,7 @@ export const App = ({
   const hasStatus = useHasStatus(
     isStatusActive,
     clipboardMessage,
-    mainAgentTimer.startTime,
+    mainAgentTimer,
   )
 
   const handleSubmit = useCallback(() => {
@@ -988,7 +992,7 @@ export const App = ({
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
-    streamStartTime: mainAgentTimer.startTime,
+    timer: mainAgentTimer,
     setCollapsedAgents,
     setFocusedAgentId,
     registerAgentRef,
@@ -1016,7 +1020,7 @@ export const App = ({
       theme={theme}
       clipboardMessage={clipboardMessage}
       isActive={isStatusActive}
-      streamStartTime={mainAgentTimer.startTime}
+      timer={mainAgentTimer}
     />
   )
 
@@ -1043,12 +1047,38 @@ export const App = ({
     }
 
     // Get agent info by ID
+    const createAgentInfoEntry = (
+      agent: any,
+    ): [string, LocalAgentInfo] => [agent.id, agent as LocalAgentInfo]
+
     const agentInfoById = new Map<string, LocalAgentInfo>(
-      (loadedAgentsData?.agents.map((agent) => [
-        agent.id,
-        agent as LocalAgentInfo,
-      ]) || []) as [string, LocalAgentInfo][],
+      (loadedAgentsData?.agents.map(createAgentInfoEntry) ||
+        []) as [string, LocalAgentInfo][],
     )
+
+    const formatErrorLine = (
+      error: { id: string; message: string },
+      index: number,
+    ): string => {
+      const agentId = error.id.replace(/_\d+$/, '')
+      const agentInfo = agentInfoById.get(agentId)
+      const relativePath = agentInfo
+        ? normalizeRelativePath(agentInfo.filePath)
+        : null
+
+      const { fieldName, message } = formatValidationError(error.message)
+      const errorMsg = fieldName ? `${fieldName}: ${message}` : message
+      const truncatedMsg =
+        errorMsg.length > 68 ? errorMsg.substring(0, 65) + '...' : errorMsg
+
+      let output = index === 0 ? '\n' : '\n\n'
+      output += agentId
+      if (relativePath) {
+        output += ` (${relativePath})`
+      }
+      output += '\n  ' + truncatedMsg
+      return output
+    }
 
     return (
       <box
@@ -1081,25 +1111,7 @@ export const App = ({
 
         {/* Error list - build as single text with newlines */}
         <text wrap style={{ fg: theme.messageAiText }}>
-          {visibleErrors.map((error, index) => {
-            const agentId = error.id.replace(/_\d+$/, '')
-            const agentInfo = agentInfoById.get(agentId)
-            const relativePath = agentInfo
-              ? normalizeRelativePath(agentInfo.filePath)
-              : null
-
-            const { fieldName, message } = formatValidationError(error.message)
-            const errorMsg = fieldName ? `${fieldName}: ${message}` : message
-            const truncatedMsg = errorMsg.length > 68 ? errorMsg.substring(0, 65) + '...' : errorMsg
-
-            let output = index === 0 ? '\n' : '\n\n'
-            output += agentId
-            if (relativePath) {
-              output += ` (${relativePath})`
-            }
-            output += '\n  ' + truncatedMsg
-            return output
-          }).join('')}
+          {visibleErrors.map(formatErrorLine).join('')}
         </text>
 
         {/* Show count of additional errors */}

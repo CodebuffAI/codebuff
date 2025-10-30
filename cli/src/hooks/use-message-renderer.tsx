@@ -10,6 +10,7 @@ import {
 } from '../utils/markdown-renderer'
 import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
+import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { ChatMessage } from '../chat'
 import type { ChatTheme } from '../utils/theme-system'
 
@@ -23,7 +24,7 @@ interface UseMessageRendererProps {
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   isWaitingForResponse: boolean
-  streamStartTime: number | null
+  timer: ElapsedTimeTracker
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   registerAgentRef: (agentId: string, element: any) => void
@@ -43,7 +44,7 @@ export const useMessageRenderer = (
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
-    streamStartTime,
+    timer,
     setCollapsedAgents,
     setFocusedAgentId,
     registerAgentRef,
@@ -354,7 +355,7 @@ export const useMessageRenderer = (
                     isComplete={message.isComplete}
                     completionTime={message.completionTime}
                     credits={message.credits}
-                    streamStartTime={streamStartTime}
+                    timer={timer}
                     theme={theme}
                     textColor={textColor}
                     timestampColor={timestampColor}
@@ -405,7 +406,7 @@ export const useMessageRenderer = (
                   isComplete={message.isComplete}
                   completionTime={message.completionTime}
                   credits={message.credits}
-                  streamStartTime={streamStartTime}
+                  timer={timer}
                   theme={theme}
                   textColor={textColor}
                   timestampColor={timestampColor}

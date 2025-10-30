@@ -4,7 +4,6 @@ import React, { type ReactNode } from 'react'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
-import { useElapsedTimeFrom } from '../hooks/use-elapsed-time'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
   renderMarkdown,
@@ -13,6 +12,7 @@ import {
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
 
+import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ContentBlock } from '../chat'
 import type { ChatTheme } from '../utils/theme-system'
 
@@ -33,7 +33,7 @@ interface MessageBlockProps {
   isComplete?: boolean
   completionTime?: string
   credits?: number
-  streamStartTime: number | null
+  timer: ElapsedTimeTracker
   theme: ChatTheme
   textColor: string
   timestampColor: string
@@ -57,7 +57,7 @@ export const MessageBlock = ({
   isComplete,
   completionTime,
   credits,
-  streamStartTime,
+  timer,
   theme,
   textColor,
   timestampColor,
@@ -69,10 +69,8 @@ export const MessageBlock = ({
   onToggleCollapsed,
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
-  // Calculate elapsed time for streaming AI messages
-  const elapsedSeconds = useElapsedTimeFrom(
-    isAi && isLoading && !isComplete ? streamStartTime : null,
-  )
+  // Get elapsed time from timer for streaming AI messages
+  const elapsedSeconds = timer.elapsedSeconds
   const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>
     `${'  '.repeat(indentLevel)}${isLastBranch ? '└─ ' : '├─ '}`
 
@@ -107,6 +105,10 @@ export const MessageBlock = ({
   ): React.ReactNode => {
     if (toolBlock.toolName === 'end_turn') {
       return null
+    }
+
+    const handleToggleToolCollapsed = () => {
+      onToggleCollapsed(toolBlock.toolCallId)
     }
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
@@ -178,7 +180,7 @@ export const MessageBlock = ({
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
-          onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
+          onToggle={handleToggleToolCollapsed}
         />
       </box>
     )
@@ -190,6 +192,10 @@ export const MessageBlock = ({
     isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
+    const handleToggleAgentCollapsed = () => {
+      onToggleCollapsed(agentBlock.agentId)
+    }
+
     const isCollapsed = collapsedAgents.has(agentBlock.agentId)
     const isStreaming =
       agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
@@ -243,7 +249,7 @@ export const MessageBlock = ({
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
-          onToggle={() => onToggleCollapsed(agentBlock.agentId)}
+          onToggle={handleToggleAgentCollapsed}
         />
       </box>
     )
@@ -254,6 +260,10 @@ export const MessageBlock = ({
     isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
+    const handleToggleAgentListCollapsed = () => {
+      onToggleCollapsed(agentListBlock.id)
+    }
+
     const TRUNCATE_LIMIT = 5
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
     const { agents } = agentListBlock
@@ -264,7 +274,10 @@ export const MessageBlock = ({
         .toLowerCase()
         .localeCompare((b.displayName || '').toLowerCase())
 
-      return displayNameComparison || a.id.toLowerCase().localeCompare(b.id.toLowerCase())
+      return (
+        displayNameComparison ||
+        a.id.toLowerCase().localeCompare(b.id.toLowerCase())
+      )
     })
 
     const agentCount = sortedAgents.length
@@ -277,16 +290,21 @@ export const MessageBlock = ({
         ? `${agent.displayName} (${agent.id})`
         : agent.displayName || agent.id
 
+    const renderAgentListItem = (
+      agent: { id: string; displayName: string },
+      idx: number,
+    ) => {
+      const identifier = formatIdentifier(agent)
+      return (
+        <text key={`agent-${idx}`} wrap fg={theme.agentText}>
+          {`  • ${identifier}`}
+        </text>
+      )
+    }
+
     const agentListContent = (
       <box style={{ flexDirection: 'column', gap: 0 }}>
-        {sortedAgents.map((agent, idx) => {
-          const identifier = formatIdentifier(agent)
-          return (
-            <text key={`agent-${idx}`} wrap fg={theme.agentText}>
-              {`  • ${identifier}`}
-            </text>
-          )
-        })}
+        {sortedAgents.map(renderAgentListItem)}
       </box>
     )
 
@@ -320,7 +338,7 @@ export const MessageBlock = ({
           streamingPreview=""
           finishedPreview={finishedPreview}
           theme={theme}
-          onToggle={() => onToggleCollapsed(agentListBlock.id)}
+          onToggle={handleToggleAgentListCollapsed}
         />
       </box>
     )
@@ -409,6 +427,98 @@ export const MessageBlock = ({
     return nodes
   }
 
+  const renderSimpleContent = () => {
+    const isStreamingMessage = isLoading || !isComplete
+    const normalizedContent = isStreamingMessage
+      ? trimTrailingNewlines(content)
+      : content.trim()
+    const displayContent = hasMarkdown(normalizedContent)
+      ? isStreamingMessage
+        ? renderStreamingMarkdown(normalizedContent, markdownOptions)
+        : renderMarkdown(normalizedContent, markdownOptions)
+      : normalizedContent
+    return (
+      <text
+        key={`message-content-${messageId}`}
+        wrap
+        style={{ fg: textColor }}
+      >
+        {displayContent}
+      </text>
+    )
+  }
+
+  const renderBlock = (block: ContentBlock, idx: number) => {
+    if (block.type === 'text') {
+      const isStreamingText = isLoading || !isComplete
+      const rawContent = isStreamingText
+        ? trimTrailingNewlines(block.content)
+        : block.content.trim()
+      const renderKey = `${messageId}-text-${idx}`
+      const renderedContent = hasMarkdown(rawContent)
+        ? isStreamingText
+          ? renderStreamingMarkdown(rawContent, markdownOptions)
+          : renderMarkdown(rawContent, markdownOptions)
+        : rawContent
+      const prevBlock = idx > 0 && blocks ? blocks[idx - 1] : null
+      const marginTop =
+        prevBlock && (prevBlock.type === 'tool' || prevBlock.type === 'agent')
+          ? 0
+          : block.marginTop ?? 0
+      const marginBottom = block.marginBottom ?? 0
+      return (
+        <text
+          key={renderKey}
+          wrap
+          style={{ fg: textColor, marginTop, marginBottom }}
+        >
+          {renderedContent}
+        </text>
+      )
+    } else if (block.type === 'html') {
+      const marginTop = block.marginTop ?? 0
+      const marginBottom = block.marginBottom ?? 0
+      return (
+        <box
+          key={`${messageId}-html-${idx}`}
+          style={{
+            flexDirection: 'column',
+            gap: 0,
+            marginTop,
+            marginBottom,
+            width: '100%',
+          }}
+        >
+          {block.render({ textColor, theme })}
+        </box>
+      )
+    } else if (block.type === 'tool') {
+      const isLastBranch = !hasBranchAfter(blocks, idx)
+      return renderToolBranch(
+        block,
+        0,
+        isLastBranch,
+        `${messageId}-tool-${block.toolCallId}`,
+      )
+    } else if (block.type === 'agent') {
+      const isLastBranch = !hasBranchAfter(blocks, idx)
+      return renderAgentBranch(
+        block,
+        0,
+        isLastBranch,
+        `${messageId}-agent-${block.agentId}`,
+      )
+    } else if (block.type === 'agent-list') {
+      const isLastBranch = !hasBranchAfter(blocks, idx)
+      return renderAgentListBranch(
+        block,
+        isLastBranch,
+        `${messageId}-agent-list-${block.id}`,
+      )
+    }
+    return null
+  }
+
   return (
     <>
       {isUser && (
@@ -427,99 +537,10 @@ export const MessageBlock = ({
       )}
       {blocks ? (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-          {blocks.map((block, idx) => {
-            if (block.type === 'text') {
-              const isStreamingText = isLoading || !isComplete
-              const rawContent = isStreamingText
-                ? trimTrailingNewlines(block.content)
-                : block.content.trim()
-              const renderKey = `${messageId}-text-${idx}`
-              const renderedContent = hasMarkdown(rawContent)
-                ? isStreamingText
-                  ? renderStreamingMarkdown(rawContent, markdownOptions)
-                  : renderMarkdown(rawContent, markdownOptions)
-                : rawContent
-              const prevBlock = idx > 0 ? blocks[idx - 1] : null
-              const marginTop =
-                prevBlock &&
-                (prevBlock.type === 'tool' || prevBlock.type === 'agent')
-                  ? 0
-                  : block.marginTop ?? 0
-              const marginBottom = block.marginBottom ?? 0
-              return (
-                <text
-                  key={renderKey}
-                  wrap
-                  style={{ fg: textColor, marginTop, marginBottom }}
-                >
-                  {renderedContent}
-                </text>
-              )
-            } else if (block.type === 'html') {
-              const marginTop = block.marginTop ?? 0
-              const marginBottom = block.marginBottom ?? 0
-              return (
-                <box
-                  key={`${messageId}-html-${idx}`}
-                  style={{
-                    flexDirection: 'column',
-                    gap: 0,
-                    marginTop,
-                    marginBottom,
-                    width: '100%',
-                  }}
-                >
-                  {block.render({ textColor, theme })}
-                </box>
-              )
-            } else if (block.type === 'tool') {
-              const isLastBranch = !hasBranchAfter(blocks, idx)
-              return renderToolBranch(
-                block,
-                0,
-                isLastBranch,
-                `${messageId}-tool-${block.toolCallId}`,
-              )
-            } else if (block.type === 'agent') {
-              const isLastBranch = !hasBranchAfter(blocks, idx)
-              return renderAgentBranch(
-                block,
-                0,
-                isLastBranch,
-                `${messageId}-agent-${block.agentId}`,
-              )
-            } else if (block.type === 'agent-list') {
-              const isLastBranch = !hasBranchAfter(blocks, idx)
-              return renderAgentListBranch(
-                block,
-                isLastBranch,
-                `${messageId}-agent-list-${block.id}`,
-              )
-            }
-            return null
-          })}
+          {blocks.map(renderBlock)}
         </box>
       ) : (
-        (() => {
-          const isStreamingMessage = isLoading || !isComplete
-          const normalizedContent = isStreamingMessage
-            ? trimTrailingNewlines(content)
-            : content.trim()
-          const displayContent = hasMarkdown(normalizedContent)
-            ? isStreamingMessage
-              ? renderStreamingMarkdown(normalizedContent, markdownOptions)
-              : renderMarkdown(normalizedContent, markdownOptions)
-            : normalizedContent
-          return (
-            <text
-              key={`message-content-${messageId}`}
-              wrap
-              style={{ fg: textColor }}
-            >
-              {displayContent}
-            </text>
-          )
-        })()
+        renderSimpleContent()
       )}
       {isAi && (
         <>
@@ -539,7 +560,7 @@ export const MessageBlock = ({
             </text>
           )}
           {/* Show completion time and credits when complete */}
-          {isComplete && (completionTime || credits) && (
+          {isComplete && (
             <text
               wrap={false}
               attributes={TextAttributes.DIM}
