@@ -74,6 +74,43 @@ export const MessageBlock = ({
   const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>
     `${'  '.repeat(indentLevel)}${isLastBranch ? '└─ ' : '├─ '}`
 
+  const renderContentWithMarkdown = (
+    rawContent: string,
+    isStreaming: boolean,
+    options: { codeBlockWidth: number; palette: MarkdownPalette },
+  ): ReactNode => {
+    if (!hasMarkdown(rawContent)) {
+      return rawContent
+    }
+    if (isStreaming) {
+      return renderStreamingMarkdown(rawContent, options)
+    }
+    return renderMarkdown(rawContent, options)
+  }
+
+  const getToolFinishedPreview = (
+    toolBlock: Extract<ContentBlock, { type: 'tool' }>,
+    commandPreview: string | null,
+    lastLine: string,
+  ): string => {
+    if (commandPreview) {
+      return commandPreview
+    }
+
+    if (toolBlock.toolName === 'run_terminal_command' && toolBlock.output) {
+      const outputLines = toolBlock.output
+        .split('\n')
+        .filter((line) => line.trim())
+      const lastThreeLines = outputLines.slice(-3)
+      const hasMoreLines = outputLines.length > 3
+      return hasMoreLines
+        ? '...\n' + lastThreeLines.join('\n')
+        : lastThreeLines.join('\n')
+    }
+
+    return sanitizePreview(lastLine)
+  }
+
   const hasBranchAfter = (
     sourceBlocks: ContentBlock[] | undefined,
     currentIndex: number,
@@ -133,31 +170,17 @@ export const MessageBlock = ({
       ? commandPreview ?? `${sanitizePreview(firstLine)}...`
       : ''
 
-    let finishedPreview = ''
-    if (!isStreaming && isCollapsed) {
-      if (commandPreview) {
-        finishedPreview = commandPreview
-      } else if (
-        toolBlock.toolName === 'run_terminal_command' &&
-        toolBlock.output
-      ) {
-        const outputLines = toolBlock.output
-          .split('\n')
-          .filter((line) => line.trim())
-        const lastThreeLines = outputLines.slice(-3)
-        const hasMoreLines = outputLines.length > 3
-        finishedPreview = hasMoreLines
-          ? '...\n' + lastThreeLines.join('\n')
-          : lastThreeLines.join('\n')
-      } else {
-        finishedPreview = sanitizePreview(lastLine)
-      }
-    }
+    const finishedPreview =
+      !isStreaming && isCollapsed
+        ? getToolFinishedPreview(toolBlock, commandPreview, lastLine)
+        : ''
 
     const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
-    const displayContent = hasMarkdown(fullContent)
-      ? renderMarkdown(fullContent, agentMarkdownOptions)
-      : fullContent
+    const displayContent = renderContentWithMarkdown(
+      fullContent,
+      false,
+      agentMarkdownOptions,
+    )
 
     const branchChar = computeBranchChar(indentLevel, isLastBranch)
 
@@ -200,11 +223,12 @@ export const MessageBlock = ({
     const lines = allTextContent.split('\n').filter((line) => line.trim())
     const firstLine = lines[0] || ''
 
-    const streamingPreview = isStreaming
-      ? agentBlock.initialPrompt
+    let streamingPreview = ''
+    if (isStreaming) {
+      streamingPreview = agentBlock.initialPrompt
         ? sanitizePreview(agentBlock.initialPrompt)
         : `${sanitizePreview(firstLine)}...`
-      : ''
+    }
 
     const finishedPreview =
       !isStreaming && isCollapsed && agentBlock.initialPrompt
@@ -342,73 +366,85 @@ export const MessageBlock = ({
     const nodes: React.ReactNode[] = []
 
     nestedBlocks.forEach((nestedBlock, nestedIdx) => {
-      if (nestedBlock.type === 'text') {
-        const nestedStatus =
-          typeof (nestedBlock as any).status === 'string'
-            ? (nestedBlock as any).status
-            : undefined
-        const isNestedStreamingText =
-          parentIsStreaming || nestedStatus === 'running'
-        const rawNestedContent = isNestedStreamingText
-          ? trimTrailingNewlines(nestedBlock.content)
-          : nestedBlock.content.trim()
-        const renderKey = `${keyPrefix}-text-${nestedIdx}`
-        const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
-        const renderedContent = hasMarkdown(rawNestedContent)
-          ? isNestedStreamingText
-            ? renderStreamingMarkdown(rawNestedContent, markdownOptionsForLevel)
-            : renderMarkdown(rawNestedContent, markdownOptionsForLevel)
-          : rawNestedContent
-        const marginBottom = nestedBlock.marginBottom ?? 0
-        nodes.push(
-          <text
-            key={renderKey}
-            wrap
-            style={{
-              fg: theme.agentText,
-              marginLeft: Math.max(0, indentLevel * 2),
-              marginBottom,
-            }}
-          >
-            {renderedContent}
-          </text>,
-        )
-      } else if (nestedBlock.type === 'html') {
-        const marginTop = nestedBlock.marginTop ?? 0
-        const marginBottom = nestedBlock.marginBottom ?? 0
-        nodes.push(
-          <box
-            key={`${keyPrefix}-html-${nestedIdx}`}
-            style={{
-              flexDirection: 'column',
-              gap: 0,
-              marginTop,
-              marginBottom,
-            }}
-          >
-            {nestedBlock.render({ textColor: theme.agentText, theme })}
-          </box>,
-        )
-      } else if (nestedBlock.type === 'tool') {
-        const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
-        nodes.push(
-          renderToolBranch(
-            nestedBlock,
-            indentLevel,
-            isLastBranch,
-            `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
-          ),
-        )
-      } else if (nestedBlock.type === 'agent') {
-        const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
-        nodes.push(
-          renderAgentBranch(
-            nestedBlock,
-            indentLevel,
-            isLastBranch,
-            `${keyPrefix}-agent-${nestedIdx}`,
-          ),
-        )
+      switch (nestedBlock.type) {
+        case 'text': {
+          const nestedStatus =
+            typeof (nestedBlock as any).status === 'string'
+              ? (nestedBlock as any).status
+              : undefined
+          const isNestedStreamingText =
+            parentIsStreaming || nestedStatus === 'running'
+          const rawNestedContent = isNestedStreamingText
+            ? trimTrailingNewlines(nestedBlock.content)
+            : nestedBlock.content.trim()
+          const renderKey = `${keyPrefix}-text-${nestedIdx}`
+          const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
+          const renderedContent = renderContentWithMarkdown(
+            rawNestedContent,
+            isNestedStreamingText,
+            markdownOptionsForLevel,
+          )
+          const marginBottom = nestedBlock.marginBottom ?? 0
+          nodes.push(
+            <text
+              key={renderKey}
+              wrap
+              style={{
+                fg: theme.agentText,
+                marginLeft: Math.max(0, indentLevel * 2),
+                marginBottom,
+              }}
+            >
+              {renderedContent}
+            </text>,
+          )
+          break
+        }
+
+        case 'html': {
+          const marginTop = nestedBlock.marginTop ?? 0
+          const marginBottom = nestedBlock.marginBottom ?? 0
+          nodes.push(
+            <box
+              key={`${keyPrefix}-html-${nestedIdx}`}
+              style={{
+                flexDirection: 'column',
+                gap: 0,
+                marginTop,
+                marginBottom,
+              }}
+            >
+              {nestedBlock.render({ textColor: theme.agentText, theme })}
+            </box>,
+          )
+          break
+        }
+
+        case 'tool': {
+          const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
+          nodes.push(
+            renderToolBranch(
+              nestedBlock,
+              indentLevel,
+              isLastBranch,
+              `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
+            ),
+          )
+          break
+        }
+
+        case 'agent': {
+          const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
+          nodes.push(
+            renderAgentBranch(
+              nestedBlock,
+              indentLevel,
+              isLastBranch,
+              `${keyPrefix}-agent-${nestedIdx}`,
+            ),
+          )
+          break
+        }
       }
     })
 
@@ -420,11 +456,11 @@ export const MessageBlock = ({
     const normalizedContent = isStreamingMessage
       ? trimTrailingNewlines(content)
       : content.trim()
-    const displayContent = hasMarkdown(normalizedContent)
-      ? isStreamingMessage
-        ? renderStreamingMarkdown(normalizedContent, markdownOptions)
-        : renderMarkdown(normalizedContent, markdownOptions)
-      : normalizedContent
+    const displayContent = renderContentWithMarkdown(
+      normalizedContent,
+      isStreamingMessage,
+      markdownOptions,
+    )
     return (
       <text
         key={`message-content-${messageId}`}
@@ -437,74 +473,86 @@ export const MessageBlock = ({
   }
 
   const renderBlock = (block: ContentBlock, idx: number) => {
-    if (block.type === 'text') {
-      const isStreamingText = isLoading || !isComplete
-      const rawContent = isStreamingText
-        ? trimTrailingNewlines(block.content)
-        : block.content.trim()
-      const renderKey = `${messageId}-text-${idx}`
-      const renderedContent = hasMarkdown(rawContent)
-        ? isStreamingText
-          ? renderStreamingMarkdown(rawContent, markdownOptions)
-          : renderMarkdown(rawContent, markdownOptions)
-        : rawContent
-      const prevBlock = idx > 0 && blocks ? blocks[idx - 1] : null
-      const marginTop =
-        prevBlock && (prevBlock.type === 'tool' || prevBlock.type === 'agent')
-          ? 0
-          : block.marginTop ?? 0
-      const marginBottom = block.marginBottom ?? 0
-      return (
-        <text
-          key={renderKey}
-          wrap
-          style={{ fg: textColor, marginTop, marginBottom }}
-        >
-          {renderedContent}
-        </text>
-      )
-    } else if (block.type === 'html') {
-      const marginTop = block.marginTop ?? 0
-      const marginBottom = block.marginBottom ?? 0
-      return (
-        <box
-          key={`${messageId}-html-${idx}`}
-          style={{
-            flexDirection: 'column',
-            gap: 0,
-            marginTop,
-            marginBottom,
-            width: '100%',
-          }}
-        >
-          {block.render({ textColor, theme })}
-        </box>
-      )
-    } else if (block.type === 'tool') {
-      const isLastBranch = !hasBranchAfter(blocks, idx)
-      return renderToolBranch(
-        block,
-        0,
-        isLastBranch,
-        `${messageId}-tool-${block.toolCallId}`,
-      )
-    } else if (block.type === 'agent') {
-      const isLastBranch = !hasBranchAfter(blocks, idx)
-      return renderAgentBranch(
-        block,
-        0,
-        isLastBranch,
-        `${messageId}-agent-${block.agentId}`,
-      )
-    } else if (block.type === 'agent-list') {
-      const isLastBranch = !hasBranchAfter(blocks, idx)
-      return renderAgentListBranch(
-        block,
-        isLastBranch,
-        `${messageId}-agent-list-${block.id}`,
-      )
+    switch (block.type) {
+      case 'text': {
+        const isStreamingText = isLoading || !isComplete
+        const rawContent = isStreamingText
+          ? trimTrailingNewlines(block.content)
+          : block.content.trim()
+        const renderKey = `${messageId}-text-${idx}`
+        const renderedContent = renderContentWithMarkdown(
+          rawContent,
+          isStreamingText,
+          markdownOptions,
+        )
+        const prevBlock = idx > 0 && blocks ? blocks[idx - 1] : null
+        const marginTop =
+          prevBlock && (prevBlock.type === 'tool' || prevBlock.type === 'agent')
+            ? 0
+            : block.marginTop ?? 0
+        const marginBottom = block.marginBottom ?? 0
+        return (
+          <text
+            key={renderKey}
+            wrap
+            style={{ fg: textColor, marginTop, marginBottom }}
+          >
+            {renderedContent}
+          </text>
+        )
+      }
+
+      case 'html': {
+        const marginTop = block.marginTop ?? 0
+        const marginBottom = block.marginBottom ?? 0
+        return (
+          <box
+            key={`${messageId}-html-${idx}`}
+            style={{
+              flexDirection: 'column',
+              gap: 0,
+              marginTop,
+              marginBottom,
+              width: '100%',
+            }}
+          >
+            {block.render({ textColor, theme })}
+          </box>
+        )
+      }
+
+      case 'tool': {
+        const isLastBranch = !hasBranchAfter(blocks, idx)
+        return renderToolBranch(
+          block,
+          0,
+          isLastBranch,
+          `${messageId}-tool-${block.toolCallId}`,
+        )
+      }
+
+      case 'agent': {
+        const isLastBranch = !hasBranchAfter(blocks, idx)
+        return renderAgentBranch(
+          block,
+          0,
+          isLastBranch,
+          `${messageId}-agent-${block.agentId}`,
+        )
+      }
+
+      case 'agent-list': {
+        const isLastBranch = !hasBranchAfter(blocks, idx)
+        return renderAgentListBranch(
+          block,
+          isLastBranch,
+          `${messageId}-agent-list-${block.id}`,
+        )
+      }
+
+      default:
+        return null
     }
-    return null
   }
 
   return (
