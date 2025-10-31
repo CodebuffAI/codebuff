@@ -359,6 +359,7 @@ export async function runBuffBench(options: {
       agentId,
       runs: [],
       averageScore: 0,
+      averageScoreExcludingFailures: 0,
       averageCost: 0,
       averageDuration: 0,
     }
@@ -420,6 +421,18 @@ export async function runBuffBench(options: {
       validRuns.length > 0
         ? validRuns.reduce((sum, r) => sum + r.judging.overallScore, 0) /
           validRuns.length
+        : 0
+
+    // Calculate average excluding huge failures (scores ≤1.0)
+    const runsExcludingFailures = validRuns.filter(
+      (r) => r.judging.overallScore > 1.0,
+    )
+    agentData.averageScoreExcludingFailures =
+      runsExcludingFailures.length > 0
+        ? runsExcludingFailures.reduce(
+            (sum, r) => sum + r.judging.overallScore,
+            0,
+          ) / runsExcludingFailures.length
         : 0
 
     agentData.averageCost =
@@ -507,8 +520,14 @@ export async function runBuffBench(options: {
     const validRuns = data.runs.filter(
       (r) => !commitShasWithErrors.has(r.commitSha),
     )
+    const runsExcludingFailures = validRuns.filter(
+      (r) => r.judging.overallScore > 1.0,
+    )
     console.log(`\n${agentId}:`)
     console.log(`  Average Score: ${data.averageScore.toFixed(2)}/10`)
+    console.log(
+      `  Average Score (excluding failures ≤1.0): ${data.averageScoreExcludingFailures.toFixed(2)}/10 (${runsExcludingFailures.length}/${validRuns.length} runs)`,
+    )
     console.log(`  Average Cost: ${data.averageCost.toFixed(4)}`)
     console.log(
       `  Average Duration: ${(data.averageDuration / 1000).toFixed(1)}s`,
