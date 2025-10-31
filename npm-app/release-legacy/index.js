@@ -14,7 +14,7 @@ const CONFIG = {
   homeDir: os.homedir(),
   configDir: path.join(os.homedir(), '.config', 'manicode'),
   binaryName: process.platform === 'win32' ? 'codebuff.exe' : 'codebuff',
-  githubRepo: 'CodebuffAI/codebuff-community',
+  githubRepo: 'CodebuffAI/codebuff',
   userAgent: 'codebuff-cli',
   requestTimeout: 20000,
 }
@@ -388,6 +388,14 @@ async function checkForUpdates(runningProcess, exitListener, retry) {
 }
 
 async function main(firstRun = false, printMode = false) {
+  console.log('\x1b[1m\x1b[91m' + '='.repeat(54) + '\x1b[0m')
+  console.log('\x1b[1m\x1b[93m               ❄️  CODEBUFF LEGACY UI ❄️\x1b[0m')
+  console.log(
+    '\x1b[1m\x1b[91mRUN `npm i -g codebuff@latest` TO SWITCH TO THE NEW UI\x1b[0m',
+  )
+  console.log('\x1b[1m\x1b[91m' + '='.repeat(54) + '\x1b[0m')
+  console.log('')
+
   isPrintMode = printMode
   await ensureBinaryExists()
 
