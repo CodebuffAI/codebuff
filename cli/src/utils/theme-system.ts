@@ -180,29 +180,39 @@ const applyNeutralTextDefaults = (
     return allowDefault ? 'default' : fallback
   }
 
+  const resolvedMessageAiText = resolveColor(
+    theme.messageAiText,
+    neutrals.primary,
+    allowTerminalDefaults,
+  )
+  const resolvedMessageUserText = resolveColor(
+    theme.messageUserText,
+    neutrals.primary,
+    allowTerminalDefaults,
+  )
+  const messageUserFallback =
+    resolvedMessageUserText === 'default'
+      ? neutrals.primary
+      : resolvedMessageUserText
+
+  const resolvedInputFg = resolveColor(
+    theme.inputFg,
+    messageUserFallback,
+    allowTerminalDefaults,
+  )
+  const resolvedInputFocusedFg = resolveColor(
+    theme.inputFocusedFg ?? theme.inputFg ?? messageUserFallback,
+    messageUserFallback,
+    allowTerminalDefaults,
+  )
+
   const adjustedTheme: ChatTheme = {
     ...theme,
     chromeText: theme.chromeText ?? neutrals.primary,
-    messageAiText: resolveColor(
-      theme.messageAiText,
-      neutrals.primary,
-      allowTerminalDefaults,
-    ),
-    messageUserText: resolveColor(
-      theme.messageUserText,
-      neutrals.primary,
-      allowTerminalDefaults,
-    ),
-    inputFg: resolveColor(
-      theme.inputFg,
-      neutrals.primary,
-      allowTerminalDefaults,
-    ),
-    inputFocusedFg: resolveColor(
-      theme.inputFocusedFg ?? theme.inputFg,
-      neutrals.primary,
-      allowTerminalDefaults,
-    ),
+    messageAiText: resolvedMessageAiText,
+    messageUserText: resolvedMessageUserText,
+    inputFg: resolvedInputFg,
+    inputFocusedFg: resolvedInputFocusedFg,
     agentText: resolveColor(
       theme.agentText,
       neutrals.primary,
