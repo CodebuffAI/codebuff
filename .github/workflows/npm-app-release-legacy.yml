@@ -17,8 +17,8 @@ permissions:
   contents: write
 
 jobs:
-  # First job: Prepare production release
-  prepare-and-commit-prod:
+  # First job: Prepare legacy release
+  prepare-and-commit-legacy:
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
@@ -29,10 +29,10 @@ jobs:
 
       - uses: ./.github/actions/setup-project
 
-      - name: Calculate and update production version
+      - name: Calculate and update legacy version
         id: bump_version
         run: |
-          cd npm-app/release
+          cd npm-app/release-legacy
 
           # Get current version and bump it
           CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
@@ -42,7 +42,7 @@ jobs:
           npm version ${{ inputs.version_type }} --preid=legacy --no-git-tag-version
           NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
 
-          echo "New production version: $NEW_VERSION"
+          echo "New legacy version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Configure git
@@ -55,11 +55,11 @@ jobs:
           git stash
           git pull --rebase origin main
           git stash pop
-          git add npm-app/release/package.json
+          git add npm-app/release-legacy/package.json
           git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
           git push
 
-      - name: Create and push production tag
+      - name: Create and push legacy tag
         run: |
           git tag "v${{ steps.bump_version.outputs.new_version }}"
           git push origin "v${{ steps.bump_version.outputs.new_version }}"
@@ -68,22 +68,22 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: updated-package
-          path: npm-app/release/
+          path: npm-app/release-legacy/
 
-  build-prod-binaries:
-    needs: prepare-and-commit-prod
+  build-legacy-binaries:
+    needs: prepare-and-commit-legacy
     uses: ./.github/workflows/npm-app-release-build.yml
     with:
       binary-name: codebuff
-      new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
+      new-version: ${{ needs.prepare-and-commit-legacy.outputs.new_version }}
       artifact-name: updated-package
       checkout-ref: ${{ github.sha }}
       env-overrides: '{"NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets: inherit
 
   # Create GitHub release with all binaries
-  create-prod-release:
-    needs: [prepare-and-commit-prod, build-prod-binaries]
+  create-legacy-release:
+    needs: [prepare-and-commit-legacy, build-legacy-binaries]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -102,11 +102,11 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ needs.prepare-and-commit-prod.outputs.new_version }}
-          name: Release v${{ needs.prepare-and-commit-prod.outputs.new_version }}
+          tag_name: v${{ needs.prepare-and-commit-legacy.outputs.new_version }}
+          name: Release v${{ needs.prepare-and-commit-legacy.outputs.new_version }}
           prerelease: false
           body: |
-            ## Codebuff v${{ needs.prepare-and-commit-prod.outputs.new_version }}
+            ## Codebuff v${{ needs.prepare-and-commit-legacy.outputs.new_version }}
 
             Binary releases for all supported platforms.
 
@@ -127,8 +127,8 @@ jobs:
           token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
 
   # Publish npm package
-  publish-prod-npm:
-    needs: [prepare-and-commit-prod, create-prod-release]
+  publish-legacy-npm:
+    needs: [prepare-and-commit-legacy, create-legacy-release]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -140,7 +140,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: updated-package
-          path: npm-app/release/
+          path: npm-app/release-legacy/
 
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4
@@ -150,7 +150,7 @@ jobs:
 
       - name: Publish to npm
         run: |
-          cd npm-app/release
+          cd npm-app/release-legacy
           npm publish --access public --tag legacy
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

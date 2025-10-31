@@ -4,7 +4,7 @@ const { execSync } = require('child_process')
 
 // Parse command line arguments
 const args = process.argv.slice(2)
-const versionType = args[0] || 'patch' // patch, minor, major, or specific version like 1.2.3
+const versionType = args[0] || 'prepatch' // prepatch, minor, major, or specific version like 1.2.3
 
 function log(message) {
   console.log(`${message}`)
@@ -33,10 +33,10 @@ function checkGitHubToken() {
   if (!token) {
     error(
       'CODEBUFF_GITHUB_TOKEN environment variable is required but not set.\n' +
-      'Please set it with your GitHub personal access token or use the infisical setup.'
+        'Please set it with your GitHub personal access token or use the infisical setup.',
     )
   }
-  
+
   // Set GITHUB_TOKEN for compatibility with existing curl commands
   process.env.GITHUB_TOKEN = token
   return token
