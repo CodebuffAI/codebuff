@@ -64,7 +64,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
   return pos
 }
 
-const CURSOR_CHAR = '▏'
+const CURSOR_CHAR = '┃'
 
 interface MultilineInputProps {
   value: string
