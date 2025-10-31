@@ -4,52 +4,57 @@ import {
 } from '../../types/secret-agent-definition'
 import { publisher } from '../../constants'
 
-const definition: SecretAgentDefinition = {
-  id: 'best-of-n-selector',
-  publisher,
-  model: 'anthropic/claude-sonnet-4.5',
-  displayName: 'Best-of-N Implementation Selector',
-  spawnerPrompt:
-    'Analyzes multiple implementation proposals and selects the best one',
+export const createBestOfNSelector = (options: {
+  model: 'sonnet' | 'gpt-5'
+}): Omit<SecretAgentDefinition, 'id'> => {
+  const { model } = options
+  const isSonnet = model === 'sonnet'
 
-  includeMessageHistory: true,
-  inheritParentSystemPrompt: true,
+  return {
+    publisher,
+    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5',
+    displayName: 'Best-of-N Implementation Selector',
+    spawnerPrompt:
+      'Analyzes multiple implementation proposals and selects the best one',
 
-  toolNames: ['set_output'],
-  spawnableAgents: [],
+    includeMessageHistory: true,
+    inheritParentSystemPrompt: true,
 
-  inputSchema: {
-    params: {
-      type: 'object',
-      properties: {
-        implementations: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              content: { type: 'string' },
+    toolNames: ['set_output'],
+    spawnableAgents: [],
+
+    inputSchema: {
+      params: {
+        type: 'object',
+        properties: {
+          implementations: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                content: { type: 'string' },
+              },
+              required: ['id', 'content'],
             },
-            required: ['id', 'content'],
           },
         },
-      },
-      required: ['implementations'],
-    },
-  },
-  outputMode: 'structured_output',
-  outputSchema: {
-    type: 'object',
-    properties: {
-      implementationId: {
-        type: 'string',
-        description: 'The id of the chosen implementation',
+        required: ['implementations'],
       },
     },
-    required: ['implementationId'],
-  },
+    outputMode: 'structured_output',
+    outputSchema: {
+      type: 'object',
+      properties: {
+        implementationId: {
+          type: 'string',
+          description: 'The id of the chosen implementation',
+        },
+      },
+      required: ['implementationId'],
+    },
 
-  instructionsPrompt: `As part of the best-of-n workflow of agents, you are the implementation selector agent.
+    instructionsPrompt: `As part of the best-of-n workflow of agents, you are the implementation selector agent.
   
 ## Task Instructions
 
@@ -79,9 +84,21 @@ Try to select an implementation that fulfills all the requirements in the user's
 
 ## Response Format
 
-If needed, use <think> tags to briefly consider the implementations and their strengths and weaknesses.
+${
+  isSonnet
+    ? `Use <think> tags to briefly consider the implementations as needed to pick the best implementation.
 
-Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId.`,
+If the best one is obvious or the implementations are very similar, you may not need to think very much (a few words suffice) or you may not need to use think tags at all, just pick the best one and output it. You have a dual goal of picking the best implementation and being fast (using as few words as possible).
+
+Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId.`
+    : `Output a single tool call to set_output with the selected implementationId. Do not write anything else.`
+}`,
+  }
+}
+
+const definition: SecretAgentDefinition = {
+  ...createBestOfNSelector({ model: 'sonnet' }),
+  id: 'best-of-n-selector',
 }
 
 export default definition
