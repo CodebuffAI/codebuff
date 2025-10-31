@@ -10,15 +10,9 @@ export const createBase2: (
   mode: 'fast' | 'max',
   options?: {
     hasNoValidation?: boolean
-    bestOfN?: boolean
-    bestOfNFast?: boolean
   },
 ) => Omit<SecretAgentDefinition, 'id'> = (mode, options) => {
-  const {
-    hasNoValidation = false,
-    bestOfN = false,
-    bestOfNFast = false,
-  } = options ?? {}
+  const { hasNoValidation = false } = options ?? {}
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
 
@@ -62,8 +56,7 @@ export const createBase2: (
       'researcher-web',
       'researcher-docs',
       'commander',
-      bestOfN && 'best-of-n-orchestrator',
-      bestOfNFast && 'best-of-n-orchestrator-fast',
+      isFast && 'best-of-n-orchestrator-fast',
       isMax && 'base2-gpt-5-worker',
       'context-pruner',
     ),
@@ -83,6 +76,8 @@ Continue to spawn layers of agents until have completed the user's request or re
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
   - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers before making edits.
   ${buildArray(
+    isFast &&
+      '- Spawn a best-of-n-orchestrator-fast agent to implement the changes after you have gathered all the context you need (and not before!).',
     isMax &&
       '- Spawn a base2-gpt-5-worker agent inline after you have gathered all the context you need (and not before!).',
   ).join('\n  ')}
@@ -153,21 +148,15 @@ ${buildArray(
   `- Consider spawning other agents or reading more files as needed to gather comprehensive context to answer the user's request.`,
   isFast &&
     `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'}`,
-  bestOfN &&
-    `- You must spawn the best-of-n-orchestrator agent to implement the code changes, since it will generate multiple implementation proposals and select the best one, which the user wants you to do.`,
-  bestOfNFast &&
-    `- You must spawn the best-of-n-orchestrator-fast agent to implement the code changes, since it will generate multiple implementation proposals and select the best one, which the user wants you to do.`,
-  !bestOfN &&
-    !bestOfNFast &&
-    isFast &&
-    `- Use the str_replace or write_file tool to make the changes. (Pause after making all the changes to see the tool results of your edits and double check they went through correctly.)`,
+  isFast &&
+    `- You must spawn the best-of-n-orchestrator-fast agent to implement the code changes, since it will generate the best code changes from multiple implementation proposals, which the user wants you to do.`,
   isMax &&
     `- IMPORTANT: You must spawn a base2-gpt-5-worker agent inline (with spawn_agent_inline tool) to do the planning and editing.`,
   !hasNoValidation &&
     `- Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands. Don't skip this step!`,
-  `- Inform the user that you have completed the task in one sentence or a few short bullet points. Don't create any markdown summary files, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
+  `- Inform the user that you have completed the task in one sentence or a few short bullet points. Don't create any markdown summary files or example documentation files, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
 ).join('\n')}`,
-    stepPrompt: `${isMax ? "Keep working until the user's request is completely satisfied. " : ''}${bestOfN ? "You must spawn the best-of-n-orchestrator agent to implement the code changes. Don't forget to do this! " : ''}After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files or example documentation files, unless asked by the user. If you already summarized your changes, then end turn and don't say anything else.`,
+    stepPrompt: `${isMax ? "Keep working until the user's request is completely satisfied. " : ''}${isFast ? "You must spawn the best-of-n-orchestrator-fast agent to implement any code changes. Don't forget to do this! " : ''}After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files or example documentation files, unless asked by the user. If you already summarized your changes, then end turn and don't say anything else.`,
     handleSteps: function* ({ params }) {
       let steps = 0
       while (true) {
