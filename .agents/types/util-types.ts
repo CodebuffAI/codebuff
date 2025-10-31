@@ -1,5 +1,3 @@
-import z from 'zod/v4'
-
 // ===== JSON Types =====
 export type JSONValue =
   | null
@@ -8,25 +6,9 @@ export type JSONValue =
   | boolean
   | JSONObject
   | JSONArray
-export const jsonValueSchema: z.ZodType<JSONValue> = z.lazy(() =>
-  z.union([
-    z.null(),
-    z.string(),
-    z.number(),
-    z.boolean(),
-    jsonObjectSchema,
-    jsonArraySchema,
-  ]),
-)
 
-export const jsonObjectSchema: z.ZodType<JSONObject> = z.lazy(() =>
-  z.record(z.string(), jsonValueSchema),
-)
 export type JSONObject = { [key: string]: JSONValue }
 
-export const jsonArraySchema: z.ZodType<JSONArray> = z.lazy(() =>
-  z.array(jsonValueSchema),
-)
 export type JSONArray = JSONValue[]
 
 /**
@@ -50,173 +32,116 @@ export type JsonSchema = {
 export type JsonObjectSchema = JsonSchema & { type: 'object' }
 
 // ===== Data Content Types =====
-export const dataContentSchema = z.union([
-  z.string(),
-  z.instanceof(Uint8Array),
-  z.instanceof(ArrayBuffer),
-  z.custom<Buffer>(
-    // Buffer might not be available in some environments such as CloudFlare:
-    (value: unknown): value is Buffer =>
-      globalThis.Buffer?.isBuffer(value) ?? false,
-    { message: 'Must be a Buffer' },
-  ),
-])
-export type DataContent = z.infer<typeof dataContentSchema>
+export type DataContent = string | Uint8Array | ArrayBuffer | Buffer
 
 // ===== Provider Metadata Types =====
-export const providerMetadataSchema = z.record(
-  z.string(),
-  z.record(z.string(), jsonValueSchema),
-)
-
-export type ProviderMetadata = z.infer<typeof providerMetadataSchema>
+export type ProviderMetadata = Record<string, Record<string, JSONValue>>
 
 // ===== Content Part Types =====
-export const textPartSchema = z.object({
-  type: z.literal('text'),
-  text: z.string(),
-  providerOptions: providerMetadataSchema.optional(),
-})
-export type TextPart = z.infer<typeof textPartSchema>
+export type TextPart = {
+  type: 'text'
+  text: string
+  providerOptions?: ProviderMetadata
+}
 
-export const imagePartSchema = z.object({
-  type: z.literal('image'),
-  image: z.union([dataContentSchema, z.instanceof(URL)]),
-  mediaType: z.string().optional(),
-  providerOptions: providerMetadataSchema.optional(),
-})
-export type ImagePart = z.infer<typeof imagePartSchema>
+export type ImagePart = {
+  type: 'image'
+  image: DataContent
+  mediaType?: string
+  providerOptions?: ProviderMetadata
+}
 
-export const filePartSchema = z.object({
-  type: z.literal('file'),
-  data: z.union([dataContentSchema, z.instanceof(URL)]),
-  filename: z.string().optional(),
-  mediaType: z.string(),
-  providerOptions: providerMetadataSchema.optional(),
-})
-export type FilePart = z.infer<typeof filePartSchema>
+export type FilePart = {
+  type: 'file'
+  data: DataContent
+  filename?: string
+  mediaType: string
+  providerOptions?: ProviderMetadata
+}
 
-export const reasoningPartSchema = z.object({
-  type: z.literal('reasoning'),
-  text: z.string(),
-  providerOptions: providerMetadataSchema.optional(),
-})
-export type ReasoningPart = z.infer<typeof reasoningPartSchema>
+export type ReasoningPart = {
+  type: 'reasoning'
+  text: string
+  providerOptions?: ProviderMetadata
+}
 
-export const toolCallPartSchema = z.object({
-  type: z.literal('tool-call'),
-  toolCallId: z.string(),
-  toolName: z.string(),
-  input: z.record(z.string(), z.unknown()),
-  providerOptions: providerMetadataSchema.optional(),
-  providerExecuted: z.boolean().optional(),
-})
-export type ToolCallPart = z.infer<typeof toolCallPartSchema>
+export type ToolCallPart = {
+  type: 'tool-call'
+  toolCallId: string
+  toolName: string
+  input: Record<string, unknown>
+  providerOptions?: ProviderMetadata
+  providerExecuted?: boolean
+}
 
-export const toolResultOutputSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('json'),
-    value: jsonValueSchema,
-  }),
-  z.object({
-    type: z.literal('media'),
-    data: z.string(),
-    mediaType: z.string(),
-  }),
-])
-export type ToolResultOutput = z.infer<typeof toolResultOutputSchema>
+export type ToolResultOutput =
+  | {
+      type: 'json'
+      value: JSONValue
+    }
+  | {
+      type: 'media'
+      data: string
+      mediaType: string
+    }
 
-export const toolResultPartSchema = z.object({
-  type: z.literal('tool-result'),
-  toolCallId: z.string(),
-  toolName: z.string(),
-  output: toolResultOutputSchema.array(),
-  providerOptions: providerMetadataSchema.optional(),
-})
-export type ToolResultPart = z.infer<typeof toolResultPartSchema>
+export type ToolResultPart = {
+  type: 'tool-result'
+  toolCallId: string
+  toolName: string
+  output: ToolResultOutput[]
+  providerOptions?: ProviderMetadata
+}
 
 // ===== Message Types =====
-const auxiliaryDataSchema = z.object({
-  providerOptions: providerMetadataSchema.optional(),
-  timeToLive: z
-    .union([z.literal('agentStep'), z.literal('userPrompt')])
-    .optional(),
-  keepDuringTruncation: z.boolean().optional(),
-  keepLastTags: z.string().array().optional(),
-})
+type AuxiliaryData = {
+  providerOptions?: ProviderMetadata
+  timeToLive?: 'agentStep' | 'userPrompt'
+  keepDuringTruncation?: boolean
+  keepLastTags?: string[]
+}
 
-export const systemMessageSchema = z
-  .object({
-    role: z.literal('system'),
-    content: z.string(),
-  })
-  .and(auxiliaryDataSchema)
-export type SystemMessage = z.infer<typeof systemMessageSchema>
+export type SystemMessage = {
+  role: 'system'
+  content: string
+} & AuxiliaryData
 
-export const userMessageSchema = z
-  .object({
-    role: z.literal('user'),
-    content: z.union([
-      z.string(),
-      z.union([textPartSchema, imagePartSchema, filePartSchema]).array(),
-    ]),
-  })
-  .and(auxiliaryDataSchema)
-export type UserMessage = z.infer<typeof userMessageSchema>
+export type UserMessage = {
+  role: 'user'
+  content: string | (TextPart | ImagePart | FilePart)[]
+} & AuxiliaryData
 
-export const assistantMessageSchema = z
-  .object({
-    role: z.literal('assistant'),
-    content: z.union([
-      z.string(),
-      z
-        .union([textPartSchema, reasoningPartSchema, toolCallPartSchema])
-        .array(),
-    ]),
-  })
-  .and(auxiliaryDataSchema)
-export type AssistantMessage = z.infer<typeof assistantMessageSchema>
+export type AssistantMessage = {
+  role: 'assistant'
+  content: string | (TextPart | ReasoningPart | ToolCallPart)[]
+} & AuxiliaryData
 
-export const toolMessageSchema = z
-  .object({
-    role: z.literal('tool'),
-    content: toolResultPartSchema,
-  })
-  .and(auxiliaryDataSchema)
-export type ToolMessage = z.infer<typeof toolMessageSchema>
+export type ToolMessage = {
+  type: 'tool'
+  content: ToolResultPart
+} & AuxiliaryData
 
-export const messageSchema = z.union([
-  systemMessageSchema,
-  userMessageSchema,
-  assistantMessageSchema,
-  toolMessageSchema,
-])
-export type Message = z.infer<typeof messageSchema>
+export type Message =
+  | SystemMessage
+  | UserMessage
+  | AssistantMessage
+  | ToolMessage
 
 // ===== MCP Server Types =====
 
-export const mcpConfigStdioSchema = z.strictObject({
-  type: z.literal('stdio').default('stdio'),
-  command: z.string(),
-  args: z
-    .string()
-    .array()
-    .default(() => []),
-  env: z.record(z.string(), z.string()).default(() => ({})),
-  headers: z.record(z.string(), z.string()).default(() => ({})),
-})
-
-export const mcpConfigRemoteSchema = z.strictObject({
-  type: z.enum(['http', 'sse']).default('http'),
-  url: z.string(),
-  params: z.record(z.string(), z.string()).default(() => ({})),
-})
-
-export const mcpConfigSchema = z.union([
-  mcpConfigRemoteSchema,
-  mcpConfigStdioSchema,
-])
-export type MCPConfig = z.input<typeof mcpConfigSchema>
+export type MCPConfig =
+  | {
+      type?: 'stdio'
+      command: string
+      args?: string[]
+      env?: Record<string, string>
+      headers?: Record<string, string>
+    }
+  | {
+      type?: 'http' | 'sse'
+      url: string
+      params?: Record<string, string>
+    }
 
 // ============================================================================
 // Logger Interface
