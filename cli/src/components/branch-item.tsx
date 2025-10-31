@@ -33,6 +33,7 @@ interface BranchItemProps {
   statusIndicator?: string
   theme: ChatTheme
   onToggle: () => void
+  showBorder?: boolean
 }
 
 export const BranchItem = ({
@@ -50,6 +51,7 @@ export const BranchItem = ({
   statusIndicator = '●',
   theme,
   onToggle,
+  showBorder = true,
 }: BranchItemProps) => {
   const resolveFg = (
     color?: string | null,
@@ -199,10 +201,10 @@ export const BranchItem = ({
       }}
     >
       <box
-        border
-        borderStyle="single"
-        borderColor={toggleFrameFg ?? undefined}
-        customBorderChars={containerBorderChars}
+        border={showBorder}
+        borderStyle={showBorder ? 'single' : undefined}
+        borderColor={showBorder ? toggleFrameFg ?? undefined : undefined}
+        customBorderChars={showBorder ? containerBorderChars : undefined}
         style={{
           flexDirection: 'column',
           gap: 0,
@@ -239,10 +241,10 @@ export const BranchItem = ({
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            paddingLeft: 1,
-            paddingRight: 1,
+            paddingLeft: showBorder ? 1 : 0,
+            paddingRight: showBorder ? 1 : 0,
             paddingTop: 0,
-            paddingBottom: isCollapsed && !showCollapsedPreview ? 0 : 1,
+            paddingBottom: isCollapsed ? 0 : 1,
             width: '100%',
           }}
           onMouseDown={onToggle}
@@ -275,7 +277,7 @@ export const BranchItem = ({
                 paddingLeft: 0,
                 paddingRight: 0,
                 paddingTop: 0,
-                paddingBottom: 1,
+                paddingBottom: 0,
               }}
             >
               <text
@@ -333,7 +335,7 @@ export const BranchItem = ({
               style={{
                 alignSelf: 'flex-end',
                 marginTop: content ? 0 : 1,
-                paddingRight: 1,
+                paddingRight: showBorder ? 1 : 0,
                 paddingBottom: 0,
                 marginBottom: 0,
               }}

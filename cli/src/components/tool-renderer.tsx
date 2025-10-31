@@ -8,7 +8,7 @@ import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
 type ToolBlock = Extract<ContentBlock, { type: 'tool' }>
 
 export type ToolRenderConfig = {
-  titleAccessory?: React.ReactNode
+  path?: string
   content?: React.ReactNode
   collapsedPreview?: string
 }
@@ -16,6 +16,8 @@ export type ToolRenderConfig = {
 export type ToolRenderOptions = {
   availableWidth: number
   indentationOffset: number
+  previewPrefix?: string
+  labelWidth: number
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -45,9 +47,16 @@ const summarizeFiles = (
   maxItems: number,
   options: ToolRenderOptions,
 ): string | null => {
+  const previewPrefix = options.previewPrefix ?? ''
+  const previewPrefixWidth = stringWidth(previewPrefix)
+  const alignmentPadding = Math.max(
+    0,
+    options.labelWidth - previewPrefixWidth,
+  )
+  const totalPrefixWidth = previewPrefixWidth + alignmentPadding
   const maxWidth = Math.max(
     20,
-    options.availableWidth - options.indentationOffset - 6,
+    options.availableWidth - options.indentationOffset - totalPrefixWidth - 6,
   )
 
   if (!Array.isArray(entries) || entries.length === 0) {
@@ -126,34 +135,48 @@ const getListDirectoryRender = (
 
   const summaryColor =
     resolveThemeColor(theme.agentContentText) ?? theme.statusSecondary
-  const pathColor = theme.statusAccent
   const baseAttributes = theme.messageTextAttributes ?? 0
   const getAttributes = (extra: number = 0): number | undefined => {
     const combined = baseAttributes | extra
     return combined === 0 ? undefined : combined
   }
 
+  const previewPrefix = options.previewPrefix ?? ''
+  const previewPrefixWidth = stringWidth(previewPrefix)
+  const alignmentPadding = Math.max(
+    0,
+    options.labelWidth - previewPrefixWidth,
+  )
+  const alignmentSpaces = ' '.repeat(alignmentPadding)
+  const paddedPrefix = `${previewPrefix}${alignmentSpaces}`
+  const blankPrefix =
+    previewPrefix.replace(/\s+$/, '') || previewPrefix
   const content =
     summaryLine !== null ? (
-      <text
-        fg={summaryColor}
-        attributes={getAttributes(TextAttributes.ITALIC)}
-        style={{ wrapMode: 'word' }}
-      >
-        {summaryLine}
-      </text>
+      <box style={{ flexDirection: 'column', gap: 0 }}>
+        <text
+          fg={summaryColor}
+          attributes={getAttributes(TextAttributes.ITALIC)}
+          style={{ wrapMode: 'word' }}
+        >
+          {`${paddedPrefix}${summaryLine}`}
+        </text>
+        {previewPrefix ? (
+          <text
+            fg={summaryColor}
+            attributes={getAttributes(TextAttributes.ITALIC)}
+            style={{ wrapMode: 'none' }}
+          >
+            {blankPrefix}
+          </text>
+        ) : null}
+      </box>
     ) : null
 
   const collapsedPreview = summaryLine ?? undefined
 
-  const titleAccessory = path ? (
-    <span fg={pathColor} attributes={TextAttributes.BOLD}>
-      {path}
-    </span>
-  ) : undefined
-
   return {
-    titleAccessory,
+    path: path ?? undefined,
     content,
     collapsedPreview,
   }

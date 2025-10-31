@@ -198,17 +198,12 @@ export const ToolItem = ({
       >
         <text style={{ wrapMode: 'none' }}>
           <span fg={branchColor} attributes={branchAttributes}>
-            {connectorSymbol}{' '}
+            {`${connectorSymbol} `}
           </span>
           <span fg={titleColor} attributes={TextAttributes.BOLD}>
             {name}
           </span>
-          {hasTitleAccessory ? (
-            <>
-              {' '}
-              {titleAccessory}
-            </>
-          ) : null}
+          {hasTitleAccessory && titleAccessory ? titleAccessory : null}
         </text>
       </box>
       {isCollapsed ? renderConnectedSection(previewNode) : null}

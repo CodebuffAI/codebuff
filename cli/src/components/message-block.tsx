@@ -1,10 +1,12 @@
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
+import stringWidth from 'string-width'
 
 import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
+import { getToolRenderConfig } from './tool-renderer'
 import {
   renderMarkdown,
   renderStreamingMarkdown,
@@ -77,8 +79,15 @@ export const MessageBlock = ({
 
   // Get elapsed time from timer for streaming AI messages
   const elapsedSeconds = timer.elapsedSeconds
-  const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>
-    `${'  '.repeat(indentLevel)}${isLastBranch ? '└─ ' : '├─ '}`
+  const computeBranchChar = (
+    ancestorBranchStates: boolean[],
+    isLastBranch: boolean,
+  ) => {
+    const ancestorPrefix = ancestorBranchStates
+      .map((ancestorIsLast) => (ancestorIsLast ? '  ' : '│ '))
+      .join('')
+    return `${ancestorPrefix}${isLastBranch ? '└─ ' : '├─ '}`
+  }
 
   const renderContentWithMarkdown = (
     rawContent: string,
@@ -145,6 +154,7 @@ export const MessageBlock = ({
     indentLevel: number,
     isLastBranch: boolean,
     keyPrefix: string,
+    ancestorBranchStates: boolean[],
   ): React.ReactNode => {
     if (toolBlock.toolName === 'end_turn') {
       return null
@@ -172,15 +182,48 @@ export const MessageBlock = ({
         ? `$ ${(toolBlock.input as any).command.trim()}`
         : null
 
-    const streamingPreview = isStreaming
+    const branchChar = computeBranchChar(ancestorBranchStates, isLastBranch)
+    const indentPrefix = branchChar.replace(/[├└]─\s*$/, '')
+    const previewBasePrefix =
+      indentPrefix.length > 0 ? `${indentPrefix}│ ` : '  │ '
+    const toggleLabel = `${branchChar ? `${branchChar} ` : ''}${isCollapsed ? '▸' : '▾'} `
+    const branchIndentWidth = stringWidth(branchChar)
+    const headerPrefixWidth = stringWidth(toggleLabel)
+    const previewBaseWidth = stringWidth(previewBasePrefix)
+    const alignmentPadding = Math.max(0, headerPrefixWidth - previewBaseWidth)
+    const paddedPreviewPrefix = `${previewBasePrefix}${' '.repeat(alignmentPadding)}`
+    const blankPreviewPrefix =
+      previewBasePrefix.replace(/\s+$/, '') || previewBasePrefix
+    const toolRenderConfig = getToolRenderConfig(toolBlock, theme, {
+      availableWidth,
+      indentationOffset: branchIndentWidth,
+      previewPrefix: previewBasePrefix,
+      labelWidth: headerPrefixWidth,
+    })
+    const formatPreview = (value: string | null): string => {
+      if (!value) return ''
+      const rawLines = value.split('\n')
+      const decorated = rawLines.map((line) =>
+        line.trim().length > 0
+          ? `${paddedPreviewPrefix}${line}`
+          : blankPreviewPrefix,
+      )
+      if (!decorated.some((line) => line.trim().length === 0)) {
+        decorated.push(blankPreviewPrefix)
+      }
+      return decorated.join('\n')
+    }
+    const rawStreamingPreview = isStreaming
       ? commandPreview ?? `${sanitizePreview(firstLine)}...`
       : ''
-
+    const streamingPreview = isStreaming
+      ? formatPreview(rawStreamingPreview)
+      : ''
+    const collapsedPreviewBase =
+      toolRenderConfig.collapsedPreview ??
+      getToolFinishedPreview(toolBlock, commandPreview, lastLine)
     const finishedPreview =
-      !isStreaming && isCollapsed
-        ? getToolFinishedPreview(toolBlock, commandPreview, lastLine)
-        : ''
-
+      !isStreaming && isCollapsed ? formatPreview(collapsedPreviewBase) : ''
     const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
     const displayContent = renderContentWithMarkdown(
       fullContent,
@@ -188,7 +231,43 @@ export const MessageBlock = ({
       agentMarkdownOptions,
     )
 
-    const branchChar = computeBranchChar(indentLevel, isLastBranch)
+    const renderableDisplayContent =
+      displayContent === null ||
+      displayContent === undefined ||
+      displayContent === false ||
+      displayContent === ''
+        ? null
+        : (
+            <text
+              fg={resolveThemeColor(theme.agentText)}
+              style={{ wrapMode: 'word' }}
+              attributes={
+                theme.messageTextAttributes && theme.messageTextAttributes !== 0
+                  ? theme.messageTextAttributes
+                  : undefined
+              }
+            >
+              {displayContent}
+            </text>
+          )
+
+    const combinedContent = toolRenderConfig.content ? (
+      <box
+        style={{
+          flexDirection: 'column',
+          gap: renderableDisplayContent ? 1 : 0,
+        }}
+      >
+        <box style={{ flexDirection: 'column', gap: 0 }}>
+          {toolRenderConfig.content}
+        </box>
+        {renderableDisplayContent}
+      </box>
+    ) : renderableDisplayContent
+
+    const headerName = toolRenderConfig.path
+      ? `${displayInfo.name} • ${toolRenderConfig.path}`
+      : displayInfo.name
 
     return (
       <box
@@ -196,8 +275,8 @@ export const MessageBlock = ({
         ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
       >
         <BranchItem
-          name={displayInfo.name}
-          content={displayContent}
+          name={headerName}
+          content={combinedContent}
           agentId={toolBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
@@ -206,6 +285,7 @@ export const MessageBlock = ({
           finishedPreview={finishedPreview}
           theme={theme}
           onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
+          showBorder={false}
         />
       </box>
     )
@@ -216,6 +296,7 @@ export const MessageBlock = ({
     indentLevel: number,
     isLastBranch: boolean,
     keyPrefix: string,
+    ancestorBranchStates: boolean[],
   ): React.ReactNode {
     const isCollapsed = collapsedAgents.has(agentBlock.agentId)
     const isStreaming =
@@ -241,12 +322,14 @@ export const MessageBlock = ({
         ? sanitizePreview(agentBlock.initialPrompt)
         : ''
 
-    const branchChar = computeBranchChar(indentLevel, isLastBranch)
+    const branchChar = ''
+    const nextAncestorBranches = [...ancestorBranchStates, isLastBranch]
     const childNodes = renderAgentBody(
       agentBlock,
       indentLevel + 1,
       keyPrefix,
       isStreaming,
+      nextAncestorBranches,
     )
 
     const displayContent =
@@ -378,6 +461,7 @@ export const MessageBlock = ({
     indentLevel: number,
     keyPrefix: string,
     parentIsStreaming: boolean,
+    ancestorBranchStates: boolean[],
   ): React.ReactNode[] {
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
@@ -458,6 +542,7 @@ export const MessageBlock = ({
               indentLevel,
               isLastBranch,
               `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
+              ancestorBranchStates,
             ),
           )
           break
@@ -471,6 +556,7 @@ export const MessageBlock = ({
               indentLevel,
               isLastBranch,
               `${keyPrefix}-agent-${nestedIdx}`,
+              ancestorBranchStates,
             ),
           )
           break
@@ -561,6 +647,7 @@ export const MessageBlock = ({
           0,
           isLastBranch,
           `${messageId}-tool-${block.toolCallId}`,
+          [],
         )
       }
 
@@ -571,6 +658,7 @@ export const MessageBlock = ({
           0,
           isLastBranch,
           `${messageId}-agent-${block.agentId}`,
+          [],
         )
       }
 
