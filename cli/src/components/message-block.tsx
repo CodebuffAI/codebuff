@@ -112,6 +112,7 @@ export const MessageBlock = ({
     indentLevel: number,
     keyPrefix: string,
     branchMeta: ToolBranchMeta,
+    marginTop: number = 0,
   ): React.ReactNode => {
     if (toolBlock.toolName === 'end_turn') {
       return null
@@ -186,7 +187,12 @@ export const MessageBlock = ({
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
-        style={{ flexDirection: 'column', gap: 0, marginLeft: indentationOffset }}
+        style={{
+          flexDirection: 'column',
+          gap: 0,
+          marginLeft: indentationOffset,
+          marginTop,
+        }}
       >
         <ToolItem
           name={displayInfo.name}
@@ -209,6 +215,7 @@ export const MessageBlock = ({
     agentBlock: Extract<ContentBlock, { type: 'agent' }>,
     indentLevel: number,
     keyPrefix: string,
+    marginTop: number = 0,
   ): React.ReactNode {
     const isCollapsed = collapsedAgents.has(agentBlock.agentId)
     const isStreaming =
@@ -217,7 +224,9 @@ export const MessageBlock = ({
     const allTextContent =
       agentBlock.blocks
         ?.filter((nested) => nested.type === 'text')
-        .map((nested) => (nested as any).content)
+        .map((nested) =>
+          trimTrailingNewlines(String((nested as any).content ?? '')),
+        )
         .join('') || ''
     const lines = allTextContent.split('\n').filter((line) => line.trim())
     const firstLine = lines[0] || ''
@@ -259,7 +268,12 @@ export const MessageBlock = ({
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(agentBlock.agentId, el)}
-        style={{ flexDirection: 'column', gap: 0, marginLeft: indentationOffset }}
+        style={{
+          flexDirection: 'column',
+          gap: 0,
+          marginLeft: indentationOffset,
+          marginTop,
+        }}
       >
         <BranchItem
           name={agentBlock.agentName}
@@ -284,6 +298,7 @@ export const MessageBlock = ({
   function renderAgentListBranch(
     agentListBlock: Extract<ContentBlock, { type: 'agent-list' }>,
     keyPrefix: string,
+    marginTop: number = 0,
   ): React.ReactNode {
     const TRUNCATE_LIMIT = 5
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
@@ -341,6 +356,7 @@ export const MessageBlock = ({
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(agentListBlock.id, el)}
+        style={{ marginTop }}
       >
         <BranchItem
           name={headerText}
@@ -367,8 +383,12 @@ export const MessageBlock = ({
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
     const toolBranchMetaMap = buildToolBranchMeta(nestedBlocks)
+    const indentationOffset = indentLevel * 2
 
     nestedBlocks.forEach((nestedBlock, nestedIdx) => {
+      const nestedPrevBlock =
+        nestedIdx > 0 ? nestedBlocks[nestedIdx - 1] : null
+      const nestedMarginTop = nestedPrevBlock ? 1 : 0
       if (nestedBlock.type === 'text') {
         const nestedStatus =
           typeof (nestedBlock as any).status === 'string'
@@ -376,9 +396,12 @@ export const MessageBlock = ({
             : undefined
         const isNestedStreamingText =
           parentIsStreaming || nestedStatus === 'running'
+        const sanitizedNestedContent = trimTrailingNewlines(
+          String((nestedBlock as any).content ?? ''),
+        )
         const rawNestedContent = isNestedStreamingText
-          ? trimTrailingNewlines(nestedBlock.content)
-          : nestedBlock.content.trim()
+          ? sanitizedNestedContent
+          : sanitizedNestedContent.trim()
         const renderKey = `${keyPrefix}-text-${nestedIdx}`
         const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
         const renderedContent = hasMarkdown(rawNestedContent)
@@ -388,7 +411,8 @@ export const MessageBlock = ({
           : rawNestedContent
         const nestedTextColor = resolveThemeColor(theme.agentText)
         const nestedTextStyle: Record<string, unknown> = {
-          marginLeft: Math.max(0, indentLevel * 2),
+          marginLeft: Math.max(0, indentationOffset),
+          marginTop: nestedMarginTop,
         }
         if (nestedTextColor) {
           nestedTextStyle.fg = nestedTextColor
@@ -411,6 +435,7 @@ export const MessageBlock = ({
             indentLevel,
             `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
             branchMeta,
+            nestedMarginTop,
           ),
         )
       } else if (nestedBlock.type === 'agent') {
@@ -419,6 +444,7 @@ export const MessageBlock = ({
             nestedBlock,
             indentLevel,
             `${keyPrefix}-agent-${nestedIdx}`,
+            nestedMarginTop,
           ),
         )
       }
@@ -452,22 +478,25 @@ export const MessageBlock = ({
       {blocks ? (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
           {blocks.map((block, idx) => {
+            const prevBlock = idx > 0 ? blocks[idx - 1] : null
+            const marginTop = prevBlock ? 1 : 0
             if (block.type === 'text') {
               const isStreamingText = isLoading || !isComplete
               const hasMarkdownContent = hasMarkdown(block.content)
+              const sanitizedContent = trimTrailingNewlines(
+                String(block.content ?? ''),
+              )
               const rawContent = isStreamingText
-                ? trimTrailingNewlines(block.content)
+                ? sanitizedContent
                 : hasMarkdownContent
-                  ? block.content
-                  : block.content.trim()
+                  ? sanitizedContent
+                  : sanitizedContent.trim()
               const renderKey = `${messageId}-text-${idx}`
               const renderedContent = hasMarkdownContent
                 ? isStreamingText
                   ? renderStreamingMarkdown(rawContent, markdownOptions)
                   : renderMarkdown(rawContent, markdownOptions)
                 : rawContent
-              const prevBlock = idx > 0 ? blocks[idx - 1] : null
-              const marginTop = prevBlock && prevBlock.type === 'text' ? 1 : 0
               const blockTextColor = resolveThemeColor(block.color, textColor)
               const blockStyle: Record<string, unknown> = { marginTop }
               if (blockTextColor) {
@@ -482,25 +511,31 @@ export const MessageBlock = ({
                   {renderedContent}
                 </text>
               )
-          } else if (block.type === 'tool') {
-            const branchMeta =
-              topLevelToolMeta?.get(idx) ?? defaultToolBranchMeta
-            return renderToolBranch(
-              block,
-              0,
-              `${messageId}-tool-${block.toolCallId}`,
-              branchMeta,
-            )
-          } else if (block.type === 'agent') {
+            }
+            if (block.type === 'tool') {
+              const branchMeta =
+                topLevelToolMeta?.get(idx) ?? defaultToolBranchMeta
+              return renderToolBranch(
+                block,
+                0,
+                `${messageId}-tool-${block.toolCallId}`,
+                branchMeta,
+                marginTop,
+              )
+            }
+            if (block.type === 'agent') {
               return renderAgentBranch(
                 block,
                 0,
                 `${messageId}-agent-${block.agentId}`,
+                marginTop,
               )
-            } else if (block.type === 'agent-list') {
+            }
+            if (block.type === 'agent-list') {
               return renderAgentListBranch(
                 block,
                 `${messageId}-agent-list-${block.id}`,
+                marginTop,
               )
             }
             return null
@@ -509,9 +544,10 @@ export const MessageBlock = ({
       ) : (
         (() => {
           const isStreamingMessage = isLoading || !isComplete
+          const sanitizedContent = trimTrailingNewlines(content)
           const normalizedContent = isStreamingMessage
-            ? trimTrailingNewlines(content)
-            : content.trim()
+            ? sanitizedContent
+            : sanitizedContent.trim()
           const displayContent = hasMarkdown(normalizedContent)
             ? isStreamingMessage
               ? renderStreamingMarkdown(normalizedContent, markdownOptions)

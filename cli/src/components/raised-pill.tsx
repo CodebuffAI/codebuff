@@ -27,7 +27,7 @@ export const RaisedPill = ({
   frameColor,
   textColor,
   fillColor,
-  padding = 1,
+  padding = 2,
   onPress,
   style,
 }: RaisedPillProps): React.ReactNode => {

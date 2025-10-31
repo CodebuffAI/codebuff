@@ -114,8 +114,8 @@ export const ToolItem = ({
       <box
         style={{
           flexDirection: 'row',
-          paddingLeft: 1,
-          paddingRight: 1,
+          paddingLeft: 0,
+          paddingRight: 0,
           paddingTop: 0,
           paddingBottom: 0,
         }}
@@ -139,8 +139,8 @@ export const ToolItem = ({
         style={{
           flexDirection: 'row',
           gap: 0,
-          paddingLeft: 1,
-          paddingRight: 1,
+          paddingLeft: 0,
+          paddingRight: 0,
           paddingTop: 0,
           paddingBottom: 0,
         }}
@@ -189,8 +189,8 @@ export const ToolItem = ({
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          paddingLeft: 1,
-          paddingRight: 1,
+          paddingLeft: 0,
+          paddingRight: 0,
           paddingTop: 0,
           paddingBottom: 0,
         }}

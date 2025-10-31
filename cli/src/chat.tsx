@@ -254,12 +254,15 @@ export const App = ({
           ? theme.chromeText
           : theme.agentResponseCount
 
+    const logoColor =
+      resolvedThemeName === 'dark' ? '#4ade80' : '#15803d'
+
     const buildBlocks = (listId: string): ContentBlock[] => {
       const result: ContentBlock[] = [
         {
           type: 'text',
           content: '\n\n' + LOGO_BLOCK,
-          color: theme.agentToggleExpandedBg,
+          color: logoColor,
         },
       ]
 

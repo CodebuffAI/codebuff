@@ -90,6 +90,9 @@ export const BranchItem = ({
         ? `${statusLabel} ${statusIndicator}`
         : `${statusIndicator} ${statusLabel}`
       : null
+  const showCollapsedPreview =
+    (isStreaming && !!streamingPreview) ||
+    (!isStreaming && !!finishedPreview)
 
   const isTextRenderable = (value: ReactNode): boolean => {
     if (value === null || value === undefined || typeof value === 'boolean') {
@@ -186,8 +189,9 @@ export const BranchItem = ({
         flexDirection: 'column',
         gap: 0,
         flexShrink: 0,
-        marginTop: 1,
+        marginTop: 0,
         marginBottom: 0,
+        paddingBottom: 0,
         width: '100%',
       }}
     >
@@ -211,8 +215,8 @@ export const BranchItem = ({
             style={{
               flexDirection: 'column',
               gap: 0,
-              paddingLeft: 1,
-              paddingRight: 1,
+              paddingLeft: 0,
+              paddingRight: 0,
               paddingTop: 0,
               paddingBottom: 0,
               width: '100%',
@@ -235,7 +239,7 @@ export const BranchItem = ({
             paddingLeft: 1,
             paddingRight: 1,
             paddingTop: 0,
-            paddingBottom: 0,
+            paddingBottom: isCollapsed && !showCollapsedPreview ? 0 : 1,
             width: '100%',
           }}
           onMouseDown={onToggle}
@@ -262,13 +266,13 @@ export const BranchItem = ({
         </box>
 
         {isCollapsed ? (
-          (isStreaming && streamingPreview) || (!isStreaming && finishedPreview) ? (
+          showCollapsedPreview ? (
             <box
               style={{
-                paddingLeft: 1,
-                paddingRight: 1,
+                paddingLeft: 0,
+                paddingRight: 0,
                 paddingTop: 0,
-              paddingBottom: 1,
+                paddingBottom: 1,
               }}
             >
               <text
@@ -286,9 +290,9 @@ export const BranchItem = ({
           <box
             style={{
               flexDirection: 'column',
-              gap: 1,
-              paddingLeft: 1,
-              paddingRight: 1,
+              gap: 0,
+              paddingLeft: 0,
+              paddingRight: 0,
               paddingTop: 0,
               paddingBottom: 0,
             }}
@@ -301,7 +305,9 @@ export const BranchItem = ({
                   marginBottom: content ? 1 : 0,
                 }}
               >
-                <text {...(headerFg ? { fg: headerFg } : undefined)}>Prompt</text>
+                <text {...(headerFg ? { fg: headerFg } : undefined)}>
+                  Prompt
+                </text>
                 <text
                   fg={resolveFg(theme.agentText)}
                   style={{ wrapMode: 'word' }}
@@ -320,12 +326,19 @@ export const BranchItem = ({
               </box>
             )}
             {renderExpandedContent(content)}
-            <box style={{ alignSelf: 'flex-end', marginTop: content ? 0 : 1 }}>
+            <box
+              style={{
+                alignSelf: 'flex-end',
+                marginTop: content ? 0 : 1,
+                paddingRight: 1,
+                paddingBottom: 0,
+                marginBottom: 0,
+              }}
+            >
               <RaisedPill
                 segments={[{ text: 'Collapse', fg: collapseButtonText }]}
                 frameColor={collapseButtonFrame}
                 textColor={collapseButtonText}
-                padding={0}
                 onPress={onToggle}
               />
             </box>

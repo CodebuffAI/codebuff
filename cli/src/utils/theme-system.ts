@@ -517,6 +517,8 @@ const MAC_TERMINAL_THEME_OVERRIDES: Record<'dark' | 'light', Partial<ChatTheme>>
     agentToggleHeaderText: '#0f172a',
     agentToggleText: '#0f172a',
     chromeText: '#0f172a',
+    inputFg: '#000000',
+    inputFocusedFg: '#000000',
     inputPlaceholder: '#64748b',
     markdown: {
       inlineCodeFg: '#0f62fe',
