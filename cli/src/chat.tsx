@@ -186,12 +186,7 @@ export const App = ({
   const authQuery = useAuthQuery()
   const logoutMutation = useLogoutMutation()
 
-  // If requireAuth is null (checking), defer showing auth UI until resolved
-  const initialAuthState =
-    requireAuth === false ? true : requireAuth === true ? false : null
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(
-    initialAuthState,
-  )
+  const [isAuthenticated, setIsAuthenticated] = useState(requireAuth === false)
   const [user, setUser] = useState<User | null>(null)
 
   // Update authentication state when requireAuth changes
@@ -447,7 +442,7 @@ export const App = ({
   )
 
   useEffect(() => {
-    if (isAuthenticated !== true) return
+    if (!isAuthenticated) return
 
     setInputFocused(true)
 
@@ -1310,8 +1305,8 @@ export const App = ({
         <Separator theme={theme} width={separatorWidth} />
       </box>
 
-      {/* Login Modal Overlay - show when not authenticated */}
-      {isAuthenticated === false && (
+      {/* Login Modal Overlay - show when not authenticated and done checking */}
+      {requireAuth !== null && !isAuthenticated && (
         <LoginModal
           onLoginSuccess={handleLoginSuccess}
           theme={theme}
