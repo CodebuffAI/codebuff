@@ -211,7 +211,17 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+
+       - name: Load Infisical secrets
+        uses: Infisical/secrets-action@v1
+        with:
+          method: oidc
+          identity-id: ${{ secrets.INFISICAL_IDENTITY_ID }}
+          project-slug: ${{ secrets.INFISICAL_PROJECT_SLUG }}
+          env-slug: staging
+          domain: https://app.infisical.com
+          export-type: env
+- uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
