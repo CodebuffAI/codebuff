@@ -24,6 +24,7 @@
     "typecheck": "tsc --noEmit -p .",
     "build": "bun run scripts/build-binary.js codebuff $(node -p \"require('./release/package.json').version\")",
     "release": "bun run scripts/release.js",
+    "release-legacy": "bun run scripts/release-legacy.js",
     "start-bin": "bun run build && ./bin/codebuff",
     "start": "bun run src/index.ts --cwd ..",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
