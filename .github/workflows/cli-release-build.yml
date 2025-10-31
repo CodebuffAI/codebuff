@@ -170,6 +170,13 @@ jobs:
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}
 
+      - name: Open debug shell after build
+        if: always()
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+        timeout-minutes: 15
+
       - name: Smoke test binary
         if: matrix.smoke_test != false
         shell: bash
@@ -319,6 +326,13 @@ jobs:
           OVERRIDE_TARGET: bun-windows-x64
           OVERRIDE_PLATFORM: win32
           OVERRIDE_ARCH: x64
+
+      - name: Open debug shell after build
+        if: always()
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+        timeout-minutes: 15
 
       - name: Smoke test binary
         shell: bash
