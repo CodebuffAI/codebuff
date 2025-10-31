@@ -129,7 +129,7 @@ async function main() {
 
   // Ensure SDK assets exist before compiling the CLI
   log('Building SDK dependencies...')
-  runCommand('bun', ['run', 'build:sdk'], { cwd: cliRoot })
+  runCommand('bun', ['run', 'build:sdk'], { cwd: cliRoot, env: process.env })
 
   patchOpenTuiAssetPaths()
   await ensureOpenTuiNativeBundle(targetInfo)
