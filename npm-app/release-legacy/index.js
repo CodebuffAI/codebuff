@@ -102,10 +102,10 @@ async function getLatestLegacyVersion() {
 
     // Parse the Atom XML to extract the latest release tag
     const tagMatch = body.match(
-      /<id>tag:github\.com,2008:Repository\/\d+\/([^<]+)-legacy.\d+<\/id>/,
+      /<id>tag:github\.com,2008:Repository\/\d+\/v(\d+\.\d+\.\d+-legacy.\d+)<\/id>/,
     )
     if (tagMatch && tagMatch[1]) {
-      return tagMatch[1].replace(/^v/, '')
+      return tagMatch[1]
     }
 
     return null
@@ -179,8 +179,12 @@ function getCurrentVersion() {
 function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
 
-  const parts1 = v1.split('.').map(Number)
-  const parts2 = v2.split('.').map(Number)
+  if (!v1.includes('legacy')) {
+    return -1
+  }
+
+  const parts1 = v1.replace('-legacy', '').split('.').map(Number)
+  const parts2 = v2.replace('-legacy', '').split('.').map(Number)
 
   for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
     const p1 = parts1[i] || 0
