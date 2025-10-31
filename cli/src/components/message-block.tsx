@@ -107,10 +107,6 @@ export const MessageBlock = ({
       return null
     }
 
-    const handleToggleToolCollapsed = () => {
-      onToggleCollapsed(toolBlock.toolCallId)
-    }
-
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
     const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
     const isStreaming = streamingAgents.has(toolBlock.toolCallId)
@@ -180,7 +176,7 @@ export const MessageBlock = ({
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
-          onToggle={handleToggleToolCollapsed}
+          onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
         />
       </box>
     )
@@ -192,10 +188,6 @@ export const MessageBlock = ({
     isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
-    const handleToggleAgentCollapsed = () => {
-      onToggleCollapsed(agentBlock.agentId)
-    }
-
     const isCollapsed = collapsedAgents.has(agentBlock.agentId)
     const isStreaming =
       agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
@@ -249,7 +241,7 @@ export const MessageBlock = ({
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
-          onToggle={handleToggleAgentCollapsed}
+          onToggle={() => onToggleCollapsed(agentBlock.agentId)}
         />
       </box>
     )
