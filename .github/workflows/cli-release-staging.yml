@@ -14,8 +14,10 @@ permissions:
   contents: write
 
 jobs:
+ 
   prepare-and-commit-staging:
     runs-on: ubuntu-latest
+     environment: staging
     if: |
       (github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[codecane]')) ||
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[codecane]'))
@@ -118,6 +120,7 @@ jobs:
 
   build-staging-binaries:
     needs: prepare-and-commit-staging
+     en  vironment: staging
     uses: ./.github/workflows/cli-release-build.yml
     with:
       binary-name: codecane
@@ -130,6 +133,7 @@ jobs:
   create-staging-release:
     needs: [prepare-and-commit-staging, build-staging-binaries]
     runs-on: ubuntu-latest
+     environment: staging
     steps:
       - uses: actions/checkout@v4
         with:
@@ -207,6 +211,7 @@ jobs:
         create-staging-release,
       ]
     runs-on: ubuntu-latest
+     environment: staging
     permissions:
       contents: read
       id-token: write
