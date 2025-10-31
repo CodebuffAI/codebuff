@@ -1412,14 +1412,13 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
-        timerController.stop('success')
+        const timerResult = timerController.stop('success')
 
         if ((result as any)?.credits !== undefined) {
           actualCredits = (result as any).credits
         }
 
-        // Calculate completion time from mainAgentTimer
-        const elapsedMs = mainAgentTimer.getElapsedMs()
+        const elapsedMs = timerResult?.elapsedMs ?? 0
         const elapsedSeconds = Math.floor(elapsedMs / 1000)
         const completionTime = elapsedSeconds > 0 ? `${elapsedSeconds}s` : undefined
 

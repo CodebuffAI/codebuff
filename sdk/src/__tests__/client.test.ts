@@ -1,7 +1,17 @@
-import { describe, expect, test, mock } from 'bun:test'
+import { describe, expect, test, mock, afterEach } from 'bun:test'
 import { CodebuffClient } from '../client'
 
 describe('CodebuffClient', () => {
+  const originalFetch = globalThis.fetch
+
+  const setFetchMock = (mockFetch: ReturnType<typeof mock>) => {
+    globalThis.fetch = mockFetch as unknown as typeof fetch
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
   describe('checkConnection', () => {
     test('returns true when healthz responds with status ok', async () => {
       const mockFetch = mock(() =>
@@ -11,7 +21,7 @@ describe('CodebuffClient', () => {
         } as Response),
       )
 
-      globalThis.fetch = mockFetch as typeof fetch
+      setFetchMock(mockFetch)
 
       const client = new CodebuffClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
@@ -28,7 +38,7 @@ describe('CodebuffClient', () => {
         } as Response),
       )
 
-      globalThis.fetch = mockFetch as typeof fetch
+      setFetchMock(mockFetch)
 
       const client = new CodebuffClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
@@ -45,7 +55,7 @@ describe('CodebuffClient', () => {
         } as Response),
       )
 
-      globalThis.fetch = mockFetch as typeof fetch
+      setFetchMock(mockFetch)
 
       const client = new CodebuffClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
@@ -61,7 +71,7 @@ describe('CodebuffClient', () => {
         } as Response),
       )
 
-      globalThis.fetch = mockFetch as typeof fetch
+      setFetchMock(mockFetch)
 
       const client = new CodebuffClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
@@ -72,7 +82,7 @@ describe('CodebuffClient', () => {
     test('returns false when fetch throws an error', async () => {
       const mockFetch = mock(() => Promise.reject(new Error('Network error')))
 
-      globalThis.fetch = mockFetch as typeof fetch
+      setFetchMock(mockFetch)
 
       const client = new CodebuffClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
@@ -88,7 +98,7 @@ describe('CodebuffClient', () => {
         } as Response),
       )
 
-      globalThis.fetch = mockFetch as typeof fetch
+      setFetchMock(mockFetch)
 
       const client = new CodebuffClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
@@ -104,7 +114,7 @@ describe('CodebuffClient', () => {
         } as Response),
       )
 
-      globalThis.fetch = mockFetch as typeof fetch
+      setFetchMock(mockFetch)
 
       const client = new CodebuffClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
@@ -120,7 +130,7 @@ describe('CodebuffClient', () => {
         } as Response),
       )
 
-      globalThis.fetch = mockFetch as typeof fetch
+      setFetchMock(mockFetch)
 
       const client = new CodebuffClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()

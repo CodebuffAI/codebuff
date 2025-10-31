@@ -89,7 +89,29 @@ export const useHasStatus = (
   timer?: ElapsedTimeTracker,
 ): boolean => {
   const isConnected = useConnectionStatus()
+  return computeHasStatus({
+    isConnected,
+    isActive,
+    clipboardMessage,
+    timer,
+  })
+}
+
+export const computeHasStatus = ({
+  isConnected,
+  isActive,
+  clipboardMessage,
+  timer,
+}: {
+  isConnected: boolean
+  isActive: boolean
+  clipboardMessage?: string | null
+  timer?: ElapsedTimeTracker
+}): boolean => {
   return (
-    isConnected === false || isActive || !!clipboardMessage || !!timer?.startTime
+    isConnected === false ||
+    isActive ||
+    Boolean(clipboardMessage) ||
+    Boolean(timer?.startTime)
   )
 }

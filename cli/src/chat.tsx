@@ -35,6 +35,7 @@ import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
+import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { useChatStore } from './state/chat-store'
@@ -813,6 +814,31 @@ export const App = ({
     activeAgentStreamsRef,
   )
 
+  const handleTimerEvent = useCallback(
+    (event: SendMessageTimerEvent) => {
+      const payload = {
+        event: 'cli_main_agent_timer',
+        timerEventType: event.type,
+        agentId: agentId ?? 'main',
+        messageId: event.messageId,
+        startedAt: event.startedAt,
+        ...(event.type === 'stop'
+          ? {
+              finishedAt: event.finishedAt,
+              elapsedMs: event.elapsedMs,
+              outcome: event.outcome,
+            }
+          : {}),
+      }
+      const message =
+        event.type === 'start'
+          ? 'Main agent timer started'
+          : `Main agent timer stopped (${event.outcome})`
+      logger.info(payload, message)
+    },
+    [agentId],
+  )
+
   const { sendMessage } = useSendMessage({
     setMessages,
     setFocusedAgentId,
@@ -835,6 +861,7 @@ export const App = ({
     mainAgentTimer,
     scrollToLatest,
     availableWidth: separatorWidth,
+    onTimerEvent: handleTimerEvent,
   })
 
   sendMessageRef.current = sendMessage
