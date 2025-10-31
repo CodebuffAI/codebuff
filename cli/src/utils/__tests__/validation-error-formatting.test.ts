@@ -56,4 +56,61 @@ describe('formatValidationError', () => {
     expect(result.fieldName).toBe('outputSchema.properties.summary')
     expect(result.message).toBe('Required')
   })
+
+  test('handles empty string input', () => {
+    const result = formatValidationError('')
+
+    expect(result.fieldName).toBeUndefined()
+    expect(result.message).toBe('Unknown validation error')
+  })
+
+  test('handles JSON object (not array) with error', () => {
+    const raw = `{"path": ["field"], "message": "Invalid value"}`
+
+    const result = formatValidationError(raw)
+
+    expect(result.fieldName).toBe('field')
+    expect(result.message).toBe('Invalid value')
+  })
+
+  test('handles JSON with empty path array', () => {
+    const raw = `[{"path": [], "message": "Root level error"}]`
+
+    const result = formatValidationError(raw)
+
+    expect(result.fieldName).toBeUndefined()
+    expect(result.message).toBe('Root level error')
+  })
+
+  test('handles malformed JSON gracefully', () => {
+    const raw = '[{"path": ["field"], invalid json'
+
+    const result = formatValidationError(raw)
+
+    expect(result.fieldName).toBeUndefined()
+    expect(result.message).toBe('[{"path": ["field"], invalid json')
+  })
+
+  test('handles colon in message part correctly', () => {
+    const result = formatValidationError('fieldName: Error: something went wrong')
+
+    expect(result.fieldName).toBe('fieldName')
+    expect(result.message).toBe('Error: something went wrong')
+  })
+
+  test('handles field pattern with no message after colon', () => {
+    const result = formatValidationError('fieldName:')
+
+    expect(result.fieldName).toBeUndefined()
+    expect(result.message).toBe('fieldName:')
+  })
+
+  test('handles JSON with missing message property', () => {
+    const raw = `[{"path": ["field"], "code": "custom"}]`
+
+    const result = formatValidationError(raw)
+
+    expect(result.fieldName).toBe('field')
+    expect(result.message).toBe(raw)
+  })
 })

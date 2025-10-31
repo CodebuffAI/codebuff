@@ -67,28 +67,17 @@ export class CodebuffClient {
         method: 'GET',
         signal: AbortSignal.timeout(5000), // 5 second timeout
       })
-      if (!response.ok) {
-        return false
-      }
 
-      let result: unknown
-      try {
-        result = await response.json()
-      } catch {
-        return false
-      }
+      if (!response.ok) return false
 
-      if (
+      const result = await response.json()
+      return (
         typeof result === 'object' &&
         result !== null &&
         'status' in result &&
         (result as { status?: unknown }).status === 'ok'
-      ) {
-        return true
-      }
-
-      return false
-    } catch (error) {
+      )
+    } catch {
       return false
     }
   }
