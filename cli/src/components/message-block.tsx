@@ -388,7 +388,11 @@ export const MessageBlock = ({
     nestedBlocks.forEach((nestedBlock, nestedIdx) => {
       const nestedPrevBlock =
         nestedIdx > 0 ? nestedBlocks[nestedIdx - 1] : null
-      const nestedMarginTop = nestedPrevBlock ? 1 : 0
+      const nestedMarginTop =
+        nestedPrevBlock &&
+        (nestedPrevBlock.type === 'text' || nestedBlock.type === 'text')
+          ? 1
+          : 0
       if (nestedBlock.type === 'text') {
         const nestedStatus =
           typeof (nestedBlock as any).status === 'string'
@@ -479,7 +483,11 @@ export const MessageBlock = ({
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
           {blocks.map((block, idx) => {
             const prevBlock = idx > 0 ? blocks[idx - 1] : null
-            const marginTop = prevBlock ? 1 : 0
+            const marginTop =
+              prevBlock &&
+              (prevBlock.type === 'text' || block.type === 'text')
+                ? 1
+                : 0
             if (block.type === 'text') {
               const isStreamingText = isLoading || !isComplete
               const hasMarkdownContent = hasMarkdown(block.content)

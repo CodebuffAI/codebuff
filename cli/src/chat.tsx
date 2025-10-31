@@ -1103,11 +1103,11 @@ export const App = ({
         <box
           style={{
             flexDirection: 'row',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             width: '100%',
           }}
         >
-          <box style={{ flexGrow: 1 }}>
+          <box style={{ flexGrow: 1, minWidth: 0 }}>
             <MultilineInput
               value={inputValue}
               onChange={setInputValue}
