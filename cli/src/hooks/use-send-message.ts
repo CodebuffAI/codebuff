@@ -5,10 +5,13 @@ import { shouldHideAgent } from '../utils/constants'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { logger } from '../utils/logger'
+import { getLoadedAgentsData } from '../utils/local-agent-registry'
+import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
 
 import type { ChatMessage, ContentBlock } from '../chat'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
+import type { ElapsedTimeTracker } from './use-elapsed-time'
 
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
@@ -79,6 +82,98 @@ const mergeTextSegments = (
   }
 }
 
+export type SendMessageTimerEvent =
+  | {
+      type: 'start'
+      startedAt: number
+      messageId: string
+      agentId?: string
+    }
+  | {
+      type: 'stop'
+      startedAt: number
+      finishedAt: number
+      elapsedMs: number
+      messageId: string
+      agentId?: string
+      outcome: 'success' | 'error' | 'aborted'
+    }
+
+export type SendMessageTimerOutcome = 'success' | 'error' | 'aborted'
+
+export interface SendMessageTimerController {
+  start: (messageId: string) => void
+  stop: (outcome: SendMessageTimerOutcome) => {
+    finishedAt: number
+    elapsedMs: number
+  } | null
+  isActive: () => boolean
+}
+
+export interface SendMessageTimerControllerOptions {
+  mainAgentTimer: ElapsedTimeTracker
+  onTimerEvent: (event: SendMessageTimerEvent) => void
+  agentId?: string
+  now?: () => number
+}
+
+export const createSendMessageTimerController = (
+  options: SendMessageTimerControllerOptions,
+): SendMessageTimerController => {
+  const {
+    mainAgentTimer,
+    onTimerEvent,
+    agentId,
+    now = () => Date.now(),
+  } = options
+
+  let timerStartedAt: number | null = null
+  let timerMessageId: string | null = null
+  let timerActive = false
+
+  const start = (messageId: string) => {
+    if (timerActive) {
+      return
+    }
+    timerActive = true
+    timerMessageId = messageId
+    timerStartedAt = now()
+    mainAgentTimer.start()
+    onTimerEvent({
+      type: 'start',
+      startedAt: timerStartedAt,
+      messageId,
+      ...(agentId ? { agentId } : {}),
+    })
+  }
+
+  const stop = (outcome: SendMessageTimerOutcome) => {
+    if (!timerActive || timerStartedAt == null || !timerMessageId) {
+      return null
+    }
+    timerActive = false
+    mainAgentTimer.stop()
+    const finishedAt = now()
+    const elapsedMs = Math.max(0, finishedAt - timerStartedAt)
+    onTimerEvent({
+      type: 'stop',
+      startedAt: timerStartedAt,
+      finishedAt,
+      elapsedMs,
+      messageId: timerMessageId,
+      outcome,
+      ...(agentId ? { agentId } : {}),
+    })
+    timerStartedAt = null
+    timerMessageId = null
+    return { finishedAt, elapsedMs }
+  }
+
+  const isActive = () => timerActive
+
+  return { start, stop, isActive }
+}
+
 interface UseSendMessageOptions {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   setFocusedAgentId: (id: string | null) => void
@@ -97,6 +192,14 @@ interface UseSendMessageOptions {
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
+  onBeforeMessageSend: () => Promise<{
+    success: boolean
+    errors: Array<{ id: string; message: string }>
+  }>
+  mainAgentTimer: ElapsedTimeTracker
+  scrollToLatest: () => void
+  availableWidth?: number
+  onTimerEvent?: (event: SendMessageTimerEvent) => void
 }
 
 export const useSendMessage = ({
@@ -117,6 +220,11 @@ export const useSendMessage = ({
   setCanProcessQueue,
   abortControllerRef,
   agentId,
+  onBeforeMessageSend,
+  mainAgentTimer,
+  scrollToLatest,
+  availableWidth = 80,
+  onTimerEvent = () => {},
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -245,6 +353,14 @@ export const useSendMessage = ({
     async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
       const { agentMode } = params
       const timestamp = formatTimestamp()
+
+      const timerController = createSendMessageTimerController({
+        mainAgentTimer,
+        onTimerEvent,
+        agentId,
+      })
+
+      // Add user message to UI first
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
         variant: 'user',
@@ -260,6 +376,55 @@ export const useSendMessage = ({
         return newMessages
       })
       await yieldToEventLoop()
+
+      // Scroll to bottom after user message appears
+      setTimeout(() => scrollToLatest(), 0)
+
+      // Validate agents before sending message (blocking)
+      try {
+        const validationResult = await onBeforeMessageSend()
+
+        if (!validationResult.success) {
+          logger.warn('Message send blocked due to agent validation errors')
+
+          // Create validation error blocks with clickable file paths
+          const loadedAgentsData = getLoadedAgentsData()
+          const errorBlocks = createValidationErrorBlocks({
+            errors: validationResult.errors,
+            loadedAgentsData,
+            availableWidth,
+          })
+
+          const errorMessage: ChatMessage = {
+            id: `error-${Date.now()}`,
+            variant: 'error',
+            content: '',
+            blocks: errorBlocks,
+            timestamp: formatTimestamp(),
+          }
+
+          applyMessageUpdate((prev) => [...prev, errorMessage])
+          await yieldToEventLoop()
+          setTimeout(() => scrollToLatest(), 0)
+
+          return
+        }
+      } catch (error) {
+        logger.error({ error }, 'Validation before message send failed with exception')
+
+        const errorMessage: ChatMessage = {
+          id: `error-${Date.now()}`,
+          variant: 'error',
+          content: '⚠️ Agent validation failed unexpectedly. Please try again.',
+          timestamp: formatTimestamp(),
+        }
+
+        applyMessageUpdate((prev) => [...prev, errorMessage])
+        await yieldToEventLoop()
+        setTimeout(() => scrollToLatest(), 0)
+
+        return
+      }
 
       setFocusedAgentId(null)
       setInputFocused(true)
@@ -289,6 +454,7 @@ export const useSendMessage = ({
       rootStreamBufferRef.current = ''
       rootStreamSeenRef.current = false
       agentStreamAccumulatorsRef.current = new Map<string, string>()
+      timerController.start(aiMessageId)
 
       const updateAgentContent = (
         agentId: string,
@@ -488,8 +654,6 @@ export const useSendMessage = ({
       setIsStreaming(true)
       setCanProcessQueue(false)
       updateChainInProgress(true)
-
-      const startTime = Date.now()
       let hasReceivedContent = false
       let actualCredits: number | undefined = undefined
 
@@ -499,11 +663,17 @@ export const useSendMessage = ({
       try {
         // Load local agent definitions from .agents directory
         const agentDefinitions = loadAgentDefinitions()
+        const selectedAgentDefinition =
+          agentId && agentDefinitions.length > 0
+            ? (agentDefinitions.find(
+                (definition) => definition.id === agentId,
+              ) as AgentDefinition | undefined)
+            : undefined
 
-        const agent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
+        const fallbackAgent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
         const result = await client.run({
           logger,
-          agent: agentId || agent,
+          agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,
@@ -558,7 +728,7 @@ export const useSendMessage = ({
 
           handleEvent: (event: any) => {
             logger.info(
-              { type: event.type, event },
+              { type: event.type, hasAgentId: !!event.agentId, event },
               `SDK ${JSON.stringify(event.type)} Event received (raw)`,
             )
 
@@ -567,7 +737,11 @@ export const useSendMessage = ({
 
               if (typeof text !== 'string' || !text) return
 
-              if (!hasReceivedContent) {
+              // Track if main agent (no agentId) started streaming
+              if (!hasReceivedContent && !event.agentId) {
+                hasReceivedContent = true
+                setIsWaitingForResponse(false)
+              } else if (!hasReceivedContent) {
                 hasReceivedContent = true
                 setIsWaitingForResponse(false)
               }
@@ -1238,12 +1412,15 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
+        const timerResult = timerController.stop('success')
 
         if ((result as any)?.credits !== undefined) {
           actualCredits = (result as any).credits
         }
 
-        const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1)
+        const elapsedMs = timerResult?.elapsedMs ?? 0
+        const elapsedSeconds = Math.floor(elapsedMs / 1000)
+        const completionTime = elapsedSeconds > 0 ? `${elapsedSeconds}s` : undefined
 
         applyMessageUpdate((prev) =>
           prev.map((msg) =>
@@ -1251,7 +1428,7 @@ export const useSendMessage = ({
               ? {
                   ...msg,
                   isComplete: true,
-                  completionTime: `${elapsedTime}s`,
+                  ...(completionTime && { completionTime }),
                   ...(actualCredits !== undefined && {
                     credits: actualCredits,
                   }),
@@ -1269,6 +1446,7 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
+        timerController.stop(isAborted ? 'aborted' : 'error')
 
         if (isAborted) {
           applyMessageUpdate((prev) =>
@@ -1344,6 +1522,10 @@ export const useSendMessage = ({
       updateChainInProgress,
       addActiveSubagent,
       removeActiveSubagent,
+      onBeforeMessageSend,
+      mainAgentTimer,
+      scrollToLatest,
+      availableWidth,
     ],
   )
 

@@ -10,9 +10,10 @@ export interface TerminalLinkProps {
   activeColor?: string
   underlineOnHover?: boolean
   isActive?: boolean
-  onActivate?: () => void | Promise<void>
+  onActivate?: () => void | Promise<any>
   containerStyle?: Record<string, unknown>
   lineWrap?: boolean
+  inline?: boolean
 }
 
 const defaultFormatLines: FormatLinesFn = (text) => [text]
@@ -28,6 +29,7 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
   onActivate,
   containerStyle,
   lineWrap = false,
+  inline = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -44,9 +46,14 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
 
   const handleActivate = useCallback(() => {
     if (onActivate) {
-      void onActivate()
+      onActivate()
     }
   }, [onActivate])
+
+  // For inline mode, render without hover/click support (spans don't support mouse events)
+  if (inline) {
+    return <span fg={displayColor}>{text}</span>
+  }
 
   return (
     <box
@@ -61,17 +68,14 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
       onMouseOut={() => setIsHovered(false)}
       onMouseDown={handleActivate}
     >
-      {displayLines.map((line, index) => (
-        <text key={index} wrap={lineWrap}>
-          {shouldUnderline ? (
-            <u>
-              <span fg={displayColor}>{line}</span>
-            </u>
-          ) : (
-            <span fg={displayColor}>{line}</span>
-          )}
-        </text>
-      ))}
+      {displayLines.map((line: string, index: number) => {
+        const coloredText = <span fg={displayColor}>{line}</span>
+        return (
+          <text key={index} wrap={lineWrap}>
+            {shouldUnderline ? <u>{coloredText}</u> : coloredText}
+          </text>
+        )
+      })}
     </box>
   )
 }

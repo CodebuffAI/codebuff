@@ -1,10 +1,21 @@
+import { TextAttributes } from '@opentui/core'
 import { useRenderer, useTerminalDimensions } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import os from 'os'
+import path from 'path'
+import React, {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import stringWidth from 'string-width'
 import { useShallow } from 'zustand/react/shallow'
 
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { LoginModal } from './components/login-modal'
+import { TerminalLink } from './components/terminal-link'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -13,14 +24,18 @@ import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
+import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthQuery, useLogoutMutation } from './hooks/use-auth-query'
 import { useClipboard } from './hooks/use-clipboard'
+import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
+import { useLogo } from './hooks/use-logo'
 import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
+import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
 import { useChatStore } from './state/chat-store'
@@ -28,19 +43,31 @@ import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
-import { loadLocalAgents } from './utils/local-agent-registry'
+import {
+  loadLocalAgents,
+  type LocalAgentInfo,
+} from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
-import { chatThemes, createMarkdownPalette } from './utils/theme-system'
+import {
+  chatThemes,
+  createMarkdownPalette,
+  type ChatTheme,
+} from './utils/theme-system'
+import { openFileAtPath } from './utils/open-file'
+import { formatValidationError } from './utils/validation-error-formatting'
+import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 
 import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
 import type { ScrollBoxRenderable } from '@opentui/core'
 
-type ChatVariant = 'ai' | 'user' | 'agent'
+type ChatVariant = 'ai' | 'user' | 'agent' | 'error'
 
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
+
+// LOGO_BLOCK moved to component to be reactive to terminal width changes
 
 type AgentMessage = {
   agentName: string
@@ -50,7 +77,18 @@ type AgentMessage = {
 }
 
 export type ContentBlock =
-  | { type: 'text'; content: string }
+  | {
+      type: 'text'
+      content: string
+      marginTop?: number
+      marginBottom?: number
+    }
+  | {
+      type: 'html'
+      marginTop?: number
+      marginBottom?: number
+      render: (context: { textColor: string; theme: ChatTheme }) => ReactNode
+    }
   | {
       type: 'tool'
       toolCallId: string
@@ -88,6 +126,7 @@ export type ChatMessage = {
   credits?: number
   completionTime?: string
   isComplete?: boolean
+  metadata?: Record<string, any>
 }
 
 export const App = ({
@@ -96,6 +135,7 @@ export const App = ({
   requireAuth,
   hasInvalidCredentials,
   loadedAgentsData,
+  validationErrors,
 }: {
   initialPrompt: string | null
   agentId?: string
@@ -105,6 +145,7 @@ export const App = ({
     agents: Array<{ id: string; displayName: string }>
     agentsDir: string
   } | null
+  validationErrors: Array<{ id: string; message: string }>
 }) => {
   const renderer = useRenderer()
   const { width: measuredWidth } = useTerminalDimensions()
@@ -122,9 +163,17 @@ export const App = ({
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
+  // Get formatted logo for display in chat messages
+  const contentMaxWidth = Math.max(10, Math.min(terminalWidth - 4, 80))
+  const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
+
   const themeName = useSystemThemeDetector()
   const theme = chatThemes[themeName]
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
+
+  // Set up agent validation (manual trigger)
+  const { validationErrors: liveValidationErrors, validate: validateAgents } =
+    useAgentValidation(validationErrors)
 
   const [exitWarning, setExitWarning] = useState<string | null>(null)
   const exitArmedRef = useRef(false)
@@ -137,17 +186,15 @@ export const App = ({
   const authQuery = useAuthQuery()
   const logoutMutation = useLogoutMutation()
 
-  // If requireAuth is null (checking), assume not authenticated until proven otherwise
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    requireAuth === false ? true : false,
-  )
+  const [isAuthenticated, setIsAuthenticated] = useState(requireAuth === false)
   const [user, setUser] = useState<User | null>(null)
 
   // Update authentication state when requireAuth changes
   useEffect(() => {
-    if (requireAuth !== null) {
-      setIsAuthenticated(!requireAuth)
+    if (requireAuth === null) {
+      return
     }
+    setIsAuthenticated(!requireAuth)
   }, [requireAuth])
 
   // Update authentication state based on query results
@@ -171,43 +218,140 @@ export const App = ({
     }
   }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
 
-  // Log app initialization
+  // Update logo when terminal width changes
   useEffect(() => {
-    logger.debug(
-      {
-        requireAuth,
-        hasInvalidCredentials,
-        hasInitialPrompt: !!initialPrompt,
-        agentId,
-      },
-      'Chat App component mounted',
-    )
-  }, [])
+    if (messages.length > 0) {
+      const systemMessage = messages.find((m) =>
+        m.id.startsWith('system-loaded-agents-'),
+      )
+      if (systemMessage?.blocks) {
+        const logoBlockIndex = systemMessage.blocks.findIndex(
+          (b) => b.type === 'text' && b.content.includes('█'),
+        )
+        if (logoBlockIndex !== -1) {
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === systemMessage.id) {
+                const newBlocks = [...msg.blocks!]
+                newBlocks[logoBlockIndex] = {
+                  type: 'text',
+                  content: '\n\n' + logoBlock,
+                }
+                return { ...msg, blocks: newBlocks }
+              }
+              return msg
+            }),
+          )
+        }
+      }
+    }
+  }, [logoBlock])
 
   // Initialize with loaded agents message
   useEffect(() => {
     if (loadedAgentsData && messages.length === 0) {
       const agentListId = 'loaded-agents-list'
+      const userCredentials = getUserCredentials()
+      const greeting = userCredentials?.name?.trim().length
+        ? `Welcome back, ${userCredentials.name.trim()}!`
+        : null
+
+      const blocks: ContentBlock[] = [
+        {
+          type: 'text',
+          content: '\n\n' + logoBlock,
+        },
+      ]
+
+      if (greeting) {
+        blocks.push({
+          type: 'text',
+          content: greeting,
+        })
+      }
+
+      // Calculate path from home directory to repository root
+      // agentsDir is typically in the root, so use its parent as the repository root
+      const homeDir = os.homedir()
+      const repoRoot = path.dirname(loadedAgentsData.agentsDir)
+      const relativePath = path.relative(homeDir, repoRoot)
+      const displayPath = relativePath.startsWith('..')
+        ? repoRoot // If outside home dir, show absolute path
+        : `~/${relativePath}`
+
+      const renderRepoPathInfo = () => (
+        <text wrap={true}>
+          Codebuff can read and write files in{' '}
+          <TerminalLink
+            text={displayPath}
+            color="#3b82f6"
+            inline={true}
+            underlineOnHover={true}
+            onActivate={() => openFileAtPath(repoRoot)}
+          />
+          , and run terminal commands to help you build.
+        </text>
+      )
+
+      blocks.push({
+        type: 'html',
+        render: renderRepoPathInfo,
+      })
+
+      blocks.push({
+        type: 'agent-list',
+        id: agentListId,
+        agents: loadedAgentsData.agents,
+        agentsDir: loadedAgentsData.agentsDir,
+      })
+
+      const agentDisplayId = agentId ?? 'base2-fast'
+      const agentSectionHeader = agentId
+        ? `**Active agent: ${agentId}**`
+        : `**Active agent:** *fast default (base2-fast)*`
+
+      blocks.push({
+        type: 'text',
+        content: agentSectionHeader,
+        marginTop: 1,
+        marginBottom: 0,
+      })
+
       const initialMessage: ChatMessage = {
         id: `system-loaded-agents-${Date.now()}`,
         variant: 'ai',
         content: '', // Content is in the block
-        blocks: [
-          {
-            type: 'agent-list',
-            id: agentListId,
-            agents: loadedAgentsData.agents,
-            agentsDir: loadedAgentsData.agentsDir,
-          },
-        ],
+        blocks,
         timestamp: new Date().toISOString(),
       }
 
       // Set as collapsed by default
       setCollapsedAgents((prev) => new Set([...prev, agentListId]))
-      setMessages([initialMessage])
+
+      const messagesToAdd: ChatMessage[] = [initialMessage]
+
+      // Add validation error message if there are errors
+      if (validationErrors.length > 0) {
+        const errorBlocks = createValidationErrorBlocks({
+          errors: validationErrors,
+          loadedAgentsData,
+          availableWidth: separatorWidth,
+        })
+
+        const validationErrorMessage: ChatMessage = {
+          id: `validation-error-${Date.now()}`,
+          variant: 'error',
+          content: '',
+          blocks: errorBlocks,
+          timestamp: new Date().toISOString(),
+        }
+
+        messagesToAdd.push(validationErrorMessage)
+      }
+
+      setMessages(messagesToAdd)
     }
-  }, [loadedAgentsData]) // Only run when loadedAgentsData changes
+  }, [loadedAgentsData, validationErrors]) // Run when loadedAgentsData or validationErrors change
 
   const {
     inputValue,
@@ -326,6 +470,9 @@ export const App = ({
   const isChainInProgressRef = useRef<boolean>(isChainInProgress)
 
   const { clipboardMessage } = useClipboard()
+
+  // Track main agent streaming elapsed time
+  const mainAgentTimer = useElapsedTime()
 
   const agentRefsMap = useRef<Map<string, any>>(new Map())
   const hasAutoSubmittedRef = useRef(false)
@@ -662,6 +809,31 @@ export const App = ({
     activeAgentStreamsRef,
   )
 
+  const handleTimerEvent = useCallback(
+    (event: SendMessageTimerEvent) => {
+      const payload = {
+        event: 'cli_main_agent_timer',
+        timerEventType: event.type,
+        agentId: agentId ?? 'main',
+        messageId: event.messageId,
+        startedAt: event.startedAt,
+        ...(event.type === 'stop'
+          ? {
+              finishedAt: event.finishedAt,
+              elapsedMs: event.elapsedMs,
+              outcome: event.outcome,
+            }
+          : {}),
+      }
+      const message =
+        event.type === 'start'
+          ? 'Main agent timer started'
+          : `Main agent timer stopped (${event.outcome})`
+      logger.info(payload, message)
+    },
+    [agentId],
+  )
+
   const { sendMessage } = useSendMessage({
     setMessages,
     setFocusedAgentId,
@@ -680,6 +852,11 @@ export const App = ({
     setCanProcessQueue,
     abortControllerRef,
     agentId,
+    onBeforeMessageSend: validateAgents,
+    mainAgentTimer,
+    scrollToLatest,
+    availableWidth: separatorWidth,
+    onTimerEvent: handleTimerEvent,
   })
 
   sendMessageRef.current = sendMessage
@@ -700,7 +877,13 @@ export const App = ({
     return undefined
   }, [initialPrompt, agentMode])
 
-  const hasStatus = useHasStatus(isWaitingForResponse, clipboardMessage)
+  // Status is active when waiting for response or streaming
+  const isStatusActive = isWaitingForResponse || isStreaming
+  const hasStatus = useHasStatus(
+    isStatusActive,
+    clipboardMessage,
+    mainAgentTimer,
+  )
 
   const handleSubmit = useCallback(() => {
     const trimmed = inputValue.trim()
@@ -830,6 +1013,7 @@ export const App = ({
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
+    timer: mainAgentTimer,
     setCollapsedAgents,
     setFocusedAgentId,
     registerAgentRef,
@@ -850,13 +1034,125 @@ export const App = ({
   const shouldShowStatusLine = Boolean(
     exitWarning || hasStatus || shouldShowQueuePreview,
   )
+
   const statusIndicatorNode = (
     <StatusIndicator
-      isProcessing={isWaitingForResponse}
       theme={theme}
       clipboardMessage={clipboardMessage}
+      isActive={isStatusActive}
+      timer={mainAgentTimer}
     />
   )
+
+  // Render validation banner
+  const renderValidationBanner = () => {
+    if (liveValidationErrors.length === 0) {
+      return null
+    }
+
+    const MAX_VISIBLE_ERRORS = 5
+    const errorCount = liveValidationErrors.length
+    const visibleErrors = liveValidationErrors.slice(0, MAX_VISIBLE_ERRORS)
+    const hasMoreErrors = errorCount > MAX_VISIBLE_ERRORS
+
+    // Helper to normalize relative path
+    const normalizeRelativePath = (filePath: string): string => {
+      if (!loadedAgentsData) return filePath
+      const relativeToAgentsDir = path.relative(
+        loadedAgentsData.agentsDir,
+        filePath,
+      )
+      const normalized = relativeToAgentsDir.replace(/\\/g, '/')
+      return `.agents/${normalized}`
+    }
+
+    // Get agent info by ID
+    const createAgentInfoEntry = (agent: any): [string, LocalAgentInfo] => [
+      agent.id,
+      agent as LocalAgentInfo,
+    ]
+
+    const agentInfoById = new Map<string, LocalAgentInfo>(
+      (loadedAgentsData?.agents.map(createAgentInfoEntry) || []) as [
+        string,
+        LocalAgentInfo,
+      ][],
+    )
+
+    const formatErrorLine = (
+      error: { id: string; message: string },
+      index: number,
+    ): string => {
+      const agentId = error.id.replace(/_\d+$/, '')
+      const agentInfo = agentInfoById.get(agentId)
+      const relativePath = agentInfo
+        ? normalizeRelativePath(agentInfo.filePath)
+        : null
+
+      const { fieldName, message } = formatValidationError(error.message)
+      const errorMsg = fieldName ? `${fieldName}: ${message}` : message
+      const truncatedMsg =
+        errorMsg.length > 68 ? errorMsg.substring(0, 65) + '...' : errorMsg
+
+      let output = index === 0 ? '\n' : '\n\n'
+      output += agentId
+      if (relativePath) {
+        output += ` (${relativePath})`
+      }
+      output += '\n  ' + truncatedMsg
+      return output
+    }
+
+    return (
+      <box
+        style={{
+          flexDirection: 'column',
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
+          paddingBottom: 1,
+          backgroundColor: theme.panelBg,
+          border: true,
+          borderStyle: 'single',
+          borderColor: '#FFA500',
+        }}
+      >
+        {/* Header */}
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingBottom: 0,
+          }}
+        >
+          <text wrap={false} style={{ fg: theme.messageAiText }}>
+            {`⚠️  ${errorCount === 1 ? '1 agent has validation issues' : `${errorCount} agents have validation issues`}`}
+            {hasMoreErrors &&
+              ` (showing ${MAX_VISIBLE_ERRORS} of ${errorCount})`}
+          </text>
+        </box>
+
+        {/* Error list - build as single text with newlines */}
+        <text wrap style={{ fg: theme.messageAiText }}>
+          {visibleErrors.map(formatErrorLine).join('')}
+        </text>
+
+        {/* Show count of additional errors */}
+        {hasMoreErrors && (
+          <box
+            style={{
+              flexDirection: 'row',
+              paddingTop: 0,
+            }}
+          >
+            <text wrap={false} style={{ fg: theme.statusSecondary }}>
+              {`... and ${errorCount - MAX_VISIBLE_ERRORS} more`}
+            </text>
+          </box>
+        )}
+      </box>
+    )
+  }
 
   return (
     <box
@@ -933,13 +1229,13 @@ export const App = ({
             }}
           >
             <text wrap={false}>
-              {hasStatus ? statusIndicatorNode : null}
-              {hasStatus && (exitWarning || shouldShowQueuePreview) ? '  ' : ''}
-              {exitWarning ? (
+              {hasStatus && statusIndicatorNode}
+              {hasStatus && (exitWarning || shouldShowQueuePreview) && '  '}
+              {exitWarning && (
                 <span fg={theme.statusSecondary}>{exitWarning}</span>
-              ) : null}
-              {exitWarning && shouldShowQueuePreview ? '  ' : ''}
-              {shouldShowQueuePreview ? (
+              )}
+              {exitWarning && shouldShowQueuePreview && '  '}
+              {shouldShowQueuePreview && (
                 <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
                   {' '}
                   {formatQueuedPreview(
@@ -947,7 +1243,7 @@ export const App = ({
                     Math.max(30, terminalWidth - 25),
                   )}{' '}
                 </span>
-              ) : null}
+              )}
             </text>
           </box>
         )}
@@ -1009,8 +1305,8 @@ export const App = ({
         <Separator theme={theme} width={separatorWidth} />
       </box>
 
-      {/* Login Modal Overlay - show when not authenticated */}
-      {!isAuthenticated && (
+      {/* Login Modal Overlay - show when not authenticated and done checking */}
+      {requireAuth !== null && !isAuthenticated && (
         <LoginModal
           onLoginSuccess={handleLoginSuccess}
           theme={theme}

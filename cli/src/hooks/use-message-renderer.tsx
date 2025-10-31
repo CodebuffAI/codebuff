@@ -10,6 +10,7 @@ import {
 } from '../utils/markdown-renderer'
 import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
+import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { ChatMessage } from '../chat'
 import type { ChatTheme } from '../utils/theme-system'
 
@@ -23,6 +24,7 @@ interface UseMessageRendererProps {
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   isWaitingForResponse: boolean
+  timer: ElapsedTimeTracker
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   registerAgentRef: (agentId: string, element: any) => void
@@ -42,6 +44,7 @@ export const useMessageRenderer = (
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
+    timer,
     setCollapsedAgents,
     setFocusedAgentId,
     registerAgentRef,
@@ -270,9 +273,10 @@ export const useMessageRenderer = (
 
       const isAi = message.variant === 'ai'
       const isUser = message.variant === 'user'
-      const lineColor = isAi ? theme.aiLine : theme.userLine
-      const textColor = isAi ? theme.messageAiText : theme.messageUserText
-      const timestampColor = isAi ? theme.timestampAi : theme.timestampUser
+      const isError = message.variant === 'error'
+      const lineColor = isError ? 'red' : isAi ? theme.aiLine : theme.userLine
+      const textColor = isError ? theme.messageAiText : isAi ? theme.messageAiText : theme.messageUserText
+      const timestampColor = isError ? 'red' : isAi ? theme.timestampAi : theme.timestampUser
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
       const paletteForMessage: MarkdownPalette = {
@@ -351,6 +355,7 @@ export const useMessageRenderer = (
                     isComplete={message.isComplete}
                     completionTime={message.completionTime}
                     credits={message.credits}
+                    timer={timer}
                     theme={theme}
                     textColor={textColor}
                     timestampColor={timestampColor}
@@ -401,6 +406,7 @@ export const useMessageRenderer = (
                   isComplete={message.isComplete}
                   completionTime={message.completionTime}
                   credits={message.credits}
+                  timer={timer}
                   theme={theme}
                   textColor={textColor}
                   timestampColor={timestampColor}
