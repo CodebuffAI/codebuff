@@ -1,4 +1,7 @@
-import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
+import {
+  PLACEHOLDER,
+  type SecretAgentDefinition,
+} from '../../types/secret-agent-definition'
 import { publisher } from '../../constants'
 
 const definition: SecretAgentDefinition = {
@@ -46,24 +49,39 @@ const definition: SecretAgentDefinition = {
     required: ['implementationId'],
   },
 
-  instructionsPrompt: `As part of the best-of-n workflow of agents, you are the implementation selector agent. You have been provided with multiple implementation proposals via params.
+  instructionsPrompt: `As part of the best-of-n workflow of agents, you are the implementation selector agent.
+  
+## Task Instructions
+
+You have been provided with multiple implementation proposals via params.
 
 The implementations are available in the params.implementations array, where each has:
 - id: A unique identifier for the implementation
 - content: The full implementation text with tool calls
 
 Your task is to analyze each implementation proposal carefully, compare them against the original user requirements, and select the best implementation.
-Evaluate each based on:
-- Correctness and completeness
-- Simplicity and maintainability
-- Code quality and adherence to project conventions
-- Minimal changes to existing code
-- Proper reuse of existing helpers and patterns
-- Clarity and readability
+Evaluate each based on (in order of importance):
+- Correctness and completeness in fulfilling the user's request.
+- Simplicity and maintainability.
+- Code quality and adherence to project conventions.
+- Proper reuse of existing code (helper functions, libraries, etc.)
+- Minimal changes to existing code (fewer files changed, fewer lines changed, etc.)
+- Clarity and readability.
 
-Do not write any explanations AT ALL.
+## User Request
 
-Your response should be only a single tool call to set_output with the selected implementationId.`,
+For context, here is the original user request again:
+<user_message>
+${PLACEHOLDER.USER_INPUT_PROMPT}
+</user_message>
+
+Try to select an implementation that fulfills all the requirements in the user's request.
+
+## Response Format
+
+If needed, use <think> tags to briefly consider the implementations and their strengths and weaknesses.
+
+Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId.`,
 }
 
 export default definition

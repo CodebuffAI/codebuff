@@ -61,6 +61,32 @@ OR for new files or major rewrites:
 }
 </codebuff_tool_call>
 
+You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes. Keep these thoughts very brief. You may not need to use think tags at all.
+
+<example>
+
+<think>
+[ Thoughts about the best way to implement the feature ]
+</think>
+
+<codebuff_tool_call>
+[ First tool call to implement the feature ]
+</codebuff_tool_call>
+
+<codebuff_tool_call>
+[ Second tool call to implement the feature ]
+</codebuff_tool_call>
+
+<think>
+[ Thoughts about a tricky part of the implementation ]
+</think>
+
+<codebuff_tool_call>
+[ Third tool call to implement the feature ]
+</codebuff_tool_call>
+
+</example>
+
 Your implementation should:
 - Be complete and comprehensive
 - Include all necessary changes to fulfill the user's request
