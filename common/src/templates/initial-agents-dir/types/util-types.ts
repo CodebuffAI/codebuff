@@ -117,7 +117,7 @@ export type AssistantMessage = {
 } & AuxiliaryData
 
 export type ToolMessage = {
-  type: 'tool'
+  role: 'tool'
   content: ToolResultPart
 } & AuxiliaryData
 
