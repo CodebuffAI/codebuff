@@ -1,6 +1,5 @@
 import {
   validateAgents as validateAgentsCommon,
-  validateAgentsWithSpawnableAgents,
   type DynamicAgentValidationError,
 } from '@codebuff/common/templates/agent-validation'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'

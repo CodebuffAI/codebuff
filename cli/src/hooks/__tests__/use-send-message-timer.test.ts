@@ -4,6 +4,7 @@ import { mock, spyOn } from 'bun:test'
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
 import { useSendMessage } from '../use-send-message'
+import type { ElapsedTimeTracker } from '../use-elapsed-time'
 import * as codebuffClient from '../../utils/codebuff-client'
 import * as loadAgentDefs from '../../utils/load-agent-definitions'
 import * as localAgentRegistry from '../../utils/local-agent-registry'
@@ -67,6 +68,7 @@ timerDescribe('useSendMessage timer', () => {
   let isChainInProgressRef: React.MutableRefObject<boolean>
   let abortControllerRef: React.MutableRefObject<AbortController | null>
   let onBeforeMessageSend: ReturnType<typeof mock>
+  let mainAgentTimer: ElapsedTimeTracker
 
   beforeEach(() => {
     // Setup state setter mocks
@@ -105,6 +107,12 @@ timerDescribe('useSendMessage timer', () => {
     isChainInProgressRef = { current: false }
     abortControllerRef = { current: null }
     onBeforeMessageSend = mock(async () => ({ success: true, errors: [] }))
+    mainAgentTimer = {
+      start: () => {},
+      stop: () => {},
+      elapsedSeconds: 0,
+      startTime: null,
+    }
 
     // Spy on external module functions
     spyOn(codebuffClient, 'getCodebuffClient').mockReturnValue({
@@ -146,6 +154,7 @@ timerDescribe('useSendMessage timer', () => {
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
         onBeforeMessageSend,
+        mainAgentTimer,
         scrollToLatest: mockScrollToLatest,
         availableWidth: 80,
       }),
@@ -208,6 +217,7 @@ timerDescribe('useSendMessage timer', () => {
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
         onBeforeMessageSend,
+        mainAgentTimer,
         scrollToLatest: mockScrollToLatest,
         availableWidth: 80,
       }),
@@ -262,6 +272,7 @@ timerDescribe('useSendMessage timer', () => {
         setCanProcessQueue: mockSetCanProcessQueue,
         abortControllerRef,
         onBeforeMessageSend,
+        mainAgentTimer,
         scrollToLatest: mockScrollToLatest,
         availableWidth: 80,
       }),
