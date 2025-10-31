@@ -252,10 +252,6 @@ export const MessageBlock = ({
     isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
-    const handleToggleAgentListCollapsed = () => {
-      onToggleCollapsed(agentListBlock.id)
-    }
-
     const TRUNCATE_LIMIT = 5
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
     const { agents } = agentListBlock
@@ -330,7 +326,7 @@ export const MessageBlock = ({
           streamingPreview=""
           finishedPreview={finishedPreview}
           theme={theme}
-          onToggle={handleToggleAgentListCollapsed}
+          onToggle={() => onToggleCollapsed(agentListBlock.id)}
         />
       </box>
     )

@@ -283,10 +283,6 @@ export const App = ({
         ? repoRoot // If outside home dir, show absolute path
         : `~/${relativePath}`
 
-      const handleActivateRepoPath = async () => {
-        await openFileAtPath(repoRoot)
-      }
-
       const renderRepoPathInfo = () => (
         <text wrap={true}>
           Codebuff can read and write files in{' '}
@@ -295,7 +291,7 @@ export const App = ({
             color="#3b82f6"
             inline={true}
             underlineOnHover={true}
-            onActivate={handleActivateRepoPath}
+            onActivate={() => openFileAtPath(repoRoot)}
           />
           , and run terminal commands to help you build.
         </text>
