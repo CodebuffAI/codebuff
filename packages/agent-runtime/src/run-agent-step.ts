@@ -368,8 +368,25 @@ export const runAgentStep = async (
     toolResults.filter(
       (result) => !TOOLS_WHICH_WONT_FORCE_NEXT_STEP.includes(result.toolName),
     ).length === 0
+
+  // Exception: if the only tool call is write_todos and all todos are completed, then end turn.
+  let hasOnlyFinishedTodos = false
+  if (toolCalls.length === 1 && toolCalls[0].toolName === 'write_todos') {
+    const todos = toolCalls[0].input.todos as
+      | {
+          task: string
+          completed: boolean
+        }[]
+      | undefined
+    if (todos && todos.every((todo) => todo.completed)) {
+      hasOnlyFinishedTodos = true
+    }
+  }
+
   let shouldEndTurn =
-    toolCalls.some((call) => call.toolName === 'end_turn') || hasNoToolResults
+    toolCalls.some((call) => call.toolName === 'end_turn') ||
+    hasNoToolResults ||
+    hasOnlyFinishedTodos
 
   agentState = {
     ...agentState,
@@ -455,7 +472,12 @@ export async function loopAgentSteps(
     > &
     ParamsExcluding<
       typeof runAgentStep,
-      'agentState' | 'prompt' | 'spawnParams' | 'system' | 'runId'
+      | 'agentState'
+      | 'prompt'
+      | 'spawnParams'
+      | 'system'
+      | 'runId'
+      | 'textOverride'
     > &
     ParamsExcluding<
       AddAgentStepFn,
@@ -627,12 +649,9 @@ export async function loopAgentSteps(
       const startTime = new Date()
 
       // 1. Run programmatic step first if it exists
+      let textOverride = null
       if (agentTemplate.handleSteps) {
-        const {
-          agentState: programmaticAgentState,
-          endTurn,
-          stepNumber,
-        } = await runProgrammaticStep({
+        const programmaticResult = await runProgrammaticStep({
           ...params,
           runId,
           agentState: currentAgentState,
@@ -644,6 +663,13 @@ export async function loopAgentSteps(
           stepsComplete: shouldEndTurn,
           stepNumber: totalSteps,
         })
+        const {
+          agentState: programmaticAgentState,
+          endTurn,
+          stepNumber,
+        } = programmaticResult
+        textOverride = programmaticResult.textOverride
+
         currentAgentState = programmaticAgentState
         totalSteps = stepNumber
 
@@ -698,6 +724,7 @@ export async function loopAgentSteps(
         messageId,
       } = await runAgentStep({
         ...params,
+        textOverride: textOverride,
         runId,
         agentState: currentAgentState,
         prompt: currentPrompt,

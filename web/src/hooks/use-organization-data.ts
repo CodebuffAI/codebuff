@@ -25,7 +25,7 @@ export interface BillingStatus {
 
 // Query functions
 const fetchOrganizationBySlug = async (
-  slug: string
+  slug: string,
 ): Promise<OrganizationDetails> => {
   const response = await fetch(`/api/orgs/slug/${slug}`)
 

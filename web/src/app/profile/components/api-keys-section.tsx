@@ -59,7 +59,7 @@ export function ApiKeysSection() {
 
   // Filter tokens to only show PATs (not CLI sessions)
   const tokens = (tokensData?.tokens ?? []).filter(
-    (token) => token.type === 'pat'
+    (token) => token.type === 'pat',
   )
 
   const [createTokenOpen, setCreateTokenOpen] = useState(false)

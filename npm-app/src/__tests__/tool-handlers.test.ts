@@ -26,8 +26,8 @@ describe('handleCodeSearch', () => {
     return projectRoot
   })
 
-  beforeAll(() => {
-    mockModule('@codebuff/npm-app/project-files', () => ({
+  beforeAll(async () => {
+    await mockModule('@codebuff/npm-app/project-files', () => ({
       getProjectRoot: mockGetProjectRoot,
     }))
   })

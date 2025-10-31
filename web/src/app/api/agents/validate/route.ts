@@ -1,4 +1,4 @@
-import { validateAgentsWithSpawnableAgents } from '@codebuff/common/templates/agent-validation'
+import { validateAgentsWithSpawnableAgents } from '@codebuff/internal/templates/agent-validation'
 import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
@@ -25,12 +25,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           error:
             'Invalid request: agentDefinitions must be an array of AgentDefinition objects',
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     const definitionsObject = Object.fromEntries(
-      agentDefinitions.map((config) => [config.id, config])
+      agentDefinitions.map((config) => [config.id, config]),
     )
     const { templates: configs, validationErrors } =
       await validateAgentsWithSpawnableAgents({
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (validationErrors.length > 0) {
       logger.warn(
         { errorCount: validationErrors.length },
-        'Agent config validation errors found'
+        'Agent config validation errors found',
       )
     }
 
@@ -54,11 +54,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     logger.error(
       { error: error instanceof Error ? error.message : String(error) },
-      'Error validating agent definitions'
+      'Error validating agent definitions',
     )
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

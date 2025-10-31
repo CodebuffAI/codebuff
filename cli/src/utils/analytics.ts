@@ -1,3 +1,4 @@
+import { env } from '@codebuff/common/env'
 import { PostHog } from 'posthog-node'
 
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -14,19 +15,15 @@ let client: PostHog | undefined
 export let identified: boolean = false
 
 export function initAnalytics() {
-  if (
-    !process.env.NEXT_PUBLIC_POSTHOG_API_KEY ||
-    !process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
-  ) {
+  if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
     throw new Error(
       'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set',
     )
   }
 
-  client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-    host: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
-    enableExceptionAutocapture:
-      process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod',
+  client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
+    host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
+    enableExceptionAutocapture: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod',
   })
 }
 
@@ -51,13 +48,13 @@ export function trackEvent(
     return
   }
   if (!client) {
-    if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod') {
+    if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod') {
       throw new Error('Analytics client not initialized')
     }
     return
   }
 
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
+  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     if (DEBUG_DEV_EVENTS) {
       console.log('Analytics event sent', {
         event,
@@ -82,7 +79,7 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
     throw new Error('Analytics client not initialized')
   }
 
-  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
+  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     if (DEBUG_DEV_EVENTS) {
       console.log('Identify event sent', {
         userId,

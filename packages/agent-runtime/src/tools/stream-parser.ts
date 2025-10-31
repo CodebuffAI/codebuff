@@ -129,6 +129,7 @@ export async function processStreamWithTools(
           previousToolCallFinished,
           fullResponse: fullResponseChunks.join(''),
           state,
+          fromHandleSteps: false,
         })
       },
     }

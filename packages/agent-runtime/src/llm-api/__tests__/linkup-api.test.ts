@@ -24,15 +24,15 @@ process.env.LINKUP_API_KEY = 'test-api-key'
 describe('Linkup API', () => {
   let agentRuntimeImpl: AgentRuntimeDeps
 
-  beforeAll(() => {
-    mockModule('@codebuff/internal', () => ({
+  beforeAll(async () => {
+    await mockModule('@codebuff/internal', () => ({
       env: {
         LINKUP_API_KEY: 'test-api-key',
       },
     }))
 
     // Mock withTimeout utility
-    mockModule('@codebuff/common/util/promise', () => ({
+    await mockModule('@codebuff/common/util/promise', () => ({
       withTimeout: async (promise: Promise<any>, timeout: number) => promise,
     }))
   })

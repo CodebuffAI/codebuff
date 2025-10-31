@@ -1,26 +1,29 @@
+import { env } from '@codebuff/common/env'
+
 export const CODEBUFF_BINARY = 'codebuff'
 
-export const IS_DEV = process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-export const IS_TEST = process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test'
+export const IS_DEV = env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
+export const IS_TEST = env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test'
 export const IS_PROD = !IS_DEV && !IS_TEST
 
-const normalizeLocalWebPort = (env: NodeJS.ProcessEnv): string => {
-  const port = env.NEXT_PUBLIC_WEB_PORT
+const normalizeLocalWebPort = (inputEnv: NodeJS.ProcessEnv): string => {
+  const port = inputEnv.NEXT_PUBLIC_WEB_PORT
   if (port && /^\d+$/.test(port)) {
     return port
   }
-  return '3000'
+  return String(env.NEXT_PUBLIC_WEB_PORT ?? 3000)
 }
 
 export const resolveWebsiteUrl = (
-  env: NodeJS.ProcessEnv = process.env,
+  inputEnv: NodeJS.ProcessEnv = process.env,
 ): string => {
-  const explicitUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const explicitUrl =
+    inputEnv.NEXT_PUBLIC_CODEBUFF_APP_URL || env.NEXT_PUBLIC_CODEBUFF_APP_URL
   if (explicitUrl) {
     return explicitUrl
   }
 
-  const envName = env.NEXT_PUBLIC_CB_ENVIRONMENT
+  const envName = inputEnv.NEXT_PUBLIC_CB_ENVIRONMENT
   const isProdEnv =
     envName === undefined
       ? IS_PROD
@@ -30,7 +33,7 @@ export const resolveWebsiteUrl = (
     return 'https://codebuff.com'
   }
 
-  const port = normalizeLocalWebPort(env)
+  const port = normalizeLocalWebPort(inputEnv)
   return `http://localhost:${port}`
 }
 
@@ -46,7 +49,7 @@ function getWebsocketUrl(url: string) {
   return isLocalhost(url) ? `ws://${url}/ws` : `wss://${url}/ws`
 }
 export const WEBSOCKET_URL = getWebsocketUrl(
-  process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL ||
+  env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL ||
     (IS_PROD ? DEFAULT_BACKEND_URL : DEFAULT_BACKEND_URL_DEV),
 )
 
@@ -54,6 +57,6 @@ function getBackendUrl(url: string) {
   return isLocalhost(url) ? `http://${url}` : `https://${url}`
 }
 export const BACKEND_URL = getBackendUrl(
-  process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL ||
+  env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL ||
     (IS_PROD ? DEFAULT_BACKEND_URL : DEFAULT_BACKEND_URL_DEV),
 )

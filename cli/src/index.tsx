@@ -2,6 +2,7 @@
 import './polyfills/bun-strip-ansi'
 import { createRequire } from 'module'
 
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
@@ -10,9 +11,9 @@ import React from 'react'
 import { validateAgents } from '@codebuff/sdk'
 
 import { App } from './chat'
-import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { getUserCredentials } from './utils/auth'
-import { clearLogFile, logger } from './utils/logger'
+import { getLoadedAgentsData } from './utils/local-agent-registry'
+import { clearLogFile } from './utils/logger'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 
 const require = createRequire(import.meta.url)
@@ -117,7 +118,7 @@ const AppWithAsyncAuth = () => {
     // Check authentication asynchronously
     const userCredentials = getUserCredentials()
     const apiKey =
-      userCredentials?.authToken || process.env.CODEBUFF_API_KEY || ''
+      userCredentials?.authToken || process.env[API_KEY_ENV_VAR] || ''
 
     if (!apiKey) {
       // No credentials, require auth

@@ -60,7 +60,7 @@ export function MermaidDiagram({ code, className = '' }: MermaidDiagramProps) {
       } catch (err) {
         console.error('Mermaid rendering error:', err)
         setError(
-          err instanceof Error ? err.message : 'Failed to render diagram'
+          err instanceof Error ? err.message : 'Failed to render diagram',
         )
       } finally {
         setIsLoading(false)

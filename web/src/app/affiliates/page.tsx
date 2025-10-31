@@ -1,10 +1,10 @@
 'use client'
 
+import { env } from '@codebuff/common/env'
 import {
   CREDITS_REFERRAL_BONUS,
   AFFILIATE_USER_REFFERAL_LIMIT,
 } from '@codebuff/common/old-constants'
-import { env } from '@codebuff/internal'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import React, { useEffect, useState, useCallback } from 'react'
@@ -51,7 +51,7 @@ function SetHandleForm({
   }
   const [state, formAction] = useFormState(
     setAffiliateHandleAction,
-    initialState
+    initialState,
   )
 
   useEffect(() => {
@@ -119,7 +119,7 @@ export default function AffiliatesPage() {
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}))
           throw new Error(
-            errorData.error || `HTTP error! status: ${res.status}`
+            errorData.error || `HTTP error! status: ${res.status}`,
           )
         }
         return res.json()

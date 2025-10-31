@@ -209,7 +209,7 @@ export function executeToolCall<T extends ToolName>(
 
   toolCalls.push(toolCall)
 
-  // Filter out restricted tools in ask mode unless exporting summary
+  // Filter out restricted tools
   if (
     !agentTemplate.toolNames.includes(toolCall.toolName) &&
     !fromHandleSteps

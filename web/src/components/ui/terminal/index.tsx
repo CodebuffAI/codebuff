@@ -48,7 +48,7 @@ const Terminal = ({
 
   useEffect(() => {
     const wrapper = terminalRef.current?.closest(
-      '.react-terminal-wrapper'
+      '.react-terminal-wrapper',
     ) as HTMLElement | null
     if (!wrapper) return
 
@@ -82,7 +82,7 @@ const Terminal = ({
 
   const calculateInputWidth = (
     inputElement: HTMLInputElement,
-    chars: string
+    chars: string,
   ) => {
     const span = document.createElement('span')
     span.style.visibility = 'hidden'
@@ -117,12 +117,12 @@ const Terminal = ({
               top: terminalRef.current.scrollHeight,
               behavior: 'smooth',
             }),
-          500
+          500,
         )
       }
     } else if (
       ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', 'Delete'].includes(
-        event.key
+        event.key,
       )
     ) {
       const inputElement = event.currentTarget
@@ -134,11 +134,11 @@ const Terminal = ({
       if (event.key === 'ArrowLeft') {
         if (cursorIndex > currentLineInput.length - 1) cursorIndex--
         charsToRightOfCursor = currentLineInput.slice(
-          currentLineInput.length - 1 - cursorIndex
+          currentLineInput.length - 1 - cursorIndex,
         )
       } else if (event.key === 'ArrowRight' || event.key === 'Delete') {
         charsToRightOfCursor = currentLineInput.slice(
-          currentLineInput.length - cursorIndex + 1
+          currentLineInput.length - cursorIndex + 1,
         )
       } else if (event.key === 'ArrowUp') {
         charsToRightOfCursor = currentLineInput.slice(0)
@@ -162,7 +162,7 @@ const Terminal = ({
       listener: EventListenerOrEventListenerObject
     }[] = []
     for (const terminalEl of document.getElementsByClassName(
-      'react-terminal-wrapper'
+      'react-terminal-wrapper',
     )) {
       const listener = () => {
         ;(
@@ -211,7 +211,7 @@ const Terminal = ({
           'react-terminal',
           'flex-1',
           showWindowButtons && 'mt-6',
-          className
+          className,
         )}
         ref={terminalRef}
       >

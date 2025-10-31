@@ -49,12 +49,12 @@ export function useAutoTopup(): AutoTopupState {
         auto_topup_threshold: clamp(
           thresholdCredits,
           MIN_THRESHOLD_CREDITS,
-          MAX_THRESHOLD_CREDITS
+          MAX_THRESHOLD_CREDITS,
         ),
         initialTopUpDollars: clamp(
           topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS,
           MIN_TOPUP_DOLLARS,
-          MAX_TOPUP_DOLLARS
+          MAX_TOPUP_DOLLARS,
         ),
       }
     },
@@ -76,7 +76,7 @@ export function useAutoTopup(): AutoTopupState {
       setIsEnabled(userProfile.auto_topup_enabled ?? false)
       setThreshold(userProfile.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
       setTopUpAmountDollars(
-        userProfile.initialTopUpDollars ?? MIN_TOPUP_DOLLARS
+        userProfile.initialTopUpDollars ?? MIN_TOPUP_DOLLARS,
       )
       setTimeout(() => {
         isInitialLoad.current = false
@@ -91,7 +91,7 @@ export function useAutoTopup(): AutoTopupState {
           UserProfile,
           'auto_topup_enabled' | 'auto_topup_threshold' | 'auto_topup_amount'
         >
-      >
+      >,
     ) => {
       const payload = {
         enabled: settings.auto_topup_enabled,
@@ -121,20 +121,20 @@ export function useAutoTopup(): AutoTopupState {
 
         const topUpCredits = convertStripeGrantAmountToCredits(
           payload.amount * 100,
-          CENTS_PER_CREDIT
+          CENTS_PER_CREDIT,
         )
         const minTopUpCredits = convertStripeGrantAmountToCredits(
           MIN_TOPUP_DOLLARS * 100,
-          CENTS_PER_CREDIT
+          CENTS_PER_CREDIT,
         )
         const maxTopUpCredits = convertStripeGrantAmountToCredits(
           MAX_TOPUP_DOLLARS * 100,
-          CENTS_PER_CREDIT
+          CENTS_PER_CREDIT,
         )
 
         if (topUpCredits < minTopUpCredits || topUpCredits > maxTopUpCredits) {
           throw new Error(
-            `Top-up amount must result in between ${minTopUpCredits} and ${maxTopUpCredits} credits.`
+            `Top-up amount must result in between ${minTopUpCredits} and ${maxTopUpCredits} credits.`,
           )
         }
       }
@@ -196,7 +196,7 @@ export function useAutoTopup(): AutoTopupState {
         setIsEnabled(updatedData.auto_topup_enabled ?? false)
         setThreshold(updatedData.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
         setTopUpAmountDollars(
-          updatedData.initialTopUpDollars ?? MIN_TOPUP_DOLLARS
+          updatedData.initialTopUpDollars ?? MIN_TOPUP_DOLLARS,
         )
 
         return updatedData
@@ -214,7 +214,7 @@ export function useAutoTopup(): AutoTopupState {
         setIsEnabled(userProfile.auto_topup_enabled ?? false)
         setThreshold(userProfile.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
         setTopUpAmountDollars(
-          userProfile.initialTopUpDollars ?? MIN_TOPUP_DOLLARS
+          userProfile.initialTopUpDollars ?? MIN_TOPUP_DOLLARS,
         )
       }
       pendingSettings.current = null
@@ -246,7 +246,7 @@ export function useAutoTopup(): AutoTopupState {
         auto_topup_amount: currentTopUpDollars,
       })
     }, 750),
-    [autoTopupMutation, userProfile]
+    [autoTopupMutation, userProfile],
   )
 
   const handleThresholdChange = (rawValue: number) => {
@@ -258,7 +258,7 @@ export function useAutoTopup(): AutoTopupState {
       const validValue = clamp(
         rawValue,
         MIN_THRESHOLD_CREDITS,
-        MAX_THRESHOLD_CREDITS
+        MAX_THRESHOLD_CREDITS,
       )
       pendingSettings.current = { threshold: validValue, topUpAmountDollars }
 
@@ -335,7 +335,7 @@ export function useAutoTopup(): AutoTopupState {
           onError: () => {
             setIsEnabled(false)
           },
-        }
+        },
       )
     } else {
       autoTopupMutation.mutate(
@@ -351,7 +351,7 @@ export function useAutoTopup(): AutoTopupState {
           onError: () => {
             setIsEnabled(true)
           },
-        }
+        },
       )
     }
   }

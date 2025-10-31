@@ -20,7 +20,7 @@ export function initializeServer({ logger }: { logger: Logger }) {
   } catch (error) {
     logger.warn(
       { error },
-      'Failed to initialize analytics - continuing without analytics'
+      'Failed to initialize analytics - continuing without analytics',
     )
     // Don't fail server initialization if analytics fails
     initialized = true

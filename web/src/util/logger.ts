@@ -2,8 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import { format } from 'util'
 
+import { env } from '@codebuff/common/env'
 import { splitData } from '@codebuff/common/util/split-data'
-import { env } from '@codebuff/internal'
 import pino from 'pino'
 
 // --- Constants ---
@@ -106,7 +106,7 @@ function splitAndLog(
 }
 
 export const logger: Record<LogLevel, pino.LogFn> =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
     ? pinoLogger
     : (Object.fromEntries(
         loggingLevels.map((level) => {

@@ -31,7 +31,7 @@ describe('Credit Delegation', () => {
     }))
 
     // Mock common dependencies
-    await mockModule('@codebuff/common/db', () => {
+    await mockModule('@codebuff/internal/db', () => {
       const select = mock((fields: Record<string, unknown>) => {
         if ('orgId' in fields && 'orgName' in fields) {
           return {
@@ -78,17 +78,6 @@ describe('Credit Delegation', () => {
         },
       }
     })
-
-    await mockModule('@codebuff/common/db/schema', () => ({
-      orgMember: { org_id: 'org_id', user_id: 'user_id' },
-      org: { id: 'id', name: 'name', slug: 'slug' },
-      orgRepo: {
-        org_id: 'org_id',
-        repo_url: 'repo_url',
-        repo_name: 'repo_name',
-        is_active: 'is_active',
-      },
-    }))
   })
 
   afterAll(() => {

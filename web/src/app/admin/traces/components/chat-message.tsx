@@ -50,7 +50,7 @@ function AssistantResponseWithToolReferences({
       const placeholder = `__TOOL_BUTTON_${index}__`
       processedResponse = processedResponse.replace(
         toolCall.rawXml,
-        placeholder
+        placeholder,
       )
 
       // Create the tool button
@@ -69,7 +69,7 @@ function AssistantResponseWithToolReferences({
               {Object.keys(toolCall.input).length} params
             </Badge>
           )}
-        </Button>
+        </Button>,
       )
     }
   })

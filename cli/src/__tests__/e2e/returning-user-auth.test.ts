@@ -1,3 +1,8 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import {
   describe,
   test,
@@ -7,19 +12,16 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import fs from 'fs'
-import os from 'os'
-import path from 'path'
 
+import { validateApiKey } from '../../hooks/use-auth-query'
 import {
   getAuthTokenDetails,
   saveUserCredentials,
   type User,
 } from '../../utils/auth'
-import { validateApiKey } from '../../hooks/use-auth-query'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const RETURNING_USER: User = {
   id: 'returning-user-456',
@@ -45,14 +47,14 @@ describe('Returning User Authentication helpers', () => {
     tempConfigDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'manicode-returning-'),
     )
-    originalEnv.CODEBUFF_API_KEY = process.env.CODEBUFF_API_KEY
+    originalEnv[API_KEY_ENV_VAR] = process.env[API_KEY_ENV_VAR]
   })
 
   afterEach(() => {
     if (fs.existsSync(tempConfigDir)) {
       fs.rmSync(tempConfigDir, { recursive: true, force: true })
     }
-    process.env.CODEBUFF_API_KEY = originalEnv.CODEBUFF_API_KEY
+    process.env[API_KEY_ENV_VAR] = originalEnv[API_KEY_ENV_VAR]
     mock.restore()
   })
 
@@ -81,7 +83,7 @@ describe('Returning User Authentication helpers', () => {
       path.join(tempConfigDir, 'credentials.json'),
     )
 
-    process.env.CODEBUFF_API_KEY = 'env-token-123'
+    process.env[API_KEY_ENV_VAR] = 'env-token-123'
 
     const details = getAuthTokenDetails()
     expect(details.source).toBe('environment')

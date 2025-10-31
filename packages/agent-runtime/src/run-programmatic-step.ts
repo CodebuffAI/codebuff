@@ -93,7 +93,12 @@ export async function runProgrammaticStep(
       | 'startTime'
       | 'messageId'
     >,
-): Promise<{ agentState: AgentState; endTurn: boolean; stepNumber: number }> {
+): Promise<{
+  agentState: AgentState
+  textOverride: string | null
+  endTurn: boolean
+  stepNumber: number
+}> {
   const {
     agentState,
     template,
@@ -181,7 +186,7 @@ export async function runProgrammaticStep(
       // Clear the STEP_ALL mode. Stepping can continue if handleSteps doesn't return.
       runIdToStepAll.delete(agentState.runId)
     } else {
-      return { agentState, endTurn: false, stepNumber }
+      return { agentState, textOverride: null, endTurn: false, stepNumber }
     }
   }
 
@@ -221,6 +226,7 @@ export async function runProgrammaticStep(
 
   let toolResult: ToolResultOutput[] = []
   let endTurn = false
+  let textOverride: string | null = null
 
   let startTime = new Date()
   let creditsBefore = agentState.directCreditsUsed
@@ -254,6 +260,11 @@ export async function runProgrammaticStep(
       }
       if (result.value === 'STEP_ALL') {
         runIdToStepAll.add(state.agentState.runId)
+        break
+      }
+
+      if (result.value.type === 'STEP_TEXT') {
+        textOverride = result.value.text
         break
       }
 
@@ -396,7 +407,12 @@ export async function runProgrammaticStep(
       }
     } while (true)
 
-    return { agentState: state.agentState, endTurn, stepNumber }
+    return {
+      agentState: state.agentState,
+      textOverride: textOverride,
+      endTurn,
+      stepNumber,
+    }
   } catch (error) {
     endTurn = true
 
@@ -442,6 +458,7 @@ export async function runProgrammaticStep(
 
     return {
       agentState: state.agentState,
+      textOverride: null,
       endTurn,
       stepNumber,
     }

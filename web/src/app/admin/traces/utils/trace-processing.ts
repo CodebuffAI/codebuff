@@ -67,7 +67,7 @@ function parseToolCallParams(xmlString: string): Record<string, any> {
  * Parse tool calls from message content (both XML and structured formats)
  */
 export function parseToolCallsFromContent(
-  messageContent: any
+  messageContent: any,
 ): ParsedToolCall[] {
   const toolCalls: ParsedToolCall[] = []
 
@@ -77,7 +77,7 @@ export function parseToolCallsFromContent(
     const toolNamesPattern = KNOWN_TOOL_NAMES.join('|')
     const toolCallRegex = new RegExp(
       `<(${toolNamesPattern})>([\\s\\S]*?)<\\/\\1>`,
-      'g'
+      'g',
     )
 
     let match
@@ -115,7 +115,7 @@ export function parseToolCallsFromContent(
  * Parse spawned agents from tool calls
  */
 export function parseSpawnedAgentsFromToolCalls(
-  toolCalls: ParsedToolCall[]
+  toolCalls: ParsedToolCall[],
 ): SpawnedAgent[] {
   const spawnedAgents: SpawnedAgent[] = []
 
@@ -139,7 +139,7 @@ export function parseSpawnedAgentsFromToolCalls(
  */
 export function buildTimelineFromMessages(
   messages: TraceMessage[],
-  mainClientRequestId?: string
+  mainClientRequestId?: string,
 ): TimelineEvent[] {
   const timelineEvents: TimelineEvent[] = []
   let eventIdCounter = 0
@@ -153,7 +153,7 @@ export function buildTimelineFromMessages(
       acc[msg.client_request_id ?? 'NULL'].push(msg)
       return acc
     },
-    {} as Record<string, TraceMessage[]>
+    {} as Record<string, TraceMessage[]>,
   )
 
   // Track spawned agents and their relationships
@@ -252,10 +252,10 @@ export function buildTimelineFromMessages(
               type: 'spawned_agent',
               name: agentType,
               startTime: new Date(
-                startTime.getTime() + stepDuration * toolCallOffset
+                startTime.getTime() + stepDuration * toolCallOffset,
               ),
               endTime: new Date(
-                startTime.getTime() + stepDuration * (toolCallOffset + 0.2)
+                startTime.getTime() + stepDuration * (toolCallOffset + 0.2),
               ),
               duration: stepDuration * 0.2,
               parentId: agentStepId,
@@ -273,7 +273,7 @@ export function buildTimelineFromMessages(
 
             // Find messages that could be from this spawned agent
             for (const [requestId, agentMessages] of Object.entries(
-              messagesByRequestId
+              messagesByRequestId,
             )) {
               if (requestId === mainRequestId) continue
 
@@ -300,10 +300,10 @@ export function buildTimelineFromMessages(
             type: 'tool_call',
             name: toolCall.name,
             startTime: new Date(
-              startTime.getTime() + stepDuration * toolCallOffset
+              startTime.getTime() + stepDuration * toolCallOffset,
             ),
             endTime: new Date(
-              startTime.getTime() + stepDuration * (toolCallOffset + 0.2)
+              startTime.getTime() + stepDuration * (toolCallOffset + 0.2),
             ),
             duration: stepDuration * 0.2,
             parentId: agentStepId,
@@ -320,7 +320,7 @@ export function buildTimelineFromMessages(
 
   // Process spawned agent messages
   for (const [requestId, agentMessages] of Object.entries(
-    messagesByRequestId
+    messagesByRequestId,
   )) {
     if (requestId === mainRequestId) continue
 
@@ -368,10 +368,10 @@ export function buildTimelineFromMessages(
           type: 'tool_call',
           name: toolCall.name,
           startTime: new Date(
-            startTime.getTime() + stepDuration * toolCallOffset
+            startTime.getTime() + stepDuration * toolCallOffset,
           ),
           endTime: new Date(
-            startTime.getTime() + stepDuration * (toolCallOffset + 0.2)
+            startTime.getTime() + stepDuration * (toolCallOffset + 0.2),
           ),
           duration: stepDuration * 0.2,
           parentId: agentStepId,
@@ -429,7 +429,7 @@ export function extractActualUserMessage(request: any): string | undefined {
 
   // Look for <user_message> content
   const userMessageMatch = requestStr.match(
-    /<user_message>([\s\S]*?)<\/user_message>/i
+    /<user_message>([\s\S]*?)<\/user_message>/i,
   )
   if (userMessageMatch) {
     return userMessageMatch[1].trim()
@@ -517,7 +517,7 @@ export function extractAssistantResponseFromResponse(response: any): string {
   // Debug: log unhandled response structure
   console.log(
     'Unhandled response structure:',
-    JSON.stringify(response, null, 2)
+    JSON.stringify(response, null, 2),
   )
   return ''
 }
@@ -529,12 +529,12 @@ export function calculateTraceStatistics(messages: TraceMessage[]) {
   return {
     totalDuration: messages.reduce(
       (sum, msg) => sum + (msg.latency_ms || 0),
-      0
+      0,
     ),
     totalCredits: messages.reduce((sum, msg) => sum + msg.credits, 0),
     totalTokens: messages.reduce(
       (sum, msg) => sum + msg.input_tokens + msg.output_tokens,
-      0
+      0,
     ),
     totalSteps: messages.length,
     averageLatency:
@@ -549,7 +549,7 @@ export function calculateTraceStatistics(messages: TraceMessage[]) {
  * Group timeline events by type
  */
 export function groupTimelineEventsByType(
-  events: TimelineEvent[]
+  events: TimelineEvent[],
 ): Record<string, TimelineEvent[]> {
   const grouped: Record<string, TimelineEvent[]> = {
     agent_step: [],
@@ -571,7 +571,7 @@ export function groupTimelineEventsByType(
  */
 export function findToolResultsInMessages(
   messages: TraceMessage[],
-  toolCallName: string
+  toolCallName: string,
 ): any[] {
   const results: any[] = []
 
@@ -582,7 +582,7 @@ export function findToolResultsInMessages(
       // Look for tool_result patterns
       const toolResultRegex = new RegExp(
         `<tool_result>\\s*<tool>${toolCallName}</tool>\\s*<result>([\\s\\S]*?)</result>\\s*</tool_result>`,
-        'g'
+        'g',
       )
       let match
 

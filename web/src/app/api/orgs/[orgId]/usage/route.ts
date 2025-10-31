@@ -13,7 +13,7 @@ interface RouteParams {
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams
+  { params }: RouteParams,
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions)
@@ -41,13 +41,13 @@ export async function GET(
     ) {
       return NextResponse.json(
         { error: 'Organization not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

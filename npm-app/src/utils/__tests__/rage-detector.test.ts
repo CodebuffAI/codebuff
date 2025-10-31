@@ -35,14 +35,14 @@ describe('Rage Detectors', () => {
   let timeoutId = 1
   const mockTrackEvent = mock(() => {})
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Mock the analytics module
-    mockModule('@codebuff/npm-app/utils/analytics', () => ({
+    await mockModule('@codebuff/npm-app/utils/analytics', () => ({
       trackEvent: mockTrackEvent,
     }))
 
     // Mock the sleep function from common/util/promise
-    mockModule('@codebuff/common/util/promise', () => ({
+    await mockModule('@codebuff/common/util/promise', () => ({
       sleep: mock(() => Promise.resolve()),
     }))
   })

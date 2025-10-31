@@ -19,7 +19,7 @@ const BrowserPreview = ({
     <div
       className={cn(
         'rounded-lg bg-white dark:bg-gray-900 flex flex-col flex-1',
-        className
+        className,
       )}
     >
       {/* Browser-like title bar */}

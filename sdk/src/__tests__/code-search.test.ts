@@ -1,15 +1,14 @@
-import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
-import { codeSearch } from '../tools/code-search'
-import { spawn } from 'child_process'
-import type { ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 
-// Mock child_process.spawn
-mock.module('child_process', () => ({
-  spawn: mock(() => {
-    throw new Error('spawn mock not configured')
-  }),
-}))
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
+
+import { codeSearch } from '../tools/code-search'
+
+import type { ChildProcess } from 'child_process'
 
 // Helper to create a mock child process
 function createMockChildProcess() {
@@ -26,16 +25,17 @@ describe('codeSearch', () => {
   let mockSpawn: ReturnType<typeof mock>
   let mockProcess: ReturnType<typeof createMockChildProcess>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockProcess = createMockChildProcess()
     mockSpawn = mock(() => mockProcess)
-    mock.module('child_process', () => ({
+    await mockModule('child_process', () => ({
       spawn: mockSpawn,
     }))
   })
 
   afterEach(() => {
     mock.restore()
+    clearMockedModules()
   })
 
   describe('basic search', () => {

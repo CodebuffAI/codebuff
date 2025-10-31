@@ -9,6 +9,7 @@
     }
   ],
   "initCommand": "bun install",
+  "finalCheckCommands": ["bun run typecheck", "bun run test"],
   "env": {
     "ANTHROPIC_API_KEY": "test-key",
     "ANTHROPIC_API_KEY2": "test-key-2",

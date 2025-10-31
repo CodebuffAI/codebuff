@@ -1,8 +1,8 @@
-import { parseAgentId } from './agent-id-parsing'
+import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { fetchAgent } from '../templates/fetch-agent'
-import { AgentTemplateTypes } from '../types/session-state'
+import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
-import type { DynamicAgentValidationError } from '../templates/agent-validation'
+import type { DynamicAgentValidationError } from '@codebuff/common/templates/agent-validation'
 
 export interface SubagentValidationResult {
   valid: boolean

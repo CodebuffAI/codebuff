@@ -33,7 +33,7 @@ async function saveModelConfig(variables: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
-    }
+    },
   )
 
   if (!response.ok) {

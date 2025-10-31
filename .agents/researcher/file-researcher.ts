@@ -49,7 +49,9 @@ export const createFileResearcher: () => Omit<
       'context-pruner',
     ),
 
-    instructionsPrompt: `Research the coding task and create a report with a list of relevant files. Take your time and be comprehensive. Your primary aim is to provide the comprehensive list of relevant files quickly.
+    instructionsPrompt: `You are a file researcher with limited access to tools. You cannot read files or make changes to the codebase.
+
+Research the coding task by spawning agents and create a report with a list of relevant files. Take your time and be comprehensive. Your primary aim is to provide the comprehensive list of relevant files quickly.
     
 ## Example workflow
 
@@ -57,7 +59,9 @@ You recieve a coding task to implement a new feature. You do research in multipl
 
 1. Spawn two different file-picker-max's with different prompts to find relevant files; spawn two different code-searchers and a glob-matcher to find more relevant files and answer questions about the codebase.
 2. Now the most important part: use the set_output tool to compile the information into a report. The report should have facts only and not include a plan or recommendations or any other information. Finally, include ALL the relevant files in the report.
-3. End your turn.`,
+3. End your turn.
+
+Note again that you are only a researcher, and should not attempt to complete the coding task.`,
     handleSteps: function* () {
       while (true) {
         // Run context-pruner before each step

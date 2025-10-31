@@ -36,9 +36,9 @@ export function InstallInstructions() {
     window.open(
       href +
         encodeURIComponent(
-          typeof window !== 'undefined' ? window.location.pathname : ''
+          typeof window !== 'undefined' ? window.location.pathname : '',
         ),
-      '_blank'
+      '_blank',
     )
   }
 
@@ -79,7 +79,7 @@ export function InstallInstructions() {
                     <div
                       className={cn(
                         'w-4 h-4 relative flex-shrink-0',
-                        ed.needsWhiteBg && 'bg-white rounded-sm p-[1px]'
+                        ed.needsWhiteBg && 'bg-white rounded-sm p-[1px]',
                       )}
                     >
                       <Image

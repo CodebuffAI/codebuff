@@ -1,6 +1,6 @@
-import { z } from 'zod/v4';
-import { OpenRouterErrorResponseSchema } from '../schemas/error-response';
-import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
+import { z } from 'zod/v4'
+import { OpenRouterErrorResponseSchema } from '../schemas/error-response'
+import { ReasoningDetailArraySchema } from '../schemas/reasoning-details'
 
 const OpenRouterChatCompletionBaseResponseSchema = z.object({
   id: z.string().optional(),
@@ -29,7 +29,7 @@ const OpenRouterChatCompletionBaseResponseSchema = z.object({
         .nullish(),
     })
     .nullish(),
-});
+})
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
 export const OpenRouterNonStreamChatCompletionResponseSchema =
@@ -93,7 +93,7 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
         finish_reason: z.string().optional().nullable(),
       }),
     ),
-  });
+  })
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
 export const OpenRouterStreamChatCompletionChunkSchema = z.union([
@@ -160,4 +160,4 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
     ),
   }),
   OpenRouterErrorResponseSchema,
-]);
+])

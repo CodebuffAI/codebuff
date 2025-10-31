@@ -101,7 +101,10 @@ export function parseLogoLines(logo: string): string[] {
 /**
  * Calculates responsive layout dimensions based on terminal size
  */
-export function calculateResponsiveLayout(terminalWidth: number, terminalHeight: number) {
+export function calculateResponsiveLayout(
+  terminalWidth: number,
+  terminalHeight: number,
+) {
   // Responsive breakpoints based on terminal height
   const isVerySmall = terminalHeight < 15 // Minimal UI
   const isSmall = terminalHeight >= 15 && terminalHeight < 20 // Compact UI

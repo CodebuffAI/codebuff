@@ -1,6 +1,6 @@
-import { z } from 'zod/v4';
-import { OpenRouterErrorResponseSchema } from '../schemas/error-response';
-import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
+import { z } from 'zod/v4'
+import { OpenRouterErrorResponseSchema } from '../schemas/error-response'
+import { ReasoningDetailArraySchema } from '../schemas/reasoning-details'
 
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
@@ -46,4 +46,4 @@ export const OpenRouterCompletionChunkSchema = z.union([
       .nullish(),
   }),
   OpenRouterErrorResponseSchema,
-]);
+])
