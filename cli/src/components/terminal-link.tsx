@@ -55,15 +55,6 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
     return <span fg={displayColor}>{text}</span>
   }
 
-  const renderLine = (line: string, index: number) => {
-    const coloredText = <span fg={displayColor}>{line}</span>
-    return (
-      <text key={index} wrap={lineWrap}>
-        {shouldUnderline ? <u>{coloredText}</u> : coloredText}
-      </text>
-    )
-  }
-
   return (
     <box
       style={{
@@ -77,7 +68,14 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
       onMouseOut={() => setIsHovered(false)}
       onMouseDown={handleActivate}
     >
-      {displayLines.map(renderLine)}
+      {displayLines.map((line: string, index: number) => {
+        const coloredText = <span fg={displayColor}>{line}</span>
+        return (
+          <text key={index} wrap={lineWrap}>
+            {shouldUnderline ? <u>{coloredText}</u> : coloredText}
+          </text>
+        )
+      })}
     </box>
   )
 }

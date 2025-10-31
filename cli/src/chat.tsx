@@ -1207,13 +1207,13 @@ export const App = ({
             }}
           >
             <text wrap={false}>
-              {hasStatus ? statusIndicatorNode : null}
-              {hasStatus && (exitWarning || shouldShowQueuePreview) ? '  ' : ''}
-              {exitWarning ? (
+              {hasStatus && statusIndicatorNode}
+              {hasStatus && (exitWarning || shouldShowQueuePreview) && '  '}
+              {exitWarning && (
                 <span fg={theme.statusSecondary}>{exitWarning}</span>
-              ) : null}
-              {exitWarning && shouldShowQueuePreview ? '  ' : ''}
-              {shouldShowQueuePreview ? (
+              )}
+              {exitWarning && shouldShowQueuePreview && '  '}
+              {shouldShowQueuePreview && (
                 <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
                   {' '}
                   {formatQueuedPreview(
@@ -1221,7 +1221,7 @@ export const App = ({
                     Math.max(30, terminalWidth - 25),
                   )}{' '}
                 </span>
-              ) : null}
+              )}
             </text>
           </box>
         )}

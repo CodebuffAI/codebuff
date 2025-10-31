@@ -170,24 +170,14 @@ export const BranchItem = ({
           </text>
         </box>
         <box style={{ flexShrink: 1, marginBottom: 0 }}>
-          {isStreaming && isCollapsed && streamingPreview && (
+          {isCollapsed && (isStreaming ? streamingPreview : finishedPreview) && (
             <text
-              key="streaming-preview"
+              key={isStreaming ? 'streaming-preview' : 'finished-preview'}
               wrap
-              fg={theme.agentText}
+              fg={isStreaming ? theme.agentText : theme.agentResponseCount}
               attributes={TextAttributes.ITALIC}
             >
-              {streamingPreview}
-            </text>
-          )}
-          {!isStreaming && isCollapsed && finishedPreview && (
-            <text
-              key="finished-preview"
-              wrap
-              fg={theme.agentResponseCount}
-              attributes={TextAttributes.ITALIC}
-            >
-              {finishedPreview}
+              {isStreaming ? streamingPreview : finishedPreview}
             </text>
           )}
           {!isCollapsed && (
