@@ -1118,6 +1118,7 @@ export const App = ({
               theme={theme}
               width={inputWidth}
               onKeyIntercept={handleSuggestionMenuKey}
+              textAttributes={theme.messageTextAttributes}
               ref={inputRef}
             />
           </box>

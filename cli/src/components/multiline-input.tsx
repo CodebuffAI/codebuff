@@ -93,6 +93,7 @@ interface MultilineInputProps {
     | 'statusAccent'
   >
   width: number
+  textAttributes?: number
 }
 
 export type MultilineInputHandle = {
@@ -112,6 +113,7 @@ export const MultilineInput = forwardRef<
     maxHeight = 5,
     theme,
     width,
+    textAttributes,
     onKeyIntercept,
   }: MultilineInputProps,
   forwardedRef,
@@ -605,6 +607,8 @@ export const MultilineInput = forwardRef<
   }
   if (isPlaceholder) {
     textStyle.attributes = TextAttributes.DIM
+  } else if (textAttributes !== undefined && textAttributes !== 0) {
+    textStyle.attributes = textAttributes
   }
 
   const cursorFg = resolveFg(theme.cursor, theme.statusAccent)
