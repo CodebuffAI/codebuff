@@ -14,7 +14,7 @@ const CONFIG = {
   homeDir: os.homedir(),
   configDir: path.join(os.homedir(), '.config', 'manicode'),
   binaryName: process.platform === 'win32' ? 'codebuff.exe' : 'codebuff',
-  githubRepo: 'CodebuffAI/codebuff-community',
+  githubRepo: 'CodebuffAI/codebuff',
   userAgent: 'codebuff-cli',
   requestTimeout: 20000,
 }
@@ -102,10 +102,10 @@ async function getLatestVersion() {
 
     // Parse the Atom XML to extract the latest release tag
     const tagMatch = body.match(
-      /<id>tag:github\.com,2008:Repository\/\d+\/([^<]+)<\/id>/,
+      /<id>tag:github\.com,2008:Repository\/\d+\/v(\d+\.\d+\.\d+)<\/id>/,
     )
     if (tagMatch && tagMatch[1]) {
-      return tagMatch[1].replace(/^v/, '')
+      return tagMatch[1]
     }
 
     return null
