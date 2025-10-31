@@ -14,7 +14,7 @@ export function HighlightText({ text, isLight }: HighlightTextProps) {
         'p-4 rounded-lg mt-4 font-semibold flex items-center',
         isLight
           ? 'bg-black/10 border border-black/20'
-          : 'bg-white/5 border border-white/20'
+          : 'bg-white/5 border border-white/20',
       )}
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}

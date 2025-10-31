@@ -10,7 +10,7 @@ export async function revalidateAgents() {
   // Revalidate specific pages
   revalidatePath('/store')
   revalidatePath('/api/agents')
-  
+
   // Revalidate by tags (affects all cached data with these tags)
   revalidateTag('agents')
   revalidateTag('store')
@@ -25,7 +25,7 @@ export async function revalidateAgent(publisherId: string, agentId: string) {
   // Revalidate specific agent pages
   revalidatePath(`/publishers/${publisherId}/agents/${agentId}`)
   revalidatePath(`/publishers/${publisherId}`)
-  
+
   // Also revalidate the store to reflect changes
   revalidatePath('/store')
   revalidateTag('agents')
@@ -39,7 +39,7 @@ export async function revalidatePublisher(publisherId: string) {
   revalidatePath(`/publishers/${publisherId}`)
   revalidatePath('/publishers')
   revalidateTag('publishers')
-  
+
   // Also revalidate agents since publisher info appears in agent cards
   revalidateTag('agents')
 }

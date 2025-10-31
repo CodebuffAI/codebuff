@@ -13,17 +13,20 @@ export function CreditManagementSkeleton() {
               <Skeleton className="h-8 w-32" />
               <Skeleton className="h-4 w-20" />
             </div>
-            
+
             {/* Credit Options Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex flex-col p-4 h-20 gap-1 border rounded-md">
+                <div
+                  key={i}
+                  className="flex flex-col p-4 h-20 gap-1 border rounded-md"
+                >
                   <Skeleton className="h-6 w-16 mx-auto" />
                   <Skeleton className="h-4 w-12 mx-auto" />
                 </div>
               ))}
             </div>
-            
+
             {/* Custom Amount Input */}
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
               <div className="w-full flex-1 space-y-2">
@@ -37,10 +40,10 @@ export function CreditManagementSkeleton() {
               </div>
             </div>
           </div>
-          
+
           {/* Divider */}
           <div className="border-t border-border" />
-          
+
           {/* Auto-topup Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">

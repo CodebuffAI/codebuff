@@ -40,7 +40,7 @@ export function MarkdownTable({ children }: MarkdownTableProps) {
         line
           .split('|')
           .map((cell) => cell.trim())
-          .filter((cell, i, arr) => i > 0 && i < arr.length - 1) // Remove empty cells at start/end
+          .filter((cell, i, arr) => i > 0 && i < arr.length - 1), // Remove empty cells at start/end
     )
 
     // Extract headers (first row)
@@ -91,7 +91,7 @@ export function MarkdownTable({ children }: MarkdownTableProps) {
                   className={cn(
                     'px-4 py-2 text-left font-semibold text-foreground',
                     tableData.alignments[i] === 'center' && 'text-center',
-                    tableData.alignments[i] === 'right' && 'text-right'
+                    tableData.alignments[i] === 'right' && 'text-right',
                   )}
                 >
                   {header}
@@ -105,7 +105,7 @@ export function MarkdownTable({ children }: MarkdownTableProps) {
                 key={`row-${rowIndex}`}
                 className={cn(
                   'border-b last:border-0',
-                  rowIndex % 2 === 1 ? 'bg-muted/40' : ''
+                  rowIndex % 2 === 1 ? 'bg-muted/40' : '',
                 )}
               >
                 {row.map((cell, cellIndex) => {
@@ -124,7 +124,7 @@ export function MarkdownTable({ children }: MarkdownTableProps) {
                           'text-center',
                         tableData.alignments[cellIndex] === 'right' &&
                           'text-right',
-                        getCellStyle(cell)
+                        getCellStyle(cell),
                       )}
                     >
                       {cell}

@@ -1,3 +1,4 @@
+import { BACKEND_URL, WEBSITE_URL } from './constants'
 import { run } from './run'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 
@@ -55,8 +56,29 @@ export class CodebuffClient {
     return run({ ...this.options, ...options })
   }
 
-  /** @deprecated */
+  /**
+   * Check connection to the Codebuff backend by hitting the /healthz endpoint.
+   *
+   * @returns Promise that resolves to true if connected, false otherwise
+   */
   public async checkConnection(): Promise<boolean> {
-    return true
+    try {
+      const response = await fetch(`${WEBSITE_URL}/api/healthz`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      })
+
+      if (!response.ok) return false
+
+      const result = await response.json()
+      return (
+        typeof result === 'object' &&
+        result !== null &&
+        'status' in result &&
+        (result as { status?: unknown }).status === 'ok'
+      )
+    } catch {
+      return false
+    }
   }
 }

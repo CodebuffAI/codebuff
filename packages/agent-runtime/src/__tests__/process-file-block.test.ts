@@ -18,9 +18,9 @@ import type {
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 describe('processFileBlockModule', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     // Mock database interactions
-    mockModule('pg-pool', () => ({
+    await mockModule('pg-pool', () => ({
       Pool: class {
         connect() {
           return {
@@ -35,7 +35,7 @@ describe('processFileBlockModule', () => {
     }))
 
     // Mock message saving
-    mockModule('@codebuff/backend/llm-apis/message-cost-tracker', () => ({
+    await mockModule('@codebuff/backend/llm-apis/message-cost-tracker', () => ({
       saveMessage: () => Promise.resolve(),
     }))
   })

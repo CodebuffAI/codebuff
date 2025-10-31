@@ -36,6 +36,7 @@ async function runTask(options: {
   localAgentDefinitions: any[]
   extractLessons: boolean
   printEvents: boolean
+  finalCheckCommands?: string[]
 }) {
   const {
     client,
@@ -51,6 +52,7 @@ async function runTask(options: {
     localAgentDefinitions,
     extractLessons,
     printEvents,
+    finalCheckCommands,
   } = options
 
   console.log(
@@ -70,6 +72,7 @@ async function runTask(options: {
       env,
       localAgentDefinitions,
       printEvents,
+      finalCheckCommands,
     })
 
     const judgeResult = await judgeCommitResult({
@@ -79,6 +82,14 @@ async function runTask(options: {
       contextFiles: agentResult.contextFiles,
       agentDiff: agentResult.diff,
       error: agentResult.error,
+      finalCheckOutputs: agentResult.finalCheckOutputs
+        ? agentResult.finalCheckOutputs
+            .map(
+              (output) =>
+                `### ${output.command}\n\`\`\`\n${output.stdout}${output.stderr ? '\nSTDERR:\n' + output.stderr : ''}\n\`\`\``,
+            )
+            .join('\n\n')
+        : undefined,
     })
 
     // Extract and append agent lessons
@@ -114,6 +125,7 @@ async function runTask(options: {
       cost: agentResult.cost,
       durationMs: agentResult.durationMs,
       error: agentResult.error,
+      finalCheckOutputs: agentResult.finalCheckOutputs,
     }
 
     // Save trace to logs directory
@@ -135,6 +147,7 @@ async function runTask(options: {
       durationMs: agentResult.durationMs,
       error: agentResult.error,
       timestamp: new Date().toISOString(),
+      finalCheckOutputs: agentResult.finalCheckOutputs,
     })
 
     fs.writeFileSync(
@@ -369,6 +382,7 @@ export async function runBuffBench(options: {
         localAgentDefinitions: analyzerContext.agentDefinitions,
         extractLessons,
         printEvents: agents.length === 1 && taskConcurrency === 1,
+        finalCheckCommands: evalData.finalCheckCommands,
       }),
     ),
   )

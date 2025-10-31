@@ -1,6 +1,7 @@
+import { env } from '@codebuff/common/env'
+
 // Get the website URL from environment or use default
-export const WEBSITE_URL =
-  process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+export const WEBSITE_URL = env.NEXT_PUBLIC_CODEBUFF_APP_URL
 
 // Codebuff ASCII Logo - compact version for 80-width terminals
 export const LOGO = `
@@ -12,6 +13,14 @@ export const LOGO = `
   ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝
 `
 
+export const LOGO_SMALL = `
+  ██████╗ ██████╗
+ ██╔════╝ ██╔══██╗
+ ██║      ██████╔╝
+ ██║      ██╔══██╗
+ ╚██████╗ ██████╔╝
+  ╚═════╝ ╚═════╝
+`
 // UI Color constants
 export const LINK_COLOR_DEFAULT = '#3b82f6'
 export const LINK_COLOR_CLICKED = '#1e40af'

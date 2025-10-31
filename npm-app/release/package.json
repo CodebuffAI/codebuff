@@ -32,7 +32,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/CodebuffAI/codebuff-community.git"
+    "url": "https://github.com/CodebuffAI/codebuff.git"
   },
   "homepage": "https://codebuff.com",
   "publishConfig": {

@@ -10,7 +10,9 @@ export const lookupAgentInfoParams = {
   endsAgentStep,
   parameters: z
     .object({
-      agentId: z.string().describe('Agent ID (short local or full published format)'),
+      agentId: z
+        .string()
+        .describe('Agent ID (short local or full published format)'),
     })
     .describe('Retrieve information about an agent by ID'),
   outputs: z.tuple([

@@ -1,5 +1,6 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -127,7 +128,7 @@ export async function chatCompletionsPost(params: {
       })
       return NextResponse.json(
         {
-          message: `Insufficient credits. Please add credits at ${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage or wait for your next cycle to begin (${nextQuotaReset}).`,
+          message: `Insufficient credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage or wait for your next cycle to begin (${nextQuotaReset}).`,
         },
         { status: 402 },
       )

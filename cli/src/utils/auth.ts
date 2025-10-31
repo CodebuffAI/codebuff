@@ -2,6 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
+import { env } from '@codebuff/common/env'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { WEBSITE_URL } from '@codebuff/sdk'
 import { z } from 'zod'
@@ -34,9 +35,8 @@ export const getConfigDir = (): string => {
     '.config',
     'manicode' +
       // on a development stack?
-      (process.env.NEXT_PUBLIC_CB_ENVIRONMENT &&
-      process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
-        ? `-${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`
+      (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
+        ? `-${env.NEXT_PUBLIC_CB_ENVIRONMENT}`
         : ''),
   )
 }

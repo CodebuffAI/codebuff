@@ -1,12 +1,14 @@
 'use client'
 
+import { env } from '@codebuff/common/env'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import { getReferralLink } from '@codebuff/common/util/referral'
-import { env } from '@codebuff/internal'
 import { useQuery } from '@tanstack/react-query'
 import { CopyIcon, Forward } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { match, P } from 'ts-pattern'
+
+import { ProfileSection } from './profile-section'
 
 import type { ReferralData } from '@/app/api/referrals/route'
 
@@ -22,7 +24,6 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
-import { ProfileSection } from './profile-section'
 
 const copyReferral = (link: string) => {
   navigator.clipboard.writeText(link)
@@ -139,7 +140,7 @@ export function ReferralsSection() {
                   <Skeleton className="h-4 w-5/6" />
                   <Skeleton className="h-4 w-4/6" />
                 </div>
-              )
+              ),
             )
             .with(
               {
@@ -208,7 +209,7 @@ export function ReferralsSection() {
                     </ul>
                   )}
                 </div>
-              )
+              ),
             )
             .otherwise(() => (
               <p>

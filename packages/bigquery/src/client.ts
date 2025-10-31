@@ -1,3 +1,4 @@
+import { env } from '@codebuff/common/env'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { BigQuery } from '@google-cloud/bigquery'
 
@@ -8,7 +9,7 @@ import type { MessageRow } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const DATASET =
-  process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
     ? 'codebuff_data'
     : 'codebuff_data_dev'
 

@@ -41,7 +41,8 @@ Read the file and answer the user's question about it. Depending on what they're
 - For specific questions: focus on the relevant parts and provide clear explanations
 - For excerpts: reproduce the requested code exactly as it appears in the file
   `.trim(),
-  stepPrompt: 'Do not use any tools again. Just answer the question about the file.',
+  stepPrompt:
+    'Do not use any tools again. Just answer the question about the file.',
 
   handleSteps: function* ({ prompt, params }) {
     const filePath = params?.filePath

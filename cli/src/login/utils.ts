@@ -3,6 +3,25 @@
  */
 
 /**
+ * Calculates the relative luminance of a hex color to determine if it's light or dark mode
+ */
+export function isLightModeColor(hexColor: string): boolean {
+  if (!hexColor) return false
+
+  const hex = hexColor.replace('#', '')
+  if (hex.length < 6) {
+    return false
+  }
+
+  const r = parseInt(hex.substring(0, 2), 16)
+  const g = parseInt(hex.substring(2, 4), 16)
+  const b = parseInt(hex.substring(4, 6), 16)
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.5
+}
+
+/**
  * Formats a URL for display by wrapping it at logical breakpoints
  */
 export function formatUrl(url: string, maxWidth?: number): string[] {
@@ -85,7 +104,10 @@ export function parseLogoLines(logo: string): string[] {
 /**
  * Calculates responsive layout dimensions based on terminal size
  */
-export function calculateResponsiveLayout(terminalWidth: number, terminalHeight: number) {
+export function calculateResponsiveLayout(
+  terminalWidth: number,
+  terminalHeight: number,
+) {
   // Responsive breakpoints based on terminal height
   const isVerySmall = terminalHeight < 15 // Minimal UI
   const isSmall = terminalHeight >= 15 && terminalHeight < 20 // Compact UI
@@ -107,9 +129,6 @@ export function calculateResponsiveLayout(terminalWidth: number, terminalHeight:
 
   const maxUrlWidth = Math.min(terminalWidth - 10, 100)
 
-  // Show full logo on all terminal sizes as long as width allows
-  const showFullLogo = contentMaxWidth >= 60
-
   return {
     isVerySmall,
     isSmall,
@@ -122,7 +141,6 @@ export function calculateResponsiveLayout(terminalWidth: number, terminalHeight:
     sectionMarginBottom,
     contentMaxWidth,
     maxUrlWidth,
-    showFullLogo,
   }
 }
 

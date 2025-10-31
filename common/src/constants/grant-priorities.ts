@@ -1,4 +1,4 @@
-import type { GrantType } from '../db/schema'
+import type { GrantType } from '@codebuff/common/types/grant'
 
 export const GRANT_PRIORITIES: Record<GrantType, number> = {
   free: 20,

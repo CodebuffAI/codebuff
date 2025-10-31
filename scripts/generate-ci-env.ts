@@ -4,9 +4,11 @@
 // by reading the required variables from env.ts and outputting them as a JSON array.
 // Supports optional filters so callers can request only specific subsets.
 
-import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+
+import { CLIENT_ENV_PREFIX, clientEnvVars } from '@codebuff/common/env-schema'
+import { serverEnvVars } from '@codebuff/internal/env-schema'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -45,50 +47,22 @@ function parseArgs() {
   return { prefix, scope }
 }
 
-function extractEnvVarsFromEnvTs() {
-  const envTsPath = path.join(
-    __dirname,
-    '..',
-    'packages',
-    'internal',
-    'src',
-    'env.ts',
-  )
-  const envTsContent = fs.readFileSync(envTsPath, 'utf8')
-
-  const serverMatch = envTsContent.match(/server:\s*{([^}]+)}/s)
-  const clientMatch = envTsContent.match(/client:\s*{([^}]+)}/s)
-
-  const serverVars = new Set()
-  const clientVars = new Set()
-
-  const extractVars = (match, targetSet) => {
-    if (!match) return
-    const vars = match[1].match(/(\w+):/g)
-    if (!vars) return
-    vars.forEach((v) => targetSet.add(v.replace(':', '')))
-  }
-
-  extractVars(serverMatch, serverVars)
-  extractVars(clientMatch, clientVars)
-
-  return {
-    server: Array.from(serverVars),
-    client: Array.from(clientVars),
-  }
-}
-
 function generateGitHubEnv() {
   const { prefix, scope } = parseArgs()
-  const varsByScope = extractEnvVarsFromEnvTs()
+  const varsByScope = {
+    all: serverEnvVars,
+    client: clientEnvVars,
+  }
 
-  let selected = []
+  let selected: string[] = []
   if (scope === 'server') {
-    selected = varsByScope.server
+    selected = varsByScope.all.filter(
+      (name) => !name.startsWith(CLIENT_ENV_PREFIX),
+    )
   } else if (scope === 'client') {
     selected = varsByScope.client
   } else {
-    selected = Array.from(new Set([...varsByScope.server, ...varsByScope.client]))
+    selected = varsByScope.all
   }
 
   if (prefix) {

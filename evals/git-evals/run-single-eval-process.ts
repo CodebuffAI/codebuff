@@ -60,7 +60,7 @@ async function main() {
     // Setup environment for this process
     setProjectRoot(projectPath)
     setupTestEnvironmentVariables()
-    createFileReadingMock(projectPath)
+    await createFileReadingMock(projectPath)
     recreateShell(projectPath)
     setWorkingDirectory(projectPath)
 

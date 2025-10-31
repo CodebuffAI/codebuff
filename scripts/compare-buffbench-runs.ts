@@ -51,19 +51,29 @@ function compareBuffbenchRuns(dir1: string, dir2: string) {
   // and no agent scored <= 1.0
   const commonCommitShas = Array.from(run1Data.keys()).filter((sha) => {
     if (!run2Data.has(sha)) return false
-    
+
     // Check that all agents in both runs completed without errors
     const run1Results = run1Data.get(sha)!.results
     const run2Results = run2Data.get(sha)!.results
-    
-    const run1HasErrors = run1Results.some((r) => r.error !== undefined && r.error !== null)
-    const run2HasErrors = run2Results.some((r) => r.error !== undefined && r.error !== null)
-    
+
+    const run1HasErrors = run1Results.some(
+      (r) => r.error !== undefined && r.error !== null,
+    )
+    const run2HasErrors = run2Results.some(
+      (r) => r.error !== undefined && r.error !== null,
+    )
+
     // Check that no agent scored <= 1.0 or has null/undefined scores in either run
-    const run1HasLowScores = run1Results.some((r) => r.overallScore == null || r.overallScore <= 1.0)
-    const run2HasLowScores = run2Results.some((r) => r.overallScore == null || r.overallScore <= 1.0)
-    
-    return !run1HasErrors && !run2HasErrors && !run1HasLowScores && !run2HasLowScores
+    const run1HasLowScores = run1Results.some(
+      (r) => r.overallScore == null || r.overallScore <= 1.0,
+    )
+    const run2HasLowScores = run2Results.some(
+      (r) => r.overallScore == null || r.overallScore <= 1.0,
+    )
+
+    return (
+      !run1HasErrors && !run2HasErrors && !run1HasLowScores && !run2HasLowScores
+    )
   })
 
   // Count tasks with various issues for reporting
@@ -91,8 +101,14 @@ function compareBuffbenchRuns(dir1: string, dir2: string) {
   })
 
   // Count tasks excluded (either errors OR low scores)
-  const run1ExcludedTasks = new Set([...run1TasksWithErrors, ...run1TasksWithLowScores])
-  const run2ExcludedTasks = new Set([...run2TasksWithErrors, ...run2TasksWithLowScores])
+  const run1ExcludedTasks = new Set([
+    ...run1TasksWithErrors,
+    ...run1TasksWithLowScores,
+  ])
+  const run2ExcludedTasks = new Set([
+    ...run2TasksWithErrors,
+    ...run2TasksWithLowScores,
+  ])
 
   console.log(`\nRun 1: ${dir1}`)
   console.log(`Run 2: ${dir2}`)
@@ -106,10 +122,14 @@ function compareBuffbenchRuns(dir1: string, dir2: string) {
   console.log(`  - With scores ≤1.0: ${run2TasksWithLowScores.length}`)
   console.log(`  - Excluded (errors OR low scores): ${run2ExcludedTasks.size}`)
   console.log(`  - Valid: ${run2Data.size - run2ExcludedTasks.size}`)
-  console.log(`\nCommon tasks (both completed successfully with scores >1.0): ${commonCommitShas.length}\n`)
+  console.log(
+    `\nCommon tasks (both completed successfully with scores >1.0): ${commonCommitShas.length}\n`,
+  )
 
   if (commonCommitShas.length === 0) {
-    console.log('No common successfully-completed tasks with scores >1.0 found between the two runs!')
+    console.log(
+      'No common successfully-completed tasks with scores >1.0 found between the two runs!',
+    )
     return
   }
 
@@ -180,8 +200,7 @@ function compareBuffbenchRuns(dir1: string, dir2: string) {
       data.completionScores.reduce((a, b) => a + b, 0) /
       data.completionScores.length
     const avgQuality =
-      data.qualityScores.reduce((a, b) => a + b, 0) /
-      data.qualityScores.length
+      data.qualityScores.reduce((a, b) => a + b, 0) / data.qualityScores.length
 
     const minOverall = Math.min(...data.scores)
     const maxOverall = Math.max(...data.scores)
@@ -294,13 +313,13 @@ function compareBuffbenchRuns(dir1: string, dir2: string) {
 }
 
 // Main execution
-const logDir1 =
-  process.argv[2] || 'evals/buffbench/logs/2025-10-20T06-29'
-const logDir2 =
-  process.argv[3] || 'evals/buffbench/logs/2025-10-20T21-26'
+const logDir1 = process.argv[2] || 'evals/buffbench/logs/2025-10-20T06-29'
+const logDir2 = process.argv[3] || 'evals/buffbench/logs/2025-10-20T21-26'
 
 if (!process.argv[2] || !process.argv[3]) {
-  console.log('Usage: bun run scripts/compare-buffbench-runs.ts <log-dir-1> <log-dir-2>')
+  console.log(
+    'Usage: bun run scripts/compare-buffbench-runs.ts <log-dir-1> <log-dir-2>',
+  )
   console.log('\nUsing default directories:')
   console.log(`  Dir 1: ${logDir1}`)
   console.log(`  Dir 2: ${logDir2}\n`)

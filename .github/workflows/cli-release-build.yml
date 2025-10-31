@@ -149,7 +149,7 @@ jobs:
           ENV_OVERRIDES: ${{ inputs.env-overrides }}
         shell: bash
         run: |
-          VAR_NAMES=$(bun scripts/generate-ci-env.js --prefix NEXT_PUBLIC_)
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts --prefix NEXT_PUBLIC_)
 
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
@@ -299,7 +299,7 @@ jobs:
           ENV_OVERRIDES: ${{ inputs.env-overrides }}
         shell: bash
         run: |
-          VAR_NAMES=$(bun scripts/generate-ci-env.js --prefix NEXT_PUBLIC_)
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts --prefix NEXT_PUBLIC_)
 
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value

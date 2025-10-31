@@ -7,9 +7,9 @@ import { useLoginMutation } from '../hooks/use-auth-query'
 import { useFetchLoginUrl } from '../hooks/use-fetch-login-url'
 import { useLoginKeyboardHandlers } from '../hooks/use-login-keyboard-handlers'
 import { useLoginPolling } from '../hooks/use-login-polling'
+import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import {
-  LOGO,
   LINK_COLOR_DEFAULT,
   LINK_COLOR_CLICKED,
   COPY_SUCCESS_COLOR,
@@ -23,7 +23,7 @@ import {
 import {
   formatUrl,
   generateFingerprintId,
-  parseLogoLines,
+  isLightModeColor,
   calculateResponsiveLayout,
   calculateModalDimensions,
 } from '../login/utils'
@@ -32,7 +32,7 @@ import { copyTextToClipboard } from '../utils/clipboard'
 import { logger } from '../utils/logger'
 
 import type { User } from '../utils/auth'
-import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
+import type { ChatTheme } from '../utils/theme-system'
 
 interface LoginModalProps {
   onLoginSuccess: (user: User) => void
@@ -124,8 +124,6 @@ export const LoginModal = ({
 
     setLoading(true)
     setError(null)
-
-    logger.debug({ fingerprintId }, 'Fetching login URL')
 
     fetchLoginUrlMutation.mutate(fingerprintId, {
       onSettled: () => {
@@ -221,20 +219,14 @@ export const LoginModal = ({
     }
   }, [hasOpenedBrowser, loginUrl, copyToClipboard])
 
-  const logoColor =
-    resolveThemeColor(theme.chromeText, theme.statusAccent) ??
-    theme.statusAccent
+  // Determine if we're in light mode by checking background color luminance
+  const isLightMode = useMemo(
+    () => isLightModeColor(theme.background),
+    [theme.background],
+  )
 
-  // Use custom hook for sheen animation
-  const { applySheenToChar } = useSheenAnimation({
-    logoColor,
-    terminalWidth: renderer?.width,
-    sheenPosition,
-    setSheenPosition,
-  })
-
-  // Parse logo lines
-  const logoLines = parseLogoLines(LOGO)
+  // Use pure black/white for logo
+  const logoColor = isLightMode ? '#000000' : '#ffffff'
 
   // Calculate terminal width and height for responsive display
   const terminalWidth = renderer?.width || 80
@@ -250,27 +242,41 @@ export const LoginModal = ({
     sectionMarginBottom,
     contentMaxWidth,
     maxUrlWidth,
-    showFullLogo,
   } = calculateResponsiveLayout(terminalWidth, terminalHeight)
 
-  // Slice logo lines to fit terminal width
-  const logoDisplayLines = useMemo(
-    () => logoLines.map((line) => line.slice(0, contentMaxWidth)),
-    [logoLines, contentMaxWidth],
+  // Format login URL lines
+  const formatLoginUrlLines = useCallback(
+    (text: string, width?: number) => formatUrl(text, width ?? maxUrlWidth),
+    [maxUrlWidth],
   )
 
-  // Render logo with sheen animation (memoized because it re-renders on sheen position changes)
-  const renderedLogo = useMemo(() => {
-    return logoDisplayLines.map((line, lineIndex) => (
-      <text key={`logo-line-${lineIndex}`} style={{ wrapMode: 'none' }}>
-        {line
-          .split('')
-          .map((char, charIndex) =>
-            applySheenToChar(char, charIndex, lineIndex),
-          )}
-      </text>
-    ))
-  }, [logoDisplayLines, applySheenToChar])
+  // Handle login URL activation
+  const handleActivateLoginUrl = useCallback(async () => {
+    if (!loginUrl) {
+      return
+    }
+    try {
+      await open(loginUrl)
+    } catch (err) {
+      logger.error(err, 'Failed to open browser on link click')
+    }
+    return copyToClipboard(loginUrl)
+  }, [loginUrl, copyToClipboard])
+
+  // Use custom hook for sheen animation
+  const { applySheenToChar } = useSheenAnimation({
+    logoColor,
+    terminalWidth: renderer?.width,
+    sheenPosition,
+    setSheenPosition,
+  })
+
+  // Get the logo component based on available content width
+  const { component: logoComponent } = useLogo({
+    availableWidth: contentMaxWidth,
+    applySheenToChar,
+    textColor: theme.chromeText,
+  })
 
   // Calculate modal dimensions
   const { modalHeight } = calculateModalDimensions(
@@ -295,7 +301,7 @@ export const LoginModal = ({
         width: Math.floor(terminalWidth * 0.95),
         height: modalHeight,
         maxHeight: modalHeight,
-        backgroundColor: 'transparent',
+        backgroundColor: theme.background,
         padding: 0,
         flexDirection: 'column',
       }}
@@ -306,13 +312,13 @@ export const LoginModal = ({
           style={{
             width: '100%',
             padding: 1,
-            backgroundColor: 'transparent',
+            backgroundColor: '#ff0000',
             borderStyle: 'single',
             borderColor: WARNING_COLOR,
             flexShrink: 0,
           }}
         >
-          <text>
+          <text style={{ wrapMode: 'word' }}>
             <span fg={theme.statusSecondary}>
               {isNarrow
                 ? "⚠ Found API key but it's invalid. Please log in again."
@@ -328,44 +334,24 @@ export const LoginModal = ({
           alignItems: 'center',
           width: '100%',
           height: '100%',
-          backgroundColor: 'transparent',
+          backgroundColor: theme.background,
           padding: containerPadding,
           gap: 0,
         }}
       >
-        {/* Header - Logo or simple text based on terminal size */}
-        {showFullLogo ? (
-          <box
-            key="codebuff-logo"
-            style={{
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              marginTop: headerMarginTop,
-              marginBottom: headerMarginBottom,
-              flexShrink: 0,
-            }}
-          >
-            {renderedLogo}
-          </box>
-        ) : (
-          <box
-            style={{
-              flexDirection: 'column',
-              alignItems: 'center',
-              marginTop: headerMarginTop,
-              marginBottom: headerMarginBottom,
-              flexShrink: 0,
-            }}
-          >
-            <text style={{ wrapMode: 'none' }}>
-              <b>
-                <span fg={resolveThemeColor(theme.chromeText, logoColor)}>
-                  {isNarrow ? 'Codebuff' : 'Codebuff CLI'}
-                </span>
-              </b>
-            </text>
-          </box>
-        )}
+        {/* Header - Logo rendered by useLogo hook */}
+        <box
+          key="codebuff-logo"
+          style={{
+            flexDirection: 'column',
+            alignItems: contentMaxWidth < 40 ? 'center' : 'flex-start',
+            marginTop: headerMarginTop,
+            marginBottom: headerMarginBottom,
+            flexShrink: 0,
+          }}
+        >
+          {logoComponent}
+        </box>
 
         {/* Loading state */}
         {loading && (
@@ -393,11 +379,11 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text>
+            <text style={{ wrapMode: 'word' }}>
               <span fg="red">Error: {error}</span>
             </text>
             {!isVerySmall && (
-              <text>
+              <text style={{ wrapMode: 'word' }}>
                 <span fg={theme.statusSecondary}>
                   {isNarrow
                     ? 'Please try again'
@@ -419,7 +405,7 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text>
+            <text style={{ wrapMode: 'word' }}>
               <span fg={theme.statusAccent}>
                 {isNarrow
                   ? 'Press ENTER to login...'
@@ -441,7 +427,7 @@ export const LoginModal = ({
               gap: isVerySmall ? 0 : 1,
             }}
           >
-            <text>
+            <text style={{ wrapMode: 'word' }}>
               <span fg={theme.statusSecondary}>
                 {isNarrow ? 'Click to copy:' : 'Click link to copy:'}
               </span>
@@ -456,21 +442,12 @@ export const LoginModal = ({
               <TerminalLink
                 text={loginUrl}
                 maxWidth={maxUrlWidth}
-                formatLines={(text, width) =>
-                  formatUrl(text, width ?? maxUrlWidth)
-                }
+                formatLines={formatLoginUrlLines}
                 color={hasClickedLink ? LINK_COLOR_CLICKED : LINK_COLOR_DEFAULT}
                 activeColor={LINK_COLOR_CLICKED}
                 underlineOnHover={true}
                 isActive={justCopied}
-                onActivate={async () => {
-                  try {
-                    await open(loginUrl)
-                  } catch (err) {
-                    logger.error(err, 'Failed to open browser on link click')
-                  }
-                  return copyToClipboard(loginUrl)
-                }}
+                onActivate={handleActivateLoginUrl}
                 containerStyle={{
                   alignItems: 'flex-start',
                   flexShrink: 0,

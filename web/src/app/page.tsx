@@ -106,7 +106,7 @@ export default function Home() {
       <Section background={SECTION_THEMES.hero.background} hero fullViewport>
         <div
           className={cn(
-            'codebuff-container min-h-full flex flex-col transition-all duration-1000'
+            'codebuff-container min-h-full flex flex-col transition-all duration-1000',
           )}
         >
           <div className={cn('w-full mb-8 md:mb-12 flex-shrink-0')}>
@@ -116,7 +116,7 @@ export default function Home() {
           <div
             className={cn(
               'w-full flex-grow flex',
-              !demoSwitched ? 'items-center' : ''
+              !demoSwitched ? 'items-center' : '',
             )}
           >
             <DecorativeBlocks
@@ -359,7 +359,7 @@ export default function Home() {
                 ],
                 values: [95, 85, 90, 100],
                 colors: Array(4).fill(
-                  'bg-gradient-to-r from-green-500 to-green-300'
+                  'bg-gradient-to-r from-green-500 to-green-300',
                 ),
               }}
             />

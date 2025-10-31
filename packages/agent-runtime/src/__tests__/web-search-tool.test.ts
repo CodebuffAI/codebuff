@@ -124,6 +124,7 @@ describe('web_search tool with researcher agent', () => {
 
     await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -177,6 +178,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -239,6 +241,7 @@ describe('web_search tool with researcher agent', () => {
 
     await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -286,6 +289,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -347,6 +351,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -407,6 +412,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -457,6 +463,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -519,6 +526,7 @@ describe('web_search tool with researcher agent', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...agentRuntimeImpl,
+      textOverride: null,
       system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',

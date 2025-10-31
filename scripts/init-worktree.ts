@@ -212,6 +212,7 @@ function createEnvWorktreeFile(worktreePath: string, args: WorktreeArgs): void {
 PORT=${args.backendPort}
 NEXT_PUBLIC_CODEBUFF_BACKEND_URL=localhost:${args.backendPort}
 NEXT_PUBLIC_WEB_PORT=${args.webPort}
+NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:${args.webPort}
 `
 
   writeFileSync(join(worktreePath, '.env.worktree'), envContent)

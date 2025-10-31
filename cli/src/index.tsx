@@ -2,15 +2,19 @@
 import './polyfills/bun-strip-ansi'
 import { createRequire } from 'module'
 
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
 import React from 'react'
 
+import { validateAgents } from '@codebuff/sdk'
+
 import { App } from './chat'
-import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { getUserCredentials } from './utils/auth'
+import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile } from './utils/logger'
+import { loadAgentDefinitions } from './utils/load-agent-definitions'
 
 const require = createRequire(import.meta.url)
 
@@ -74,6 +78,19 @@ if (clearLogs) {
 
 const loadedAgentsData = getLoadedAgentsData()
 
+// Validate local agents and capture any errors
+let validationErrors: Array<{ id: string; message: string }> = []
+if (loadedAgentsData) {
+  const agentDefinitions = loadAgentDefinitions()
+  const validationResult = await validateAgents(agentDefinitions, {
+    remote: true, // Use remote validation to ensure spawnable agents exist
+  })
+
+  if (!validationResult.success) {
+    validationErrors = validationResult.validationErrors
+  }
+}
+
 // Create QueryClient instance with CLI-optimized defaults
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -101,7 +118,7 @@ const AppWithAsyncAuth = () => {
     // Check authentication asynchronously
     const userCredentials = getUserCredentials()
     const apiKey =
-      userCredentials?.authToken || process.env.CODEBUFF_API_KEY || ''
+      userCredentials?.authToken || process.env[API_KEY_ENV_VAR] || ''
 
     if (!apiKey) {
       // No credentials, require auth
@@ -122,6 +139,7 @@ const AppWithAsyncAuth = () => {
       requireAuth={requireAuth}
       hasInvalidCredentials={hasInvalidCredentials}
       loadedAgentsData={loadedAgentsData}
+      validationErrors={validationErrors}
     />
   )
 }

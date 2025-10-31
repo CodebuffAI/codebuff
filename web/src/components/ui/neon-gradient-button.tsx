@@ -27,7 +27,7 @@ export const NeonGradientButton = ({
       className={cn(
         'relative z-10 rounded-[var(--border-radius)] inline-block',
         className,
-        disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+        disabled ? 'cursor-not-allowed' : 'cursor-pointer',
       )}
       style={
         {
@@ -52,7 +52,7 @@ export const NeonGradientButton = ({
           'after:h-[var(--pseudo-element-height)] after:w-[var(--pseudo-element-width)] after:rounded-[var(--border-radius)] after:blur-[var(--after-blur)] after:content-[""]',
           'after:bg-[linear-gradient(0deg,var(--neon-first-color),var(--neon-second-color))] after:bg-[length:100%_200%] after:opacity-80',
           'after:animate-background-position-spin',
-          'h-10 px-4 py-2 text-sm font-medium flex items-center justify-center' // Button-specific styles
+          'h-10 px-4 py-2 text-sm font-medium flex items-center justify-center', // Button-specific styles
         )}
         style={
           {

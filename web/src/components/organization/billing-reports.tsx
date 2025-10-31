@@ -59,7 +59,7 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
     try {
       setLoading(true)
       const response = await fetch(
-        `/api/orgs/${organizationId}/reports/billing?period=${selectedPeriod}`
+        `/api/orgs/${organizationId}/reports/billing?period=${selectedPeriod}`,
       )
 
       if (response.ok) {
@@ -76,7 +76,7 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
   const exportReport = async () => {
     try {
       const response = await fetch(
-        `/api/orgs/${organizationId}/reports/billing/export?period=${selectedPeriod}`
+        `/api/orgs/${organizationId}/reports/billing/export?period=${selectedPeriod}`,
       )
 
       if (response.ok) {
@@ -258,7 +258,7 @@ export function BillingReports({ organizationId }: BillingReportsProps) {
             <div className="h-32 flex items-end space-x-1">
               {report.dailyUsage.slice(-14).map((day, index) => {
                 const maxCredits = Math.max(
-                  ...report.dailyUsage.map((d) => d.credits)
+                  ...report.dailyUsage.map((d) => d.credits),
                 )
                 const height =
                   maxCredits > 0 ? (day.credits / maxCredits) * 100 : 0

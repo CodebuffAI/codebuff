@@ -129,4 +129,5 @@ export function resetLiveUserInputsState(params: {
     (key) => delete sessionConnections[key],
   )
   liveUserInputCheckEnabled = true
+  sessionConnectionCheckEnabled = true
 }

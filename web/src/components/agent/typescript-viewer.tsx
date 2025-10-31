@@ -26,7 +26,7 @@ function formatAsTypeScript(obj: any, indent: number = 0): string {
   if (Array.isArray(obj)) {
     if (obj.length === 0) return '[]'
     const items = obj.map(
-      (item) => `${nextSpaces}${formatAsTypeScript(item, indent + 1)}`
+      (item) => `${nextSpaces}${formatAsTypeScript(item, indent + 1)}`,
     )
     return `[\n${items.join(',\n')}\n${spaces}]`
   }

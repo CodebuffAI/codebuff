@@ -18,10 +18,10 @@
   ],
   "scripts": {
     "dev": "bash scripts/dev.sh",
-    "start-db": "bun --cwd common db:start",
+    "start-db": "bun --cwd packages/internal db:start",
     "start-bin": "bun --cwd npm-app start-bin",
     "start-web": "bun start-db && bun --cwd web dev",
-    "start-studio": "bun --cwd common db:studio",
+    "start-studio": "bun --cwd packages/internal db:studio",
     "start-server": "bun --cwd backend dev",
     "start-manifold": "bun --cwd npm-app start-manifold",
     "start-codebuff-test": "bun --cwd npm-app start --cwd ../../codebuff-test",

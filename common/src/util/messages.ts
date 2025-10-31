@@ -190,7 +190,11 @@ export function convertCbToModelMessages({
   messages: Message[]
   includeCacheControl?: boolean
 }): ModelMessage[] {
-  const noToolMessages = buildArray(messages.map((m) => convertToolMessages(m)))
+  const noToolMessages: (
+    | SystemMessage
+    | NonStringContent<UserMessage>
+    | NonStringContent<AssistantMessage>
+  )[] = buildArray(messages.map((m) => convertToolMessages(m)))
 
   const aggregated: typeof noToolMessages = []
   for (const message of noToolMessages) {
@@ -232,36 +236,83 @@ export function convertCbToModelMessages({
   // - The message right before the three tagged messages
   // - Last message
   for (const tag of [
+    'LAST_ASSISTANT_MESSAGE',
     'USER_PROMPT',
-    'INSTRUCTIONS_PROMPT',
     'STEP_PROMPT',
+    undefined, // Last message
   ] as const) {
-    const index = aggregated.findLastIndex((m) => m.tags?.includes(tag))
+    let index =
+      tag === 'LAST_ASSISTANT_MESSAGE'
+        ? aggregated.findLastIndex((m) => m.role === 'assistant')
+        : tag
+          ? aggregated.findLastIndex((m) => m.tags?.includes(tag))
+          : aggregated.length
     if (index <= 0) {
       continue
     }
-    const prevMessage = aggregated[index - 1]
-    const contentBlock = prevMessage.content
-    if (typeof contentBlock === 'string') {
-      aggregated[index - 1] = withCacheControl(aggregated[index - 1])
-      continue
-    }
-    contentBlock[contentBlock.length - 1] = withCacheControl(
-      contentBlock[contentBlock.length - 1],
-    )
-  }
 
-  const lastMessage = aggregated[aggregated.length - 1]
-  const contentBlock = lastMessage.content
-  if (typeof contentBlock === 'string') {
-    aggregated[aggregated.length - 1] = withCacheControl(
-      aggregated[aggregated.length - 1],
-    )
-    return aggregated
+    // Iterate to find the last "valid" message that we can cache control
+    let prevMessage: (typeof aggregated)[number]
+    let contentBlock: (typeof prevMessage)['content']
+    addCacheControlLoop: while (true) {
+      index--
+
+      // No message found
+      if (index < 0) {
+        break
+      }
+
+      prevMessage = aggregated[index]
+      contentBlock = prevMessage.content
+
+      if (typeof contentBlock === 'string') {
+        // This must be a system message
+        aggregated[index] = withCacheControl(aggregated[index])
+        break
+      }
+
+      // Iterate to find the last valid content part (not a very short string)
+      let lastContentIndex = contentBlock.length
+      let lastContentPart: (typeof contentBlock)[number]
+      while (true) {
+        lastContentIndex--
+        lastContentPart = contentBlock[lastContentIndex]
+
+        if (lastContentIndex < 0) {
+          // Continue searching in next message
+          break
+        }
+
+        if (lastContentPart.type !== 'text') {
+          contentBlock[lastContentIndex] = withCacheControl(
+            contentBlock[lastContentIndex],
+          )
+          break addCacheControlLoop
+        }
+
+        if (lastContentPart.text.length < 2) {
+          // continue searching in this message
+          continue
+        }
+
+        prevMessage.content = [
+          ...contentBlock.slice(0, lastContentIndex),
+          {
+            ...lastContentPart,
+            text: lastContentPart.text.slice(0, 1),
+          },
+          withCacheControl({
+            ...lastContentPart,
+            text: lastContentPart.text.slice(1),
+          }),
+          ...contentBlock.slice(lastContentIndex + 1),
+        ] as typeof contentBlock
+
+        break addCacheControlLoop
+      }
+      break
+    }
   }
-  contentBlock[contentBlock.length - 1] = withCacheControl(
-    contentBlock[contentBlock.length - 1],
-  )
 
   return aggregated
 }

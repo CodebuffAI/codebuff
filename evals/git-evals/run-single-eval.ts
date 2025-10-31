@@ -176,7 +176,7 @@ async function runSingleEvalTask(options: {
 
   // Setup project context
   setProjectRoot(projectPath)
-  createFileReadingMock(projectPath)
+  await createFileReadingMock(projectPath)
   recreateShell(projectPath)
   setWorkingDirectory(projectPath)
 

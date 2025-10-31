@@ -1,3 +1,4 @@
+import { env } from '@codebuff/internal/env'
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
@@ -347,7 +348,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const body = await response.json()
       expect(body.message).toContain('Insufficient credits')
       expect(body.message).toContain(
-        `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage`,
+        `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage`,
       )
     })
   })

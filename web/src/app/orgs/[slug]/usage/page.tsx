@@ -76,7 +76,7 @@ export default function UsagePage() {
     } catch (error) {
       console.error('Error fetching usage data:', error)
       setUsageError(
-        error instanceof Error ? error.message : 'Failed to load usage data'
+        error instanceof Error ? error.message : 'Failed to load usage data',
       )
     } finally {
       setUsageLoading(false)
@@ -219,7 +219,7 @@ export default function UsagePage() {
         100,
         (usageData.usageThisCycle /
           (usageData.currentBalance + usageData.usageThisCycle)) *
-          100
+          100,
       )
     : 0
 
@@ -381,13 +381,13 @@ export default function UsagePage() {
                     if (usage.repository_url) {
                       try {
                         repoPath = new URL(usage.repository_url).pathname.slice(
-                          1
+                          1,
                         )
                       } catch (e) {
                         // If URL is invalid, repoPath remains 'N/A'
                         console.warn(
                           `Invalid repository_url: ${usage.repository_url}`,
-                          e
+                          e,
                         )
                       }
                     }

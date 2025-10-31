@@ -1,5 +1,6 @@
 'use client'
 
+import { env } from '@codebuff/common/env'
 import { loadStripe } from '@stripe/stripe-js'
 import {
   ArrowLeft,
@@ -81,7 +82,7 @@ export default function OrganizationPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
@@ -92,9 +93,7 @@ export default function OrganizationPage() {
       const { sessionId } = await response.json()
 
       // Redirect to Stripe Checkout
-      const stripe = await loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-      )
+      const stripe = await loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
       if (stripe) {
         const { error } = await stripe.redirectToCheckout({
@@ -119,7 +118,7 @@ export default function OrganizationPage() {
   }
 
   const handleSectionToggle = (
-    section: 'members' | 'repositories' | 'creditBalance'
+    section: 'members' | 'repositories' | 'creditBalance',
   ) => {
     setActiveSection(activeSection === section ? null : section)
   }

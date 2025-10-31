@@ -44,6 +44,8 @@
     "string-width": "^7.2.0",
     "react": "^19.0.0",
     "react-reconciler": "^0.32.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "unified": "^11.0.0",
     "yoga-layout": "^3.2.1",
@@ -55,6 +57,7 @@
     "@types/node": "22",
     "@types/react": "^18.3.12",
     "@types/react-reconciler": "^0.32.0",
+    "react-dom": "^19.0.0",
     "strip-ansi": "^7.1.2"
   }
 }

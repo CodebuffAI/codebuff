@@ -4,8 +4,6 @@ import React, { type ReactNode } from 'react'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
-import { ToolItem, type ToolBranchMeta } from './tool-item'
-import { getToolRenderConfig } from './tool-renderer'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
   renderMarkdown,
@@ -14,8 +12,10 @@ import {
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
 
+import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ContentBlock } from '../chat'
-import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
+import type { ChatTheme, ThemeColor } from '../utils/theme-system'
+import { resolveThemeColor } from '../utils/theme-system'
 
 const trimTrailingNewlines = (value: string): string =>
   value.replace(/[\r\n]+$/g, '')
@@ -34,9 +34,9 @@ interface MessageBlockProps {
   isComplete?: boolean
   completionTime?: string
   credits?: number
+  timer: ElapsedTimeTracker
   theme: ChatTheme
-  textColor?: string
-  textAttributes?: number
+  textColor?: ThemeColor
   timestampColor: string
   markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
   availableWidth: number
@@ -58,9 +58,9 @@ export const MessageBlock = ({
   isComplete,
   completionTime,
   credits,
+  timer,
   theme,
   textColor,
-  textAttributes,
   timestampColor,
   markdownOptions,
   availableWidth,
@@ -70,49 +70,81 @@ export const MessageBlock = ({
   onToggleCollapsed,
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
+  const resolvedTextColor =
+    resolveThemeColor(textColor, theme.messageAiText) ??
+    resolveThemeColor(theme.messageAiText, '#cbd5f5') ??
+    '#cbd5f5'
+
+  // Get elapsed time from timer for streaming AI messages
+  const elapsedSeconds = timer.elapsedSeconds
+  const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>
+    `${'  '.repeat(indentLevel)}${isLastBranch ? '└─ ' : '├─ '}`
+
+  const renderContentWithMarkdown = (
+    rawContent: string,
+    isStreaming: boolean,
+    options: { codeBlockWidth: number; palette: MarkdownPalette },
+  ): ReactNode => {
+    if (!hasMarkdown(rawContent)) {
+      return rawContent
+    }
+    if (isStreaming) {
+      return renderStreamingMarkdown(rawContent, options)
+    }
+    return renderMarkdown(rawContent, options)
+  }
+
+  const getToolFinishedPreview = (
+    toolBlock: Extract<ContentBlock, { type: 'tool' }>,
+    commandPreview: string | null,
+    lastLine: string,
+  ): string => {
+    if (commandPreview) {
+      return commandPreview
+    }
+
+    if (toolBlock.toolName === 'run_terminal_command' && toolBlock.output) {
+      const outputLines = toolBlock.output
+        .split('\n')
+        .filter((line) => line.trim())
+      const lastThreeLines = outputLines.slice(-3)
+      const hasMoreLines = outputLines.length > 3
+      return hasMoreLines
+        ? '...\n' + lastThreeLines.join('\n')
+        : lastThreeLines.join('\n')
+    }
+
+    return sanitizePreview(lastLine)
+  }
+
+  const hasBranchAfter = (
+    sourceBlocks: ContentBlock[] | undefined,
+    currentIndex: number,
+  ): boolean =>
+    !!sourceBlocks
+      ?.slice(currentIndex + 1)
+      .some(
+        (candidate) => candidate.type === 'tool' || candidate.type === 'agent',
+      )
+
   const getAgentMarkdownOptions = (indentLevel: number) => {
     const indentationOffset = indentLevel * 2
-    const agentTextColor =
-      resolveThemeColor(theme.agentText) ?? markdownPalette.inlineCodeFg
 
     return {
       codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
       palette: {
         ...markdownPalette,
-        inlineCodeFg: agentTextColor,
-        codeTextFg: agentTextColor,
+        inlineCodeFg: theme.agentText,
+        codeTextFg: theme.agentText,
       },
     }
-  }
-
-  const defaultToolBranchMeta: ToolBranchMeta = {
-    hasPrevious: false,
-    hasNext: false,
-  }
-
-  const buildToolBranchMeta = (
-    items: Array<ContentBlock | undefined>,
-  ): Map<number, ToolBranchMeta> => {
-    const toolIndices = items
-      .map((block, index) => (block && block.type === 'tool' ? index : -1))
-      .filter((index) => index !== -1) as number[]
-
-    const meta = new Map<number, ToolBranchMeta>()
-    toolIndices.forEach((blockIndex, position) => {
-      meta.set(blockIndex, {
-        hasPrevious: position > 0,
-        hasNext: position < toolIndices.length - 1,
-      })
-    })
-    return meta
   }
 
   const renderToolBranch = (
     toolBlock: Extract<ContentBlock, { type: 'tool' }>,
     indentLevel: number,
+    isLastBranch: boolean,
     keyPrefix: string,
-    branchMeta: ToolBranchMeta,
-    marginTop: number = 0,
   ): React.ReactNode => {
     if (toolBlock.toolName === 'end_turn') {
       return null
@@ -121,13 +153,6 @@ export const MessageBlock = ({
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
     const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
     const isStreaming = streamingAgents.has(toolBlock.toolCallId)
-    const indentationOffset = indentLevel * 2
-
-    const { titleAccessory, content: customContent, collapsedPreview } =
-      getToolRenderConfig(toolBlock, theme, {
-        availableWidth,
-        indentationOffset,
-      })
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
     const codeBlockLang =
@@ -151,60 +176,35 @@ export const MessageBlock = ({
       ? commandPreview ?? `${sanitizePreview(firstLine)}...`
       : ''
 
-    let finishedPreview = ''
-    if (!isStreaming && isCollapsed) {
-      if (commandPreview) {
-        finishedPreview = commandPreview
-      } else if (
-        toolBlock.toolName === 'run_terminal_command' &&
-        toolBlock.output
-      ) {
-        const outputLines = toolBlock.output
-          .split('\n')
-          .filter((line) => line.trim())
-        const lastThreeLines = outputLines.slice(-3)
-        const hasMoreLines = outputLines.length > 3
-        finishedPreview = hasMoreLines
-          ? '...\n' + lastThreeLines.join('\n')
-          : lastThreeLines.join('\n')
-      } else {
-        finishedPreview = sanitizePreview(lastLine)
-      }
-    }
+    const finishedPreview =
+      !isStreaming && isCollapsed
+        ? getToolFinishedPreview(toolBlock, commandPreview, lastLine)
+        : ''
 
     const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
-    const displayContent =
-      customContent ??
-      (hasMarkdown(fullContent)
-        ? renderMarkdown(fullContent, agentMarkdownOptions)
-        : fullContent)
+    const displayContent = renderContentWithMarkdown(
+      fullContent,
+      false,
+      agentMarkdownOptions,
+    )
 
-    if (!isStreaming && isCollapsed && collapsedPreview) {
-      finishedPreview = collapsedPreview
-    }
+    const branchChar = computeBranchChar(indentLevel, isLastBranch)
 
     return (
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
-        style={{
-          flexDirection: 'column',
-          gap: 0,
-          marginLeft: indentationOffset,
-          marginTop,
-        }}
       >
-        <ToolItem
+        <BranchItem
           name={displayInfo.name}
-          titleAccessory={titleAccessory}
           content={displayContent}
+          agentId={toolBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
+          branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
-          titleColor={textColor}
-          branchMeta={branchMeta}
           onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
         />
       </box>
@@ -214,8 +214,8 @@ export const MessageBlock = ({
   function renderAgentBranch(
     agentBlock: Extract<ContentBlock, { type: 'agent' }>,
     indentLevel: number,
+    isLastBranch: boolean,
     keyPrefix: string,
-    marginTop: number = 0,
   ): React.ReactNode {
     const isCollapsed = collapsedAgents.has(agentBlock.agentId)
     const isStreaming =
@@ -224,24 +224,24 @@ export const MessageBlock = ({
     const allTextContent =
       agentBlock.blocks
         ?.filter((nested) => nested.type === 'text')
-        .map((nested) =>
-          trimTrailingNewlines(String((nested as any).content ?? '')),
-        )
+        .map((nested) => (nested as any).content)
         .join('') || ''
     const lines = allTextContent.split('\n').filter((line) => line.trim())
     const firstLine = lines[0] || ''
 
-    const streamingPreview = isStreaming
-      ? agentBlock.initialPrompt
+    let streamingPreview = ''
+    if (isStreaming) {
+      streamingPreview = agentBlock.initialPrompt
         ? sanitizePreview(agentBlock.initialPrompt)
         : `${sanitizePreview(firstLine)}...`
-      : ''
+    }
 
     const finishedPreview =
       !isStreaming && isCollapsed && agentBlock.initialPrompt
         ? sanitizePreview(agentBlock.initialPrompt)
         : ''
 
+    const branchChar = computeBranchChar(indentLevel, isLastBranch)
     const childNodes = renderAgentBody(
       agentBlock,
       indentLevel + 1,
@@ -253,8 +253,6 @@ export const MessageBlock = ({
       childNodes.length > 0 ? (
         <box style={{ flexDirection: 'column', gap: 0 }}>{childNodes}</box>
       ) : null
-    const indentationOffset = indentLevel * 2
-    const branchWidth = Math.max(1, availableWidth - indentationOffset)
     const isActive = isStreaming || agentBlock.status === 'running'
     const statusLabel = isActive
       ? 'running'
@@ -268,12 +266,7 @@ export const MessageBlock = ({
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(agentBlock.agentId, el)}
-        style={{
-          flexDirection: 'column',
-          gap: 0,
-          marginLeft: indentationOffset,
-          marginTop,
-        }}
+        style={{ flexDirection: 'column', gap: 0 }}
       >
         <BranchItem
           name={agentBlock.agentName}
@@ -282,10 +275,10 @@ export const MessageBlock = ({
           agentId={agentBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
+          branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
-          availableWidth={branchWidth}
-          statusLabel={statusLabel}
+          statusLabel={statusLabel ?? undefined}
           statusColor={statusColor}
           statusIndicator={statusIndicator}
           theme={theme}
@@ -297,17 +290,23 @@ export const MessageBlock = ({
 
   function renderAgentListBranch(
     agentListBlock: Extract<ContentBlock, { type: 'agent-list' }>,
+    isLastBranch: boolean,
     keyPrefix: string,
-    marginTop: number = 0,
   ): React.ReactNode {
     const TRUNCATE_LIMIT = 5
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
     const { agents } = agentListBlock
 
     const sortedAgents = [...agents].sort((a, b) => {
-      const aLabel = (a.displayName || a.id).toLowerCase()
-      const bLabel = (b.displayName || b.id).toLowerCase()
-      return aLabel.localeCompare(bLabel)
+      // Sort by displayName first (empty string if missing), then by ID as tiebreaker
+      const displayNameComparison = (a.displayName || '')
+        .toLowerCase()
+        .localeCompare((b.displayName || '').toLowerCase())
+
+      return (
+        displayNameComparison ||
+        a.id.toLowerCase().localeCompare(b.id.toLowerCase())
+      )
     })
 
     const agentCount = sortedAgents.length
@@ -320,20 +319,21 @@ export const MessageBlock = ({
         ? `${agent.displayName} (${agent.id})`
         : agent.displayName || agent.id
 
+    const renderAgentListItem = (
+      agent: { id: string; displayName: string },
+      idx: number,
+    ) => {
+      const identifier = formatIdentifier(agent)
+      return (
+        <text key={`agent-${idx}`} style={{ wrapMode: 'word', fg: theme.agentText }}>
+          {`  • ${identifier}`}
+        </text>
+      )
+    }
+
     const agentListContent = (
       <box style={{ flexDirection: 'column', gap: 0 }}>
-        {sortedAgents.map((agent, idx) => {
-          const identifier = formatIdentifier(agent)
-          return (
-            <text
-              key={`agent-${idx}`}
-              fg={resolveThemeColor(theme.agentText)}
-              attributes={theme.messageTextAttributes}
-            >
-              {`  • ${identifier}`}
-            </text>
-          )
-        })}
+        {sortedAgents.map(renderAgentListItem)}
       </box>
     )
 
@@ -356,7 +356,6 @@ export const MessageBlock = ({
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(agentListBlock.id, el)}
-        style={{ marginTop }}
       >
         <BranchItem
           name={headerText}
@@ -364,9 +363,9 @@ export const MessageBlock = ({
           agentId={agentListBlock.id}
           isCollapsed={isCollapsed}
           isStreaming={false}
+          branchChar=""
           streamingPreview=""
           finishedPreview={finishedPreview}
-          availableWidth={availableWidth}
           theme={theme}
           onToggle={() => onToggleCollapsed(agentListBlock.id)}
         />
@@ -382,86 +381,212 @@ export const MessageBlock = ({
   ): React.ReactNode[] {
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
-    const toolBranchMetaMap = buildToolBranchMeta(nestedBlocks)
-    const indentationOffset = indentLevel * 2
 
     nestedBlocks.forEach((nestedBlock, nestedIdx) => {
-      const nestedPrevBlock =
-        nestedIdx > 0 ? nestedBlocks[nestedIdx - 1] : null
-      const nestedMarginTop =
-        nestedPrevBlock &&
-        (nestedPrevBlock.type === 'text' || nestedBlock.type === 'text')
-          ? 1
-          : 0
-      if (nestedBlock.type === 'text') {
-        const nestedStatus =
-          typeof (nestedBlock as any).status === 'string'
-            ? (nestedBlock as any).status
-            : undefined
-        const isNestedStreamingText =
-          parentIsStreaming || nestedStatus === 'running'
-        const sanitizedNestedContent = trimTrailingNewlines(
-          String((nestedBlock as any).content ?? ''),
-        )
-        const rawNestedContent = isNestedStreamingText
-          ? sanitizedNestedContent
-          : sanitizedNestedContent.trim()
-        const renderKey = `${keyPrefix}-text-${nestedIdx}`
-        const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
-        const renderedContent = hasMarkdown(rawNestedContent)
-          ? isNestedStreamingText
-            ? renderStreamingMarkdown(rawNestedContent, markdownOptionsForLevel)
-            : renderMarkdown(rawNestedContent, markdownOptionsForLevel)
-          : rawNestedContent
-        const nestedTextColor = resolveThemeColor(theme.agentText)
-        const nestedTextStyle: Record<string, unknown> = {
-          marginLeft: Math.max(0, indentationOffset),
-          marginTop: nestedMarginTop,
+      switch (nestedBlock.type) {
+        case 'text': {
+          const nestedStatus =
+            typeof (nestedBlock as any).status === 'string'
+              ? (nestedBlock as any).status
+              : undefined
+          const isNestedStreamingText =
+            parentIsStreaming || nestedStatus === 'running'
+          const rawNestedContent = isNestedStreamingText
+            ? trimTrailingNewlines(nestedBlock.content)
+            : nestedBlock.content.trim()
+          const renderKey = `${keyPrefix}-text-${nestedIdx}`
+          const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
+          const renderedContent = renderContentWithMarkdown(
+            rawNestedContent,
+            isNestedStreamingText,
+            markdownOptionsForLevel,
+          )
+          const marginTop = nestedBlock.marginTop ?? 0
+          const marginBottom = nestedBlock.marginBottom ?? 0
+          const explicitColor =
+            typeof (nestedBlock as any).color === 'string'
+              ? ((nestedBlock as any).color as string)
+              : undefined
+          const nestedTextColor = resolveThemeColor(
+            explicitColor,
+            theme.agentText,
+          )
+          nodes.push(
+            <text
+              key={renderKey}
+              style={{
+                wrapMode: 'word',
+                fg: nestedTextColor ?? theme.agentText,
+                marginLeft: Math.max(0, indentLevel * 2),
+                marginTop,
+                marginBottom,
+              }}
+            >
+              {renderedContent}
+            </text>,
+          )
+          break
         }
-        if (nestedTextColor) {
-          nestedTextStyle.fg = nestedTextColor
+
+        case 'html': {
+          const marginTop = nestedBlock.marginTop ?? 0
+          const marginBottom = nestedBlock.marginBottom ?? 0
+          nodes.push(
+            <box
+              key={`${keyPrefix}-html-${nestedIdx}`}
+              style={{
+                flexDirection: 'column',
+                gap: 0,
+                marginTop,
+                marginBottom,
+              }}
+            >
+              {nestedBlock.render({
+                textColor: theme.agentText,
+                theme,
+              })}
+            </box>,
+          )
+          break
         }
-        nodes.push(
-          <text
-            key={renderKey}
-            style={nestedTextStyle}
-            attributes={theme.messageTextAttributes}
-          >
-            {renderedContent}
-          </text>,
-        )
-      } else if (nestedBlock.type === 'tool') {
-        const branchMeta =
-          toolBranchMetaMap.get(nestedIdx) ?? defaultToolBranchMeta
-        nodes.push(
-          renderToolBranch(
-            nestedBlock,
-            indentLevel,
-            `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
-            branchMeta,
-            nestedMarginTop,
-          ),
-        )
-      } else if (nestedBlock.type === 'agent') {
-        nodes.push(
-          renderAgentBranch(
-            nestedBlock,
-            indentLevel,
-            `${keyPrefix}-agent-${nestedIdx}`,
-            nestedMarginTop,
-          ),
-        )
+
+        case 'tool': {
+          const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
+          nodes.push(
+            renderToolBranch(
+              nestedBlock,
+              indentLevel,
+              isLastBranch,
+              `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
+            ),
+          )
+          break
+        }
+
+        case 'agent': {
+          const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
+          nodes.push(
+            renderAgentBranch(
+              nestedBlock,
+              indentLevel,
+              isLastBranch,
+              `${keyPrefix}-agent-${nestedIdx}`,
+            ),
+          )
+          break
+        }
       }
     })
 
     return nodes
   }
 
-  const topLevelToolMeta = blocks ? buildToolBranchMeta(blocks) : null
-  const normalizedTextAttributes =
-    textAttributes !== undefined && textAttributes !== 0
-      ? textAttributes
-      : undefined
+  const renderSimpleContent = () => {
+    const isStreamingMessage = isLoading || !isComplete
+    const normalizedContent = isStreamingMessage
+      ? trimTrailingNewlines(content)
+      : content.trim()
+    const displayContent = renderContentWithMarkdown(
+      normalizedContent,
+      isStreamingMessage,
+      markdownOptions,
+    )
+    return (
+      <text
+        key={`message-content-${messageId}`}
+        style={{ wrapMode: 'word', fg: resolvedTextColor }}
+      >
+        {displayContent}
+      </text>
+    )
+  }
+
+  const renderBlock = (block: ContentBlock, idx: number) => {
+    switch (block.type) {
+      case 'text': {
+        const isStreamingText = isLoading || !isComplete
+        const rawContent = isStreamingText
+          ? trimTrailingNewlines(block.content)
+          : block.content.trim()
+        const renderKey = `${messageId}-text-${idx}`
+        const renderedContent = renderContentWithMarkdown(
+          rawContent,
+          isStreamingText,
+          markdownOptions,
+        )
+        const prevBlock = idx > 0 && blocks ? blocks[idx - 1] : null
+        const marginTop =
+          prevBlock && (prevBlock.type === 'tool' || prevBlock.type === 'agent')
+            ? 0
+            : block.marginTop ?? 0
+        const marginBottom = block.marginBottom ?? 0
+        const explicitColor =
+          typeof (block as any).color === 'string'
+            ? ((block as any).color as string)
+            : undefined
+        const blockTextColor = resolveThemeColor(explicitColor, resolvedTextColor)
+        return (
+          <text
+            key={renderKey}
+            style={{ wrapMode: 'word', fg: blockTextColor ?? resolvedTextColor, marginTop, marginBottom }}
+          >
+            {renderedContent}
+          </text>
+        )
+      }
+
+      case 'html': {
+        const marginTop = block.marginTop ?? 0
+        const marginBottom = block.marginBottom ?? 0
+        return (
+          <box
+            key={`${messageId}-html-${idx}`}
+            style={{
+              flexDirection: 'column',
+              gap: 0,
+              marginTop,
+              marginBottom,
+              width: '100%',
+            }}
+          >
+            {block.render({ textColor: resolvedTextColor, theme })}
+          </box>
+        )
+      }
+
+      case 'tool': {
+        const isLastBranch = !hasBranchAfter(blocks, idx)
+        return renderToolBranch(
+          block,
+          0,
+          isLastBranch,
+          `${messageId}-tool-${block.toolCallId}`,
+        )
+      }
+
+      case 'agent': {
+        const isLastBranch = !hasBranchAfter(blocks, idx)
+        return renderAgentBranch(
+          block,
+          0,
+          isLastBranch,
+          `${messageId}-agent-${block.agentId}`,
+        )
+      }
+
+      case 'agent-list': {
+        const isLastBranch = !hasBranchAfter(blocks, idx)
+        return renderAgentListBranch(
+          block,
+          isLastBranch,
+          `${messageId}-agent-list-${block.id}`,
+        )
+      }
+
+      default:
+        return null
+    }
+  }
 
   return (
     <>
@@ -469,11 +594,11 @@ export const MessageBlock = ({
         <text
           attributes={TextAttributes.DIM}
           style={{
+            wrapMode: 'none',
             fg: timestampColor,
             marginTop: 0,
             marginBottom: 0,
             alignSelf: 'flex-start',
-            wrapMode: 'none',
           }}
         >
           {`[${timestamp}]`}
@@ -481,115 +606,45 @@ export const MessageBlock = ({
       )}
       {blocks ? (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-          {blocks.map((block, idx) => {
-            const prevBlock = idx > 0 ? blocks[idx - 1] : null
-            const marginTop =
-              prevBlock &&
-              (prevBlock.type === 'text' || block.type === 'text')
-                ? 1
-                : 0
-            if (block.type === 'text') {
-              const isStreamingText = isLoading || !isComplete
-              const hasMarkdownContent = hasMarkdown(block.content)
-              const sanitizedContent = trimTrailingNewlines(
-                String(block.content ?? ''),
-              )
-              const rawContent = isStreamingText
-                ? sanitizedContent
-                : hasMarkdownContent
-                  ? sanitizedContent
-                  : sanitizedContent.trim()
-              const renderKey = `${messageId}-text-${idx}`
-              const renderedContent = hasMarkdownContent
-                ? isStreamingText
-                  ? renderStreamingMarkdown(rawContent, markdownOptions)
-                  : renderMarkdown(rawContent, markdownOptions)
-                : rawContent
-              const blockTextColor = resolveThemeColor(block.color, textColor)
-              const blockStyle: Record<string, unknown> = { marginTop }
-              if (blockTextColor) {
-                blockStyle.fg = blockTextColor
-              }
-              return (
-                <text
-                  key={renderKey}
-                  style={blockStyle}
-                  attributes={normalizedTextAttributes}
-                >
-                  {renderedContent}
-                </text>
-              )
-            }
-            if (block.type === 'tool') {
-              const branchMeta =
-                topLevelToolMeta?.get(idx) ?? defaultToolBranchMeta
-              return renderToolBranch(
-                block,
-                0,
-                `${messageId}-tool-${block.toolCallId}`,
-                branchMeta,
-                marginTop,
-              )
-            }
-            if (block.type === 'agent') {
-              return renderAgentBranch(
-                block,
-                0,
-                `${messageId}-agent-${block.agentId}`,
-                marginTop,
-              )
-            }
-            if (block.type === 'agent-list') {
-              return renderAgentListBranch(
-                block,
-                `${messageId}-agent-list-${block.id}`,
-                marginTop,
-              )
-            }
-            return null
-          })}
+          {blocks.map(renderBlock)}
         </box>
       ) : (
-        (() => {
-          const isStreamingMessage = isLoading || !isComplete
-          const sanitizedContent = trimTrailingNewlines(content)
-          const normalizedContent = isStreamingMessage
-            ? sanitizedContent
-            : sanitizedContent.trim()
-          const displayContent = hasMarkdown(normalizedContent)
-            ? isStreamingMessage
-              ? renderStreamingMarkdown(normalizedContent, markdownOptions)
-              : renderMarkdown(normalizedContent, markdownOptions)
-            : normalizedContent
-          return (
-            <text
-              key={`message-content-${messageId}`}
-              style={textColor ? { fg: textColor } : {}}
-              attributes={(() => {
-                const base = isUser ? TextAttributes.ITALIC : 0
-                const combined = (normalizedTextAttributes ?? 0) | base
-                return combined === 0 ? undefined : combined
-              })()}
-            >
-              {displayContent}
-            </text>
-          )
-        })()
+        renderSimpleContent()
       )}
-      {isAi && isComplete && (completionTime || credits) && (
-        <text
-          attributes={TextAttributes.DIM}
-          style={{
-            fg: theme.statusSecondary,
-            marginTop: 0,
-            marginBottom: 0,
-            alignSelf: 'flex-start',
-            wrapMode: 'none',
-          }}
-        >
-          {completionTime}
-          {credits && ` • ${credits} credits`}
-        </text>
+      {isAi && (
+        <>
+          {/* Show elapsed time while streaming */}
+          {isLoading && !isComplete && elapsedSeconds > 0 && (
+            <text
+              attributes={TextAttributes.DIM}
+              style={{
+                wrapMode: 'none',
+                fg: theme.statusSecondary,
+                marginTop: 0,
+                marginBottom: 0,
+                alignSelf: 'flex-start',
+              }}
+            >
+              {elapsedSeconds}s
+            </text>
+          )}
+          {/* Show completion time and credits when complete */}
+          {isComplete && (
+            <text
+              attributes={TextAttributes.DIM}
+              style={{
+                wrapMode: 'none',
+                fg: theme.statusSecondary,
+                marginTop: 0,
+                marginBottom: 0,
+                alignSelf: 'flex-start',
+              }}
+            >
+              {completionTime}
+              {credits && ` • ${credits} credits`}
+            </text>
+          )}
+        </>
       )}
     </>
   )

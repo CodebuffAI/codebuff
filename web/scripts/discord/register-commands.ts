@@ -1,4 +1,4 @@
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/internal/env'
 import { REST, Routes, SlashCommandBuilder } from 'discord.js'
 
 import { logger } from '@/util/logger'
@@ -11,7 +11,7 @@ const commands = [
       option
         .setName('email')
         .setDescription('The email address you used to register with Codebuff')
-        .setRequired(true)
+        .setRequired(true),
     ),
 ]
 

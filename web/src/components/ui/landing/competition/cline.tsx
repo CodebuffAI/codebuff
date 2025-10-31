@@ -162,7 +162,7 @@ export function ClineVisualization({
   const progressFrustration = Math.min(1, effectiveProgress / 100)
   const frustrationLevel = Math.max(
     messageCountFrustration,
-    progressFrustration
+    progressFrustration,
   )
 
   const addMessage = useCallback((message: Message) => {
@@ -266,7 +266,7 @@ export function ClineVisualization({
     const minInterval = 500
     const interval = Math.max(
       minInterval,
-      baseInterval - frustrationLevel * 1500
+      baseInterval - frustrationLevel * 1500,
     )
 
     const messageTimer = setInterval(generateMessage, interval)

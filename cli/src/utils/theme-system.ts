@@ -11,7 +11,7 @@ import { logger } from './logger'
 
 type MarkdownHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
 
-export type ThemeColor = string | null
+export type ThemeColor = string
 
 export const resolveThemeColor = (
   color?: ThemeColor,
@@ -101,7 +101,7 @@ const IS_MAC_TERMINAL =
 const NEUTRAL_THEME: ChatTheme = {
   background: 'transparent',
   chromeBg: 'transparent',
-  chromeText: null,
+  chromeText: 'default',
   accentBg: 'transparent',
   accentText: '#2563eb',
   panelBg: 'transparent',
@@ -109,27 +109,27 @@ const NEUTRAL_THEME: ChatTheme = {
   userLine: '#22c55e',
   timestampAi: '#2563eb',
   timestampUser: '#0ea5e9',
-  messageAiText: null,
-  messageUserText: null,
+  messageAiText: 'default',
+  messageUserText: 'default',
   messageBg: 'transparent',
   statusAccent: '#2563eb',
   statusSecondary: '#475569',
   inputBg: 'transparent',
-  inputFg: null,
+  inputFg: 'default',
   inputFocusedBg: 'transparent',
-  inputFocusedFg: null,
+  inputFocusedFg: 'default',
   inputPlaceholder: '#94a3b8',
   cursor: '#2563eb',
   agentPrefix: '#2563eb',
   agentName: '#0ea5e9',
-  agentText: null,
+  agentText: 'default',
   agentCheckmark: '#22c55e',
   agentResponseCount: '#475569',
   agentFocusedBg: 'transparent',
-  agentContentText: null,
+  agentContentText: 'default',
   agentToggleHeaderBg: 'transparent',
-  agentToggleHeaderText: null,
-  agentToggleText: null,
+  agentToggleHeaderText: 'default',
+  agentToggleText: 'default',
   agentToggleExpandedBg: '#1d4ed8',
   agentContentBg: 'transparent',
   modeToggleFastBg: '#f97316',
@@ -763,6 +763,30 @@ const computeTheme = (): ThemeComputationMeta => {
     detectionTrail,
   }
 }
+
+const cloneChatTheme = (input: ChatTheme): ChatTheme => ({
+  ...input,
+  markdown: input.markdown
+    ? {
+        ...input.markdown,
+        headingFg: input.markdown.headingFg
+          ? { ...input.markdown.headingFg }
+          : undefined,
+      }
+    : undefined,
+})
+
+const buildStaticTheme = (mode: 'dark' | 'light'): ChatTheme => {
+  const baseClone = cloneChatTheme(BASE_THEMES[mode])
+  const { theme } = applyNeutralTextDefaults(baseClone, mode)
+  return cloneChatTheme(theme)
+}
+
+export const chatThemes: Record<'dark' | 'light', ChatTheme> = {
+  dark: buildStaticTheme('dark'),
+  light: buildStaticTheme('light'),
+}
+
 
 const themeEmitter = new EventEmitter()
 

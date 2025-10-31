@@ -65,7 +65,7 @@ export const AgentUsageMetrics = ({
   })
 
   const agent = agents?.find(
-    (agent) => agent.id === agentId && agent.publisher.id === publisherId
+    (agent) => agent.id === agentId && agent.publisher.id === publisherId,
   )
 
   // Use version-specific stats if version is provided and exists, otherwise use zero stats
@@ -148,7 +148,7 @@ export const AgentUsageMetrics = ({
             <span>
               {formatCurrency(usageMetrics.avg_cost_per_invocation).replace(
                 '$',
-                ''
+                '',
               )}
             </span>
           </div>

@@ -44,10 +44,10 @@ const generateIdFromName = (name: string): string => {
 }
 
 const filterAdminOrganizations = (
-  organizations: Organization[]
+  organizations: Organization[],
 ): Organization[] => {
   return organizations.filter(
-    (org) => org.role === 'owner' || org.role === 'admin'
+    (org) => org.role === 'owner' || org.role === 'admin',
   )
 }
 
@@ -59,7 +59,7 @@ const buildSubmitPayload = (
     bio: string
     avatar_url: string
   },
-  selectedOrgId: string | null | undefined
+  selectedOrgId: string | null | undefined,
 ) => {
   return {
     id: formData.id,
@@ -96,7 +96,7 @@ const CreatePublisherPageContent = () => {
   const [isIdManuallyEdited, setIsIdManuallyEdited] = useState(false)
   const [hasRemovedAvatar, setHasRemovedAvatar] = useState(false)
   const [selectedOrgId, setSelectedOrgId] = useState<string | null | undefined>(
-    orgParam || undefined
+    orgParam || undefined,
   )
 
   // Clean up URL parameters after initialization
@@ -147,7 +147,7 @@ const CreatePublisherPageContent = () => {
     queryKey: ['validate-publisher-id', debouncedId],
     queryFn: async () => {
       const response = await fetch(
-        `/api/publishers/validate?id=${encodeURIComponent(debouncedId)}`
+        `/api/publishers/validate?id=${encodeURIComponent(debouncedId)}`,
       )
       if (!response.ok) {
         throw new Error('Failed to validate ID')

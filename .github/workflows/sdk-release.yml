@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   # First job: Prepare production release
-  prepare-and-commit-prod:
+  release-sdk:
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
@@ -66,13 +66,46 @@ jobs:
           git stash pop
           git add sdk/package.json
           git commit -m "Bump SDK version to ${{ steps.bump_version.outputs.new_version }}"
-          git push
 
-  build-and-publish-sdk:
-    needs: prepare-and-commit-prod
-    uses: ./.github/workflows/sdk-release-build.yml
-    with:
-      new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
-      artifact-name: updated-sdk-package
-      env-overrides: '{"OPEN_ROUTER_API_KEY": ".", "RELACE_API_KEY": ".", "LINKUP_API_KEY": ".", "GOOGLE_CLOUD_PROJECT_ID": ".", "PORT": "1000", "DATABASE_URL": ".", "CODEBUFF_GITHUB_ID": ".", "CODEBUFF_GITHUB_SECRET": ".", "NEXTAUTH_SECRET": ".", "STRIPE_SECRET_KEY": ".", "STRIPE_WEBHOOK_SECRET_KEY": ".", "STRIPE_USAGE_PRICE_ID": ".", "STRIPE_TEAM_FEE_PRICE_ID": ".", "LOOPS_API_KEY": ".", "DISCORD_PUBLIC_KEY": ".", "DISCORD_BOT_TOKEN": ".", "DISCORD_APPLICATION_ID": ".", "API_KEY_ENCRYPTION_SECRET": "................................", "NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
-    secrets: inherit
+      - name: Set environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+          ENV_OVERRIDES: '{"NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
+        shell: bash
+        run: |
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+
+          # Set default environment variables
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+          # Apply environment variable overrides
+          if [ "$ENV_OVERRIDES" != "{}" ]; then
+            echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
+          fi
+
+      - name: Build SDK
+        run: |
+          cd sdk
+          bun run build:verify
+
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: Publish to npm
+        run: |
+          cd sdk
+          bun run publish-sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Push to git
+        run: |
+          git push

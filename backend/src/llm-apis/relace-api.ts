@@ -1,5 +1,5 @@
 import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
-import { env } from '@codebuff/internal'
+import { env } from '@codebuff/internal/env'
 
 import { saveMessage } from '../llm-apis/message-cost-tracker'
 

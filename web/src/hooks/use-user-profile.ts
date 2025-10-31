@@ -9,11 +9,11 @@ const USER_PROFILE_STORAGE_KEY = 'codebuff-user-profile'
 // Helper functions for local storage
 const getUserProfileFromStorage = (): UserProfile | null => {
   if (typeof window === 'undefined') return null
-  
+
   try {
     const stored = localStorage.getItem(USER_PROFILE_STORAGE_KEY)
     if (!stored) return null
-    
+
     const parsed = JSON.parse(stored)
     // Convert created_at string back to Date if it exists
     if (parsed.created_at) {
@@ -27,7 +27,7 @@ const getUserProfileFromStorage = (): UserProfile | null => {
 
 const setUserProfileToStorage = (profile: UserProfile) => {
   if (typeof window === 'undefined') return
-  
+
   try {
     localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(profile))
   } catch {
@@ -37,7 +37,7 @@ const setUserProfileToStorage = (profile: UserProfile) => {
 
 const clearUserProfileFromStorage = () => {
   if (typeof window === 'undefined') return
-  
+
   try {
     localStorage.removeItem(USER_PROFILE_STORAGE_KEY)
   } catch {
@@ -56,12 +56,12 @@ export const useUserProfile = () => {
         throw new Error('Failed to fetch user profile')
       }
       const data = await response.json()
-      
+
       // Convert created_at string to Date if it exists
       if (data.created_at) {
         data.created_at = new Date(data.created_at)
       }
-      
+
       return data
     },
     enabled: !!session?.user,

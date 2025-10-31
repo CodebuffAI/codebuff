@@ -74,7 +74,7 @@ export function ModelConfigSheet({
             variant: 'destructive',
           })
         },
-      }
+      },
     )
   }
 
@@ -110,7 +110,7 @@ export function ModelConfigSheet({
                       <SelectItem key={id} value={id}>
                         {name}
                       </SelectItem>
-                    )
+                    ),
                   )}
                 </SelectContent>
               </Select>

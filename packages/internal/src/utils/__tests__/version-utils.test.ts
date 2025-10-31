@@ -1,10 +1,8 @@
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import { describe, expect, it, afterEach, spyOn, mock } from 'bun:test'
+import { describe, expect, it, afterEach, mock } from 'bun:test'
 
 import * as versionUtils from '../version-utils'
+
+import type { CodebuffPgDatabase } from '../../db/types'
 
 const {
   versionOne,
@@ -20,7 +18,6 @@ const {
 describe('version-utils', () => {
   afterEach(() => {
     mock.restore()
-    clearMockedModules()
   })
 
   describe('versionOne', () => {
@@ -128,137 +125,195 @@ describe('version-utils', () => {
   describe('getLatestAgentVersion', () => {
     it('should return version 0.0.0 when no agent exists', async () => {
       // Mock the database to return empty result
-      mockModule('@codebuff/common/db', () => ({
-        default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                orderBy: () => ({
-                  limit: () => ({
-                    then: (fn: (rows: any[]) => any) => fn([]),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        },
-      }))
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() => Promise.resolve([])),
+              })),
+            })),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
-      const result = await getLatestAgentVersion('test-agent', 'test-publisher')
+      const result = await getLatestAgentVersion({
+        agentId: 'test-agent',
+        publisherId: 'test-publisher',
+        db: mockDb,
+      })
       expect(result).toEqual({ major: 0, minor: 0, patch: 0 })
     })
 
     it('should return latest version when agent exists', async () => {
       // Mock the database to return a version
-      mockModule('@codebuff/common/db', () => ({
-        default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                orderBy: () => ({
-                  limit: () => ({
-                    then: (fn: (rows: any[]) => any) =>
-                      fn([{ major: 1, minor: 2, patch: 3 }]),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        },
-      }))
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() =>
+                  Promise.resolve([{ major: 1, minor: 2, patch: 3 }]),
+                ),
+              })),
+            })),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
-      const result = await getLatestAgentVersion('test-agent', 'test-publisher')
+      const result = await getLatestAgentVersion({
+        agentId: 'test-agent',
+        publisherId: 'test-publisher',
+        db: mockDb,
+      })
       expect(result).toEqual({ major: 1, minor: 2, patch: 3 })
     })
 
     it('should handle null values in database response', async () => {
       // Mock the database to return null values
-      mockModule('@codebuff/common/db', () => ({
-        default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                orderBy: () => ({
-                  limit: () => ({
-                    then: (fn: (rows: any[]) => any) =>
-                      fn([{ major: null, minor: null, patch: null }]),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        },
-      }))
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() =>
+                  Promise.resolve([{ major: null, minor: null, patch: null }]),
+                ),
+              })),
+            })),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
-      const result = await getLatestAgentVersion('test-agent', 'test-publisher')
+      const result = await getLatestAgentVersion({
+        agentId: 'test-agent',
+        publisherId: 'test-publisher',
+        db: mockDb,
+      })
       expect(result).toEqual({ major: 0, minor: 0, patch: 0 })
     })
   })
 
   describe('determineNextVersion', () => {
     it('should increment patch of latest version when no version provided', async () => {
-      spyOn(versionUtils, 'getLatestAgentVersion').mockResolvedValue({
-        major: 1,
-        minor: 2,
-        patch: 3,
-      })
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() =>
+                  Promise.resolve([{ major: 1, minor: 2, patch: 3 }]),
+                ),
+              })),
+            })),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
-      const result = await determineNextVersion('test-agent', 'test-publisher')
+      const result = await determineNextVersion({
+        agentId: 'test-agent',
+        publisherId: 'test-publisher',
+        db: mockDb,
+      })
       expect(result).toEqual({ major: 1, minor: 2, patch: 4 })
     })
 
     it('should use provided version when higher than latest', async () => {
-      spyOn(versionUtils, 'getLatestAgentVersion').mockResolvedValue({
-        major: 0,
-        minor: 0,
-        patch: 0,
-      })
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() => Promise.resolve([])),
+              })),
+            })),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
-      const result = await determineNextVersion(
-        'test-agent',
-        'test-publisher',
-        '2.0.0',
-      )
+      const result = await determineNextVersion({
+        agentId: 'test-agent',
+        publisherId: 'test-publisher',
+        providedVersion: '2.0.0',
+        db: mockDb,
+      })
       expect(result).toEqual({ major: 2, minor: 0, patch: 0 })
     })
 
     it('should throw error when provided version is not greater than latest', async () => {
-      spyOn(versionUtils, 'getLatestAgentVersion').mockResolvedValue({
-        major: 2,
-        minor: 0,
-        patch: 0,
-      })
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() =>
+                  Promise.resolve([{ major: 2, minor: 0, patch: 0 }]),
+                ),
+              })),
+            })),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
       await expect(
-        determineNextVersion('test-agent', 'test-publisher', '1.5.0'),
+        determineNextVersion({
+          agentId: 'test-agent',
+          publisherId: 'test-publisher',
+          providedVersion: '1.5.0',
+          db: mockDb,
+        }),
       ).rejects.toThrow(
         'Provided version 1.5.0 must be greater than the latest version (2.0.0)',
       )
     })
 
     it('should throw error when provided version equals latest', async () => {
-      spyOn(versionUtils, 'getLatestAgentVersion').mockResolvedValue({
-        major: 1,
-        minor: 5,
-        patch: 0,
-      })
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() =>
+                  Promise.resolve([{ major: 1, minor: 5, patch: 0 }]),
+                ),
+              })),
+            })),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
       await expect(
-        determineNextVersion('test-agent', 'test-publisher', '1.5.0'),
+        determineNextVersion({
+          agentId: 'test-agent',
+          publisherId: 'test-publisher',
+          providedVersion: '1.5.0',
+          db: mockDb,
+        }),
       ).rejects.toThrow(
         'Provided version 1.5.0 must be greater than the latest version (1.5.0)',
       )
     })
 
     it('should throw error for invalid provided version', async () => {
-      spyOn(versionUtils, 'getLatestAgentVersion').mockResolvedValue({
-        major: 0,
-        minor: 0,
-        patch: 0,
-      })
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() => Promise.resolve([])),
+              })),
+            })),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
       await expect(
-        determineNextVersion('test-agent', 'test-publisher', 'invalid'),
+        determineNextVersion({
+          agentId: 'test-agent',
+          publisherId: 'test-publisher',
+          providedVersion: 'invalid',
+          db: mockDb,
+        }),
       ).rejects.toThrow(
         'Invalid version format: invalid. Must be in semver format (e.g., 1.0.0)',
       )
@@ -268,45 +323,39 @@ describe('version-utils', () => {
   describe('versionExists', () => {
     it('should return true when version exists', async () => {
       // Mock the database to return a result
-      mockModule('@codebuff/common/db', () => ({
-        default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                then: (fn: (rows: any[]) => any) => fn([{ id: 'test-agent' }]),
-              }),
-            }),
-          }),
-        },
-      }))
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => Promise.resolve([{ id: 'test-agent' }])),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
-      const result = await versionExists(
-        'test-agent',
-        { major: 1, minor: 0, patch: 0 },
-        'test-publisher',
-      )
+      const result = await versionExists({
+        agentId: 'test-agent',
+        version: { major: 1, minor: 0, patch: 0 },
+        publisherId: 'test-publisher',
+        db: mockDb,
+      })
       expect(result).toBe(true)
     })
 
     it('should return false when version does not exist', async () => {
       // Mock the database to return empty result
-      mockModule('@codebuff/common/db', () => ({
-        default: {
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                then: (fn: (rows: any[]) => any) => fn([]),
-              }),
-            }),
-          }),
-        },
-      }))
+      const mockDb = {
+        select: mock(() => ({
+          from: mock(() => ({
+            where: mock(() => Promise.resolve([])),
+          })),
+        })),
+      } as unknown as CodebuffPgDatabase
 
-      const result = await versionExists(
-        'test-agent',
-        { major: 1, minor: 0, patch: 0 },
-        'test-publisher',
-      )
+      const result = await versionExists({
+        agentId: 'test-agent',
+        version: { major: 1, minor: 0, patch: 0 },
+        publisherId: 'test-publisher',
+        db: mockDb,
+      })
       expect(result).toBe(false)
     })
   })

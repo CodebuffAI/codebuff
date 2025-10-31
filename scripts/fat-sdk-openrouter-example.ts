@@ -10,7 +10,7 @@ import { generateText } from 'ai'
 const apiKey = '12345'
 
 const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(
-  'openai/gpt-5',
+  'anthropic/claude-sonnet-4.5',
   {
     provider: 'codebuff.chat',
     url: ({ path: endpoint }) =>
@@ -50,22 +50,23 @@ const response = await generateText({
   model: codebuffBackendModel,
   messages: [
     {
+      role: 'system',
+      content:
+        'This is a bunch of text just to fill out some space. Ignore this.'.repeat(
+          100,
+        ),
+      providerOptions: {
+        openaiCompatible: {
+          cache_control: { type: 'ephemeral' },
+        },
+      },
+    },
+    {
       role: 'user',
       content: [
         {
           type: 'text',
-          text: 'This is a bunch of text just to fill out some space. Ignore this.'.repeat(
-            100,
-          ),
-        },
-        {
-          type: 'text',
           text: 'Hello',
-          providerOptions: {
-            openaiCompatible: {
-              cache_control: { type: 'ephemeral' },
-            },
-          },
         },
       ],
     },

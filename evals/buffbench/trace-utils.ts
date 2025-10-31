@@ -9,7 +9,7 @@ export function truncateTrace(trace: AgentStep[]): AgentStep[] {
   return trace.map((step) => {
     if (step.type === 'tool_result') {
       const output = Array.isArray(step.output) ? step.output : [step.output]
-      
+
       if (step.toolName === 'read_files') {
         const truncatedOutput = output.map((item: any) => {
           if (item.type === 'json' && Array.isArray(item.value)) {
@@ -17,7 +17,11 @@ export function truncateTrace(trace: AgentStep[]): AgentStep[] {
               ...item,
               value: item.value.map((file: any) =>
                 file.path && file.content
-                  ? { path: file.path, content: '[TRUNCATED - file was read]', referencedBy: file.referencedBy }
+                  ? {
+                      path: file.path,
+                      content: '[TRUNCATED - file was read]',
+                      referencedBy: file.referencedBy,
+                    }
                   : file,
               ),
             }
@@ -26,17 +30,21 @@ export function truncateTrace(trace: AgentStep[]): AgentStep[] {
         })
         return { ...step, output: truncatedOutput }
       }
-      
-      if (step.toolName === 'run_terminal_command' || step.toolName === 'code_search') {
+
+      if (
+        step.toolName === 'run_terminal_command' ||
+        step.toolName === 'code_search'
+      ) {
         const truncatedOutput = output.map((item: any) => {
           if (item.type === 'json' && item.value?.stdout) {
             return {
               ...item,
               value: {
                 ...item.value,
-                stdout: item.value.stdout.length > 500
-                  ? item.value.stdout.slice(0, 500) + '... [TRUNCATED]'
-                  : item.value.stdout,
+                stdout:
+                  item.value.stdout.length > 500
+                    ? item.value.stdout.slice(0, 500) + '... [TRUNCATED]'
+                    : item.value.stdout,
               },
             }
           }

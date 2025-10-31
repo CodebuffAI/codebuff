@@ -2,14 +2,15 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter'
 import { processAndGrantCredit } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import db from '@codebuff/common/db'
-import * as schema from '@codebuff/common/db/schema'
 import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { stripeServer } from '@codebuff/common/util/stripe'
-import { logSyncFailure } from '@codebuff/common/util/sync-failure'
-import { loops, env } from '@codebuff/internal'
+import { loops } from '@codebuff/internal'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/internal/env'
+import { stripeServer } from '@codebuff/internal/util/stripe'
+import { logSyncFailure } from '@codebuff/internal/util/sync-failure'
 import { eq } from 'drizzle-orm'
 import GitHubProvider from 'next-auth/providers/github'
 
@@ -29,7 +30,7 @@ async function createAndLinkStripeCustomer(params: {
   if (!email || !name) {
     logger.warn(
       { userId },
-      'User email or name missing, cannot create Stripe customer.'
+      'User email or name missing, cannot create Stripe customer.',
     )
     return null
   }
@@ -58,7 +59,7 @@ async function createAndLinkStripeCustomer(params: {
 
     logger.info(
       { userId, customerId: customer.id },
-      'Stripe customer created with usage subscription and linked to user.'
+      'Stripe customer created with usage subscription and linked to user.',
     )
     return customer.id
   } catch (error) {
@@ -68,7 +69,7 @@ async function createAndLinkStripeCustomer(params: {
         : 'Unknown error creating Stripe customer'
     logger.error(
       { userId, error },
-      'Failed to create Stripe customer or update user record.'
+      'Failed to create Stripe customer or update user record.',
     )
     await logSyncFailure({
       id: userId,
@@ -107,7 +108,7 @@ async function createInitialCreditGrant(params: {
         creditsGranted: DEFAULT_FREE_CREDITS_GRANT,
         expiresAt: nextQuotaReset,
       },
-      'Initial free credit grant created.'
+      'Initial free credit grant created.',
     )
   } catch (grantError) {
     const errorMessage =
@@ -116,7 +117,7 @@ async function createInitialCreditGrant(params: {
         : 'Unknown error creating initial credit grant'
     logger.error(
       { userId, error: grantError },
-      'Failed to create initial credit grant.'
+      'Failed to create initial credit grant.',
     )
     await logSyncFailure({
       id: userId,
@@ -167,7 +168,7 @@ export const authOptions: NextAuthOptions = {
         authCode: !!authCode,
         referralCode,
         allParams: Object.fromEntries(
-          potentialRedirectUrl.searchParams.entries()
+          potentialRedirectUrl.searchParams.entries(),
         ),
       })
 
@@ -179,7 +180,7 @@ export const authOptions: NextAuthOptions = {
         console.log('🟡 NextAuth CLI flow redirect to:', onboardUrl.toString())
         logger.info(
           { url, authCode, redirectTarget: onboardUrl.toString() },
-          'Redirecting CLI flow to /onboard'
+          'Redirecting CLI flow to /onboard',
         )
         return onboardUrl.toString()
       }
@@ -187,22 +188,22 @@ export const authOptions: NextAuthOptions = {
       if (url.startsWith('/') || potentialRedirectUrl.origin === baseUrl) {
         console.log(
           '🟡 NextAuth web flow redirect to:',
-          potentialRedirectUrl.toString()
+          potentialRedirectUrl.toString(),
         )
         logger.info(
           { url, redirectTarget: potentialRedirectUrl.toString() },
-          'Redirecting web flow to callbackUrl'
+          'Redirecting web flow to callbackUrl',
         )
         return potentialRedirectUrl.toString()
       }
 
       console.log(
         '🟡 NextAuth external/invalid URL, redirect to baseUrl:',
-        baseUrl
+        baseUrl,
       )
       logger.info(
         { url, baseUrl, redirectTarget: baseUrl },
-        'Callback URL is external or invalid, redirecting to baseUrl'
+        'Callback URL is external or invalid, redirecting to baseUrl',
       )
       return baseUrl
     },
@@ -211,7 +212,7 @@ export const authOptions: NextAuthOptions = {
     createUser: async ({ user }) => {
       logger.info(
         { userId: user.id, email: user.email },
-        'createUser event triggered'
+        'createUser event triggered',
       )
 
       // Get all user data we need upfront

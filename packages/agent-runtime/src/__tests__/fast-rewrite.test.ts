@@ -19,9 +19,9 @@ import type {
 describe.skip('rewriteWithOpenAI', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Mock database interactions
-    mockModule('pg-pool', () => ({
+    await mockModule('pg-pool', () => ({
       Pool: class {
         connect() {
           return {
@@ -36,7 +36,7 @@ describe.skip('rewriteWithOpenAI', () => {
     }))
 
     // Mock message saving
-    mockModule('@codebuff/backend/llm-apis/message-cost-tracker', () => ({
+    await mockModule('@codebuff/backend/llm-apis/message-cost-tracker', () => ({
       saveMessage: () => Promise.resolve(),
     }))
   })

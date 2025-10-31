@@ -50,15 +50,6 @@ export function useLoginPolling({
 
   useEffect(() => {
     if (!loginUrl || !fingerprintHash || !expiresAt || !isWaitingForEnter) {
-      logger.debug(
-        {
-          loginUrl: !!loginUrl,
-          fingerprintHash: !!fingerprintHash,
-          expiresAt: !!expiresAt,
-          isWaitingForEnter,
-        },
-        '🔍 Polling prerequisites not met, skipping setup',
-      )
       return
     }
 

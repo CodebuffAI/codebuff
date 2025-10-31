@@ -120,7 +120,7 @@ export function CompetitionTabs({
     const tabThreshold = 100 / competitors.length
     const tabIndex = Math.min(
       Math.floor(progress / tabThreshold),
-      competitors.length - 1
+      competitors.length - 1,
     )
 
     if (progress > 0) {
@@ -139,7 +139,7 @@ export function CompetitionTabs({
             : isMobile
               ? 'p-1 grid grid-cols-4 gap-1 border-b border-zinc-800/50 bg-black/10'
               : 'p-2 flex border-b border-zinc-800/50 bg-black/10',
-          'min-h-[40px]'
+          'min-h-[40px]',
         )}
         role="tablist"
         aria-orientation={isVertical ? 'vertical' : 'horizontal'}
@@ -160,7 +160,7 @@ export function CompetitionTabs({
               isMobile ? 'rounded' : 'rounded-lg',
               activeTab === competitor
                 ? 'bg-white/10 text-white'
-                : 'text-white/60'
+                : 'text-white/60',
             )}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -170,13 +170,13 @@ export function CompetitionTabs({
                 className={cn(
                   'flex items-center justify-center gap-1 md:gap-2',
                   isVertical && 'justify-start',
-                  isMobile && 'flex-col'
+                  isMobile && 'flex-col',
                 )}
               >
                 <motion.span
                   className={cn(
                     competitorInfo[competitor].color,
-                    'flex items-center justify-center w-5 h-5'
+                    'flex items-center justify-center w-5 h-5',
                   )}
                   animate={
                     activeTab === competitor
@@ -194,7 +194,7 @@ export function CompetitionTabs({
                   <span
                     className={cn(
                       'flex items-center justify-center relative w-5 h-5',
-                      competitorInfo[competitor].className
+                      competitorInfo[competitor].className,
                     )}
                   >
                     <Image
@@ -208,7 +208,7 @@ export function CompetitionTabs({
                 <span
                   className={cn(
                     'font-medium truncate max-w-full',
-                    isMobile && 'text-xs'
+                    isMobile && 'text-xs',
                   )}
                 >
                   {isMobile
@@ -219,7 +219,7 @@ export function CompetitionTabs({
               <p
                 className={cn(
                   'text-xs text-white/40 hidden md:block',
-                  isVertical && 'text-left'
+                  isVertical && 'text-left',
                 )}
               >
                 {competitorInfo[competitor].description}
@@ -231,7 +231,7 @@ export function CompetitionTabs({
                 isVertical
                   ? 'absolute left-0 top-0 bottom-0 w-0.5 h-full'
                   : 'absolute left-0 right-0 bottom-0 h-0.5 w-full',
-                'bg-white/30'
+                'bg-white/30',
               )}
               initial={false}
               animate={{
@@ -277,7 +277,7 @@ export function CompetitionTabs({
       <div
         className={cn(
           'relative flex-1 bg-black/20',
-          isVertical ? 'ml-4' : 'mt-1'
+          isVertical ? 'ml-4' : 'mt-1',
         )}
       >
         <div className="absolute inset-0">
@@ -296,7 +296,7 @@ export function CompetitionTabs({
                 'absolute inset-0',
                 activeTab === competitor
                   ? 'pointer-events-auto'
-                  : 'pointer-events-none'
+                  : 'pointer-events-none',
               )}
               hidden={activeTab !== competitor}
             >

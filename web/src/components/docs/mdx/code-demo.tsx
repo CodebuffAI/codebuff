@@ -45,7 +45,7 @@ const trimLeadingWhitespace = (content: string): string => {
     ...nonEmptyLines.map((line) => {
       const match = line.match(/^\s*/)
       return match ? match[0].length : 0
-    })
+    }),
   )
 
   // Remove the minimum indentation from all lines

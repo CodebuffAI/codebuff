@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
 import { getCodebuffClient } from '../utils/codebuff-client'
+import { logger } from '../utils/logger'
 
+import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ChatTheme } from '../utils/theme-system'
 
 const useConnectionStatus = () => {
-  const [isConnected, setIsConnected] = useState<boolean | null>(null)
+  const [isConnected, setIsConnected] = useState(true)
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -35,21 +37,24 @@ const useConnectionStatus = () => {
 }
 
 export const StatusIndicator = ({
-  isProcessing,
   theme,
   clipboardMessage,
+  isActive = false,
+  timer,
 }: {
-  isProcessing: boolean
   theme: ChatTheme
   clipboardMessage?: string | null
+  isActive?: boolean
+  timer: ElapsedTimeTracker
 }) => {
   const isConnected = useConnectionStatus()
+  const elapsedSeconds = timer.elapsedSeconds
 
   if (clipboardMessage) {
     return <span fg={theme.statusAccent}>{clipboardMessage}</span>
   }
 
-  const hasStatus = isConnected === false || isProcessing
+  const hasStatus = isConnected === false || isActive
 
   if (!hasStatus) {
     return null
@@ -59,7 +64,13 @@ export const StatusIndicator = ({
     return <ShimmerText text="connecting..." />
   }
 
-  if (isProcessing) {
+  if (isActive) {
+    // If we have elapsed time > 0, show it
+    if (elapsedSeconds > 0) {
+      return <span fg={theme.statusSecondary}>{elapsedSeconds}s</span>
+    }
+
+    // Otherwise show thinking...
     return (
       <ShimmerText
         text="thinking..."
@@ -73,9 +84,15 @@ export const StatusIndicator = ({
 }
 
 export const useHasStatus = (
-  isProcessing: boolean,
+  isActive: boolean,
   clipboardMessage?: string | null,
+  timer?: ElapsedTimeTracker,
 ): boolean => {
   const isConnected = useConnectionStatus()
-  return isConnected === false || isProcessing || !!clipboardMessage
+  return (
+    isConnected === false ||
+    isActive ||
+    Boolean(clipboardMessage) ||
+    Boolean(timer?.startTime)
+  )
 }

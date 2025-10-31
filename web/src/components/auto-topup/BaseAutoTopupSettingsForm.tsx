@@ -58,7 +58,7 @@ export function BaseAutoTopupSettingsForm({
 
   // Convert dollar amount to credits for display
   const topUpAmountCredits = Math.round(
-    (topUpAmountDollars * 100) / CENTS_PER_CREDIT
+    (topUpAmountDollars * 100) / CENTS_PER_CREDIT,
   )
 
   // Check threshold limits

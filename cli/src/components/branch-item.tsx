@@ -25,9 +25,9 @@ interface BranchItemProps {
   agentId?: string
   isCollapsed: boolean
   isStreaming: boolean
+  branchChar?: string
   streamingPreview: string
   finishedPreview: string
-  availableWidth: number
   statusLabel?: string
   statusColor?: string
   statusIndicator?: string
@@ -44,6 +44,7 @@ export const BranchItem = ({
   isStreaming,
   streamingPreview,
   finishedPreview,
+  branchChar = '',
   statusLabel,
   statusColor,
   statusIndicator = '●',
@@ -77,7 +78,9 @@ export const BranchItem = ({
     ? theme.statusAccent
     : theme.chromeText ?? toggleFrameColor
   const toggleLabelColor = theme.chromeText ?? toggleFrameColor
-  const toggleLabel = `${isCollapsed ? '▸' : '▾'} `
+  const toggleLabel = `${
+    branchChar ? `${branchChar} ` : ''
+  }${isCollapsed ? '▸' : '▾'} `
   const collapseButtonFrame = theme.agentToggleExpandedBg
   const collapseButtonText = collapseButtonFrame
   const toggleFrameFg = resolveFg(toggleFrameColor, fallbackTextColor)

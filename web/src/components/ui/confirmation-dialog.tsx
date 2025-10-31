@@ -49,11 +49,7 @@ export function ConfirmationDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isConfirming}
-          >
+          <Button variant="outline" onClick={onClose} disabled={isConfirming}>
             Cancel
           </Button>
           <Button

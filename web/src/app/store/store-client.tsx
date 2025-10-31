@@ -200,7 +200,7 @@ export default function AgentStoreClient({
         agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.tags?.some((tag: string) =>
-          tag.toLowerCase().includes(searchQuery.toLowerCase())
+          tag.toLowerCase().includes(searchQuery.toLowerCase()),
         )
       return matchesSearch
     })
@@ -231,7 +231,7 @@ export default function AgentStoreClient({
         agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.tags?.some((tag: string) =>
-          tag.toLowerCase().includes(searchQuery.toLowerCase())
+          tag.toLowerCase().includes(searchQuery.toLowerCase()),
         )
       return matchesSearch
     })
@@ -254,7 +254,7 @@ export default function AgentStoreClient({
     if (filtersHaveChanged || displayedCount === 0) {
       const initialCount = Math.min(
         ITEMS_PER_PAGE,
-        filteredAndSortedAgents.length
+        filteredAndSortedAgents.length,
       )
       setDisplayedCount(initialCount)
       prevFilters.current = { searchQuery, sortBy } // Update the ref
@@ -279,7 +279,7 @@ export default function AgentStoreClient({
     setTimeout(() => {
       const newCount = Math.min(
         displayedCount + ITEMS_PER_PAGE,
-        filteredAndSortedAgents.length
+        filteredAndSortedAgents.length,
       )
 
       setDisplayedCount(newCount)
@@ -313,7 +313,7 @@ export default function AgentStoreClient({
       },
       {
         rootMargin: '400px', // Start loading a full screen's worth before the element is visible
-      }
+      },
     )
 
     observerRef.current.observe(loadMoreRef.current)
@@ -384,7 +384,7 @@ export default function AgentStoreClient({
             'relative h-full border bg-card/50 min-h-[220px]',
             'transition-colors duration-150 ease-out',
             'hover:border-accent/50 hover:bg-card/80',
-            isEditorsChoice && 'ring-2 ring-amber-400/50 border-amber-400/30'
+            isEditorsChoice && 'ring-2 ring-amber-400/50 border-amber-400/30',
           )}
         >
           {/* Editor's Choice Badge - Positioned absolutely for better visual hierarchy */}
@@ -416,7 +416,7 @@ export default function AgentStoreClient({
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(
-                            `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`
+                            `codebuff --agent ${agent.publisher.id}/${agent.id}@${agent.version}`,
                           )
                           toast({
                             description: `Agent run command copied to clipboard!`,
@@ -526,7 +526,7 @@ export default function AgentStoreClient({
           </CardContent>
         </Card>
       </Link>
-    )
+    ),
   )
 
   return (
