@@ -82,6 +82,98 @@ const mergeTextSegments = (
   }
 }
 
+export type SendMessageTimerEvent =
+  | {
+      type: 'start'
+      startedAt: number
+      messageId: string
+      agentId?: string
+    }
+  | {
+      type: 'stop'
+      startedAt: number
+      finishedAt: number
+      elapsedMs: number
+      messageId: string
+      agentId?: string
+      outcome: 'success' | 'error' | 'aborted'
+    }
+
+export type SendMessageTimerOutcome = 'success' | 'error' | 'aborted'
+
+export interface SendMessageTimerController {
+  start: (messageId: string) => void
+  stop: (outcome: SendMessageTimerOutcome) => {
+    finishedAt: number
+    elapsedMs: number
+  } | null
+  isActive: () => boolean
+}
+
+export interface SendMessageTimerControllerOptions {
+  mainAgentTimer: ElapsedTimeTracker
+  onTimerEvent: (event: SendMessageTimerEvent) => void
+  agentId?: string
+  now?: () => number
+}
+
+export const createSendMessageTimerController = (
+  options: SendMessageTimerControllerOptions,
+): SendMessageTimerController => {
+  const {
+    mainAgentTimer,
+    onTimerEvent,
+    agentId,
+    now = () => Date.now(),
+  } = options
+
+  let timerStartedAt: number | null = null
+  let timerMessageId: string | null = null
+  let timerActive = false
+
+  const start = (messageId: string) => {
+    if (timerActive) {
+      return
+    }
+    timerActive = true
+    timerMessageId = messageId
+    timerStartedAt = now()
+    mainAgentTimer.start()
+    onTimerEvent({
+      type: 'start',
+      startedAt: timerStartedAt,
+      messageId,
+      ...(agentId ? { agentId } : {}),
+    })
+  }
+
+  const stop = (outcome: SendMessageTimerOutcome) => {
+    if (!timerActive || timerStartedAt == null || !timerMessageId) {
+      return null
+    }
+    timerActive = false
+    mainAgentTimer.stop()
+    const finishedAt = now()
+    const elapsedMs = Math.max(0, finishedAt - timerStartedAt)
+    onTimerEvent({
+      type: 'stop',
+      startedAt: timerStartedAt,
+      finishedAt,
+      elapsedMs,
+      messageId: timerMessageId,
+      outcome,
+      ...(agentId ? { agentId } : {}),
+    })
+    timerStartedAt = null
+    timerMessageId = null
+    return { finishedAt, elapsedMs }
+  }
+
+  const isActive = () => timerActive
+
+  return { start, stop, isActive }
+}
+
 interface UseSendMessageOptions {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   setFocusedAgentId: (id: string | null) => void
@@ -107,6 +199,7 @@ interface UseSendMessageOptions {
   mainAgentTimer: ElapsedTimeTracker
   scrollToLatest: () => void
   availableWidth?: number
+  onTimerEvent?: (event: SendMessageTimerEvent) => void
 }
 
 export const useSendMessage = ({
@@ -131,6 +224,7 @@ export const useSendMessage = ({
   mainAgentTimer,
   scrollToLatest,
   availableWidth = 80,
+  onTimerEvent = () => {},
 }: UseSendMessageOptions) => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -260,8 +354,11 @@ export const useSendMessage = ({
       const { agentMode } = params
       const timestamp = formatTimestamp()
 
-      // Start timer immediately when message is sent
-      mainAgentTimer.start()
+      const timerController = createSendMessageTimerController({
+        mainAgentTimer,
+        onTimerEvent,
+        agentId,
+      })
 
       // Add user message to UI first
       const userMessage: ChatMessage = {
@@ -357,6 +454,7 @@ export const useSendMessage = ({
       rootStreamBufferRef.current = ''
       rootStreamSeenRef.current = false
       agentStreamAccumulatorsRef.current = new Map<string, string>()
+      timerController.start(aiMessageId)
 
       const updateAgentContent = (
         agentId: string,
@@ -556,8 +654,6 @@ export const useSendMessage = ({
       setIsStreaming(true)
       setCanProcessQueue(false)
       updateChainInProgress(true)
-
-      const startTime = Date.now()
       let hasReceivedContent = false
       let actualCredits: number | undefined = undefined
 
@@ -1316,14 +1412,14 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
-        mainAgentTimer.stop()
+        timerController.stop('success')
 
         if ((result as any)?.credits !== undefined) {
           actualCredits = (result as any).credits
         }
 
-        // Calculate completion time
-        const elapsedMs = Date.now() - startTime
+        // Calculate completion time from mainAgentTimer
+        const elapsedMs = mainAgentTimer.getElapsedMs()
         const elapsedSeconds = Math.floor(elapsedMs / 1000)
         const completionTime = elapsedSeconds > 0 ? `${elapsedSeconds}s` : undefined
 
@@ -1351,7 +1447,7 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
-        mainAgentTimer.stop()
+        timerController.stop(isAborted ? 'aborted' : 'error')
 
         if (isAborted) {
           applyMessageUpdate((prev) =>
