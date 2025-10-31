@@ -1,6 +1,6 @@
 {
   "name": "@codebuff/cli",
-  "version": "1.0.0",
+  "version": "1.0.420-beta.226",
   "private": true,
   "type": "module",
   "bin": {
