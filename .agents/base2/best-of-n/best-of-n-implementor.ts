@@ -60,7 +60,10 @@ OR for new files or major rewrites:
   "content": "Complete file content or edit snippet"
 }
 </codebuff_tool_call>
-
+${
+  isGpt5
+    ? ``
+    : `
 You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes. Keep these thoughts very brief. You may not need to use think tags at all.
 
 <example>
@@ -85,7 +88,8 @@ You can also use <think> tags interspersed between tool calls to think about the
 [ Third tool call to implement the feature ]
 </codebuff_tool_call>
 
-</example>
+</example>`
+}
 
 Your implementation should:
 - Be complete and comprehensive

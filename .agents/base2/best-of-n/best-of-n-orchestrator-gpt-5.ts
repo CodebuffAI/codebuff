@@ -3,12 +3,12 @@ import { publisher } from '../../constants'
 import { StepText, ToolCall } from 'types/agent-definition'
 
 const definition: SecretAgentDefinition = {
-  id: 'best-of-n-orchestrator',
+  id: 'best-of-n-orchestrator-gpt-5',
   publisher,
-  model: 'anthropic/claude-sonnet-4.5',
-  displayName: 'Best-of-N Implementation Orchestrator',
+  model: 'openai/gpt-5',
+  displayName: 'Best-of-N GPT-5 Implementation Orchestrator',
   spawnerPrompt:
-    'Orchestrates multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes.',
+    'Orchestrates multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes (no need to make the edits yourself).',
 
   includeMessageHistory: true,
   inheritParentSystemPrompt: true,
@@ -20,11 +20,7 @@ const definition: SecretAgentDefinition = {
     'set_messages',
     'set_output',
   ],
-  spawnableAgents: [
-    'best-of-n-implementor',
-    'best-of-n-implementor-gpt-5',
-    'best-of-n-selector-gpt-5',
-  ],
+  spawnableAgents: ['best-of-n-implementor-gpt-5', 'best-of-n-selector-gpt-5'],
 
   inputSchema: {},
   outputMode: 'structured_output',
@@ -46,20 +42,8 @@ const definition: SecretAgentDefinition = {
       toolName: 'spawn_agents',
       input: {
         agents: [
-          { agent_type: 'best-of-n-implementor' },
           { agent_type: 'best-of-n-implementor-gpt-5' },
-        ],
-      },
-      includeToolCall: false,
-    }
-    // Spawn 3 more of each model in parallel
-    const { toolResult: implementorsResult2 } = yield {
-      toolName: 'spawn_agents',
-      input: {
-        agents: [
-          { agent_type: 'best-of-n-implementor' },
-          { agent_type: 'best-of-n-implementor' },
-          { agent_type: 'best-of-n-implementor' },
+          { agent_type: 'best-of-n-implementor-gpt-5' },
           { agent_type: 'best-of-n-implementor-gpt-5' },
           { agent_type: 'best-of-n-implementor-gpt-5' },
           { agent_type: 'best-of-n-implementor-gpt-5' },
@@ -68,10 +52,7 @@ const definition: SecretAgentDefinition = {
       includeToolCall: false,
     }
 
-    const implementorsResult = [
-      ...extractSpawnResults<string>(implementorsResult1),
-      ...extractSpawnResults<string>(implementorsResult2),
-    ]
+    const implementorsResult = extractSpawnResults<string>(implementorsResult1)
 
     // Extract all the plans from the structured outputs
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'

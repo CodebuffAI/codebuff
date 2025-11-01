@@ -8,7 +8,7 @@ const definition: SecretAgentDefinition = {
   model: 'anthropic/claude-sonnet-4.5',
   displayName: 'Best-of-N Fast Implementation Orchestrator',
   spawnerPrompt:
-    'Orchestrates multiple implementor agents to generate implementation proposals and selects the best one',
+    'Orchestrates multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes.',
 
   includeMessageHistory: true,
   inheritParentSystemPrompt: true,
