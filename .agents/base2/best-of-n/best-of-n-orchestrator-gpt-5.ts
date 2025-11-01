@@ -8,7 +8,7 @@ const definition: SecretAgentDefinition = {
   model: 'openai/gpt-5',
   displayName: 'Best-of-N GPT-5 Implementation Orchestrator',
   spawnerPrompt:
-    'Orchestrates multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes (no need to make the edits yourself).',
+    'Orchestrates multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes (no need to make the edits yourself). Has no input prompt! It reads the context from the message history.',
 
   includeMessageHistory: true,
   inheritParentSystemPrompt: true,
