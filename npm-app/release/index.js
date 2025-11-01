@@ -179,7 +179,7 @@ function getCurrentVersion() {
 function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
 
-  if (v1.match(/^\d+(\.\d+)*$/)) {
+  if (!v1.match(/^\d+(\.\d+)*$/)) {
     return -1
   }
 
