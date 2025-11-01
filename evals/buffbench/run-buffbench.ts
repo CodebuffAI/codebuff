@@ -493,6 +493,7 @@ export async function runBuffBench(options: {
       logsDirectory: logsDir,
       files: logFiles,
     },
+    metaAnalysis,
     ...results,
   }
 
