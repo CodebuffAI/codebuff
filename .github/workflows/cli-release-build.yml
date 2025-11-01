@@ -170,13 +170,6 @@ jobs:
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}
 
-      - name: Open debug shell after build
-        if: always()
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-        timeout-minutes: 15
-
       - name: Smoke test binary
         if: matrix.smoke_test != false
         shell: bash
@@ -202,13 +195,6 @@ jobs:
         with:
           name: codecane-${{ matrix.target }}
           path: codecane-${{ matrix.target }}.tar.gz
-
-      - name: Open debug shell on failure
-        if: failure()
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-        timeout-minutes: 15
 
   build-windows-binary:
     runs-on: windows-latest
@@ -327,13 +313,6 @@ jobs:
           OVERRIDE_PLATFORM: win32
           OVERRIDE_ARCH: x64
 
-      - name: Open debug shell after build
-        if: always()
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-        timeout-minutes: 15
-
       - name: Smoke test binary
         shell: bash
         run: |
@@ -351,10 +330,3 @@ jobs:
         with:
           name: codecane-win32-x64
           path: codecane-win32-x64.tar.gz
-
-      - name: Open debug shell on failure
-        if: failure()
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-        timeout-minutes: 15

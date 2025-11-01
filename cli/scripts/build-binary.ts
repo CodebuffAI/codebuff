@@ -138,6 +138,11 @@ async function main() {
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
   const outputFile = join(binDir, outputFilename)
 
+  // Collect all NEXT_PUBLIC_* environment variables
+  const nextPublicEnvVars = Object.entries(process.env)
+    .filter(([key]) => key.startsWith('NEXT_PUBLIC_'))
+    .map(([key, value]) => [`process.env.${key}`, `"${value ?? ''}"`])
+
   const defineFlags = [
     ['process.env.NODE_ENV', '"production"'],
     ['process.env.CODEBUFF_IS_BINARY', '"true"'],
@@ -146,30 +151,7 @@ async function main() {
       'process.env.CODEBUFF_CLI_TARGET',
       `"${targetInfo.platform}-${targetInfo.arch}"`,
     ],
-    [
-      'process.env.NEXT_PUBLIC_CB_ENVIRONMENT',
-      `"${process.env.NEXT_PUBLIC_CB_ENVIRONMENT ?? 'prod'}"`,
-    ],
-    [
-      'process.env.NEXT_PUBLIC_CODEBUFF_APP_URL',
-      `"${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ?? 'https://www.codebuff.com'}"`,
-    ],
-    [
-      'process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL',
-      `"${process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL ?? 'manicode-backend.onrender.com'}"`,
-    ],
-    [
-      'process.env.NEXT_PUBLIC_SUPPORT_EMAIL',
-      `"${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@codebuff.com'}"`,
-    ],
-    [
-      'process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
-      `"${process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? 'pk_live_51Q0SA5KrNS6SjmqWMgRE0ar5v6cMvtizkyY3mXjYaZsU6AG9ctpNPKZMVf6xFK2ngqwkt8rHNIQgNiCFSbRdGb9Z00QEo13rfx'}"`,
-    ],
-    [
-      'process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL',
-      `"${process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL ?? 'https://billing.stripe.com/p/login/cN22bea8W6Ra2is144'}"`,
-    ],
+    ...nextPublicEnvVars,
   ]
 
   const buildArgs = [
