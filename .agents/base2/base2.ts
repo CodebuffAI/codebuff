@@ -47,6 +47,7 @@ export const createBase2: (
       'write_todos',
       'str_replace',
       'write_file',
+      isGpt5 && 'task_completed',
     ),
     spawnableAgents: buildArray(
       !isGpt5 && 'file-researcher',
@@ -164,6 +165,7 @@ ${buildArray(
   !hasNoValidation &&
     `- Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points. Don't create any markdown summary files or example documentation files, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
+  isGpt5 && `- Use the task_completed tool.`,
 ).join('\n')}`,
     stepPrompt: buildArray(
       (isMax || isGpt5) &&
@@ -172,7 +174,7 @@ ${buildArray(
         `You must spawn the ${isGpt5 ? 'best-of-n-orchestrator-gpt-5' : 'best-of-n-orchestrator-fast'} agent to implement any code changes. Don't forget to do this! `,
       `After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files or example documentation files, unless asked by the user. If you already summarized your changes, then end turn and don't say anything else.`,
       isGpt5 &&
-        `IMPORTANT: every response *must* include at least one tool call (using "<codebuff_tool_call>" tags), unless you are done with the task. If you don't include at least one tool call, your response will be cut off and the task will be ended prematurely, which is very bad for fulfilling the user's request. When completely done, you can respond without a tool call.`,
+        `IMPORTANT: if you are completely done with the user's request, you must call the task_completed tool to end your turn.`,
     ).join('\n'),
 
     handleSteps: function* ({ params }) {
