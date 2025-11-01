@@ -14,6 +14,7 @@ export function codeSearch({
   maxResults = 15,
   globalMaxResults = 250,
   maxOutputStringLength = 20_000,
+  timeoutSeconds = 10,
 }: {
   projectPath: string
   pattern: string
@@ -22,10 +23,13 @@ export function codeSearch({
   maxResults?: number
   globalMaxResults?: number
   maxOutputStringLength?: number
+  timeoutSeconds?: number
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
+    let timeoutId: NodeJS.Timeout | null = null
+    let isResolved = false
 
     const flagsArray = (flags || '').split(' ').filter(Boolean)
     let searchCwd = projectPath
@@ -55,6 +59,34 @@ export function codeSearch({
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
+    // Set up timeout to kill hung processes
+    timeoutId = setTimeout(() => {
+      if (!isResolved) {
+        isResolved = true
+        childProcess.kill('SIGTERM')
+        // Give it a moment to die gracefully, then force kill
+        setTimeout(() => {
+          if (!childProcess.killed) {
+            childProcess.kill('SIGKILL')
+          }
+        }, 1000)
+        
+        const truncatedStdout = stdout.length > 1000 ? stdout.substring(0, 1000) + '\n\n[Output truncated]' : stdout
+        const truncatedStderr = stderr.length > 1000 ? stderr.substring(0, 1000) + '\n\n[Error output truncated]' : stderr
+        
+        resolve([
+          {
+            type: 'json',
+            value: {
+              errorMessage: `Code search timed out after ${timeoutSeconds} seconds. The search may be too broad or the pattern too complex. Try narrowing your search with more specific flags or a more specific pattern.`,
+              stdout: truncatedStdout,
+              stderr: truncatedStderr,
+            },
+          },
+        ])
+      }
+    }, timeoutSeconds * 1000)
+
     childProcess.stdout.on('data', (data) => {
       stdout += data.toString()
     })
@@ -64,6 +96,10 @@ export function codeSearch({
     })
 
     childProcess.on('close', (code) => {
+      if (isResolved) return
+      isResolved = true
+      if (timeoutId) clearTimeout(timeoutId)
+
       const lines = stdout.split('\n').filter((line) => line.trim())
 
       // Group results by file
@@ -207,6 +243,10 @@ export function codeSearch({
     })
 
     childProcess.on('error', (error) => {
+      if (isResolved) return
+      isResolved = true
+      if (timeoutId) clearTimeout(timeoutId)
+
       resolve([
         {
           type: 'json',

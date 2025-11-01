@@ -255,10 +255,13 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
   const rgPath = await getRgPath()
   const maxResults = parameters.maxResults ?? 15
   const globalMaxResults = 250
+  const timeoutSeconds = 10
 
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
+    let timeoutId: NodeJS.Timeout | null = null
+    let isResolved = false
 
     const basename = path.basename(projectPath)
     const pattern = parameters.pattern
@@ -296,6 +299,30 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
+    // Set up timeout to kill hung processes
+    timeoutId = setTimeout(() => {
+      if (!isResolved) {
+        isResolved = true
+        childProcess.kill('SIGTERM')
+        // Give it a moment to die gracefully, then force kill
+        setTimeout(() => {
+          if (!childProcess.killed) {
+            childProcess.kill('SIGKILL')
+          }
+        }, 1000)
+        resolve([
+          {
+            type: 'json',
+            value: {
+              errorMessage: `Code search timed out after ${timeoutSeconds} seconds. The search may be too broad or the pattern too complex. Try narrowing your search with more specific flags or a more specific pattern.`,
+              stdout: stdout ? truncateStringWithMessage({ str: stdout, maxLength: 1000 }) : '',
+              stderr: stderr ? truncateStringWithMessage({ str: stderr, maxLength: 1000 }) : '',
+            },
+          },
+        ])
+      }
+    }, timeoutSeconds * 1000)
+
     childProcess.stdout.on('data', (data) => {
       stdout += data.toString()
     })
@@ -305,6 +332,10 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
     })
 
     childProcess.on('close', (code) => {
+      if (isResolved) return
+      isResolved = true
+      if (timeoutId) clearTimeout(timeoutId)
+
       const lines = stdout.split('\n').filter((line) => line.trim())
 
       // Group results by file
@@ -458,6 +489,10 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
     })
 
     childProcess.on('error', (error) => {
+      if (isResolved) return
+      isResolved = true
+      if (timeoutId) clearTimeout(timeoutId)
+
       resolve([
         {
           type: 'json',
