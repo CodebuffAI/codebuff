@@ -19,6 +19,7 @@ import { setOutputTool } from './tool/set-output'
 import { spawnAgentInlineTool } from './tool/spawn-agent-inline'
 import { spawnAgentsTool } from './tool/spawn-agents'
 import { strReplaceTool } from './tool/str-replace'
+import { taskCompletedTool } from './tool/task-completed'
 import { thinkDeeplyTool } from './tool/think-deeply'
 import { updateSubgoalTool } from './tool/update-subgoal'
 import { webSearchTool } from './tool/web-search'
@@ -49,6 +50,7 @@ const toolDescriptions = {
   spawn_agents: spawnAgentsTool,
   spawn_agent_inline: spawnAgentInlineTool,
   str_replace: strReplaceTool,
+  task_completed: taskCompletedTool,
   think_deeply: thinkDeeplyTool,
   update_subgoal: updateSubgoalTool,
   web_search: webSearchTool,

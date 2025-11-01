@@ -17,6 +17,7 @@ export type ToolName =
   | 'set_output'
   | 'spawn_agents'
   | 'str_replace'
+  | 'task_completed'
   | 'think_deeply'
   | 'web_search'
   | 'write_file'
@@ -41,6 +42,7 @@ export interface ToolParamsMap {
   set_output: SetOutputParams
   spawn_agents: SpawnAgentsParams
   str_replace: StrReplaceParams
+  task_completed: TaskCompletedParams
   think_deeply: ThinkDeeplyParams
   web_search: WebSearchParams
   write_file: WriteFileParams
@@ -194,6 +196,16 @@ export interface StrReplaceParams {
 }
 
 /**
+ * Signal that the task is complete. Use this tool when:
+- The user's request is completely fulfilled
+- You need clarification from the user before continuing
+- You are stuck or need help from the user to continue
+
+This tool explicitly marks the end of your work on the current task.
+ */
+export interface TaskCompletedParams {}
+
+/**
  * Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.
  */
 export interface ThinkDeeplyParams {
@@ -227,7 +239,7 @@ export interface WriteFileParams {
  * Write a todo list to track tasks. Use this frequently to maintain a step-by-step plan.
  */
 export interface WriteTodosParams {
-  /** List of todos with their completion status */
+  /** List of todos with their completion status. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet! */
   todos: {
     /** Description of the task */
     task: string

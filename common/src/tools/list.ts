@@ -20,6 +20,7 @@ import { setOutputParams } from './params/tool/set-output'
 import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { spawnAgentsParams } from './params/tool/spawn-agents'
 import { strReplaceParams } from './params/tool/str-replace'
+import { taskCompletedParams } from './params/tool/task-completed'
 import { thinkDeeplyParams } from './params/tool/think-deeply'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
@@ -58,6 +59,7 @@ export const $toolParams = {
   spawn_agents: spawnAgentsParams,
   spawn_agent_inline: spawnAgentInlineParams,
   str_replace: strReplaceParams,
+  task_completed: taskCompletedParams,
   think_deeply: thinkDeeplyParams,
   update_subgoal: updateSubgoalParams,
   web_search: webSearchParams,

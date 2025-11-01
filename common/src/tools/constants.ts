@@ -14,6 +14,7 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'add_message',
   'update_subgoal',
   'create_plan',
+  'task_completed',
 ]
 
 // List of all available tools
@@ -37,6 +38,7 @@ export const toolNames = [
   'spawn_agents',
   'spawn_agent_inline',
   'str_replace',
+  'task_completed',
   'think_deeply',
   'update_subgoal',
   'web_search',
@@ -60,6 +62,7 @@ export const publishedTools = [
   'set_output',
   'spawn_agents',
   'str_replace',
+  'task_completed',
   'think_deeply',
   'web_search',
   'write_file',

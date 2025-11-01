@@ -117,6 +117,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   end_turn: {
     // Don't render anything
   },
+  task_completed: {
+    // Don't render anything
+  },
   run_terminal_command: {
     // Don't render anything
   },
