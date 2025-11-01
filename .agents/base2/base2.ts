@@ -20,6 +20,11 @@ export const createBase2: (
   return {
     publisher,
     model: isGpt5 ? 'openai/gpt-5' : 'anthropic/claude-sonnet-4.5',
+    ...(isGpt5 && {
+      reasoningModel: {
+        effort: 'high',
+      },
+    }),
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
