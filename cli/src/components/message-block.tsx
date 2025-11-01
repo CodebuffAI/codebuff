@@ -86,7 +86,7 @@ export const MessageBlock = ({
     const ancestorPrefix = ancestorBranchStates
       .map((ancestorIsLast) => (ancestorIsLast ? '  ' : '│ '))
       .join('')
-    return `${ancestorPrefix}${isLastBranch ? '└─ ' : '├─ '}`
+    return `${ancestorPrefix}${isLastBranch ? '└ ' : '├ '}`
   }
 
   const renderContentWithMarkdown = (
@@ -161,7 +161,7 @@ export const MessageBlock = ({
     }
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
-    const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
+    const isCollapsed = true
     const isStreaming = streamingAgents.has(toolBlock.toolCallId)
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
@@ -183,12 +183,11 @@ export const MessageBlock = ({
         : null
 
     const branchChar = computeBranchChar(ancestorBranchStates, isLastBranch)
-    const indentPrefix = branchChar.replace(/[├└]─\s*$/, '')
+    const indentPrefix = branchChar.replace(/[├└]\s*$/, '')
     const previewBasePrefix =
       indentPrefix.length > 0 ? `${indentPrefix}│ ` : '  │ '
-    const toggleLabel = `${branchChar ? `${branchChar} ` : ''}${isCollapsed ? '▸' : '▾'} `
     const branchIndentWidth = stringWidth(branchChar)
-    const headerPrefixWidth = stringWidth(toggleLabel)
+    const headerPrefixWidth = stringWidth(branchChar)
     const previewBaseWidth = stringWidth(previewBasePrefix)
     const alignmentPadding = Math.max(0, headerPrefixWidth - previewBaseWidth)
     const paddedPreviewPrefix = `${previewBasePrefix}${' '.repeat(alignmentPadding)}`
@@ -223,7 +222,7 @@ export const MessageBlock = ({
       toolRenderConfig.collapsedPreview ??
       getToolFinishedPreview(toolBlock, commandPreview, lastLine)
     const finishedPreview =
-      !isStreaming && isCollapsed ? formatPreview(collapsedPreviewBase) : ''
+      !isStreaming ? formatPreview(collapsedPreviewBase) : ''
     const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
     const displayContent = renderContentWithMarkdown(
       fullContent,
@@ -265,9 +264,7 @@ export const MessageBlock = ({
       </box>
     ) : renderableDisplayContent
 
-    const headerName = toolRenderConfig.path
-      ? `${displayInfo.name} • ${toolRenderConfig.path}`
-      : displayInfo.name
+    const headerName = displayInfo.name
 
     return (
       <box
@@ -284,8 +281,9 @@ export const MessageBlock = ({
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
-          onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
           showBorder={false}
+          toggleEnabled={false}
+          titleSuffix={toolRenderConfig.path}
         />
       </box>
     )

@@ -32,8 +32,10 @@ interface BranchItemProps {
   statusColor?: string
   statusIndicator?: string
   theme: ChatTheme
-  onToggle: () => void
+  onToggle?: () => void
   showBorder?: boolean
+  toggleEnabled?: boolean
+  titleSuffix?: string
 }
 
 export const BranchItem = ({
@@ -52,6 +54,8 @@ export const BranchItem = ({
   theme,
   onToggle,
   showBorder = true,
+  toggleEnabled = true,
+  titleSuffix,
 }: BranchItemProps) => {
   const resolveFg = (
     color?: string | null,
@@ -80,9 +84,8 @@ export const BranchItem = ({
     ? theme.statusAccent
     : theme.chromeText ?? toggleFrameColor
   const toggleLabelColor = theme.chromeText ?? toggleFrameColor
-  const toggleLabel = `${
-    branchChar ? `${branchChar} ` : ''
-  }${isCollapsed ? '▸' : '▾'} `
+  const toggleIndicator = toggleEnabled ? (isCollapsed ? '▸ ' : '▾ ') : ''
+  const toggleLabel = `${branchChar}${toggleIndicator}`
   const collapseButtonFrame = theme.agentToggleExpandedBg
   const collapseButtonText = collapseButtonFrame
   const toggleFrameFg = resolveFg(toggleFrameColor, fallbackTextColor)
@@ -247,7 +250,7 @@ export const BranchItem = ({
             paddingBottom: isCollapsed ? 0 : 1,
             width: '100%',
           }}
-          onMouseDown={onToggle}
+          onMouseDown={toggleEnabled && onToggle ? onToggle : undefined}
         >
           <text style={{ wrapMode: 'none' }}>
             <span {...(toggleIconFg ? { fg: toggleIconFg } : undefined)}>
@@ -259,6 +262,14 @@ export const BranchItem = ({
             >
               {name}
             </span>
+            {titleSuffix ? (
+              <span
+                {...(toggleLabelFg ? { fg: toggleLabelFg } : undefined)}
+                attributes={TextAttributes.BOLD}
+              >
+                {` ${titleSuffix}`}
+              </span>
+            ) : null}
             {statusText ? (
               <span
                 fg={statusColor ?? theme.agentResponseCount}
@@ -331,22 +342,24 @@ export const BranchItem = ({
               </box>
             )}
             {renderExpandedContent(content)}
-            <box
-              style={{
-                alignSelf: 'flex-end',
-                marginTop: content ? 0 : 1,
-                paddingRight: showBorder ? 1 : 0,
-                paddingBottom: 0,
-                marginBottom: 0,
-              }}
-            >
-              <RaisedPill
-                segments={[{ text: 'Collapse', fg: collapseButtonText }]}
-                frameColor={collapseButtonFrame}
-                textColor={collapseButtonText}
-                onPress={onToggle}
-              />
-            </box>
+            {toggleEnabled && onToggle && (
+              <box
+                style={{
+                  alignSelf: 'flex-end',
+                  marginTop: content ? 0 : 1,
+                  paddingRight: showBorder ? 1 : 0,
+                  paddingBottom: 0,
+                  marginBottom: 0,
+                }}
+              >
+                <RaisedPill
+                  segments={[{ text: 'Collapse', fg: collapseButtonText }]}
+                  frameColor={collapseButtonFrame}
+                  textColor={collapseButtonText}
+                  onPress={onToggle}
+                />
+              </box>
+            )}
           </box>
         )}
       </box>
