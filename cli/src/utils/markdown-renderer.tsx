@@ -196,7 +196,7 @@ const hasUnescapedMarker = (value: string): boolean => {
   if (!value) {
     return false
   }
-  const markers = ['**', '__', '*', '_']
+  const markers = ['**', '*']
   return markers.some((marker) => {
     let idx = value.indexOf(marker)
     while (idx !== -1) {
@@ -260,7 +260,7 @@ const parseInlineFallback = (value: string): InlineFallbackNode[] => {
   while (index < value.length) {
     const char = value[index]
 
-    if (char === '*' || char === '_') {
+    if (char === '*') {
       const markerChar = char
       const isDouble =
         index + 1 < value.length && value[index + 1] === markerChar
@@ -296,11 +296,9 @@ const parseInlineFallback = (value: string): InlineFallbackNode[] => {
       )
 
       const emphasisNode: InlineFallbackNode =
-        isDouble && markerChar === '*'
+        isDouble
           ? { type: 'strong', children }
-          : isDouble && markerChar === '_'
-            ? { type: 'strong', children }
-            : { type: 'emphasis', children }
+          : { type: 'emphasis', children }
 
       nodes.push(emphasisNode)
       index = closing + markerLength

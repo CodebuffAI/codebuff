@@ -270,6 +270,23 @@ export const App = ({
         })
       }
 
+      // Log all NEXT_PUBLIC_* environment variables
+      const nextPublicEnvVars = Object.keys(process.env)
+        .filter((key) => key.startsWith('NEXT_PUBLIC_'))
+        .sort()
+      
+      if (nextPublicEnvVars.length > 0) {
+        const envVarsList = nextPublicEnvVars
+          .map((key) => `  ${key}=${process.env[key]}`)
+          .join('\n')
+        
+        blocks.push({
+          type: 'text',
+          content: `\nEnvironment variables:\n${envVarsList}`,
+          marginTop: 1,
+        })
+      }
+
       // Calculate path from home directory to repository root
       // agentsDir is typically in the root, so use its parent as the repository root
       const homeDir = os.homedir()
