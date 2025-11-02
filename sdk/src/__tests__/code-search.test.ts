@@ -37,6 +37,22 @@ function createRgJsonMatch(
   })
 }
 
+// Helper to create ripgrep JSON context output (for -A, -B, -C flags)
+function createRgJsonContext(
+  filePath: string,
+  lineNumber: number,
+  lineText: string,
+): string {
+  return JSON.stringify({
+    type: 'context',
+    data: {
+      path: { text: filePath },
+      lines: { text: lineText },
+      line_number: lineNumber,
+    },
+  })
+}
+
 describe('codeSearch', () => {
   let mockSpawn: ReturnType<typeof mock>
   let mockProcess: ReturnType<typeof createMockChildProcess>
@@ -87,10 +103,14 @@ describe('codeSearch', () => {
         flags: '-A 2',
       })
 
-      // Ripgrep JSON output - only match events are processed
+      // Ripgrep JSON output with -A 2 includes match + 2 context lines after
       const output = [
         createRgJsonMatch('test.ts', 1, 'import { env } from "./config"'),
+        createRgJsonContext('test.ts', 2, 'const apiUrl = env.API_URL'),
+        createRgJsonContext('test.ts', 3, 'const apiKey = env.API_KEY'),
         createRgJsonMatch('other.ts', 5, 'import env from "process"'),
+        createRgJsonContext('other.ts', 6, 'const nodeEnv = env.NODE_ENV'),
+        createRgJsonContext('other.ts', 7, 'const port = env.PORT'),
       ].join('\n')
 
       mockProcess.stdout.emit('data', Buffer.from(output))
@@ -100,12 +120,15 @@ describe('codeSearch', () => {
       expect(result[0].type).toBe('json')
       const value = result[0].value as any
 
-      // Should contain both files
-      expect(value.stdout).toContain('test.ts:')
-      expect(value.stdout).toContain('other.ts:')
+      // Should contain match lines
+      expect(value.stdout).toContain('import { env } from "./config"')
+      expect(value.stdout).toContain('import env from "process"')
 
-      // Should not include the entire file content
-      expect(value.stdout.length).toBeLessThan(1000)
+      // Should contain context lines (this is the bug - they're currently missing)
+      expect(value.stdout).toContain('const apiUrl = env.API_URL')
+      expect(value.stdout).toContain('const apiKey = env.API_KEY')
+      expect(value.stdout).toContain('const nodeEnv = env.NODE_ENV')
+      expect(value.stdout).toContain('const port = env.PORT')
     })
 
     it('should correctly parse output with -B flag (before context)', async () => {
@@ -115,8 +138,13 @@ describe('codeSearch', () => {
         flags: '-B 2',
       })
 
+      // Ripgrep JSON output with -B 2 includes 2 context lines before + match
       const output = [
+        createRgJsonContext('app.ts', 1, 'import React from "react"'),
+        createRgJsonContext('app.ts', 2, ''),
         createRgJsonMatch('app.ts', 3, 'export const main = () => {}'),
+        createRgJsonContext('utils.ts', 8, 'function validateInput(x: string) {'),
+        createRgJsonContext('utils.ts', 9, '  return x.length > 0'),
         createRgJsonMatch('utils.ts', 10, 'export function helper() {}'),
       ].join('\n')
 
@@ -126,8 +154,14 @@ describe('codeSearch', () => {
       const result = await searchPromise
       const value = result[0].value as any
 
-      expect(value.stdout).toContain('app.ts:')
-      expect(value.stdout).toContain('utils.ts:')
+      // Should contain match lines
+      expect(value.stdout).toContain('export const main = () => {}')
+      expect(value.stdout).toContain('export function helper() {}')
+
+      // Should contain before context lines
+      expect(value.stdout).toContain('import React from "react"')
+      expect(value.stdout).toContain('function validateInput(x: string) {')
+      expect(value.stdout).toContain('return x.length > 0')
     })
 
     it('should correctly parse output with -C flag (context before and after)', async () => {
@@ -137,7 +171,12 @@ describe('codeSearch', () => {
         flags: '-C 1',
       })
 
-      const output = createRgJsonMatch('code.ts', 6, '  // TODO: implement this')
+      // Ripgrep JSON output with -C 1 includes 1 line before + match + 1 line after
+      const output = [
+        createRgJsonContext('code.ts', 5, 'function processData() {'),
+        createRgJsonMatch('code.ts', 6, '  // TODO: implement this'),
+        createRgJsonContext('code.ts', 7, '  return null'),
+      ].join('\n')
 
       mockProcess.stdout.emit('data', Buffer.from(output))
       mockProcess.emit('close', 0)
@@ -145,8 +184,60 @@ describe('codeSearch', () => {
       const result = await searchPromise
       const value = result[0].value as any
 
-      expect(value.stdout).toContain('code.ts:')
-      expect(value.stdout).toContain('TODO')
+      // Should contain match line
+      expect(value.stdout).toContain('TODO: implement this')
+
+      // Should contain context lines before and after
+      expect(value.stdout).toContain('function processData() {')
+      expect(value.stdout).toContain('return null')
+    })
+
+    it('should handle -A flag with multiple matches in same file', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        flags: '-A 1',
+      })
+
+      const output = [
+        createRgJsonMatch('file.ts', 1, 'import foo from "foo"'),
+        createRgJsonContext('file.ts', 2, 'import bar from "bar"'),
+        createRgJsonMatch('file.ts', 3, 'import baz from "baz"'),
+        createRgJsonContext('file.ts', 4, ''),
+      ].join('\n')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = result[0].value as any
+
+      // Should contain all matches
+      expect(value.stdout).toContain('import foo from "foo"')
+      expect(value.stdout).toContain('import baz from "baz"')
+
+      // Context line appears as both context and match
+      expect(value.stdout).toContain('import bar from "bar"')
+    })
+
+    it('should handle -B flag at start of file', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        flags: '-B 2',
+      })
+
+      // First line match has no before context
+      const output = createRgJsonMatch('file.ts', 1, 'import foo from "foo"')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = result[0].value as any
+
+      // Should still work with match at file start
+      expect(value.stdout).toContain('import foo from "foo"')
     })
 
     it('should skip separator lines between result groups', async () => {
@@ -261,9 +352,13 @@ describe('codeSearch', () => {
 
       const output = [
         createRgJsonMatch('file.ts', 1, 'test 1'),
+        createRgJsonContext('file.ts', 2, 'context 1'),
         createRgJsonMatch('file.ts', 5, 'test 2'),
+        createRgJsonContext('file.ts', 6, 'context 2'),
         createRgJsonMatch('file.ts', 10, 'test 3'),
+        createRgJsonContext('file.ts', 11, 'context 3'),
         createRgJsonMatch('file.ts', 15, 'test 4'),
+        createRgJsonContext('file.ts', 16, 'context 4'),
       ].join('\n')
 
       mockProcess.stdout.emit('data', Buffer.from(output))
@@ -272,11 +367,19 @@ describe('codeSearch', () => {
       const result = await searchPromise
       const value = result[0].value as any
 
-      // Should be limited to 2 results per file
+      // Should be limited to 2 match results per file (context lines don't count toward limit)
       // Count how many 'test' matches are in the output
       const testMatches = (value.stdout.match(/test \d/g) || []).length
       expect(testMatches).toBeLessThanOrEqual(2)
       expect(value.stdout).toContain('Results limited')
+
+      // Should still include context lines for the matches that are shown
+      if (value.stdout.includes('test 1')) {
+        expect(value.stdout).toContain('context 1')
+      }
+      if (value.stdout.includes('test 2')) {
+        expect(value.stdout).toContain('context 2')
+      }
     })
 
     it('should respect globalMaxResults with context lines', async () => {
@@ -289,9 +392,13 @@ describe('codeSearch', () => {
 
       const output = [
         createRgJsonMatch('file1.ts', 1, 'test 1'),
+        createRgJsonContext('file1.ts', 2, 'context 1'),
         createRgJsonMatch('file1.ts', 5, 'test 2'),
+        createRgJsonContext('file1.ts', 6, 'context 2'),
         createRgJsonMatch('file2.ts', 1, 'test 3'),
+        createRgJsonContext('file2.ts', 2, 'context 3'),
         createRgJsonMatch('file2.ts', 5, 'test 4'),
+        createRgJsonContext('file2.ts', 6, 'context 4'),
       ].join('\n')
 
       mockProcess.stdout.emit('data', Buffer.from(output))
@@ -300,7 +407,7 @@ describe('codeSearch', () => {
       const result = await searchPromise
       const value = result[0].value as any
 
-      // Should be limited globally to 3 results
+      // Should be limited globally to 3 match results (context lines don't count)
       const matches = (value.stdout.match(/test \d/g) || []).length
       expect(matches).toBeLessThanOrEqual(3)
       // Check for either 'Global limit' message or truncation indicator
@@ -308,6 +415,38 @@ describe('codeSearch', () => {
         value.stdout.includes('Global limit') ||
         value.stdout.includes('Results limited')
       expect(hasLimitMessage).toBe(true)
+    })
+
+    it('should not count context lines toward maxResults limit', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'match',
+        flags: '-A 2 -B 2',
+        maxResults: 1,
+      })
+
+      const output = [
+        createRgJsonContext('file.ts', 1, 'context before 1'),
+        createRgJsonContext('file.ts', 2, 'context before 2'),
+        createRgJsonMatch('file.ts', 3, 'match line'),
+        createRgJsonContext('file.ts', 4, 'context after 1'),
+        createRgJsonContext('file.ts', 5, 'context after 2'),
+      ].join('\n')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = result[0].value as any
+
+      // Should include the match
+      expect(value.stdout).toContain('match line')
+
+      // Should include all context lines even though maxResults is 1
+      expect(value.stdout).toContain('context before 1')
+      expect(value.stdout).toContain('context before 2')
+      expect(value.stdout).toContain('context after 1')
+      expect(value.stdout).toContain('context after 2')
     })
   })
 

@@ -68,6 +68,8 @@ export function codeSearch({
     let stderrBuf = ''
     // Track matches by file for grouping and limiting
     const fileGroups = new Map<string, string[]>()
+    // Track match count per file separately from total lines
+    const fileMatchCounts = new Map<string, number>()
     let matchesGlobal = 0
     let estimatedOutputLen = 0
     let killedForLimit = false
@@ -143,8 +145,8 @@ export function codeSearch({
           continue
         }
 
-        // Only process match events
-        if (evt.type === 'match') {
+        // Process both match and context events
+        if (evt.type === 'match' || evt.type === 'context') {
           // Handle both text and bytes for non-UTF8 paths
           const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
           const lineNumber = evt.data.line_number ?? 0
@@ -158,42 +160,57 @@ export function codeSearch({
           // Group by file
           if (!fileGroups.has(filePath)) {
             fileGroups.set(filePath, [])
+            fileMatchCounts.set(filePath, 0)
           }
           const fileLines = fileGroups.get(filePath)!
+          const fileMatchCount = fileMatchCounts.get(filePath)!
 
-          // Apply per-file limit
-          if (fileLines.length < maxResults) {
+          // Only count matches toward limits, not context lines
+          const isMatch = evt.type === 'match'
+
+          // Check if we should include this line
+          // For matches: only if we haven't hit the per-file limit
+          // For context: always include (they don't count toward limit)
+          const shouldInclude = !isMatch || fileMatchCount < maxResults
+
+          if (shouldInclude) {
+            // Add the line to output
             fileLines.push(formattedLine)
-            matchesGlobal++
             estimatedOutputLen += formattedLine.length + 1
 
-            // Check global limit or output size limit
-            if (matchesGlobal >= globalMaxResults || estimatedOutputLen >= maxOutputStringLength) {
-              killedForLimit = true
-              hardKill()
+            // Only increment match counters for actual matches
+            if (isMatch) {
+              fileMatchCounts.set(filePath, fileMatchCount + 1)
+              matchesGlobal++
 
-              // Build final output from collected matches
-              const limitedLines: string[] = []
-              for (const lines of fileGroups.values()) {
-                limitedLines.push(...lines)
+              // Check global limit or output size limit
+              if (matchesGlobal >= globalMaxResults || estimatedOutputLen >= maxOutputStringLength) {
+                killedForLimit = true
+                hardKill()
+
+                // Build final output from collected matches
+                const limitedLines: string[] = []
+                for (const lines of fileGroups.values()) {
+                  limitedLines.push(...lines)
+                }
+                const rawOutput = limitedLines.join('\n')
+                const formattedOutput = formatCodeSearchOutput(rawOutput)
+
+                const finalOutput =
+                  formattedOutput.length > maxOutputStringLength
+                    ? formattedOutput.substring(0, maxOutputStringLength) +
+                      '\n\n[Output truncated]'
+                    : formattedOutput
+
+                const limitReason = matchesGlobal >= globalMaxResults
+                  ? `[Global limit of ${globalMaxResults} results reached.]`
+                  : '[Output size limit reached.]'
+
+                return settle({
+                  stdout: finalOutput + '\n\n' + limitReason,
+                  message: `Stopped early after ${matchesGlobal} match(es).`,
+                })
               }
-              const rawOutput = limitedLines.join('\n')
-              const formattedOutput = formatCodeSearchOutput(rawOutput)
-
-              const finalOutput =
-                formattedOutput.length > maxOutputStringLength
-                  ? formattedOutput.substring(0, maxOutputStringLength) +
-                    '\n\n[Output truncated]'
-                  : formattedOutput
-
-              const limitReason = matchesGlobal >= globalMaxResults
-                ? `[Global limit of ${globalMaxResults} results reached.]`
-                : '[Output size limit reached.]'
-
-              return settle({
-                stdout: finalOutput + '\n\n' + limitReason,
-                message: `Stopped early after ${matchesGlobal} match(es).`,
-              })
             }
           }
         }
@@ -223,7 +240,7 @@ export function codeSearch({
             if (!ln) continue
             try {
               const evt = JSON.parse(ln)
-              if (evt?.type === 'match') {
+              if (evt?.type === 'match' || evt?.type === 'context') {
                 const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
                 const lineNumber = evt.data.line_number ?? 0
                 const rawText = evt.data.lines?.text ?? ''
@@ -232,11 +249,23 @@ export function codeSearch({
 
                 if (!fileGroups.has(filePath)) {
                   fileGroups.set(filePath, [])
+                  fileMatchCounts.set(filePath, 0)
                 }
                 const fileLines = fileGroups.get(filePath)!
-                if (fileLines.length < maxResults && matchesGlobal < globalMaxResults) {
+                const fileMatchCount = fileMatchCounts.get(filePath)!
+                const isMatch = evt.type === 'match'
+
+                // Check if we should include this line
+                const shouldInclude = !isMatch || (fileMatchCount < maxResults && matchesGlobal < globalMaxResults)
+
+                if (shouldInclude) {
                   fileLines.push(formattedLine)
-                  matchesGlobal++
+
+                  // Only increment match counter for actual matches
+                  if (isMatch) {
+                    fileMatchCounts.set(filePath, fileMatchCount + 1)
+                    matchesGlobal++
+                  }
                 }
               }
             } catch {}
@@ -250,8 +279,9 @@ export function codeSearch({
 
       for (const [filename, fileLines] of fileGroups) {
         limitedLines.push(...fileLines)
-        // Note if file was truncated
-        if (fileLines.length >= maxResults) {
+        // Note if file was truncated (based on match count, not total lines)
+        const fileMatchCount = fileMatchCounts.get(filename) ?? 0
+        if (fileMatchCount >= maxResults) {
           truncatedFiles.push(
             `${filename}: limited to ${maxResults} results per file`,
           )
