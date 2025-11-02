@@ -12,6 +12,11 @@ export const createBestOfNImplementor = (options: {
   return {
     publisher,
     model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5',
+    ...(isGpt5 && {
+      reasoningOptions: {
+        effort: 'high',
+      },
+    }),
     displayName: 'Implementation Generator',
     spawnerPrompt:
       'Generates a complete implementation plan with all code changes',

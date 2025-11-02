@@ -9,10 +9,16 @@ export const createBestOfNSelector = (options: {
 }): Omit<SecretAgentDefinition, 'id'> => {
   const { model } = options
   const isSonnet = model === 'sonnet'
+  const isGpt5 = model === 'gpt-5'
 
   return {
     publisher,
     model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5',
+    ...(isGpt5 && {
+      reasoningOptions: {
+        effort: 'high',
+      },
+    }),
     displayName: 'Best-of-N Implementation Selector',
     spawnerPrompt:
       'Analyzes multiple implementation proposals and selects the best one',
