@@ -5,14 +5,14 @@ import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
-
 export const createBase2: (
   mode: 'fast' | 'max',
   options?: {
     hasNoValidation?: boolean
+    planOnly?: boolean
   },
 ) => Omit<SecretAgentDefinition, 'id'> = (mode, options) => {
-  const { hasNoValidation = false } = options ?? {}
+  const { hasNoValidation = false, planOnly = false } = options ?? {}
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
   const isGpt5 = isMax
@@ -54,7 +54,7 @@ export const createBase2: (
       isGpt5 && 'task_completed',
     ),
     spawnableAgents: buildArray(
-      !isGpt5 && 'file-researcher',
+      !isGpt5 && !planOnly && 'file-researcher',
       'file-picker-max',
       'code-searcher',
       'directory-lister',
@@ -139,35 +139,16 @@ The following is the state of the git repository at the start of the conversatio
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 `,
 
-    instructionsPrompt: `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.
-    
-## Example response
-
-The user asks you to implement a new feature. You respond in multiple steps:
-
-${buildArray(
-  !isGpt5 &&
-    '- First, for a new task, you must spawn a file-researcher to find relevant files; consider also spawning a web and/or docs researcher to find relevant information online. (Note: For the first layer, only spawn researchers, not other agents. Do not spawn a code-searcher yet!)',
-  !isGpt5 &&
-    '- Read **ALL** the files that the file-researcher found using the read_files tool. It is important that you read every single file that the file-researcher found. This is the only time you should use read_files on a long list of files -- it is expensive to do this more than once!',
-  `- Consider spawning other agents or reading more files as needed to gather comprehensive context to answer the user's request. When in doubt, read more files!`,
-  isGpt5 &&
-    `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers to gather context as needed. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`,
-  `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'}`,
-  `- You must spawn the ${isGpt5 ? 'best-of-n-orchestrator-gpt-5' : 'best-of-n-orchestrator-fast'} agent to implement the code changes, since it will generate the best code changes from multiple implementation proposals, which the user wants you to do.`,
-  !hasNoValidation &&
-    `- Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands. Don't skip this step!`,
-  `- Inform the user that you have completed the task in one sentence or a few short bullet points. Don't create any markdown summary files or example documentation files, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
-  isGpt5 && `- Use the task_completed tool.`,
-).join('\n')}`,
-    stepPrompt: buildArray(
-      isMax &&
-        `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}. `,
-      `You must spawn the ${isGpt5 ? 'best-of-n-orchestrator-gpt-5' : 'best-of-n-orchestrator-fast'} agent to implement any code changes. Don't forget to do this! `,
-      `After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files or example documentation files, unless asked by the user. If you already summarized your changes, then end turn and don't say anything else.`,
-      isGpt5 &&
-        `IMPORTANT: if you are completely done with the user's request, you must call the task_completed tool to end your turn.`,
-    ).join('\n'),
+    instructionsPrompt: planOnly
+      ? buildPlanOnlyInstructionsPrompt({})
+      : buildImplementationInstructionsPrompt({
+          isGpt5,
+          isFast,
+          hasNoValidation,
+        }),
+    stepPrompt: planOnly
+      ? buildPlanOnlyStepPrompt({})
+      : buildImplementationStepPrompt({ isMax, isGpt5, hasNoValidation }),
 
     handleSteps: function* ({ params }) {
       let steps = 0
@@ -192,3 +173,108 @@ ${buildArray(
 
 const definition = { ...createBase2('fast'), id: 'base2' }
 export default definition
+
+const buildImplementationInstructionsPrompt = ({
+  isGpt5,
+  isFast,
+  hasNoValidation,
+}: {
+  isGpt5: boolean
+  isFast: boolean
+  hasNoValidation: boolean
+}) => {
+  return `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.
+    
+## Example response
+
+The user asks you to implement a new feature. You respond in multiple steps:
+
+${buildArray(
+  !isGpt5 &&
+    '- First, for a new task, you must spawn a file-researcher to find relevant files; consider also spawning a web and/or docs researcher to find relevant information online. (Note: For the first layer, only spawn researchers, not other agents. Do not spawn a code-searcher yet!)',
+  !isGpt5 &&
+    '- Read **ALL** the files that the file-researcher found using the read_files tool. It is important that you read every single file that the file-researcher found. This is the only time you should use read_files on a long list of files -- it is expensive to do this more than once!',
+  !isGpt5 &&
+    `- Consider spawning other agents or reading more files as needed to gather comprehensive context to answer the user's request. When in doubt, read more files!`,
+  isGpt5 &&
+    `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers to gather context as needed. The file-picker-max agent in particular is very useful to use to find relevant files. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`,
+  isGpt5 &&
+    `- Important: Read as many files as could possibly be relevant to the task to improve your understanding of the user's request and produce the best possible code changes. This is frequently 12-20 files, depending on the task.`,
+  `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'}`,
+  `- You must spawn the ${isGpt5 ? 'best-of-n-orchestrator-gpt-5' : 'best-of-n-orchestrator-fast'} agent to implement the code changes, since it will generate the best code changes from multiple implementation proposals, which the user wants you to do.`,
+  !hasNoValidation &&
+    `- Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands. Don't skip this step!`,
+  `- Inform the user that you have completed the task in one sentence or a few short bullet points. Don't create any markdown summary files or example documentation files, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
+  isGpt5 && `- Use the task_completed tool.`,
+).join('\n')}`
+}
+
+const buildPlanOnlyInstructionsPrompt = ({}: {}) => {
+  return `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.
+    
+## Example response
+
+The user asks you to implement a new feature. You respond in multiple steps:
+
+${buildArray(
+  `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers to gather context as needed. The file-picker-max agent in particular is very useful to use to find relevant files. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`,
+  `- After exploring the codebase, translate the user request into a clear and concise spec:
+
+# Creating a spec
+
+The spec should include:
+- A brief title and overview. For the title is preferred to call it a "Plan" rather than a "Spec".
+- A bullet point list of the requirements.
+- An optional "Notes" section detailing any key considerations or constraints or testing requirements.
+- A section with a list of relevant files.
+
+It should not include:
+- A lot of analysis.
+- Sections of actual code.
+- A list of the benefits, performance benefits, or challenges.
+- A step-by-step plan for the implementation.
+- A summary of the spec.
+
+This is more like an extremely short PRD which describes the end result of what the user wants. Think of it like fleshing out the user's prompt to make it more precise, although it should be as short as possible.
+
+Finally, the last optional section is Questions, which can be a numbered list, with alternate choices for each question demarcated by letters.
+
+For example, here is nice short question, where the options are helpfully written out for the user:
+
+1. Do you want to:
+a) (DEFAULT) Keep Express and integrate Bun WebSockets
+b) Migrate the entire HTTP server to Bun.serve()
+
+Try to have as few questions as possible (even none), and focus on the most important decisions or assumptions that it would be helpful to clarify with the user.
+You should also let them know what you plan to do by default, and let them know that they can choose a different option if they want to.
+
+The questions section should be last and there should be no summary or further elaboration. Just end your turn.
+
+On subsequent turns with the user, you should rewrite the spec to reflect the user's choices.`,
+).join('\n')}`
+}
+
+const buildImplementationStepPrompt = ({
+  isMax,
+  isGpt5,
+  hasNoValidation,
+}: {
+  isMax: boolean
+  isGpt5: boolean
+  hasNoValidation: boolean
+}) => {
+  return buildArray(
+    isMax &&
+      `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}. `,
+    `You must spawn the ${isGpt5 ? 'best-of-n-orchestrator-gpt-5' : 'best-of-n-orchestrator-fast'} agent to implement any code changes. Don't forget to do this! `,
+    `After completing the user request, summarize your changes in a sentence or a few short bullet points. Do not create any summary markdown files or example documentation files, unless asked by the user. If you already summarized your changes, then end turn and don't say anything else.`,
+    isGpt5 &&
+      `IMPORTANT: if you are completely done with the user's request, you must call the task_completed tool to end your turn.`,
+  ).join('\n')
+}
+
+const buildPlanOnlyStepPrompt = ({}: {}) => {
+  return buildArray(
+    `Your are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not spawn the best-of-n-orchestrator-fast agent to implement. Do not use the write_todos tool.`,
+  ).join('\n')
+}
