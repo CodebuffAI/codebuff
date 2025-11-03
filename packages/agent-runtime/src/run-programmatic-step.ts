@@ -3,7 +3,6 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { executeToolCall } from './tools/tool-executor'
-import { SandboxManager } from './util/quickjs-sandbox'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
@@ -17,10 +16,7 @@ import type {
 } from '@codebuff/common/types/contracts/client'
 import type { AddAgentStepFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -28,23 +24,16 @@ import type {
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
-// Global sandbox manager for QuickJS contexts
-const sandboxManager = new SandboxManager()
-
 // Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
 const runIdToGenerator: Record<string, StepGenerator | undefined> = {}
 export const runIdToStepAll: Set<string> = new Set()
 
 // Function to clear the generator cache for testing purposes
-export function clearAgentGeneratorCache(
-  params: ParamsOf<typeof sandboxManager.dispose>,
-) {
+export function clearAgentGeneratorCache() {
   for (const key in runIdToGenerator) {
     delete runIdToGenerator[key]
   }
   runIdToStepAll.clear()
-  // Clean up QuickJS sandboxes
-  sandboxManager.dispose(params)
 }
 
 // Function to handle programmatic agents
@@ -129,10 +118,9 @@ export async function runProgrammaticStep(
 
   // Run with either a generator or a sandbox.
   let generator = runIdToGenerator[agentState.runId]
-  let sandbox = sandboxManager.getSandbox({ runId: agentState.runId })
 
   // Check if we need to initialize a generator
-  if (!generator && !sandbox) {
+  if (!generator) {
     const createLogMethod =
       (level: 'debug' | 'info' | 'warn' | 'error') =>
       (data: any, msg?: string) => {
@@ -153,31 +141,19 @@ export async function runProgrammaticStep(
       error: createLogMethod('error'),
     }
 
-    if (typeof template.handleSteps === 'string') {
-      // Initialize QuickJS sandbox for string-based generator
-      sandbox = await sandboxManager.getOrCreateSandbox({
-        runId: agentState.runId,
-        generatorCode: template.handleSteps,
-        initialInput: {
-          agentState,
-          prompt,
-          params: toolCallParams,
-          logger: streamingLogger,
-        },
-        config: undefined, // config
-        sandboxLogger: streamingLogger, // pass the streaming logger instance for internal use
-        logger,
-      })
-    } else {
-      // Initialize native generator
-      generator = template.handleSteps({
-        agentState,
-        prompt,
-        params,
-        logger: streamingLogger,
-      })
-      runIdToGenerator[agentState.runId] = generator
-    }
+    const generatorFn =
+      typeof template.handleSteps === 'string'
+        ? eval(`(${template.handleSteps})`)
+        : template.handleSteps
+
+    // Initialize native generator
+    generator = generatorFn({
+      agentState,
+      prompt,
+      params: toolCallParams,
+      logger: streamingLogger,
+    })
+    runIdToGenerator[agentState.runId] = generator
   }
 
   // Check if we're in STEP_ALL mode
@@ -239,17 +215,11 @@ export async function runProgrammaticStep(
       creditsBefore = state.agentState.directCreditsUsed
       childrenBefore = state.agentState.childRunIds.length
 
-      const result = sandbox
-        ? await sandbox.executeStep({
-            agentState: getPublicAgentState(state.agentState),
-            toolResult,
-            stepsComplete,
-          })
-        : generator!.next({
-            agentState: getPublicAgentState(state.agentState),
-            toolResult,
-            stepsComplete,
-          })
+      const result = generator!.next({
+        agentState: getPublicAgentState(state.agentState),
+        toolResult,
+        stepsComplete,
+      })
 
       if (result.done) {
         endTurn = true
@@ -263,7 +233,7 @@ export async function runProgrammaticStep(
         break
       }
 
-      if (result.value.type === 'STEP_TEXT') {
+      if ('type' in result.value && result.value.type === 'STEP_TEXT') {
         textOverride = result.value.text
         break
       }
@@ -464,10 +434,6 @@ export async function runProgrammaticStep(
     }
   } finally {
     if (endTurn) {
-      if (sandbox) {
-        // Clean up QuickJS sandbox if execution is complete
-        sandboxManager.removeSandbox({ runId: agentState.runId, logger })
-      }
       delete runIdToGenerator[agentState.runId]
       runIdToStepAll.delete(agentState.runId)
     }
