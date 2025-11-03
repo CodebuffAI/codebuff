@@ -55,7 +55,6 @@ export function createBase2(
       isGpt5 && 'task_completed',
     ),
     spawnableAgents: buildArray(
-      !isGpt5 && !planOnly && 'file-researcher',
       'file-picker-max',
       'code-searcher',
       'directory-lister',
@@ -191,16 +190,8 @@ function buildImplementationInstructionsPrompt({
 The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
-  !isGpt5 &&
-    '- First, for a new task, you must spawn a file-researcher to find relevant files; consider also spawning a web and/or docs researcher to find relevant information online. (Note: For the first layer, only spawn researchers, not other agents. Do not spawn a code-searcher yet!)',
-  !isGpt5 &&
-    '- Read **ALL** the files that the file-researcher found using the read_files tool. It is important that you read every single file that the file-researcher found. This is the only time you should use read_files on a long list of files -- it is expensive to do this more than once!',
-  !isGpt5 &&
-    `- Consider spawning other agents or reading more files as needed to gather comprehensive context to answer the user's request. When in doubt, read more files!`,
-  isGpt5 &&
-    `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers to gather context as needed. The file-picker-max agent in particular is very useful to use to find relevant files. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`,
-  isGpt5 &&
-    `- Important: Read as many files as could possibly be relevant to the task to improve your understanding of the user's request and produce the best possible code changes. This is frequently 12-20 files, depending on the task.`,
+  `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and web/docs researchers to gather context as needed. The file-picker-max agent in particular is very useful to use to find relevant files. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`,
+  `- Important: Read as many files as could possibly be relevant to the task to improve your understanding of the user's request and produce the best possible code changes. This is frequently 12-20 files, depending on the task.`,
   `- Use the write_todos tool to write out your step-by-step implementation plan.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'}`,
   `- You must spawn the ${isGpt5 ? 'best-of-n-orchestrator-gpt-5' : 'best-of-n-orchestrator'} agent to implement the code changes, since it will generate the best code changes from multiple implementation proposals, which the user wants you to do.`,
   !hasNoValidation &&
