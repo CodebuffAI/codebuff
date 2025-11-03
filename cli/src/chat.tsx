@@ -54,6 +54,8 @@ import {
   createMarkdownPalette,
   type ChatTheme,
 } from './utils/theme-system'
+import { env } from '@codebuff/common/env'
+import { clientEnvVars } from '@codebuff/common/env-schema'
 import { openFileAtPath } from './utils/open-file'
 import { formatValidationError } from './utils/validation-error-formatting'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
@@ -270,22 +272,26 @@ export const App = ({
         })
       }
 
-      // Log all NEXT_PUBLIC_* environment variables
-      const nextPublicEnvVars = Object.keys(process.env)
-        .filter((key) => key.startsWith('NEXT_PUBLIC_'))
-        .sort()
-      
-      if (nextPublicEnvVars.length > 0) {
-        const envVarsList = nextPublicEnvVars
-          .map((key) => `  ${key}=${process.env[key]}`)
-          .join('\n')
-        
-        blocks.push({
-          type: 'text',
-          content: `\nEnvironment variables:\n${envVarsList}`,
-          marginTop: 1,
+      // Log all client environment variables (works with both dev and binary modes)
+      // In binary mode, env vars are embedded via --define and accessible through the env object
+      // In dev mode, they come from process.env via Infisical
+      const envVarsList = clientEnvVars
+        .map((key) => {
+          const value = env[key]
+          // Truncate long values for display
+          const displayValue =
+            typeof value === 'string' && value.length > 50
+              ? value.substring(0, 47) + '...'
+              : value
+          return `  ${key}=${displayValue}`
         })
-      }
+        .join('\n')
+
+      blocks.push({
+        type: 'text',
+        content: `\nEnvironment variables:\n${envVarsList}`,
+        marginTop: 1,
+      })
 
       // Calculate path from home directory to repository root
       // agentsDir is typically in the root, so use its parent as the repository root
