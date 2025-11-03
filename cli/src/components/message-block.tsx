@@ -4,7 +4,8 @@ import stringWidth from 'string-width'
 
 import { pluralize } from '@codebuff/common/util/string'
 
-import { BranchItem } from './branch-item'
+import { AgentBranchItem } from './agent-branch-item'
+import { ToolCallItem } from './tool-call-item'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import { getToolRenderConfig } from './tool-renderer'
 import {
@@ -161,7 +162,7 @@ export const MessageBlock = ({
     }
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
-    const isCollapsed = true
+    const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
     const isStreaming = streamingAgents.has(toolBlock.toolCallId)
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
@@ -271,18 +272,16 @@ export const MessageBlock = ({
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
       >
-        <BranchItem
+        <ToolCallItem
           name={headerName}
           content={combinedContent}
-          agentId={toolBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
           branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           theme={theme}
-          showBorder={false}
-          toggleEnabled={false}
+          onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
           titleSuffix={toolRenderConfig.path}
         />
       </box>
@@ -349,7 +348,7 @@ export const MessageBlock = ({
         ref={(el: any) => registerAgentRef(agentBlock.agentId, el)}
         style={{ flexDirection: 'column', gap: 0 }}
       >
-        <BranchItem
+        <AgentBranchItem
           name={agentBlock.agentName}
           content={displayContent}
           prompt={agentBlock.initialPrompt}
@@ -438,7 +437,7 @@ export const MessageBlock = ({
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(agentListBlock.id, el)}
       >
-        <BranchItem
+        <AgentBranchItem
           name={headerText}
           content={agentListContent}
           agentId={agentListBlock.id}

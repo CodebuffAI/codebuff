@@ -1,24 +1,11 @@
 import { TextAttributes, type BorderCharacters } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
-const containerBorderChars: BorderCharacters = {
-  topLeft: '╭',
-  topRight: '╮',
-  bottomLeft: '╰',
-  bottomRight: '╯',
-  horizontal: '─',
-  vertical: '│',
-  topT: '┬',
-  bottomT: '┴',
-  leftT: '├',
-  rightT: '┤',
-  cross: '┼',
-}
-
-import type { ChatTheme } from '../utils/theme-system'
 import { RaisedPill } from './raised-pill'
 
-interface BranchItemProps {
+import type { ChatTheme } from '../utils/theme-system'
+
+interface AgentBranchItemProps {
   name: string
   content: ReactNode
   prompt?: string
@@ -38,7 +25,21 @@ interface BranchItemProps {
   titleSuffix?: string
 }
 
-export const BranchItem = ({
+const containerBorderChars: BorderCharacters = {
+  topLeft: '╭',
+  topRight: '╮',
+  bottomLeft: '╰',
+  bottomRight: '╯',
+  horizontal: '─',
+  vertical: '│',
+  topT: '┬',
+  bottomT: '┴',
+  leftT: '├',
+  rightT: '┤',
+  cross: '┼',
+}
+
+export const AgentBranchItem = ({
   name,
   content,
   prompt,
@@ -56,7 +57,7 @@ export const BranchItem = ({
   showBorder = true,
   toggleEnabled = true,
   titleSuffix,
-}: BranchItemProps) => {
+}: AgentBranchItemProps) => {
   const resolveFg = (
     color?: string | null,
     fallback?: string | null,
@@ -99,8 +100,7 @@ export const BranchItem = ({
         : `${statusIndicator} ${statusLabel}`
       : null
   const showCollapsedPreview =
-    (isStreaming && !!streamingPreview) ||
-    (!isStreaming && !!finishedPreview)
+    (isStreaming && !!streamingPreview) || (!isStreaming && !!finishedPreview)
 
   const isTextRenderable = (value: ReactNode): boolean => {
     if (value === null || value === undefined || typeof value === 'boolean') {
