@@ -1,6 +1,8 @@
 import { TextAttributes, type BorderCharacters } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
+import type { ChatTheme } from '../types/theme-system'
+
 const borderCharsWithoutVertical: BorderCharacters = {
   topLeft: '┌',
   topRight: '┐',
@@ -14,8 +16,6 @@ const borderCharsWithoutVertical: BorderCharacters = {
   rightT: ' ',
   cross: ' ',
 }
-
-import type { ChatTheme } from '../utils/theme-system'
 
 interface BranchItemProps {
   name: string
@@ -170,16 +170,17 @@ export const BranchItem = ({
           </text>
         </box>
         <box style={{ flexShrink: 1, marginBottom: 0 }}>
-          {isCollapsed && (isStreaming ? streamingPreview : finishedPreview) && (
-            <text
-              key={isStreaming ? 'streaming-preview' : 'finished-preview'}
-              wrap
-              fg={isStreaming ? theme.agentText : theme.agentResponseCount}
-              attributes={TextAttributes.ITALIC}
-            >
-              {isStreaming ? streamingPreview : finishedPreview}
-            </text>
-          )}
+          {isCollapsed &&
+            (isStreaming ? streamingPreview : finishedPreview) && (
+              <text
+                key={isStreaming ? 'streaming-preview' : 'finished-preview'}
+                wrap
+                fg={isStreaming ? theme.agentText : theme.agentResponseCount}
+                attributes={TextAttributes.ITALIC}
+              >
+                {isStreaming ? streamingPreview : finishedPreview}
+              </text>
+            )}
           {!isCollapsed && (
             <box style={{ flexDirection: 'column', gap: 1 }}>
               {content && (

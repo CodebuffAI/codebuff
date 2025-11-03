@@ -2,10 +2,9 @@ import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
 import { getCodebuffClient } from '../utils/codebuff-client'
-import { logger } from '../utils/logger'
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
-import type { ChatTheme } from '../utils/theme-system'
+import type { ChatTheme } from '../types/theme-system'
 
 const useConnectionStatus = () => {
   const [isConnected, setIsConnected] = useState(true)

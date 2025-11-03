@@ -1,12 +1,12 @@
-import { AgentMode } from '../utils/constants'
-import type { ChatTheme } from '../utils/theme-system'
+import type { ChatTheme } from '../types/theme-system'
+import type { AgentMode } from '../utils/constants'
 
 export const AgentModeToggle = ({
   mode,
   theme,
   onToggle,
 }: {
-  mode: AgentMode,
+  mode: AgentMode
   theme: ChatTheme
   onToggle: () => void
 }) => {

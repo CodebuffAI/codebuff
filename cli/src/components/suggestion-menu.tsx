@@ -1,6 +1,6 @@
 import React from 'react'
 
-import type { ChatTheme } from '../utils/theme-system'
+import type { ChatTheme } from '../types/theme-system'
 
 export interface SuggestionItem {
   id: string

@@ -1,7 +1,6 @@
+import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
-
-import { pluralize } from '@codebuff/common/util/string'
 
 import { BranchItem } from './branch-item'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
@@ -13,8 +12,8 @@ import {
 } from '../utils/markdown-renderer'
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
-import type { ContentBlock } from '../chat'
-import type { ChatTheme } from '../utils/theme-system'
+import type { ContentBlock } from '../types/chat'
+import type { ChatTheme } from '../types/theme-system'
 
 const trimTrailingNewlines = (value: string): string =>
   value.replace(/[\r\n]+$/g, '')
@@ -462,11 +461,7 @@ export const MessageBlock = ({
       markdownOptions,
     )
     return (
-      <text
-        key={`message-content-${messageId}`}
-        wrap
-        style={{ fg: textColor }}
-      >
+      <text key={`message-content-${messageId}`} wrap style={{ fg: textColor }}>
         {displayContent}
       </text>
     )

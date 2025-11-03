@@ -8,9 +8,10 @@ import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 
-import type { ChatMessage, ContentBlock } from '../chat'
 import type { ElapsedTimeTracker } from './use-elapsed-time'
-import type { AgentMode } from '../utils/constants'
+import type { ChatMessage, ContentBlock } from '../types/chat'
+import type { SendMessageFn } from '../types/contracts/send-message'
+import type { ParamsOf } from '../types/function-params'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 
@@ -226,7 +227,7 @@ export const useSendMessage = ({
   scrollToLatest,
   availableWidth = 80,
   onTimerEvent = () => {},
-}: UseSendMessageOptions) => {
+}: UseSendMessageOptions): { sendMessage: SendMessageFn } => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
@@ -350,9 +351,9 @@ export const useSendMessage = ({
     }
   }, [flushPendingUpdates])
 
-  const sendMessage = useCallback(
-    async (content: string, params: { agentMode: AgentMode }) => {
-      const { agentMode } = params
+  const sendMessage = useCallback<SendMessageFn>(
+    async (params: ParamsOf<SendMessageFn>) => {
+      const { content, agentMode, postUserMessage } = params
       const timestamp = formatTimestamp()
 
       const timerController = createSendMessageTimerController({
@@ -370,7 +371,10 @@ export const useSendMessage = ({
       }
 
       applyMessageUpdate((prev) => {
-        const newMessages = [...prev, userMessage]
+        let newMessages = [...prev, userMessage]
+        if (postUserMessage) {
+          newMessages = postUserMessage(newMessages)
+        }
         if (newMessages.length > 100) {
           return newMessages.slice(-100)
         }

@@ -2,14 +2,7 @@ import os from 'os'
 import path from 'path'
 
 import { useRenderer, useTerminalDimensions } from '@opentui/react'
-import React, {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import stringWidth from 'string-width'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -37,6 +30,7 @@ import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
+import { handleSlashCommands } from './slash-commands/handlers'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
@@ -50,86 +44,17 @@ import {
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { openFileAtPath } from './utils/open-file'
-import { handleSlashCommands } from './utils/slash-commands'
-import {
-  chatThemes,
-  createMarkdownPalette,
-  type ChatTheme,
-} from './utils/theme-system'
+import { chatThemes, createMarkdownPalette } from './utils/theme-system'
 import { formatValidationError } from './utils/validation-error-formatting'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
+import type { ChatMessage, ContentBlock } from './types/chat'
+import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
-import type { AgentMode } from './utils/constants'
-import type { ToolName } from '@codebuff/sdk'
 import type { ScrollBoxRenderable } from '@opentui/core'
-
-type ChatVariant = 'ai' | 'user' | 'agent' | 'error'
 
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
-
-// LOGO_BLOCK moved to component to be reactive to terminal width changes
-
-type AgentMessage = {
-  agentName: string
-  agentType: string
-  responseCount: number
-  subAgentCount?: number
-}
-
-export type ContentBlock =
-  | {
-      type: 'text'
-      content: string
-      marginTop?: number
-      marginBottom?: number
-    }
-  | {
-      type: 'html'
-      marginTop?: number
-      marginBottom?: number
-      render: (context: { textColor: string; theme: ChatTheme }) => ReactNode
-    }
-  | {
-      type: 'tool'
-      toolCallId: string
-      toolName: ToolName
-      input: any
-      output?: string
-      agentId?: string
-    }
-  | {
-      type: 'agent'
-      agentId: string
-      agentName: string
-      agentType: string
-      content: string
-      status: 'running' | 'complete'
-      blocks?: ContentBlock[]
-      initialPrompt?: string
-    }
-  | {
-      type: 'agent-list'
-      id: string
-      agents: Array<{ id: string; displayName: string }>
-      agentsDir: string
-    }
-
-export type ChatMessage = {
-  id: string
-  variant: ChatVariant
-  content: string
-  blocks?: ContentBlock[]
-  timestamp: string
-  parentId?: string
-  agent?: AgentMessage
-  isCompletion?: boolean
-  credits?: number
-  completionTime?: string
-  isComplete?: boolean
-  metadata?: Record<string, any>
-}
 
 export const App = ({
   initialPrompt,
@@ -788,10 +713,7 @@ export const App = ({
     setInputValue,
   )
 
-  const sendMessageRef =
-    useRef<
-      (content: string, params: { agentMode: AgentMode }) => Promise<void>
-    >()
+  const sendMessageRef = useRef<SendMessageFn>()
 
   const {
     queuedMessages,
@@ -806,7 +728,7 @@ export const App = ({
     setIsStreaming,
   } = useMessageQueue(
     (content: string) =>
-      sendMessageRef.current?.(content, { agentMode }) ?? Promise.resolve(),
+      sendMessageRef.current?.({ content, agentMode }) ?? Promise.resolve(),
     isChainInProgressRef,
     activeAgentStreamsRef,
   )
@@ -870,7 +792,7 @@ export const App = ({
       const timeout = setTimeout(() => {
         logger.info({ prompt: initialPrompt }, 'Auto-submitting initial prompt')
         if (sendMessageRef.current) {
-          sendMessageRef.current(initialPrompt, { agentMode })
+          sendMessageRef.current({ content: initialPrompt, agentMode })
         }
       }, 100)
 
@@ -888,28 +810,29 @@ export const App = ({
   )
 
   const handleSubmit = useCallback(
-    () => handleSlashCommands({
-      abortControllerRef,
-      agentMode,
-      inputRef,
-      inputValue,
-      isChainInProgressRef,
-      isStreaming,
-      logoutMutation,
-      streamMessageIdRef,
-      addToQueue,
-      handleCtrlC,
-      saveToHistory,
-      scrollToLatest,
-      sendMessage,
-      setCanProcessQueue,
-      setInputFocused,
-      setInputValue,
-      setIsAuthenticated,
-      setMessages,
-      setUser,
-      stopStreaming,
-    }),
+    () =>
+      handleSlashCommands({
+        abortControllerRef,
+        agentMode,
+        inputRef,
+        inputValue,
+        isChainInProgressRef,
+        isStreaming,
+        logoutMutation,
+        streamMessageIdRef,
+        addToQueue,
+        handleCtrlC,
+        saveToHistory,
+        scrollToLatest,
+        sendMessage,
+        setCanProcessQueue,
+        setInputFocused,
+        setInputValue,
+        setIsAuthenticated,
+        setMessages,
+        setUser,
+        stopStreaming,
+      }),
     [
       inputValue,
       isStreaming,

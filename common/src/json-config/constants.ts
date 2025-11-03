@@ -1,5 +1,6 @@
-import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 import { z } from 'zod/v4'
+
+import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
 export const codebuffConfigFile = 'codebuff.json'
 export const codebuffConfigFileBackup = 'codebuff.jsonc'
@@ -117,3 +118,11 @@ export type StartupProcess = z.infer<typeof StartupProcessSchema>
  * for the entire configuration structure.
  */
 export type CodebuffConfig = z.infer<typeof CodebuffConfigSchema>
+
+export const INITIAL_CODEBUFF_CONFIG: z.input<typeof CodebuffConfigSchema> = {
+  description:
+    'Template configuration for this project. See https://www.codebuff.com/config for all options.',
+  startupProcesses: [],
+  fileChangeHooks: [],
+  maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
+}

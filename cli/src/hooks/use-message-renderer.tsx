@@ -11,8 +11,8 @@ import {
 import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
-import type { ChatMessage } from '../chat'
-import type { ChatTheme } from '../utils/theme-system'
+import type { ChatMessage } from '../types/chat'
+import type { ChatTheme } from '../types/theme-system'
 
 interface UseMessageRendererProps {
   messages: ChatMessage[]
@@ -275,8 +275,16 @@ export const useMessageRenderer = (
       const isUser = message.variant === 'user'
       const isError = message.variant === 'error'
       const lineColor = isError ? 'red' : isAi ? theme.aiLine : theme.userLine
-      const textColor = isError ? theme.messageAiText : isAi ? theme.messageAiText : theme.messageUserText
-      const timestampColor = isError ? 'red' : isAi ? theme.timestampAi : theme.timestampUser
+      const textColor = isError
+        ? theme.messageAiText
+        : isAi
+          ? theme.messageAiText
+          : theme.messageUserText
+      const timestampColor = isError
+        ? 'red'
+        : isAi
+          ? theme.timestampAi
+          : theme.timestampUser
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
       const paletteForMessage: MarkdownPalette = {

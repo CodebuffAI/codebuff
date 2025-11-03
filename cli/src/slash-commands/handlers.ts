@@ -1,7 +1,10 @@
-import type { User } from './auth'
-import type { AgentMode } from './constants'
+import { handleInitializationFlowLocally } from './init'
+
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { ChatMessage } from '../types/chat'
+import type { SendMessageFn } from '../types/contracts/send-message'
+import type { User } from '../utils/auth'
+import type { AgentMode } from '../utils/constants'
 import type { UseMutationResult } from '@tanstack/react-query'
 
 export function handleSlashCommands(params: {
@@ -17,10 +20,7 @@ export function handleSlashCommands(params: {
   handleCtrlC: () => true
   saveToHistory: (message: string) => void
   scrollToLatest: () => void
-  sendMessage: (
-    content: string,
-    params: { agentMode: AgentMode },
-  ) => Promise<void>
+  sendMessage: SendMessageFn
   setCanProcessQueue: (value: React.SetStateAction<boolean>) => void
   setInputFocused: (focused: boolean) => void
   setInputValue: (value: string | ((prev: string) => string)) => void
@@ -56,6 +56,9 @@ export function handleSlashCommands(params: {
 
   const trimmed = inputValue.trim()
   if (!trimmed) return
+
+  let postUserMessage: Parameters<SendMessageFn>[0]['postUserMessage'] =
+    undefined
 
   const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
   const cmd = normalized.split(/\s+/)[0].toLowerCase()
@@ -103,12 +106,13 @@ export function handleSlashCommands(params: {
     return
   }
 
-  if (cmd === 'init') {
-    // do not return, continue on to send to agent-runtime
-  }
-
   saveToHistory(trimmed)
   setInputValue('')
+
+  if (cmd === 'init') {
+    ;({ postUserMessage } = handleInitializationFlowLocally())
+    // do not return, continue on to send to agent-runtime
+  }
 
   if (
     isStreaming ||
@@ -121,7 +125,7 @@ export function handleSlashCommands(params: {
     return
   }
 
-  sendMessage(trimmed, { agentMode })
+  sendMessage({ content: trimmed, agentMode, postUserMessage })
 
   setTimeout(() => {
     scrollToLatest()
