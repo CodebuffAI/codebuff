@@ -29,7 +29,7 @@ const runIdToGenerator: Record<string, StepGenerator | undefined> = {}
 export const runIdToStepAll: Set<string> = new Set()
 
 // Function to clear the generator cache for testing purposes
-export function clearAgentGeneratorCache() {
+export function clearAgentGeneratorCache(params: { logger: Logger }) {
   for (const key in runIdToGenerator) {
     delete runIdToGenerator[key]
   }
