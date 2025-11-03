@@ -49,6 +49,7 @@ export function createBase2(
     toolNames: buildArray(
       'spawn_agents',
       'read_files',
+      'read_subtree',
       'write_todos',
       'str_replace',
       'write_file',
