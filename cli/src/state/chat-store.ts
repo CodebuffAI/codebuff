@@ -2,9 +2,8 @@ import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
-import { formatTimestamp } from '../utils/helpers'
-
 import type { ChatMessage } from '../chat'
+import type { AgentMode } from '../utils/constants'
 
 export type ChatStoreState = {
   messages: ChatMessage[]
@@ -17,7 +16,7 @@ export type ChatStoreState = {
   isChainInProgress: boolean
   slashSelectedIndex: number
   agentSelectedIndex: number
-  agentMode: 'FAST' | 'MAX'
+  agentMode: AgentMode
 }
 
 type ChatStoreActions = {
@@ -41,7 +40,7 @@ type ChatStoreActions = {
   setIsChainInProgress: (active: boolean) => void
   setSlashSelectedIndex: (value: number | ((prev: number) => number)) => void
   setAgentSelectedIndex: (value: number | ((prev: number) => number)) => void
-  setAgentMode: (mode: 'FAST' | 'MAX') => void
+  setAgentMode: (mode: AgentMode) => void
   toggleAgentMode: () => void
   reset: () => void
 }

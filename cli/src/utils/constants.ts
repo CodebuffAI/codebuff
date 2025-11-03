@@ -7,3 +7,6 @@ export const HIDDEN_AGENT_IDS = ['codebuff/context-pruner'] as const
 export const shouldHideAgent = (agentId: string): boolean => {
   return HIDDEN_AGENT_IDS.some((hiddenId) => agentId.includes(hiddenId))
 }
+
+const agentModes = ['FAST', 'MAX'] as const
+export type AgentMode = (typeof agentModes)[number]

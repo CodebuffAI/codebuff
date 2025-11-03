@@ -2,16 +2,17 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import { shouldHideAgent } from '../utils/constants'
+import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
-import { logger } from '../utils/logger'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
-import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
+import { logger } from '../utils/logger'
 
 import type { ChatMessage, ContentBlock } from '../chat'
+import type { ElapsedTimeTracker } from './use-elapsed-time'
+import type { AgentMode } from '../utils/constants'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
-import type { ElapsedTimeTracker } from './use-elapsed-time'
 
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
@@ -350,7 +351,7 @@ export const useSendMessage = ({
   }, [flushPendingUpdates])
 
   const sendMessage = useCallback(
-    async (content: string, params: { agentMode: 'FAST' | 'MAX' }) => {
+    async (content: string, params: { agentMode: AgentMode }) => {
       const { agentMode } = params
       const timestamp = formatTimestamp()
 
@@ -410,7 +411,10 @@ export const useSendMessage = ({
           return
         }
       } catch (error) {
-        logger.error({ error }, 'Validation before message send failed with exception')
+        logger.error(
+          { error },
+          'Validation before message send failed with exception',
+        )
 
         const errorMessage: ChatMessage = {
           id: `error-${Date.now()}`,
@@ -1420,7 +1424,8 @@ export const useSendMessage = ({
 
         const elapsedMs = timerResult?.elapsedMs ?? 0
         const elapsedSeconds = Math.floor(elapsedMs / 1000)
-        const completionTime = elapsedSeconds > 0 ? `${elapsedSeconds}s` : undefined
+        const completionTime =
+          elapsedSeconds > 0 ? `${elapsedSeconds}s` : undefined
 
         applyMessageUpdate((prev) =>
           prev.map((msg) =>
