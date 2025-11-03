@@ -1,15 +1,15 @@
 import path from 'path'
-import React from 'react'
 
 import { pluralize } from '@codebuff/common/util/string'
+import React from 'react'
 
-import { formatValidationError } from './validation-error-formatting'
 import { openFileAtPath } from './open-file'
+import { formatValidationError } from './validation-error-formatting'
 import { TerminalLink } from '../components/terminal-link'
 import { getProjectRoot } from '../project-files'
 
-import type { ContentBlock } from '../chat'
 import type { LocalAgentInfo } from './local-agent-registry'
+import type { ContentBlock } from '../types/chat'
 
 export interface CreateValidationErrorBlocksOptions {
   errors: Array<{ id: string; message: string }>

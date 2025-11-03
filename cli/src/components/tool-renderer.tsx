@@ -2,7 +2,7 @@ import { TextAttributes } from '@opentui/core'
 import React from 'react'
 import stringWidth from 'string-width'
 
-import type { ContentBlock } from '../chat'
+import type { ContentBlock } from '../types/chat'
 import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
 
 type ToolBlock = Extract<ContentBlock, { type: 'tool' }>

@@ -16,8 +16,8 @@ import {
 } from '../utils/markdown-renderer'
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
-import type { ContentBlock } from '../chat'
-import type { ChatTheme, ThemeColor } from '../utils/theme-system'
+import type { ContentBlock } from '../types/chat'
+import type { ChatTheme, ThemeColor } from '../types/theme-system'
 import { resolveThemeColor } from '../utils/theme-system'
 
 const trimTrailingNewlines = (value: string): string =>

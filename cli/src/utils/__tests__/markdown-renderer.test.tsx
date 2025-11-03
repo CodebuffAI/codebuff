@@ -209,4 +209,121 @@ describe('markdown renderer', () => {
     expect(textContent).toContain('|')
     expect(textContent).toContain('---')
   })
+
+  test('renders code fence followed by text with quotes correctly', () => {
+    const markdown = `\`\`\`bash
+# Start using it
+codebuff "add a new feature to handle user authentication"
+\`\`\``
+    const output = renderMarkdown(markdown)
+    const nodes = flattenNodes(output)
+
+    // Get the text content from all nodes
+    const textContent = nodes
+      .map((node) => {
+        if (typeof node === 'string') return node
+        if (React.isValidElement(node)) {
+          return flattenChildren(node.props.children).join('')
+        }
+        return ''
+      })
+      .join('')
+
+    // Should contain the complete command text
+    expect(textContent).toContain('# Start using it')
+    expect(textContent).toContain('codebuff "add a new feature to handle user authentication"')
+    
+    // Should NOT have quotes concatenated with backticks
+    expect(textContent).not.toContain('it"')
+    expect(textContent).not.toContain('```"')
+  })
+
+  test('renders inline code followed by quotes correctly', () => {
+    const markdown = 'Use `codebuff "fix bug"` to fix bugs.'
+    const output = renderMarkdown(markdown)
+    const nodes = flattenNodes(output)
+
+    expect(nodes[0]).toBe('Use ')
+
+    const inlineCode = nodes[1] as React.ReactElement
+    expect(inlineCode.props.fg).toBe('brightYellow')
+    const inlineContent = flattenChildren(inlineCode.props.children).join('')
+    expect(inlineContent).toContain('codebuff "fix bug"')
+
+    expect(nodes[2]).toBe(' to fix bugs.')
+    
+    // Verify quotes are inside the inline code, not concatenated after
+    expect(inlineContent).toMatch(/codebuff\s+"fix bug"/)
+  })
+
+  test('renders multiple code blocks with text between them', () => {
+    const markdown = `First block:
+
+\`\`\`js
+console.log("hello")
+\`\`\`
+
+Middle text with "quotes"
+
+\`\`\`js
+console.log("world")
+\`\`\``
+    const output = renderMarkdown(markdown)
+    const nodes = flattenNodes(output)
+
+    const textContent = nodes
+      .map((node) => {
+        if (typeof node === 'string') return node
+        if (React.isValidElement(node)) {
+          return flattenChildren(node.props.children).join('')
+        }
+        return ''
+      })
+      .join('')
+
+    // All content should be present
+    expect(textContent).toContain('First block:')
+    expect(textContent).toContain('console.log("hello")')
+    expect(textContent).toContain('Middle text with "quotes"')
+    expect(textContent).toContain('console.log("world")')
+    
+    // Verify no quote concatenation issues
+    expect(textContent).not.toContain('```"')
+    expect(textContent).not.toContain('"```')
+  })
+
+  test('renders code fence with command and quotes on same line', () => {
+    const markdown = `\`\`\`bash
+codebuff "implement feature" --verbose
+\`\`\``
+    const output = renderMarkdown(markdown)
+    const nodes = flattenNodes(output)
+
+    const textContent = nodes
+      .map((node) => {
+        if (typeof node === 'string') return node
+        if (React.isValidElement(node)) {
+          return flattenChildren(node.props.children).join('')
+        }
+        return ''
+      })
+      .join('')
+
+    // Should preserve the complete command with quotes
+    expect(textContent).toContain('codebuff "implement feature" --verbose')
+    expect(textContent).not.toContain('```"')
+  })
+
+  test('renders inline code with special characters correctly', () => {
+    const markdown = 'Run `git commit -m "fix: bug"` to commit.'
+    const output = renderMarkdown(markdown)
+    const nodes = flattenNodes(output)
+
+    const inlineCode = nodes[1] as React.ReactElement
+    const inlineContent = flattenChildren(inlineCode.props.children).join('')
+    
+    // Should preserve quotes and special characters within inline code
+    expect(inlineContent).toContain('git commit -m "fix: bug"')
+    expect(nodes[2]).toBe(' to commit.')
+  })
 })

@@ -2,7 +2,7 @@ import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
-import type { ChatMessage } from '../chat'
+import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 
 export type ChatStoreState = {

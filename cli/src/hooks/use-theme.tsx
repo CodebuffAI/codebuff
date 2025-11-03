@@ -13,8 +13,8 @@ import React, {
   useCallback,
 } from 'react'
 
-import { chatTheme, onThemeChange, cloneChatTheme } from '../utils/theme-system'
-import type { ChatTheme } from '../utils/theme-system'
+import { chatThemes, cloneChatTheme, detectSystemTheme } from '../utils/theme-system'
+import type { ChatTheme } from '../types/theme-system'
 import type { ThemeVariant } from '../utils/theme-config'
 import {
   getVariantConfig,
@@ -57,22 +57,11 @@ interface ThemeProviderProps {
  * Wraps app and provides theme context with variant support
  */
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  // Track base theme and resolved name
-  const [baseTheme, setBaseTheme] = useState<ChatTheme>(() =>
-    cloneChatTheme(chatTheme),
+  // Detect system theme and get base theme
+  const [resolvedThemeName] = useState<'dark' | 'light'>(() => detectSystemTheme())
+  const [baseTheme] = useState<ChatTheme>(() =>
+    cloneChatTheme(chatThemes[resolvedThemeName]),
   )
-  const [resolvedThemeName, setResolvedThemeName] = useState<'dark' | 'light'>(
-    'light',
-  )
-
-  // Subscribe to theme changes from auto-detection
-  useEffect(() => {
-    const unsubscribe = onThemeChange((updatedTheme, meta) => {
-      setBaseTheme(cloneChatTheme(updatedTheme))
-      setResolvedThemeName(meta.resolvedThemeName)
-    })
-    return unsubscribe
-  }, [])
 
   /**
    * Build a theme for a specific variant

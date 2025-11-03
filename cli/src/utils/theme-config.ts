@@ -6,7 +6,7 @@
  * automatic light/dark mode detection.
  */
 
-import type { ChatTheme } from './theme-system'
+import type { ChatTheme } from '../types/theme-system'
 
 /**
  * Theme variant types for different component use cases
