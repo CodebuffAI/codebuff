@@ -5,13 +5,14 @@ import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
-export const createBase2: (
+
+export function createBase2(
   mode: 'fast' | 'max',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
   },
-) => Omit<SecretAgentDefinition, 'id'> = (mode, options) => {
+): Omit<SecretAgentDefinition, 'id'> {
   const { hasNoValidation = false, planOnly = false } = options ?? {}
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
@@ -174,7 +175,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 const definition = { ...createBase2('fast'), id: 'base2' }
 export default definition
 
-const buildImplementationInstructionsPrompt = ({
+function buildImplementationInstructionsPrompt({
   isGpt5,
   isFast,
   hasNoValidation,
@@ -182,7 +183,7 @@ const buildImplementationInstructionsPrompt = ({
   isGpt5: boolean
   isFast: boolean
   hasNoValidation: boolean
-}) => {
+}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.
     
 ## Example response
@@ -209,7 +210,7 @@ ${buildArray(
 ).join('\n')}`
 }
 
-const buildPlanOnlyInstructionsPrompt = ({}: {}) => {
+function buildPlanOnlyInstructionsPrompt({}: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.
     
 ## Example response
@@ -254,7 +255,7 @@ On subsequent turns with the user, you should rewrite the spec to reflect the us
 ).join('\n')}`
 }
 
-const buildImplementationStepPrompt = ({
+function buildImplementationStepPrompt({
   isMax,
   isGpt5,
   hasNoValidation,
@@ -262,7 +263,7 @@ const buildImplementationStepPrompt = ({
   isMax: boolean
   isGpt5: boolean
   hasNoValidation: boolean
-}) => {
+}) {
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}. `,
@@ -273,7 +274,7 @@ const buildImplementationStepPrompt = ({
   ).join('\n')
 }
 
-const buildPlanOnlyStepPrompt = ({}: {}) => {
+function buildPlanOnlyStepPrompt({}: {}) {
   return buildArray(
     `Your are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not spawn the best-of-n-orchestrator-fast agent to implement. Do not use the write_todos tool.`,
   ).join('\n')
