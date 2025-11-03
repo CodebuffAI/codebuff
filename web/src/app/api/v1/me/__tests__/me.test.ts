@@ -2,7 +2,7 @@ import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-run
 import { describe, test, expect, beforeEach } from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { meGet } from '../_get'
+import { getMe } from '../_get'
 
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { GetUserInfoFromApiKeyOutput } from '@codebuff/common/types/contracts/database'
@@ -49,7 +49,7 @@ describe('/api/v1/me route', () => {
   describe('Authentication', () => {
     test('returns 401 when Authorization header is missing', async () => {
       const req = new NextRequest('http://localhost:3000/api/v1/me')
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -63,7 +63,7 @@ describe('/api/v1/me route', () => {
       const req = new NextRequest('http://localhost:3000/api/v1/me', {
         headers: { Authorization: 'InvalidFormat' },
       })
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -79,7 +79,7 @@ describe('/api/v1/me route', () => {
         headers: { 'x-codebuff-api-key': apiKey },
       })
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -94,7 +94,7 @@ describe('/api/v1/me route', () => {
         headers: { Authorization: `Bearer ${apiKey}` },
       })
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -108,7 +108,7 @@ describe('/api/v1/me route', () => {
         headers: { Authorization: 'Bearer invalid-key' },
       })
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -124,7 +124,7 @@ describe('/api/v1/me route', () => {
         headers: { Authorization: 'Bearer test-api-key-123' },
       })
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -141,7 +141,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -158,7 +158,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -179,7 +179,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -200,7 +200,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -220,7 +220,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -237,7 +237,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -251,7 +251,7 @@ describe('/api/v1/me route', () => {
         headers: { Authorization: 'Bearer test-api-key-123' },
       })
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -268,7 +268,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -285,7 +285,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -306,7 +306,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -322,7 +322,7 @@ describe('/api/v1/me route', () => {
         headers: { Authorization: 'Bearer test-api-key-123' },
       })
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -339,7 +339,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })
@@ -354,7 +354,7 @@ describe('/api/v1/me route', () => {
         },
       )
 
-      const response = await meGet({
+      const response = await getMe({
         ...agentRuntimeImpl,
         req,
       })

@@ -412,6 +412,27 @@ export const App = ({
         ),
       })
 
+
+
+      blocks.push({
+        type: 'html',
+        render: () => (
+          <text style={{ wrapMode: 'word' }}>
+            <span fg={baseTextColorValue}>
+              Codebuff can read and write files in{' '}
+              <TerminalLink
+                text={displayPath}
+                color="#3b82f6"
+                inline={true}
+                underlineOnHover={true}
+                onActivate={() => openFileAtPath(repoRoot)}
+              />
+              , and run terminal commands to help you build.
+            </span>
+          </text>
+        ),
+      })
+
       blocks.push({
         type: 'agent-list',
         id: listId,

@@ -10,7 +10,10 @@ import type {
   GetAgentRunFromIdFn,
   GetUserInfoFromApiKeyFn,
 } from '@codebuff/common/types/contracts/database'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  Logger,
+  LoggerWithContextFn,
+} from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
 import {
@@ -19,10 +22,11 @@ import {
 } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
-export async function chatCompletionsPost(params: {
+export async function postChatCompletions(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
+  loggerWithContext: LoggerWithContextFn
   trackEvent: TrackEventFn
   getUserUsageData: GetUserUsageDataFn
   getAgentRunFromId: GetAgentRunFromIdFn
@@ -32,13 +36,14 @@ export async function chatCompletionsPost(params: {
   const {
     req,
     getUserInfoFromApiKey,
-    logger,
+    loggerWithContext,
     trackEvent,
     getUserUsageData,
     getAgentRunFromId,
     fetch,
     insertMessageBigquery,
   } = params
+  let { logger } = params
 
   try {
     // Parse request body
@@ -80,7 +85,7 @@ export async function chatCompletionsPost(params: {
     // Get user info
     const userInfo = await getUserInfoFromApiKey({
       apiKey,
-      fields: ['id'],
+      fields: ['id', 'email', 'discord_id'],
       logger,
     })
     if (!userInfo) {
@@ -97,6 +102,7 @@ export async function chatCompletionsPost(params: {
         { status: 401 },
       )
     }
+    logger = loggerWithContext({ userInfo })
 
     const userId = userInfo.id
 
@@ -107,6 +113,7 @@ export async function chatCompletionsPost(params: {
       properties: {
         hasStream: !!bodyStream,
         hasRunId: !!runId,
+        userInfo,
       },
       logger,
     })
@@ -249,12 +256,16 @@ export async function chatCompletionsPost(params: {
         return NextResponse.json(result)
       }
     } catch (error) {
-      logger.error(getErrorObject(error), 'Error with OpenRouter request')
+      logger.error(
+        { error: getErrorObject(error), body },
+        'Error with OpenRouter request',
+      )
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_ERROR,
         userId,
         properties: {
           error: error instanceof Error ? error.message : 'Unknown error',
+          body,
           agentId,
           streaming: bodyStream,
         },

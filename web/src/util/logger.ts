@@ -6,6 +6,9 @@ import { env } from '@codebuff/common/env'
 import { splitData } from '@codebuff/common/util/split-data'
 import pino from 'pino'
 
+import type { LoggerWithContextFn } from '@codebuff/common/types/contracts/logger'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
+
 // --- Constants ---
 const MAX_LENGTH = 65535 // Max total log size is sometimes 100k (sometimes 65535?)
 const BUFFER = 1000 // Buffer for context, etc.
@@ -117,3 +120,16 @@ export const logger: Record<LogLevel, pino.LogFn> =
           ]
         }),
       ) as Record<LogLevel, pino.LogFn>)
+
+export function loggerWithContext(
+  context: ParamsOf<LoggerWithContextFn>,
+): ReturnType<LoggerWithContextFn> {
+  return {
+    debug: (data: any, ...args) =>
+      logger.debug({ ...context, ...data }, ...args),
+    info: (data: any, ...args) => logger.info({ ...context, ...data }, ...args),
+    warn: (data: any, ...args) => logger.warn({ ...context, ...data }, ...args),
+    error: (data: any, ...args) =>
+      logger.error({ ...context, ...data }, ...args),
+  }
+}

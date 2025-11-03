@@ -10,3 +10,5 @@ export type Logger = {
   warn: LoggerFn
   error: LoggerFn
 }
+
+export type LoggerWithContextFn = (context: Record<string, any>) => Logger

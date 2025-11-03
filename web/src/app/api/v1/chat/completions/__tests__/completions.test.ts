@@ -2,7 +2,7 @@ import { env } from '@codebuff/internal/env'
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { chatCompletionsPost } from '../completions'
+import { postChatCompletions } from '../_post'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -160,7 +160,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -186,7 +186,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -214,7 +214,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -240,7 +240,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -269,7 +269,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -300,7 +300,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -333,7 +333,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -371,7 +371,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -409,7 +409,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await chatCompletionsPost({
+      const response = await postChatCompletions({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,

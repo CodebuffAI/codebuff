@@ -103,13 +103,7 @@ function sendAnalyticsAndLog(
     const logTarget =
       env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
         ? path.join(projectRoot, 'debug', 'cli.log')
-        : (() => {
-            try {
-              return path.join(getCurrentChatDir(), 'log.jsonl')
-            } catch {
-              return path.join(projectRoot, 'debug', 'cli.log')
-            }
-          })()
+        : path.join(getCurrentChatDir(), 'log.jsonl')
 
     setLogPath(logTarget)
   }
