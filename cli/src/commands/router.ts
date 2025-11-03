@@ -106,13 +106,13 @@ export function routeUserPrompt(params: {
     return
   }
 
-  saveToHistory(trimmed)
-  setInputValue('')
-
   if (cmd === 'init') {
     ;({ postUserMessage } = handleInitializationFlowLocally())
-    // do not return, continue on to send to agent-runtime
+    // do not return, continue and send to agent runtime
   }
+
+  saveToHistory(trimmed)
+  setInputValue('')
 
   if (
     isStreaming ||
