@@ -11,7 +11,7 @@ import { extractApiKeyFromHeader } from '@/util/auth'
 
 type ValidField = (typeof VALID_USER_INFO_FIELDS)[number]
 
-export async function meGet(params: {
+export async function getMe(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
