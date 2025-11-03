@@ -1,5 +1,6 @@
-import { env } from '@codebuff/common/env'
 import { PostHog } from 'posthog-node'
+
+import { env } from '@codebuff/common/env'
 
 import type { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -52,11 +53,14 @@ export function trackEvent({
   }
 
   if (!client) {
-    logger.warn(
-      { event, userId },
-      'Analytics client not initialized, skipping event tracking',
-    )
-    return
+    initAnalytics({ logger })
+    if (!client) {
+      logger.warn(
+        { event, userId },
+        'Analytics client not initialized, skipping event tracking',
+      )
+      return
+    }
   }
 
   try {
