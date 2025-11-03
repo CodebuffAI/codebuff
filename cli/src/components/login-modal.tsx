@@ -219,14 +219,27 @@ export const LoginModal = ({
     }
   }, [hasOpenedBrowser, loginUrl, copyToClipboard])
 
-  // Determine if we're in light mode by checking background color luminance
-  const isLightMode = useMemo(
-    () => isLightModeColor(theme.background),
-    [theme.background],
-  )
+  // Determine if we're in light mode by checking text colors
+  // Note: We check text color instead of background because theme.background is 'transparent'
+  // In light mode: text is dark (#1f2937)
+  // In dark mode: text is light (#ffffff)
+  const isLightMode = useMemo(() => {
+    const textColor = theme.messageAiText
+    if (textColor && textColor !== 'default' && textColor.startsWith('#')) {
+      const textIsLight = isLightModeColor(textColor)
+      // Light text = dark background = dark mode
+      // Dark text = light background = light mode
+      return !textIsLight
+    }
+    // Fallback to dark mode if we can't determine
+    return false
+  }, [theme.messageAiText])
 
   // Use pure black/white for logo
   const logoColor = isLightMode ? '#000000' : '#ffffff'
+
+  // Use solid background colors for the modal (instead of transparent theme.background)
+  const modalBackground = isLightMode ? '#ffffff' : '#000000'
 
   // Calculate terminal width and height for responsive display
   const terminalWidth = renderer?.width || 80
@@ -288,20 +301,25 @@ export const LoginModal = ({
     WARNING_BANNER_HEIGHT,
   )
 
+  // Calculate modal width and center position
+  const modalWidth = Math.floor(terminalWidth * 0.95)
+  const modalLeft = Math.floor((terminalWidth - modalWidth) / 2)
+  const modalTop = Math.floor((terminalHeight - modalHeight) / 2)
+
   // Format URL for display (wrap if needed)
   return (
     <box
       position="absolute"
-      left={Math.floor(terminalWidth * 0.025)}
-      top={1}
+      left={modalLeft}
+      top={modalTop}
       border
       borderStyle="double"
       borderColor={theme.statusAccent}
       style={{
-        width: Math.floor(terminalWidth * 0.95),
+        width: modalWidth,
         height: modalHeight,
         maxHeight: modalHeight,
-        backgroundColor: theme.background,
+        backgroundColor: modalBackground,
         padding: 0,
         flexDirection: 'column',
       }}
@@ -334,7 +352,7 @@ export const LoginModal = ({
           alignItems: 'center',
           width: '100%',
           height: '100%',
-          backgroundColor: theme.background,
+          backgroundColor: modalBackground,
           padding: containerPadding,
           gap: 0,
         }}
