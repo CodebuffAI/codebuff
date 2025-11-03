@@ -11,9 +11,9 @@ import {
 } from 'react'
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
+import { useTheme } from '../hooks/use-theme'
 
 import type { PasteEvent, ScrollBoxRenderable } from '@opentui/core'
-import type { ChatTheme } from '../utils/theme-system'
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
@@ -82,16 +82,6 @@ interface MultilineInputProps {
   placeholder?: string
   focused?: boolean
   maxHeight?: number
-  theme: Pick<
-    ChatTheme,
-    | 'inputBg'
-    | 'inputFocusedBg'
-    | 'inputFg'
-    | 'inputFocusedFg'
-    | 'inputPlaceholder'
-    | 'cursor'
-    | 'statusAccent'
-  >
   width: number
   textAttributes?: number
 }
@@ -111,13 +101,13 @@ export const MultilineInput = forwardRef<
     placeholder = '',
     focused = true,
     maxHeight = 5,
-    theme,
     width,
     textAttributes,
     onKeyIntercept,
   }: MultilineInputProps,
   forwardedRef,
 ) {
+  const theme = useTheme()
   const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
   const [cursorPosition, setCursorPosition] = useState(value.length)
   useImperativeHandle(

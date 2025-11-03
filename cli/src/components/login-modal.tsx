@@ -9,6 +9,7 @@ import { useLoginKeyboardHandlers } from '../hooks/use-login-keyboard-handlers'
 import { useLoginPolling } from '../hooks/use-login-polling'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
+import { useTheme, VariantProvider } from '../hooks/use-theme'
 import {
   LINK_COLOR_DEFAULT,
   LINK_COLOR_CLICKED,
@@ -23,7 +24,6 @@ import {
 import {
   formatUrl,
   generateFingerprintId,
-  isLightModeColor,
   calculateResponsiveLayout,
   calculateModalDimensions,
 } from '../login/utils'
@@ -32,20 +32,34 @@ import { copyTextToClipboard } from '../utils/clipboard'
 import { logger } from '../utils/logger'
 
 import type { User } from '../utils/auth'
-import type { ChatTheme } from '../utils/theme-system'
 
 interface LoginModalProps {
   onLoginSuccess: (user: User) => void
-  theme: ChatTheme
   hasInvalidCredentials?: boolean | null
 }
 
 export const LoginModal = ({
   onLoginSuccess,
-  theme,
   hasInvalidCredentials = false,
 }: LoginModalProps) => {
+  return (
+    <VariantProvider variant="modal">
+      <LoginModalContent
+        onLoginSuccess={onLoginSuccess}
+        hasInvalidCredentials={hasInvalidCredentials}
+      />
+    </VariantProvider>
+  )
+}
+
+const LoginModalContent = ({
+  onLoginSuccess,
+  hasInvalidCredentials,
+}: LoginModalProps) => {
   const renderer = useRenderer()
+
+  // Use theme from context (will be modal variant due to VariantProvider)
+  const theme = useTheme()
 
   // Use zustand store for all state
   const {
@@ -219,28 +233,6 @@ export const LoginModal = ({
     }
   }, [hasOpenedBrowser, loginUrl, copyToClipboard])
 
-  // Determine if we're in light mode by checking text colors
-  // Note: We check text color instead of background because theme.background is 'transparent'
-  // In light mode: text is dark (#1f2937)
-  // In dark mode: text is light (#ffffff)
-  const isLightMode = useMemo(() => {
-    const textColor = theme.messageAiText
-    if (textColor && textColor !== 'default' && textColor.startsWith('#')) {
-      const textIsLight = isLightModeColor(textColor)
-      // Light text = dark background = dark mode
-      // Dark text = light background = light mode
-      return !textIsLight
-    }
-    // Fallback to dark mode if we can't determine
-    return false
-  }, [theme.messageAiText])
-
-  // Use pure black/white for logo
-  const logoColor = isLightMode ? '#000000' : '#ffffff'
-
-  // Use solid background colors for the modal (instead of transparent theme.background)
-  const modalBackground = isLightMode ? '#ffffff' : '#000000'
-
   // Calculate terminal width and height for responsive display
   const terminalWidth = renderer?.width || 80
   const terminalHeight = renderer?.height || 24
@@ -278,7 +270,7 @@ export const LoginModal = ({
 
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({
-    logoColor,
+    logoColor: theme.logoColor,
     terminalWidth: renderer?.width,
     sheenPosition,
     setSheenPosition,
@@ -319,7 +311,7 @@ export const LoginModal = ({
         width: modalWidth,
         height: modalHeight,
         maxHeight: modalHeight,
-        backgroundColor: modalBackground,
+        backgroundColor: theme.background,
         padding: 0,
         flexDirection: 'column',
       }}
@@ -352,7 +344,7 @@ export const LoginModal = ({
           alignItems: 'center',
           width: '100%',
           height: '100%',
-          backgroundColor: modalBackground,
+          backgroundColor: theme.background,
           padding: containerPadding,
           gap: 0,
         }}

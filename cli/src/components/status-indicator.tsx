@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
+import { useTheme } from '../hooks/use-theme'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { logger } from '../utils/logger'
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
-import type { ChatTheme } from '../utils/theme-system'
 
 const useConnectionStatus = () => {
   const [isConnected, setIsConnected] = useState(true)
@@ -37,16 +37,15 @@ const useConnectionStatus = () => {
 }
 
 export const StatusIndicator = ({
-  theme,
   clipboardMessage,
   isActive = false,
   timer,
 }: {
-  theme: ChatTheme
   clipboardMessage?: string | null
   isActive?: boolean
   timer: ElapsedTimeTracker
 }) => {
+  const theme = useTheme()
   const isConnected = useConnectionStatus()
   const elapsedSeconds = timer.elapsedSeconds
 

@@ -36,6 +36,7 @@ import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
+import { useTheme, useResolvedThemeName } from './hooks/use-theme'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
@@ -50,9 +51,7 @@ import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { handleSlashCommands } from './utils/slash-commands'
 import {
-  chatTheme,
   createMarkdownPalette,
-  onThemeChange,
   resolveThemeColor,
   type ChatTheme,
 } from './utils/theme-system'
@@ -170,42 +169,9 @@ export const App = ({
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
-  const cloneTheme = (input: ChatTheme): ChatTheme => ({
-    ...input,
-    markdown: input.markdown
-      ? {
-          ...input.markdown,
-          headingFg: input.markdown.headingFg
-            ? { ...input.markdown.headingFg }
-            : undefined,
-        }
-      : undefined,
-  })
-
-  const [theme, setTheme] = useState<ChatTheme>(() => cloneTheme(chatTheme))
-  const [resolvedThemeName, setResolvedThemeName] = useState<'dark' | 'light'>(
-    chatTheme.messageTextAttributes ? 'dark' : 'light',
-  )
-
-  useEffect(() => {
-    const unsubscribe = onThemeChange((updatedTheme, meta) => {
-      const nextTheme = cloneTheme(updatedTheme)
-      setTheme(nextTheme)
-      setResolvedThemeName(meta.resolvedThemeName)
-      if (process.env.CODEBUFF_THEME_DEBUG === '1') {
-        logger.debug(
-          {
-            themeChange: {
-              source: meta.source,
-              resolvedThemeName: meta.resolvedThemeName,
-            },
-          },
-          'Applied theme change in chat component',
-        )
-      }
-    })
-    return unsubscribe
-  }, [])
+  // Use theme hooks (transparent variant is default)
+  const theme = useTheme()
+  const resolvedThemeName = useResolvedThemeName()
 
   const markdownPalette = useMemo(
     () => createMarkdownPalette(theme),
@@ -316,8 +282,6 @@ export const App = ({
           ? theme.chromeText
           : theme.agentResponseCount
 
-    const logoColor = resolvedThemeName === 'dark' ? '#4ade80' : '#15803d'
-
     const homeDir = os.homedir()
     const repoRoot = path.dirname(loadedAgentsData.agentsDir)
     const relativePath = path.relative(homeDir, repoRoot)
@@ -334,7 +298,7 @@ export const App = ({
         {
           type: 'text',
           content: '\n\n' + logoBlock,
-          color: logoColor,
+          color: theme.logoColor,
         },
       ]
 
@@ -1173,7 +1137,6 @@ export const App = ({
 
   const statusIndicatorNode = (
     <StatusIndicator
-      theme={theme}
       clipboardMessage={clipboardMessage}
       isActive={isStatusActive}
       timer={mainAgentTimer}
@@ -1388,12 +1351,11 @@ export const App = ({
             </text>
           </box>
         )}
-        <Separator theme={theme} width={separatorWidth} />
+        <Separator width={separatorWidth} />
         {slashContext.active && slashSuggestionItems.length > 0 ? (
           <SuggestionMenu
             items={slashSuggestionItems}
             selectedIndex={slashSelectedIndex}
-            theme={theme}
             maxVisible={5}
             prefix="/"
           />
@@ -1404,7 +1366,6 @@ export const App = ({
           <SuggestionMenu
             items={agentSuggestionItems}
             selectedIndex={agentSelectedIndex}
-            theme={theme}
             maxVisible={5}
             prefix="@"
           />
@@ -1424,7 +1385,6 @@ export const App = ({
               placeholder="Share your thoughts and press Enter…"
               focused={inputFocused}
               maxHeight={5}
-              theme={theme}
               width={inputWidth}
               onKeyIntercept={handleSuggestionMenuKey}
               textAttributes={theme.messageTextAttributes}
@@ -1439,19 +1399,17 @@ export const App = ({
           >
             <AgentModeToggle
               mode={agentMode}
-              theme={theme}
               onToggle={toggleAgentMode}
             />
           </box>
         </box>
-        <Separator theme={theme} width={separatorWidth} />
+        <Separator width={separatorWidth} />
       </box>
 
       {/* Login Modal Overlay - show when not authenticated and done checking */}
       {requireAuth !== null && isAuthenticated === false && (
         <LoginModal
           onLoginSuccess={handleLoginSuccess}
-          theme={theme}
           hasInvalidCredentials={hasInvalidCredentials}
         />
       )}

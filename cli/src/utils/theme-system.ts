@@ -69,6 +69,7 @@ export interface ChatTheme {
   modeToggleFastText: string
   modeToggleMaxBg: string
   modeToggleMaxText: string
+  logoColor: string
   markdown?: {
     headingFg?: Partial<Record<MarkdownHeadingLevel, string>>
     inlineCodeFg?: string
@@ -136,6 +137,7 @@ const NEUTRAL_THEME: ChatTheme = {
   modeToggleFastText: '#f97316',
   modeToggleMaxBg: '#dc2626',
   modeToggleMaxText: '#dc2626',
+  logoColor: '#2563eb', // Will be overridden based on light/dark mode
   markdown: {
     codeBackground: 'transparent',
     codeHeaderFg: '#475569',
@@ -244,6 +246,7 @@ const applyNeutralTextDefaults = (
     adjustedTheme.agentContentText = '#dbeafe'
     adjustedTheme.agentToggleHeaderText = '#ffffff'
     adjustedTheme.agentToggleText = '#ffffff'
+    adjustedTheme.logoColor = '#ffffff'
     adjustedTheme.timestampAi = DARK_VARIANT_OVERRIDES.timestampAi
     adjustedTheme.timestampUser = DARK_VARIANT_OVERRIDES.timestampUser
     adjustedTheme.aiLine = DARK_VARIANT_OVERRIDES.aiLine
@@ -271,6 +274,7 @@ const applyNeutralTextDefaults = (
     adjustedTheme.agentContentText = neutrals.secondary
     adjustedTheme.agentToggleHeaderText = neutrals.primary
     adjustedTheme.agentToggleText = neutrals.primary
+    adjustedTheme.logoColor = '#000000'
     adjustedTheme.timestampAi = LIGHT_VARIANT_OVERRIDES.timestampAi
     adjustedTheme.timestampUser = LIGHT_VARIANT_OVERRIDES.timestampUser
     adjustedTheme.aiLine = LIGHT_VARIANT_OVERRIDES.aiLine
@@ -570,7 +574,14 @@ const MAC_TERMINAL_THEME_OVERRIDES: Record<'dark' | 'light', Partial<ChatTheme>>
   },
 }
 
-const mergeThemeOverrides = (
+/**
+ * Merge theme overrides with a base theme
+ * Properly handles nested markdown configuration
+ * @param base - Base theme to merge into
+ * @param overrides - Partial theme overrides
+ * @returns Merged theme
+ */
+export const mergeThemeOverrides = (
   base: ChatTheme,
   overrides: Partial<ChatTheme>,
 ): ChatTheme => {
@@ -764,7 +775,13 @@ const computeTheme = (): ThemeComputationMeta => {
   }
 }
 
-const cloneChatTheme = (input: ChatTheme): ChatTheme => ({
+/**
+ * Clone a ChatTheme object to avoid mutations
+ * Properly handles nested markdown configuration
+ * @param input - Theme to clone
+ * @returns Cloned theme
+ */
+export const cloneChatTheme = (input: ChatTheme): ChatTheme => ({
   ...input,
   markdown: input.markdown
     ? {

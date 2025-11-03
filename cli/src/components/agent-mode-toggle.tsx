@@ -1,20 +1,33 @@
-import { AgentMode } from '../utils/constants'
-import type { ChatTheme } from '../utils/theme-system'
 import { RaisedPill } from './raised-pill'
+import { useTheme } from '../hooks/use-theme'
+
+import type { AgentMode } from '../utils/constants'
+import type { ChatTheme } from '../utils/theme-system'
+
+const getModeConfig = (theme: ChatTheme) =>
+  ({
+    FAST: {
+      frameColor: theme.modeToggleFastBg,
+      textColor: theme.modeToggleFastText,
+      label: 'FAST',
+    },
+    MAX: {
+      frameColor: theme.modeToggleMaxBg,
+      textColor: theme.modeToggleMaxText,
+      label: '💪 MAX',
+    },
+  }) as const
 
 export const AgentModeToggle = ({
   mode,
-  theme,
   onToggle,
 }: {
-  mode: AgentMode,
-  theme: ChatTheme
+  mode: AgentMode
   onToggle: () => void
 }) => {
-  const isFast = mode === 'FAST'
-  const frameColor = isFast ? theme.modeToggleFastBg : theme.modeToggleMaxBg
-  const textColor = isFast ? theme.modeToggleFastText : theme.modeToggleMaxText
-  const label = isFast ? 'FAST' : '💪 MAX'
+  const theme = useTheme()
+  const config = getModeConfig(theme)
+  const { frameColor, textColor, label } = config[mode]
 
   return (
     <RaisedPill

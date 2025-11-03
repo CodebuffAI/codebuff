@@ -13,11 +13,9 @@ import {
 } from 'bun:test'
 
 import { StatusIndicator } from '../status-indicator'
-import { chatThemes } from '../../utils/theme-system'
+import { ThemeProvider } from '../../hooks/use-theme'
 import { renderToStaticMarkup } from 'react-dom/server'
 import * as codebuffClient from '../../utils/codebuff-client'
-
-const theme = chatThemes.dark
 
 const createTimer = (elapsedSeconds: number, started: boolean) => ({
   start: () => {},
@@ -41,23 +39,25 @@ describe('StatusIndicator timer rendering', () => {
 
   test('shows elapsed seconds when timer is active', () => {
     const markup = renderToStaticMarkup(
-      <StatusIndicator
-        theme={theme}
-        clipboardMessage={null}
-        isActive={true}
-        timer={createTimer(5, true)}
-      />,
+      <ThemeProvider>
+        <StatusIndicator
+          clipboardMessage={null}
+          isActive={true}
+          timer={createTimer(5, true)}
+        />
+      </ThemeProvider>,
     )
 
     expect(markup).toContain('5s')
 
     const inactiveMarkup = renderToStaticMarkup(
-      <StatusIndicator
-        theme={theme}
-        clipboardMessage={null}
-        isActive={false}
-        timer={createTimer(0, false)}
-      />,
+      <ThemeProvider>
+        <StatusIndicator
+          clipboardMessage={null}
+          isActive={false}
+          timer={createTimer(0, false)}
+        />
+      </ThemeProvider>,
     )
 
     expect(inactiveMarkup).toBe('')
@@ -65,12 +65,13 @@ describe('StatusIndicator timer rendering', () => {
 
   test('clipboard message takes priority over timer output', () => {
     const markup = renderToStaticMarkup(
-      <StatusIndicator
-        theme={theme}
-        clipboardMessage="Copied!"
-        isActive={true}
-        timer={createTimer(12, true)}
-      />,
+      <ThemeProvider>
+        <StatusIndicator
+          clipboardMessage="Copied!"
+          isActive={true}
+          timer={createTimer(12, true)}
+        />
+      </ThemeProvider>,
     )
 
     expect(markup).toContain('Copied!')

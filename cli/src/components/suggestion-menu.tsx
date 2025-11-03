@@ -1,6 +1,6 @@
 import React from 'react'
 
-import type { ChatTheme } from '../utils/theme-system'
+import { useTheme } from '../hooks/use-theme'
 
 export interface SuggestionItem {
   id: string
@@ -11,7 +11,6 @@ export interface SuggestionItem {
 interface SuggestionMenuProps {
   items: SuggestionItem[]
   selectedIndex: number
-  theme: ChatTheme
   maxVisible?: number
   prefix?: string
 }
@@ -19,10 +18,10 @@ interface SuggestionMenuProps {
 export const SuggestionMenu = ({
   items,
   selectedIndex,
-  theme,
   maxVisible = 5,
   prefix = '/',
 }: SuggestionMenuProps) => {
+  const theme = useTheme()
   const resolveFg = (
     color?: string | null,
     fallback?: string | null,
