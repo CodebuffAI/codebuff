@@ -2,6 +2,7 @@ import { mkdirSync } from 'fs'
 import path from 'path'
 
 import { findGitRoot } from './utils/git'
+import { getConfigDir } from './utils/auth'
 
 let projectRoot: string | undefined
 let currentChatId: string | undefined
@@ -34,10 +35,22 @@ export function startNewChat() {
   return currentChatId
 }
 
+// Get the project-specific data directory
+export function getProjectDataDir(): string {
+  const root = getProjectRoot()
+  if (!root) {
+    throw new Error('Project root not set')
+  }
+
+  const baseName = path.basename(root)
+  const baseDir = path.join(getConfigDir(), 'projects', baseName)
+
+  return baseDir
+}
+
 export function getCurrentChatDir() {
-  const root = getProjectRoot() || process.cwd()
   const chatId = getCurrentChatId()
-  const dir = path.join(root, 'debug', 'chats', chatId)
+  const dir = path.join(getProjectDataDir(), 'chats', chatId)
   ensureChatDirectory(dir)
   return dir
 }
