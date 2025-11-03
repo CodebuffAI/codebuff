@@ -35,7 +35,18 @@ export function createBestOfNOrchestrator(
       ? ['best-of-n-implementor-gpt-5', 'best-of-n-selector-gpt-5']
       : ['best-of-n-implementor', 'best-of-n-selector'],
 
-    inputSchema: {},
+    inputSchema: {
+      params: {
+        type: 'object',
+        properties: {
+          n: {
+            type: 'number',
+            description:
+              'Number of parallel implementor agents to spawn. Defaults to 5. Use fewer for simple tasks and max of 10 for complex tasks.',
+          },
+        },
+      },
+    },
     outputMode: 'structured_output',
 
     handleSteps: isGpt5 ? handleStepsGpt5 : handleStepsSonnet,
@@ -44,11 +55,16 @@ export function createBestOfNOrchestrator(
 
 function* handleStepsSonnet({
   agentState,
+  params,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
   const implementorAgent = 'best-of-n-implementor'
   const selectorAgent = 'best-of-n-selector'
+  const n = Math.min(
+    10,
+    Math.max(1, (params?.n as number | undefined) ?? 5),
+  )
 
   // Remove userInstruction message for this agent.
   const messages = agentState.messageHistory.concat()
@@ -64,13 +80,9 @@ function* handleStepsSonnet({
   const { toolResult: implementorsResult1 } = yield {
     toolName: 'spawn_agents',
     input: {
-      agents: [
-        { agent_type: implementorAgent },
-        { agent_type: implementorAgent },
-        { agent_type: implementorAgent },
-        { agent_type: implementorAgent },
-        { agent_type: implementorAgent },
-      ],
+      agents: Array.from({ length: n }, () => ({
+        agent_type: implementorAgent,
+      })),
     },
     includeToolCall: false,
   } satisfies ToolCall<'spawn_agents'>
@@ -171,11 +183,16 @@ function* handleStepsSonnet({
 
 function* handleStepsGpt5({
   agentState,
+  params,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
   const implementorAgent = 'best-of-n-implementor-gpt-5'
   const selectorAgent = 'best-of-n-selector-gpt-5'
+  const n = Math.min(
+    10,
+    Math.max(1, (params?.n as number | undefined) ?? 5),
+  )
 
   // Remove userInstruction message for this agent.
   const messages = agentState.messageHistory.concat()
@@ -191,13 +208,9 @@ function* handleStepsGpt5({
   const { toolResult: implementorsResult1 } = yield {
     toolName: 'spawn_agents',
     input: {
-      agents: [
-        { agent_type: implementorAgent },
-        { agent_type: implementorAgent },
-        { agent_type: implementorAgent },
-        { agent_type: implementorAgent },
-        { agent_type: implementorAgent },
-      ],
+      agents: Array.from({ length: n }, () => ({
+        agent_type: implementorAgent,
+      })),
     },
     includeToolCall: false,
   } satisfies ToolCall<'spawn_agents'>
