@@ -59,6 +59,7 @@ import { clientEnvVars } from '@codebuff/common/env-schema'
 import { openFileAtPath } from './utils/open-file'
 import { formatValidationError } from './utils/validation-error-formatting'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
+import { getCodebuffClient } from './utils/codebuff-client'
 
 import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
@@ -289,9 +290,36 @@ export const App = ({
 
       blocks.push({
         type: 'text',
-        content: `\nEnvironment variables:\n${envVarsList}`,
+        content: `\nCLI Environment variables:\n${envVarsList}`,
         marginTop: 1,
       })
+
+      // [TEST] Display SDK environment variables
+      const client = getCodebuffClient()
+      if (client) {
+        const sdkEnv = client.getEnvironmentInfo()
+        const sdkEnvLines = [
+          'Raw SDK env vars:',
+          ...Object.entries(sdkEnv.rawEnv).map(
+            ([key, value]) => `  ${key}=${value}`,
+          ),
+          '',
+          'Computed SDK constants:',
+          ...Object.entries(sdkEnv.computed).map(([key, value]) => {
+            const displayValue =
+              typeof value === 'string' && value.length > 50
+                ? value.substring(0, 47) + '...'
+                : String(value)
+            return `  ${key}=${displayValue}`
+          }),
+        ].join('\n')
+
+        blocks.push({
+          type: 'text',
+          content: `\nSDK Environment:\n${sdkEnvLines}`,
+          marginTop: 1,
+        })
+      }
 
       // Calculate path from home directory to repository root
       // agentsDir is typically in the root, so use its parent as the repository root
