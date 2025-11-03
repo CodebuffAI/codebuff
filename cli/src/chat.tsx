@@ -758,7 +758,7 @@ export const App = ({
     [agentId],
   )
 
-  const { sendMessage } = useSendMessage({
+  const { sendMessage, clearMessages } = useSendMessage({
     setMessages,
     setFocusedAgentId,
     setInputFocused,
@@ -821,6 +821,7 @@ export const App = ({
         logoutMutation,
         streamMessageIdRef,
         addToQueue,
+        clearMessages,
         handleCtrlC,
         saveToHistory,
         scrollToLatest,

@@ -189,7 +189,10 @@ export const useSendMessage = ({
   scrollToLatest,
   availableWidth = 80,
   onTimerEvent = () => {},
-}: UseSendMessageOptions): { sendMessage: SendMessageFn } => {
+}: UseSendMessageOptions): {
+  sendMessage: SendMessageFn
+  clearMessages: () => void
+} => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
@@ -205,6 +208,10 @@ export const useSendMessage = ({
     },
     [setIsChainInProgress, isChainInProgressRef],
   )
+
+  function clearMessages() {
+    previousRunStateRef.current = null
+  }
 
   const updateActiveSubagents = useCallback(
     (mutate: (next: Set<string>) => void) => {
@@ -647,7 +654,7 @@ export const useSendMessage = ({
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,
-          agentDefinitions: agentDefinitions as AgentDefinition[],
+          agentDefinitions: agentDefinitions,
           maxAgentSteps: 40,
 
           handleStreamChunk: (event) => {
@@ -1477,5 +1484,5 @@ export const useSendMessage = ({
     ],
   )
 
-  return { sendMessage }
+  return { sendMessage, clearMessages }
 }

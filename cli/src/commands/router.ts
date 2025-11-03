@@ -17,6 +17,7 @@ export function routeUserPrompt(params: {
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   streamMessageIdRef: React.MutableRefObject<string | null>
   addToQueue: (message: string) => void
+  clearMessages: () => void
   handleCtrlC: () => true
   saveToHistory: (message: string) => void
   scrollToLatest: () => void
@@ -41,6 +42,7 @@ export function routeUserPrompt(params: {
     logoutMutation,
     streamMessageIdRef,
     addToQueue,
+    clearMessages,
     handleCtrlC,
     saveToHistory,
     scrollToLatest,
@@ -103,6 +105,18 @@ export function routeUserPrompt(params: {
     setCanProcessQueue(false)
     setInputValue('')
     handleCtrlC()
+    return
+  }
+
+  if (cmd === 'clear' || cmd === 'new') {
+    setMessages(() => [])
+    clearMessages()
+
+    saveToHistory(trimmed)
+    setInputValue('')
+
+    stopStreaming()
+    setCanProcessQueue(false)
     return
   }
 
