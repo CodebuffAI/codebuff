@@ -5,9 +5,9 @@ import type {
   AgentStepContext,
   StepText,
   ToolCall,
-} from 'types/agent-definition'
+} from '../../types/agent-definition'
 
-export function createBestOfNOrchestrator(
+export function createBestOfNEditor(
   model: 'sonnet' | 'gpt-5',
 ): Omit<SecretAgentDefinition, 'id'> {
   const isGpt5 = model === 'gpt-5'
@@ -16,10 +16,10 @@ export function createBestOfNOrchestrator(
     publisher,
     model: isGpt5 ? 'openai/gpt-5' : 'anthropic/claude-sonnet-4.5',
     displayName: isGpt5
-      ? 'Best-of-N GPT-5 Implementation Orchestrator'
-      : 'Best-of-N Fast Implementation Orchestrator',
+      ? 'Best-of-N GPT-5 Implementation Editor'
+      : 'Best-of-N Fast Implementation Editor',
     spawnerPrompt:
-      'Orchestrates multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes. Do not specify an input prompt for this agent; it reads the context from the message history.',
+      'Edits code by orchestrating multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes. Do not specify an input prompt for this agent; it reads the context from the message history.',
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
@@ -310,7 +310,7 @@ function* handleStepsGpt5({
 }
 
 const definition = {
-  ...createBestOfNOrchestrator('sonnet'),
-  id: 'best-of-n-orchestrator',
+  ...createBestOfNEditor('sonnet'),
+  id: 'best-of-n-editor',
 }
 export default definition
