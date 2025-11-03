@@ -249,12 +249,16 @@ export async function chatCompletionsPost(params: {
         return NextResponse.json(result)
       }
     } catch (error) {
-      logger.error(getErrorObject(error), 'Error with OpenRouter request')
+      logger.error(
+        { error: getErrorObject(error), body },
+        'Error with OpenRouter request',
+      )
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_ERROR,
         userId,
         properties: {
           error: error instanceof Error ? error.message : 'Unknown error',
+          body,
           agentId,
           streaming: bodyStream,
         },
