@@ -10,7 +10,10 @@ import type {
   GetUserInfoFromApiKeyFn,
   GetUserInfoFromApiKeyOutput,
 } from '@codebuff/common/types/contracts/database'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  Logger,
+  LoggerWithContextFn,
+} from '@codebuff/common/types/contracts/logger'
 
 describe('/api/v1/agent-runs POST endpoint', () => {
   const mockUserData: Record<
@@ -39,6 +42,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
   }
 
   let mockLogger: Logger
+  let mockLoggerWithContext: LoggerWithContextFn
   let mockTrackEvent: TrackEventFn
   let mockDb: any
 
@@ -49,6 +53,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
       info: mock(() => {}),
       debug: mock(() => {}),
     }
+    mockLoggerWithContext = mock(() => mockLogger)
 
     mockTrackEvent = mock(() => {})
 
@@ -82,6 +87,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -105,6 +111,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -128,6 +135,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -150,6 +158,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -172,6 +181,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -194,6 +204,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -216,6 +227,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -239,6 +251,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -263,6 +276,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -286,6 +300,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -324,6 +339,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -358,6 +374,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -394,6 +411,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -431,6 +449,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -458,6 +477,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -485,6 +505,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -512,6 +533,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -539,6 +561,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -582,6 +605,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -623,6 +647,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -664,6 +689,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -698,6 +724,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })
@@ -736,6 +763,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
+        loggerWithContext: mockLoggerWithContext,
         trackEvent: mockTrackEvent,
         db: mockDb,
       })

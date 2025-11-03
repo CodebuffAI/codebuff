@@ -1,6 +1,7 @@
-import { useRenderer, useTerminalDimensions } from '@opentui/react'
 import os from 'os'
 import path from 'path'
+
+import { useRenderer, useTerminalDimensions } from '@opentui/react'
 import React, {
   type ReactNode,
   useCallback,
@@ -14,7 +15,6 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { LoginModal } from './components/login-modal'
-import { TerminalLink } from './components/terminal-link'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -22,6 +22,7 @@ import {
 import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
+import { TerminalLink } from './components/terminal-link'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthQuery, useLogoutMutation } from './hooks/use-auth-query'
@@ -34,12 +35,12 @@ import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
-import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
+import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { formatQueuedPreview } from './utils/helpers'
 import {
   loadLocalAgents,
@@ -47,6 +48,7 @@ import {
 } from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
+import { handleSlashCommands } from './utils/slash-commands'
 import {
   chatTheme,
   createMarkdownPalette,
@@ -56,12 +58,13 @@ import {
 } from './utils/theme-system'
 import { env } from '@codebuff/common/env'
 import { clientEnvVars } from '@codebuff/common/env-schema'
-import { openFileAtPath } from './utils/open-file'
-import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { formatValidationError } from './utils/validation-error-formatting'
 import { getCodebuffClient } from './utils/codebuff-client'
+import { openFileAtPath } from './utils/open-file'
 
+import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import type { User } from './utils/auth'
+import type { AgentMode } from './utils/constants'
 import type { ToolName } from '@codebuff/sdk'
 import type { ScrollBoxRenderable } from '@opentui/core'
 
@@ -367,8 +370,13 @@ export const App = ({
 
       // Display SDK environment variables when the client is available
       const client = getCodebuffClient()
-      if (client) {
-        const sdkEnv = client.getEnvironmentInfo()
+      const envGetter = client ? (client as any)?.getEnvironmentInfo : null
+
+      if (typeof envGetter === 'function') {
+        const sdkEnv = envGetter.call(client) as {
+          rawEnv: Record<string, string>
+          computed: Record<string, unknown>
+        }
         const sdkEnvLines = [
           'Raw SDK env vars:',
           ...Object.entries(sdkEnv.rawEnv).map(
@@ -957,7 +965,7 @@ export const App = ({
 
   const sendMessageRef =
     useRef<
-      (content: string, params: { agentMode: 'FAST' | 'MAX' }) => Promise<void>
+      (content: string, params: { agentMode: AgentMode }) => Promise<void>
     >()
 
   const {
@@ -1054,86 +1062,42 @@ export const App = ({
     mainAgentTimer,
   )
 
-  const handleSubmit = useCallback(() => {
-    const trimmed = inputValue.trim()
-    if (!trimmed) return
-
-    const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
-    const cmd = normalized.split(/\s+/)[0].toLowerCase()
-    if (cmd === 'login' || cmd === 'signin') {
-      const msg = {
-        id: `sys-${Date.now()}`,
-        variant: 'ai' as const,
-        content: "You're already in the app. Use /logout to switch accounts.",
-        timestamp: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, msg])
-      setInputValue('')
-      return
-    }
-    if (cmd === 'logout' || cmd === 'signout') {
-      abortControllerRef.current?.abort()
-      stopStreaming()
-      setCanProcessQueue(false)
-
-      logoutMutation.mutate(undefined, {
-        onSettled: () => {
-          const msg = {
-            id: `sys-${Date.now()}`,
-            variant: 'ai' as const,
-            content: 'Logged out.',
-            timestamp: new Date().toISOString(),
-          }
-          setMessages((prev) => [...prev, msg])
-          setInputValue('')
-          setTimeout(() => {
-            setUser(null)
-            setIsAuthenticated(false)
-          }, 300)
-        },
-      })
-      return
-    }
-
-    if (cmd === 'exit' || cmd === 'quit') {
-      abortControllerRef.current?.abort()
-      stopStreaming()
-      setCanProcessQueue(false)
-      setInputValue('')
-      handleCtrlC()
-      return
-    }
-
-    saveToHistory(trimmed)
-    setInputValue('')
-
-    if (
-      isStreaming ||
-      streamMessageIdRef.current ||
-      isChainInProgressRef.current
-    ) {
-      addToQueue(trimmed)
-      setInputFocused(true)
-      inputRef.current?.focus()
-      return
-    }
-
-    sendMessage(trimmed, { agentMode })
-
-    setTimeout(() => {
-      scrollToLatest()
-    }, 0)
-  }, [
-    inputValue,
-    isStreaming,
-    sendMessage,
-    saveToHistory,
-    addToQueue,
-    streamMessageIdRef,
-    isChainInProgressRef,
-    scrollToLatest,
-    handleCtrlC,
-  ])
+  const handleSubmit = useCallback(
+    () => handleSlashCommands({
+      abortControllerRef,
+      agentMode,
+      inputRef,
+      inputValue,
+      isChainInProgressRef,
+      isStreaming,
+      logoutMutation,
+      streamMessageIdRef,
+      addToQueue,
+      handleCtrlC,
+      saveToHistory,
+      scrollToLatest,
+      sendMessage,
+      setCanProcessQueue,
+      setInputFocused,
+      setInputValue,
+      setIsAuthenticated,
+      setMessages,
+      setUser,
+      stopStreaming,
+    }),
+    [
+      agentMode,
+      inputValue,
+      isStreaming,
+      sendMessage,
+      saveToHistory,
+      addToQueue,
+      streamMessageIdRef,
+      isChainInProgressRef,
+      scrollToLatest,
+      handleCtrlC,
+    ],
+  )
 
   useKeyboardHandlers({
     isStreaming,
