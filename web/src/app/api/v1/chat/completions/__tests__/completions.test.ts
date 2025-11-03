@@ -12,7 +12,10 @@ import type {
   GetUserInfoFromApiKeyFn,
   GetUserInfoFromApiKeyOutput,
 } from '@codebuff/common/types/contracts/database'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  Logger,
+  LoggerWithContextFn,
+} from '@codebuff/common/types/contracts/logger'
 
 describe('/api/v1/chat/completions POST endpoint', () => {
   const mockUserData: Record<
@@ -38,6 +41,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   }
 
   let mockLogger: Logger
+  let mockLoggerWithContext: LoggerWithContextFn
   let mockTrackEvent: TrackEventFn
   let mockGetUserUsageData: GetUserUsageDataFn
   let mockGetAgentRunFromId: GetAgentRunFromIdFn
@@ -51,6 +55,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       info: mock(() => {}),
       debug: mock(() => {}),
     }
+
+    mockLoggerWithContext = mock(() => mockLogger)
 
     mockTrackEvent = mock(() => {})
 
@@ -169,6 +175,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: globalThis.fetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       expect(response.status).toBe(401)
@@ -195,6 +202,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       expect(response.status).toBe(401)
@@ -223,6 +231,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       expect(response.status).toBe(400)
@@ -249,6 +258,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       expect(response.status).toBe(400)
@@ -278,6 +288,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       expect(response.status).toBe(400)
@@ -309,6 +320,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       expect(response.status).toBe(400)
@@ -342,6 +354,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       expect(response.status).toBe(402)
@@ -380,6 +393,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       if (response.status !== 200) {
@@ -418,6 +432,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         getAgentRunFromId: mockGetAgentRunFromId,
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
       })
 
       expect(response.status).toBe(200)

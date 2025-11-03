@@ -1,16 +1,20 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import { NextRequest } from 'next/server'
 
 import { postAgentRunsSteps } from '../_post'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  Logger,
+  LoggerWithContextFn,
+} from '@codebuff/common/types/contracts/logger'
 
 describe('agentRunsStepsPost', () => {
   let mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   let mockLogger: Logger
+  let mockLoggerWithContext: LoggerWithContextFn
   let mockTrackEvent: TrackEventFn
   let mockDb: any
 
@@ -41,6 +45,8 @@ describe('agentRunsStepsPost', () => {
       info: () => {},
       debug: () => {},
     }
+
+    mockLoggerWithContext = mock(() => mockLogger)
 
     mockTrackEvent = () => {}
 
@@ -73,6 +79,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: mockDb,
     })
@@ -97,6 +104,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: mockDb,
     })
@@ -121,6 +129,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: mockDb,
     })
@@ -145,6 +154,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: mockDb,
     })
@@ -180,6 +190,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: dbWithNoRun,
     })
@@ -215,6 +226,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: dbWithDifferentUser,
     })
@@ -239,6 +251,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: mockDb,
     })
@@ -269,6 +282,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: mockDb,
     })
@@ -310,6 +324,7 @@ describe('agentRunsStepsPost', () => {
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
       logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
       trackEvent: mockTrackEvent,
       db: dbWithError,
     })
