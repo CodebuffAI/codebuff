@@ -8,13 +8,14 @@ import type { NextRequest } from 'next/server'
 
 import { getAgentRunFromId } from '@/db/agent-run'
 import { getUserInfoFromApiKey } from '@/db/user'
-import { logger } from '@/util/logger'
+import { logger, loggerWithContext } from '@/util/logger'
 
 export async function POST(req: NextRequest) {
   return postChatCompletions({
     req,
     getUserInfoFromApiKey,
     logger,
+    loggerWithContext,
     trackEvent,
     getUserUsageData,
     getAgentRunFromId,

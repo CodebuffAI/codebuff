@@ -8,7 +8,10 @@ import { z } from 'zod'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  Logger,
+  LoggerWithContextFn,
+} from '@codebuff/common/types/contracts/logger'
 import type { CodebuffPgDatabase } from '@codebuff/internal/db/types'
 import type { NextRequest } from 'next/server'
 
@@ -29,10 +32,19 @@ export async function postAgentRunsSteps(params: {
   runId: string
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
+  loggerWithContext: LoggerWithContextFn
   trackEvent: TrackEventFn
   db: CodebuffPgDatabase
 }) {
-  const { req, runId, getUserInfoFromApiKey, logger, trackEvent, db } = params
+  const {
+    req,
+    runId,
+    getUserInfoFromApiKey,
+    loggerWithContext,
+    trackEvent,
+    db,
+  } = params
+  let { logger } = params
 
   const apiKey = extractApiKeyFromHeader(req)
 
@@ -46,7 +58,7 @@ export async function postAgentRunsSteps(params: {
   // Get user info
   const userInfo = await getUserInfoFromApiKey({
     apiKey,
-    fields: ['id'],
+    fields: ['id', 'email', 'discord_id'],
     logger,
   })
 
@@ -56,6 +68,7 @@ export async function postAgentRunsSteps(params: {
       { status: 404 },
     )
   }
+  logger = loggerWithContext({ userInfo })
 
   // Parse and validate request body
   let body: unknown

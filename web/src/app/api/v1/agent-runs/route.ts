@@ -6,8 +6,8 @@ import { postAgentRuns } from './_post'
 import type { NextRequest } from 'next/server'
 
 import { getUserInfoFromApiKey } from '@/db/user'
-import { logger } from '@/util/logger'
+import { logger, loggerWithContext } from '@/util/logger'
 
 export async function POST(req: NextRequest) {
-  return postAgentRuns({ req, getUserInfoFromApiKey, logger, trackEvent, db })
+  return postAgentRuns({ req, getUserInfoFromApiKey, logger, loggerWithContext, trackEvent, db })
 }
