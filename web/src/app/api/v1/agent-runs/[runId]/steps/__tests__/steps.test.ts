@@ -2,7 +2,7 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { agentRunsStepsPost } from '../steps'
+import { postAgentRunsSteps } from '../_post'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
@@ -68,7 +68,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -92,7 +92,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -116,7 +116,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -140,7 +140,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -175,7 +175,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -210,7 +210,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -234,7 +234,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -264,7 +264,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -305,7 +305,7 @@ describe('agentRunsStepsPost', () => {
       },
     )
 
-    const response = await agentRunsStepsPost({
+    const response = await postAgentRunsSteps({
       req,
       runId: 'run-123',
       getUserInfoFromApiKey: mockGetUserInfoFromApiKey,

@@ -24,7 +24,7 @@ const addAgentStepSchema = z.object({
   startTime: z.string().datetime().optional(),
 })
 
-export async function agentRunsStepsPost(params: {
+export async function postAgentRunsSteps(params: {
   req: NextRequest
   runId: string
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
