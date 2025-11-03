@@ -46,44 +46,6 @@ const updateBlocksRecursively = (
   })
 }
 
-const mergeTextSegments = (
-  previous: string,
-  incoming: string,
-): { next: string; delta: string } => {
-  if (!incoming) {
-    return { next: previous, delta: '' }
-  }
-  if (!previous) {
-    return { next: incoming, delta: incoming }
-  }
-
-  if (incoming.startsWith(previous)) {
-    return { next: incoming, delta: incoming.slice(previous.length) }
-  }
-
-  if (previous.includes(incoming)) {
-    return { next: previous, delta: '' }
-  }
-
-  const maxOverlap = Math.min(previous.length, incoming.length)
-  for (let overlap = maxOverlap; overlap > 0; overlap--) {
-    if (
-      previous.slice(previous.length - overlap) === incoming.slice(0, overlap)
-    ) {
-      const delta = incoming.slice(overlap)
-      return {
-        next: previous + delta,
-        delta,
-      }
-    }
-  }
-
-  return {
-    next: previous + incoming,
-    delta: incoming,
-  }
-}
-
 export type SendMessageTimerEvent =
   | {
       type: 'start'
@@ -694,16 +656,14 @@ export const useSendMessage = ({
 
               const previous =
                 agentStreamAccumulatorsRef.current.get(agentId) ?? ''
-              const { next, delta } = mergeTextSegments(previous, chunk)
-              if (!delta && next === previous) {
+              if (!chunk) {
                 return
               }
-              agentStreamAccumulatorsRef.current.set(agentId, next)
+              agentStreamAccumulatorsRef.current.set(agentId, previous + chunk)
 
               updateAgentContent(agentId, {
                 type: 'text',
-                content: delta || next,
-                ...(delta ? {} : { replace: true }),
+                content: chunk,
               })
               return
             }
@@ -714,24 +674,13 @@ export const useSendMessage = ({
             }
 
             const previous = rootStreamBufferRef.current ?? ''
-            const { next, delta } = mergeTextSegments(previous, event)
-            if (!delta && next === previous) {
+            if (!event) {
               return
             }
-            logger.info(
-              {
-                chunkLength: event.length,
-                previousLength: previous.length,
-                nextLength: next.length,
-                preview: event.slice(0, 100),
-              },
-              'handleStreamChunk root delta',
-            )
-            rootStreamBufferRef.current = next
+
+            rootStreamBufferRef.current = previous + event
             rootStreamSeenRef.current = true
-            if (delta) {
-              appendRootTextChunk(delta)
-            }
+            appendRootTextChunk(event)
           },
 
           handleEvent: (event: any) => {
@@ -764,24 +713,18 @@ export const useSendMessage = ({
                 )
                 const previous =
                   agentStreamAccumulatorsRef.current.get(event.agentId) ?? ''
-                const { next, delta } = mergeTextSegments(previous, text)
-                if (!delta && next === previous) {
+                if (!text) {
                   return
                 }
-                agentStreamAccumulatorsRef.current.set(event.agentId, next)
+                agentStreamAccumulatorsRef.current.set(
+                  event.agentId,
+                  previous + text,
+                )
 
-                if (delta) {
-                  updateAgentContent(event.agentId, {
-                    type: 'text',
-                    content: delta,
-                  })
-                } else {
-                  updateAgentContent(event.agentId, {
-                    type: 'text',
-                    content: next,
-                    replace: true,
-                  })
-                }
+                updateAgentContent(event.agentId, {
+                  type: 'text',
+                  content: text,
+                })
               } else {
                 if (rootStreamSeenRef.current) {
                   logger.info(
@@ -794,24 +737,20 @@ export const useSendMessage = ({
                   return
                 }
                 const previous = rootStreamBufferRef.current ?? ''
-                const { next, delta } = mergeTextSegments(previous, text)
-                if (!delta && next === previous) {
+                if (!text) {
                   return
                 }
                 logger.info(
                   {
                     textPreview: text.slice(0, 100),
                     previousLength: previous.length,
-                    textLength: text.length,
-                    appendedLength: delta.length,
+                    appendedLength: text.length,
                   },
                   'setMessages: text event without agentId',
                 )
-                rootStreamBufferRef.current = next
+                rootStreamBufferRef.current = previous + text
 
-                if (delta) {
-                  appendRootTextChunk(delta)
-                }
+                appendRootTextChunk(text)
               }
               return
             }
