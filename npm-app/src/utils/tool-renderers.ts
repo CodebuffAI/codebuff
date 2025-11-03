@@ -180,6 +180,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       return '\n\n'
     },
   },
+  read_subtree: {
+    ...defaultToolCallRenderer,
+  },
   read_docs: {
     ...defaultToolCallRenderer,
   },

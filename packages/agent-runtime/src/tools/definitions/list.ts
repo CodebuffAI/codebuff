@@ -12,6 +12,7 @@ import { listDirectoryTool } from './tool/list-directory'
 import { lookupAgentInfoTool } from './tool/lookup-agent-info'
 import { readDocsTool } from './tool/read-docs'
 import { readFilesTool } from './tool/read-files'
+import { readSubtreeTool } from './tool/read-subtree'
 import { runFileChangeHooksTool } from './tool/run-file-change-hooks'
 import { runTerminalCommandTool } from './tool/run-terminal-command'
 import { setMessagesTool } from './tool/set-messages'
@@ -43,6 +44,7 @@ const toolDescriptions = {
   lookup_agent_info: lookupAgentInfoTool,
   read_docs: readDocsTool,
   read_files: readFilesTool,
+  read_subtree: readSubtreeTool,
   run_file_change_hooks: runFileChangeHooksTool,
   run_terminal_command: runTerminalCommandTool,
   set_messages: setMessagesTool,

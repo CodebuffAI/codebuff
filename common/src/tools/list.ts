@@ -13,6 +13,7 @@ import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
+import { readSubtreeParams } from './params/tool/read-subtree'
 import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
 import { setMessagesParams } from './params/tool/set-messages'
@@ -52,6 +53,7 @@ export const $toolParams = {
   lookup_agent_info: lookupAgentInfoParams,
   read_docs: readDocsParams,
   read_files: readFilesParams,
+  read_subtree: readSubtreeParams,
   run_file_change_hooks: runFileChangeHooksParams,
   run_terminal_command: runTerminalCommandParams,
   set_messages: setMessagesParams,

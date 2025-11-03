@@ -11,6 +11,7 @@ export type ToolName =
   | 'lookup_agent_info'
   | 'read_docs'
   | 'read_files'
+  | 'read_subtree'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
   | 'set_messages'
@@ -36,6 +37,7 @@ export interface ToolParamsMap {
   lookup_agent_info: LookupAgentInfoParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
+  read_subtree: ReadSubtreeParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
@@ -128,6 +130,16 @@ export interface ReadDocsParams {
 export interface ReadFilesParams {
   /** List of file paths to read. */
   paths: string[]
+}
+
+/**
+ * Read one or more directory subtrees (as a blob including subdirectories, file names, and parsed variables within each source file) or return parsed variable names for files. If no paths are provided, returns the entire project tree.
+ */
+export interface ReadSubtreeParams {
+  /** List of paths to directories or files. Relative to the project root. If omitted, the entire project tree is used. */
+  paths?: string[]
+  /** Maximum token budget for the subtree blob; the tree will be truncated to fit within this budget by first dropping file variables and then removing the most-nested files and directories. */
+  maxTokens?: number
 }
 
 /**
