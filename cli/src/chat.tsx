@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import stringWidth from 'string-width'
 import { useShallow } from 'zustand/react/shallow'
 
+import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { LoginModal } from './components/login-modal'
 import {
@@ -30,7 +31,6 @@ import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
-import { handleSlashCommands } from './slash-commands/handlers'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
@@ -811,7 +811,7 @@ export const App = ({
 
   const handleSubmit = useCallback(
     () =>
-      handleSlashCommands({
+      routeUserPrompt({
         abortControllerRef,
         agentMode,
         inputRef,

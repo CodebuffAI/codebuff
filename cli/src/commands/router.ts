@@ -7,7 +7,7 @@ import type { User } from '../utils/auth'
 import type { AgentMode } from '../utils/constants'
 import type { UseMutationResult } from '@tanstack/react-query'
 
-export function handleSlashCommands(params: {
+export function routeUserPrompt(params: {
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentMode: AgentMode
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
