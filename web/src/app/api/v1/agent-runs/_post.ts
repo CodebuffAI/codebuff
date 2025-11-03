@@ -165,7 +165,7 @@ async function handleFinishAction(params: {
   }
 }
 
-export async function agentRunsPost(params: {
+export async function postAgentRuns(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
