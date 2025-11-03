@@ -10,6 +10,7 @@ import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
+import { handleReadSubtree } from './tool/read-subtree'
 import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
 import { handleSetMessages } from './tool/set-messages'
@@ -17,6 +18,7 @@ import { handleSetOutput } from './tool/set-output'
 import { handleSpawnAgentInline } from './tool/spawn-agent-inline'
 import { handleSpawnAgents } from './tool/spawn-agents'
 import { handleStrReplace } from './tool/str-replace'
+import { handleTaskCompleted } from './tool/task-completed'
 import { handleThinkDeeply } from './tool/think-deeply'
 import { handleUpdateSubgoal } from './tool/update-subgoal'
 import { handleWebSearch } from './tool/web-search'
@@ -48,6 +50,7 @@ export const codebuffToolHandlers = {
   lookup_agent_info: handleLookupAgentInfo,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
+  read_subtree: handleReadSubtree,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
   set_messages: handleSetMessages,
@@ -55,6 +58,7 @@ export const codebuffToolHandlers = {
   spawn_agents: handleSpawnAgents,
   spawn_agent_inline: handleSpawnAgentInline,
   str_replace: handleStrReplace,
+  task_completed: handleTaskCompleted,
   think_deeply: handleThinkDeeply,
   update_subgoal: handleUpdateSubgoal,
   web_search: handleWebSearch,

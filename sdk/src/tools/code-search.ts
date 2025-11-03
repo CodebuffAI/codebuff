@@ -14,6 +14,7 @@ export function codeSearch({
   maxResults = 15,
   globalMaxResults = 250,
   maxOutputStringLength = 20_000,
+  timeoutSeconds = 10,
 }: {
   projectPath: string
   pattern: string
@@ -22,18 +23,18 @@ export function codeSearch({
   maxResults?: number
   globalMaxResults?: number
   maxOutputStringLength?: number
+  timeoutSeconds?: number
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
-    let stdout = ''
-    let stderr = ''
+    let isResolved = false
 
-    const flagsArray = (flags || '').split(' ').filter(Boolean)
-    let searchCwd = projectPath
+    // Guard paths robustly
+    const projectRoot = path.resolve(projectPath) + path.sep
+    let searchCwd = projectRoot
     if (cwd) {
-      const requestedPath = path.resolve(projectPath, cwd)
-      // Ensure the search path is within the project directory
-      if (!requestedPath.startsWith(projectPath)) {
-        resolve([
+      const requestedPath = path.resolve(projectRoot, cwd)
+      if (!requestedPath.startsWith(projectRoot)) {
+        return resolve([
           {
             type: 'json',
             value: {
@@ -41,13 +42,21 @@ export function codeSearch({
             },
           },
         ])
-        return
       }
       searchCwd = requestedPath
     }
 
-    // Always include -n flag to ensure line numbers are in output for parsing
-    const args = ['-n', ...flagsArray, pattern, '.']
+    // Deduplicate flags
+    const flagsArray = Array.from(
+      new Set((flags || '').split(' ').filter(Boolean)),
+    )
+
+    // Use JSON output for robust parsing and early stopping
+    // --no-config prevents user/system .ripgreprc from interfering
+    // -n shows line numbers
+    // --json outputs in JSON format, which streams in and allows us to cut off the output if it grows too long
+    // "--"" prevents pattern from being misparsed as a flag (e.g., pattern starting with '-')
+    const args = ['--no-config', '-n', '--json', ...flagsArray, '--', pattern, '.']
 
     const rgPath = getBundledRgPath(import.meta.url)
     const childProcess = spawn(rgPath, args, {
@@ -55,166 +64,280 @@ export function codeSearch({
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
-    childProcess.stdout.on('data', (data) => {
-      stdout += data.toString()
-    })
+    let jsonRemainder = ''
+    let stderrBuf = ''
+    // Track matches by file for grouping and limiting
+    const fileGroups = new Map<string, string[]>()
+    // Track match count per file separately from total lines
+    const fileMatchCounts = new Map<string, number>()
+    let matchesGlobal = 0
+    let estimatedOutputLen = 0
+    let killedForLimit = false
 
-    childProcess.stderr.on('data', (data) => {
-      stderr += data.toString()
-    })
+    const settle = (payload: any) => {
+      if (isResolved) return
+      isResolved = true
 
-    childProcess.on('close', (code) => {
-      const lines = stdout.split('\n').filter((line) => line.trim())
+      // Clean up listeners immediately
+      childProcess.stdout.removeAllListeners()
+      childProcess.stderr.removeAllListeners()
+      childProcess.removeAllListeners()
 
-      // Group results by file
-      const fileGroups = new Map<string, string[]>()
-      let currentFile: string | null = null
+      clearTimeout(timeoutId)
+      resolve([{ type: 'json', value: payload }])
+    }
+
+    const hardKill = () => {
+      try {
+        childProcess.kill('SIGTERM')
+      } catch {}
+      setTimeout(() => {
+        try {
+          // SIGKILL doesn't exist on Windows, fall back to no-signal kill
+          childProcess.kill('SIGKILL') || childProcess.kill()
+        } catch {}
+      }, 1000)
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (isResolved) return
+      hardKill()
+
+      // Build output from collected matches
+      const collectedLines: string[] = []
+      for (const fileLines of fileGroups.values()) {
+        collectedLines.push(...fileLines)
+      }
+      const partialOutput = collectedLines.join('\n')
+
+      const truncatedStdout =
+        partialOutput.length > 1000
+          ? partialOutput.substring(0, 1000) + '\n\n[Output truncated]'
+          : partialOutput
+      const truncatedStderr =
+        stderrBuf.length > 1000
+          ? stderrBuf.substring(0, 1000) + '\n\n[Error output truncated]'
+          : stderrBuf
+
+      settle({
+        errorMessage: `Code search timed out after ${timeoutSeconds} seconds. The search may be too broad or the pattern too complex. Try narrowing your search with more specific flags or a more specific pattern.`,
+        stdout: truncatedStdout,
+        stderr: truncatedStderr,
+      })
+    }, timeoutSeconds * 1000)
+
+    // Parse ripgrep JSON for early stopping
+    childProcess.stdout.on('data', (chunk: Buffer | string) => {
+      if (isResolved) return
+      const chunkStr = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+      jsonRemainder += chunkStr
+
+      // Split by lines; last line might be partial
+      const lines = jsonRemainder.split('\n')
+      jsonRemainder = lines.pop() || ''
 
       for (const line of lines) {
-        // Skip separator lines between result groups
-        if (line === '--') {
+        if (!line) continue
+        let evt: any
+        try {
+          evt = JSON.parse(line)
+        } catch {
           continue
         }
 
-        // Ripgrep output format:
-        // - Match lines: filename:line_number:content
-        // - Context lines (with -A/-B/-C flags): filename-line_number-content
+        // Process both match and context events
+        if (evt.type === 'match' || evt.type === 'context') {
+          // Handle both text and bytes for non-UTF8 paths
+          const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+          const lineNumber = evt.data.line_number ?? 0
+          // Strip trailing newlines to prevent blank lines in output
+          const rawText = evt.data.lines?.text ?? ''
+          const lineText = rawText.replace(/\r?\n$/, '')
 
-        // Use regex to find the pattern: separator + digits + separator
-        // This handles filenames with hyphens/colons by matching the line number pattern
-        let separatorIndex = -1
-        let filename = ''
+          // Format as ripgrep output: filename:line_number:content
+          const formattedLine = `${filePath}:${lineNumber}:${lineText}`
 
-        // Try match line pattern: filename:digits:content
-        const matchLinePattern = /(.*?):(\d+):(.*)$/
-        const matchLineMatch = line.match(matchLinePattern)
-        if (matchLineMatch) {
-          filename = matchLineMatch[1]
-          separatorIndex = matchLineMatch[1].length
-        } else {
-          // Try context line pattern: filename-digits-content
-          const contextLinePattern = /(.*?)-(\d+)-(.*)$/
-          const contextLineMatch = line.match(contextLinePattern)
-          if (contextLineMatch) {
-            filename = contextLineMatch[1]
-            separatorIndex = contextLineMatch[1].length
+          // Group by file
+          if (!fileGroups.has(filePath)) {
+            fileGroups.set(filePath, [])
+            fileMatchCounts.set(filePath, 0)
           }
-        }
+          const fileLines = fileGroups.get(filePath)!
+          const fileMatchCount = fileMatchCounts.get(filePath)!
 
-        if (separatorIndex === -1) {
-          // Malformed line, skip it
-          continue
-        }
+          // Only count matches toward limits, not context lines
+          const isMatch = evt.type === 'match'
 
-        // Check if this is a valid filename (not indented, not containing tabs)
-        if (filename && !filename.includes('\t') && !filename.startsWith(' ')) {
-          currentFile = filename
-          if (!fileGroups.has(currentFile)) {
-            fileGroups.set(currentFile, [])
+          // Check if we should include this line
+          // For matches: only if we haven't hit the per-file limit
+          // For context: always include (they don't count toward limit)
+          const shouldInclude = !isMatch || fileMatchCount < maxResults
+
+          if (shouldInclude) {
+            // Add the line to output
+            fileLines.push(formattedLine)
+            estimatedOutputLen += formattedLine.length + 1
+
+            // Only increment match counters for actual matches
+            if (isMatch) {
+              fileMatchCounts.set(filePath, fileMatchCount + 1)
+              matchesGlobal++
+
+              // Check global limit or output size limit
+              if (matchesGlobal >= globalMaxResults || estimatedOutputLen >= maxOutputStringLength) {
+                killedForLimit = true
+                hardKill()
+
+                // Build final output from collected matches
+                const limitedLines: string[] = []
+                for (const lines of fileGroups.values()) {
+                  limitedLines.push(...lines)
+                }
+                const rawOutput = limitedLines.join('\n')
+                const formattedOutput = formatCodeSearchOutput(rawOutput)
+
+                const finalOutput =
+                  formattedOutput.length > maxOutputStringLength
+                    ? formattedOutput.substring(0, maxOutputStringLength) +
+                      '\n\n[Output truncated]'
+                    : formattedOutput
+
+                const limitReason = matchesGlobal >= globalMaxResults
+                  ? `[Global limit of ${globalMaxResults} results reached.]`
+                  : '[Output size limit reached.]'
+
+                return settle({
+                  stdout: finalOutput + '\n\n' + limitReason,
+                  message: `Stopped early after ${matchesGlobal} match(es).`,
+                })
+              }
+            }
           }
-          fileGroups.get(currentFile)!.push(line)
-        } else if (currentFile) {
-          // This shouldn't happen with proper ripgrep output
-          fileGroups.get(currentFile)!.push(line)
         }
       }
+    })
 
-      // Limit results per file and globally
+    childProcess.stderr.on('data', (chunk: Buffer | string) => {
+      if (isResolved) return
+      const chunkStr = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+      // Keep stderr bounded during streaming
+      const limit = Math.floor(maxOutputStringLength / 5)
+      if (stderrBuf.length < limit) {
+        const space = limit - stderrBuf.length
+        stderrBuf += chunkStr.slice(0, space)
+      }
+    })
+
+    childProcess.once('close', (code) => {
+      if (isResolved) return
+
+      // Flush any remaining JSON - handle multiple complete lines
+      try {
+        if (jsonRemainder) {
+          // Ensure we have a trailing newline for split to work correctly
+          const maybeMany = jsonRemainder.endsWith('\n') ? jsonRemainder : jsonRemainder + '\n'
+          for (const ln of maybeMany.split('\n')) {
+            if (!ln) continue
+            try {
+              const evt = JSON.parse(ln)
+              if (evt?.type === 'match' || evt?.type === 'context') {
+                const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+                const lineNumber = evt.data.line_number ?? 0
+                const rawText = evt.data.lines?.text ?? ''
+                const lineText = rawText.replace(/\r?\n$/, '')
+                const formattedLine = `${filePath}:${lineNumber}:${lineText}`
+
+                if (!fileGroups.has(filePath)) {
+                  fileGroups.set(filePath, [])
+                  fileMatchCounts.set(filePath, 0)
+                }
+                const fileLines = fileGroups.get(filePath)!
+                const fileMatchCount = fileMatchCounts.get(filePath)!
+                const isMatch = evt.type === 'match'
+
+                // Check if we should include this line
+                const shouldInclude = !isMatch || (fileMatchCount < maxResults && matchesGlobal < globalMaxResults)
+
+                if (shouldInclude) {
+                  fileLines.push(formattedLine)
+
+                  // Only increment match counter for actual matches
+                  if (isMatch) {
+                    fileMatchCounts.set(filePath, fileMatchCount + 1)
+                    matchesGlobal++
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+      } catch {}
+
+      // Build final output from collected matches
       const limitedLines: string[] = []
-      let totalOriginalCount = 0
-      let totalLimitedCount = 0
       const truncatedFiles: string[] = []
-      let globalLimitReached = false
-      const skippedFiles: string[] = []
 
       for (const [filename, fileLines] of fileGroups) {
-        totalOriginalCount += fileLines.length
-
-        // Check if we've hit the global limit
-        if (totalLimitedCount >= globalMaxResults) {
-          globalLimitReached = true
-          skippedFiles.push(filename)
-          continue
-        }
-
-        // Calculate how many results we can take from this file
-        const remainingGlobalSpace = globalMaxResults - totalLimitedCount
-        const resultsToTake = Math.min(
-          maxResults,
-          fileLines.length,
-          remainingGlobalSpace,
-        )
-        const limited = fileLines.slice(0, resultsToTake)
-        totalLimitedCount += limited.length
-        limitedLines.push(...limited)
-
-        if (fileLines.length > resultsToTake) {
+        limitedLines.push(...fileLines)
+        // Note if file was truncated (based on match count, not total lines)
+        const fileMatchCount = fileMatchCounts.get(filename) ?? 0
+        if (fileMatchCount >= maxResults) {
           truncatedFiles.push(
-            `${filename}: ${fileLines.length} results (showing ${resultsToTake})`,
+            `${filename}: limited to ${maxResults} results per file`,
           )
         }
       }
 
-      let limitedStdout = limitedLines.join('\n')
+      let rawOutput = limitedLines.join('\n')
 
-      // Add truncation message if results were limited
+      // Add truncation messages
       const truncationMessages: string[] = []
-
       if (truncatedFiles.length > 0) {
         truncationMessages.push(
           `Results limited to ${maxResults} per file. Truncated files:\n${truncatedFiles.join('\n')}`,
         )
       }
-
-      if (globalLimitReached) {
+      if (killedForLimit) {
         truncationMessages.push(
-          `Global limit of ${globalMaxResults} results reached. ${skippedFiles.length} file(s) skipped:\n${skippedFiles.join('\n')}`,
+          `Global limit of ${globalMaxResults} results reached.`,
         )
       }
 
       if (truncationMessages.length > 0) {
-        limitedStdout += `\n\n[${truncationMessages.join('\n\n')}]`
+        rawOutput += `\n\n[${truncationMessages.join('\n\n')}]`
       }
 
-      const formattedStdout = formatCodeSearchOutput(limitedStdout)
-      const finalStdout = formattedStdout
+      const formattedOutput = formatCodeSearchOutput(rawOutput)
 
       // Truncate output to prevent memory issues
       const truncatedStdout =
-        finalStdout.length > maxOutputStringLength
-          ? finalStdout.substring(0, maxOutputStringLength) +
+        formattedOutput.length > maxOutputStringLength
+          ? formattedOutput.substring(0, maxOutputStringLength) +
             '\n\n[Output truncated]'
-          : finalStdout
+          : formattedOutput
 
-      const maxErrorLength = maxOutputStringLength / 5
-      const truncatedStderr =
-        stderr.length > maxErrorLength
-          ? stderr.substring(0, maxErrorLength) + '\n\n[Error output truncated]'
-          : stderr
+      const truncatedStderr = stderrBuf
+        ? stderrBuf +
+          (stderrBuf.length >= Math.floor(maxOutputStringLength / 5)
+            ? '\n\n[Error output truncated]'
+            : '')
+        : ''
 
-      const result = {
+      settle({
         stdout: truncatedStdout,
         ...(truncatedStderr && { stderr: truncatedStderr }),
-        message: code !== null ? `Exit code: ${code}` : '',
-      }
-
-      resolve([
-        {
-          type: 'json',
-          value: result,
-        },
-      ])
+        message:
+          code !== null
+            ? `Exit code: ${code}${killedForLimit ? ' (early stop)' : ''}`
+            : '',
+      })
     })
 
-    childProcess.on('error', (error) => {
-      resolve([
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Failed to execute ripgrep: ${error.message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
-          },
-        },
-      ])
+    childProcess.once('error', (error) => {
+      if (isResolved) return
+      settle({
+        errorMessage: `Failed to execute ripgrep: ${error.message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
+      })
     })
   })
 }

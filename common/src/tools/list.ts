@@ -13,6 +13,7 @@ import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
+import { readSubtreeParams } from './params/tool/read-subtree'
 import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
 import { setMessagesParams } from './params/tool/set-messages'
@@ -20,6 +21,7 @@ import { setOutputParams } from './params/tool/set-output'
 import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { spawnAgentsParams } from './params/tool/spawn-agents'
 import { strReplaceParams } from './params/tool/str-replace'
+import { taskCompletedParams } from './params/tool/task-completed'
 import { thinkDeeplyParams } from './params/tool/think-deeply'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
@@ -51,6 +53,7 @@ export const $toolParams = {
   lookup_agent_info: lookupAgentInfoParams,
   read_docs: readDocsParams,
   read_files: readFilesParams,
+  read_subtree: readSubtreeParams,
   run_file_change_hooks: runFileChangeHooksParams,
   run_terminal_command: runTerminalCommandParams,
   set_messages: setMessagesParams,
@@ -58,6 +61,7 @@ export const $toolParams = {
   spawn_agents: spawnAgentsParams,
   spawn_agent_inline: spawnAgentInlineParams,
   str_replace: strReplaceParams,
+  task_completed: taskCompletedParams,
   think_deeply: thinkDeeplyParams,
   update_subgoal: updateSubgoalParams,
   web_search: webSearchParams,

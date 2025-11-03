@@ -124,7 +124,7 @@ jobs:
       new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
       artifact-name: cli-staging-metadata
       checkout-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-      env-overrides: '{}'
+      env-overrides: '{"NEXT_PUBLIC_CB_ENVIRONMENT":"prod"}'
     secrets: inherit
 
   create-staging-release:

@@ -77,6 +77,7 @@ export interface AgentEvalResults {
   agentId: string
   runs: EvalRun[]
   averageScore: number
+  averageScoreExcludingFailures: number
   averageCost: number
   averageDuration: number
 }

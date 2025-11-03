@@ -73,7 +73,7 @@ jobs:
           ENV_OVERRIDES: '{"NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
         shell: bash
         run: |
-          VAR_NAMES=$(bun scripts/generate-ci-env.ts)
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts --scope client)
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV

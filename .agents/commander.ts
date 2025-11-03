@@ -24,6 +24,11 @@ const commander: AgentDefinition = {
           type: 'string',
           description: 'Terminal command to run',
         },
+        timeout_seconds: {
+          type: 'number',
+          description:
+            'Set to -1 for no timeout. Default 30',
+        },
       },
       required: ['command'],
     },
@@ -53,10 +58,15 @@ Run the command and then describe the relevant information from the output, foll
       return
     }
 
+    const timeout_seconds = params?.timeout_seconds as number | undefined
+
     // Run the command
     yield {
       toolName: 'run_terminal_command',
-      input: { command },
+      input: {
+        command,
+        ...(timeout_seconds !== undefined && { timeout_seconds }),
+      },
     }
 
     // Let the model analyze and describe the output

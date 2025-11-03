@@ -12,6 +12,7 @@ import { listDirectoryTool } from './tool/list-directory'
 import { lookupAgentInfoTool } from './tool/lookup-agent-info'
 import { readDocsTool } from './tool/read-docs'
 import { readFilesTool } from './tool/read-files'
+import { readSubtreeTool } from './tool/read-subtree'
 import { runFileChangeHooksTool } from './tool/run-file-change-hooks'
 import { runTerminalCommandTool } from './tool/run-terminal-command'
 import { setMessagesTool } from './tool/set-messages'
@@ -19,6 +20,7 @@ import { setOutputTool } from './tool/set-output'
 import { spawnAgentInlineTool } from './tool/spawn-agent-inline'
 import { spawnAgentsTool } from './tool/spawn-agents'
 import { strReplaceTool } from './tool/str-replace'
+import { taskCompletedTool } from './tool/task-completed'
 import { thinkDeeplyTool } from './tool/think-deeply'
 import { updateSubgoalTool } from './tool/update-subgoal'
 import { webSearchTool } from './tool/web-search'
@@ -42,6 +44,7 @@ const toolDescriptions = {
   lookup_agent_info: lookupAgentInfoTool,
   read_docs: readDocsTool,
   read_files: readFilesTool,
+  read_subtree: readSubtreeTool,
   run_file_change_hooks: runFileChangeHooksTool,
   run_terminal_command: runTerminalCommandTool,
   set_messages: setMessagesTool,
@@ -49,6 +52,7 @@ const toolDescriptions = {
   spawn_agents: spawnAgentsTool,
   spawn_agent_inline: spawnAgentInlineTool,
   str_replace: strReplaceTool,
+  task_completed: taskCompletedTool,
   think_deeply: thinkDeeplyTool,
   update_subgoal: updateSubgoalTool,
   web_search: webSearchTool,

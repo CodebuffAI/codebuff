@@ -90,7 +90,7 @@ function httpGet(url, options = {}) {
   })
 }
 
-async function getLatestVersion() {
+async function getLatestLegacyVersion() {
   try {
     const res = await httpGet(
       `https://github.com/${CONFIG.githubRepo}/releases.atom`,
@@ -102,7 +102,7 @@ async function getLatestVersion() {
 
     // Parse the Atom XML to extract the latest release tag
     const tagMatch = body.match(
-      /<id>tag:github\.com,2008:Repository\/\d+\/v(\d+\.\d+\.\d+)<\/id>/,
+      /<id>tag:github\.com,2008:Repository\/\d+\/v(\d+\.\d+\.\d+-legacy.\d+)<\/id>/,
     )
     if (tagMatch && tagMatch[1]) {
       return tagMatch[1]
@@ -179,12 +179,12 @@ function getCurrentVersion() {
 function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
 
-  if (!v1.match(/^\d+(\.\d+)*$/)) {
+  if (!v1.includes('legacy')) {
     return -1
   }
 
-  const parts1 = v1.split('.').map(Number)
-  const parts2 = v2.split('.').map(Number)
+  const parts1 = v1.replace('-legacy', '').split('.').map(Number)
+  const parts2 = v2.replace('-legacy', '').split('.').map(Number)
 
   for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
     const p1 = parts1[i] || 0
@@ -307,7 +307,7 @@ async function ensureBinaryExists() {
     return
   }
 
-  const version = await getLatestVersion()
+  const version = await getLatestLegacyVersion()
   if (!version) {
     if (isPrintMode) {
       console.error(
@@ -346,7 +346,7 @@ async function checkForUpdates(runningProcess, exitListener, retry) {
   try {
     const currentVersion = await getCurrentVersion()
 
-    const latestVersion = await getLatestVersion()
+    const latestVersion = await getLatestLegacyVersion()
     if (!latestVersion) return
 
     if (
@@ -388,6 +388,14 @@ async function checkForUpdates(runningProcess, exitListener, retry) {
 }
 
 async function main(firstRun = false, printMode = false) {
+  console.log('\x1b[1m\x1b[91m' + '='.repeat(54) + '\x1b[0m')
+  console.log('\x1b[1m\x1b[93m               ❄️  CODEBUFF LEGACY UI ❄️\x1b[0m')
+  console.log(
+    '\x1b[1m\x1b[91mRUN `npm i -g codebuff@latest` TO SWITCH TO THE NEW UI\x1b[0m',
+  )
+  console.log('\x1b[1m\x1b[91m' + '='.repeat(54) + '\x1b[0m')
+  console.log('')
+
   isPrintMode = printMode
   await ensureBinaryExists()
 

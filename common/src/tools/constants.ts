@@ -14,6 +14,7 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'add_message',
   'update_subgoal',
   'create_plan',
+  'task_completed',
 ]
 
 // List of all available tools
@@ -30,6 +31,7 @@ export const toolNames = [
   'lookup_agent_info',
   'read_docs',
   'read_files',
+  'read_subtree',
   'run_file_change_hooks',
   'run_terminal_command',
   'set_messages',
@@ -37,6 +39,7 @@ export const toolNames = [
   'spawn_agents',
   'spawn_agent_inline',
   'str_replace',
+  'task_completed',
   'think_deeply',
   'update_subgoal',
   'web_search',
@@ -54,12 +57,14 @@ export const publishedTools = [
   'lookup_agent_info',
   'read_docs',
   'read_files',
+  'read_subtree',
   'run_file_change_hooks',
   'run_terminal_command',
   'set_messages',
   'set_output',
   'spawn_agents',
   'str_replace',
+  'task_completed',
   'think_deeply',
   'web_search',
   'write_file',

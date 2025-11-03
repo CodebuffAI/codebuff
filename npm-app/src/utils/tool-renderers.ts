@@ -117,6 +117,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
   end_turn: {
     // Don't render anything
   },
+  task_completed: {
+    // Don't render anything
+  },
   run_terminal_command: {
     // Don't render anything
   },
@@ -176,6 +179,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
       // Add a final newline after the file list
       return '\n\n'
     },
+  },
+  read_subtree: {
+    ...defaultToolCallRenderer,
   },
   read_docs: {
     ...defaultToolCallRenderer,

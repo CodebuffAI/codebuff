@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Common bun installation paths to check
 BUN_PATHS=(
@@ -261,7 +261,7 @@ doesnt_need_secrets() {
             # Check for integration/e2e tests that require tmux
             # Convention: test files matching *integration*.test.ts or *e2e*.test.ts
             local needs_tmux=false
-            
+
             for arg in "$@"; do
                 # Check if running integration or e2e tests
                 if [[ "$arg" =~ (integration|e2e).*\.test\.(ts|tsx|js|jsx) ]]; then
@@ -276,7 +276,7 @@ doesnt_need_secrets() {
                     fi
                 fi
             done
-            
+
             # If running integration/e2e tests, check tmux availability
             if [ "$needs_tmux" = true ]; then
                 if ! check_tmux_installed; then

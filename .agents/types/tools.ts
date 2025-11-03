@@ -11,12 +11,14 @@ export type ToolName =
   | 'lookup_agent_info'
   | 'read_docs'
   | 'read_files'
+  | 'read_subtree'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
   | 'set_messages'
   | 'set_output'
   | 'spawn_agents'
   | 'str_replace'
+  | 'task_completed'
   | 'think_deeply'
   | 'web_search'
   | 'write_file'
@@ -35,12 +37,14 @@ export interface ToolParamsMap {
   lookup_agent_info: LookupAgentInfoParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
+  read_subtree: ReadSubtreeParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
   set_output: SetOutputParams
   spawn_agents: SpawnAgentsParams
   str_replace: StrReplaceParams
+  task_completed: TaskCompletedParams
   think_deeply: ThinkDeeplyParams
   web_search: WebSearchParams
   write_file: WriteFileParams
@@ -61,7 +65,7 @@ export interface AddMessageParams {
 export interface CodeSearchParams {
   /** The pattern to search for. */
   pattern: string
-  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, --no-ignore to include files in ignored by .gitignore). */
+  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match). */
   flags?: string
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
@@ -126,6 +130,16 @@ export interface ReadDocsParams {
 export interface ReadFilesParams {
   /** List of file paths to read. */
   paths: string[]
+}
+
+/**
+ * Read one or more directory subtrees (as a blob including subdirectories, file names, and parsed variables within each source file) or return parsed variable names for files. If no paths are provided, returns the entire project tree.
+ */
+export interface ReadSubtreeParams {
+  /** List of paths to directories or files. Relative to the project root. If omitted, the entire project tree is used. */
+  paths?: string[]
+  /** Maximum token budget for the subtree blob; the tree will be truncated to fit within this budget by first dropping file variables and then removing the most-nested files and directories. */
+  maxTokens?: number
 }
 
 /**
@@ -194,6 +208,16 @@ export interface StrReplaceParams {
 }
 
 /**
+ * Signal that the task is complete. Use this tool when:
+- The user's request is completely fulfilled
+- You need clarification from the user before continuing
+- You are stuck or need help from the user to continue
+
+This tool explicitly marks the end of your work on the current task.
+ */
+export interface TaskCompletedParams {}
+
+/**
  * Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.
  */
 export interface ThinkDeeplyParams {
@@ -227,7 +251,7 @@ export interface WriteFileParams {
  * Write a todo list to track tasks. Use this frequently to maintain a step-by-step plan.
  */
 export interface WriteTodosParams {
-  /** List of todos with their completion status */
+  /** List of todos with their completion status. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet! */
   todos: {
     /** Description of the task */
     task: string

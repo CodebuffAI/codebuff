@@ -54,9 +54,12 @@ import {
   resolveThemeColor,
   type ChatTheme,
 } from './utils/theme-system'
+import { env } from '@codebuff/common/env'
+import { clientEnvVars } from '@codebuff/common/env-schema'
 import { openFileAtPath } from './utils/open-file'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { formatValidationError } from './utils/validation-error-formatting'
+import { getCodebuffClient } from './utils/codebuff-client'
 
 import type { User } from './utils/auth'
 import type { ToolName } from '@codebuff/sdk'
@@ -340,7 +343,55 @@ export const App = ({
         })
       }
 
-      const baseTextColorValue = resolveThemeColor(baseTextColor, '#cbd5f5') ?? '#cbd5f5'
+      const baseTextColorValue =
+        resolveThemeColor(baseTextColor, '#cbd5f5') ?? '#cbd5f5'
+
+      // Log all client environment variables (works with both dev and binary modes)
+      const envVarsList = clientEnvVars
+        .map((key) => {
+          const value = env[key]
+          const displayValue =
+            typeof value === 'string' && value.length > 50
+              ? value.substring(0, 47) + '...'
+              : value
+          return `  ${key}=${displayValue}`
+        })
+        .join('\n')
+
+      blocks.push({
+        type: 'text',
+        content: `\nCLI Environment variables:\n${envVarsList}`,
+        marginTop: 1,
+        color: baseTextColor,
+      })
+
+      // Display SDK environment variables when the client is available
+      const client = getCodebuffClient()
+      if (client) {
+        const sdkEnv = client.getEnvironmentInfo()
+        const sdkEnvLines = [
+          'Raw SDK env vars:',
+          ...Object.entries(sdkEnv.rawEnv).map(
+            ([key, value]) => `  ${key}=${value}`,
+          ),
+          '',
+          'Computed SDK constants:',
+          ...Object.entries(sdkEnv.computed).map(([key, value]) => {
+            const displayValue =
+              typeof value === 'string' && value.length > 50
+                ? value.substring(0, 47) + '...'
+                : String(value)
+            return `  ${key}=${displayValue}`
+          }),
+        ].join('\n')
+
+        blocks.push({
+          type: 'text',
+          content: `\nSDK Environment:\n${sdkEnvLines}`,
+          marginTop: 1,
+          color: baseTextColor,
+        })
+      }
 
       blocks.push({
         type: 'html',

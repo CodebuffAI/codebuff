@@ -1,6 +1,7 @@
-import { BACKEND_URL, WEBSITE_URL } from './constants'
+import { BACKEND_URL, WEBSITE_URL, WEBSOCKET_URL, IS_DEV, IS_TEST, IS_PROD } from './constants'
 import { run } from './run'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
+import { env } from '@codebuff/common/env'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
 import type { RunState } from './run-state'
@@ -79,6 +80,31 @@ export class CodebuffClient {
       )
     } catch {
       return false
+    }
+  }
+
+  /**
+   * [TEST] Get environment information from the SDK
+   *
+   * @returns Object containing SDK environment variables and computed constants
+   */
+  public getEnvironmentInfo() {
+    return {
+      // Raw env vars
+      rawEnv: {
+        NEXT_PUBLIC_CB_ENVIRONMENT: env.NEXT_PUBLIC_CB_ENVIRONMENT,
+        NEXT_PUBLIC_CODEBUFF_APP_URL: env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+        NEXT_PUBLIC_CODEBUFF_BACKEND_URL: env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL,
+      },
+      // Computed constants
+      computed: {
+        WEBSITE_URL,
+        BACKEND_URL,
+        WEBSOCKET_URL,
+        IS_DEV,
+        IS_TEST,
+        IS_PROD,
+      },
     }
   }
 }

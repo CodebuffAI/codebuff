@@ -129,7 +129,7 @@ async function main() {
 
   // Ensure SDK assets exist before compiling the CLI
   log('Building SDK dependencies...')
-  runCommand('bun', ['run', 'build:sdk'], { cwd: cliRoot })
+  runCommand('bun', ['run', 'build:sdk'], { cwd: cliRoot, env: process.env })
 
   patchOpenTuiAssetPaths()
   await ensureOpenTuiNativeBundle(targetInfo)
@@ -137,6 +137,11 @@ async function main() {
   const outputFilename =
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
   const outputFile = join(binDir, outputFilename)
+
+  // Collect all NEXT_PUBLIC_* environment variables
+  const nextPublicEnvVars = Object.entries(process.env)
+    .filter(([key]) => key.startsWith('NEXT_PUBLIC_'))
+    .map(([key, value]) => [`process.env.${key}`, `"${value ?? ''}"`])
 
   const defineFlags = [
     ['process.env.NODE_ENV', '"production"'],
@@ -146,6 +151,7 @@ async function main() {
       'process.env.CODEBUFF_CLI_TARGET',
       `"${targetInfo.platform}-${targetInfo.arch}"`,
     ],
+    ...nextPublicEnvVars,
   ]
 
   const buildArgs = [
@@ -156,6 +162,7 @@ async function main() {
     `--outfile=${outputFile}`,
     '--sourcemap=none',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
+    '--env "NEXT_PUBLIC_*"', // Copies all current env vars in process.env to the compiled binary that match the pattern.
   ]
 
   log(

@@ -24,7 +24,7 @@ const paramsSchema = {
           },
           flags: {
             type: 'string' as const,
-            description: `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match, --no-ignore to include files in ignored by .gitignore).`,
+            description: `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match).`,
           },
           cwd: {
             type: 'string' as const,

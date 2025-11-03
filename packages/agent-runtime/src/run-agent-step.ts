@@ -383,10 +383,25 @@ export const runAgentStep = async (
     }
   }
 
-  let shouldEndTurn =
-    toolCalls.some((call) => call.toolName === 'end_turn') ||
-    hasNoToolResults ||
-    hasOnlyFinishedTodos
+  const hasTaskCompleted = toolCalls.some(
+    (call) =>
+      call.toolName === 'task_completed' || call.toolName === 'end_turn',
+  )
+
+  // If the agent has the task_completed tool, it must be called to end its turn.
+  const requiresExplicitCompletion =
+    agentTemplate.toolNames.includes('task_completed')
+
+  let shouldEndTurn: boolean
+  if (requiresExplicitCompletion) {
+    // For models requiring explicit completion, only end turn when:
+    // - task_completed is called, OR
+    // - end_turn is called (backward compatibility)
+    shouldEndTurn = hasTaskCompleted
+  } else {
+    // For other models, also end turn when there are no tool calls or only a call to finished todos
+    shouldEndTurn = hasTaskCompleted || hasNoToolResults || hasOnlyFinishedTodos
+  }
 
   agentState = {
     ...agentState,

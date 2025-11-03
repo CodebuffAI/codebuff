@@ -149,7 +149,7 @@ jobs:
           ENV_OVERRIDES: ${{ inputs.env-overrides }}
         shell: bash
         run: |
-          VAR_NAMES=$(bun scripts/generate-ci-env.ts --prefix NEXT_PUBLIC_)
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts --scope client)
 
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
@@ -195,13 +195,6 @@ jobs:
         with:
           name: codecane-${{ matrix.target }}
           path: codecane-${{ matrix.target }}.tar.gz
-
-      - name: Open debug shell on failure
-        if: failure()
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-        timeout-minutes: 15
 
   build-windows-binary:
     runs-on: windows-latest
@@ -299,7 +292,7 @@ jobs:
           ENV_OVERRIDES: ${{ inputs.env-overrides }}
         shell: bash
         run: |
-          VAR_NAMES=$(bun scripts/generate-ci-env.ts --prefix NEXT_PUBLIC_)
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts --scope client)
 
           echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
@@ -337,10 +330,3 @@ jobs:
         with:
           name: codecane-win32-x64
           path: codecane-win32-x64.tar.gz
-
-      - name: Open debug shell on failure
-        if: failure()
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-        timeout-minutes: 15

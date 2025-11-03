@@ -128,11 +128,57 @@ interface JudgeCommitResultInput {
   finalCheckOutputs?: string
 }
 
+async function runSingleJudge(
+  input: JudgeCommitResultInput,
+  judgePrompt: string,
+  judgeIndex: number,
+): Promise<JudgingResult | null> {
+  const { client } = input
+
+  const agentOutput: string[] = []
+  try {
+    const judgeResult = await withTimeout(
+      client.run({
+        agent: 'judge',
+        prompt: judgePrompt,
+        agentDefinitions: [judgeAgent],
+        handleEvent: (event) => {
+          if (event.type === 'text') {
+            agentOutput.push(event.text)
+          } else if (event.type === 'tool_call') {
+            agentOutput.push(JSON.stringify(event, null, 2))
+          } else if (event.type === 'error') {
+            console.warn(
+              `[Judge ${judgeIndex + 1}] Error event:`,
+              event.message,
+            )
+          }
+        },
+      }),
+      20 * 60 * 1000,
+      'Judge agent timed out after 20 minutes',
+    )
+
+    if (judgeResult.output.type !== 'structuredOutput') {
+      console.error(
+        `Judge ${judgeIndex + 1} - not structured output`,
+        JSON.stringify(judgeResult.output, null, 2),
+      )
+      console.error('Judge agent output trace:', agentOutput.join(''))
+      return null
+    }
+
+    return judgeResult.output.value as JudgingResult
+  } catch (error) {
+    console.warn(`Judge ${judgeIndex + 1} failed:`, error)
+    return null
+  }
+}
+
 export async function judgeCommitResult(
   input: JudgeCommitResultInput,
 ): Promise<JudgingResult> {
   const {
-    client,
     prompt,
     groundTruthFileDiffs,
     contextFiles,
@@ -169,41 +215,57 @@ ${agentDiff || '(No changes made)'}
 ${error ? `\n## Error Encountered\n${error}` : ''}
 ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` : ''}`
 
-  const agentOutput: string[] = []
-  const judgeResult = await withTimeout(
-    client.run({
-      agent: 'judge',
-      prompt: judgePrompt,
-      agentDefinitions: [judgeAgent],
-      handleEvent: (event) => {
-        if (event.type === 'text') {
-          agentOutput.push(event.text)
-        } else if (event.type === 'tool_call') {
-          agentOutput.push(JSON.stringify(event, null, 2))
-        } else if (event.type === 'error') {
-          console.warn('[Judge] Error event:', event.message)
-        }
-      },
-    }),
-    20 * 60 * 1000,
-    'Judge agent timed out after 20 minutes',
+  // Run 3 judges in parallel
+  const judgePromises = Array.from({ length: 3 }, (_, index) =>
+    runSingleJudge(input, judgePrompt, index),
   )
 
-  if (judgeResult.output.type !== 'structuredOutput') {
-    console.error(
-      'Error running judge agent - not structured output',
-      JSON.stringify(judgeResult.output, null, 2),
-    )
-    console.error('Judge agent output trace:', agentOutput.join(''))
+  const judgeResults = await Promise.all(judgePromises)
+  const validResults = judgeResults.filter(
+    (result): result is JudgingResult => result !== null,
+  )
+
+  if (validResults.length === 0) {
+    console.error('All judges failed to provide results')
     return {
-      analysis: 'Error running judge agent - not structured output',
+      analysis: 'Error running judge agent - all judges failed',
       strengths: [],
-      weaknesses: ['Judge failed to provide structured output'],
+      weaknesses: ['All judges failed to provide structured output'],
       completionScore: 0,
       codeQualityScore: 0,
       overallScore: 0,
     }
   }
 
-  return judgeResult.output.value as JudgingResult
+  // Sort judges by overall score and select the median for analysis
+  const sortedResults = validResults.sort(
+    (a, b) => a.overallScore - b.overallScore,
+  )
+  const medianIndex = Math.floor(sortedResults.length / 2)
+  const medianResult = sortedResults[medianIndex]
+
+  // Calculate average scores across all valid judges
+  const averageCompletionScore =
+    validResults.reduce((sum, r) => sum + r.completionScore, 0) /
+    validResults.length
+  const averageCodeQualityScore =
+    validResults.reduce((sum, r) => sum + r.codeQualityScore, 0) /
+    validResults.length
+  const averageOverallScore =
+    validResults.reduce((sum, r) => sum + r.overallScore, 0) /
+    validResults.length
+
+  console.log(
+    `Judging results overall score: ${averageOverallScore.toFixed(1)} (individual scores: ${validResults.map((r) => r.overallScore.toFixed(1)).join(', ')})`,
+  )
+
+  // Return median judge's analysis with averaged scores
+  return {
+    analysis: medianResult.analysis,
+    strengths: medianResult.strengths,
+    weaknesses: medianResult.weaknesses,
+    completionScore: averageCompletionScore,
+    codeQualityScore: averageCodeQualityScore,
+    overallScore: averageOverallScore,
+  }
 }
