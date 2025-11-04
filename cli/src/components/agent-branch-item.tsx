@@ -2,8 +2,7 @@ import { TextAttributes, type BorderCharacters } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
 import { RaisedPill } from './raised-pill'
-
-import type { ChatTheme } from '../utils/theme-system'
+import { useTheme } from '../hooks/use-theme'
 
 interface AgentBranchItemProps {
   name: string
@@ -18,10 +17,7 @@ interface AgentBranchItemProps {
   statusLabel?: string
   statusColor?: string
   statusIndicator?: string
-  theme: ChatTheme
   onToggle?: () => void
-  showBorder?: boolean
-  toggleEnabled?: boolean
   titleSuffix?: string
 }
 
@@ -52,24 +48,10 @@ export const AgentBranchItem = ({
   statusLabel,
   statusColor,
   statusIndicator = '●',
-  theme,
   onToggle,
-  showBorder = true,
-  toggleEnabled = true,
   titleSuffix,
 }: AgentBranchItemProps) => {
-  const resolveFg = (
-    color?: string | null,
-    fallback?: string | null,
-  ): string | undefined => {
-    if (color && color !== 'default') return color
-    if (fallback && fallback !== 'default') return fallback
-    return undefined
-  }
-  const fallbackTextColor =
-    resolveFg(theme.agentContentText) ??
-    resolveFg(theme.chromeText) ??
-    '#d1d5e5'
+  const theme = useTheme()
 
   const baseTextAttributes = theme.messageTextAttributes ?? 0
   const getAttributes = (extra: number = 0): number | undefined => {
@@ -80,19 +62,12 @@ export const AgentBranchItem = ({
   const isExpanded = !isCollapsed
   const toggleFrameColor = isExpanded
     ? theme.agentToggleExpandedBg
-    : theme.agentResponseCount ?? theme.agentToggleHeaderBg
-  const toggleIconColor = isStreaming
-    ? theme.statusAccent
-    : theme.chromeText ?? toggleFrameColor
-  const toggleLabelColor = theme.chromeText ?? toggleFrameColor
-  const toggleIndicator = toggleEnabled ? (isCollapsed ? '▸ ' : '▾ ') : ''
+    : theme.agentResponseCount
+  const toggleIconColor = isStreaming ? theme.statusAccent : theme.chromeText
+  const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
   const toggleLabel = `${branchChar}${toggleIndicator}`
   const collapseButtonFrame = theme.agentToggleExpandedBg
   const collapseButtonText = collapseButtonFrame
-  const toggleFrameFg = resolveFg(toggleFrameColor, fallbackTextColor)
-  const toggleIconFg = resolveFg(toggleIconColor, fallbackTextColor)
-  const toggleLabelFg = resolveFg(toggleLabelColor, fallbackTextColor)
-  const headerFg = resolveFg(theme.agentToggleHeaderText, fallbackTextColor)
   const statusText =
     statusLabel && statusLabel.length > 0
       ? statusIndicator === '✓'
@@ -149,7 +124,7 @@ export const AgentBranchItem = ({
     if (isTextRenderable(value)) {
       return (
         <text
-          fg={resolveFg(theme.agentText)}
+          fg={theme.agentText}
           key="expanded-text"
           attributes={getAttributes()}
         >
@@ -204,10 +179,10 @@ export const AgentBranchItem = ({
       }}
     >
       <box
-        border={showBorder}
-        borderStyle={showBorder ? 'single' : undefined}
-        borderColor={showBorder ? toggleFrameFg ?? undefined : undefined}
-        customBorderChars={showBorder ? containerBorderChars : undefined}
+        border
+        borderStyle="single"
+        borderColor={toggleFrameColor}
+        customBorderChars={containerBorderChars}
         style={{
           flexDirection: 'column',
           gap: 0,
@@ -230,9 +205,9 @@ export const AgentBranchItem = ({
               width: '100%',
             }}
           >
-            <text {...(headerFg ? { fg: headerFg } : undefined)}>Prompt</text>
+            <text fg={theme.agentToggleHeaderText}>Prompt</text>
             <text
-              fg={resolveFg(theme.agentText)}
+              fg={theme.agentText}
               style={{ wrapMode: 'word' }}
               attributes={getAttributes()}
             >
@@ -244,27 +219,27 @@ export const AgentBranchItem = ({
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            paddingLeft: showBorder ? 1 : 0,
-            paddingRight: showBorder ? 1 : 0,
+            paddingLeft: 1,
+            paddingRight: 1,
             paddingTop: 0,
             paddingBottom: isCollapsed ? 0 : 1,
             width: '100%',
           }}
-          onMouseDown={toggleEnabled && onToggle ? onToggle : undefined}
+          onMouseDown={onToggle}
         >
           <text style={{ wrapMode: 'none' }}>
-            <span {...(toggleIconFg ? { fg: toggleIconFg } : undefined)}>
+            <span fg={toggleIconColor}>
               {toggleLabel}
             </span>
             <span
-              {...(toggleLabelFg ? { fg: toggleLabelFg } : undefined)}
+              fg={theme.chromeText}
               attributes={isExpanded ? TextAttributes.BOLD : undefined}
             >
               {name}
             </span>
             {titleSuffix ? (
               <span
-                {...(toggleLabelFg ? { fg: toggleLabelFg } : undefined)}
+                fg={theme.chromeText}
                 attributes={TextAttributes.BOLD}
               >
                 {` ${titleSuffix}`}
@@ -292,10 +267,7 @@ export const AgentBranchItem = ({
               }}
             >
               <text
-                fg={resolveFg(
-                  isStreaming ? theme.agentText : theme.agentResponseCount,
-                  fallbackTextColor,
-                )}
+                fg={isStreaming ? theme.agentText : theme.agentResponseCount}
                 attributes={getAttributes(TextAttributes.ITALIC)}
               >
                 {isStreaming ? streamingPreview : finishedPreview}
@@ -321,11 +293,11 @@ export const AgentBranchItem = ({
                   marginBottom: content ? 1 : 0,
                 }}
               >
-                <text {...(headerFg ? { fg: headerFg } : undefined)}>
+                <text fg={theme.agentToggleHeaderText}>
                   Prompt
                 </text>
                 <text
-                  fg={resolveFg(theme.agentText)}
+                  fg={theme.agentText}
                   style={{ wrapMode: 'word' }}
                   attributes={getAttributes()}
                 >
@@ -333,7 +305,7 @@ export const AgentBranchItem = ({
                 </text>
                 {content && (
                   <text
-                    {...(headerFg ? { fg: headerFg } : undefined)}
+                    fg={theme.agentToggleHeaderText}
                     style={{ marginTop: 1 }}
                   >
                     Response
@@ -342,12 +314,12 @@ export const AgentBranchItem = ({
               </box>
             )}
             {renderExpandedContent(content)}
-            {toggleEnabled && onToggle && (
+            {onToggle && (
               <box
                 style={{
                   alignSelf: 'flex-end',
                   marginTop: content ? 0 : 1,
-                  paddingRight: showBorder ? 1 : 0,
+                  paddingRight: 1,
                   paddingBottom: 0,
                   marginBottom: 0,
                 }}

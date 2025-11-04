@@ -289,15 +289,48 @@ export const applyVariantBackgrounds = (
 }
 
 /**
+ * Resolve 'default' color values to fallback colors for ready-to-use theme
+ * Components should never see 'default' - it's resolved during theme building
+ * We use sensible fallbacks that work in both light and dark modes
+ */
+const resolveThemeColors = (theme: ChatTheme, mode: 'dark' | 'light'): void => {
+  const defaultFallback = mode === 'dark' ? '#ffffff' : '#000000'
+
+  const resolve = (value: string, fallback: string = defaultFallback): string => {
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase()
+      if (normalized === 'default' || normalized.length === 0) {
+        return fallback
+      }
+      return value
+    }
+    return fallback
+  }
+
+  // Resolve all ThemeColor properties to actual colors
+  theme.chromeText = resolve(theme.chromeText)
+  theme.messageAiText = resolve(theme.messageAiText)
+  theme.messageUserText = resolve(theme.messageUserText)
+  theme.inputFg = resolve(theme.inputFg)
+  theme.inputFocusedFg = resolve(theme.inputFocusedFg)
+  theme.inputPlaceholder = resolve(theme.inputPlaceholder, theme.statusSecondary)
+  theme.agentText = resolve(theme.agentText)
+  theme.agentContentText = resolve(theme.agentContentText)
+  theme.agentToggleHeaderText = resolve(theme.agentToggleHeaderText)
+  theme.agentToggleText = resolve(theme.agentToggleText)
+}
+
+/**
  * Build a complete theme by layering overrides
  * Applies variant backgrounds, config overrides, custom colors, and plugins
+ * All 'default' color values are resolved to undefined for ready-to-use theme
  * @param baseTheme - The base theme to start from
  * @param variant - Theme variant to apply
  * @param variantConfig - Configuration for the variant
  * @param mode - Current theme mode (dark or light)
  * @param customColors - Optional custom color overrides
  * @param plugins - Optional theme plugins to apply
- * @returns Complete theme with all layers applied
+ * @returns Complete theme with all layers applied and colors resolved
  */
 export const buildThemeWithVariant = (
   baseTheme: ChatTheme,
@@ -330,6 +363,9 @@ export const buildThemeWithVariant = (
       Object.assign(theme, pluginOverrides)
     }
   }
+
+  // Final step: Resolve all 'default' values to actual colors
+  resolveThemeColors(theme, mode)
 
   return theme
 }

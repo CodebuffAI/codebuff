@@ -2,6 +2,7 @@ export type ThemeName = 'dark' | 'light'
 
 export type MarkdownHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
 
+// ThemeColor is always a resolved color string (never 'default' or undefined)
 export type ThemeColor = string
 
 export interface MarkdownThemeOverrides {

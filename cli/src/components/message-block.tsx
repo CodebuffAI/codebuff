@@ -18,7 +18,6 @@ import {
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ContentBlock } from '../types/chat'
 import type { ChatTheme, ThemeColor } from '../types/theme-system'
-import { resolveThemeColor } from '../utils/theme-system'
 
 const trimTrailingNewlines = (value: string): string =>
   value.replace(/[\r\n]+$/g, '')
@@ -73,10 +72,7 @@ export const MessageBlock = ({
   onToggleCollapsed,
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
-  const resolvedTextColor =
-    resolveThemeColor(textColor, theme.messageAiText) ??
-    resolveThemeColor(theme.messageAiText, '#cbd5f5') ??
-    '#cbd5f5'
+  const resolvedTextColor = textColor ?? theme.messageAiText
 
   // Get elapsed time from timer for streaming AI messages
   const elapsedSeconds = timer.elapsedSeconds
@@ -239,7 +235,7 @@ export const MessageBlock = ({
         ? null
         : (
             <text
-              fg={resolveThemeColor(theme.agentText)}
+              fg={theme.agentText}
               style={{ wrapMode: 'word' }}
               attributes={
                 theme.messageTextAttributes && theme.messageTextAttributes !== 0
@@ -280,7 +276,6 @@ export const MessageBlock = ({
           branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
-          theme={theme}
           onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
           titleSuffix={toolRenderConfig.path}
         />
@@ -361,7 +356,6 @@ export const MessageBlock = ({
           statusLabel={statusLabel ?? undefined}
           statusColor={statusColor}
           statusIndicator={statusIndicator}
-          theme={theme}
           onToggle={() => onToggleCollapsed(agentBlock.agentId)}
         />
       </box>
@@ -446,7 +440,6 @@ export const MessageBlock = ({
           branchChar=""
           streamingPreview=""
           finishedPreview={finishedPreview}
-          theme={theme}
           onToggle={() => onToggleCollapsed(agentListBlock.id)}
         />
       </box>
@@ -488,16 +481,13 @@ export const MessageBlock = ({
             typeof (nestedBlock as any).color === 'string'
               ? ((nestedBlock as any).color as string)
               : undefined
-          const nestedTextColor = resolveThemeColor(
-            explicitColor,
-            theme.agentText,
-          )
+          const nestedTextColor = explicitColor ?? theme.agentText
           nodes.push(
             <text
               key={renderKey}
               style={{
                 wrapMode: 'word',
-                fg: nestedTextColor ?? theme.agentText,
+                fg: nestedTextColor,
                 marginLeft: Math.max(0, indentLevel * 2),
                 marginTop,
                 marginBottom,
@@ -607,11 +597,11 @@ export const MessageBlock = ({
           typeof (block as any).color === 'string'
             ? ((block as any).color as string)
             : undefined
-        const blockTextColor = resolveThemeColor(explicitColor, resolvedTextColor)
+        const blockTextColor = explicitColor ?? resolvedTextColor
         return (
           <text
             key={renderKey}
-            style={{ wrapMode: 'word', fg: blockTextColor ?? resolvedTextColor, marginTop, marginBottom }}
+            style={{ wrapMode: 'word', fg: blockTextColor, marginTop, marginBottom }}
           >
             {renderedContent}
           </text>

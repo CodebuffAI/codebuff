@@ -1,8 +1,8 @@
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
-import type { ChatTheme } from '../utils/theme-system'
-import { resolveThemeColor } from '../utils/theme-system'
+import { useTheme } from '../hooks/use-theme'
+import type { ChatTheme } from '../types/theme-system'
 
 interface ToolCallItemProps {
   name: string
@@ -12,7 +12,6 @@ interface ToolCallItemProps {
   branchChar: string
   streamingPreview: string
   finishedPreview: string
-  theme: ChatTheme
   onToggle?: () => void
   titleSuffix?: string
 }
@@ -54,7 +53,6 @@ const isTextRenderable = (value: ReactNode): boolean => {
 const renderExpandedContent = (
   value: ReactNode,
   theme: ChatTheme,
-  fallbackTextColor: string,
   getAttributes: (extra?: number) => number | undefined,
 ): ReactNode => {
   if (
@@ -69,7 +67,7 @@ const renderExpandedContent = (
   if (isTextRenderable(value)) {
     return (
       <text
-        fg={resolveThemeColor(theme.agentText) ?? fallbackTextColor}
+        fg={theme.agentText}
         key="tool-expanded-text"
         attributes={getAttributes()}
       >
@@ -119,23 +117,10 @@ export const ToolCallItem = ({
   branchChar,
   streamingPreview,
   finishedPreview,
-  theme,
   onToggle,
   titleSuffix,
 }: ToolCallItemProps) => {
-  const resolveFg = (
-    color?: string | null,
-    fallback?: string | null,
-  ): string | undefined => {
-    if (color && color !== 'default') return color
-    if (fallback && fallback !== 'default') return fallback
-    return undefined
-  }
-
-  const fallbackTextColor =
-    resolveFg(theme.agentContentText) ??
-    resolveFg(theme.chromeText) ??
-    '#d1d5e5'
+  const theme = useTheme()
 
   const baseTextAttributes = theme.messageTextAttributes ?? 0
   const getAttributes = (extra: number = 0): number | undefined => {
@@ -144,11 +129,8 @@ export const ToolCallItem = ({
   }
 
   const isExpanded = !isCollapsed
-  const toggleLabelColor = theme.chromeText ?? theme.agentToggleHeaderBg
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
   const toggleLabel = `${branchChar}${toggleIndicator}`
-  const toggleLabelFg = resolveFg(toggleLabelColor, fallbackTextColor)
-  const headerFg = resolveFg(theme.agentToggleHeaderText, fallbackTextColor)
   const collapsedPreviewText = isStreaming ? streamingPreview : finishedPreview
   const showCollapsedPreview = collapsedPreviewText.length > 0
 
@@ -179,20 +161,20 @@ export const ToolCallItem = ({
         >
           <text style={{ wrapMode: 'none' }}>
             <span
-              {...(toggleLabelFg ? { fg: toggleLabelFg } : undefined)}
+              fg={theme.chromeText}
               attributes={isExpanded ? TextAttributes.BOLD : undefined}
             >
               {toggleLabel}
             </span>
             <span
-              {...(headerFg ? { fg: headerFg } : undefined)}
+              fg={theme.agentToggleHeaderText}
               attributes={TextAttributes.BOLD}
             >
               {name}
             </span>
             {titleSuffix ? (
               <span
-                {...(headerFg ? { fg: headerFg } : undefined)}
+                fg={theme.agentToggleHeaderText}
                 attributes={TextAttributes.BOLD}
               >
                 {` ${titleSuffix}`}
@@ -200,7 +182,7 @@ export const ToolCallItem = ({
             ) : null}
             {isStreaming ? (
               <span
-                fg={resolveFg(theme.statusAccent, fallbackTextColor)}
+                fg={theme.statusAccent}
                 attributes={TextAttributes.DIM}
               >
                 {' running'}
@@ -220,10 +202,7 @@ export const ToolCallItem = ({
               }}
             >
               <text
-                fg={resolveFg(
-                  isStreaming ? theme.agentText : theme.agentResponseCount,
-                  fallbackTextColor,
-                )}
+                fg={isStreaming ? theme.agentText : theme.agentResponseCount}
                 attributes={getAttributes(TextAttributes.ITALIC)}
               >
                 {collapsedPreviewText}
@@ -241,12 +220,7 @@ export const ToolCallItem = ({
               paddingBottom: 0,
             }}
           >
-            {renderExpandedContent(
-              content,
-              theme,
-              fallbackTextColor ?? '#d1d5e5',
-              getAttributes,
-            )}
+            {renderExpandedContent(content, theme, getAttributes)}
           </box>
         )}
       </box>
