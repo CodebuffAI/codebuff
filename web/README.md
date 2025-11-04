@@ -106,14 +106,4 @@ cd web
 bun run e2e
 ```
 
-## Lighthouse CI
-
-- Config: `lighthouserc.json`
-- Workflow: `.github/workflows/lighthouse.yml`
-
-Run locally:
-
-```
-cd web
-bunx lhci autorun --config=lighthouserc.json
-```
+<!-- Lighthouse CI workflow removed for now. Reintroduce later if needed. -->

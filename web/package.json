@@ -133,7 +133,6 @@
     "typescript": "^5",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
-    "vfile-matter": "^5.0.1",
-    "@lhci/cli": "^0.13.0"
+    "vfile-matter": "^5.0.1"
   }
 }
