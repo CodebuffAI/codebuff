@@ -19,7 +19,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     id: 'logout',
-    label: 'logout',
+    label: 'logout (signout)',
     description: 'Sign out of your session',
     aliases: ['signout'],
   },
@@ -94,7 +94,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     id: 'trace',
-    label: 'trace',
+    label: 'trace (traces)',
     description: 'Show the trace list or view a specific trace',
     aliases: ['traces'],
   },

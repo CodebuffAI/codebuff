@@ -1,8 +1,5 @@
+import type { Prettify } from './utils'
 import type { UnionToIntersection } from 'bun-types/vendor/expect-type'
-
-type Prettify<T> = {
-  [K in keyof T]: T[K]
-} & {}
 
 type ParamsOfFunction<T> = T extends (params: infer C) => any ? C : never
 type ParamsOfArray<T> = UnionToIntersection<

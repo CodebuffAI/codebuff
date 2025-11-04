@@ -1,11 +1,15 @@
 import React from 'react'
 
+import { HighlightedSubsequenceText } from './highlighted-text'
+
 import type { ChatTheme } from '../types/theme-system'
 
 export interface SuggestionItem {
   id: string
   label: string
+  labelHighlightIndices?: number[] | null
   description: string
+  descriptionHighlightIndices?: number[] | null
 }
 
 interface SuggestionMenuProps {
@@ -42,7 +46,6 @@ export const SuggestionMenu = ({
   const maxStart = Math.max(items.length - visibleCount, 0)
   const idealStart = clampedSelected - Math.floor((visibleCount - 1) / 2)
   const start = Math.max(0, Math.min(idealStart, maxStart))
-
   const visibleItems = items.slice(start, start + visibleCount)
 
   const renderSuggestionItem = (item: SuggestionItem, idx: number) => {
@@ -55,6 +58,8 @@ export const SuggestionMenu = ({
     const descriptionColor = isSelected
       ? theme.agentContentText
       : theme.timestampUser
+    const highlightColor = theme.agentPrefix
+
     return (
       <box
         key={item.id}
@@ -77,9 +82,19 @@ export const SuggestionMenu = ({
           }}
         >
           <span fg={theme.agentPrefix}>{effectivePrefix}</span>
-          <span>{item.label}</span>
+          <HighlightedSubsequenceText
+            text={item.label}
+            indices={item.labelHighlightIndices}
+            color={textColor}
+            highlightColor={highlightColor}
+          />
           <span>{padding}</span>
-          <span fg={descriptionColor}>{item.description}</span>
+          <HighlightedSubsequenceText
+            text={item.description}
+            indices={item.descriptionHighlightIndices}
+            color={descriptionColor}
+            highlightColor={highlightColor}
+          />
         </text>
       </box>
     )
