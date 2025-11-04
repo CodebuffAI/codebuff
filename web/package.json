@@ -14,7 +14,6 @@
     "build": "next build 2>&1 | sed '/Contentlayer esbuild warnings:/,/^]/d'",
     "start": "next start",
     "preview": "bun run build && bun run start",
-    "postbuild": "bun run warm:store || true",
     "contentlayer": "contentlayer build",
     "lint": "next lint",
     "lint:fix": "next lint --fix",

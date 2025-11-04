@@ -76,7 +76,6 @@ The following scripts are available in the `package.json`:
 - `test:watch`: Run unit tests in watch mode
 - `e2e`: Run end-to-end tests
 - `e2e:ui`: Run end-to-end tests with UI
-- `postbuild`: Warm Store cache (non-blocking)
 - `warm:store`: Warm Store cache via `/api/agents`
 - `prepare`: Install Husky for managing Git hooks
 
@@ -93,7 +92,7 @@ The following scripts are available in the `package.json`:
 
 - Script: `scripts/warm-store-cache.ts`
 - Local: `bun run -C web warm:store`
-- CI/CD: run after deploy; set `NEXT_PUBLIC_CODEBUFF_APP_URL` to your deployed base URL.
+- CI/CD: run after deploy; set `NEXT_PUBLIC_CODEBUFF_APP_URL` to your deployed base URL. On Render, you can simply set the Health Check Path to `/api/agents` to warm the cache automatically during deploy.
 
 ### E2E tests for SSR and hydration
 
