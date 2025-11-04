@@ -84,7 +84,9 @@ export const MessageBlock = ({
       return ''
     }
     const ancestorPrefix = ancestorBranchStates
-      .map((ancestorIsLast) => (ancestorIsLast ? '  ' : '│ '))
+      // Skip first level of ancestors for less clutter
+      .slice(1)
+      .map(() => '  ')
       .join('')
     return `${ancestorPrefix}${isLastBranch ? '└ ' : '├ '}`
   }
