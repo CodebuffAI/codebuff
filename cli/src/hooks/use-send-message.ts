@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import { shouldHideAgent } from '../utils/constants'
 import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
+import { getErrorObject } from '../utils/error'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
@@ -1318,7 +1319,10 @@ export const useSendMessage = ({
       } catch (error) {
         const isAborted = error instanceof Error && error.name === 'AbortError'
 
-        logger.error(error, 'SDK client.run() failed')
+        logger.error(
+          { error: getErrorObject(error) },
+          'SDK client.run() failed',
+        )
         setIsStreaming(false)
         setCanProcessQueue(true)
         updateChainInProgress(false)
