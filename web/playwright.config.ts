@@ -28,7 +28,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'bun run dev',
+    command: 'NEXT_PUBLIC_WEB_PORT=3001 bun run dev',
     url: 'http://127.0.0.1:3001',
     reuseExistingServer: !process.env.CI,
   },
