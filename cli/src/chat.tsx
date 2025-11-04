@@ -1,6 +1,8 @@
 import os from 'os'
 import path from 'path'
 
+import { env } from '@codebuff/common/env'
+import { clientEnvVars } from '@codebuff/common/env-schema'
 import { useRenderer, useTerminalDimensions } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import stringWidth from 'string-width'
@@ -36,6 +38,7 @@ import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
+import { getCodebuffClient } from './utils/codebuff-client'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { formatQueuedPreview } from './utils/helpers'
 import {
@@ -45,23 +48,11 @@ import {
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { openFileAtPath } from './utils/open-file'
-import { handleSlashCommands } from './utils/slash-commands'
-import {
-  chatThemes,
-  createMarkdownPalette,
-} from './utils/theme-system'
-import { env } from '@codebuff/common/env'
-import { clientEnvVars } from '@codebuff/common/env-schema'
+import { createMarkdownPalette } from './utils/theme-system'
 import { formatValidationError } from './utils/validation-error-formatting'
-import { getCodebuffClient } from './utils/codebuff-client'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
-import type {
-  ChatMessage,
-  ContentBlock,
-  ChatVariant,
-  AgentMessage,
-} from './types/chat'
+import type { ChatMessage, ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { ScrollBoxRenderable } from '@opentui/core'
@@ -107,10 +98,7 @@ export const App = ({
   const theme = useTheme()
   const resolvedThemeName = useResolvedThemeName()
 
-  const markdownPalette = useMemo(
-    () => createMarkdownPalette(theme),
-    [theme],
-  )
+  const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
   // Get formatted logo for display in chat messages
   const contentMaxWidth = Math.max(10, Math.min(terminalWidth - 4, 80))
@@ -308,8 +296,6 @@ export const App = ({
           </text>
         ),
       })
-
-
 
       blocks.push({
         type: 'agent-list',
@@ -1294,9 +1280,7 @@ export const App = ({
             <text style={{ wrapMode: 'none' }}>
               {hasStatus && statusIndicatorNode}
               {hasStatus && (exitWarning || shouldShowQueuePreview) && '  '}
-              {exitWarning && (
-                <span fg={theme.secondary}>{exitWarning}</span>
-              )}
+              {exitWarning && <span fg={theme.secondary}>{exitWarning}</span>}
               {exitWarning && shouldShowQueuePreview && '  '}
               {shouldShowQueuePreview && (
                 <span fg={theme.secondary} bg={theme.inputFocusedBg}>
@@ -1322,7 +1306,7 @@ export const App = ({
           <SuggestionMenu
             items={slashSuggestionItems}
             selectedIndex={slashSelectedIndex}
-            maxVisible={5}
+            maxVisible={10}
             prefix="/"
           />
         ) : null}
@@ -1332,7 +1316,7 @@ export const App = ({
           <SuggestionMenu
             items={agentSuggestionItems}
             selectedIndex={agentSelectedIndex}
-            maxVisible={5}
+            maxVisible={10}
             prefix="@"
           />
         ) : null}
@@ -1363,10 +1347,7 @@ export const App = ({
               paddingLeft: 2,
             }}
           >
-            <AgentModeToggle
-              mode={agentMode}
-              onToggle={toggleAgentMode}
-            />
+            <AgentModeToggle mode={agentMode} onToggle={toggleAgentMode} />
           </box>
         </box>
         <Separator width={separatorWidth} />

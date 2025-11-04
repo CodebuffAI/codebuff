@@ -14,15 +14,14 @@ export interface SuggestionItem {
 interface SuggestionMenuProps {
   items: SuggestionItem[]
   selectedIndex: number
-  maxVisible?: number
+  maxVisible: number
   prefix?: string
 }
 
 export const SuggestionMenu = ({
   items,
   selectedIndex,
-  theme,
-  maxVisible = 10,
+  maxVisible,
   prefix = '/',
 }: SuggestionMenuProps) => {
   const theme = useTheme()
