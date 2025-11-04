@@ -90,9 +90,13 @@ The following scripts are available in the `package.json`:
 
 ### Warm the Store cache
 
-- Script: `scripts/warm-store-cache.ts`
-- Local: `bun run -C web warm:store`
-- CI/CD: run after deploy; set `NEXT_PUBLIC_CODEBUFF_APP_URL` to your deployed base URL. On Render, you can simply set the Health Check Path to `/api/agents` to warm the cache automatically during deploy.
+The agents cache is automatically warmed in multiple ways to ensure SEO data is available immediately:
+
+1. **Build-time warming** (Primary): `scripts/prebuild-agents-cache.ts` runs after `next build` to populate the cache before deployment
+2. **Health check warming** (Secondary): `/api/healthz` endpoint warms the cache when Render performs health checks
+3. **Manual warming** (Optional): `scripts/warm-store-cache.ts` can be run manually with `bun run warm:store`
+
+On Render, the `render.yaml` configuration sets the Health Check Path to `/api/healthz`, which ensures the cache is warm before traffic is routed to the app.
 
 ### E2E tests for SSR and hydration
 
