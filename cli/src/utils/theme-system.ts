@@ -10,9 +10,6 @@ import type {
   ThemeName,
 } from '../types/theme-system'
 
-// Re-export types for backward compatibility
-export type { ChatTheme, ThemeColor } from '../types/theme-system'
-
 const IDE_THEME_INFERENCE = {
   dark: [
     'dark',
@@ -967,12 +964,18 @@ const setupFileWatchers = () => {
 
       try {
         // Watch the directory - catches all file modifications
-        const watcher = watch(parentDir, { persistent: false }, (eventType, filename) => {
-          // Only respond to changes affecting our target files
-          if (filename && watchTargets.some((t) => t.endsWith(filename))) {
-            recomputeSystemTheme(`watch:${join(parentDir, filename)}:${eventType}`)
-          }
-        })
+        const watcher = watch(
+          parentDir,
+          { persistent: false },
+          (eventType, filename) => {
+            // Only respond to changes affecting our target files
+            if (filename && watchTargets.some((t) => t.endsWith(filename))) {
+              recomputeSystemTheme(
+                `watch:${join(parentDir, filename)}:${eventType}`,
+              )
+            }
+          },
+        )
 
         watcher.on('error', () => {
           // Silently ignore watcher errors
