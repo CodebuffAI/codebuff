@@ -193,28 +193,6 @@ export const AgentBranchItem = ({
           width: '100%',
         }}
       >
-        {prompt ? (
-          <box
-            style={{
-              flexDirection: 'column',
-              gap: 0,
-              paddingLeft: 0,
-              paddingRight: 0,
-              paddingTop: 0,
-              paddingBottom: 0,
-              width: '100%',
-            }}
-          >
-            <text fg={theme.foreground}>Prompt</text>
-            <text
-              fg={theme.foreground}
-              style={{ wrapMode: 'word' }}
-              attributes={getAttributes()}
-            >
-              {prompt}
-            </text>
-          </box>
-        ) : null}
         <box
           style={{
             flexDirection: 'row',
@@ -228,9 +206,7 @@ export const AgentBranchItem = ({
           onMouseDown={onToggle}
         >
           <text style={{ wrapMode: 'none' }}>
-            <span fg={toggleIconColor}>
-              {toggleLabel}
-            </span>
+            <span fg={toggleIconColor}>{toggleLabel}</span>
             <span
               fg={theme.foreground}
               attributes={isExpanded ? TextAttributes.BOLD : undefined}
@@ -238,10 +214,7 @@ export const AgentBranchItem = ({
               {name}
             </span>
             {titleSuffix ? (
-              <span
-                fg={theme.foreground}
-                attributes={TextAttributes.BOLD}
-              >
+              <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                 {` ${titleSuffix}`}
               </span>
             ) : null}
@@ -293,9 +266,7 @@ export const AgentBranchItem = ({
                   marginBottom: content ? 1 : 0,
                 }}
               >
-                <text fg={theme.foreground}>
-                  Prompt
-                </text>
+                <text fg={theme.foreground}>Prompt</text>
                 <text
                   fg={theme.foreground}
                   style={{ wrapMode: 'word' }}
@@ -304,10 +275,7 @@ export const AgentBranchItem = ({
                   {prompt}
                 </text>
                 {content && (
-                  <text
-                    fg={theme.foreground}
-                    style={{ marginTop: 1 }}
-                  >
+                  <text fg={theme.foreground} style={{ marginTop: 1 }}>
                     Response
                   </text>
                 )}
