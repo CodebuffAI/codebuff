@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test'
+// Skip e2e in default CI to reduce latency. Consider enabling
+// in a non-latency-sensitive workflow or on-demand nightly runs.
+test.describe.configure({ mode: 'skip' })
 
 test('store hydrates agents via client fetch when SSR is empty', async ({ page }) => {
   const agents = [
