@@ -24,7 +24,7 @@ export const SuggestionMenu = ({
   items,
   selectedIndex,
   theme,
-  maxVisible = 5,
+  maxVisible = 10,
   prefix = '/',
 }: SuggestionMenuProps) => {
   if (items.length === 0) {
