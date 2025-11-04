@@ -45,14 +45,6 @@ export async function validateApiKey({
 }: ValidateAuthParams): Promise<ValidatedUserInfo> {
   const requestedFields = ['id', 'email'] as const
 
-  logger.info(
-    {
-      apiKeyPrefix: apiKey.substring(0, 10) + '...',
-      fields: requestedFields,
-    },
-    '🔐 Validating API key via getUserInfoFromApiKey',
-  )
-
   const authResult = await getUserInfoFromApiKey({
     apiKey,
     fields: requestedFields,
@@ -63,14 +55,6 @@ export async function validateApiKey({
     logger.error('❌ API key validation failed - no auth result returned')
     throw new Error('Invalid API key')
   }
-
-  logger.info(
-    {
-      userId: authResult.id,
-      email: authResult.email,
-    },
-    '✅ API key validated successfully',
-  )
 
   return authResult
 }

@@ -423,8 +423,6 @@ export const useSendMessage = ({
         return
       }
 
-      logger.info({ prompt: content }, 'Starting real API request')
-
       const aiMessageId = `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`
       const aiMessage: ChatMessage = {
         id: aiMessageId,
@@ -449,14 +447,6 @@ export const useSendMessage = ({
           update.type === 'text'
             ? update.content.slice(0, 120)
             : JSON.stringify({ toolName: update.toolName }).slice(0, 120)
-        logger.info(
-          {
-            agentId,
-            updateType: update.type,
-            preview,
-          },
-          'updateAgentContent invoked',
-        )
         queueMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id === aiMessageId && msg.blocks) {
@@ -505,13 +495,6 @@ export const useSendMessage = ({
                         updatedBlocks.push({ type: 'text', content: text })
                       }
 
-                      logger.info(
-                        {
-                          agentId,
-                          length: text.length,
-                        },
-                        'Agent block text replaced',
-                      )
                       return {
                         ...block,
                         content: text,
@@ -537,14 +520,6 @@ export const useSendMessage = ({
                         content: lastBlock.content + text,
                       }
                       const updatedContent = (block.content ?? '') + text
-                      logger.info(
-                        {
-                          agentId,
-                          appendedLength: text.length,
-                          totalLength: updatedContent.length,
-                        },
-                        'Agent block text appended',
-                      )
                       return {
                         ...block,
                         content: updatedContent,
@@ -552,14 +527,6 @@ export const useSendMessage = ({
                       }
                     } else {
                       const updatedContent = (block.content ?? '') + text
-                      logger.info(
-                        {
-                          agentId,
-                          appendedLength: text.length,
-                          totalLength: updatedContent.length,
-                        },
-                        'Agent block text started',
-                      )
                       return {
                         ...block,
                         content: updatedContent,
@@ -593,16 +560,6 @@ export const useSendMessage = ({
         if (!delta) {
           return
         }
-
-        const fullText = rootStreamBufferRef.current ?? ''
-        logger.info(
-          {
-            chunkLength: delta.length,
-            fullLength: fullText.length,
-            preview: delta.slice(0, 100),
-          },
-          'appendRootTextChunk invoked',
-        )
 
         queueMessageUpdate((prev) =>
           prev.map((msg) => {
@@ -745,13 +702,14 @@ export const useSendMessage = ({
                 })
               } else {
                 if (rootStreamSeenRef.current) {
-                  logger.info(
-                    {
-                      textPreview: text.slice(0, 100),
-                      textLength: text.length,
-                    },
-                    'Skipping root text event (stream already handled)',
-                  )
+                  // Disabled noisy log
+                  // logger.info(
+                  //   {
+                  //     textPreview: text.slice(0, 100),
+                  //     textLength: text.length,
+                  //   },
+                  //   'Skipping root text event (stream already handled)',
+                  // )
                   return
                 }
                 const previous = rootStreamBufferRef.current ?? ''
@@ -1074,15 +1032,6 @@ export const useSendMessage = ({
 
             if (event.type === 'tool_call' && event.toolCallId) {
               const { toolCallId, toolName, input, agentId } = event
-              logger.info(
-                {
-                  toolCallId,
-                  toolName,
-                  agentId: agentId || 'ROOT',
-                  hasAgentId: !!agentId,
-                },
-                'tool_call event received',
-              )
 
               if (toolName === 'spawn_agents' && input?.agents) {
                 const agents = Array.isArray(input.agents) ? input.agents : []
@@ -1094,15 +1043,6 @@ export const useSendMessage = ({
                     agentType: agent.agent_type || 'unknown',
                   })
                 })
-
-                logger.info(
-                  {
-                    toolCallId,
-                    agentCount: agents.length,
-                    agentTypes: agents.map((a: any) => a.agent_type),
-                  },
-                  'setMessages: spawn_agents tool call',
-                )
 
                 applyMessageUpdate((prev) =>
                   prev.map((msg) => {
@@ -1147,26 +1087,8 @@ export const useSendMessage = ({
                 return
               }
 
-              logger.info(
-                {
-                  toolName,
-                  toolCallId,
-                  agentId: agentId || 'none',
-                },
-                'setMessages: tool_call event',
-              )
-
               // If this tool call belongs to a subagent, add it to that agent's blocks
               if (agentId) {
-                logger.info(
-                  {
-                    agentId,
-                    toolName,
-                    toolCallId,
-                  },
-                  'setMessages: tool_call for subagent',
-                )
-
                 applyMessageUpdate((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== aiMessageId || !msg.blocks) {
@@ -1240,15 +1162,6 @@ export const useSendMessage = ({
               const isSpawnAgentsResult =
                 Array.isArray(firstOutputValue) &&
                 firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
-
-              logger.info(
-                {
-                  toolCallId,
-                  isSpawnAgentsResult,
-                  firstOutputValue: firstOutputValue ? 'array' : 'not array',
-                },
-                'setMessages: tool_result event',
-              )
 
               if (isSpawnAgentsResult && Array.isArray(firstOutputValue)) {
                 applyMessageUpdate((prev) =>
@@ -1367,12 +1280,6 @@ export const useSendMessage = ({
           },
         })
 
-        logger.info(
-          {
-            credits: actualCredits,
-          },
-          'SDK client.run() completed successfully',
-        )
         setIsStreaming(false)
         setCanProcessQueue(true)
         updateChainInProgress(false)
