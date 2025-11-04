@@ -1,8 +1,9 @@
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
-import { useTheme } from '../hooks/use-theme'
-import type { ChatTheme } from '../types/theme-system'
+import { useTheme } from '../../hooks/use-theme'
+
+import type { ChatTheme } from '../../types/theme-system'
 
 interface ToolCallItemProps {
   name: string
@@ -79,7 +80,10 @@ const renderExpandedContent = (
   if (React.isValidElement(value)) {
     if (value.key === null || value.key === undefined) {
       return (
-        <box key="tool-expanded-node" style={{ flexDirection: 'column', gap: 0 }}>
+        <box
+          key="tool-expanded-node"
+          style={{ flexDirection: 'column', gap: 0 }}
+        >
           {value}
         </box>
       )
@@ -89,7 +93,10 @@ const renderExpandedContent = (
 
   if (Array.isArray(value)) {
     return (
-      <box key="tool-expanded-array" style={{ flexDirection: 'column', gap: 0 }}>
+      <box
+        key="tool-expanded-array"
+        style={{ flexDirection: 'column', gap: 0 }}
+      >
         {value.map((child, idx) => (
           <box
             key={`tool-expanded-array-${idx}`}
@@ -103,8 +110,38 @@ const renderExpandedContent = (
   }
 
   return (
-    <box key="tool-expanded-unknown" style={{ flexDirection: 'column', gap: 0 }}>
+    <box
+      key="tool-expanded-unknown"
+      style={{ flexDirection: 'column', gap: 0 }}
+    >
       {value}
+    </box>
+  )
+}
+
+interface SimpleToolCallItemProps {
+  name: string
+  description: string
+  branchChar: string
+}
+
+export const SimpleToolCallItem = ({
+  name,
+  description,
+  branchChar,
+}: SimpleToolCallItemProps) => {
+  const theme = useTheme()
+  const bulletChar = '• '
+
+  return (
+    <box style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+      <text style={{ wrapMode: 'none' }}>
+        <span fg={theme.foreground}>{branchChar || bulletChar}</span>
+        <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+          {name}
+        </span>
+        <span fg={theme.foreground}> {description}</span>
+      </text>
     </box>
   )
 }
@@ -166,25 +203,16 @@ export const ToolCallItem = ({
             >
               {toggleLabel}
             </span>
-            <span
-              fg={theme.foreground}
-              attributes={TextAttributes.BOLD}
-            >
+            <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
               {name}
             </span>
             {titleSuffix ? (
-              <span
-                fg={theme.foreground}
-                attributes={TextAttributes.BOLD}
-              >
+              <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                 {` ${titleSuffix}`}
               </span>
             ) : null}
             {isStreaming ? (
-              <span
-                fg={theme.primary}
-                attributes={TextAttributes.DIM}
-              >
+              <span fg={theme.primary} attributes={TextAttributes.DIM}>
                 {' running'}
               </span>
             ) : null}

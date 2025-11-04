@@ -1,14 +1,13 @@
+import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 import stringWidth from 'string-width'
 
-import { pluralize } from '@codebuff/common/util/string'
-
 import { AgentBranchItem } from './agent-branch-item'
-import { ToolCallItem } from './tool-call-item'
+import { renderToolComponent } from './tools/registry'
+import { ToolCallItem } from './tools/tool-call-item'
 import { useTheme } from '../hooks/use-theme'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
-import { getToolRenderConfig } from './tool-renderer'
 import {
   renderMarkdown,
   renderStreamingMarkdown,
@@ -18,7 +17,7 @@ import {
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ContentBlock } from '../types/chat'
-import type { ChatTheme, ThemeColor } from '../types/theme-system'
+import type { ThemeColor } from '../types/theme-system'
 
 const trimTrailingNewlines = (value: string): string =>
   value.replace(/[\r\n]+$/g, '')
@@ -202,12 +201,14 @@ export const MessageBlock = ({
     const blankPreviewPrefix = previewBasePrefix
       ? previewBasePrefix.replace(/\s+$/, '') || previewBasePrefix
       : ''
-    const toolRenderConfig = getToolRenderConfig(toolBlock, theme, {
-      availableWidth,
-      indentationOffset: branchIndentWidth,
-      previewPrefix: previewBasePrefix,
-      labelWidth: headerPrefixWidth,
-    })
+    const toolRenderConfig =
+      renderToolComponent(toolBlock, theme, {
+        availableWidth,
+        indentationOffset: branchIndentWidth,
+        previewPrefix: previewBasePrefix,
+        labelWidth: headerPrefixWidth,
+        branchChar,
+      }) ?? {}
     const formatPreview = (value: string | null): string => {
       if (!value) return ''
       // At top level, don't add preview prefix with branching characters
@@ -234,8 +235,9 @@ export const MessageBlock = ({
     const collapsedPreviewBase =
       toolRenderConfig.collapsedPreview ??
       getToolFinishedPreview(toolBlock, commandPreview, lastLine)
-    const finishedPreview =
-      !isStreaming ? formatPreview(collapsedPreviewBase) : ''
+    const finishedPreview = !isStreaming
+      ? formatPreview(collapsedPreviewBase)
+      : ''
     const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
     const displayContent = renderContentWithMarkdown(
       fullContent,
@@ -247,35 +249,19 @@ export const MessageBlock = ({
       displayContent === null ||
       displayContent === undefined ||
       displayContent === false ||
-      displayContent === ''
-        ? null
-        : (
-            <text
-              fg={theme.foreground}
-              style={{ wrapMode: 'word' }}
-              attributes={
-                theme.messageTextAttributes && theme.messageTextAttributes !== 0
-                  ? theme.messageTextAttributes
-                  : undefined
-              }
-            >
-              {displayContent}
-            </text>
-          )
-
-    const combinedContent = toolRenderConfig.content ? (
-      <box
-        style={{
-          flexDirection: 'column',
-          gap: renderableDisplayContent ? 1 : 0,
-        }}
-      >
-        <box style={{ flexDirection: 'column', gap: 0 }}>
-          {toolRenderConfig.content}
-        </box>
-        {renderableDisplayContent}
-      </box>
-    ) : renderableDisplayContent
+      displayContent === '' ? null : (
+        <text
+          fg={theme.foreground}
+          style={{ wrapMode: 'word' }}
+          attributes={
+            theme.messageTextAttributes && theme.messageTextAttributes !== 0
+              ? theme.messageTextAttributes
+              : undefined
+          }
+        >
+          {displayContent}
+        </text>
+      )
 
     const headerName = displayInfo.name
 
@@ -284,17 +270,21 @@ export const MessageBlock = ({
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
       >
-        <ToolCallItem
-          name={headerName}
-          content={combinedContent}
-          isCollapsed={isCollapsed}
-          isStreaming={isStreaming}
-          branchChar={branchChar}
-          streamingPreview={streamingPreview}
-          finishedPreview={finishedPreview}
-          onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
-          titleSuffix={toolRenderConfig.path}
-        />
+        {toolRenderConfig.content ? (
+          toolRenderConfig.content
+        ) : (
+          <ToolCallItem
+            name={headerName}
+            content={renderableDisplayContent}
+            isCollapsed={isCollapsed}
+            isStreaming={isStreaming}
+            branchChar={branchChar}
+            streamingPreview={streamingPreview}
+            finishedPreview={finishedPreview}
+            onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
+            titleSuffix={toolRenderConfig.path}
+          />
+        )}
       </box>
     )
   }
@@ -415,7 +405,10 @@ export const MessageBlock = ({
     ) => {
       const identifier = formatIdentifier(agent)
       return (
-        <text key={`agent-${idx}`} style={{ wrapMode: 'word', fg: theme.foreground }}>
+        <text
+          key={`agent-${idx}`}
+          style={{ wrapMode: 'word', fg: theme.foreground }}
+        >
           {`  • ${identifier}`}
         </text>
       )
@@ -617,7 +610,12 @@ export const MessageBlock = ({
         return (
           <text
             key={renderKey}
-            style={{ wrapMode: 'word', fg: blockTextColor, marginTop, marginBottom }}
+            style={{
+              wrapMode: 'word',
+              fg: blockTextColor,
+              marginTop,
+              marginBottom,
+            }}
           >
             {renderedContent}
           </text>
