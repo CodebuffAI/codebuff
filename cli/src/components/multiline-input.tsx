@@ -574,34 +574,24 @@ export const MultilineInput = forwardRef<
     maxHeight,
   ])
 
-  const resolveFg = (
-    color?: string | null,
-    fallback?: string | null,
-  ): string | undefined => {
-    if (color && color !== 'default') return color
-    if (fallback && fallback !== 'default') return fallback
-    return undefined
+  const inputColor = isPlaceholder
+    ? theme.inputPlaceholder
+    : focused
+      ? theme.inputFocusedFg
+      : theme.inputFg
+
+  const textStyle: Record<string, unknown> = {
+    bg: 'transparent',
+    fg: inputColor,
   }
 
-  const resolvedInputColor = resolveFg(
-    isPlaceholder
-      ? theme.inputPlaceholder
-      : focused
-        ? theme.inputFocusedFg ?? theme.inputFg
-        : theme.inputFg,
-  )
-
-  const textStyle: Record<string, unknown> = { bg: 'transparent' }
-  if (resolvedInputColor) {
-    textStyle.fg = resolvedInputColor
-  }
   if (isPlaceholder) {
     textStyle.attributes = TextAttributes.DIM
   } else if (textAttributes !== undefined && textAttributes !== 0) {
     textStyle.attributes = textAttributes
   }
 
-  const cursorFg = resolveFg(theme.cursor, theme.statusAccent)
+  const cursorFg = theme.cursor
 
   return (
     <scrollbox

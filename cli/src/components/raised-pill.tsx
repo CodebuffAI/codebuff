@@ -31,15 +31,9 @@ export const RaisedPill = ({
   onPress,
   style,
 }: RaisedPillProps): React.ReactNode => {
-  const resolveFg = (color?: string): string | undefined =>
-    color && color !== 'default' ? color : undefined
-
-  const resolvedFrameColor = resolveFg(frameColor)
-  const resolvedTextColor = resolveFg(textColor)
-
   const leftRightPadding =
     padding > 0
-      ? [{ text: ' '.repeat(padding), fg: resolvedTextColor }]
+      ? [{ text: ' '.repeat(padding), fg: textColor }]
       : []
 
   const normalizedSegments: Array<{
@@ -50,7 +44,7 @@ export const RaisedPill = ({
     ...leftRightPadding,
     ...segments.map((segment) => ({
       text: segment.text,
-      fg: resolveFg(segment.fg ?? textColor),
+      fg: segment.fg ?? textColor,
       attr: segment.attr,
     })),
     ...leftRightPadding,
@@ -71,32 +65,28 @@ export const RaisedPill = ({
       onMouseDown={onPress}
     >
       <text>
-        <span
-          {...(resolvedFrameColor ? { fg: resolvedFrameColor } : undefined)}
-        >{`╭${horizontal}╮`}</span>
+        <span fg={frameColor}>{`╭${horizontal}╮`}</span>
       </text>
       <text>
-        <span {...(resolvedFrameColor ? { fg: resolvedFrameColor } : undefined)}>
+        <span fg={frameColor}>
           │
         </span>
         {normalizedSegments.map((segment, idx) => (
           <span
             key={idx}
-            {...(segment.fg ? { fg: segment.fg } : undefined)}
+            fg={segment.fg}
             bg={fillColor ?? 'transparent'}
             attributes={segment.attr}
           >
             {segment.text}
           </span>
         ))}
-        <span {...(resolvedFrameColor ? { fg: resolvedFrameColor } : undefined)}>
+        <span fg={frameColor}>
           │
         </span>
       </text>
       <text>
-        <span
-          {...(resolvedFrameColor ? { fg: resolvedFrameColor } : undefined)}
-        >{`╰${horizontal}╯`}</span>
+        <span fg={frameColor}>{`╰${horizontal}╯`}</span>
       </text>
     </box>
   )
