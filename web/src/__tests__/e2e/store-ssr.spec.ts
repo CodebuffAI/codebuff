@@ -1,7 +1,4 @@
 import { test, expect } from '@playwright/test'
-// Skip e2e in default CI to reduce latency. Consider enabling
-// in a non-latency-sensitive workflow or on-demand nightly runs.
-test.describe.configure({ mode: 'skip' })
 
 // Disable JS to validate pure SSR HTML
 test.use({ javaScriptEnabled: false })
