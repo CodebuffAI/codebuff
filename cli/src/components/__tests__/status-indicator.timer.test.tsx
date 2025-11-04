@@ -13,7 +13,7 @@ import {
 } from 'bun:test'
 
 import { StatusIndicator } from '../status-indicator'
-import { ThemeProvider } from '../../hooks/use-theme'
+import '../../state/theme-store' // Initialize theme store
 import { renderToStaticMarkup } from 'react-dom/server'
 import * as codebuffClient from '../../utils/codebuff-client'
 
@@ -39,25 +39,21 @@ describe('StatusIndicator timer rendering', () => {
 
   test('shows elapsed seconds when timer is active', () => {
     const markup = renderToStaticMarkup(
-      <ThemeProvider>
-        <StatusIndicator
-          clipboardMessage={null}
-          isActive={true}
-          timer={createTimer(5, true)}
-        />
-      </ThemeProvider>,
+      <StatusIndicator
+        clipboardMessage={null}
+        isActive={true}
+        timer={createTimer(5, true)}
+      />,
     )
 
     expect(markup).toContain('5s')
 
     const inactiveMarkup = renderToStaticMarkup(
-      <ThemeProvider>
-        <StatusIndicator
-          clipboardMessage={null}
-          isActive={false}
-          timer={createTimer(0, false)}
-        />
-      </ThemeProvider>,
+      <StatusIndicator
+        clipboardMessage={null}
+        isActive={false}
+        timer={createTimer(0, false)}
+      />,
     )
 
     expect(inactiveMarkup).toBe('')
@@ -65,13 +61,11 @@ describe('StatusIndicator timer rendering', () => {
 
   test('clipboard message takes priority over timer output', () => {
     const markup = renderToStaticMarkup(
-      <ThemeProvider>
-        <StatusIndicator
-          clipboardMessage="Copied!"
-          isActive={true}
-          timer={createTimer(12, true)}
-        />
-      </ThemeProvider>,
+      <StatusIndicator
+        clipboardMessage="Copied!"
+        isActive={true}
+        timer={createTimer(12, true)}
+      />,
     )
 
     expect(markup).toContain('Copied!')

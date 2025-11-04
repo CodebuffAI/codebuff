@@ -4,7 +4,7 @@ import { describe, test, expect } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { MessageBlock } from '../message-block'
-import { ThemeProvider } from '../../hooks/use-theme'
+import '../../state/theme-store' // Initialize theme store
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
@@ -52,13 +52,11 @@ const createTimer = (elapsedSeconds: number) => ({
 describe('MessageBlock streaming indicator', () => {
   test('shows elapsed seconds while streaming', () => {
     const markup = renderToStaticMarkup(
-      <ThemeProvider>
-        <MessageBlock
-          {...baseProps}
-          isLoading={true}
-          timer={createTimer(4)}
-        />
-      </ThemeProvider>,
+      <MessageBlock
+        {...baseProps}
+        isLoading={true}
+        timer={createTimer(4)}
+      />,
     )
 
     expect(markup).toContain('4s')
@@ -66,13 +64,11 @@ describe('MessageBlock streaming indicator', () => {
 
   test('hides elapsed seconds when timer has not advanced', () => {
     const markup = renderToStaticMarkup(
-      <ThemeProvider>
-        <MessageBlock
-          {...baseProps}
-          isLoading={true}
-          timer={createTimer(0)}
-        />
-      </ThemeProvider>,
+      <MessageBlock
+        {...baseProps}
+        isLoading={true}
+        timer={createTimer(0)}
+      />,
     )
 
     expect(markup).not.toContain('0s')

@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
+import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
+import { EventEmitter } from 'events'
 import {
   ChatTheme,
   MarkdownHeadingLevel,
@@ -931,3 +932,95 @@ export const resolveThemeColor = (
 
   return undefined
 }
+
+/**
+ * Reactive Theme Detection
+ * Watches for system theme changes and updates zustand store
+ */
+
+let lastDetectedTheme: ThemeName | null = null
+let themeStoreUpdater: ((name: ThemeName) => void) | null = null
+
+/**
+ * Initialize theme store updater
+ * Called by theme-store on initialization to enable reactive updates
+ * @param setter - Function to call when theme changes
+ */
+export const initializeThemeWatcher = (setter: (name: ThemeName) => void) => {
+  themeStoreUpdater = setter
+}
+
+/**
+ * Recompute system theme and update store if it changed
+ * @param source - Source of the recomputation (for debugging)
+ */
+const recomputeSystemTheme = (source: string) => {
+  // Only recompute if theme is auto-detected (not explicitly set)
+  const envPreference = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
+  if (envPreference && envPreference.toLowerCase() !== 'opposite') {
+    // User explicitly set theme, don't react to system changes
+    return
+  }
+
+  const newTheme = detectSystemTheme()
+
+  if (lastDetectedTheme !== null && newTheme !== lastDetectedTheme) {
+    lastDetectedTheme = newTheme
+    // Update zustand store
+    if (themeStoreUpdater) {
+      themeStoreUpdater(newTheme)
+    }
+  } else if (lastDetectedTheme === null) {
+    // First detection, just store it
+    lastDetectedTheme = newTheme
+  }
+}
+
+// Initialize on module load
+lastDetectedTheme = detectSystemTheme()
+
+/**
+ * Setup macOS theme watchers
+ * Watches system preference files and triggers theme recomputation
+ */
+if (process.platform === 'darwin') {
+  const watchTargets = [
+    join(homedir(), 'Library/Preferences/.GlobalPreferences.plist'),
+    join(homedir(), 'Library/Preferences/com.apple.Terminal.plist'),
+  ]
+
+  for (const target of watchTargets) {
+    if (existsSync(target)) {
+      try {
+        const watcher = watch(target, { persistent: false }, (eventType) => {
+          // Debounce theme recomputation
+          setTimeout(() => recomputeSystemTheme(`fs:${target}:${eventType}`), 250)
+        })
+
+        watcher.on('error', () => {
+          // Silently ignore watcher errors
+        })
+
+        // Cleanup on process exit
+        process.on('exit', () => {
+          try {
+            watcher.close()
+          } catch {
+            // Ignore
+          }
+        })
+      } catch {
+        // Silently ignore if we can't watch
+      }
+    }
+  }
+}
+
+/**
+ * SIGUSR2 signal handler for manual theme refresh
+ * Users can send `kill -USR2 <pid>` to force theme recomputation
+ */
+process.on('SIGUSR2', () => {
+  recomputeSystemTheme('signal:SIGUSR2')
+})
+
