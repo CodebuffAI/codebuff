@@ -29,7 +29,7 @@ export const BuildModeButtons = ({
         }}
         onMouseDown={onBuildFast}
       >
-        <text wrap={false}>
+        <text wrapMode="none">
           <span fg="#ffffff">Build Fast</span>
         </text>
       </box>
@@ -43,7 +43,7 @@ export const BuildModeButtons = ({
         }}
         onMouseDown={onBuildMax}
       >
-        <text wrap={false}>
+        <text wrapMode="none">
           <span fg="#ffffff">Build Max</span>
         </text>
       </box>
