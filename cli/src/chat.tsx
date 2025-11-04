@@ -554,31 +554,7 @@ export const App = ({
 
       const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
 
-      if (key.name === 'down' && !hasModifier) {
-        setSlashSelectedIndex((prev) =>
-          Math.min(prev + 1, slashMatches.length - 1),
-        )
-        return true
-      }
-
-      if (key.name === 'up' && !hasModifier) {
-        setSlashSelectedIndex((prev) => Math.max(prev - 1, 0))
-        return true
-      }
-
-      if (key.name === 'tab' && key.shift && !hasModifier) {
-        setSlashSelectedIndex((prev) => Math.max(prev - 1, 0))
-        return true
-      }
-
-      if (key.name === 'tab' && !key.shift && !hasModifier) {
-        setSlashSelectedIndex((prev) =>
-          Math.min(prev + 1, slashMatches.length - 1),
-        )
-        return true
-      }
-
-      if (key.name === 'return' && !key.shift && !hasModifier) {
+      function selectCurrent() {
         const selected = slashMatches[slashSelectedIndex] ?? slashMatches[0]
         if (!selected) {
           return true
@@ -597,6 +573,38 @@ export const App = ({
         helpers.setValue(newValue)
         helpers.setCursorPosition(before.length + replacement.length)
         setSlashSelectedIndex(0)
+      }
+
+      if (key.name === 'down' && !hasModifier) {
+        setSlashSelectedIndex((prev) =>
+          Math.min(prev + 1, slashMatches.length - 1),
+        )
+        return true
+      }
+
+      if (key.name === 'up' && !hasModifier) {
+        setSlashSelectedIndex((prev) => Math.max(prev - 1, 0))
+        return true
+      }
+
+      if (key.name === 'tab' && key.shift && !hasModifier) {
+        setSlashSelectedIndex(
+          (prev) => (slashMatches.length + prev - 1) % slashMatches.length,
+        )
+        return true
+      }
+
+      if (key.name === 'tab' && !key.shift && !hasModifier) {
+        if (slashMatches.length > 1) {
+          setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length)
+        } else {
+          selectCurrent()
+        }
+        return true
+      }
+
+      if (key.name === 'return' && !key.shift && !hasModifier) {
+        selectCurrent()
         return true
       }
 
@@ -627,31 +635,7 @@ export const App = ({
 
       const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
 
-      if (key.name === 'down' && !hasModifier) {
-        setAgentSelectedIndex((prev) =>
-          Math.min(prev + 1, agentMatches.length - 1),
-        )
-        return true
-      }
-
-      if (key.name === 'up' && !hasModifier) {
-        setAgentSelectedIndex((prev) => Math.max(prev - 1, 0))
-        return true
-      }
-
-      if (key.name === 'tab' && key.shift && !hasModifier) {
-        setAgentSelectedIndex((prev) => Math.max(prev - 1, 0))
-        return true
-      }
-
-      if (key.name === 'tab' && !key.shift && !hasModifier) {
-        setAgentSelectedIndex((prev) =>
-          Math.min(prev + 1, agentMatches.length - 1),
-        )
-        return true
-      }
-
-      if (key.name === 'return' && !key.shift && !hasModifier) {
+      function selectCurrent() {
         const selected = agentMatches[agentSelectedIndex] ?? agentMatches[0]
         if (!selected) {
           return true
@@ -671,6 +655,38 @@ export const App = ({
         helpers.setValue(newValue)
         helpers.setCursorPosition(before.length + replacement.length)
         setAgentSelectedIndex(0)
+      }
+
+      if (key.name === 'down' && !hasModifier) {
+        setAgentSelectedIndex((prev) =>
+          Math.min(prev + 1, agentMatches.length - 1),
+        )
+        return true
+      }
+
+      if (key.name === 'up' && !hasModifier) {
+        setAgentSelectedIndex((prev) => Math.max(prev - 1, 0))
+        return true
+      }
+
+      if (key.name === 'tab' && key.shift && !hasModifier) {
+        setAgentSelectedIndex(
+          (prev) => (agentMatches.length + prev - 1) % agentMatches.length,
+        )
+        return true
+      }
+
+      if (key.name === 'tab' && !key.shift && !hasModifier) {
+        if (agentMatches.length > 1) {
+          setAgentSelectedIndex((prev) => (prev + 1) % agentMatches.length)
+        } else {
+          selectCurrent()
+        }
+        return true
+      }
+
+      if (key.name === 'return' && !key.shift && !hasModifier) {
+        selectCurrent()
         return true
       }
 
