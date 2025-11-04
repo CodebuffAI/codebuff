@@ -570,12 +570,13 @@ export class BrowserRunner {
     })
 
     // Page errors
-    this.page.on('pageerror', (err) => {
+    this.page.on('pageerror', (err: unknown) => {
+      const error = err as Error
       this.logs.push({
         type: 'error',
-        message: err.message,
+        message: error.message,
         timestamp: Date.now(),
-        stack: err.stack,
+        stack: error.stack,
         source: 'browser',
       })
       this.jsErrorCount++
@@ -767,7 +768,7 @@ export class BrowserRunner {
       this.page = null
       try {
         await browser.close()
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error closing browser:', err)
         logger.error(
           {
