@@ -558,11 +558,11 @@ export const App = ({
       function selectCurrent() {
         const selected = slashMatches[slashSelectedIndex] ?? slashMatches[0]
         if (!selected) {
-          return true
+          return
         }
         const startIndex = slashContext.startIndex
         if (startIndex < 0) {
-          return true
+          return
         }
         const before = helpers.value.slice(0, startIndex)
         const after = helpers.value.slice(
@@ -577,6 +577,7 @@ export const App = ({
       }
 
       if (key.name === 'down' && !hasModifier) {
+        // Move down (no wrap)
         setSlashSelectedIndex((prev) =>
           Math.min(prev + 1, slashMatches.length - 1),
         )
@@ -584,11 +585,13 @@ export const App = ({
       }
 
       if (key.name === 'up' && !hasModifier) {
+        // Move up (no wrap)
         setSlashSelectedIndex((prev) => Math.max(prev - 1, 0))
         return true
       }
 
       if (key.name === 'tab' && key.shift && !hasModifier) {
+        // Move up with wrap
         setSlashSelectedIndex(
           (prev) => (slashMatches.length + prev - 1) % slashMatches.length,
         )
@@ -597,6 +600,7 @@ export const App = ({
 
       if (key.name === 'tab' && !key.shift && !hasModifier) {
         if (slashMatches.length > 1) {
+          // Move up with wrap
           setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length)
         } else {
           selectCurrent()
@@ -639,11 +643,11 @@ export const App = ({
       function selectCurrent() {
         const selected = agentMatches[agentSelectedIndex] ?? agentMatches[0]
         if (!selected) {
-          return true
+          return
         }
         const startIndex = mentionContext.startIndex
         if (startIndex < 0) {
-          return true
+          return
         }
 
         const before = helpers.value.slice(0, startIndex)
@@ -659,6 +663,7 @@ export const App = ({
       }
 
       if (key.name === 'down' && !hasModifier) {
+        // Move down (no wrap)
         setAgentSelectedIndex((prev) =>
           Math.min(prev + 1, agentMatches.length - 1),
         )
@@ -666,11 +671,13 @@ export const App = ({
       }
 
       if (key.name === 'up' && !hasModifier) {
+        // Move up (no wrap)
         setAgentSelectedIndex((prev) => Math.max(prev - 1, 0))
         return true
       }
 
       if (key.name === 'tab' && key.shift && !hasModifier) {
+        // Move up with wrap
         setAgentSelectedIndex(
           (prev) => (agentMatches.length + prev - 1) % agentMatches.length,
         )
@@ -679,6 +686,7 @@ export const App = ({
 
       if (key.name === 'tab' && !key.shift && !hasModifier) {
         if (agentMatches.length > 1) {
+          // Move down with wrap
           setAgentSelectedIndex((prev) => (prev + 1) % agentMatches.length)
         } else {
           selectCurrent()
