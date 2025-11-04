@@ -1,7 +1,11 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from 'react'
 
+import { range } from '../utils/arrays'
+import { getSubsequenceIndices } from '../utils/strings'
+
 import type { SuggestionItem } from '../components/suggestion-menu'
 import type { SlashCommand } from '../data/slash-commands'
+import type { Prettify } from '../types/utils'
 import type { LocalAgentInfo } from '../utils/local-agent-registry'
 
 export interface TriggerContext {
@@ -59,23 +63,36 @@ const parseMentionContext = (input: string): TriggerContext => {
   return { active: true, query, startIndex }
 }
 
+export type MatchedSlashCommand = Prettify<
+  SlashCommand &
+    Pick<
+      SuggestionItem,
+      'descriptionHighlightIndices' | 'labelHighlightIndices'
+    >
+>
+
 const filterSlashCommands = (
   commands: SlashCommand[],
   query: string,
-): SlashCommand[] => {
+): MatchedSlashCommand[] => {
   if (!query) {
     return commands
   }
 
   const normalized = query.toLowerCase()
-  const result: SlashCommand[] = []
-  const pushUnique = (command: SlashCommand) => {
-    if (!result.some((entry) => entry.id === command.id)) {
-      result.push(command)
+  const matches: MatchedSlashCommand[] = []
+  const seen = new Set<string>()
+  let shouldKeepSearching = true
+  const pushUnique = (command: MatchedSlashCommand) => {
+    if (!seen.has(command.id)) {
+      matches.push(command)
+      seen.add(command.id)
     }
   }
 
+  // Prefix of ID
   for (const command of commands) {
+    if (seen.has(command.id)) continue
     const id = command.id.toLowerCase()
     const aliasList = (command.aliases ?? []).map((alias) =>
       alias.toLowerCase(),
@@ -85,76 +102,218 @@ const filterSlashCommands = (
       id.startsWith(normalized) ||
       aliasList.some((alias) => alias.startsWith(normalized))
     ) {
-      pushUnique(command)
+      if (normalized === id || aliasList.includes(normalized)) {
+        shouldKeepSearching = false
+      }
+      const label = command.label.toLowerCase()
+      const firstIndex = label.indexOf(normalized)
+      const indices =
+        firstIndex === -1
+          ? null
+          : [...range(firstIndex, firstIndex + normalized.length)]
+      pushUnique({
+        ...command,
+        ...(indices && { labelHighlightIndices: indices }),
+      })
     }
   }
 
+  // Substring of ID
   for (const command of commands) {
+    if (seen.has(command.id)) continue
     const id = command.id.toLowerCase()
     const aliasList = (command.aliases ?? []).map((alias) =>
       alias.toLowerCase(),
     )
-    const description = command.description.toLowerCase()
 
     if (
       id.includes(normalized) ||
-      description.includes(normalized) ||
       aliasList.some((alias) => alias.includes(normalized))
     ) {
-      pushUnique(command)
+      const label = command.label.toLowerCase()
+      const firstIndex = label.indexOf(normalized)
+      const indices =
+        firstIndex === -1
+          ? null
+          : [...range(firstIndex, firstIndex + normalized.length)]
+      pushUnique({
+        ...command,
+        ...(indices && {
+          labelHighlightIndices: indices,
+        }),
+      })
     }
   }
 
-  return result
+  // Substring of description
+  for (const command of commands) {
+    if (seen.has(command.id)) continue
+    const description = command.description.toLowerCase()
+
+    if (description.includes(normalized)) {
+      const firstIndex = description.indexOf(normalized)
+      const indices =
+        firstIndex === -1
+          ? null
+          : [...range(firstIndex, firstIndex + normalized.length)]
+      pushUnique({
+        ...command,
+        ...(indices && {
+          descriptionHighlightIndices: indices,
+        }),
+      })
+    }
+  }
+
+  // Breakpoint for filter
+  if (!shouldKeepSearching) return commands
+
+  // Subsequence of ID
+  for (const command of commands) {
+    if (seen.has(command.id)) continue
+    const id = command.id.toLowerCase()
+    const aliasList = (command.aliases ?? []).map((alias) =>
+      alias.toLowerCase(),
+    )
+
+    for (const alias of [id, ...aliasList]) {
+      const subsequenceIndices = getSubsequenceIndices(alias, normalized)
+      if (subsequenceIndices) {
+        const label = command.label.toLowerCase()
+        const firstIndex = label.indexOf(alias)
+        pushUnique({
+          ...command,
+          ...(firstIndex === -1
+            ? null
+            : {
+                labelHighlightIndices: subsequenceIndices.map(
+                  (i) => firstIndex + i,
+                ),
+              }),
+        })
+      }
+    }
+  }
+
+  return matches
 }
+
+export type MatchedAgentInfo = Prettify<
+  LocalAgentInfo & {
+    nameHighlightIndices?: number[] | null
+    idHighlightIndices?: number[] | null
+  }
+>
 
 const filterAgentMatches = (
   agents: LocalAgentInfo[],
   query: string,
-): LocalAgentInfo[] => {
+): MatchedAgentInfo[] => {
   if (!query) {
     return agents
   }
 
   const normalized = query.toLowerCase()
-  const startsWith: LocalAgentInfo[] = []
-  const contains: LocalAgentInfo[] = []
+  const matches: MatchedAgentInfo[] = []
   const seen = new Set<string>()
+  let shouldKeepSearching = true
 
-  const pushUnique = (target: LocalAgentInfo[], agent: LocalAgentInfo) => {
+  const pushUnique = (target: MatchedAgentInfo[], agent: MatchedAgentInfo) => {
     if (!seen.has(agent.id)) {
       target.push(agent)
       seen.add(agent.id)
     }
   }
 
+  // Prefix of ID or name
   for (const agent of agents) {
-    const name = agent.displayName.toLowerCase()
     const id = agent.id.toLowerCase()
 
-    if (name.startsWith(normalized) || id.startsWith(normalized)) {
-      pushUnique(startsWith, agent)
+    if (id.startsWith(normalized)) {
+      if (normalized === id) {
+        shouldKeepSearching = false
+      }
+      pushUnique(matches, {
+        ...agent,
+        idHighlightIndices: [...range(normalized.length)],
+      })
+      continue
+    }
+
+    const name = agent.displayName.toLowerCase()
+    if (name.startsWith(normalized)) {
+      if (normalized === name) {
+        shouldKeepSearching = false
+      }
+      pushUnique(matches, {
+        ...agent,
+        nameHighlightIndices: [...range(normalized.length)],
+      })
+    }
+  }
+
+  // Substring of ID or name
+  for (const agent of agents) {
+    if (seen.has(agent.id)) continue
+    const id = agent.id.toLowerCase()
+    const idFirstIndex = id.indexOf(normalized)
+    if (idFirstIndex !== -1) {
+      pushUnique(matches, {
+        ...agent,
+        idHighlightIndices: [
+          ...range(idFirstIndex, idFirstIndex + normalized.length),
+        ],
+      })
+      continue
+    }
+
+    const name = agent.displayName.toLowerCase()
+
+    const nameFirstIndex = name.indexOf(normalized)
+    if (nameFirstIndex !== -1) {
+      pushUnique(matches, {
+        ...agent,
+        nameHighlightIndices: [
+          ...range(nameFirstIndex, nameFirstIndex + normalized.length),
+        ],
+      })
       continue
     }
   }
 
+  // Breakpoint for filter
+  if (!shouldKeepSearching) return matches
+
+  // Subsequence of ID or name
   for (const agent of agents) {
     if (seen.has(agent.id)) continue
-    const name = agent.displayName.toLowerCase()
     const id = agent.id.toLowerCase()
+    const idSubsequenceIndices = getSubsequenceIndices(id, normalized)
+    if (idSubsequenceIndices) {
+      pushUnique(matches, {
+        ...agent,
+        idHighlightIndices: idSubsequenceIndices,
+      })
+      continue
+    }
 
-    if (name.includes(normalized) || id.includes(normalized)) {
-      pushUnique(contains, agent)
+    const name = agent.displayName.toLowerCase()
+    const nameSubsequenceIndices = getSubsequenceIndices(name, normalized)
+    if (nameSubsequenceIndices) {
+      pushUnique(matches, {
+        ...agent,
+        nameHighlightIndices: nameSubsequenceIndices,
+      })
     }
   }
 
-  return startsWith.concat(contains)
+  return matches
 }
 
 export interface SuggestionEngineResult {
   slashContext: TriggerContext
   mentionContext: TriggerContext
-  slashMatches: SlashCommand[]
+  slashMatches: MatchedSlashCommand[]
   agentMatches: LocalAgentInfo[]
   slashSuggestionItems: SuggestionItem[]
   agentSuggestionItems: SuggestionItem[]
@@ -172,7 +331,7 @@ export const useSuggestionEngine = ({
   localAgents,
 }: SuggestionEngineOptions): SuggestionEngineResult => {
   const deferredInput = useDeferredValue(inputValue)
-  const slashCacheRef = useRef<Map<string, SlashCommand[]>>(
+  const slashCacheRef = useRef<Map<string, MatchedSlashCommand[]>>(
     new Map<string, SlashCommand[]>(),
   )
   const agentCacheRef = useRef<Map<string, LocalAgentInfo[]>>(
@@ -197,9 +356,9 @@ export const useSuggestionEngine = ({
     [deferredInput],
   )
 
-  const slashMatches = useMemo(() => {
+  const slashMatches = useMemo<MatchedSlashCommand[]>(() => {
     if (!slashContext.active) {
-      return [] as SlashCommand[]
+      return []
     }
 
     const key = slashContext.query.toLowerCase()
@@ -208,14 +367,14 @@ export const useSuggestionEngine = ({
       return cached
     }
 
-    const computed = filterSlashCommands(slashCommands, slashContext.query)
-    slashCacheRef.current.set(key, computed)
-    return computed
+    const matched = filterSlashCommands(slashCommands, slashContext.query)
+    slashCacheRef.current.set(key, matched)
+    return matched
   }, [slashContext, slashCommands])
 
-  const agentMatches = useMemo(() => {
+  const agentMatches = useMemo<MatchedAgentInfo[]>(() => {
     if (!mentionContext.active) {
-      return [] as LocalAgentInfo[]
+      return []
     }
 
     const key = mentionContext.query.toLowerCase()
@@ -233,7 +392,9 @@ export const useSuggestionEngine = ({
     return slashMatches.map((command) => ({
       id: command.id,
       label: command.label,
+      labelHighlightIndices: command.labelHighlightIndices,
       description: command.description,
+      descriptionHighlightIndices: command.descriptionHighlightIndices,
     }))
   }, [slashMatches])
 
@@ -241,7 +402,9 @@ export const useSuggestionEngine = ({
     return agentMatches.map((agent) => ({
       id: agent.id,
       label: agent.displayName,
+      labelHighlightIndices: agent.nameHighlightIndices,
       description: agent.id,
+      descriptionHighlightIndices: agent.idHighlightIndices,
     }))
   }, [agentMatches])
 

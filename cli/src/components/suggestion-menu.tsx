@@ -1,11 +1,14 @@
 import React from 'react'
 
+import { HighlightedSubsequenceText } from './highlighted-text'
 import { useTheme } from '../hooks/use-theme'
 
 export interface SuggestionItem {
   id: string
   label: string
+  labelHighlightIndices?: number[] | null
   description: string
+  descriptionHighlightIndices?: number[] | null
 }
 
 interface SuggestionMenuProps {
@@ -22,7 +25,6 @@ export const SuggestionMenu = ({
   prefix = '/',
 }: SuggestionMenuProps) => {
   const theme = useTheme()
-
   if (items.length === 0) {
     return null
   }
@@ -42,8 +44,56 @@ export const SuggestionMenu = ({
   const maxStart = Math.max(items.length - visibleCount, 0)
   const idealStart = clampedSelected - Math.floor((visibleCount - 1) / 2)
   const start = Math.max(0, Math.min(idealStart, maxStart))
-
   const visibleItems = items.slice(start, start + visibleCount)
+
+  const renderSuggestionItem = (item: SuggestionItem, idx: number) => {
+    const absoluteIndex = start + idx
+    const isSelected = absoluteIndex === clampedSelected
+    const labelLength = effectivePrefix.length + item.label.length
+    const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
+    const padding = ' '.repeat(paddingLength)
+    const textColor = isSelected ? theme.foreground : theme.inputFg
+    const descriptionColor = isSelected ? theme.foreground : theme.muted
+    const highlightColor = theme.primary
+
+    return (
+      <box
+        key={item.id}
+        style={{
+          flexDirection: 'column',
+          gap: 0,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 0,
+          paddingBottom: 0,
+          backgroundColor: isSelected ? theme.agentFocusedBg : theme.background,
+          width: '100%',
+        }}
+      >
+        <text
+          style={{
+            fg: textColor,
+            marginBottom: 0,
+          }}
+        >
+          <span fg={theme.primary}>{effectivePrefix}</span>
+          <HighlightedSubsequenceText
+            text={item.label}
+            indices={item.labelHighlightIndices}
+            color={textColor}
+            highlightColor={highlightColor}
+          />
+          <span>{padding}</span>
+          <HighlightedSubsequenceText
+            text={item.description}
+            indices={item.descriptionHighlightIndices}
+            color={descriptionColor}
+            highlightColor={highlightColor}
+          />
+        </text>
+      </box>
+    )
+  }
 
   return (
     <box
@@ -54,7 +104,7 @@ export const SuggestionMenu = ({
         paddingRight: 1,
         paddingTop: 0,
         paddingBottom: 0,
-        backgroundColor: 'transparent',
+        backgroundColor: theme.surface,
         width: '100%',
       }}
     >
@@ -62,51 +112,11 @@ export const SuggestionMenu = ({
         style={{
           flexDirection: 'column',
           gap: 0,
-          backgroundColor: 'transparent',
+          backgroundColor: theme.background,
           width: '100%',
         }}
       >
-        {visibleItems.map((item, idx) => {
-          const absoluteIndex = start + idx
-          const isSelected = absoluteIndex === clampedSelected
-          const labelLength = effectivePrefix.length + item.label.length
-          const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
-          const padding = ' '.repeat(paddingLength)
-          const textColor = isSelected ? theme.primary : theme.inputFg
-          const descriptionColor = isSelected
-            ? theme.primary
-            : theme.muted
-          return (
-            <box
-              key={item.id}
-              style={{
-                flexDirection: 'column',
-                gap: 0,
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                backgroundColor: 'transparent',
-                width: '100%',
-              }}
-            >
-              <text
-                style={{
-                  fg: textColor,
-                  marginBottom: 0,
-                  wrapMode: 'none',
-                }}
-              >
-                <span fg={theme.success}>{effectivePrefix}</span>
-                <span>{item.label}</span>
-                <span>{padding}</span>
-                <span fg={descriptionColor}>
-                  {item.description}
-                </span>
-              </text>
-            </box>
-          )
-        })}
+        {visibleItems.map(renderSuggestionItem)}
       </box>
     </box>
   )
