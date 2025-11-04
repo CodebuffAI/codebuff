@@ -113,90 +113,114 @@ function createApp() {
 }
 
 module.exports = { ApiClient, createApp }
-`
+`,
 }
 
 async function testTreeSitterFunctionality() {
   console.log('🧪 Testing tree-sitter functionality with real source files...')
-  
+
   // Create a temporary directory for our test
-  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdk-tree-sitter-test-'))
-  
+  const testDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'sdk-tree-sitter-test-'),
+  )
+
   try {
     // Write test source files to temporary directory
     for (const [fileName, content] of Object.entries(testSourceFiles)) {
       const filePath = path.join(testDir, fileName)
       fs.writeFileSync(filePath, content)
     }
-    
+
     console.log(`✅ Created test files in: ${testDir}`)
-    
+
     // Test initialSessionState with our test files
-    const sessionState = await initialSessionState(testDir, {
+    const sessionState = await initialSessionState({
+      cwd: testDir,
       projectFiles: testSourceFiles,
       knowledgeFiles: {},
       agentDefinitions: [],
       customToolDefinitions: [],
-      maxAgentSteps: 25
+      maxAgentSteps: 25,
     })
-    
+
     console.log('✅ initialSessionState completed successfully')
-    
+
     // Verify that fileTokenScores were generated
     const fileTokenScores = sessionState.fileContext.fileTokenScores
-    
+
     if (!fileTokenScores || Object.keys(fileTokenScores).length === 0) {
       throw new Error('fileTokenScores is empty - tree-sitter parsing failed')
     }
-    
-    console.log(`✅ Generated token scores for ${Object.keys(fileTokenScores).length} files`)
-    
+
+    console.log(
+      `✅ Generated token scores for ${Object.keys(fileTokenScores).length} files`,
+    )
+
     // Test each language file and verify expected tokens were found
     const expectedTokens = {
       'calculator.ts': ['Calculator', 'add', 'getHistory', 'calculateSum'],
       'server.py': ['UserService', 'create_user', 'get_user', 'process_data'],
       'utils.go': ['Config', 'NewConfig', 'GetAddress', 'ProcessString'],
-      'api.js': ['ApiClient', 'fetchData', 'postData', 'createApp']
+      'api.js': ['ApiClient', 'fetchData', 'postData', 'createApp'],
     }
-    
-    for (const [fileName, expectedTokensForFile] of Object.entries(expectedTokens)) {
+
+    for (const [fileName, expectedTokensForFile] of Object.entries(
+      expectedTokens,
+    )) {
       const tokensForFile = fileTokenScores[fileName]
-      
+
       if (!tokensForFile) {
-        throw new Error(`No tokens found for ${fileName} - tree-sitter parsing may have failed`)
+        throw new Error(
+          `No tokens found for ${fileName} - tree-sitter parsing may have failed`,
+        )
       }
-      
+
       const foundTokens = Object.keys(tokensForFile)
-      const missingTokens = expectedTokensForFile.filter(token => !foundTokens.includes(token))
-      
+      const missingTokens = expectedTokensForFile.filter(
+        (token) => !foundTokens.includes(token),
+      )
+
       if (missingTokens.length > 0) {
-        console.warn(`⚠️  Missing expected tokens in ${fileName}: ${missingTokens.join(', ')}`)
-        console.warn(`   Found tokens: ${foundTokens.slice(0, 10).join(', ')}${foundTokens.length > 10 ? '...' : ''}`)
+        console.warn(
+          `⚠️  Missing expected tokens in ${fileName}: ${missingTokens.join(', ')}`,
+        )
+        console.warn(
+          `   Found tokens: ${foundTokens.slice(0, 10).join(', ')}${foundTokens.length > 10 ? '...' : ''}`,
+        )
       } else {
-        console.log(`✅ ${fileName}: Found all expected tokens (${foundTokens.length} total)`)
+        console.log(
+          `✅ ${fileName}: Found all expected tokens (${foundTokens.length} total)`,
+        )
       }
-      
+
       // Verify that tokens have meaningful scores
       const tokenScores = Object.values(tokensForFile)
-      const nonZeroScores = tokenScores.filter(score => score > 0)
-      
+      const nonZeroScores = tokenScores.filter((score) => score > 0)
+
       if (nonZeroScores.length === 0) {
-        throw new Error(`All token scores are zero for ${fileName} - scoring logic may be broken`)
+        throw new Error(
+          `All token scores are zero for ${fileName} - scoring logic may be broken`,
+        )
       }
-      
-      console.log(`✅ ${fileName}: ${nonZeroScores.length}/${tokenScores.length} tokens have positive scores`)
+
+      console.log(
+        `✅ ${fileName}: ${nonZeroScores.length}/${tokenScores.length} tokens have positive scores`,
+      )
     }
-    
+
     // Test that tokenCallers were generated (shows cross-file analysis works)
     const tokenCallers = sessionState.fileContext.tokenCallers
     if (tokenCallers && Object.keys(tokenCallers).length > 0) {
-      console.log(`✅ Generated token callers for ${Object.keys(tokenCallers).length} files`)
+      console.log(
+        `✅ Generated token callers for ${Object.keys(tokenCallers).length} files`,
+      )
     } else {
-      console.log('ℹ️  No token callers generated (expected for single-file test)')
+      console.log(
+        'ℹ️  No token callers generated (expected for single-file test)',
+      )
     }
-    
+
     return true
-    
   } finally {
     // Clean up temporary directory
     try {
@@ -213,7 +237,7 @@ async function runAllTests() {
   try {
     // Test actual tree-sitter functionality
     await testTreeSitterFunctionality()
-    
+
     console.log('\n🎉 All tree-sitter query file tests passed!')
     console.log('   ✅ Query files are properly bundled')
     console.log('   ✅ Tree-sitter parsing works with real source files')
