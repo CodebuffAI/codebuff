@@ -76,5 +76,45 @@ The following scripts are available in the `package.json`:
 - `test:watch`: Run unit tests in watch mode
 - `e2e`: Run end-to-end tests
 - `e2e:ui`: Run end-to-end tests with UI
-- `postbuild`: Generate sitemap
+- `postbuild`: Warm Store cache (non-blocking)
+- `warm:store`: Warm Store cache via `/api/agents`
 - `prepare`: Install Husky for managing Git hooks
+
+## SEO & SSR
+
+- Store SSR: `src/app/store/page.tsx` renders agents server-side using cached data (ISR `revalidate=600`).
+- Client fallback: `src/app/store/store-client.tsx` only fetches `/api/agents` if SSR data is empty.
+- Dynamic metadata:
+  - Store: `src/app/store/page.tsx`
+  - Publisher: `src/app/publishers/[id]/page.tsx`
+  - Agent detail: `src/app/publishers/[id]/agents/[agentId]/[version]/page.tsx`
+
+### Warm the Store cache
+
+- Script: `scripts/warm-store-cache.ts`
+- Local: `bun run -C web warm:store`
+- CI/CD: run after deploy; set `NEXT_PUBLIC_CODEBUFF_APP_URL` to your deployed base URL.
+
+### E2E tests for SSR and hydration
+
+- Hydration fallback: `src/__tests__/e2e/store-hydration.spec.ts`
+- SSR HTML: `src/__tests__/e2e/store-ssr.spec.ts` (JavaScript disabled) using server-side fixture `src/app/store/e2e-fixture.ts` when `E2E_ENABLE_QUERY_FIXTURE=1`.
+
+Run locally:
+
+```
+cd web
+bun run e2e
+```
+
+## Lighthouse CI
+
+- Config: `lighthouserc.json`
+- Workflow: `.github/workflows/lighthouse.yml`
+
+Run locally:
+
+```
+cd web
+bunx lhci autorun --config=lighthouserc.json
+```

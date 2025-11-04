@@ -47,7 +47,7 @@ const fetchAgentsWithMetrics = async (): Promise<AgentData[]> => {
     .from(schema.agentConfig)
     .innerJoin(
       schema.publisher,
-      sql`${schema.agentConfig.publisher_id} = ${schema.publisher.id}`,
+      eq(schema.agentConfig.publisher_id, schema.publisher.id),
     )
     .orderBy(sql`${schema.agentConfig.created_at} DESC`)
 
@@ -156,7 +156,11 @@ const fetchAgentsWithMetrics = async (): Promise<AgentData[]> => {
   })
 }
 
-export const getCachedAgents = unstable_cache(fetchAgentsWithMetrics, ['agents-data'], {
-  revalidate: 600, // 10 minutes
-  tags: ['agents', 'api', 'store'],
-})
+export const getCachedAgents = unstable_cache(
+  fetchAgentsWithMetrics,
+  ['agents-data'],
+  {
+    revalidate: 600, // 10 minutes
+    tags: ['agents', 'api', 'store'],
+  },
+)

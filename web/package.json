@@ -14,6 +14,7 @@
     "build": "next build 2>&1 | sed '/Contentlayer esbuild warnings:/,/^]/d'",
     "start": "next start",
     "preview": "bun run build && bun run start",
+    "postbuild": "bun run warm:store || true",
     "contentlayer": "contentlayer build",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -24,6 +25,7 @@
     "test:watch": "jest --watchAll",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
+    "warm:store": "bun run scripts/warm-store-cache.ts",
     "discord:start": "bun run scripts/discord/index.ts",
     "discord:register": "bun run scripts/discord/register-commands.ts",
     "clean": "rm -rf .next"
@@ -132,6 +134,7 @@
     "typescript": "^5",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
-    "vfile-matter": "^5.0.1"
+    "vfile-matter": "^5.0.1",
+    "@lhci/cli": "^0.13.0"
   }
 }
