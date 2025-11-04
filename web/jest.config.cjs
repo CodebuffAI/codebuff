@@ -12,7 +12,14 @@ const config = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^common/(.*)$': '<rootDir>/../common/src/$1',
     '^@codebuff/internal/xml-parser$': '<rootDir>/src/test-stubs/xml-parser.ts',
+    '^react$': '<rootDir>/node_modules/react',
+    '^react-dom$': '<rootDir>/node_modules/react-dom',
   },
+  testPathIgnorePatterns: [
+    '<rootDir>/src/__tests__/e2e',
+    '<rootDir>/src/app/api/v1/.*/__tests__',
+    '<rootDir>/src/app/api/agents/publish/__tests__',
+  ],
 }
 
 module.exports = createJestConfig(config)

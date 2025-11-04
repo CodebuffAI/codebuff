@@ -185,10 +185,27 @@ export default function AgentStoreClient({
     loadingStateRef.current = { isLoadingMore, hasMore }
   }, [isLoadingMore, hasMore])
 
-  // Use the initial agents directly
-  const agents = useMemo(() => {
-    return initialAgents
+  // Hydrate agents client-side if SSR provided none (build-time fallback)
+  const [hydratedAgents, setHydratedAgents] = useState<AgentData[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    if ((initialAgents?.length ?? 0) === 0) {
+      fetch('/api/agents')
+        .then((res) => (res.ok ? res.json() : Promise.reject(res.statusText)))
+        .then((data: AgentData[]) => {
+          if (!cancelled) setHydratedAgents(data)
+        })
+        .catch(() => {})
+    }
+    return () => {
+      cancelled = true
+    }
   }, [initialAgents])
+
+  // Prefer hydrated data if present; else use SSR data
+  const agents = useMemo(() => {
+    return hydratedAgents ?? initialAgents
+  }, [hydratedAgents, initialAgents])
 
   const editorsChoice = useMemo(() => {
     return agents.filter((agent) => EDITORS_CHOICE_AGENTS.includes(agent.id))
