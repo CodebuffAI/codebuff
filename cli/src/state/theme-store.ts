@@ -45,5 +45,6 @@ export const useThemeStore = create<ThemeStore>((set) => ({
 
 // Initialize theme watcher to enable reactive updates from system theme changes
 initializeThemeWatcher((name: ThemeName) => {
+  // Always call setThemeName - it will handle building and updating the theme
   useThemeStore.getState().setThemeName(name)
 })

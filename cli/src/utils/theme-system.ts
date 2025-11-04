@@ -1,16 +1,14 @@
 import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
-import { join } from 'path'
-import { EventEmitter } from 'events'
-import {
+import { dirname, join } from 'path'
+
+import type { MarkdownPalette } from './markdown-renderer'
+import type {
   ChatTheme,
   MarkdownHeadingLevel,
   MarkdownThemeOverrides,
   ThemeName,
-  ThemeColor,
 } from '../types/theme-system'
-
-import type { MarkdownPalette } from './markdown-renderer'
 
 // Re-export types for backward compatibility
 export type { ChatTheme, ThemeColor } from '../types/theme-system'
@@ -927,15 +925,10 @@ const recomputeSystemTheme = (source: string) => {
 
   const newTheme = detectSystemTheme()
 
-  if (lastDetectedTheme !== null && newTheme !== lastDetectedTheme) {
-    lastDetectedTheme = newTheme
-    // Update zustand store
-    if (themeStoreUpdater) {
-      themeStoreUpdater(newTheme)
-    }
-  } else if (lastDetectedTheme === null) {
-    // First detection, just store it
-    lastDetectedTheme = newTheme
+  // Always call the updater and let it decide if an update is needed
+  lastDetectedTheme = newTheme
+  if (themeStoreUpdater) {
+    themeStoreUpdater(newTheme)
   }
 }
 
@@ -943,37 +936,46 @@ const recomputeSystemTheme = (source: string) => {
 lastDetectedTheme = detectSystemTheme()
 
 /**
- * Setup macOS theme watchers
- * Watches system preference files and triggers theme recomputation
+ * Setup file watchers for theme changes
+ * Watches parent directories which reliably catches all file modifications
  */
-if (process.platform === 'darwin') {
-  const watchTargets = [
-    join(homedir(), 'Library/Preferences/.GlobalPreferences.plist'),
-    join(homedir(), 'Library/Preferences/com.apple.Terminal.plist'),
-  ]
+const setupFileWatchers = () => {
+  const watchTargets: string[] = []
+  const watchedDirs = new Set<string>()
 
+  // macOS system preferences
+  if (process.platform === 'darwin') {
+    watchTargets.push(
+      join(homedir(), 'Library/Preferences/.GlobalPreferences.plist'),
+      join(homedir(), 'Library/Preferences/com.apple.Terminal.plist'),
+    )
+  }
+
+  // IDE config files that we should watch
+  const ideConfigPaths = getIDEThemeConfigPaths()
+  watchTargets.push(...ideConfigPaths)
+
+  // Watch parent directories instead of individual files
+  // Directory watches are more reliable for catching all modifications including plist key deletions
   for (const target of watchTargets) {
     if (existsSync(target)) {
+      const parentDir = dirname(target)
+
+      // Only watch each directory once
+      if (watchedDirs.has(parentDir)) continue
+      watchedDirs.add(parentDir)
+
       try {
-        const watcher = watch(target, { persistent: false }, (eventType) => {
-          // Debounce theme recomputation
-          setTimeout(
-            () => recomputeSystemTheme(`fs:${target}:${eventType}`),
-            250,
-          )
+        // Watch the directory - catches all file modifications
+        const watcher = watch(parentDir, { persistent: false }, (eventType, filename) => {
+          // Only respond to changes affecting our target files
+          if (filename && watchTargets.some((t) => t.endsWith(filename))) {
+            recomputeSystemTheme(`watch:${join(parentDir, filename)}:${eventType}`)
+          }
         })
 
         watcher.on('error', () => {
           // Silently ignore watcher errors
-        })
-
-        // Cleanup on process exit
-        process.on('exit', () => {
-          try {
-            watcher.close()
-          } catch {
-            // Ignore
-          }
         })
       } catch {
         // Silently ignore if we can't watch
@@ -981,6 +983,8 @@ if (process.platform === 'darwin') {
     }
   }
 }
+
+setupFileWatchers()
 
 /**
  * SIGUSR2 signal handler for manual theme refresh
