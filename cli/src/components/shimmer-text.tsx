@@ -155,7 +155,7 @@ export const ShimmerText = ({
   const generateColors = (length: number, colorPalette: string[]): string[] => {
     if (length === 0) return []
     if (colorPalette.length === 0) {
-      return Array.from({ length }, () => theme.shimmerFallbackColor)
+      return Array.from({ length }, () => theme.muted)
     }
     if (colorPalette.length === 1) {
       return Array.from({ length }, () => colorPalette[0])
@@ -178,12 +178,12 @@ export const ShimmerText = ({
     }
     if (primaryColor) {
       const paletteSize = Math.max(8, Math.min(20, Math.ceil(numChars * 1.5)))
-      return generatePaletteFromPrimary(primaryColor, paletteSize, theme.shimmerFallbackColor)
+      return generatePaletteFromPrimary(primaryColor, paletteSize, theme.muted)
     }
     // Use theme shimmer color as default
     const paletteSize = Math.max(8, Math.min(20, Math.ceil(numChars * 1.5)))
-    return generatePaletteFromPrimary(theme.shimmerPrimaryColor, paletteSize, theme.shimmerFallbackColor)
-  }, [colors, primaryColor, numChars, theme.shimmerPrimaryColor, theme.shimmerFallbackColor])
+    return generatePaletteFromPrimary(theme.shimmer, paletteSize, theme.muted)
+  }, [colors, primaryColor, numChars, theme.shimmer, theme.muted])
 
   const generateAttributes = (length: number): number[] => {
     const attributes: number[] = []

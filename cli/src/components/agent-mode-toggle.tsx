@@ -7,13 +7,13 @@ import type { ChatTheme } from '../types/theme-system'
 const getModeConfig = (theme: ChatTheme) =>
   ({
     FAST: {
-      frameColor: theme.modeToggleFastBg,
-      textColor: theme.modeToggleFastText,
+      frameColor: theme.modeFastBg,
+      textColor: theme.modeFastText,
       label: 'FAST',
     },
     MAX: {
-      frameColor: theme.modeToggleMaxBg,
-      textColor: theme.modeToggleMaxText,
+      frameColor: theme.modeMaxBg,
+      textColor: theme.modeMaxText,
       label: '💪 MAX',
     },
   }) as const

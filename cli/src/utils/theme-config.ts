@@ -31,17 +31,17 @@ export type BackgroundColor = 'auto' | 'transparent' | string
 export interface ThemeVariantBackgrounds {
   /** Main background color (replaces theme.background) */
   main?: BackgroundColor
-  /** Chrome background color (replaces theme.chromeBg) */
+  /** Chrome background color (replaces theme.surface) */
   chrome?: BackgroundColor
-  /** Panel background color (replaces theme.panelBg) */
+  /** Panel background color (replaces theme.surface) */
   panel?: BackgroundColor
-  /** Message background color (replaces theme.messageBg) */
+  /** Message background color (replaces theme.background) */
   message?: BackgroundColor
   /** Input background color (replaces theme.inputBg) */
   input?: BackgroundColor
   /** Focused input background color (replaces theme.inputFocusedBg) */
   inputFocused?: BackgroundColor
-  /** Agent content background color (replaces theme.agentContentBg) */
+  /** Agent content background color (replaces theme.background) */
   agent?: BackgroundColor
   /** Accent background color (replaces theme.accentBg) */
   accent?: BackgroundColor
@@ -240,16 +240,14 @@ const BACKGROUND_PROPERTY_MAPPING: Array<
   [keyof ChatTheme, keyof ThemeVariantBackgrounds]
 > = [
   ['background', 'main'],
-  ['chromeBg', 'chrome'],
-  ['panelBg', 'panel'],
-  ['messageBg', 'message'],
+  ['surface', 'chrome'], // Chrome and panel both map to surface now
   ['inputBg', 'input'],
   ['inputFocusedBg', 'inputFocused'],
-  ['agentContentBg', 'agent'],
   ['accentBg', 'accent'],
   ['agentFocusedBg', 'agentFocused'],
   ['agentToggleHeaderBg', 'agentToggleHeader'],
   ['agentToggleExpandedBg', 'agentToggleExpanded'],
+  ['agentContentBg', 'agent'],
 ]
 
 /**
@@ -308,16 +306,15 @@ const resolveThemeColors = (theme: ChatTheme, mode: 'dark' | 'light'): void => {
   }
 
   // Resolve all ThemeColor properties to actual colors
-  theme.chromeText = resolve(theme.chromeText)
-  theme.messageAiText = resolve(theme.messageAiText)
-  theme.messageUserText = resolve(theme.messageUserText)
+  theme.foreground = resolve(theme.foreground)
+  theme.muted = resolve(theme.muted)
+  theme.aiText = resolve(theme.aiText)
+  theme.userText = resolve(theme.userText)
+  theme.agentContent = resolve(theme.agentContent)
   theme.inputFg = resolve(theme.inputFg)
   theme.inputFocusedFg = resolve(theme.inputFocusedFg)
-  theme.inputPlaceholder = resolve(theme.inputPlaceholder, theme.statusSecondary)
-  theme.agentText = resolve(theme.agentText)
-  theme.agentContentText = resolve(theme.agentContentText)
+  theme.inputPlaceholder = resolve(theme.inputPlaceholder, theme.secondary)
   theme.agentToggleHeaderText = resolve(theme.agentToggleHeaderText)
-  theme.agentToggleText = resolve(theme.agentToggleText)
 }
 
 /**

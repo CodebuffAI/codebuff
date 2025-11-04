@@ -208,7 +208,7 @@ export const App = ({
       ? `Welcome back, ${userCredentials.name.trim()}!`
       : null
 
-    const baseTextColor = theme.chromeText
+    const baseTextColor = theme.foreground
 
     const homeDir = os.homedir()
     const repoRoot = path.dirname(loadedAgentsData.agentsDir)
@@ -226,7 +226,7 @@ export const App = ({
         {
           type: 'text',
           content: '\n\n' + logoBlock,
-          color: theme.logoColor,
+          color: theme.logo,
         },
       ]
 
@@ -1026,7 +1026,7 @@ export const App = ({
         key="virtualization-notice"
         style={{ width: '100%', wrapMode: 'none' }}
       >
-        <span fg={theme.statusSecondary}>
+        <span fg={theme.secondary}>
           Showing latest {virtualTopLevelMessages.length} of{' '}
           {topLevelMessages.length} messages. Scroll up to load more.
         </span>
@@ -1105,8 +1105,8 @@ export const App = ({
       return output
     }
 
-    const messageAiTextColor = theme.messageAiText
-    const statusSecondaryColor = theme.statusSecondary
+    const messageAiTextColor = theme.aiText
+    const statusSecondaryColor = theme.secondary
 
     return (
       <box
@@ -1116,10 +1116,10 @@ export const App = ({
           paddingRight: 1,
           paddingTop: 1,
           paddingBottom: 1,
-          backgroundColor: theme.panelBg,
+          backgroundColor: theme.surface,
           border: true,
           borderStyle: 'single',
-          borderColor: theme.validationBorderColor,
+          borderColor: theme.warning,
         }}
       >
         {/* Header */}
@@ -1237,11 +1237,11 @@ export const App = ({
               {hasStatus && statusIndicatorNode}
               {hasStatus && (exitWarning || shouldShowQueuePreview) && '  '}
               {exitWarning && (
-                <span fg={theme.statusSecondary}>{exitWarning}</span>
+                <span fg={theme.secondary}>{exitWarning}</span>
               )}
               {exitWarning && shouldShowQueuePreview && '  '}
               {shouldShowQueuePreview && (
-                <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
+                <span fg={theme.secondary} bg={theme.inputFocusedBg}>
                   {' '}
                   {formatQueuedPreview(
                     queuedMessages,

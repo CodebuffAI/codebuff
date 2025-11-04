@@ -88,8 +88,8 @@ export const useMessageRenderer = (
       const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
       const agentPalette: MarkdownPalette = {
         ...markdownPalette,
-        inlineCodeFg: theme.agentText,
-        codeTextFg: theme.agentText,
+        inlineCodeFg: theme.agentContent,
+        codeTextFg: theme.agentContent,
       }
       const agentMarkdownOptions = {
         codeBlockWidth: agentCodeBlockWidth,
@@ -176,7 +176,7 @@ export const useMessageRenderer = (
                   flexDirection: 'row',
                   alignSelf: 'flex-start',
                   backgroundColor: isCollapsed
-                    ? theme.agentResponseCount
+                    ? theme.muted
                     : theme.agentPrefix,
                   paddingLeft: 1,
                   paddingRight: 1,
@@ -184,11 +184,11 @@ export const useMessageRenderer = (
                 onMouseDown={handleTitleClick}
               >
                 <text style={{ wrapMode: 'word' }}>
-                  <span fg={theme.agentToggleText}>
+                  <span fg={theme.agentToggleHeaderText}>
                     {isCollapsed ? '▸ ' : '▾ '}
                   </span>
                   <span
-                    fg={theme.agentToggleText}
+                    fg={theme.agentToggleHeaderText}
                     attributes={TextAttributes.BOLD}
                   >
                     {agentInfo.agentName}
@@ -201,7 +201,7 @@ export const useMessageRenderer = (
               >
                 {isStreaming && isCollapsed && streamingPreview && (
                   <text
-                    style={{ wrapMode: 'word', fg: theme.agentText }}
+                    style={{ wrapMode: 'word', fg: theme.agentContent }}
                     attributes={TextAttributes.ITALIC}
                   >
                     {streamingPreview}
@@ -209,7 +209,7 @@ export const useMessageRenderer = (
                 )}
                 {!isStreaming && isCollapsed && finishedPreview && (
                   <text
-                    style={{ wrapMode: 'word', fg: theme.agentResponseCount }}
+                    style={{ wrapMode: 'word', fg: theme.muted }}
                     attributes={TextAttributes.ITALIC}
                   >
                     {finishedPreview}
@@ -218,7 +218,7 @@ export const useMessageRenderer = (
                 {!isCollapsed && (
                   <text
                     key={`agent-content-${message.id}`}
-                    style={{ wrapMode: 'word', fg: theme.agentContentText }}
+                    style={{ wrapMode: 'word', fg: theme.agentContent }}
                   >
                     {displayContent}
                   </text>
@@ -273,15 +273,15 @@ export const useMessageRenderer = (
       const isError = message.variant === 'error'
       const lineColor = isError ? 'red' : isAi ? theme.aiLine : theme.userLine
       const textColor = isError
-        ? theme.messageAiText
+        ? theme.aiText
         : isAi
-          ? theme.messageAiText
-          : theme.messageUserText
+          ? theme.aiText
+          : theme.userText
       const timestampColor = isError
         ? 'red'
         : isAi
-          ? theme.timestampAi
-          : theme.timestampUser
+          ? theme.aiTimestamp
+          : theme.userTimestamp
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
       const paletteForMessage: MarkdownPalette = {
@@ -337,7 +337,7 @@ export const useMessageRenderer = (
                 />
                 <box
                   style={{
-                    backgroundColor: theme.messageBg,
+                    backgroundColor: theme.background,
                     padding: 0,
                     paddingLeft: 1,
                     paddingRight: 1,
@@ -387,7 +387,7 @@ export const useMessageRenderer = (
             ) : (
               <box
                 style={{
-                  backgroundColor: theme.messageBg,
+                  backgroundColor: theme.background,
                   padding: 0,
                   paddingLeft: 0,
                   paddingRight: 0,

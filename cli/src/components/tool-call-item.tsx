@@ -67,7 +67,7 @@ const renderExpandedContent = (
   if (isTextRenderable(value)) {
     return (
       <text
-        fg={theme.agentText}
+        fg={theme.agentContent}
         key="tool-expanded-text"
         attributes={getAttributes()}
       >
@@ -161,7 +161,7 @@ export const ToolCallItem = ({
         >
           <text style={{ wrapMode: 'none' }}>
             <span
-              fg={theme.chromeText}
+              fg={theme.foreground}
               attributes={isExpanded ? TextAttributes.BOLD : undefined}
             >
               {toggleLabel}
@@ -182,7 +182,7 @@ export const ToolCallItem = ({
             ) : null}
             {isStreaming ? (
               <span
-                fg={theme.statusAccent}
+                fg={theme.primary}
                 attributes={TextAttributes.DIM}
               >
                 {' running'}
@@ -202,7 +202,7 @@ export const ToolCallItem = ({
               }}
             >
               <text
-                fg={isStreaming ? theme.agentText : theme.agentResponseCount}
+                fg={isStreaming ? theme.agentContent : theme.muted}
                 attributes={getAttributes(TextAttributes.ITALIC)}
               >
                 {collapsedPreviewText}

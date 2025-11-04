@@ -72,10 +72,10 @@ export const SuggestionMenu = ({
           const labelLength = effectivePrefix.length + item.label.length
           const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
           const padding = ' '.repeat(paddingLength)
-          const textColor = isSelected ? theme.statusAccent : theme.inputFg
+          const textColor = isSelected ? theme.primary : theme.inputFg
           const descriptionColor = isSelected
-            ? theme.statusAccent
-            : theme.timestampUser
+            ? theme.primary
+            : theme.userTimestamp
           return (
             <box
               key={item.id}

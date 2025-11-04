@@ -72,7 +72,7 @@ export const MessageBlock = ({
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
   const theme = useTheme()
-  const resolvedTextColor = textColor ?? theme.messageAiText
+  const resolvedTextColor = textColor ?? theme.aiText
 
   // Get elapsed time from timer for streaming AI messages
   const elapsedSeconds = timer.elapsedSeconds
@@ -140,8 +140,8 @@ export const MessageBlock = ({
       codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
       palette: {
         ...markdownPalette,
-        inlineCodeFg: theme.agentText,
-        codeTextFg: theme.agentText,
+        inlineCodeFg: theme.agentContent,
+        codeTextFg: theme.agentContent,
       },
     }
   }
@@ -235,7 +235,7 @@ export const MessageBlock = ({
         ? null
         : (
             <text
-              fg={theme.agentText}
+              fg={theme.agentContent}
               style={{ wrapMode: 'word' }}
               attributes={
                 theme.messageTextAttributes && theme.messageTextAttributes !== 0
@@ -334,7 +334,7 @@ export const MessageBlock = ({
       : agentBlock.status === 'complete'
         ? 'completed'
         : agentBlock.status
-    const statusColor = isActive ? theme.statusAccent : theme.agentResponseCount
+    const statusColor = isActive ? theme.primary : theme.muted
     const statusIndicator = isActive ? '●' : '✓'
 
     return (
@@ -399,7 +399,7 @@ export const MessageBlock = ({
     ) => {
       const identifier = formatIdentifier(agent)
       return (
-        <text key={`agent-${idx}`} style={{ wrapMode: 'word', fg: theme.agentText }}>
+        <text key={`agent-${idx}`} style={{ wrapMode: 'word', fg: theme.agentContent }}>
           {`  • ${identifier}`}
         </text>
       )
@@ -481,7 +481,7 @@ export const MessageBlock = ({
             typeof (nestedBlock as any).color === 'string'
               ? ((nestedBlock as any).color as string)
               : undefined
-          const nestedTextColor = explicitColor ?? theme.agentText
+          const nestedTextColor = explicitColor ?? theme.agentContent
           nodes.push(
             <text
               key={renderKey}
@@ -513,7 +513,7 @@ export const MessageBlock = ({
               }}
             >
               {nestedBlock.render({
-                textColor: theme.agentText,
+                textColor: theme.agentContent,
                 theme,
               })}
             </box>,
@@ -694,7 +694,7 @@ export const MessageBlock = ({
               attributes={TextAttributes.DIM}
               style={{
                 wrapMode: 'none',
-                fg: theme.statusSecondary,
+                fg: theme.secondary,
                 marginTop: 0,
                 marginBottom: 0,
                 alignSelf: 'flex-start',
@@ -709,7 +709,7 @@ export const MessageBlock = ({
               attributes={TextAttributes.DIM}
               style={{
                 wrapMode: 'none',
-                fg: theme.statusSecondary,
+                fg: theme.secondary,
                 marginTop: 0,
                 marginBottom: 0,
                 alignSelf: 'flex-start',

@@ -23,7 +23,7 @@ interface ToolItemProps {
 }
 
 const renderContent = (value: ReactNode, theme: ChatTheme): ReactNode => {
-  const contentFg = theme.agentContentText
+  const contentFg = theme.agentContent
   const contentAttributes =
     theme.messageTextAttributes !== undefined && theme.messageTextAttributes !== 0
       ? theme.messageTextAttributes
@@ -91,10 +91,10 @@ export const ToolItem = ({
 }: ToolItemProps) => {
   const theme = useTheme()
 
-  const branchColor = theme.agentResponseCount
+  const branchColor = theme.muted
   const branchAttributes = TextAttributes.DIM
-  const titleColor = customTitleColor ?? theme.statusSecondary
-  const previewColor = isStreaming ? theme.agentText : theme.agentResponseCount
+  const titleColor = customTitleColor ?? theme.secondary
+  const previewColor = isStreaming ? theme.agentContent : theme.muted
   const baseTextAttributes = theme.messageTextAttributes ?? 0
   const connectorSymbol = branchMeta.hasNext ? '├' : '└'
   const continuationPrefix = branchMeta.hasNext ? '│ ' : '  '

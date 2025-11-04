@@ -11,11 +11,6 @@ import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme, VariantProvider } from '../hooks/use-theme'
 import {
-  LINK_COLOR_DEFAULT,
-  LINK_COLOR_CLICKED,
-  COPY_SUCCESS_COLOR,
-  COPY_ERROR_COLOR,
-  WARNING_COLOR,
   DEFAULT_TERMINAL_HEIGHT,
   MODAL_VERTICAL_MARGIN,
   MAX_MODAL_BASE_HEIGHT,
@@ -271,7 +266,7 @@ const LoginModalContent = ({
 
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({
-    logoColor: theme.logoColor,
+    logoColor: theme.logo,
     terminalWidth: renderer?.width,
     sheenPosition,
     setSheenPosition,
@@ -281,7 +276,7 @@ const LoginModalContent = ({
   const { component: logoComponent } = useLogo({
     availableWidth: contentMaxWidth,
     applySheenToChar,
-    textColor: theme.chromeText,
+    textColor: theme.foreground,
   })
 
   // Calculate modal dimensions
@@ -307,7 +302,7 @@ const LoginModalContent = ({
       top={modalTop}
       border
       borderStyle="double"
-      borderColor={theme.statusAccent}
+      borderColor={theme.primary}
       style={{
         width: modalWidth,
         height: modalHeight,
@@ -323,14 +318,14 @@ const LoginModalContent = ({
           style={{
             width: '100%',
             padding: 1,
-            backgroundColor: '#ff0000',
+            backgroundColor: theme.error,
             borderStyle: 'single',
-            borderColor: WARNING_COLOR,
+            borderColor: theme.error,
             flexShrink: 0,
           }}
         >
           <text style={{ wrapMode: 'word' }}>
-            <span fg={theme.statusSecondary}>
+            <span fg={theme.secondary}>
               {isNarrow
                 ? "⚠ Found API key but it's invalid. Please log in again."
                 : '⚠ We found an API key but it appears to be invalid. Please log in again to continue.'}
@@ -374,7 +369,7 @@ const LoginModalContent = ({
             }}
           >
             <text style={{ wrapMode: 'none' }}>
-              <span fg={theme.statusSecondary}>Loading...</span>
+              <span fg={theme.secondary}>Loading...</span>
             </text>
           </box>
         )}
@@ -395,7 +390,7 @@ const LoginModalContent = ({
             </text>
             {!isVerySmall && (
               <text style={{ wrapMode: 'word' }}>
-                <span fg={theme.statusSecondary}>
+                <span fg={theme.secondary}>
                   {isNarrow
                     ? 'Please try again'
                     : 'Please restart the CLI and try again'}
@@ -417,7 +412,7 @@ const LoginModalContent = ({
             }}
           >
             <text style={{ wrapMode: 'word' }}>
-              <span fg={theme.statusAccent}>
+              <span fg={theme.primary}>
                 {isNarrow
                   ? 'Press ENTER to login...'
                   : 'Press ENTER to open your browser and finish logging in...'}
@@ -439,7 +434,7 @@ const LoginModalContent = ({
             }}
           >
             <text style={{ wrapMode: 'word' }}>
-              <span fg={theme.statusSecondary}>
+              <span fg={theme.secondary}>
                 {isNarrow ? 'Click to copy:' : 'Click link to copy:'}
               </span>
             </text>
@@ -454,8 +449,8 @@ const LoginModalContent = ({
                 text={loginUrl}
                 maxWidth={maxUrlWidth}
                 formatLines={formatLoginUrlLines}
-                color={hasClickedLink ? LINK_COLOR_CLICKED : LINK_COLOR_DEFAULT}
-                activeColor={LINK_COLOR_CLICKED}
+                color={hasClickedLink ? theme.linkActive : theme.link}
+                activeColor={theme.linkActive}
                 underlineOnHover={true}
                 isActive={justCopied}
                 onActivate={handleActivateLoginUrl}
@@ -479,8 +474,8 @@ const LoginModalContent = ({
                   <span
                     fg={
                       copyMessage.startsWith('✓')
-                        ? COPY_SUCCESS_COLOR
-                        : COPY_ERROR_COLOR
+                        ? theme.success
+                        : theme.error
                     }
                   >
                     {copyMessage}

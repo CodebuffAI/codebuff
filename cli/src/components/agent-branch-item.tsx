@@ -62,8 +62,8 @@ export const AgentBranchItem = ({
   const isExpanded = !isCollapsed
   const toggleFrameColor = isExpanded
     ? theme.agentToggleExpandedBg
-    : theme.agentResponseCount
-  const toggleIconColor = isStreaming ? theme.statusAccent : theme.chromeText
+    : theme.muted
+  const toggleIconColor = isStreaming ? theme.primary : theme.foreground
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
   const toggleLabel = `${branchChar}${toggleIndicator}`
   const collapseButtonFrame = theme.agentToggleExpandedBg
@@ -124,7 +124,7 @@ export const AgentBranchItem = ({
     if (isTextRenderable(value)) {
       return (
         <text
-          fg={theme.agentText}
+          fg={theme.agentContent}
           key="expanded-text"
           attributes={getAttributes()}
         >
@@ -207,7 +207,7 @@ export const AgentBranchItem = ({
           >
             <text fg={theme.agentToggleHeaderText}>Prompt</text>
             <text
-              fg={theme.agentText}
+              fg={theme.agentContent}
               style={{ wrapMode: 'word' }}
               attributes={getAttributes()}
             >
@@ -232,14 +232,14 @@ export const AgentBranchItem = ({
               {toggleLabel}
             </span>
             <span
-              fg={theme.chromeText}
+              fg={theme.foreground}
               attributes={isExpanded ? TextAttributes.BOLD : undefined}
             >
               {name}
             </span>
             {titleSuffix ? (
               <span
-                fg={theme.chromeText}
+                fg={theme.foreground}
                 attributes={TextAttributes.BOLD}
               >
                 {` ${titleSuffix}`}
@@ -247,7 +247,7 @@ export const AgentBranchItem = ({
             ) : null}
             {statusText ? (
               <span
-                fg={statusColor ?? theme.agentResponseCount}
+                fg={statusColor ?? theme.muted}
                 attributes={TextAttributes.DIM}
               >
                 {` ${statusText}`}
@@ -267,7 +267,7 @@ export const AgentBranchItem = ({
               }}
             >
               <text
-                fg={isStreaming ? theme.agentText : theme.agentResponseCount}
+                fg={isStreaming ? theme.agentContent : theme.muted}
                 attributes={getAttributes(TextAttributes.ITALIC)}
               >
                 {isStreaming ? streamingPreview : finishedPreview}
@@ -297,7 +297,7 @@ export const AgentBranchItem = ({
                   Prompt
                 </text>
                 <text
-                  fg={theme.agentText}
+                  fg={theme.agentContent}
                   style={{ wrapMode: 'word' }}
                   attributes={getAttributes()}
                 >

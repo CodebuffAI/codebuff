@@ -12,7 +12,7 @@ export const Separator = ({ width }: SeparatorProps) => {
   return (
     <text
       content={'─'.repeat(width)}
-      style={{ fg: theme.statusSecondary, height: 1, wrapMode: 'none' }}
+      style={{ fg: theme.secondary, height: 1, wrapMode: 'none' }}
     />
   )
 }

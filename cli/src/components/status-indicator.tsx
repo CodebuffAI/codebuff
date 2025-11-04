@@ -50,7 +50,7 @@ export const StatusIndicator = ({
   const elapsedSeconds = timer.elapsedSeconds
 
   if (clipboardMessage) {
-    return <span fg={theme.statusAccent}>{clipboardMessage}</span>
+    return <span fg={theme.primary}>{clipboardMessage}</span>
   }
 
   const hasStatus = isConnected === false || isActive
@@ -66,7 +66,7 @@ export const StatusIndicator = ({
   if (isActive) {
     // If we have elapsed time > 0, show it
     if (elapsedSeconds > 0) {
-      return <span fg={theme.statusSecondary}>{elapsedSeconds}s</span>
+      return <span fg={theme.secondary}>{elapsedSeconds}s</span>
     }
 
     // Otherwise show thinking...
@@ -74,7 +74,7 @@ export const StatusIndicator = ({
       <ShimmerText
         text="thinking..."
         interval={160}
-        primaryColor={theme.statusSecondary}
+        primaryColor={theme.secondary}
       />
     )
   }

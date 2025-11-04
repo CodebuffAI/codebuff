@@ -689,49 +689,63 @@ export const detectSystemTheme = (): ThemeName => {
 
 const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
+    // Core semantic colors
+    primary: '#facc15',
+    secondary: '#a3aed0',
+    success: '#22c55e',
+    error: '#ef4444',
+    warning: '#FFA500',
+    info: '#38bdf8',
+
+    // Neutral scale
+    foreground: '#f1f5f9',
     background: '#000000',
-    chromeBg: '#000000',
-    chromeText: '#9ca3af',
-    accentBg: '#facc15',
-    accentText: '#1c1917',
-    panelBg: '#000000',
+    muted: '#9ca3af',
+    border: '#334155',
+    surface: '#000000',
+    surfaceHover: '#334155',
+
+    // AI/User context
     aiLine: '#34d399',
     userLine: '#38bdf8',
-    timestampAi: '#4ade80',
-    timestampUser: '#60a5fa',
-    messageAiText: '#f1f5f9',
-    messageUserText: '#dbeafe',
-    messageBg: '#000000',
-    statusAccent: '#facc15',
-    statusSecondary: '#a3aed0',
+    aiText: '#f1f5f9',
+    userText: '#dbeafe',
+    aiTimestamp: '#4ade80',
+    userTimestamp: '#60a5fa',
+
+    // Agent context
+    agentPrefix: '#22c55e',
+    agentName: '#4ade80',
+    agentContent: '#ffffff',
+    agentToggleHeaderBg: '#f97316',
+    agentToggleHeaderText: '#ffffff',
+    agentToggleExpandedBg: '#1d4ed8',
+    agentFocusedBg: '#334155',
+    agentContentBg: '#000000',
+
+    // Input
     inputBg: '#000000',
     inputFg: '#f5f5f5',
     inputFocusedBg: '#000000',
     inputFocusedFg: '#ffffff',
     inputPlaceholder: '#a3a3a3',
     cursor: '#22c55e',
-    agentPrefix: '#22c55e',
-    agentName: '#4ade80',
-    agentText: '#d1d5db',
-    agentCheckmark: '#22c55e',
-    agentResponseCount: '#9ca3af',
-    agentFocusedBg: '#334155',
-    agentContentText: '#ffffff',
-    agentToggleHeaderBg: '#f97316',
-    agentToggleHeaderText: '#ffffff',
-    agentToggleText: '#ffffff',
-    agentContentBg: '#000000',
-    agentToggleExpandedBg: '#1d4ed8',
-    modeToggleFastBg: '#f97316',
-    modeToggleFastText: '#f97316',
-    modeToggleMaxBg: '#dc2626',
-    modeToggleMaxText: '#dc2626',
-    logoColor: '#ffffff',
-    linkColor: '#38bdf8',
-    linkActiveColor: '#22c55e',
-    validationBorderColor: '#FFA500',
-    shimmerPrimaryColor: '#38bdf8',
-    shimmerFallbackColor: '#dbeafe',
+
+    // Mode toggles
+    modeFastBg: '#f97316',
+    modeFastText: '#f97316',
+    modeMaxBg: '#dc2626',
+    modeMaxText: '#dc2626',
+
+    // Misc
+    logo: '#ffffff',
+    link: '#38bdf8',
+    linkActive: '#22c55e',
+    shimmer: '#38bdf8',
+    accentBg: '#facc15',
+    accentText: '#1c1917',
+
+    // Markdown
     markdown: {
       codeBackground: '#1f2933',
       codeHeaderFg: '#5b647a',
@@ -753,49 +767,63 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     },
   },
   light: {
+    // Core semantic colors
+    primary: '#f59e0b',
+    secondary: '#6b7280',
+    success: '#059669',
+    error: '#ef4444',
+    warning: '#F59E0B',
+    info: '#3b82f6',
+
+    // Neutral scale
+    foreground: '#111827',
     background: '#ffffff',
-    chromeBg: '#f3f4f6',
-    chromeText: '#374151',
-    accentBg: '#f59e0b',
-    accentText: '#111827',
-    panelBg: '#ffffff',
+    muted: '#6b7280',
+    border: '#d1d5db',
+    surface: '#f3f4f6',
+    surfaceHover: '#e5e7eb',
+
+    // AI/User context
     aiLine: '#059669',
     userLine: '#3b82f6',
-    timestampAi: '#047857',
-    timestampUser: '#2563eb',
-    messageAiText: '#111827',
-    messageUserText: '#1f2937',
-    messageBg: '#ffffff',
-    statusAccent: '#f59e0b',
-    statusSecondary: '#6b7280',
+    aiText: '#111827',
+    userText: '#1f2937',
+    aiTimestamp: '#047857',
+    userTimestamp: '#2563eb',
+
+    // Agent context
+    agentPrefix: '#059669',
+    agentName: '#047857',
+    agentContent: '#111827',
+    agentToggleHeaderBg: '#ea580c',
+    agentToggleHeaderText: '#ffffff',
+    agentToggleExpandedBg: '#1d4ed8',
+    agentFocusedBg: '#f3f4f6',
+    agentContentBg: '#ffffff',
+
+    // Input
     inputBg: '#f9fafb',
     inputFg: '#111827',
     inputFocusedBg: '#ffffff',
     inputFocusedFg: '#000000',
     inputPlaceholder: '#9ca3af',
     cursor: '#3b82f6',
-    agentPrefix: '#059669',
-    agentName: '#047857',
-    agentText: '#1f2937',
-    agentCheckmark: '#059669',
-    agentResponseCount: '#6b7280',
-    agentFocusedBg: '#f3f4f6',
-    agentContentText: '#111827',
-    agentToggleHeaderBg: '#ea580c',
-    agentToggleHeaderText: '#ffffff',
-    agentToggleText: '#ffffff',
-    agentContentBg: '#ffffff',
-    agentToggleExpandedBg: '#1d4ed8',
-    modeToggleFastBg: '#f97316',
-    modeToggleFastText: '#f97316',
-    modeToggleMaxBg: '#dc2626',
-    modeToggleMaxText: '#dc2626',
-    logoColor: '#000000',
-    linkColor: '#3b82f6',
-    linkActiveColor: '#059669',
-    validationBorderColor: '#F59E0B',
-    shimmerPrimaryColor: '#3b82f6',
-    shimmerFallbackColor: '#94a3b8',
+
+    // Mode toggles
+    modeFastBg: '#f97316',
+    modeFastText: '#f97316',
+    modeMaxBg: '#dc2626',
+    modeMaxText: '#dc2626',
+
+    // Misc
+    logo: '#000000',
+    link: '#3b82f6',
+    linkActive: '#059669',
+    shimmer: '#3b82f6',
+    accentBg: '#f59e0b',
+    accentText: '#111827',
+
+    // Markdown
     markdown: {
       codeBackground: '#f3f4f6',
       codeHeaderFg: '#6b7280',
@@ -828,30 +856,30 @@ export const chatThemes = (() => {
 
 export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
   const headingDefaults: Record<MarkdownHeadingLevel, string> = {
-    1: theme.statusAccent,
-    2: theme.statusAccent,
-    3: theme.statusAccent,
-    4: theme.statusAccent,
-    5: theme.statusAccent,
-    6: theme.statusAccent,
+    1: theme.primary,
+    2: theme.primary,
+    3: theme.primary,
+    4: theme.primary,
+    5: theme.primary,
+    6: theme.primary,
   }
 
   const overrides = theme.markdown?.headingFg ?? {}
 
   return {
-    inlineCodeFg: theme.markdown?.inlineCodeFg ?? theme.messageAiText,
-    codeBackground: theme.markdown?.codeBackground ?? theme.messageBg,
-    codeHeaderFg: theme.markdown?.codeHeaderFg ?? theme.statusSecondary,
+    inlineCodeFg: theme.markdown?.inlineCodeFg ?? theme.aiText,
+    codeBackground: theme.markdown?.codeBackground ?? theme.background,
+    codeHeaderFg: theme.markdown?.codeHeaderFg ?? theme.secondary,
     headingFg: {
       ...headingDefaults,
       ...overrides,
     },
-    listBulletFg: theme.markdown?.listBulletFg ?? theme.statusSecondary,
+    listBulletFg: theme.markdown?.listBulletFg ?? theme.secondary,
     blockquoteBorderFg:
-      theme.markdown?.blockquoteBorderFg ?? theme.statusSecondary,
-    blockquoteTextFg: theme.markdown?.blockquoteTextFg ?? theme.messageAiText,
-    dividerFg: theme.markdown?.dividerFg ?? theme.statusSecondary,
-    codeTextFg: theme.markdown?.codeTextFg ?? theme.messageAiText,
+      theme.markdown?.blockquoteBorderFg ?? theme.secondary,
+    blockquoteTextFg: theme.markdown?.blockquoteTextFg ?? theme.aiText,
+    dividerFg: theme.markdown?.dividerFg ?? theme.secondary,
+    codeTextFg: theme.markdown?.codeTextFg ?? theme.aiText,
     codeMonochrome: theme.markdown?.codeMonochrome ?? true,
   }
 }
