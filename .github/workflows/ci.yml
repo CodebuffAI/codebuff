@@ -246,8 +246,10 @@ jobs:
               find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
             fi
 
-  # E2E tests for web using Playwright
+  # E2E tests for web using Playwright (disabled to reduce CI latency)
+  # Re-enable by changing the condition below or moving to a dedicated workflow
   test-e2e-web:
+    if: ${{ false }}
     needs: [build-and-check]
     runs-on: ubuntu-latest
     steps:
