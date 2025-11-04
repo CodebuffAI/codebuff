@@ -4,6 +4,7 @@ import { describe, test, expect } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { MessageBlock } from '../message-block'
+import { ThemeProvider } from '../../hooks/use-theme'
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
@@ -27,7 +28,6 @@ const baseProps = {
   timestamp: '12:00',
   completionTime: undefined,
   credits: undefined,
-  theme,
   textColor: theme.aiText,
   timestampColor: theme.aiTimestamp,
   markdownOptions: {
@@ -52,11 +52,13 @@ const createTimer = (elapsedSeconds: number) => ({
 describe('MessageBlock streaming indicator', () => {
   test('shows elapsed seconds while streaming', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isLoading={true}
-        timer={createTimer(4)}
-      />,
+      <ThemeProvider>
+        <MessageBlock
+          {...baseProps}
+          isLoading={true}
+          timer={createTimer(4)}
+        />
+      </ThemeProvider>,
     )
 
     expect(markup).toContain('4s')
@@ -64,11 +66,13 @@ describe('MessageBlock streaming indicator', () => {
 
   test('hides elapsed seconds when timer has not advanced', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isLoading={true}
-        timer={createTimer(0)}
-      />,
+      <ThemeProvider>
+        <MessageBlock
+          {...baseProps}
+          isLoading={true}
+          timer={createTimer(0)}
+        />
+      </ThemeProvider>,
     )
 
     expect(markup).not.toContain('0s')

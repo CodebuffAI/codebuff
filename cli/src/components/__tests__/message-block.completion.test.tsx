@@ -4,6 +4,7 @@ import { describe, test, expect } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { MessageBlock } from '../message-block'
+import { ThemeProvider } from '../../hooks/use-theme'
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
@@ -34,7 +35,6 @@ const baseProps = {
     elapsedSeconds: 0,
     startTime: null,
   },
-  theme,
   textColor: theme.aiText,
   timestampColor: theme.aiTimestamp,
   markdownOptions: {
@@ -52,12 +52,14 @@ const baseProps = {
 describe('MessageBlock completion time', () => {
   test('renders completion time and credits when complete', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isComplete={true}
-        completionTime="7s"
-        credits={3}
-      />,
+      <ThemeProvider>
+        <MessageBlock
+          {...baseProps}
+          isComplete={true}
+          completionTime="7s"
+          credits={3}
+        />
+      </ThemeProvider>,
     )
 
     expect(markup).toContain('7s')
@@ -66,12 +68,14 @@ describe('MessageBlock completion time', () => {
 
   test('omits completion line when not complete', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isComplete={false}
-        completionTime="7s"
-        credits={3}
-      />,
+      <ThemeProvider>
+        <MessageBlock
+          {...baseProps}
+          isComplete={false}
+          completionTime="7s"
+          credits={3}
+        />
+      </ThemeProvider>,
     )
 
     expect(markup).not.toContain('7s')
