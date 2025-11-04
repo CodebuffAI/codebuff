@@ -166,7 +166,9 @@ const filterSlashCommands = (
   }
 
   // Breakpoint for filter
-  if (!shouldKeepSearching) return commands
+  if (!shouldKeepSearching) {
+    return matches
+  }
 
   // Subsequence of ID
   for (const command of commands) {
@@ -282,7 +284,9 @@ const filterAgentMatches = (
   }
 
   // Breakpoint for filter
-  if (!shouldKeepSearching) return matches
+  if (!shouldKeepSearching) {
+    return matches
+  }
 
   // Subsequence of ID or name
   for (const agent of agents) {

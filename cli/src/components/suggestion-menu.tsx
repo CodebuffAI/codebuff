@@ -21,7 +21,8 @@ interface SuggestionMenuProps {
 export const SuggestionMenu = ({
   items,
   selectedIndex,
-  maxVisible = 5,
+  theme,
+  maxVisible = 10,
   prefix = '/',
 }: SuggestionMenuProps) => {
   const theme = useTheme()
