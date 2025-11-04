@@ -8,5 +8,5 @@ export const shouldHideAgent = (agentId: string): boolean => {
   return HIDDEN_AGENT_IDS.some((hiddenId) => agentId.includes(hiddenId))
 }
 
-const agentModes = ['FAST', 'MAX'] as const
+const agentModes = ['FAST', 'MAX', 'PLAN'] as const
 export type AgentMode = (typeof agentModes)[number]

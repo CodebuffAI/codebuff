@@ -11,10 +11,14 @@ export const AgentModeToggle = ({
   onToggle: () => void
 }) => {
   const isFast = mode === 'FAST'
+  const isMax = mode === 'MAX'
+  const isPlan = mode === 'PLAN'
 
-  const bgColor = isFast ? '#0a6515' : '#ac1626'
+  const bgColor = isFast ? '#0a6515' : isMax ? '#ac1626' : '#1e40af'
   const textColor = '#ffffff'
-  const label = isFast ? 'FAST' : '💪 MAX'
+  const label = isFast ? 'FAST' : isMax ? '💪 MAX' : 'PLAN'
+
+  const needsPadding = isFast || isPlan
 
   return (
     <box
@@ -22,8 +26,8 @@ export const AgentModeToggle = ({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: bgColor,
-        paddingLeft: isFast ? 2 : 1,
-        paddingRight: isFast ? 2 : 1,
+        paddingLeft: needsPadding ? 2 : 1,
+        paddingRight: needsPadding ? 2 : 1,
       }}
       onMouseDown={onToggle}
     >

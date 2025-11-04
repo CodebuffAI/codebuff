@@ -386,7 +386,8 @@ export const App = ({
     return () => clearTimeout(timeoutId)
   }, [isAuthenticated, setInputFocused])
 
-  const agentToggleLabel = agentMode === 'FAST' ? 'FAST' : '💪 MAX'
+  const agentToggleLabel =
+    agentMode === 'FAST' ? 'FAST' : agentMode === 'MAX' ? '💪 MAX' : '📋 PLAN'
   const agentTogglePadding = agentMode === 'FAST' ? 4 : 2 // paddingLeft + paddingRight inside the button
   const agentToggleGap = 2 // paddingLeft on the container box next to the input
   const estimatedToggleWidth =

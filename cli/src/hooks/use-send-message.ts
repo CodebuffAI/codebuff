@@ -647,7 +647,12 @@ export const useSendMessage = ({
               ) as AgentDefinition | undefined)
             : undefined
 
-        const fallbackAgent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
+        const fallbackAgent =
+          agentMode === 'FAST'
+            ? 'base2-fast'
+            : agentMode === 'MAX'
+              ? 'base2-max'
+              : 'base2-plan'
         const result = await client.run({
           logger,
           agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,

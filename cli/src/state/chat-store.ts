@@ -132,7 +132,13 @@ export const useChatStore = create<ChatStore>()(
 
     toggleAgentMode: () =>
       set((state) => {
-        state.agentMode = state.agentMode === 'FAST' ? 'MAX' : 'FAST'
+        if (state.agentMode === 'FAST') {
+          state.agentMode = 'MAX'
+        } else if (state.agentMode === 'MAX') {
+          state.agentMode = 'PLAN'
+        } else {
+          state.agentMode = 'FAST'
+        }
       }),
 
     reset: () =>
