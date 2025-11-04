@@ -565,11 +565,11 @@ export const App = ({
       function selectCurrent(): boolean {
         const selected = slashMatches[slashSelectedIndex] ?? slashMatches[0]
         if (!selected) {
-          return
+          return false
         }
         const startIndex = slashContext.startIndex
         if (startIndex < 0) {
-          return
+          return false
         }
         const before = helpers.value.slice(0, startIndex)
         const after = helpers.value.slice(
@@ -651,11 +651,11 @@ export const App = ({
       function selectCurrent(): boolean {
         const selected = agentMatches[agentSelectedIndex] ?? agentMatches[0]
         if (!selected) {
-          return
+          return false
         }
         const startIndex = mentionContext.startIndex
         if (startIndex < 0) {
-          return
+          return false
         }
 
         const before = helpers.value.slice(0, startIndex)
