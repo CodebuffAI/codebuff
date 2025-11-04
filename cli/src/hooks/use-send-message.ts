@@ -164,6 +164,7 @@ interface UseSendMessageOptions {
   scrollToLatest: () => void
   availableWidth?: number
   onTimerEvent?: (event: SendMessageTimerEvent) => void
+  setHasReceivedPlanResponse: (value: boolean) => void
 }
 
 export const useSendMessage = ({
@@ -189,6 +190,7 @@ export const useSendMessage = ({
   scrollToLatest,
   availableWidth = 80,
   onTimerEvent = () => {},
+  setHasReceivedPlanResponse,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -324,6 +326,10 @@ export const useSendMessage = ({
     async (params: ParamsOf<SendMessageFn>) => {
       const { content, agentMode, postUserMessage } = params
       const timestamp = formatTimestamp()
+
+      if (agentMode !== 'PLAN') {
+        setHasReceivedPlanResponse(false)
+      }
 
       const timerController = createSendMessageTimerController({
         mainAgentTimer,
@@ -1373,6 +1379,10 @@ export const useSendMessage = ({
         setIsWaitingForResponse(false)
         const timerResult = timerController.stop('success')
 
+        if (agentMode === 'PLAN') {
+          setHasReceivedPlanResponse(true)
+        }
+
         if ((result as any)?.credits !== undefined) {
           actualCredits = (result as any).credits
         }
@@ -1486,6 +1496,7 @@ export const useSendMessage = ({
       mainAgentTimer,
       scrollToLatest,
       availableWidth,
+      setHasReceivedPlanResponse,
     ],
   )
 

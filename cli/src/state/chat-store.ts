@@ -17,6 +17,7 @@ export type ChatStoreState = {
   slashSelectedIndex: number
   agentSelectedIndex: number
   agentMode: AgentMode
+  hasReceivedPlanResponse: boolean
 }
 
 type ChatStoreActions = {
@@ -42,6 +43,7 @@ type ChatStoreActions = {
   setAgentSelectedIndex: (value: number | ((prev: number) => number)) => void
   setAgentMode: (mode: AgentMode) => void
   toggleAgentMode: () => void
+  setHasReceivedPlanResponse: (value: boolean) => void
   reset: () => void
 }
 
@@ -61,6 +63,7 @@ const initialState: ChatStoreState = {
   slashSelectedIndex: 0,
   agentSelectedIndex: 0,
   agentMode: 'FAST',
+  hasReceivedPlanResponse: false,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -141,6 +144,11 @@ export const useChatStore = create<ChatStore>()(
         }
       }),
 
+    setHasReceivedPlanResponse: (value) =>
+      set((state) => {
+        state.hasReceivedPlanResponse = value
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -154,6 +162,7 @@ export const useChatStore = create<ChatStore>()(
         state.slashSelectedIndex = initialState.slashSelectedIndex
         state.agentSelectedIndex = initialState.agentSelectedIndex
         state.agentMode = initialState.agentMode
+        state.hasReceivedPlanResponse = initialState.hasReceivedPlanResponse
       }),
   })),
 )

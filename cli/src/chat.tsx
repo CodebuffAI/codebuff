@@ -8,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
+import { BuildModeButtons } from './components/build-mode-buttons'
 import { LoginModal } from './components/login-modal'
 import {
   MultilineInput,
@@ -302,7 +303,10 @@ export const App = ({
     isChainInProgress,
     setIsChainInProgress,
     agentMode,
+    setAgentMode,
     toggleAgentMode,
+    hasReceivedPlanResponse,
+    setHasReceivedPlanResponse,
     resetChatStore,
   } = useChatStore(
     useShallow((store) => ({
@@ -327,7 +331,10 @@ export const App = ({
       isChainInProgress: store.isChainInProgress,
       setIsChainInProgress: store.setIsChainInProgress,
       agentMode: store.agentMode,
+      setAgentMode: store.setAgentMode,
       toggleAgentMode: store.toggleAgentMode,
+      hasReceivedPlanResponse: store.hasReceivedPlanResponse,
+      setHasReceivedPlanResponse: store.setHasReceivedPlanResponse,
       resetChatStore: store.reset,
     })),
   )
@@ -555,7 +562,7 @@ export const App = ({
 
       const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
 
-      function selectCurrent() {
+      function selectCurrent(): boolean {
         const selected = slashMatches[slashSelectedIndex] ?? slashMatches[0]
         if (!selected) {
           return
@@ -574,6 +581,7 @@ export const App = ({
         helpers.setValue(newValue)
         helpers.setCursorPosition(before.length + replacement.length)
         setSlashSelectedIndex(0)
+        return true
       }
 
       if (key.name === 'down' && !hasModifier) {
@@ -640,7 +648,7 @@ export const App = ({
 
       const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
 
-      function selectCurrent() {
+      function selectCurrent(): boolean {
         const selected = agentMatches[agentSelectedIndex] ?? agentMatches[0]
         if (!selected) {
           return
@@ -660,6 +668,7 @@ export const App = ({
         helpers.setValue(newValue)
         helpers.setCursorPosition(before.length + replacement.length)
         setAgentSelectedIndex(0)
+        return true
       }
 
       if (key.name === 'down' && !hasModifier) {
@@ -806,6 +815,7 @@ export const App = ({
     scrollToLatest,
     availableWidth: separatorWidth,
     onTimerEvent: handleTimerEvent,
+    setHasReceivedPlanResponse,
   })
 
   sendMessageRef.current = sendMessage
@@ -871,6 +881,28 @@ export const App = ({
       handleCtrlC,
     ],
   )
+
+  const handleBuildFast = useCallback(() => {
+    setAgentMode('FAST')
+    setInputValue('Build it!')
+    setTimeout(() => {
+      if (sendMessageRef.current) {
+        sendMessageRef.current({ content: 'Build it!', agentMode: 'FAST' })
+      }
+      setInputValue('')
+    }, 0)
+  }, [setAgentMode, setInputValue])
+
+  const handleBuildMax = useCallback(() => {
+    setAgentMode('MAX')
+    setInputValue('Build it!')
+    setTimeout(() => {
+      if (sendMessageRef.current) {
+        sendMessageRef.current({ content: 'Build it!', agentMode: 'MAX' })
+      }
+      setInputValue('')
+    }, 0)
+  }, [setAgentMode, setInputValue])
 
   useKeyboardHandlers({
     isStreaming,
@@ -1154,6 +1186,13 @@ export const App = ({
           </box>
         )}
         <Separator theme={theme} width={separatorWidth} />
+        {agentMode === 'PLAN' && hasReceivedPlanResponse && (
+          <BuildModeButtons
+            theme={theme}
+            onBuildFast={handleBuildFast}
+            onBuildMax={handleBuildMax}
+          />
+        )}
         {slashContext.active && slashSuggestionItems.length > 0 ? (
           <SuggestionMenu
             items={slashSuggestionItems}
