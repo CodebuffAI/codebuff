@@ -16,6 +16,11 @@ const getModeConfig = (theme: ChatTheme) =>
       textColor: theme.modeMaxText,
       label: '💪 MAX',
     },
+    PLAN: {
+      frameColor: theme.modePlanBg,
+      textColor: theme.modePlanText,
+      label: '📋 PLAN',
+    },
   }) as const
 
 export const AgentModeToggle = ({

@@ -17,7 +17,7 @@ export const writeTodosParams = {
           }),
         )
         .describe(
-          'List of todos with their completion status. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet!',
+          'List of todos with their completion status. Add ALL of the applicable tasks to the list, so you don\'t forget to do anything. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet!',
         ),
     })
     .describe(

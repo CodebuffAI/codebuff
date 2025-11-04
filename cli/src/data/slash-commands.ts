@@ -25,7 +25,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     id: 'exit',
-    label: 'exit',
+    label: 'exit (quit)',
     description: 'Quit the CLI',
     aliases: ['quit', 'q'],
   },
@@ -52,14 +52,15 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     id: 'usage',
-    label: 'usage',
+    label: 'usage (credits)',
     description: 'View remaining or bonus AI credits',
     aliases: ['credits'],
   },
   {
-    id: 'reset',
-    label: 'reset',
+    id: 'new',
+    label: 'new (reset, clear)',
     description: 'Start a fresh conversation session',
+    aliases: ['reset', 'clear'],
   },
   {
     id: 'compact',

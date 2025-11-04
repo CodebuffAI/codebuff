@@ -17,11 +17,23 @@ const definition: SecretAgentDefinition = {
     exclude: false,
   },
   spawnerPrompt:
-    'Spawn to find relevant files in a codebase related to the prompt. Cannot do string searches on the codebase.',
+    'Spawn to find relevant files in a codebase related to the prompt. Cannot do string searches on the codebase, but does a fuzzy search. Unless you know which directories are relevant, omit the directories parameter. This agent is extremely effective at finding files in the codebase that could be relevant to the prompt.',
   inputSchema: {
     prompt: {
       type: 'string',
       description: 'A coding task to complete',
+    },
+    params: {
+      type: 'object' as const,
+      properties: {
+        directories: {
+          type: 'array' as const,
+          items: { type: 'string' as const },
+          description:
+            'Optional list of paths to directories to look within. If omitted, the entire project tree is used.',
+        },
+      },
+      required: [],
     },
   },
   outputMode: 'last_message',
@@ -35,7 +47,7 @@ Provide an extremely short report of the locations in the codebase that could be
 In your report, please give a very concise analysis that includes the full paths of files that are relevant and (extremely briefly) how they could be useful.
   `.trim(),
 
-  handleSteps: function* ({ prompt, logger }) {
+  handleSteps: function* ({ prompt, params }) {
     const { toolResult: fileListerResults } = yield {
       toolName: 'spawn_agents',
       input: {
@@ -43,6 +55,7 @@ In your report, please give a very concise analysis that includes the full paths
           {
             agent_type: 'file-lister',
             prompt: prompt ?? '',
+            params: params ?? {},
           },
         ],
       },
@@ -62,7 +75,7 @@ In your report, please give a very concise analysis that includes the full paths
       },
     }
 
-    yield 'STEP_ALL'
+    yield 'STEP'
   },
 }
 

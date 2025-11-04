@@ -148,6 +148,12 @@ export interface ChatTheme {
   /** Max mode toggle text */
   modeMaxText: string
 
+  /** Plan mode toggle background */
+  modePlanBg: string
+
+  /** Plan mode toggle text */
+  modePlanText: string
+
   // Misc
   /** Logo/branding color */
   logo: string

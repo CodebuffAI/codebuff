@@ -8,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
+import { BuildModeButtons } from './components/build-mode-buttons'
 import { LoginModal } from './components/login-modal'
 import {
   MultilineInput,
@@ -425,7 +426,10 @@ export const App = ({
     isChainInProgress,
     setIsChainInProgress,
     agentMode,
+    setAgentMode,
     toggleAgentMode,
+    hasReceivedPlanResponse,
+    setHasReceivedPlanResponse,
     resetChatStore,
   } = useChatStore(
     useShallow((store) => ({
@@ -450,7 +454,10 @@ export const App = ({
       isChainInProgress: store.isChainInProgress,
       setIsChainInProgress: store.setIsChainInProgress,
       agentMode: store.agentMode,
+      setAgentMode: store.setAgentMode,
       toggleAgentMode: store.toggleAgentMode,
+      hasReceivedPlanResponse: store.hasReceivedPlanResponse,
+      setHasReceivedPlanResponse: store.setHasReceivedPlanResponse,
       resetChatStore: store.reset,
     })),
   )
@@ -509,7 +516,8 @@ export const App = ({
     return () => clearTimeout(timeoutId)
   }, [isAuthenticated, setInputFocused])
 
-  const agentToggleLabel = agentMode === 'FAST' ? 'FAST' : '💪 MAX'
+  const agentToggleLabel =
+    agentMode === 'FAST' ? 'FAST' : agentMode === 'MAX' ? '💪 MAX' : '📋 PLAN'
   const agentTogglePadding = agentMode === 'FAST' ? 4 : 2 // paddingLeft + paddingRight inside the button
   const agentToggleGap = 2 // paddingLeft on the container box next to the input
   const estimatedToggleWidth =
@@ -673,38 +681,14 @@ export const App = ({
 
       const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
 
-      if (key.name === 'down' && !hasModifier) {
-        setSlashSelectedIndex((prev) =>
-          Math.min(prev + 1, slashMatches.length - 1),
-        )
-        return true
-      }
-
-      if (key.name === 'up' && !hasModifier) {
-        setSlashSelectedIndex((prev) => Math.max(prev - 1, 0))
-        return true
-      }
-
-      if (key.name === 'tab' && key.shift && !hasModifier) {
-        setSlashSelectedIndex((prev) => Math.max(prev - 1, 0))
-        return true
-      }
-
-      if (key.name === 'tab' && !key.shift && !hasModifier) {
-        setSlashSelectedIndex((prev) =>
-          Math.min(prev + 1, slashMatches.length - 1),
-        )
-        return true
-      }
-
-      if (key.name === 'return' && !key.shift && !hasModifier) {
+      function selectCurrent(): boolean {
         const selected = slashMatches[slashSelectedIndex] ?? slashMatches[0]
         if (!selected) {
-          return true
+          return false
         }
         const startIndex = slashContext.startIndex
         if (startIndex < 0) {
-          return true
+          return false
         }
         const before = helpers.value.slice(0, startIndex)
         const after = helpers.value.slice(
@@ -716,6 +700,43 @@ export const App = ({
         helpers.setValue(newValue)
         helpers.setCursorPosition(before.length + replacement.length)
         setSlashSelectedIndex(0)
+        return true
+      }
+
+      if (key.name === 'down' && !hasModifier) {
+        // Move down (no wrap)
+        setSlashSelectedIndex((prev) =>
+          Math.min(prev + 1, slashMatches.length - 1),
+        )
+        return true
+      }
+
+      if (key.name === 'up' && !hasModifier) {
+        // Move up (no wrap)
+        setSlashSelectedIndex((prev) => Math.max(prev - 1, 0))
+        return true
+      }
+
+      if (key.name === 'tab' && key.shift && !hasModifier) {
+        // Move up with wrap
+        setSlashSelectedIndex(
+          (prev) => (slashMatches.length + prev - 1) % slashMatches.length,
+        )
+        return true
+      }
+
+      if (key.name === 'tab' && !key.shift && !hasModifier) {
+        if (slashMatches.length > 1) {
+          // Move up with wrap
+          setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length)
+        } else {
+          selectCurrent()
+        }
+        return true
+      }
+
+      if (key.name === 'return' && !key.shift && !hasModifier) {
+        selectCurrent()
         return true
       }
 
@@ -746,38 +767,14 @@ export const App = ({
 
       const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
 
-      if (key.name === 'down' && !hasModifier) {
-        setAgentSelectedIndex((prev) =>
-          Math.min(prev + 1, agentMatches.length - 1),
-        )
-        return true
-      }
-
-      if (key.name === 'up' && !hasModifier) {
-        setAgentSelectedIndex((prev) => Math.max(prev - 1, 0))
-        return true
-      }
-
-      if (key.name === 'tab' && key.shift && !hasModifier) {
-        setAgentSelectedIndex((prev) => Math.max(prev - 1, 0))
-        return true
-      }
-
-      if (key.name === 'tab' && !key.shift && !hasModifier) {
-        setAgentSelectedIndex((prev) =>
-          Math.min(prev + 1, agentMatches.length - 1),
-        )
-        return true
-      }
-
-      if (key.name === 'return' && !key.shift && !hasModifier) {
+      function selectCurrent(): boolean {
         const selected = agentMatches[agentSelectedIndex] ?? agentMatches[0]
         if (!selected) {
-          return true
+          return false
         }
         const startIndex = mentionContext.startIndex
         if (startIndex < 0) {
-          return true
+          return false
         }
 
         const before = helpers.value.slice(0, startIndex)
@@ -790,6 +787,43 @@ export const App = ({
         helpers.setValue(newValue)
         helpers.setCursorPosition(before.length + replacement.length)
         setAgentSelectedIndex(0)
+        return true
+      }
+
+      if (key.name === 'down' && !hasModifier) {
+        // Move down (no wrap)
+        setAgentSelectedIndex((prev) =>
+          Math.min(prev + 1, agentMatches.length - 1),
+        )
+        return true
+      }
+
+      if (key.name === 'up' && !hasModifier) {
+        // Move up (no wrap)
+        setAgentSelectedIndex((prev) => Math.max(prev - 1, 0))
+        return true
+      }
+
+      if (key.name === 'tab' && key.shift && !hasModifier) {
+        // Move up with wrap
+        setAgentSelectedIndex(
+          (prev) => (agentMatches.length + prev - 1) % agentMatches.length,
+        )
+        return true
+      }
+
+      if (key.name === 'tab' && !key.shift && !hasModifier) {
+        if (agentMatches.length > 1) {
+          // Move down with wrap
+          setAgentSelectedIndex((prev) => (prev + 1) % agentMatches.length)
+        } else {
+          selectCurrent()
+        }
+        return true
+      }
+
+      if (key.name === 'return' && !key.shift && !hasModifier) {
+        selectCurrent()
         return true
       }
 
@@ -877,7 +911,7 @@ export const App = ({
     [agentId],
   )
 
-  const { sendMessage } = useSendMessage({
+  const { sendMessage, clearMessages } = useSendMessage({
     setMessages,
     setFocusedAgentId,
     setInputFocused,
@@ -900,6 +934,7 @@ export const App = ({
     scrollToLatest,
     availableWidth: separatorWidth,
     onTimerEvent: handleTimerEvent,
+    setHasReceivedPlanResponse,
   })
 
   sendMessageRef.current = sendMessage
@@ -940,6 +975,7 @@ export const App = ({
         logoutMutation,
         streamMessageIdRef,
         addToQueue,
+        clearMessages,
         handleCtrlC,
         saveToHistory,
         scrollToLatest,
@@ -965,6 +1001,28 @@ export const App = ({
       handleCtrlC,
     ],
   )
+
+  const handleBuildFast = useCallback(() => {
+    setAgentMode('FAST')
+    setInputValue('Build it!')
+    setTimeout(() => {
+      if (sendMessageRef.current) {
+        sendMessageRef.current({ content: 'Build it!', agentMode: 'FAST' })
+      }
+      setInputValue('')
+    }, 0)
+  }, [setAgentMode, setInputValue])
+
+  const handleBuildMax = useCallback(() => {
+    setAgentMode('MAX')
+    setInputValue('Build it!')
+    setTimeout(() => {
+      if (sendMessageRef.current) {
+        sendMessageRef.current({ content: 'Build it!', agentMode: 'MAX' })
+      }
+      setInputValue('')
+    }, 0)
+  }, [setAgentMode, setInputValue])
 
   useKeyboardHandlers({
     isStreaming,
@@ -1253,6 +1311,13 @@ export const App = ({
           </box>
         )}
         <Separator width={separatorWidth} />
+        {agentMode === 'PLAN' && hasReceivedPlanResponse && (
+          <BuildModeButtons
+            theme={theme}
+            onBuildFast={handleBuildFast}
+            onBuildMax={handleBuildMax}
+          />
+        )}
         {slashContext.active && slashSuggestionItems.length > 0 ? (
           <SuggestionMenu
             items={slashSuggestionItems}

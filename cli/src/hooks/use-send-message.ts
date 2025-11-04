@@ -164,6 +164,7 @@ interface UseSendMessageOptions {
   scrollToLatest: () => void
   availableWidth?: number
   onTimerEvent?: (event: SendMessageTimerEvent) => void
+  setHasReceivedPlanResponse: (value: boolean) => void
 }
 
 export const useSendMessage = ({
@@ -189,7 +190,11 @@ export const useSendMessage = ({
   scrollToLatest,
   availableWidth = 80,
   onTimerEvent = () => {},
-}: UseSendMessageOptions): { sendMessage: SendMessageFn } => {
+  setHasReceivedPlanResponse,
+}: UseSendMessageOptions): {
+  sendMessage: SendMessageFn
+  clearMessages: () => void
+} => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
@@ -205,6 +210,10 @@ export const useSendMessage = ({
     },
     [setIsChainInProgress, isChainInProgressRef],
   )
+
+  function clearMessages() {
+    previousRunStateRef.current = null
+  }
 
   const updateActiveSubagents = useCallback(
     (mutate: (next: Set<string>) => void) => {
@@ -317,6 +326,10 @@ export const useSendMessage = ({
     async (params: ParamsOf<SendMessageFn>) => {
       const { content, agentMode, postUserMessage } = params
       const timestamp = formatTimestamp()
+
+      if (agentMode !== 'PLAN') {
+        setHasReceivedPlanResponse(false)
+      }
 
       const timerController = createSendMessageTimerController({
         mainAgentTimer,
@@ -640,14 +653,19 @@ export const useSendMessage = ({
               ) as AgentDefinition | undefined)
             : undefined
 
-        const fallbackAgent = agentMode === 'FAST' ? 'base2-fast' : 'base2-max'
+        const fallbackAgent =
+          agentMode === 'FAST'
+            ? 'base2-fast'
+            : agentMode === 'MAX'
+              ? 'base2-max'
+              : 'base2-plan'
         const result = await client.run({
           logger,
           agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
           prompt: content,
           previousRun: previousRunStateRef.current,
           signal: abortController.signal,
-          agentDefinitions: agentDefinitions as AgentDefinition[],
+          agentDefinitions: agentDefinitions,
           maxAgentSteps: 40,
 
           handleStreamChunk: (event) => {
@@ -1361,6 +1379,10 @@ export const useSendMessage = ({
         setIsWaitingForResponse(false)
         const timerResult = timerController.stop('success')
 
+        if (agentMode === 'PLAN') {
+          setHasReceivedPlanResponse(true)
+        }
+
         if ((result as any)?.credits !== undefined) {
           actualCredits = (result as any).credits
         }
@@ -1474,8 +1496,9 @@ export const useSendMessage = ({
       mainAgentTimer,
       scrollToLatest,
       availableWidth,
+      setHasReceivedPlanResponse,
     ],
   )
 
-  return { sendMessage }
+  return { sendMessage, clearMessages }
 }

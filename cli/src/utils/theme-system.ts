@@ -737,6 +737,8 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modeFastText: '#f97316',
     modeMaxBg: '#dc2626',
     modeMaxText: '#dc2626',
+    modePlanBg: '#1e40af',
+    modePlanText: '#1e40af',
 
     // Misc
     logo: '#ffffff',
@@ -815,6 +817,8 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modeFastText: '#f97316',
     modeMaxBg: '#dc2626',
     modeMaxText: '#dc2626',
+    modePlanBg: '#1e40af',
+    modePlanText: '#1e40af',
 
     // Misc
     logo: '#000000',
