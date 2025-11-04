@@ -6,6 +6,7 @@ import { pluralize } from '@codebuff/common/util/string'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { ToolCallItem } from './tool-call-item'
+import { useTheme } from '../hooks/use-theme'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import { getToolRenderConfig } from './tool-renderer'
 import {
@@ -37,7 +38,6 @@ interface MessageBlockProps {
   completionTime?: string
   credits?: number
   timer: ElapsedTimeTracker
-  theme: ChatTheme
   textColor?: ThemeColor
   timestampColor: string
   markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
@@ -61,7 +61,6 @@ export const MessageBlock = ({
   completionTime,
   credits,
   timer,
-  theme,
   textColor,
   timestampColor,
   markdownOptions,
@@ -72,6 +71,7 @@ export const MessageBlock = ({
   onToggleCollapsed,
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
+  const theme = useTheme()
   const resolvedTextColor = textColor ?? theme.messageAiText
 
   // Get elapsed time from timer for streaming AI messages

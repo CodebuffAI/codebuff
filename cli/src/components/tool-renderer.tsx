@@ -3,7 +3,7 @@ import React from 'react'
 import stringWidth from 'string-width'
 
 import type { ContentBlock } from '../types/chat'
-import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
+import type { ChatTheme } from '../types/theme-system'
 
 type ToolBlock = Extract<ContentBlock, { type: 'tool' }>
 
@@ -133,8 +133,7 @@ const getListDirectoryRender = (
     return {}
   }
 
-  const summaryColor =
-    resolveThemeColor(theme.agentContentText) ?? theme.statusSecondary
+  const summaryColor = theme.agentContentText
   const baseAttributes = theme.messageTextAttributes ?? 0
   const getAttributes = (extra: number = 0): number | undefined => {
     const combined = baseAttributes | extra

@@ -48,7 +48,6 @@ import { handleSlashCommands } from './utils/slash-commands'
 import {
   chatThemes,
   createMarkdownPalette,
-  resolveThemeColor,
 } from './utils/theme-system'
 import { env } from '@codebuff/common/env'
 import { clientEnvVars } from '@codebuff/common/env-schema'
@@ -209,12 +208,7 @@ export const App = ({
       ? `Welcome back, ${userCredentials.name.trim()}!`
       : null
 
-    const baseTextColor =
-      resolvedThemeName === 'dark'
-        ? '#ffffff'
-        : theme.chromeText && theme.chromeText !== 'default'
-          ? theme.chromeText
-          : theme.agentResponseCount
+    const baseTextColor = theme.chromeText
 
     const homeDir = os.homedir()
     const repoRoot = path.dirname(loadedAgentsData.agentsDir)
@@ -243,9 +237,6 @@ export const App = ({
           color: baseTextColor,
         })
       }
-
-      const baseTextColorValue =
-        resolveThemeColor(baseTextColor, '#cbd5f5') ?? '#cbd5f5'
 
       // Log all client environment variables (works with both dev and binary modes)
       const envVarsList = clientEnvVars
@@ -303,11 +294,10 @@ export const App = ({
         type: 'html',
         render: () => (
           <text style={{ wrapMode: 'word' }}>
-            <span fg={baseTextColorValue}>
+            <span fg={baseTextColor}>
               Codebuff can read and write files in{' '}
               <TerminalLink
                 text={displayPath}
-                color="#3b82f6"
                 inline={true}
                 underlineOnHover={true}
                 onActivate={() => openFileAtPath(repoRoot)}
@@ -324,11 +314,10 @@ export const App = ({
         type: 'html',
         render: () => (
           <text style={{ wrapMode: 'word' }}>
-            <span fg={baseTextColorValue}>
+            <span fg={baseTextColor}>
               Codebuff can read and write files in{' '}
               <TerminalLink
                 text={displayPath}
-                color="#3b82f6"
                 inline={true}
                 underlineOnHover={true}
                 onActivate={() => openFileAtPath(repoRoot)}
@@ -1134,10 +1123,8 @@ export const App = ({
       return output
     }
 
-    const messageAiTextColor =
-      resolveThemeColor(theme.messageAiText, '#cbd5f5') ?? '#cbd5f5'
-    const statusSecondaryColor =
-      resolveThemeColor(theme.statusSecondary, '#94a3b8') ?? '#94a3b8'
+    const messageAiTextColor = theme.messageAiText
+    const statusSecondaryColor = theme.statusSecondary
 
     return (
       <box
@@ -1150,7 +1137,7 @@ export const App = ({
           backgroundColor: theme.panelBg,
           border: true,
           borderStyle: 'single',
-          borderColor: '#FFA500',
+          borderColor: theme.validationBorderColor,
         }}
       >
         {/* Header */}

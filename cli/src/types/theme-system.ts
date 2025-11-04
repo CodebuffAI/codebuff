@@ -57,6 +57,11 @@ export interface ChatTheme {
   modeToggleMaxBg: string
   modeToggleMaxText: string
   logoColor: string
+  linkColor: string
+  linkActiveColor: string
+  validationBorderColor: string
+  shimmerPrimaryColor: string
+  shimmerFallbackColor: string
   markdown?: MarkdownThemeOverrides
   messageTextAttributes?: number
 }

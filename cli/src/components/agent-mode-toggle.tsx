@@ -2,7 +2,7 @@ import { RaisedPill } from './raised-pill'
 import { useTheme } from '../hooks/use-theme'
 
 import type { AgentMode } from '../utils/constants'
-import type { ChatTheme } from '../utils/theme-system'
+import type { ChatTheme } from '../types/theme-system'
 
 const getModeConfig = (theme: ChatTheme) =>
   ({

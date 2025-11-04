@@ -727,6 +727,11 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modeToggleMaxBg: '#dc2626',
     modeToggleMaxText: '#dc2626',
     logoColor: '#ffffff',
+    linkColor: '#38bdf8',
+    linkActiveColor: '#22c55e',
+    validationBorderColor: '#FFA500',
+    shimmerPrimaryColor: '#38bdf8',
+    shimmerFallbackColor: '#dbeafe',
     markdown: {
       codeBackground: '#1f2933',
       codeHeaderFg: '#5b647a',
@@ -786,6 +791,11 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modeToggleMaxBg: '#dc2626',
     modeToggleMaxText: '#dc2626',
     logoColor: '#000000',
+    linkColor: '#3b82f6',
+    linkActiveColor: '#059669',
+    validationBorderColor: '#F59E0B',
+    shimmerPrimaryColor: '#3b82f6',
+    shimmerFallbackColor: '#94a3b8',
     markdown: {
       codeBackground: '#f3f4f6',
       codeHeaderFg: '#6b7280',

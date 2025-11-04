@@ -1,7 +1,8 @@
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
-import { resolveThemeColor, type ChatTheme } from '../utils/theme-system'
+import { useTheme } from '../hooks/use-theme'
+import type { ChatTheme } from '../types/theme-system'
 
 export interface ToolBranchMeta {
   hasPrevious: boolean
@@ -16,14 +17,13 @@ interface ToolItemProps {
   isStreaming: boolean
   streamingPreview: string
   finishedPreview: string
-  theme: ChatTheme
   branchMeta: ToolBranchMeta
   onToggle: () => void
   titleColor?: string
 }
 
 const renderContent = (value: ReactNode, theme: ChatTheme): ReactNode => {
-  const contentFg = resolveThemeColor(theme.agentContentText)
+  const contentFg = theme.agentContentText
   const contentAttributes =
     theme.messageTextAttributes !== undefined && theme.messageTextAttributes !== 0
       ? theme.messageTextAttributes
@@ -85,19 +85,16 @@ export const ToolItem = ({
   isStreaming,
   streamingPreview,
   finishedPreview,
-  theme,
   branchMeta,
   onToggle,
   titleColor: customTitleColor,
 }: ToolItemProps) => {
+  const theme = useTheme()
+
   const branchColor = theme.agentResponseCount
   const branchAttributes = TextAttributes.DIM
   const titleColor = customTitleColor ?? theme.statusSecondary
-  const previewColor =
-    resolveThemeColor(
-      isStreaming ? theme.agentText : theme.agentResponseCount,
-      theme.agentResponseCount,
-    ) ?? theme.agentResponseCount
+  const previewColor = isStreaming ? theme.agentText : theme.agentResponseCount
   const baseTextAttributes = theme.messageTextAttributes ?? 0
   const connectorSymbol = branchMeta.hasNext ? '├' : '└'
   const continuationPrefix = branchMeta.hasNext ? '│ ' : '  '
