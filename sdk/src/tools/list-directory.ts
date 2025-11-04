@@ -1,7 +1,7 @@
 import * as path from 'path'
 
-import type { CodebuffToolOutput } from '../../../common/src/tools/list'
-import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'
+import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export async function listDirectory(params: {
   directoryPath: string
@@ -24,7 +24,7 @@ export async function listDirectory(params: {
       ]
     }
 
-    const entries = await fs.promises.readdir(resolvedPath, {
+    const entries = await fs.readdir(resolvedPath, {
       withFileTypes: true,
     })
 

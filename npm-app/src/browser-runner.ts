@@ -1,13 +1,8 @@
-import * as fs from 'fs'
-import * as path from 'path'
-
 import { BROWSER_DEFAULTS } from '@codebuff/common/browser-actions'
-import { ensureDirectoryExists } from '@codebuff/common/util/file'
 import { sleep } from '@codebuff/common/util/promise'
 import { ensureUrlProtocol } from '@codebuff/common/util/string'
 import puppeteer from 'puppeteer-core'
 
-import { getCurrentChatDir } from './project-files'
 import { logger } from './utils/logger'
 
 import type {
@@ -463,94 +458,6 @@ export class BrowserRunner {
       success: true,
       logs: this.logs,
       networkEvents: [],
-    }
-  }
-
-  private async takeScreenshot(
-    action: Extract<BrowserAction, { type: 'screenshot' }>,
-    page: Page,
-  ): Promise<{
-    data: string
-    logs: BrowserResponse['logs']
-  }> {
-    // Take a screenshot with aggressive compression settings
-    const screenshot = await page.screenshot({
-      fullPage: BROWSER_DEFAULTS.fullPage,
-      type: 'jpeg',
-      quality:
-        action.screenshotCompressionQuality ??
-        BROWSER_DEFAULTS.screenshotCompressionQuality,
-      encoding: 'base64',
-    })
-
-    // Log screenshot capture and size
-    const sizeInKB = Math.round((screenshot.length * 3) / 4 / 1024)
-    this.logs.push({
-      type: 'info',
-      message: `Captured screenshot (${sizeInKB}KB)`,
-      timestamp: Date.now(),
-      category: 'screenshot',
-      source: 'tool',
-    })
-
-    // If debug mode is enabled, save the screenshot
-    if (action.debug) {
-      console.debug({
-        message: 'Saving screenshot to disk...',
-        timestamp: Date.now(),
-        source: 'tool',
-      })
-
-      try {
-        const chatDir = getCurrentChatDir()
-        const screenshotsDir = path.join(chatDir, 'screenshots')
-        ensureDirectoryExists({ baseDir: screenshotsDir, fs })
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-        const filename = `screenshot-${timestamp}.jpg`
-        const filepath = path.join(screenshotsDir, filename)
-
-        fs.writeFileSync(filepath, Buffer.from(screenshot, 'base64'))
-        console.debug({
-          type: 'debug',
-          message: `Saved screenshot to ${filepath}`,
-          timestamp: Date.now(),
-          source: 'tool',
-        })
-
-        // Save metadata
-        const metadataPath = path.join(
-          screenshotsDir,
-          `${timestamp}-metadata.json`,
-        )
-        const metadata = {
-          timestamp,
-          format: 'jpeg',
-          quality: 25,
-          fullPage: action.fullPage ?? BROWSER_DEFAULTS.fullPage,
-          metrics: await this.collectMetrics(),
-        }
-        fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
-      } catch (error) {
-        console.error({
-          message: `Failed to save screenshot: ${(error as Error).message}`,
-          timestamp: Date.now(),
-          source: 'tool',
-        })
-        logger.error(
-          {
-            errorMessage:
-              error instanceof Error ? error.message : String(error),
-            errorStack: error instanceof Error ? error.stack : undefined,
-          },
-          'Failed to save screenshot',
-        )
-      }
-    }
-
-    return {
-      data: screenshot,
-      logs: this.logs,
     }
   }
 

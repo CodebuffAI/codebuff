@@ -3,13 +3,13 @@ import * as path from 'path'
 
 import { transformJsonInString } from '@codebuff/common/util/string'
 
-import { getCurrentChatDir, getCurrentChatId } from './project-files'
+import { getCurrentChatDirSync, getCurrentChatId } from './project-files'
 import { logger } from './utils/logger'
 
 import type { Log } from '@codebuff/common/browser-actions'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
-export function setMessages(messages: Message[]) {
+export function setMessagesSync(messages: Message[]) {
   // Clean up any screenshots and logs in previous messages
   // Skip the last message as it may not have been processed by the backend yet
   const lastIndex = messages.length - 1
@@ -76,7 +76,7 @@ export function setMessages(messages: Message[]) {
 
   // Save messages to chat directory
   try {
-    const chatDir = getCurrentChatDir()
+    const chatDir = getCurrentChatDirSync()
     const messagesPath = path.join(chatDir, 'messages.json')
 
     const messagesData = {

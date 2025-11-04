@@ -1,12 +1,14 @@
-import type { User } from '@codebuff/common/util/credentials'
-
-import { z } from 'zod/v4'
-
 import fs from 'fs'
 import path from 'node:path'
 import os from 'os'
 
 import { userSchema } from '@codebuff/common/util/credentials'
+import { z } from 'zod/v4'
+
+import { ensureDirectoryExistsSync } from './project-files'
+import { logger } from './utils/logger'
+
+import type { User } from '@codebuff/common/util/credentials'
 
 const credentialsSchema = z
   .object({
@@ -36,10 +38,6 @@ export const userFromJson = (
   }
 }
 
-import { ensureDirectoryExists } from '@codebuff/common/util/file'
-
-import { logger } from './utils/logger'
-
 export const CONFIG_DIR = path.join(
   os.homedir(),
   '.config',
@@ -52,7 +50,7 @@ export const CONFIG_DIR = path.join(
 )
 
 // Ensure config directory exists
-ensureDirectoryExists({ baseDir: CONFIG_DIR, fs })
+ensureDirectoryExistsSync(CONFIG_DIR)
 export const CREDENTIALS_PATH = path.join(CONFIG_DIR, 'credentials.json')
 
 /**

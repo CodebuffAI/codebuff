@@ -10,7 +10,6 @@ import {
   getAllAgents,
   getAgentDisplayName,
 } from '@codebuff/common/util/agent-name-resolver'
-import { isDir } from '@codebuff/common/util/file'
 import { pluralize } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 import {
@@ -601,6 +600,13 @@ export class CLI {
     const partial = input.endsWith(directorySuffix) ? '' : basename(input)
 
     let baseDir = isAbsolute(dir) ? dir : path.join(getWorkingDirectory(), dir)
+    function isDirSync(path: string): boolean {
+      try {
+        return fs.statSync(path).isDirectory()
+      } catch {
+        return false
+      }
+    }
 
     try {
       const files = readdirSync(baseDir)
@@ -608,10 +614,7 @@ export class CLI {
         .filter((file) => file.startsWith(partial))
         .map(
           (file) =>
-            file +
-            (isDir({ path: path.join(baseDir, file), fs })
-              ? directorySuffix
-              : ''),
+            file + (isDirSync(path.join(baseDir, file)) ? directorySuffix : ''),
         )
       return [fsMatches, partial]
     } catch {

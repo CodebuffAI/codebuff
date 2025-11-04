@@ -20,7 +20,6 @@ import {
   getProjectFileTree,
   parseGitignore,
 } from '@codebuff/common/project-file-tree'
-import { ensureDirectoryExists } from '@codebuff/common/util/file'
 import { filterObject } from '@codebuff/common/util/object'
 import { createPatch } from 'diff'
 import { green } from 'picocolors'
@@ -83,10 +82,16 @@ export function getProjectDataDir(): string {
   return baseDir
 }
 
-export function getCurrentChatDir(): string {
+export function ensureDirectoryExistsSync(baseDir: string) {
+  if (!fs.existsSync(baseDir)) {
+    fs.mkdirSync(baseDir, { recursive: true })
+  }
+}
+
+export function getCurrentChatDirSync(): string {
   const chatId = getCurrentChatId()
   const dir = path.join(getProjectDataDir(), 'chats', chatId)
-  ensureDirectoryExists({ baseDir: dir, fs })
+  ensureDirectoryExistsSync(dir)
   return dir
 }
 
@@ -262,7 +267,7 @@ export const getProjectFileContext = async (
     !cachedProjectFileContext ||
     cachedProjectFileContext.projectRoot !== projectRoot
   ) {
-    const fileTree = getProjectFileTree({ projectRoot, fs })
+    const fileTree = await getProjectFileTree({ projectRoot, fs: fs.promises })
     const flattenedNodes = flattenTree(fileTree)
     const allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')
@@ -282,7 +287,7 @@ export const getProjectFileContext = async (
       (filePath) => !filePath.startsWith(AGENT_TEMPLATES_DIR),
     )
 
-    const knowledgeFiles = getExistingFiles(filteredKnowledgeFilePaths)
+    const knowledgeFiles = await getExistingFiles(filteredKnowledgeFilePaths)
     const knowledgeFilesWithScrapedContent = await addScrapedContentToFiles(
       Object.fromEntries(
         Object.entries(knowledgeFiles).filter(
@@ -454,10 +459,14 @@ export function getChangesSinceLastFileVersion(
   return Object.fromEntries(changes)
 }
 
-export function getFiles(filePaths: string[]) {
+export async function getFiles(filePaths: string[]) {
   const result: Record<string, string | null> = {}
   const MAX_FILE_SIZE = 1024 * 1024 // 1MB in bytes
-  const ig = parseGitignore({ fullDirPath: projectRoot, projectRoot, fs })
+  const ig = await parseGitignore({
+    fullDirPath: projectRoot,
+    projectRoot,
+    fs: fs.promises,
+  })
 
   for (const filePath of filePaths) {
     if (!filePath) {
@@ -524,8 +533,8 @@ export function getFiles(filePaths: string[]) {
   }
   return result
 }
-export function getFilesOrNull(filePaths: string[]) {
-  const result = getFiles(filePaths)
+export async function getFilesOrNull(filePaths: string[]) {
+  const result = await getFiles(filePaths)
   return Object.fromEntries(
     Object.entries(result).map(([filePath, content]) => [
       filePath,
@@ -534,9 +543,9 @@ export function getFilesOrNull(filePaths: string[]) {
   )
 }
 
-export function getExistingFiles(filePaths: string[]) {
+export async function getExistingFiles(filePaths: string[]) {
   return filterObject(
-    getFilesOrNull(filePaths),
+    await getFilesOrNull(filePaths),
     (value) => value !== null,
   ) as Record<string, string>
 }

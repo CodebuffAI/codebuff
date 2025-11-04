@@ -5,7 +5,7 @@ import { format as stringFormat } from 'util'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { pino } from 'pino'
 
-import { getCurrentChatDir, getProjectRoot } from '../project-files'
+import { getCurrentChatDirSync, getProjectRoot } from '../project-files'
 import { flushAnalytics, logError, trackEvent } from './analytics'
 
 export interface LoggerContext {
@@ -71,7 +71,7 @@ function sendAnalyticsAndLog(
         ? path.join(projectRoot, 'debug', 'npm-app.log')
         : (() => {
             try {
-              return path.join(getCurrentChatDir(), 'log.jsonl')
+              return path.join(getCurrentChatDirSync(), 'log.jsonl')
             } catch {
               return path.join(projectRoot, 'debug', 'npm-app.log')
             }

@@ -11,7 +11,6 @@ import path from 'path'
 import {
   InitResponseSchema,
   MessageCostResponseSchema,
-  PromptResponseSchema,
   UsageReponseSchema,
 } from '@codebuff/common/actions'
 import { READABLE_NAME } from '@codebuff/common/api-keys/constants'
@@ -38,6 +37,7 @@ import {
   resolveNameToId,
 } from '@codebuff/common/util/agent-name-resolver'
 import { buildArray } from '@codebuff/common/util/array'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { generateCompactId, pluralize } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { APIRealtimeClient } from '@codebuff/common/websockets/websocket-client'
@@ -58,7 +58,7 @@ import { z } from 'zod/v4'
 import { getLoadedAgentNames, loadLocalAgents } from './agents/load-agents'
 import { getBackgroundProcessUpdates } from './background-process-manager'
 import { activeBrowserRunner } from './browser-runner'
-import { setMessages } from './chat-storage'
+import { setMessagesSync } from './chat-storage'
 import { checkpointManager } from './checkpoints/checkpoint-manager'
 import { CLI } from './cli'
 import { refreshSubagentDisplay } from './cli-handlers/traces'
@@ -109,7 +109,6 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { User } from '@codebuff/common/util/credentials'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import { getErrorObject } from '@codebuff/common/util/error'
 
 const LOW_BALANCE_THRESHOLD = 100
 
@@ -316,7 +315,7 @@ export class Client {
     DiffManager.clearAllChanges()
     this.creditsByPromptId = {}
     checkpointManager.clearCheckpoints(true)
-    setMessages([])
+    setMessagesSync([])
     startNewChat()
     clearCachedProjectFileContext()
     clearSubagentStorage()
@@ -788,9 +787,9 @@ export class Client {
     this.webSocket.subscribe('action-error', onError)
     this.webSocket.subscribe('prompt-error', onError)
 
-    this.webSocket.subscribe('read-files', (a) => {
+    this.webSocket.subscribe('read-files', async (a) => {
       const { filePaths, requestId } = a
-      const files = getFiles(filePaths)
+      const files = await getFiles(filePaths)
 
       sendActionAndHandleError(this.webSocket, {
         type: 'read-files-response',
@@ -1104,7 +1103,7 @@ export class Client {
       throw new Error('Agent state not initialized')
     }
 
-    setMessages([
+    setMessagesSync([
       ...this.sessionState.mainAgentState.messageHistory,
       {
         role: 'user',
@@ -1373,7 +1372,7 @@ export class Client {
           messageHistory: newMessages,
         },
       }
-      setMessages(newMessages)
+      setMessagesSync(newMessages)
 
       resolveResponse({
         type: 'prompt-response',
@@ -1491,7 +1490,7 @@ Go to https://www.codebuff.com/config for more information.`) +
         }
 
         if (this.sessionState) {
-          setMessages(this.sessionState.mainAgentState.messageHistory)
+          setMessagesSync(this.sessionState.mainAgentState.messageHistory)
         }
 
         // Mark any spawnable agents as inactive when the main response completes

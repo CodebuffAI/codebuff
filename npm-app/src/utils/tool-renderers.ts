@@ -1,9 +1,7 @@
-import fs from 'fs'
-
-import { isFileIgnored } from '@codebuff/common/project-file-tree'
 import { capitalize, snakeToTitleCase } from '@codebuff/common/util/string'
 import { bold, gray, strikethrough } from 'picocolors'
 
+import { isFileIgnoredSync } from './project-file-tree'
 import { Client } from '../client'
 import { getProjectRoot } from '../project-files'
 import { Spinner } from './spinner'
@@ -153,7 +151,7 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
         return null
       }
       files = files.map((fname) =>
-        isFileIgnored({ filePath: fname, projectRoot: getProjectRoot(), fs })
+        isFileIgnoredSync({ filePath: fname, projectRoot: getProjectRoot() })
           ? strikethrough(fname) + ' (blocked)'
           : fname,
       )
@@ -238,10 +236,9 @@ export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
     },
     onParamEnd: (paramName, toolName, content) => {
       if (paramName === 'path') {
-        return isFileIgnored({
+        return isFileIgnoredSync({
           filePath: content,
           projectRoot: getProjectRoot(),
-          fs,
         })
           ? gray(strikethrough(content) + ' (blocked)')
           : gray(content + '...')

@@ -11,11 +11,11 @@ import type { DirectoryNode, FileTreeNode } from './util/file'
 
 export const DEFAULT_MAX_FILES = 10_000
 
-export function getProjectFileTree(params: {
+export async function getProjectFileTree(params: {
   projectRoot: string
   maxFiles?: number
   fs: CodebuffFileSystem
-}): FileTreeNode[] {
+}): Promise<FileTreeNode[]> {
   const withDefaults = { maxFiles: DEFAULT_MAX_FILES, ...params }
   const { projectRoot, fs } = withDefaults
   let { maxFiles } = withDefaults
@@ -55,10 +55,10 @@ export function getProjectFileTree(params: {
     const mergedIgnore = ignore
       .default()
       .add(currentIgnore)
-      .add(parseGitignore({ fullDirPath: fullPath, projectRoot, fs }))
+      .add(await parseGitignore({ fullDirPath: fullPath, projectRoot, fs }))
 
     try {
-      const files = fs.readdirSync(fullPath)
+      const files = await fs.readdir(fullPath)
       for (const file of files) {
         if (totalFiles >= maxFiles) break
 
@@ -68,7 +68,7 @@ export function getProjectFileTree(params: {
         if (mergedIgnore.ignores(relativeFilePath)) continue
 
         try {
-          const stats = fs.statSync(filePath)
+          const stats = await fs.stat(filePath)
           if (stats.isDirectory()) {
             const childNode: DirectoryNode = {
               name: file,
@@ -151,11 +151,11 @@ function rebaseGitignorePattern(
   return isNegated ? `!${rebased}` : rebased
 }
 
-export function parseGitignore(params: {
+export async function parseGitignore(params: {
   fullDirPath: string
   projectRoot: string
   fs: CodebuffFileSystem
-}): ignore.Ignore {
+}): Promise<ignore.Ignore> {
   const { fullDirPath, projectRoot, fs } = params
 
   const ig = ignore.default()
@@ -167,9 +167,9 @@ export function parseGitignore(params: {
   ]
 
   for (const ignoreFilePath of ignoreFiles) {
-    if (!fs.existsSync(ignoreFilePath)) continue
+    if (!(await fs.exists(ignoreFilePath))) continue
 
-    const ignoreContent = fs.readFileSync(ignoreFilePath, 'utf8')
+    const ignoreContent = await fs.readFile(ignoreFilePath, 'utf8')
     const lines = ignoreContent.split('\n')
     for (let line of lines) {
       line = line.trim()
@@ -218,11 +218,11 @@ export function getLastReadFilePaths(
     .map((node) => node.filePath)
 }
 
-export function isFileIgnored(params: {
+export async function isFileIgnored(params: {
   filePath: string
   projectRoot: string
   fs: CodebuffFileSystem
-}): boolean {
+}): Promise<boolean> {
   const { filePath, projectRoot, fs } = params
 
   const defaultIgnore = ignore.default()
@@ -241,7 +241,7 @@ export function isFileIgnored(params: {
   let currentDir = dirPath
   while (currentDir.startsWith(projectRoot)) {
     mergedIgnore.add(
-      parseGitignore({ fullDirPath: currentDir, projectRoot, fs }),
+      await parseGitignore({ fullDirPath: currentDir, projectRoot, fs }),
     )
     currentDir = path.dirname(currentDir)
   }

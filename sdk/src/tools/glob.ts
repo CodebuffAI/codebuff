@@ -1,12 +1,11 @@
-import micromatch from 'micromatch'
-
 import {
   flattenTree,
   getProjectFileTree,
-} from '../../../common/src/project-file-tree'
+} from '@codebuff/common/project-file-tree'
+import micromatch from 'micromatch'
 
-import type { CodebuffToolOutput } from '../../../common/src/tools/list'
-import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'
+import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export async function glob(params: {
   pattern: string
@@ -17,7 +16,7 @@ export async function glob(params: {
   const { pattern, projectPath, cwd, fs } = params
 
   try {
-    const fileTree = getProjectFileTree({ projectRoot: projectPath, fs })
+    const fileTree = await getProjectFileTree({ projectRoot: projectPath, fs })
     const flattenedNodes = flattenTree(fileTree)
     let allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')

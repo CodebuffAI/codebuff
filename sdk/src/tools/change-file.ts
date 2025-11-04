@@ -3,8 +3,8 @@ import path from 'path'
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
-import type { CodebuffToolOutput } from '../../../common/src/tools/list'
-import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'
+import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -12,11 +12,11 @@ const FileChangeSchema = z.object({
   content: z.string(),
 })
 
-export function changeFile(params: {
+export async function changeFile(params: {
   parameters: unknown
   cwd: string
   fs: CodebuffFileSystem
-}): CodebuffToolOutput<'str_replace'> {
+}): Promise<CodebuffToolOutput<'str_replace'>> {
   const { parameters, cwd, fs } = params
 
   if (cwd.includes('../')) {
@@ -25,7 +25,7 @@ export function changeFile(params: {
   const fileChange = FileChangeSchema.parse(parameters)
   const lines = fileChange.content.split('\n')
 
-  const { created, modified, invalid, patchFailed } = applyChanges({
+  const { created, modified, invalid, patchFailed } = await applyChanges({
     projectRoot: cwd,
     changes: [fileChange],
     fs,
@@ -76,7 +76,7 @@ export function changeFile(params: {
   return [{ type: 'json', value: results[0] }]
 }
 
-function applyChanges(params: {
+async function applyChanges(params: {
   projectRoot: string
   changes: {
     type: 'patch' | 'file'
@@ -96,22 +96,22 @@ function applyChanges(params: {
     const { path: filePath, content, type } = change
     try {
       const fullPath = path.join(projectRoot, filePath)
-      const fileExists = fs.existsSync(fullPath)
+      const fileExists = await fs.exists(fullPath)
       if (!fileExists) {
         const dirPath = path.dirname(fullPath)
-        fs.mkdirSync(dirPath, { recursive: true })
+        await fs.mkdir(dirPath, { recursive: true })
       }
 
       if (type === 'file') {
-        fs.writeFileSync(fullPath, content)
+        await fs.writeFile(fullPath, content)
       } else {
-        const oldContent = fs.readFileSync(fullPath, 'utf-8')
+        const oldContent = await fs.readFile(fullPath, 'utf-8')
         const newContent = applyPatch(oldContent, content)
         if (newContent === false) {
           patchFailed.push(filePath)
           continue
         }
-        fs.writeFileSync(fullPath, newContent)
+        await fs.writeFile(fullPath, newContent)
       }
 
       if (fileExists) {

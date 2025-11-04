@@ -215,14 +215,14 @@ export const ensureEndsWithNewline = (
   return contents + '\n'
 }
 
-export const ensureDirectoryExists = (params: {
+export const ensureDirectoryExists = async (params: {
   baseDir: string
   fs: CodebuffFileSystem
 }) => {
   const { baseDir, fs } = params
 
-  if (!fs.existsSync(baseDir)) {
-    fs.mkdirSync(baseDir, { recursive: true })
+  if (!(await fs.exists(baseDir))) {
+    await fs.mkdir(baseDir, { recursive: true })
   }
 }
 
@@ -249,14 +249,14 @@ export function isValidFilePath(path: string) {
   return true
 }
 
-export function isDir(params: {
+export async function isDir(params: {
   path: string
   fs: CodebuffFileSystem
-}): boolean {
+}): Promise<boolean> {
   const { path, fs } = params
 
   try {
-    return fs.statSync(path).isDirectory()
+    return (await fs.stat(path)).isDirectory()
   } catch {
     return false
   }

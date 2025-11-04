@@ -23,7 +23,7 @@ import { runTerminalCommand } from './tools/run-terminal-command'
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
 import type { WebSocketHandler } from './websocket-client'
-import type { ServerAction } from '../../common/src/actions'
+import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type {
   PublishedToolName,
@@ -463,7 +463,7 @@ async function handleToolCall({
     } else if (toolName === 'end_turn') {
       result = []
     } else if (toolName === 'write_file' || toolName === 'str_replace') {
-      result = changeFile({
+      result = await changeFile({
         parameters: input,
         cwd: requireCwd(cwd, toolName),
         fs,

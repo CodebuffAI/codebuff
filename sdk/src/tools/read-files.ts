@@ -1,10 +1,10 @@
 import path, { isAbsolute } from 'path'
 
-import { FILE_READ_STATUS } from '../../../common/src/old-constants'
+import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 
-import type { CodebuffFileSystem } from '../../../common/src/types/filesystem'
+import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
-export function getFiles(params: {
+export async function getFiles(params: {
   filePaths: string[]
   cwd: string
   fs: CodebuffFileSystem
@@ -29,13 +29,13 @@ export function getFiles(params: {
       continue
     }
     try {
-      const stats = fs.statSync(fullPath)
+      const stats = await fs.stat(fullPath)
       if (stats.size > MAX_FILE_SIZE) {
         result[relativePath] =
           FILE_READ_STATUS.TOO_LARGE +
           ` [${(stats.size / (1024 * 1024)).toFixed(2)}MB]`
       } else {
-        const content = fs.readFileSync(fullPath, 'utf8')
+        const content = await fs.readFile(fullPath, 'utf8')
         result[relativePath] = content
       }
     } catch (error) {

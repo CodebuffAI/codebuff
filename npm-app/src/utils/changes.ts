@@ -7,7 +7,7 @@ import { applyPatch } from 'diff'
 
 import type { FileChanges } from '@codebuff/common/actions'
 
-export function applyChanges(projectRoot: string, changes: FileChanges) {
+export async function applyChanges(projectRoot: string, changes: FileChanges) {
   const created: string[] = []
   const modified: string[] = []
   const ignored: string[] = []
@@ -17,7 +17,7 @@ export function applyChanges(projectRoot: string, changes: FileChanges) {
   for (const change of changes) {
     const { path: filePath, content, type } = change
     try {
-      if (isFileIgnored({ filePath, projectRoot, fs })) {
+      if (await isFileIgnored({ filePath, projectRoot, fs: fs.promises })) {
         ignored.push(filePath)
         continue
       }

@@ -51,7 +51,7 @@ export const handleUpdateFile = async <
   const lines = fileChange.content.split('\n')
 
   await waitForPreviousCheckpoint()
-  const { created, modified, ignored, invalid, patchFailed } = applyChanges(
+  const { created, modified, ignored, invalid, patchFailed } = await applyChanges(
     projectPath,
     [fileChange],
   )
@@ -539,7 +539,7 @@ const handleGlob: ToolHandler<'glob'> = async (parameters, _id) => {
 
   try {
     // Get all files in the project
-    const fileTree = getProjectFileTree({ projectRoot: projectPath, fs })
+    const fileTree = await getProjectFileTree({ projectRoot: projectPath, fs: fs.promises })
     const flattenedNodes = flattenTree(fileTree)
     let allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')

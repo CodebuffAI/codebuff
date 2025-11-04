@@ -1,27 +1,28 @@
 import * as os from 'os'
 import path from 'path'
 
-import { cloneDeep } from 'lodash'
-
+import { getFileTokenScores } from '@codebuff/code-map/parse'
 import {
   getProjectFileTree,
   getAllFilePaths,
-} from '../../common/src/project-file-tree'
-import { getInitialSessionState } from '../../common/src/types/session-state'
-import { getFileTokenScores } from '../../packages/code-map/src/parse'
+} from '@codebuff/common/project-file-tree'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { getErrorObject } from '@codebuff/common/util/error'
+import { cloneDeep } from 'lodash'
 
 import type { CustomToolDefinition } from './custom-tool'
-import type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-import type { CodebuffFileSystem } from '../../common/src/types/filesystem'
-import type { Message } from '../../common/src/types/messages/codebuff-message'
+import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   AgentOutput,
   SessionState,
-} from '../../common/src/types/session-state'
+} from '@codebuff/common/types/session-state'
 import type {
   CustomToolDefinitions,
   FileTreeNode,
-} from '../../common/src/util/file'
+} from '@codebuff/common/util/file'
 
 export type RunState = {
   sessionState: SessionState
@@ -36,6 +37,7 @@ export type InitialSessionStateOptions = {
   customToolDefinitions?: CustomToolDefinition[]
   maxAgentSteps?: number
   fs?: CodebuffFileSystem
+  logger?: Logger
 }
 
 /**
@@ -119,31 +121,41 @@ async function computeProjectIndex(
 /**
  * Discovers project files using .gitignore patterns when projectFiles is undefined
  */
-function discoverProjectFiles(params: {
+async function discoverProjectFiles(params: {
   cwd: string
   fs: CodebuffFileSystem
-}): Record<string, string> {
-  const { cwd, fs } = params
+  logger: Logger
+}): Promise<Record<string, string>> {
+  const { cwd, fs, logger } = params
 
-  const fileTree = getProjectFileTree({ projectRoot: cwd, fs })
+  const fileTree = await getProjectFileTree({ projectRoot: cwd, fs })
   const filePaths = getAllFilePaths(fileTree)
   let error
 
   // Create projectFiles with empty content - the token scorer will read from disk
-  const projectFiles = Object.fromEntries(
-    filePaths.map((filePath) => {
-      try {
-        return [filePath, fs.readFileSync(path.join(cwd, filePath), 'utf8')]
-      } catch (err) {
+  const projectFilePromises = Object.fromEntries(
+    filePaths.map((filePath) => [
+      filePath,
+      fs.readFile(path.join(cwd, filePath), 'utf8').catch((err) => {
         error = err
-        return [filePath, '[ERROR_READING_FILE]']
-      }
-    }),
+        return '[ERROR_READING_FILE]'
+      }),
+    ]),
   )
   if (error) {
-    console.warn('Failed to discover some project files:', error)
+    logger.warn(
+      { error: getErrorObject(error) },
+      'Failed to discover some project files',
+    )
   }
-  return projectFiles
+
+  const projectFilesRecord: Record<string, string> = {}
+  for (const [filePath, contentPromise] of Object.entries(
+    projectFilePromises,
+  )) {
+    projectFilesRecord[filePath] = await contentPromise
+  }
+  return projectFilesRecord
 }
 
 /**
@@ -165,28 +177,28 @@ function deriveKnowledgeFiles(
   return knowledgeFiles
 }
 
-export function initialSessionState(
-  options: InitialSessionStateOptions,
-): Promise<SessionState>
-export function initialSessionState(
-  cwd: string,
-  options?: Omit<InitialSessionStateOptions, 'cwd'>,
-): Promise<SessionState>
 export async function initialSessionState(
-  arg1: string | InitialSessionStateOptions,
-  arg2?: Omit<InitialSessionStateOptions, 'cwd'>,
+  params: InitialSessionStateOptions,
 ): Promise<SessionState> {
-  const options: InitialSessionStateOptions =
-    typeof arg1 === 'string' ? { ...(arg2 ?? {}), cwd: arg1 } : arg1 ?? {}
-
-  const cwd = options.cwd
-  const agentDefinitions = options.agentDefinitions ?? []
-  const customToolDefinitions = options.customToolDefinitions ?? []
-  const maxAgentSteps = options.maxAgentSteps
-
-  let projectFiles = options.projectFiles
-  let knowledgeFiles = options.knowledgeFiles
-  let fs: CodebuffFileSystem | undefined = options.fs
+  const withDefaults = {
+    agentDefinitions: [],
+    customToolDefinitions: [],
+    logger: {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    },
+    ...params,
+  }
+  const {
+    cwd,
+    agentDefinitions,
+    customToolDefinitions,
+    maxAgentSteps,
+    logger,
+  } = withDefaults
+  let { projectFiles, knowledgeFiles, fs } = withDefaults
 
   if (!fs) {
     fs = (await import('fs')) as unknown as CodebuffFileSystem
@@ -194,7 +206,7 @@ export async function initialSessionState(
 
   // Auto-discover project files if not provided and cwd is available
   if (projectFiles === undefined && cwd) {
-    projectFiles = discoverProjectFiles({ cwd, fs })
+    projectFiles = await discoverProjectFiles({ cwd, fs, logger })
   }
   if (knowledgeFiles === undefined) {
     knowledgeFiles = projectFiles ? deriveKnowledgeFiles(projectFiles) : {}
