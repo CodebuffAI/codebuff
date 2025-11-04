@@ -101,5 +101,111 @@ describe('buildAgentsData', () => {
     // sorted by weekly_spent desc
     expect(out[0].weekly_spent! >= out[1].weekly_spent!).toBe(true)
   })
-})
 
+  it('handles missing metrics gracefully and normalizes defaults', () => {
+    const agents = [
+      {
+        id: 'solo',
+        version: '0.1.0',
+        data: { description: 'no name provided' },
+        created_at: new Date('2025-02-01T00:00:00.000Z'),
+        publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+      },
+    ] as any
+
+    const out = buildAgentsData({
+      agents,
+      usageMetrics: [],
+      weeklyMetrics: [],
+      perVersionMetrics: [],
+      perVersionWeeklyMetrics: [],
+    })
+
+    expect(out).toHaveLength(1)
+    const a = out[0]
+    // falls back to id when name missing
+    expect(a.name).toBe('solo')
+    // defaults present
+    expect(a.weekly_spent).toBe(0)
+    expect(a.weekly_runs).toBe(0)
+    expect(a.total_spent).toBe(0)
+    expect(a.usage_count).toBe(0)
+    expect(a.avg_cost_per_invocation).toBe(0)
+    expect(a.unique_users).toBe(0)
+    expect(a.last_used).toBeUndefined()
+    expect(a.version_stats).toEqual({})
+    expect(a.tags).toEqual([])
+    // created_at normalized to string
+    expect(typeof a.created_at).toBe('string')
+  })
+
+  it('uses data.name for aggregate metrics and agent.id for version stats', () => {
+    const agents = [
+      {
+        id: 'file-picker',
+        version: '1.2.0',
+        data: { name: 'File Picker' },
+        created_at: '2025-03-01T00:00:00.000Z',
+        publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+      },
+    ] as any
+
+    // Aggregate metrics keyed by data.name
+    const usageMetrics = [
+      {
+        publisher_id: 'codebuff',
+        agent_name: 'File Picker',
+        total_invocations: 7,
+        total_dollars: 3.5,
+        avg_cost_per_run: 0.5,
+        unique_users: 2,
+        last_used: new Date('2025-03-02T00:00:00.000Z'),
+      },
+    ]
+    const weeklyMetrics = [
+      { publisher_id: 'codebuff', agent_name: 'File Picker', weekly_runs: 4, weekly_dollars: 1.5 },
+    ]
+
+    // Version stats keyed by agent.id in runs
+    const perVersionMetrics = [
+      {
+        publisher_id: 'codebuff',
+        agent_name: 'file-picker',
+        agent_version: '1.2.0',
+        total_invocations: 4,
+        total_dollars: 2,
+        avg_cost_per_run: 0.5,
+        unique_users: 2,
+        last_used: new Date('2025-03-02T00:00:00.000Z'),
+      },
+    ]
+    const perVersionWeeklyMetrics = [
+      {
+        publisher_id: 'codebuff',
+        agent_name: 'file-picker',
+        agent_version: '1.2.0',
+        weekly_runs: 2,
+        weekly_dollars: 1,
+      },
+    ]
+
+    const out = buildAgentsData({
+      agents: agents as any,
+      usageMetrics: usageMetrics as any,
+      weeklyMetrics: weeklyMetrics as any,
+      perVersionMetrics: perVersionMetrics as any,
+      perVersionWeeklyMetrics: perVersionWeeklyMetrics as any,
+    })
+
+    expect(out).toHaveLength(1)
+    const fp = out[0]
+    // Aggregate metrics align with data.name
+    expect(fp.name).toBe('File Picker')
+    expect(fp.weekly_runs).toBe(4)
+    expect(fp.weekly_spent).toBe(1.5)
+    expect(fp.usage_count).toBe(7)
+    expect(fp.total_spent).toBe(3.5)
+    // Version stats keyed by id@version (not display name)
+    expect(fp.version_stats?.['1.2.0']).toMatchObject({ weekly_runs: 2, weekly_dollars: 1 })
+  })
+})
