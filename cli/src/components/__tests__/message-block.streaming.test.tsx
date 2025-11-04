@@ -14,8 +14,8 @@ const basePalette = createMarkdownPalette(theme)
 
 const palette: MarkdownPalette = {
   ...basePalette,
-  inlineCodeFg: theme.aiText,
-  codeTextFg: theme.aiText,
+  inlineCodeFg: theme.foreground,
+  codeTextFg: theme.foreground,
 }
 
 const baseProps = {
@@ -28,8 +28,8 @@ const baseProps = {
   timestamp: '12:00',
   completionTime: undefined,
   credits: undefined,
-  textColor: theme.aiText,
-  timestampColor: theme.aiTimestamp,
+  textColor: theme.foreground,
+  timestampColor: theme.muted,
   markdownOptions: {
     codeBlockWidth: 72,
     palette,

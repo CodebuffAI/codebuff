@@ -88,8 +88,8 @@ export const useMessageRenderer = (
       const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
       const agentPalette: MarkdownPalette = {
         ...markdownPalette,
-        inlineCodeFg: theme.agentContent,
-        codeTextFg: theme.agentContent,
+        inlineCodeFg: theme.foreground,
+        codeTextFg: theme.foreground,
       }
       const agentMarkdownOptions = {
         codeBlockWidth: agentCodeBlockWidth,
@@ -161,7 +161,7 @@ export const useMessageRenderer = (
             }}
           >
             <text style={{ wrapMode: 'none' }}>
-              <span fg={theme.agentPrefix}>{fullPrefix}</span>
+              <span fg={theme.success}>{fullPrefix}</span>
             </text>
             <box
               style={{
@@ -177,18 +177,18 @@ export const useMessageRenderer = (
                   alignSelf: 'flex-start',
                   backgroundColor: isCollapsed
                     ? theme.muted
-                    : theme.agentPrefix,
+                    : theme.success,
                   paddingLeft: 1,
                   paddingRight: 1,
                 }}
                 onMouseDown={handleTitleClick}
               >
                 <text style={{ wrapMode: 'word' }}>
-                  <span fg={theme.agentToggleHeaderText}>
+                  <span fg={theme.foreground}>
                     {isCollapsed ? '▸ ' : '▾ '}
                   </span>
                   <span
-                    fg={theme.agentToggleHeaderText}
+                    fg={theme.foreground}
                     attributes={TextAttributes.BOLD}
                   >
                     {agentInfo.agentName}
@@ -201,7 +201,7 @@ export const useMessageRenderer = (
               >
                 {isStreaming && isCollapsed && streamingPreview && (
                   <text
-                    style={{ wrapMode: 'word', fg: theme.agentContent }}
+                    style={{ wrapMode: 'word', fg: theme.foreground }}
                     attributes={TextAttributes.ITALIC}
                   >
                     {streamingPreview}
@@ -218,7 +218,7 @@ export const useMessageRenderer = (
                 {!isCollapsed && (
                   <text
                     key={`agent-content-${message.id}`}
-                    style={{ wrapMode: 'word', fg: theme.agentContent }}
+                    style={{ wrapMode: 'word', fg: theme.foreground }}
                   >
                     {displayContent}
                   </text>
@@ -273,15 +273,15 @@ export const useMessageRenderer = (
       const isError = message.variant === 'error'
       const lineColor = isError ? 'red' : isAi ? theme.aiLine : theme.userLine
       const textColor = isError
-        ? theme.aiText
+        ? theme.foreground
         : isAi
-          ? theme.aiText
-          : theme.userText
+          ? theme.foreground
+          : theme.foreground
       const timestampColor = isError
         ? 'red'
         : isAi
-          ? theme.aiTimestamp
-          : theme.userTimestamp
+          ? theme.muted
+          : theme.muted
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
       const paletteForMessage: MarkdownPalette = {

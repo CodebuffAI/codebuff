@@ -227,7 +227,7 @@ export const App = ({
         {
           type: 'text',
           content: '\n\n' + logoBlock,
-          color: theme.logo,
+          color: theme.foreground,
         },
       ]
 
@@ -1163,7 +1163,7 @@ export const App = ({
       return output
     }
 
-    const messageAiTextColor = theme.aiText
+    const messageAiTextColor = theme.foreground
     const statusSecondaryColor = theme.secondary
 
     return (

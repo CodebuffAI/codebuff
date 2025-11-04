@@ -124,7 +124,7 @@ export const AgentBranchItem = ({
     if (isTextRenderable(value)) {
       return (
         <text
-          fg={theme.agentContent}
+          fg={theme.foreground}
           key="expanded-text"
           attributes={getAttributes()}
         >
@@ -205,9 +205,9 @@ export const AgentBranchItem = ({
               width: '100%',
             }}
           >
-            <text fg={theme.agentToggleHeaderText}>Prompt</text>
+            <text fg={theme.foreground}>Prompt</text>
             <text
-              fg={theme.agentContent}
+              fg={theme.foreground}
               style={{ wrapMode: 'word' }}
               attributes={getAttributes()}
             >
@@ -267,7 +267,7 @@ export const AgentBranchItem = ({
               }}
             >
               <text
-                fg={isStreaming ? theme.agentContent : theme.muted}
+                fg={isStreaming ? theme.foreground : theme.muted}
                 attributes={getAttributes(TextAttributes.ITALIC)}
               >
                 {isStreaming ? streamingPreview : finishedPreview}
@@ -293,11 +293,11 @@ export const AgentBranchItem = ({
                   marginBottom: content ? 1 : 0,
                 }}
               >
-                <text fg={theme.agentToggleHeaderText}>
+                <text fg={theme.foreground}>
                   Prompt
                 </text>
                 <text
-                  fg={theme.agentContent}
+                  fg={theme.foreground}
                   style={{ wrapMode: 'word' }}
                   attributes={getAttributes()}
                 >
@@ -305,7 +305,7 @@ export const AgentBranchItem = ({
                 </text>
                 {content && (
                   <text
-                    fg={theme.agentToggleHeaderText}
+                    fg={theme.foreground}
                     style={{ marginTop: 1 }}
                   >
                     Response

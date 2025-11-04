@@ -182,8 +182,8 @@ export const ShimmerText = ({
     }
     // Use theme shimmer color as default
     const paletteSize = Math.max(8, Math.min(20, Math.ceil(numChars * 1.5)))
-    return generatePaletteFromPrimary(theme.shimmer, paletteSize, theme.muted)
-  }, [colors, primaryColor, numChars, theme.shimmer, theme.muted])
+    return generatePaletteFromPrimary(theme.info, paletteSize, theme.muted)
+  }, [colors, primaryColor, numChars, theme.info, theme.muted])
 
   const generateAttributes = (length: number): number[] => {
     const attributes: number[] = []

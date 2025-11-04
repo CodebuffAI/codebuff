@@ -133,7 +133,7 @@ const getListDirectoryRender = (
     return {}
   }
 
-  const summaryColor = theme.agentContent
+  const summaryColor = theme.foreground
   const baseAttributes = theme.messageTextAttributes ?? 0
   const getAttributes = (extra: number = 0): number | undefined => {
     const combined = baseAttributes | extra

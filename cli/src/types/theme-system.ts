@@ -69,7 +69,7 @@ export interface ChatTheme {
   surfaceHover: string
 
   // ============================================================================
-  // CONTEXT-SPECIFIC COLORS
+  // CONTEXT-SPECIFIC COLORS (Minimal - most use semantic colors)
   // ============================================================================
 
   // AI/User differentiation
@@ -79,33 +79,9 @@ export interface ChatTheme {
   /** User message indicator line color */
   userLine: string
 
-  /** AI message text color */
-  aiText: ThemeColor
-
-  /** User message text color */
-  userText: ThemeColor
-
-  /** AI timestamp color */
-  aiTimestamp: string
-
-  /** User timestamp color */
-  userTimestamp: string
-
-  // Agent/Tool specific
-  /** Agent prefix symbol color (e.g., '>') */
-  agentPrefix: string
-
-  /** Agent name color */
-  agentName: string
-
-  /** Agent content text color */
-  agentContent: ThemeColor
-
+  // Agent backgrounds (specific states that don't map to semantics)
   /** Agent toggle header background */
   agentToggleHeaderBg: string
-
-  /** Agent toggle header text */
-  agentToggleHeaderText: ThemeColor
 
   /** Agent toggle expanded background */
   agentToggleExpandedBg: string
@@ -129,13 +105,7 @@ export interface ChatTheme {
   /** Focused input text color */
   inputFocusedFg: ThemeColor
 
-  /** Input placeholder text color */
-  inputPlaceholder: ThemeColor
-
-  /** Cursor color */
-  cursor: string
-
-  // Mode toggles
+  // Mode toggles (distinct UI elements)
   /** Fast mode toggle background */
   modeFastBg: string
 
@@ -153,25 +123,6 @@ export interface ChatTheme {
 
   /** Plan mode toggle text */
   modePlanText: string
-
-  // Misc
-  /** Logo/branding color */
-  logo: string
-
-  /** Link color */
-  link: string
-
-  /** Active/clicked link color */
-  linkActive: string
-
-  /** Shimmer animation color */
-  shimmer: string
-
-  /** Accent background (for highlights, selections) */
-  accentBg: string
-
-  /** Accent text color */
-  accentText: string
 
   // ============================================================================
   // MARKDOWN

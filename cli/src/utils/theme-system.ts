@@ -464,10 +464,6 @@ export const getIDEThemeConfigPaths = (): string[] => {
   return [...paths]
 }
 
-
-
-
-
 type ChatThemeOverrides = Partial<Omit<ChatTheme, 'markdown'>> & {
   markdown?: MarkdownThemeOverrides
 }
@@ -706,20 +702,12 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     surface: '#000000',
     surfaceHover: '#334155',
 
-    // AI/User context
+    // Context-specific
     aiLine: '#34d399',
     userLine: '#38bdf8',
-    aiText: '#f1f5f9',
-    userText: '#dbeafe',
-    aiTimestamp: '#4ade80',
-    userTimestamp: '#60a5fa',
 
-    // Agent context
-    agentPrefix: '#22c55e',
-    agentName: '#4ade80',
-    agentContent: '#ffffff',
+    // Agent backgrounds
     agentToggleHeaderBg: '#f97316',
-    agentToggleHeaderText: '#ffffff',
     agentToggleExpandedBg: '#1d4ed8',
     agentFocusedBg: '#334155',
     agentContentBg: '#000000',
@@ -729,8 +717,6 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     inputFg: '#f5f5f5',
     inputFocusedBg: '#000000',
     inputFocusedFg: '#ffffff',
-    inputPlaceholder: '#a3a3a3',
-    cursor: '#22c55e',
 
     // Mode toggles
     modeFastBg: '#f97316',
@@ -739,14 +725,6 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modeMaxText: '#dc2626',
     modePlanBg: '#1e40af',
     modePlanText: '#1e40af',
-
-    // Misc
-    logo: '#ffffff',
-    link: '#38bdf8',
-    linkActive: '#22c55e',
-    shimmer: '#38bdf8',
-    accentBg: '#facc15',
-    accentText: '#1c1917',
 
     // Markdown
     markdown: {
@@ -789,17 +767,9 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     // AI/User context
     aiLine: '#059669',
     userLine: '#3b82f6',
-    aiText: '#111827',
-    userText: '#1f2937',
-    aiTimestamp: '#047857',
-    userTimestamp: '#2563eb',
 
     // Agent context
-    agentPrefix: '#059669',
-    agentName: '#047857',
-    agentContent: '#111827',
     agentToggleHeaderBg: '#ea580c',
-    agentToggleHeaderText: '#ffffff',
     agentToggleExpandedBg: '#1d4ed8',
     agentFocusedBg: '#f3f4f6',
     agentContentBg: '#ffffff',
@@ -809,8 +779,6 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     inputFg: '#111827',
     inputFocusedBg: '#ffffff',
     inputFocusedFg: '#000000',
-    inputPlaceholder: '#9ca3af',
-    cursor: '#3b82f6',
 
     // Mode toggles
     modeFastBg: '#f97316',
@@ -819,14 +787,6 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modeMaxText: '#dc2626',
     modePlanBg: '#1e40af',
     modePlanText: '#1e40af',
-
-    // Misc
-    logo: '#000000',
-    link: '#3b82f6',
-    linkActive: '#059669',
-    shimmer: '#3b82f6',
-    accentBg: '#f59e0b',
-    accentText: '#111827',
 
     // Markdown
     markdown: {
@@ -872,7 +832,7 @@ export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
   const overrides = theme.markdown?.headingFg ?? {}
 
   return {
-    inlineCodeFg: theme.markdown?.inlineCodeFg ?? theme.aiText,
+    inlineCodeFg: theme.markdown?.inlineCodeFg ?? theme.foreground,
     codeBackground: theme.markdown?.codeBackground ?? theme.background,
     codeHeaderFg: theme.markdown?.codeHeaderFg ?? theme.secondary,
     headingFg: {
@@ -880,11 +840,10 @@ export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
       ...overrides,
     },
     listBulletFg: theme.markdown?.listBulletFg ?? theme.secondary,
-    blockquoteBorderFg:
-      theme.markdown?.blockquoteBorderFg ?? theme.secondary,
-    blockquoteTextFg: theme.markdown?.blockquoteTextFg ?? theme.aiText,
+    blockquoteBorderFg: theme.markdown?.blockquoteBorderFg ?? theme.secondary,
+    blockquoteTextFg: theme.markdown?.blockquoteTextFg ?? theme.foreground,
     dividerFg: theme.markdown?.dividerFg ?? theme.secondary,
-    codeTextFg: theme.markdown?.codeTextFg ?? theme.aiText,
+    codeTextFg: theme.markdown?.codeTextFg ?? theme.foreground,
     codeMonochrome: theme.markdown?.codeMonochrome ?? true,
   }
 }
@@ -998,7 +957,10 @@ if (process.platform === 'darwin') {
       try {
         const watcher = watch(target, { persistent: false }, (eventType) => {
           // Debounce theme recomputation
-          setTimeout(() => recomputeSystemTheme(`fs:${target}:${eventType}`), 250)
+          setTimeout(
+            () => recomputeSystemTheme(`fs:${target}:${eventType}`),
+            250,
+          )
         })
 
         watcher.on('error', () => {
@@ -1027,4 +989,3 @@ if (process.platform === 'darwin') {
 process.on('SIGUSR2', () => {
   recomputeSystemTheme('signal:SIGUSR2')
 })
-

@@ -75,7 +75,7 @@ export const SuggestionMenu = ({
           const textColor = isSelected ? theme.primary : theme.inputFg
           const descriptionColor = isSelected
             ? theme.primary
-            : theme.userTimestamp
+            : theme.muted
           return (
             <box
               key={item.id}
@@ -97,7 +97,7 @@ export const SuggestionMenu = ({
                   wrapMode: 'none',
                 }}
               >
-                <span fg={theme.agentPrefix}>{effectivePrefix}</span>
+                <span fg={theme.success}>{effectivePrefix}</span>
                 <span>{item.label}</span>
                 <span>{padding}</span>
                 <span fg={descriptionColor}>

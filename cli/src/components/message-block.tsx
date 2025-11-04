@@ -72,7 +72,7 @@ export const MessageBlock = ({
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
   const theme = useTheme()
-  const resolvedTextColor = textColor ?? theme.aiText
+  const resolvedTextColor = textColor ?? theme.foreground
 
   // Get elapsed time from timer for streaming AI messages
   const elapsedSeconds = timer.elapsedSeconds
@@ -140,8 +140,8 @@ export const MessageBlock = ({
       codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
       palette: {
         ...markdownPalette,
-        inlineCodeFg: theme.agentContent,
-        codeTextFg: theme.agentContent,
+        inlineCodeFg: theme.foreground,
+        codeTextFg: theme.foreground,
       },
     }
   }
@@ -235,7 +235,7 @@ export const MessageBlock = ({
         ? null
         : (
             <text
-              fg={theme.agentContent}
+              fg={theme.foreground}
               style={{ wrapMode: 'word' }}
               attributes={
                 theme.messageTextAttributes && theme.messageTextAttributes !== 0
@@ -399,7 +399,7 @@ export const MessageBlock = ({
     ) => {
       const identifier = formatIdentifier(agent)
       return (
-        <text key={`agent-${idx}`} style={{ wrapMode: 'word', fg: theme.agentContent }}>
+        <text key={`agent-${idx}`} style={{ wrapMode: 'word', fg: theme.foreground }}>
           {`  • ${identifier}`}
         </text>
       )
@@ -481,7 +481,7 @@ export const MessageBlock = ({
             typeof (nestedBlock as any).color === 'string'
               ? ((nestedBlock as any).color as string)
               : undefined
-          const nestedTextColor = explicitColor ?? theme.agentContent
+          const nestedTextColor = explicitColor ?? theme.foreground
           nodes.push(
             <text
               key={renderKey}
@@ -513,7 +513,7 @@ export const MessageBlock = ({
               }}
             >
               {nestedBlock.render({
-                textColor: theme.agentContent,
+                textColor: theme.foreground,
                 theme,
               })}
             </box>,

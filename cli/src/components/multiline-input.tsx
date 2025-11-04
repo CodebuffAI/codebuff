@@ -575,7 +575,7 @@ export const MultilineInput = forwardRef<
   ])
 
   const inputColor = isPlaceholder
-    ? theme.inputPlaceholder
+    ? theme.muted
     : focused
       ? theme.inputFocusedFg
       : theme.inputFg
@@ -591,7 +591,7 @@ export const MultilineInput = forwardRef<
     textStyle.attributes = textAttributes
   }
 
-  const cursorFg = theme.cursor
+  const cursorFg = theme.primary
 
   return (
     <scrollbox

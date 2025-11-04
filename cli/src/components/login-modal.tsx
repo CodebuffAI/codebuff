@@ -249,7 +249,7 @@ export const LoginModal = ({
 
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({
-    logoColor: theme.logo,
+    logoColor: theme.foreground,
     terminalWidth: renderer?.width,
     sheenPosition,
     setSheenPosition,
@@ -432,8 +432,8 @@ export const LoginModal = ({
                 text={loginUrl}
                 maxWidth={maxUrlWidth}
                 formatLines={formatLoginUrlLines}
-                color={hasClickedLink ? theme.linkActive : theme.link}
-                activeColor={theme.linkActive}
+                color={hasClickedLink ? theme.success : theme.info}
+                activeColor={theme.success}
                 underlineOnHover={true}
                 isActive={justCopied}
                 onActivate={handleActivateLoginUrl}

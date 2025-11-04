@@ -98,13 +98,8 @@ const resolveThemeColors = (theme: ChatTheme, mode: 'dark' | 'light'): void => {
   // Resolve all ThemeColor properties to actual colors
   theme.foreground = resolve(theme.foreground)
   theme.muted = resolve(theme.muted)
-  theme.aiText = resolve(theme.aiText)
-  theme.userText = resolve(theme.userText)
-  theme.agentContent = resolve(theme.agentContent)
   theme.inputFg = resolve(theme.inputFg)
   theme.inputFocusedFg = resolve(theme.inputFocusedFg)
-  theme.inputPlaceholder = resolve(theme.inputPlaceholder, theme.secondary)
-  theme.agentToggleHeaderText = resolve(theme.agentToggleHeaderText)
 }
 
 /**
