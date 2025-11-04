@@ -691,7 +691,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
 
     // Neutral scale
     foreground: '#f1f5f9',
-    background: '#000000',
+    background: 'transparent',
     muted: '#9ca3af',
     border: '#334155',
     surface: '#000000',
@@ -753,7 +753,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
 
     // Neutral scale
     foreground: '#111827',
-    background: '#ffffff',
+    background: 'transparent',
     muted: '#6b7280',
     border: '#d1d5db',
     surface: '#f3f4f6',
