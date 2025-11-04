@@ -23,6 +23,7 @@ import type {
   CustomToolDefinitions,
   FileTreeNode,
 } from '@codebuff/common/util/file'
+import type * as fsType from 'fs'
 
 export type RunState = {
   sessionState: SessionState
@@ -149,13 +150,13 @@ async function discoverProjectFiles(params: {
     )
   }
 
-  const projectFilesRecord: Record<string, string> = {}
+  const projectFilesResolved: Record<string, string> = {}
   for (const [filePath, contentPromise] of Object.entries(
     projectFilePromises,
   )) {
-    projectFilesRecord[filePath] = await contentPromise
+    projectFilesResolved[filePath] = await contentPromise
   }
-  return projectFilesRecord
+  return projectFilesResolved
 }
 
 /**
@@ -180,37 +181,48 @@ function deriveKnowledgeFiles(
 export async function initialSessionState(
   params: InitialSessionStateOptions,
 ): Promise<SessionState> {
-  const withDefaults = {
-    agentDefinitions: [],
-    customToolDefinitions: [],
-    logger: {
+  const { cwd, maxAgentSteps } = params
+  let {
+    agentDefinitions,
+    customToolDefinitions,
+    projectFiles,
+    knowledgeFiles,
+    fs,
+    logger,
+  } = params
+  if (!agentDefinitions) {
+    agentDefinitions = []
+  }
+  if (!customToolDefinitions) {
+    customToolDefinitions = []
+  }
+  if (!projectFiles) {
+    projectFiles = {}
+  }
+  if (!knowledgeFiles) {
+    knowledgeFiles = {}
+  }
+  if (!fs) {
+    fs = (require('fs') as typeof fsType).promises
+  }
+  if (!logger) {
+    logger = {
       debug: () => {},
       info: () => {},
       warn: () => {},
       error: () => {},
-    },
-    ...params,
-  }
-  const {
-    cwd,
-    agentDefinitions,
-    customToolDefinitions,
-    maxAgentSteps,
-    logger,
-  } = withDefaults
-  let { projectFiles, knowledgeFiles, fs } = withDefaults
-
-  if (!fs) {
-    fs = (await import('fs')) as unknown as CodebuffFileSystem
+    }
   }
 
   // Auto-discover project files if not provided and cwd is available
   if (projectFiles === undefined && cwd) {
     projectFiles = await discoverProjectFiles({ cwd, fs, logger })
   }
+  logger.info({ projectFiles }, 'asdf')
   if (knowledgeFiles === undefined) {
     knowledgeFiles = projectFiles ? deriveKnowledgeFiles(projectFiles) : {}
   }
+  logger.info({ knowledgeFiles }, 'asdf')
 
   const processedAgentTemplates = processAgentDefinitions(agentDefinitions)
   const processedCustomToolDefinitions = processCustomToolDefinitions(

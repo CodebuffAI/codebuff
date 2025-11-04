@@ -120,7 +120,7 @@ export async function run({
   overrideTools,
   customToolDefinitions,
 
-  fsSource = () => require('fs'),
+  fsSource = () => require('fs').promises,
   logger,
 
   agent,
