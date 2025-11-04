@@ -2,6 +2,7 @@ import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { unstable_cache } from 'next/cache'
 import { sql, eq, and, gte } from 'drizzle-orm'
+import { buildAgentsData } from './agents-transform'
 
 export interface AgentData {
   id: string
@@ -146,180 +147,16 @@ const fetchAgentsWithMetrics = async (): Promise<AgentData[]> => {
       schema.agentRun.agent_version,
     )
 
-  // Create weekly metrics map by publisher/agent_name
-  const weeklyMap = new Map<string, { weekly_runs: number; weekly_dollars: number }>()
-  weeklyMetrics.forEach((metric) => {
-    if (metric.publisher_id && metric.agent_name) {
-      const key = `${metric.publisher_id}/${metric.agent_name}`
-      weeklyMap.set(key, {
-        weekly_runs: Number(metric.weekly_runs),
-        weekly_dollars: Number(metric.weekly_dollars),
-      })
-    }
+  return buildAgentsData({
+    agents,
+    usageMetrics,
+    weeklyMetrics,
+    perVersionMetrics,
+    perVersionWeeklyMetrics,
   })
-
-  // Create a map of aggregated usage metrics by publisher/agent_name
-  const metricsMap = new Map<
-    string,
-    {
-      weekly_runs: number
-      weekly_dollars: number
-      total_dollars: number
-      total_invocations: number
-      avg_cost_per_run: number
-      unique_users: number
-      last_used: Date | null
-    }
-  >()
-  usageMetrics.forEach((metric) => {
-    if (metric.publisher_id && metric.agent_name) {
-      const key = `${metric.publisher_id}/${metric.agent_name}`
-      const weeklyData = weeklyMap.get(key) || {
-        weekly_runs: 0,
-        weekly_dollars: 0,
-      }
-      metricsMap.set(key, {
-        weekly_runs: weeklyData.weekly_runs,
-        weekly_dollars: weeklyData.weekly_dollars,
-        total_dollars: Number(metric.total_dollars),
-        total_invocations: Number(metric.total_invocations),
-        avg_cost_per_run: Number(metric.avg_cost_per_run),
-        unique_users: Number(metric.unique_users),
-        last_used: metric.last_used ?? null,
-      })
-    }
-  })
-
-  // Create per-version weekly metrics map
-  const perVersionWeeklyMap = new Map<
-    string,
-    { weekly_runs: number; weekly_dollars: number }
-  >()
-  perVersionWeeklyMetrics.forEach((metric) => {
-    if (metric.publisher_id && metric.agent_name && metric.agent_version) {
-      const key = `${metric.publisher_id}/${metric.agent_name}@${metric.agent_version}`
-      perVersionWeeklyMap.set(key, {
-        weekly_runs: Number(metric.weekly_runs),
-        weekly_dollars: Number(metric.weekly_dollars),
-      })
-    }
-  })
-
-  // Create per-version metrics map
-  const perVersionMetricsMap = new Map<string, Record<string, any>>()
-  perVersionMetrics.forEach((metric) => {
-    if (metric.publisher_id && metric.agent_name && metric.agent_version) {
-      const key = `${metric.publisher_id}/${metric.agent_name}@${metric.agent_version}`
-      const weeklyData = perVersionWeeklyMap.get(key) || {
-        weekly_runs: 0,
-        weekly_dollars: 0,
-      }
-      perVersionMetricsMap.set(key, {
-        weekly_runs: weeklyData.weekly_runs,
-        weekly_dollars: weeklyData.weekly_dollars,
-        total_dollars: Number(metric.total_dollars),
-        total_invocations: Number(metric.total_invocations),
-        avg_cost_per_run: Number(metric.avg_cost_per_run),
-        unique_users: Number(metric.unique_users),
-        last_used: metric.last_used ? metric.last_used.toISOString() : null,
-      })
-    }
-  })
-
-  // Group per-version metrics by agent
-  const versionMetricsByAgent = new Map<string, Record<string, any>>()
-  perVersionMetricsMap.forEach((metrics, key) => {
-    const [publisherAgentKey, version] = key.split('@')
-    if (!versionMetricsByAgent.has(publisherAgentKey)) {
-      versionMetricsByAgent.set(publisherAgentKey, {})
-    }
-    versionMetricsByAgent.get(publisherAgentKey)![version] = metrics
-  })
-
-  // First, group agents by publisher/name to get the latest version of each
-  const latestAgents = new Map<
-    string,
-    {
-      agent: (typeof agents)[number]
-      agentData: any
-      agentName: string
-    }
-  >()
-  agents.forEach((agent) => {
-    const agentData =
-      typeof agent.data === 'string' ? JSON.parse(agent.data) : agent.data
-    const agentName = agentData.name || agent.id
-    const key = `${agent.publisher.id}/${agentName}`
-
-    if (!latestAgents.has(key)) {
-      latestAgents.set(key, {
-        agent,
-        agentData,
-        agentName,
-      })
-    }
-  })
-
-  // Transform the latest agents with their aggregated metrics
-  const result = Array.from(latestAgents.values()).map(
-    ({ agent, agentData, agentName }) => {
-      const agentKey = `${agent.publisher.id}/${agentName}`
-      const metrics = metricsMap.get(agentKey) || {
-        weekly_runs: 0,
-        weekly_dollars: 0,
-        total_dollars: 0,
-        total_invocations: 0,
-        avg_cost_per_run: 0,
-        unique_users: 0,
-        last_used: null,
-      }
-
-      // Use agent.id (config ID) to get version stats since that's what the runs table uses as agent_name
-      const versionStatsKey = `${agent.publisher.id}/${agent.id}`
-      const rawVersionStats = versionMetricsByAgent.get(versionStatsKey) || {}
-      const version_stats = Object.fromEntries(
-        Object.entries(rawVersionStats).map(([version, stats]) => [
-          version,
-          {
-            ...stats,
-            last_used: (stats as any)?.last_used ?? undefined,
-          },
-        ]),
-      )
-
-      return {
-        id: agent.id,
-        name: agentName,
-        description: agentData.description,
-        publisher: agent.publisher,
-        version: agent.version,
-        created_at:
-          agent.created_at instanceof Date
-            ? agent.created_at.toISOString()
-            : (agent.created_at as any),
-        // Aggregated stats across all versions (for agent store)
-        usage_count: metrics.total_invocations,
-        weekly_runs: metrics.weekly_runs,
-        weekly_spent: metrics.weekly_dollars,
-        total_spent: metrics.total_dollars,
-        avg_cost_per_invocation: metrics.avg_cost_per_run,
-        unique_users: metrics.unique_users,
-        last_used: metrics.last_used ? metrics.last_used.toISOString() : undefined,
-        // Per-version stats for agent detail pages
-        version_stats,
-        tags: agentData.tags || [],
-      }
-    },
-  )
-
-  // Sort by weekly usage (most prominent metric)
-  result.sort((a, b) => (b.weekly_spent || 0) - (a.weekly_spent || 0))
-
-  return result
 }
 
 export const getCachedAgents = unstable_cache(fetchAgentsWithMetrics, ['agents-data'], {
   revalidate: 600, // 10 minutes
   tags: ['agents', 'api', 'store'],
 })
-
