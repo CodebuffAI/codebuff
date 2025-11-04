@@ -80,6 +80,10 @@ export const MessageBlock = ({
     ancestorBranchStates: boolean[],
     isLastBranch: boolean,
   ) => {
+    // Only show branching characters when inside a subagent (indentLevel > 0)
+    if (ancestorBranchStates.length === 0) {
+      return ''
+    }
     const ancestorPrefix = ancestorBranchStates
       .map((ancestorIsLast) => (ancestorIsLast ? '  ' : '│ '))
       .join('')
@@ -181,15 +185,23 @@ export const MessageBlock = ({
 
     const branchChar = computeBranchChar(ancestorBranchStates, isLastBranch)
     const indentPrefix = branchChar.replace(/[├└]\s*$/, '')
+    // Only show preview prefix with branching when inside a subagent
     const previewBasePrefix =
-      indentPrefix.length > 0 ? `${indentPrefix}│ ` : '  │ '
+      ancestorBranchStates.length > 0
+        ? indentPrefix.length > 0
+          ? `${indentPrefix}│ `
+          : '  │ '
+        : ''
     const branchIndentWidth = stringWidth(branchChar)
     const headerPrefixWidth = stringWidth(branchChar)
     const previewBaseWidth = stringWidth(previewBasePrefix)
     const alignmentPadding = Math.max(0, headerPrefixWidth - previewBaseWidth)
-    const paddedPreviewPrefix = `${previewBasePrefix}${' '.repeat(alignmentPadding)}`
-    const blankPreviewPrefix =
-      previewBasePrefix.replace(/\s+$/, '') || previewBasePrefix
+    const paddedPreviewPrefix = previewBasePrefix
+      ? `${previewBasePrefix}${' '.repeat(alignmentPadding)}`
+      : ''
+    const blankPreviewPrefix = previewBasePrefix
+      ? previewBasePrefix.replace(/\s+$/, '') || previewBasePrefix
+      : ''
     const toolRenderConfig = getToolRenderConfig(toolBlock, theme, {
       availableWidth,
       indentationOffset: branchIndentWidth,
@@ -198,6 +210,10 @@ export const MessageBlock = ({
     })
     const formatPreview = (value: string | null): string => {
       if (!value) return ''
+      // At top level, don't add preview prefix with branching characters
+      if (ancestorBranchStates.length === 0) {
+        return value
+      }
       const rawLines = value.split('\n')
       const decorated = rawLines.map((line) =>
         line.trim().length > 0
