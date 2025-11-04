@@ -1,4 +1,9 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
+
+import {
+  loadMessageHistory,
+  saveMessageHistory,
+} from '../utils/message-history'
 
 export const useInputHistory = (
   inputValue: string,
@@ -7,11 +12,25 @@ export const useInputHistory = (
   const messageHistoryRef = useRef<string[]>([])
   const historyIndexRef = useRef<number>(-1)
   const currentDraftRef = useRef<string>('')
+  const isInitializedRef = useRef<boolean>(false)
+
+  // Load history from disk on mount
+  useEffect(() => {
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true
+      const savedHistory = loadMessageHistory()
+      messageHistoryRef.current = savedHistory
+    }
+  }, [])
 
   const saveToHistory = useCallback((message: string) => {
-    messageHistoryRef.current = [...messageHistoryRef.current, message]
+    const newHistory = [...messageHistoryRef.current, message]
+    messageHistoryRef.current = newHistory
     historyIndexRef.current = -1
     currentDraftRef.current = ''
+    
+    // Persist to disk
+    saveMessageHistory(newHistory)
   }, [])
 
   const navigateUp = useCallback(() => {
