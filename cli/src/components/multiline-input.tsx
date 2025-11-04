@@ -591,7 +591,8 @@ export const MultilineInput = forwardRef<
     textStyle.attributes = textAttributes
   }
 
-  const cursorFg = theme.primary
+  const cursorFg = theme.info
+  const highlightBg = '#7dd3fc' // Lighter blue for highlight background
 
   return (
     <scrollbox
@@ -626,8 +627,9 @@ export const MultilineInput = forwardRef<
             {beforeCursor}
             {shouldHighlight ? (
               <span
-                {...(cursorFg ? { fg: cursorFg } : undefined)}
-                attributes={TextAttributes.UNDERLINE}
+                bg={highlightBg}
+                fg={theme.background}
+                attributes={TextAttributes.BOLD}
               >
                 {activeChar === ' ' ? '\u00a0' : activeChar}
               </span>
