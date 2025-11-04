@@ -9,7 +9,7 @@ import { useLoginKeyboardHandlers } from '../hooks/use-login-keyboard-handlers'
 import { useLoginPolling } from '../hooks/use-login-polling'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
-import { useTheme, VariantProvider } from '../hooks/use-theme'
+import { useTheme } from '../hooks/use-theme'
 import {
   DEFAULT_TERMINAL_HEIGHT,
   MODAL_VERTICAL_MARGIN,
@@ -26,7 +26,6 @@ import { useLoginStore } from '../state/login-store'
 import { copyTextToClipboard } from '../utils/clipboard'
 import { logger } from '../utils/logger'
 
-import type { ChatTheme } from '../types/theme-system'
 import type { User } from '../utils/auth'
 
 interface LoginModalProps {
@@ -38,23 +37,7 @@ export const LoginModal = ({
   onLoginSuccess,
   hasInvalidCredentials = false,
 }: LoginModalProps) => {
-  return (
-    <VariantProvider variant="modal">
-      <LoginModalContent
-        onLoginSuccess={onLoginSuccess}
-        hasInvalidCredentials={hasInvalidCredentials}
-      />
-    </VariantProvider>
-  )
-}
-
-const LoginModalContent = ({
-  onLoginSuccess,
-  hasInvalidCredentials,
-}: LoginModalProps) => {
   const renderer = useRenderer()
-
-  // Use theme from context (will be modal variant due to VariantProvider)
   const theme = useTheme()
 
   // Use zustand store for all state
