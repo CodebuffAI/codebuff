@@ -8,8 +8,10 @@ export type ContentBlock =
   | {
       type: 'text'
       content: string
+      color?: string
       marginTop?: number
       marginBottom?: number
+      status?: 'running' | 'complete'
     }
   | {
       type: 'html'
@@ -23,6 +25,7 @@ export type ContentBlock =
       toolName: ToolName
       input: any
       output?: string
+      outputRaw?: unknown
       agentId?: string
     }
   | {

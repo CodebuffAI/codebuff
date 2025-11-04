@@ -1,5 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
 
+import { useTheme } from '../hooks/use-theme'
+
 type FormatLinesFn = (text: string, maxWidth?: number) => string[]
 
 export interface TerminalLinkProps {
@@ -22,8 +24,8 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
   text,
   maxWidth,
   formatLines = defaultFormatLines,
-  color = '#3b82f6',
-  activeColor = '#22c55e',
+  color,
+  activeColor,
   underlineOnHover = true,
   isActive = false,
   onActivate,
@@ -31,6 +33,11 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
   lineWrap = false,
   inline = false,
 }) => {
+  const theme = useTheme()
+
+  // Use theme colors as defaults if not provided
+  const linkColor = color ?? theme.info
+  const linkActiveColor = activeColor ?? theme.success
   const [isHovered, setIsHovered] = useState(false)
 
   const displayLines = useMemo(() => {
@@ -41,7 +48,7 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
     return formatted.filter((line) => line.trim().length > 0)
   }, [formatLines, maxWidth, text])
 
-  const displayColor = isActive ? activeColor : color
+  const displayColor = isActive ? linkActiveColor : linkColor
   const shouldUnderline = underlineOnHover && isHovered
 
   const handleActivate = useCallback(() => {
@@ -71,7 +78,7 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
       {displayLines.map((line: string, index: number) => {
         const coloredText = <span fg={displayColor}>{line}</span>
         return (
-          <text key={index} wrap={lineWrap}>
+          <text key={index} style={{ wrapMode: lineWrap ? 'word' : 'none' }}>
             {shouldUnderline ? <u>{coloredText}</u> : coloredText}
           </text>
         )

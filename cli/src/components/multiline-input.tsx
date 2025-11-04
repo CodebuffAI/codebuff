@@ -11,49 +11,9 @@ import {
 } from 'react'
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
+import { useTheme } from '../hooks/use-theme'
 
 import type { PasteEvent, ScrollBoxRenderable } from '@opentui/core'
-
-const mixColors = (
-  foreground: string,
-  background: string,
-  alpha = 0.4,
-): string => {
-  const parseHex = (hex: string) => {
-    const normalized = hex.trim().replace('#', '')
-    const full =
-      normalized.length === 3
-        ? normalized
-            .split('')
-            .map((ch) => ch + ch)
-            .join('')
-        : normalized
-    const value = parseInt(full, 16)
-    return {
-      r: (value >> 16) & 0xff,
-      g: (value >> 8) & 0xff,
-      b: value & 0xff,
-    }
-  }
-
-  const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)))
-
-  try {
-    const fg = parseHex(foreground)
-    const bg = parseHex(background)
-
-    const blend = {
-      r: clamp(alpha * fg.r + (1 - alpha) * bg.r),
-      g: clamp(alpha * fg.g + (1 - alpha) * bg.g),
-      b: clamp(alpha * fg.b + (1 - alpha) * bg.b),
-    }
-
-    const toHex = (value: number) => value.toString(16).padStart(2, '0')
-    return `#${toHex(blend.r)}${toHex(blend.g)}${toHex(blend.b)}`
-  } catch {
-    return foreground
-  }
-}
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
@@ -104,7 +64,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
   return pos
 }
 
-const CURSOR_CHAR = '▏'
+const CURSOR_CHAR = '┃'
 
 interface MultilineInputProps {
   value: string
@@ -122,15 +82,8 @@ interface MultilineInputProps {
   placeholder?: string
   focused?: boolean
   maxHeight?: number
-  theme: {
-    inputBg: string
-    inputFocusedBg: string
-    inputFg: string
-    inputFocusedFg: string
-    inputPlaceholder: string
-    cursor: string
-  }
   width: number
+  textAttributes?: number
 }
 
 export type MultilineInputHandle = {
@@ -148,12 +101,13 @@ export const MultilineInput = forwardRef<
     placeholder = '',
     focused = true,
     maxHeight = 5,
-    theme,
     width,
+    textAttributes,
     onKeyIntercept,
   }: MultilineInputProps,
   forwardedRef,
 ) {
+  const theme = useTheme()
   const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
   const [cursorPosition, setCursorPosition] = useState(value.length)
   useImperativeHandle(
@@ -587,11 +541,6 @@ export const MultilineInput = forwardRef<
   const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
   const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
   const activeChar = afterCursor.charAt(0) || ' '
-  const highlightBg = mixColors(
-    theme.cursor,
-    isPlaceholder ? theme.inputBg : theme.inputFocusedBg,
-    0.4,
-  )
   const shouldHighlight =
     showCursor &&
     !isPlaceholder &&
@@ -625,6 +574,26 @@ export const MultilineInput = forwardRef<
     maxHeight,
   ])
 
+  const inputColor = isPlaceholder
+    ? theme.muted
+    : focused
+      ? theme.inputFocusedFg
+      : theme.inputFg
+
+  const textStyle: Record<string, unknown> = {
+    bg: 'transparent',
+    fg: inputColor,
+  }
+
+  if (isPlaceholder) {
+    textStyle.attributes = TextAttributes.DIM
+  } else if (textAttributes !== undefined && textAttributes !== 0) {
+    textStyle.attributes = textAttributes
+  }
+
+  const cursorFg = theme.info
+  const highlightBg = '#7dd3fc' // Lighter blue for highlight background
+
   return (
     <scrollbox
       ref={scrollBoxRef}
@@ -638,7 +607,7 @@ export const MultilineInput = forwardRef<
         rootOptions: {
           width: '100%',
           height: height,
-          backgroundColor: focused ? theme.inputFocusedBg : theme.inputBg,
+          backgroundColor: 'transparent',
           flexGrow: 0,
           flexShrink: 0,
         },
@@ -652,25 +621,23 @@ export const MultilineInput = forwardRef<
         },
       }}
     >
-      <text
-        wrap
-        style={{
-          fg: isPlaceholder
-            ? theme.inputPlaceholder
-            : focused
-              ? theme.inputFocusedFg
-              : theme.inputFg,
-        }}
-      >
+      <text style={textStyle}>
         {showCursor ? (
           <>
             {beforeCursor}
             {shouldHighlight ? (
-              <span fg={theme.inputFocusedFg} bg={highlightBg}>
+              <span
+                bg={highlightBg}
+                fg={theme.background}
+                attributes={TextAttributes.BOLD}
+              >
                 {activeChar === ' ' ? '\u00a0' : activeChar}
               </span>
             ) : (
-              <span fg={theme.cursor} attributes={TextAttributes.BOLD}>
+              <span
+                {...(cursorFg ? { fg: cursorFg } : undefined)}
+                attributes={TextAttributes.BOLD}
+              >
                 {CURSOR_CHAR}
               </span>
             )}

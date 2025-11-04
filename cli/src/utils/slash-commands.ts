@@ -24,7 +24,7 @@ export function handleSlashCommands(params: {
   setCanProcessQueue: (value: React.SetStateAction<boolean>) => void
   setInputFocused: (focused: boolean) => void
   setInputValue: (value: string | ((prev: string) => string)) => void
-  setIsAuthenticated: (value: React.SetStateAction<boolean>) => void
+  setIsAuthenticated: (value: React.SetStateAction<boolean | null>) => void
   setMessages: (
     value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
   ) => void

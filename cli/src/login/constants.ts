@@ -21,12 +21,6 @@ export const LOGO_SMALL = `
  ╚██████╗ ██████╔╝
   ╚═════╝ ╚═════╝
 `
-// UI Color constants
-export const LINK_COLOR_DEFAULT = '#3b82f6'
-export const LINK_COLOR_CLICKED = '#1e40af'
-export const COPY_SUCCESS_COLOR = '#22c55e'
-export const COPY_ERROR_COLOR = '#ef4444'
-export const WARNING_COLOR = '#ef4444'
 
 // Shadow/border characters that receive the sheen animation effect
 export const SHADOW_CHARS = new Set([

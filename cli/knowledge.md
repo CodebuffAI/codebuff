@@ -507,7 +507,36 @@ The bug occurred when tool toggles were rendered. Agent toggles worked fine, but
 
 ## Toggle Branch Rendering
 
-Agent and tool toggles in the TUI render inside `<text>` components. Expanded content must resolve to plain strings or StyledText-compatible fragments (`<span>`, `<strong>`, `<em>`).
+Agent and tool toggles in the TUI render inside `<text>` components. Expanded content must resolve to plain strings or StyledText-compatible fragments (`<span>`, `<strong>`, `<em>`). Any React tree we pass into a toggle must either already be a `<text>` node or be wrapped in one so that downstream child elements never escape a text container. If we hand off plain markdown React fragments directly to `<box>`, OpenTUI will crash because the fragments often expand to bare `<span>` elements.
+
+Example:
+Tool markdown output (via `renderMarkdown`) now gets wrapped in a `<text>` element before reaching `BranchItem`. Without this wrapper, the renderer emits `<span>` nodes that hit `<box>` and cause `Component of type "span" must be created inside of a text node`. Wrapping the markdown and then composing it with any extra metadata keeps OpenTUI happy.
+
+  ```tsx
+  const displayContent = renderContentWithMarkdown(fullContent, false, options)
+
+  const renderableDisplayContent =
+    displayContent
+      ? (
+          <text
+            fg={resolveThemeColor(theme.agentText)}
+            style={{ wrapMode: 'word' }}
+            attributes={theme.messageTextAttributes || undefined}
+          >
+            {displayContent}
+          </text>
+        )
+      : null
+
+  const combinedContent = toolRenderConfig.content ? (
+    <box style={{ flexDirection: 'column', gap: renderableDisplayContent ? 1 : 0 }}>
+      <box style={{ flexDirection: 'column', gap: 0 }}>
+        {toolRenderConfig.content}
+      </box>
+      {renderableDisplayContent}
+    </box>
+  ) : renderableDisplayContent
+  ```
 
 ### TextNodeRenderable Constraint
 

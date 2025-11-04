@@ -9,12 +9,8 @@ import { useLoginKeyboardHandlers } from '../hooks/use-login-keyboard-handlers'
 import { useLoginPolling } from '../hooks/use-login-polling'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
+import { useTheme } from '../hooks/use-theme'
 import {
-  LINK_COLOR_DEFAULT,
-  LINK_COLOR_CLICKED,
-  COPY_SUCCESS_COLOR,
-  COPY_ERROR_COLOR,
-  WARNING_COLOR,
   DEFAULT_TERMINAL_HEIGHT,
   MODAL_VERTICAL_MARGIN,
   MAX_MODAL_BASE_HEIGHT,
@@ -23,7 +19,6 @@ import {
 import {
   formatUrl,
   generateFingerprintId,
-  isLightModeColor,
   calculateResponsiveLayout,
   calculateModalDimensions,
 } from '../login/utils'
@@ -31,21 +26,19 @@ import { useLoginStore } from '../state/login-store'
 import { copyTextToClipboard } from '../utils/clipboard'
 import { logger } from '../utils/logger'
 
-import type { ChatTheme } from '../types/theme-system'
 import type { User } from '../utils/auth'
 
 interface LoginModalProps {
   onLoginSuccess: (user: User) => void
-  theme: ChatTheme
   hasInvalidCredentials?: boolean | null
 }
 
 export const LoginModal = ({
   onLoginSuccess,
-  theme,
   hasInvalidCredentials = false,
 }: LoginModalProps) => {
   const renderer = useRenderer()
+  const theme = useTheme()
 
   // Use zustand store for all state
   const {
@@ -219,15 +212,6 @@ export const LoginModal = ({
     }
   }, [hasOpenedBrowser, loginUrl, copyToClipboard])
 
-  // Determine if we're in light mode by checking background color luminance
-  const isLightMode = useMemo(
-    () => isLightModeColor(theme.background),
-    [theme.background],
-  )
-
-  // Use pure black/white for logo
-  const logoColor = isLightMode ? '#000000' : '#ffffff'
-
   // Calculate terminal width and height for responsive display
   const terminalWidth = renderer?.width || 80
   const terminalHeight = renderer?.height || 24
@@ -265,7 +249,7 @@ export const LoginModal = ({
 
   // Use custom hook for sheen animation
   const { applySheenToChar } = useSheenAnimation({
-    logoColor,
+    logoColor: theme.foreground,
     terminalWidth: renderer?.width,
     sheenPosition,
     setSheenPosition,
@@ -275,7 +259,7 @@ export const LoginModal = ({
   const { component: logoComponent } = useLogo({
     availableWidth: contentMaxWidth,
     applySheenToChar,
-    textColor: theme.chromeText,
+    textColor: theme.foreground,
   })
 
   // Calculate modal dimensions
@@ -288,17 +272,22 @@ export const LoginModal = ({
     WARNING_BANNER_HEIGHT,
   )
 
+  // Calculate modal width and center position
+  const modalWidth = Math.floor(terminalWidth * 0.95)
+  const modalLeft = Math.floor((terminalWidth - modalWidth) / 2)
+  const modalTop = Math.floor((terminalHeight - modalHeight) / 2)
+
   // Format URL for display (wrap if needed)
   return (
     <box
       position="absolute"
-      left={Math.floor(terminalWidth * 0.025)}
-      top={1}
+      left={modalLeft}
+      top={modalTop}
       border
       borderStyle="double"
-      borderColor={theme.statusAccent}
+      borderColor={theme.primary}
       style={{
-        width: Math.floor(terminalWidth * 0.95),
+        width: modalWidth,
         height: modalHeight,
         maxHeight: modalHeight,
         backgroundColor: theme.background,
@@ -312,14 +301,14 @@ export const LoginModal = ({
           style={{
             width: '100%',
             padding: 1,
-            backgroundColor: '#ff0000',
+            backgroundColor: theme.error,
             borderStyle: 'single',
-            borderColor: WARNING_COLOR,
+            borderColor: theme.error,
             flexShrink: 0,
           }}
         >
-          <text wrap={true}>
-            <span fg={theme.statusSecondary}>
+          <text style={{ wrapMode: 'word' }}>
+            <span fg={theme.secondary}>
               {isNarrow
                 ? "⚠ Found API key but it's invalid. Please log in again."
                 : '⚠ We found an API key but it appears to be invalid. Please log in again to continue.'}
@@ -362,8 +351,8 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text wrap={false}>
-              <span fg={theme.statusSecondary}>Loading...</span>
+            <text style={{ wrapMode: 'none' }}>
+              <span fg={theme.secondary}>Loading...</span>
             </text>
           </box>
         )}
@@ -379,12 +368,12 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text wrap={true}>
+            <text style={{ wrapMode: 'word' }}>
               <span fg="red">Error: {error}</span>
             </text>
             {!isVerySmall && (
-              <text wrap={true}>
-                <span fg={theme.statusSecondary}>
+              <text style={{ wrapMode: 'word' }}>
+                <span fg={theme.secondary}>
                   {isNarrow
                     ? 'Please try again'
                     : 'Please restart the CLI and try again'}
@@ -405,8 +394,8 @@ export const LoginModal = ({
               flexShrink: 0,
             }}
           >
-            <text wrap={true}>
-              <span fg={theme.statusAccent}>
+            <text style={{ wrapMode: 'word' }}>
+              <span fg={theme.primary}>
                 {isNarrow
                   ? 'Press ENTER to login...'
                   : 'Press ENTER to open your browser and finish logging in...'}
@@ -427,8 +416,8 @@ export const LoginModal = ({
               gap: isVerySmall ? 0 : 1,
             }}
           >
-            <text wrap={true}>
-              <span fg={theme.statusSecondary}>
+            <text style={{ wrapMode: 'word' }}>
+              <span fg={theme.secondary}>
                 {isNarrow ? 'Click to copy:' : 'Click link to copy:'}
               </span>
             </text>
@@ -443,8 +432,8 @@ export const LoginModal = ({
                 text={loginUrl}
                 maxWidth={maxUrlWidth}
                 formatLines={formatLoginUrlLines}
-                color={hasClickedLink ? LINK_COLOR_CLICKED : LINK_COLOR_DEFAULT}
-                activeColor={LINK_COLOR_CLICKED}
+                color={hasClickedLink ? theme.success : theme.info}
+                activeColor={theme.success}
                 underlineOnHover={true}
                 isActive={justCopied}
                 onActivate={handleActivateLoginUrl}
@@ -464,12 +453,12 @@ export const LoginModal = ({
                   flexShrink: 0,
                 }}
               >
-                <text wrap={false}>
+                <text style={{ wrapMode: 'none' }}>
                   <span
                     fg={
                       copyMessage.startsWith('✓')
-                        ? COPY_SUCCESS_COLOR
-                        : COPY_ERROR_COLOR
+                        ? theme.success
+                        : theme.error
                     }
                   >
                     {copyMessage}

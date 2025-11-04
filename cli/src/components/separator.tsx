@@ -1,18 +1,18 @@
 import React from 'react'
 
-import type { ChatTheme } from '../types/theme-system'
+import { useTheme } from '../hooks/use-theme'
 
 interface SeparatorProps {
-  theme: ChatTheme
   width: number
 }
 
-export const Separator = ({ theme, width }: SeparatorProps) => {
+export const Separator = ({ width }: SeparatorProps) => {
+  const theme = useTheme()
+
   return (
     <text
       content={'─'.repeat(width)}
-      wrap={false}
-      style={{ fg: theme.statusSecondary, height: 1 }}
+      style={{ fg: theme.secondary, height: 1, wrapMode: 'none' }}
     />
   )
 }

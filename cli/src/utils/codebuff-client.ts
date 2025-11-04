@@ -41,12 +41,16 @@ export function getToolDisplayInfo(toolName: string): {
   name: string
   type: string
 } {
+  const TOOL_NAME_OVERRIDES: Record<string, string> = {
+    list_directory: 'List Directories',
+  }
+
   const capitalizeWords = (str: string) => {
     return str.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
   return {
-    name: capitalizeWords(toolName),
+    name: TOOL_NAME_OVERRIDES[toolName] ?? capitalizeWords(toolName),
     type: 'tool',
   }
 }

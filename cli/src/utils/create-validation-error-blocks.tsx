@@ -64,7 +64,7 @@ export function createValidationErrorBlocks(
         type: 'html',
         render: ({ textColor }) => (
           <box style={{ flexDirection: 'column', width: '100%' }}>
-            <text wrap={true} style={{ fg: textColor }}>
+            <text style={{ wrapMode: 'word', fg: textColor }}>
               {agentId} in{' '}
               <TerminalLink
                 text={relativePathFromRoot}

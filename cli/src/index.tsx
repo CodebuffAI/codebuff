@@ -11,6 +11,7 @@ import React from 'react'
 import { validateAgents } from '@codebuff/sdk'
 
 import { App } from './chat'
+import './state/theme-store' // Initialize theme store and watchers
 import { getUserCredentials } from './utils/auth'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile } from './utils/logger'
@@ -150,6 +151,9 @@ function startApp() {
     <QueryClientProvider client={queryClient}>
       <AppWithAsyncAuth />
     </QueryClientProvider>,
+    {
+      backgroundColor: 'transparent',
+    },
   )
 }
 

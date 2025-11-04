@@ -1,8 +1,7 @@
 import React from 'react'
 
 import { HighlightedSubsequenceText } from './highlighted-text'
-
-import type { ChatTheme } from '../types/theme-system'
+import { useTheme } from '../hooks/use-theme'
 
 export interface SuggestionItem {
   id: string
@@ -15,7 +14,6 @@ export interface SuggestionItem {
 interface SuggestionMenuProps {
   items: SuggestionItem[]
   selectedIndex: number
-  theme: ChatTheme
   maxVisible?: number
   prefix?: string
 }
@@ -27,6 +25,7 @@ export const SuggestionMenu = ({
   maxVisible = 10,
   prefix = '/',
 }: SuggestionMenuProps) => {
+  const theme = useTheme()
   if (items.length === 0) {
     return null
   }
@@ -54,11 +53,9 @@ export const SuggestionMenu = ({
     const labelLength = effectivePrefix.length + item.label.length
     const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
     const padding = ' '.repeat(paddingLength)
-    const textColor = isSelected ? theme.agentContentText : theme.inputFg
-    const descriptionColor = isSelected
-      ? theme.agentContentText
-      : theme.timestampUser
-    const highlightColor = theme.agentPrefix
+    const textColor = isSelected ? theme.foreground : theme.inputFg
+    const descriptionColor = isSelected ? theme.foreground : theme.muted
+    const highlightColor = theme.primary
 
     return (
       <box
@@ -70,18 +67,17 @@ export const SuggestionMenu = ({
           paddingRight: 1,
           paddingTop: 0,
           paddingBottom: 0,
-          backgroundColor: isSelected ? theme.agentFocusedBg : theme.messageBg,
+          backgroundColor: isSelected ? theme.agentFocusedBg : theme.background,
           width: '100%',
         }}
       >
         <text
-          wrap={false}
           style={{
             fg: textColor,
             marginBottom: 0,
           }}
         >
-          <span fg={theme.agentPrefix}>{effectivePrefix}</span>
+          <span fg={theme.primary}>{effectivePrefix}</span>
           <HighlightedSubsequenceText
             text={item.label}
             indices={item.labelHighlightIndices}
@@ -109,7 +105,7 @@ export const SuggestionMenu = ({
         paddingRight: 1,
         paddingTop: 0,
         paddingBottom: 0,
-        backgroundColor: theme.panelBg,
+        backgroundColor: theme.surface,
         width: '100%',
       }}
     >
@@ -117,7 +113,7 @@ export const SuggestionMenu = ({
         style={{
           flexDirection: 'column',
           gap: 0,
-          backgroundColor: theme.messageBg,
+          backgroundColor: theme.background,
           width: '100%',
         }}
       >

@@ -1,9 +1,14 @@
-import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
+import stringWidth from 'string-width'
 
-import { BranchItem } from './branch-item'
+import { pluralize } from '@codebuff/common/util/string'
+
+import { AgentBranchItem } from './agent-branch-item'
+import { ToolCallItem } from './tool-call-item'
+import { useTheme } from '../hooks/use-theme'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
+import { getToolRenderConfig } from './tool-renderer'
 import {
   renderMarkdown,
   renderStreamingMarkdown,
@@ -13,7 +18,7 @@ import {
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ContentBlock } from '../types/chat'
-import type { ChatTheme } from '../types/theme-system'
+import type { ChatTheme, ThemeColor } from '../types/theme-system'
 
 const trimTrailingNewlines = (value: string): string =>
   value.replace(/[\r\n]+$/g, '')
@@ -33,8 +38,7 @@ interface MessageBlockProps {
   completionTime?: string
   credits?: number
   timer: ElapsedTimeTracker
-  theme: ChatTheme
-  textColor: string
+  textColor?: ThemeColor
   timestampColor: string
   markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
   availableWidth: number
@@ -57,7 +61,6 @@ export const MessageBlock = ({
   completionTime,
   credits,
   timer,
-  theme,
   textColor,
   timestampColor,
   markdownOptions,
@@ -68,10 +71,20 @@ export const MessageBlock = ({
   onToggleCollapsed,
   registerAgentRef,
 }: MessageBlockProps): ReactNode => {
+  const theme = useTheme()
+  const resolvedTextColor = textColor ?? theme.foreground
+
   // Get elapsed time from timer for streaming AI messages
   const elapsedSeconds = timer.elapsedSeconds
-  const computeBranchChar = (indentLevel: number, isLastBranch: boolean) =>
-    `${'  '.repeat(indentLevel)}${isLastBranch ? '└─ ' : '├─ '}`
+  const computeBranchChar = (
+    ancestorBranchStates: boolean[],
+    isLastBranch: boolean,
+  ) => {
+    const ancestorPrefix = ancestorBranchStates
+      .map((ancestorIsLast) => (ancestorIsLast ? '  ' : '│ '))
+      .join('')
+    return `${ancestorPrefix}${isLastBranch ? '└ ' : '├ '}`
+  }
 
   const renderContentWithMarkdown = (
     rawContent: string,
@@ -127,8 +140,8 @@ export const MessageBlock = ({
       codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
       palette: {
         ...markdownPalette,
-        inlineCodeFg: theme.agentText,
-        codeTextFg: theme.agentText,
+        inlineCodeFg: theme.foreground,
+        codeTextFg: theme.foreground,
       },
     }
   }
@@ -138,6 +151,7 @@ export const MessageBlock = ({
     indentLevel: number,
     isLastBranch: boolean,
     keyPrefix: string,
+    ancestorBranchStates: boolean[],
   ): React.ReactNode => {
     if (toolBlock.toolName === 'end_turn') {
       return null
@@ -165,15 +179,47 @@ export const MessageBlock = ({
         ? `$ ${(toolBlock.input as any).command.trim()}`
         : null
 
-    const streamingPreview = isStreaming
+    const branchChar = computeBranchChar(ancestorBranchStates, isLastBranch)
+    const indentPrefix = branchChar.replace(/[├└]\s*$/, '')
+    const previewBasePrefix =
+      indentPrefix.length > 0 ? `${indentPrefix}│ ` : '  │ '
+    const branchIndentWidth = stringWidth(branchChar)
+    const headerPrefixWidth = stringWidth(branchChar)
+    const previewBaseWidth = stringWidth(previewBasePrefix)
+    const alignmentPadding = Math.max(0, headerPrefixWidth - previewBaseWidth)
+    const paddedPreviewPrefix = `${previewBasePrefix}${' '.repeat(alignmentPadding)}`
+    const blankPreviewPrefix =
+      previewBasePrefix.replace(/\s+$/, '') || previewBasePrefix
+    const toolRenderConfig = getToolRenderConfig(toolBlock, theme, {
+      availableWidth,
+      indentationOffset: branchIndentWidth,
+      previewPrefix: previewBasePrefix,
+      labelWidth: headerPrefixWidth,
+    })
+    const formatPreview = (value: string | null): string => {
+      if (!value) return ''
+      const rawLines = value.split('\n')
+      const decorated = rawLines.map((line) =>
+        line.trim().length > 0
+          ? `${paddedPreviewPrefix}${line}`
+          : blankPreviewPrefix,
+      )
+      if (!decorated.some((line) => line.trim().length === 0)) {
+        decorated.push(blankPreviewPrefix)
+      }
+      return decorated.join('\n')
+    }
+    const rawStreamingPreview = isStreaming
       ? commandPreview ?? `${sanitizePreview(firstLine)}...`
       : ''
-
+    const streamingPreview = isStreaming
+      ? formatPreview(rawStreamingPreview)
+      : ''
+    const collapsedPreviewBase =
+      toolRenderConfig.collapsedPreview ??
+      getToolFinishedPreview(toolBlock, commandPreview, lastLine)
     const finishedPreview =
-      !isStreaming && isCollapsed
-        ? getToolFinishedPreview(toolBlock, commandPreview, lastLine)
-        : ''
-
+      !isStreaming ? formatPreview(collapsedPreviewBase) : ''
     const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
     const displayContent = renderContentWithMarkdown(
       fullContent,
@@ -181,24 +227,57 @@ export const MessageBlock = ({
       agentMarkdownOptions,
     )
 
-    const branchChar = computeBranchChar(indentLevel, isLastBranch)
+    const renderableDisplayContent =
+      displayContent === null ||
+      displayContent === undefined ||
+      displayContent === false ||
+      displayContent === ''
+        ? null
+        : (
+            <text
+              fg={theme.foreground}
+              style={{ wrapMode: 'word' }}
+              attributes={
+                theme.messageTextAttributes && theme.messageTextAttributes !== 0
+                  ? theme.messageTextAttributes
+                  : undefined
+              }
+            >
+              {displayContent}
+            </text>
+          )
+
+    const combinedContent = toolRenderConfig.content ? (
+      <box
+        style={{
+          flexDirection: 'column',
+          gap: renderableDisplayContent ? 1 : 0,
+        }}
+      >
+        <box style={{ flexDirection: 'column', gap: 0 }}>
+          {toolRenderConfig.content}
+        </box>
+        {renderableDisplayContent}
+      </box>
+    ) : renderableDisplayContent
+
+    const headerName = displayInfo.name
 
     return (
       <box
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
       >
-        <BranchItem
-          name={displayInfo.name}
-          content={displayContent}
-          agentId={toolBlock.agentId}
+        <ToolCallItem
+          name={headerName}
+          content={combinedContent}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
           branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
-          theme={theme}
           onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
+          titleSuffix={toolRenderConfig.path}
         />
       </box>
     )
@@ -209,6 +288,7 @@ export const MessageBlock = ({
     indentLevel: number,
     isLastBranch: boolean,
     keyPrefix: string,
+    ancestorBranchStates: boolean[],
   ): React.ReactNode {
     const isCollapsed = collapsedAgents.has(agentBlock.agentId)
     const isStreaming =
@@ -234,18 +314,28 @@ export const MessageBlock = ({
         ? sanitizePreview(agentBlock.initialPrompt)
         : ''
 
-    const branchChar = computeBranchChar(indentLevel, isLastBranch)
+    const branchChar = ''
+    const nextAncestorBranches = [...ancestorBranchStates, isLastBranch]
     const childNodes = renderAgentBody(
       agentBlock,
       indentLevel + 1,
       keyPrefix,
       isStreaming,
+      nextAncestorBranches,
     )
 
     const displayContent =
       childNodes.length > 0 ? (
         <box style={{ flexDirection: 'column', gap: 0 }}>{childNodes}</box>
       ) : null
+    const isActive = isStreaming || agentBlock.status === 'running'
+    const statusLabel = isActive
+      ? 'running'
+      : agentBlock.status === 'complete'
+        ? 'completed'
+        : agentBlock.status
+    const statusColor = isActive ? theme.primary : theme.muted
+    const statusIndicator = isActive ? '●' : '✓'
 
     return (
       <box
@@ -253,7 +343,7 @@ export const MessageBlock = ({
         ref={(el: any) => registerAgentRef(agentBlock.agentId, el)}
         style={{ flexDirection: 'column', gap: 0 }}
       >
-        <BranchItem
+        <AgentBranchItem
           name={agentBlock.agentName}
           content={displayContent}
           prompt={agentBlock.initialPrompt}
@@ -263,7 +353,9 @@ export const MessageBlock = ({
           branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
-          theme={theme}
+          statusLabel={statusLabel ?? undefined}
+          statusColor={statusColor}
+          statusIndicator={statusIndicator}
           onToggle={() => onToggleCollapsed(agentBlock.agentId)}
         />
       </box>
@@ -307,7 +399,7 @@ export const MessageBlock = ({
     ) => {
       const identifier = formatIdentifier(agent)
       return (
-        <text key={`agent-${idx}`} wrap fg={theme.agentText}>
+        <text key={`agent-${idx}`} style={{ wrapMode: 'word', fg: theme.foreground }}>
           {`  • ${identifier}`}
         </text>
       )
@@ -339,7 +431,7 @@ export const MessageBlock = ({
         key={keyPrefix}
         ref={(el: any) => registerAgentRef(agentListBlock.id, el)}
       >
-        <BranchItem
+        <AgentBranchItem
           name={headerText}
           content={agentListContent}
           agentId={agentListBlock.id}
@@ -348,7 +440,6 @@ export const MessageBlock = ({
           branchChar=""
           streamingPreview=""
           finishedPreview={finishedPreview}
-          theme={theme}
           onToggle={() => onToggleCollapsed(agentListBlock.id)}
         />
       </box>
@@ -360,6 +451,7 @@ export const MessageBlock = ({
     indentLevel: number,
     keyPrefix: string,
     parentIsStreaming: boolean,
+    ancestorBranchStates: boolean[],
   ): React.ReactNode[] {
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
@@ -383,14 +475,21 @@ export const MessageBlock = ({
             isNestedStreamingText,
             markdownOptionsForLevel,
           )
+          const marginTop = nestedBlock.marginTop ?? 0
           const marginBottom = nestedBlock.marginBottom ?? 0
+          const explicitColor =
+            typeof (nestedBlock as any).color === 'string'
+              ? ((nestedBlock as any).color as string)
+              : undefined
+          const nestedTextColor = explicitColor ?? theme.foreground
           nodes.push(
             <text
               key={renderKey}
-              wrap
               style={{
-                fg: theme.agentText,
+                wrapMode: 'word',
+                fg: nestedTextColor,
                 marginLeft: Math.max(0, indentLevel * 2),
+                marginTop,
                 marginBottom,
               }}
             >
@@ -413,7 +512,10 @@ export const MessageBlock = ({
                 marginBottom,
               }}
             >
-              {nestedBlock.render({ textColor: theme.agentText, theme })}
+              {nestedBlock.render({
+                textColor: theme.foreground,
+                theme,
+              })}
             </box>,
           )
           break
@@ -427,6 +529,7 @@ export const MessageBlock = ({
               indentLevel,
               isLastBranch,
               `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
+              ancestorBranchStates,
             ),
           )
           break
@@ -440,6 +543,7 @@ export const MessageBlock = ({
               indentLevel,
               isLastBranch,
               `${keyPrefix}-agent-${nestedIdx}`,
+              ancestorBranchStates,
             ),
           )
           break
@@ -461,7 +565,10 @@ export const MessageBlock = ({
       markdownOptions,
     )
     return (
-      <text key={`message-content-${messageId}`} wrap style={{ fg: textColor }}>
+      <text
+        key={`message-content-${messageId}`}
+        style={{ wrapMode: 'word', fg: resolvedTextColor }}
+      >
         {displayContent}
       </text>
     )
@@ -486,11 +593,15 @@ export const MessageBlock = ({
             ? 0
             : block.marginTop ?? 0
         const marginBottom = block.marginBottom ?? 0
+        const explicitColor =
+          typeof (block as any).color === 'string'
+            ? ((block as any).color as string)
+            : undefined
+        const blockTextColor = explicitColor ?? resolvedTextColor
         return (
           <text
             key={renderKey}
-            wrap
-            style={{ fg: textColor, marginTop, marginBottom }}
+            style={{ wrapMode: 'word', fg: blockTextColor, marginTop, marginBottom }}
           >
             {renderedContent}
           </text>
@@ -511,7 +622,7 @@ export const MessageBlock = ({
               width: '100%',
             }}
           >
-            {block.render({ textColor, theme })}
+            {block.render({ textColor: resolvedTextColor, theme })}
           </box>
         )
       }
@@ -523,6 +634,7 @@ export const MessageBlock = ({
           0,
           isLastBranch,
           `${messageId}-tool-${block.toolCallId}`,
+          [],
         )
       }
 
@@ -533,6 +645,7 @@ export const MessageBlock = ({
           0,
           isLastBranch,
           `${messageId}-agent-${block.agentId}`,
+          [],
         )
       }
 
@@ -554,9 +667,9 @@ export const MessageBlock = ({
     <>
       {isUser && (
         <text
-          wrap={false}
           attributes={TextAttributes.DIM}
           style={{
+            wrapMode: 'none',
             fg: timestampColor,
             marginTop: 0,
             marginBottom: 0,
@@ -578,10 +691,10 @@ export const MessageBlock = ({
           {/* Show elapsed time while streaming */}
           {isLoading && !isComplete && elapsedSeconds > 0 && (
             <text
-              wrap={false}
               attributes={TextAttributes.DIM}
               style={{
-                fg: theme.statusSecondary,
+                wrapMode: 'none',
+                fg: theme.secondary,
                 marginTop: 0,
                 marginBottom: 0,
                 alignSelf: 'flex-start',
@@ -593,10 +706,10 @@ export const MessageBlock = ({
           {/* Show completion time and credits when complete */}
           {isComplete && (
             <text
-              wrap={false}
               attributes={TextAttributes.DIM}
               style={{
-                fg: theme.statusSecondary,
+                wrapMode: 'none',
+                fg: theme.secondary,
                 marginTop: 0,
                 marginBottom: 0,
                 alignSelf: 'flex-start',

@@ -13,11 +13,9 @@ import {
 } from 'bun:test'
 
 import { StatusIndicator } from '../status-indicator'
-import { chatThemes } from '../../utils/theme-system'
+import '../../state/theme-store' // Initialize theme store
 import { renderToStaticMarkup } from 'react-dom/server'
 import * as codebuffClient from '../../utils/codebuff-client'
-
-const theme = chatThemes.dark
 
 const createTimer = (elapsedSeconds: number, started: boolean) => ({
   start: () => {},
@@ -42,7 +40,6 @@ describe('StatusIndicator timer rendering', () => {
   test('shows elapsed seconds when timer is active', () => {
     const markup = renderToStaticMarkup(
       <StatusIndicator
-        theme={theme}
         clipboardMessage={null}
         isActive={true}
         timer={createTimer(5, true)}
@@ -53,7 +50,6 @@ describe('StatusIndicator timer rendering', () => {
 
     const inactiveMarkup = renderToStaticMarkup(
       <StatusIndicator
-        theme={theme}
         clipboardMessage={null}
         isActive={false}
         timer={createTimer(0, false)}
@@ -66,7 +62,6 @@ describe('StatusIndicator timer rendering', () => {
   test('clipboard message takes priority over timer output', () => {
     const markup = renderToStaticMarkup(
       <StatusIndicator
-        theme={theme}
         clipboardMessage="Copied!"
         isActive={true}
         timer={createTimer(12, true)}

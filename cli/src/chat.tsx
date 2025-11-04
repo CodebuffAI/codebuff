@@ -31,7 +31,7 @@ import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
-import { useSystemThemeDetector } from './hooks/use-system-theme-detector'
+import { useTheme, useResolvedThemeName } from './hooks/use-theme'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
@@ -45,11 +45,23 @@ import {
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { openFileAtPath } from './utils/open-file'
-import { chatThemes, createMarkdownPalette } from './utils/theme-system'
+import { handleSlashCommands } from './utils/slash-commands'
+import {
+  chatThemes,
+  createMarkdownPalette,
+} from './utils/theme-system'
+import { env } from '@codebuff/common/env'
+import { clientEnvVars } from '@codebuff/common/env-schema'
 import { formatValidationError } from './utils/validation-error-formatting'
+import { getCodebuffClient } from './utils/codebuff-client'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
-import type { ChatMessage, ContentBlock } from './types/chat'
+import type {
+  ChatMessage,
+  ContentBlock,
+  ChatVariant,
+  AgentMessage,
+} from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { ScrollBoxRenderable } from '@opentui/core'
@@ -91,13 +103,18 @@ export const App = ({
   const terminalWidth = resolvedTerminalWidth
   const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
+  // Use theme hooks (transparent variant is default)
+  const theme = useTheme()
+  const resolvedThemeName = useResolvedThemeName()
+
+  const markdownPalette = useMemo(
+    () => createMarkdownPalette(theme),
+    [theme],
+  )
+
   // Get formatted logo for display in chat messages
   const contentMaxWidth = Math.max(10, Math.min(terminalWidth - 4, 80))
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
-
-  const themeName = useSystemThemeDetector()
-  const theme = chatThemes[themeName]
-  const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
   // Set up agent validation (manual trigger)
   const { validationErrors: liveValidationErrors, validate: validateAgents } =
@@ -114,7 +131,12 @@ export const App = ({
   const authQuery = useAuthQuery()
   const logoutMutation = useLogoutMutation()
 
-  const [isAuthenticated, setIsAuthenticated] = useState(requireAuth === false)
+  // If requireAuth is null (checking), defer showing auth UI until resolved
+  const initialAuthState =
+    requireAuth === false ? true : requireAuth === true ? false : null
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(
+    initialAuthState,
+  )
   const [user, setUser] = useState<User | null>(null)
 
   // Update authentication state when requireAuth changes
@@ -175,19 +197,37 @@ export const App = ({
     }
   }, [logoBlock])
 
-  // Initialize with loaded agents message
+  // Initialize and update loaded agents message when theme changes
   useEffect(() => {
-    if (loadedAgentsData && messages.length === 0) {
-      const agentListId = 'loaded-agents-list'
-      const userCredentials = getUserCredentials()
-      const greeting = userCredentials?.name?.trim().length
-        ? `Welcome back, ${userCredentials.name.trim()}!`
-        : null
+    if (!loadedAgentsData) {
+      return
+    }
 
+    const agentListId = 'loaded-agents-list'
+    const userCredentials = getUserCredentials()
+    const greeting = userCredentials?.name?.trim().length
+      ? `Welcome back, ${userCredentials.name.trim()}!`
+      : null
+
+    const baseTextColor = theme.foreground
+
+    const homeDir = os.homedir()
+    const repoRoot = path.dirname(loadedAgentsData.agentsDir)
+    const relativePath = path.relative(homeDir, repoRoot)
+    const displayPath = relativePath.startsWith('..')
+      ? repoRoot
+      : `~/${relativePath}`
+
+    const agentSectionHeader = agentId
+      ? `**Active agent: ${agentId}**`
+      : `**Active agent:** *fast default (base2-fast)*`
+
+    const buildBlocks = (listId: string): ContentBlock[] => {
       const blocks: ContentBlock[] = [
         {
           type: 'text',
           content: '\n\n' + logoBlock,
+          color: theme.foreground,
         },
       ]
 
@@ -195,70 +235,114 @@ export const App = ({
         blocks.push({
           type: 'text',
           content: greeting,
+          color: baseTextColor,
         })
       }
 
-      // Calculate path from home directory to repository root
-      // agentsDir is typically in the root, so use its parent as the repository root
-      const homeDir = os.homedir()
-      const repoRoot = path.dirname(loadedAgentsData.agentsDir)
-      const relativePath = path.relative(homeDir, repoRoot)
-      const displayPath = relativePath.startsWith('..')
-        ? repoRoot // If outside home dir, show absolute path
-        : `~/${relativePath}`
+      // Log all client environment variables (works with both dev and binary modes)
+      const envVarsList = clientEnvVars
+        .map((key) => {
+          const value = env[key]
+          const displayValue =
+            typeof value === 'string' && value.length > 50
+              ? value.substring(0, 47) + '...'
+              : value
+          return `  ${key}=${displayValue}`
+        })
+        .join('\n')
 
-      const renderRepoPathInfo = () => (
-        <text wrap={true}>
-          Codebuff can read and write files in{' '}
-          <TerminalLink
-            text={displayPath}
-            color="#3b82f6"
-            inline={true}
-            underlineOnHover={true}
-            onActivate={() => openFileAtPath(repoRoot)}
-          />
-          , and run terminal commands to help you build.
-        </text>
-      )
+      blocks.push({
+        type: 'text',
+        content: `\nCLI Environment variables:\n${envVarsList}`,
+        marginTop: 1,
+        color: baseTextColor,
+      })
+
+      // Display SDK environment variables when the client is available
+      const client = getCodebuffClient()
+      const envGetter = client ? (client as any)?.getEnvironmentInfo : null
+
+      if (typeof envGetter === 'function') {
+        const sdkEnv = envGetter.call(client) as {
+          rawEnv: Record<string, string>
+          computed: Record<string, unknown>
+        }
+        const sdkEnvLines = [
+          'Raw SDK env vars:',
+          ...Object.entries(sdkEnv.rawEnv).map(
+            ([key, value]) => `  ${key}=${value}`,
+          ),
+          '',
+          'Computed SDK constants:',
+          ...Object.entries(sdkEnv.computed).map(([key, value]) => {
+            const displayValue =
+              typeof value === 'string' && value.length > 50
+                ? value.substring(0, 47) + '...'
+                : String(value)
+            return `  ${key}=${displayValue}`
+          }),
+        ].join('\n')
+
+        blocks.push({
+          type: 'text',
+          content: `\nSDK Environment:\n${sdkEnvLines}`,
+          marginTop: 1,
+          color: baseTextColor,
+        })
+      }
 
       blocks.push({
         type: 'html',
-        render: renderRepoPathInfo,
+        render: () => (
+          <text style={{ wrapMode: 'word' }}>
+            <span fg={baseTextColor}>
+              Codebuff can read and write files in{' '}
+              <TerminalLink
+                text={displayPath}
+                inline={true}
+                underlineOnHover={true}
+                onActivate={() => openFileAtPath(repoRoot)}
+              />
+              , and run terminal commands to help you build.
+            </span>
+          </text>
+        ),
       })
+
+
 
       blocks.push({
         type: 'agent-list',
-        id: agentListId,
+        id: listId,
         agents: loadedAgentsData.agents,
         agentsDir: loadedAgentsData.agentsDir,
       })
-
-      const agentDisplayId = agentId ?? 'base2-fast'
-      const agentSectionHeader = agentId
-        ? `**Active agent: ${agentId}**`
-        : `**Active agent:** *fast default (base2-fast)*`
 
       blocks.push({
         type: 'text',
         content: agentSectionHeader,
         marginTop: 1,
         marginBottom: 0,
+        color: baseTextColor,
       })
 
+      return blocks
+    }
+
+    if (messages.length === 0) {
+      const initialBlocks = buildBlocks(agentListId)
       const initialMessage: ChatMessage = {
         id: `system-loaded-agents-${Date.now()}`,
         variant: 'ai',
-        content: '', // Content is in the block
-        blocks,
+        content: '',
+        blocks: initialBlocks,
         timestamp: new Date().toISOString(),
       }
 
-      // Set as collapsed by default
       setCollapsedAgents((prev) => new Set([...prev, agentListId]))
 
       const messagesToAdd: ChatMessage[] = [initialMessage]
 
-      // Add validation error message if there are errors
       if (validationErrors.length > 0) {
         const errorBlocks = createValidationErrorBlocks({
           errors: validationErrors,
@@ -278,8 +362,47 @@ export const App = ({
       }
 
       setMessages(messagesToAdd)
+      return
     }
-  }, [loadedAgentsData, validationErrors]) // Run when loadedAgentsData or validationErrors change
+
+    setMessages((prev) => {
+      if (prev.length === 0) {
+        return prev
+      }
+
+      const [firstMessage, ...rest] = prev
+      if (!firstMessage.blocks) {
+        return prev
+      }
+
+      const agentListBlock = firstMessage.blocks.find(
+        (block): block is Extract<ContentBlock, { type: 'agent-list' }> =>
+          block.type === 'agent-list',
+      )
+
+      if (!agentListBlock) {
+        return prev
+      }
+
+      const updatedBlocks = buildBlocks(agentListBlock.id)
+
+      return [
+        {
+          ...firstMessage,
+          blocks: updatedBlocks,
+        },
+        ...rest,
+      ]
+    })
+  }, [
+    agentId,
+    loadedAgentsData,
+    logoBlock,
+    resolvedThemeName,
+    separatorWidth,
+    theme,
+    validationErrors,
+  ])
 
   const {
     inputValue,
@@ -376,7 +499,7 @@ export const App = ({
   )
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (isAuthenticated !== true) return
 
     setInputFocused(true)
 
@@ -420,10 +543,6 @@ export const App = ({
   useEffect(() => {
     activeSubagentsRef.current = activeSubagents
   }, [activeSubagents])
-
-  useEffect(() => {
-    renderer?.setBackgroundColor(theme.background)
-  }, [renderer, theme.background])
 
   useEffect(() => {
     if (exitArmedRef.current && inputValue.length > 0) {
@@ -870,6 +989,7 @@ export const App = ({
         stopStreaming,
       }),
     [
+      agentMode,
       inputValue,
       isStreaming,
       sendMessage,
@@ -960,8 +1080,11 @@ export const App = ({
 
   const virtualizationNotice =
     shouldVirtualize && hiddenTopLevelCount > 0 ? (
-      <text key="virtualization-notice" wrap={false} style={{ width: '100%' }}>
-        <span fg={theme.statusSecondary}>
+      <text
+        key="virtualization-notice"
+        style={{ width: '100%', wrapMode: 'none' }}
+      >
+        <span fg={theme.secondary}>
           Showing latest {virtualTopLevelMessages.length} of{' '}
           {topLevelMessages.length} messages. Scroll up to load more.
         </span>
@@ -975,7 +1098,6 @@ export const App = ({
 
   const statusIndicatorNode = (
     <StatusIndicator
-      theme={theme}
       clipboardMessage={clipboardMessage}
       isActive={isStatusActive}
       timer={mainAgentTimer}
@@ -1041,6 +1163,9 @@ export const App = ({
       return output
     }
 
+    const messageAiTextColor = theme.foreground
+    const statusSecondaryColor = theme.secondary
+
     return (
       <box
         style={{
@@ -1049,10 +1174,10 @@ export const App = ({
           paddingRight: 1,
           paddingTop: 1,
           paddingBottom: 1,
-          backgroundColor: theme.panelBg,
+          backgroundColor: theme.surface,
           border: true,
           borderStyle: 'single',
-          borderColor: '#FFA500',
+          borderColor: theme.warning,
         }}
       >
         {/* Header */}
@@ -1063,7 +1188,7 @@ export const App = ({
             paddingBottom: 0,
           }}
         >
-          <text wrap={false} style={{ fg: theme.messageAiText }}>
+          <text style={{ wrapMode: 'none', fg: messageAiTextColor }}>
             {`⚠️  ${errorCount === 1 ? '1 agent has validation issues' : `${errorCount} agents have validation issues`}`}
             {hasMoreErrors &&
               ` (showing ${MAX_VISIBLE_ERRORS} of ${errorCount})`}
@@ -1071,7 +1196,7 @@ export const App = ({
         </box>
 
         {/* Error list - build as single text with newlines */}
-        <text wrap style={{ fg: theme.messageAiText }}>
+        <text style={{ wrapMode: 'word', fg: messageAiTextColor }}>
           {visibleErrors.map(formatErrorLine).join('')}
         </text>
 
@@ -1083,7 +1208,7 @@ export const App = ({
               paddingTop: 0,
             }}
           >
-            <text wrap={false} style={{ fg: theme.statusSecondary }}>
+            <text style={{ wrapMode: 'none', fg: statusSecondaryColor }}>
               {`... and ${errorCount - MAX_VISIBLE_ERRORS} more`}
             </text>
           </box>
@@ -1110,7 +1235,7 @@ export const App = ({
           paddingRight: 0,
           paddingTop: 0,
           paddingBottom: 0,
-          backgroundColor: theme.panelBg,
+          backgroundColor: 'transparent',
         }}
       >
         <scrollbox
@@ -1128,20 +1253,20 @@ export const App = ({
               gap: 0,
               flexDirection: 'column',
               shouldFill: true,
-              backgroundColor: theme.panelBg,
+              backgroundColor: 'transparent',
             },
             wrapperOptions: {
               flexGrow: 1,
               border: false,
               shouldFill: true,
-              backgroundColor: theme.panelBg,
+              backgroundColor: 'transparent',
             },
             contentOptions: {
               flexDirection: 'column',
               gap: 0,
               shouldFill: true,
               justifyContent: 'flex-end',
-              backgroundColor: theme.panelBg,
+              backgroundColor: 'transparent',
             },
           }}
         >
@@ -1155,7 +1280,7 @@ export const App = ({
           flexShrink: 0,
           paddingLeft: 0,
           paddingRight: 0,
-          backgroundColor: theme.panelBg,
+          backgroundColor: 'transparent',
         }}
       >
         {shouldShowStatusLine && (
@@ -1166,15 +1291,15 @@ export const App = ({
               width: '100%',
             }}
           >
-            <text wrap={false}>
+            <text style={{ wrapMode: 'none' }}>
               {hasStatus && statusIndicatorNode}
               {hasStatus && (exitWarning || shouldShowQueuePreview) && '  '}
               {exitWarning && (
-                <span fg={theme.statusSecondary}>{exitWarning}</span>
+                <span fg={theme.secondary}>{exitWarning}</span>
               )}
               {exitWarning && shouldShowQueuePreview && '  '}
               {shouldShowQueuePreview && (
-                <span fg={theme.statusSecondary} bg={theme.inputFocusedBg}>
+                <span fg={theme.secondary} bg={theme.inputFocusedBg}>
                   {' '}
                   {formatQueuedPreview(
                     queuedMessages,
@@ -1185,7 +1310,7 @@ export const App = ({
             </text>
           </box>
         )}
-        <Separator theme={theme} width={separatorWidth} />
+        <Separator width={separatorWidth} />
         {agentMode === 'PLAN' && hasReceivedPlanResponse && (
           <BuildModeButtons
             theme={theme}
@@ -1197,7 +1322,6 @@ export const App = ({
           <SuggestionMenu
             items={slashSuggestionItems}
             selectedIndex={slashSelectedIndex}
-            theme={theme}
             maxVisible={5}
             prefix="/"
           />
@@ -1208,7 +1332,6 @@ export const App = ({
           <SuggestionMenu
             items={agentSuggestionItems}
             selectedIndex={agentSelectedIndex}
-            theme={theme}
             maxVisible={5}
             prefix="@"
           />
@@ -1216,11 +1339,11 @@ export const App = ({
         <box
           style={{
             flexDirection: 'row',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             width: '100%',
           }}
         >
-          <box style={{ flexGrow: 1 }}>
+          <box style={{ flexGrow: 1, minWidth: 0 }}>
             <MultilineInput
               value={inputValue}
               onChange={setInputValue}
@@ -1228,9 +1351,9 @@ export const App = ({
               placeholder="Share your thoughts and press Enter…"
               focused={inputFocused}
               maxHeight={5}
-              theme={theme}
               width={inputWidth}
               onKeyIntercept={handleSuggestionMenuKey}
+              textAttributes={theme.messageTextAttributes}
               ref={inputRef}
             />
           </box>
@@ -1242,19 +1365,17 @@ export const App = ({
           >
             <AgentModeToggle
               mode={agentMode}
-              theme={theme}
               onToggle={toggleAgentMode}
             />
           </box>
         </box>
-        <Separator theme={theme} width={separatorWidth} />
+        <Separator width={separatorWidth} />
       </box>
 
       {/* Login Modal Overlay - show when not authenticated and done checking */}
-      {requireAuth !== null && !isAuthenticated && (
+      {requireAuth !== null && isAuthenticated === false && (
         <LoginModal
           onLoginSuccess={handleLoginSuccess}
-          theme={theme}
           hasInvalidCredentials={hasInvalidCredentials}
         />
       )}

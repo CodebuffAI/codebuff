@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
+import { useTheme } from '../hooks/use-theme'
 import { getCodebuffClient } from '../utils/codebuff-client'
+import { logger } from '../utils/logger'
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
-import type { ChatTheme } from '../types/theme-system'
 
 const useConnectionStatus = () => {
   const [isConnected, setIsConnected] = useState(true)
@@ -36,21 +37,20 @@ const useConnectionStatus = () => {
 }
 
 export const StatusIndicator = ({
-  theme,
   clipboardMessage,
   isActive = false,
   timer,
 }: {
-  theme: ChatTheme
   clipboardMessage?: string | null
   isActive?: boolean
   timer: ElapsedTimeTracker
 }) => {
+  const theme = useTheme()
   const isConnected = useConnectionStatus()
   const elapsedSeconds = timer.elapsedSeconds
 
   if (clipboardMessage) {
-    return <span fg={theme.statusAccent}>{clipboardMessage}</span>
+    return <span fg={theme.primary}>{clipboardMessage}</span>
   }
 
   const hasStatus = isConnected === false || isActive
@@ -66,7 +66,7 @@ export const StatusIndicator = ({
   if (isActive) {
     // If we have elapsed time > 0, show it
     if (elapsedSeconds > 0) {
-      return <span fg={theme.statusSecondary}>{elapsedSeconds}s</span>
+      return <span fg={theme.secondary}>{elapsedSeconds}s</span>
     }
 
     // Otherwise show thinking...
@@ -74,7 +74,7 @@ export const StatusIndicator = ({
       <ShimmerText
         text="thinking..."
         interval={160}
-        primaryColor={theme.statusSecondary}
+        primaryColor={theme.secondary}
       />
     )
   }

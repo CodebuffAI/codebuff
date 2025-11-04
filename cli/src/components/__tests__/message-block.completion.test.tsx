@@ -4,6 +4,7 @@ import { describe, test, expect } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { MessageBlock } from '../message-block'
+import '../../state/theme-store' // Initialize theme store
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
@@ -13,8 +14,8 @@ const basePalette = createMarkdownPalette(theme)
 
 const palette: MarkdownPalette = {
   ...basePalette,
-  inlineCodeFg: theme.messageAiText,
-  codeTextFg: theme.messageAiText,
+  inlineCodeFg: theme.foreground,
+  codeTextFg: theme.foreground,
 }
 
 const baseProps = {
@@ -34,9 +35,8 @@ const baseProps = {
     elapsedSeconds: 0,
     startTime: null,
   },
-  theme,
-  textColor: theme.messageAiText,
-  timestampColor: theme.timestampAi,
+  textColor: theme.foreground,
+  timestampColor: theme.muted,
   markdownOptions: {
     codeBlockWidth: 72,
     palette,

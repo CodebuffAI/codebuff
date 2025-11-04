@@ -74,7 +74,7 @@ export const useLogo = ({
       const displayText = availableWidth < 30 ? 'Codebuff' : 'Codebuff CLI'
 
       return (
-        <text wrap={false}>
+        <text style={{ wrapMode: 'none' }}>
           <b>
             {textColor ? (
               <span fg={textColor}>{displayText}</span>
@@ -93,7 +93,7 @@ export const useLogo = ({
     return (
       <>
         {displayLines.map((line, lineIndex) => (
-          <text key={`logo-line-${lineIndex}`} wrap={false}>
+          <text key={`logo-line-${lineIndex}`} style={{ wrapMode: 'none' }}>
             {applySheenToChar
               ? line
                   .split('')

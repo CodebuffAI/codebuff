@@ -1,18 +1,7 @@
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useMemo, useState } from 'react'
 
-export const DEFAULT_SHIMMER_COLORS = [
-  '#ff8c00',
-  '#ff9100',
-  '#ff9500',
-  '#ff9a00',
-  '#ffa500',
-  '#ffa000',
-  '#ff9500',
-  '#ff8c00',
-  '#ff8300',
-  '#ff7700',
-]
+import { useTheme } from '../hooks/use-theme'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
@@ -113,10 +102,12 @@ const rgbToHex = (r: number, g: number, b: number): string => {
 const generatePaletteFromPrimary = (
   primaryColor: string,
   size: number,
+  fallbackColor: string,
 ): string[] => {
   const baseRgb = hexToRgb(primaryColor)
   if (!baseRgb) {
-    return DEFAULT_SHIMMER_COLORS
+    // If we can't parse the color, return a simple palette using the fallback
+    return Array.from({ length: size }, () => fallbackColor)
   }
 
   const { h, s, l } = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b)
@@ -148,6 +139,7 @@ export const ShimmerText = ({
   colors?: string[]
   primaryColor?: string
 }) => {
+  const theme = useTheme()
   const [pulse, setPulse] = useState<number>(0)
   const chars = text.split('')
   const numChars = chars.length
@@ -163,7 +155,7 @@ export const ShimmerText = ({
   const generateColors = (length: number, colorPalette: string[]): string[] => {
     if (length === 0) return []
     if (colorPalette.length === 0) {
-      return Array.from({ length }, () => '#ffffff')
+      return Array.from({ length }, () => theme.muted)
     }
     if (colorPalette.length === 1) {
       return Array.from({ length }, () => colorPalette[0])
@@ -186,10 +178,12 @@ export const ShimmerText = ({
     }
     if (primaryColor) {
       const paletteSize = Math.max(8, Math.min(20, Math.ceil(numChars * 1.5)))
-      return generatePaletteFromPrimary(primaryColor, paletteSize)
+      return generatePaletteFromPrimary(primaryColor, paletteSize, theme.muted)
     }
-    return DEFAULT_SHIMMER_COLORS
-  }, [colors, primaryColor, numChars])
+    // Use theme shimmer color as default
+    const paletteSize = Math.max(8, Math.min(20, Math.ceil(numChars * 1.5)))
+    return generatePaletteFromPrimary(theme.info, paletteSize, theme.muted)
+  }, [colors, primaryColor, numChars, theme.info, theme.muted])
 
   const generateAttributes = (length: number): number[] => {
     const attributes: number[] = []

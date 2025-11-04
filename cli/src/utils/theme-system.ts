@@ -1,9 +1,17 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
+import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
-import { join } from 'path'
-import {ChatTheme, MarkdownHeadingLevel, MarkdownThemeOverrides, ThemeName} from "../types/theme-system"
+import { dirname, join } from 'path'
 
 import type { MarkdownPalette } from './markdown-renderer'
+import type {
+  ChatTheme,
+  MarkdownHeadingLevel,
+  MarkdownThemeOverrides,
+  ThemeName,
+} from '../types/theme-system'
+
+// Re-export types for backward compatibility
+export type { ChatTheme, ThemeColor } from '../types/theme-system'
 
 const IDE_THEME_INFERENCE = {
   dark: [
@@ -454,10 +462,6 @@ export const getIDEThemeConfigPaths = (): string[] => {
   return [...paths]
 }
 
-
-
-
-
 type ChatThemeOverrides = Partial<Omit<ChatTheme, 'markdown'>> & {
   markdown?: MarkdownThemeOverrides
 }
@@ -680,38 +684,47 @@ export const detectSystemTheme = (): ThemeName => {
 
 const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
+    // Core semantic colors
+    primary: '#facc15',
+    secondary: '#a3aed0',
+    success: '#22c55e',
+    error: '#ef4444',
+    warning: '#FFA500',
+    info: '#38bdf8',
+
+    // Neutral scale
+    foreground: '#f1f5f9',
     background: '#000000',
-    chromeBg: '#000000',
-    chromeText: '#9ca3af',
-    accentBg: '#facc15',
-    accentText: '#1c1917',
-    panelBg: '#000000',
+    muted: '#9ca3af',
+    border: '#334155',
+    surface: '#000000',
+    surfaceHover: '#334155',
+
+    // Context-specific
     aiLine: '#34d399',
     userLine: '#38bdf8',
-    timestampAi: '#4ade80',
-    timestampUser: '#60a5fa',
-    messageAiText: '#f1f5f9',
-    messageUserText: '#dbeafe',
-    messageBg: '#000000',
-    statusAccent: '#facc15',
-    statusSecondary: '#a3aed0',
+
+    // Agent backgrounds
+    agentToggleHeaderBg: '#f97316',
+    agentToggleExpandedBg: '#1d4ed8',
+    agentFocusedBg: '#334155',
+    agentContentBg: '#000000',
+
+    // Input
     inputBg: '#000000',
     inputFg: '#f5f5f5',
     inputFocusedBg: '#000000',
     inputFocusedFg: '#ffffff',
-    inputPlaceholder: '#a3a3a3',
-    cursor: '#22c55e',
-    agentPrefix: '#22c55e',
-    agentName: '#4ade80',
-    agentText: '#d1d5db',
-    agentCheckmark: '#22c55e',
-    agentResponseCount: '#9ca3af',
-    agentFocusedBg: '#334155',
-    agentContentText: '#ffffff',
-    agentToggleHeaderBg: '#f97316',
-    agentToggleHeaderText: '#ffffff',
-    agentToggleText: '#ffffff',
-    agentContentBg: '#000000',
+
+    // Mode toggles
+    modeFastBg: '#f97316',
+    modeFastText: '#f97316',
+    modeMaxBg: '#dc2626',
+    modeMaxText: '#dc2626',
+    modePlanBg: '#1e40af',
+    modePlanText: '#1e40af',
+
+    // Markdown
     markdown: {
       codeBackground: '#1f2933',
       codeHeaderFg: '#5b647a',
@@ -733,38 +746,47 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     },
   },
   light: {
+    // Core semantic colors
+    primary: '#f59e0b',
+    secondary: '#6b7280',
+    success: '#059669',
+    error: '#ef4444',
+    warning: '#F59E0B',
+    info: '#3b82f6',
+
+    // Neutral scale
+    foreground: '#111827',
     background: '#ffffff',
-    chromeBg: '#f3f4f6',
-    chromeText: '#374151',
-    accentBg: '#f59e0b',
-    accentText: '#111827',
-    panelBg: '#ffffff',
+    muted: '#6b7280',
+    border: '#d1d5db',
+    surface: '#f3f4f6',
+    surfaceHover: '#e5e7eb',
+
+    // AI/User context
     aiLine: '#059669',
     userLine: '#3b82f6',
-    timestampAi: '#047857',
-    timestampUser: '#2563eb',
-    messageAiText: '#111827',
-    messageUserText: '#1f2937',
-    messageBg: '#ffffff',
-    statusAccent: '#f59e0b',
-    statusSecondary: '#6b7280',
+
+    // Agent context
+    agentToggleHeaderBg: '#ea580c',
+    agentToggleExpandedBg: '#1d4ed8',
+    agentFocusedBg: '#f3f4f6',
+    agentContentBg: '#ffffff',
+
+    // Input
     inputBg: '#f9fafb',
     inputFg: '#111827',
     inputFocusedBg: '#ffffff',
     inputFocusedFg: '#000000',
-    inputPlaceholder: '#9ca3af',
-    cursor: '#3b82f6',
-    agentPrefix: '#059669',
-    agentName: '#047857',
-    agentText: '#1f2937',
-    agentCheckmark: '#059669',
-    agentResponseCount: '#6b7280',
-    agentFocusedBg: '#f3f4f6',
-    agentContentText: '#111827',
-    agentToggleHeaderBg: '#ea580c',
-    agentToggleHeaderText: '#ffffff',
-    agentToggleText: '#ffffff',
-    agentContentBg: '#ffffff',
+
+    // Mode toggles
+    modeFastBg: '#f97316',
+    modeFastText: '#f97316',
+    modeMaxBg: '#dc2626',
+    modeMaxText: '#dc2626',
+    modePlanBg: '#1e40af',
+    modePlanText: '#1e40af',
+
+    // Markdown
     markdown: {
       codeBackground: '#f3f4f6',
       codeHeaderFg: '#6b7280',
@@ -797,30 +819,177 @@ export const chatThemes = (() => {
 
 export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
   const headingDefaults: Record<MarkdownHeadingLevel, string> = {
-    1: theme.statusAccent,
-    2: theme.statusAccent,
-    3: theme.statusAccent,
-    4: theme.statusAccent,
-    5: theme.statusAccent,
-    6: theme.statusAccent,
+    1: theme.primary,
+    2: theme.primary,
+    3: theme.primary,
+    4: theme.primary,
+    5: theme.primary,
+    6: theme.primary,
   }
 
   const overrides = theme.markdown?.headingFg ?? {}
 
   return {
-    inlineCodeFg: theme.markdown?.inlineCodeFg ?? theme.messageAiText,
-    codeBackground: theme.markdown?.codeBackground ?? theme.messageBg,
-    codeHeaderFg: theme.markdown?.codeHeaderFg ?? theme.statusSecondary,
+    inlineCodeFg: theme.markdown?.inlineCodeFg ?? theme.foreground,
+    codeBackground: theme.markdown?.codeBackground ?? theme.background,
+    codeHeaderFg: theme.markdown?.codeHeaderFg ?? theme.secondary,
     headingFg: {
       ...headingDefaults,
       ...overrides,
     },
-    listBulletFg: theme.markdown?.listBulletFg ?? theme.statusSecondary,
-    blockquoteBorderFg:
-      theme.markdown?.blockquoteBorderFg ?? theme.statusSecondary,
-    blockquoteTextFg: theme.markdown?.blockquoteTextFg ?? theme.messageAiText,
-    dividerFg: theme.markdown?.dividerFg ?? theme.statusSecondary,
-    codeTextFg: theme.markdown?.codeTextFg ?? theme.messageAiText,
+    listBulletFg: theme.markdown?.listBulletFg ?? theme.secondary,
+    blockquoteBorderFg: theme.markdown?.blockquoteBorderFg ?? theme.secondary,
+    blockquoteTextFg: theme.markdown?.blockquoteTextFg ?? theme.foreground,
+    dividerFg: theme.markdown?.dividerFg ?? theme.secondary,
+    codeTextFg: theme.markdown?.codeTextFg ?? theme.foreground,
     codeMonochrome: theme.markdown?.codeMonochrome ?? true,
   }
 }
+
+/**
+ * Exported utilities for theme system
+ */
+
+/**
+ * Merge theme overrides with a base theme
+ * Alias for mergeTheme to match our hook API
+ */
+export const mergeThemeOverrides = mergeTheme
+
+/**
+ * Clone a ChatTheme object to avoid mutations
+ * Properly handles nested markdown configuration
+ */
+export const cloneChatTheme = (input: ChatTheme): ChatTheme => ({
+  ...input,
+  markdown: input.markdown
+    ? {
+        ...input.markdown,
+        headingFg: input.markdown.headingFg
+          ? { ...input.markdown.headingFg }
+          : undefined,
+      }
+    : undefined,
+})
+
+/**
+ * Resolve a theme color value with optional fallback
+ * Returns undefined for 'default' values or empty strings
+ */
+export const resolveThemeColor = (
+  color?: string,
+  fallback?: string,
+): string | undefined => {
+  if (typeof color === 'string') {
+    const normalized = color.trim().toLowerCase()
+    if (normalized.length > 0 && normalized !== 'default') {
+      return color
+    }
+  }
+
+  if (fallback !== undefined) {
+    return resolveThemeColor(fallback)
+  }
+
+  return undefined
+}
+
+/**
+ * Reactive Theme Detection
+ * Watches for system theme changes and updates zustand store
+ */
+
+let lastDetectedTheme: ThemeName | null = null
+let themeStoreUpdater: ((name: ThemeName) => void) | null = null
+
+/**
+ * Initialize theme store updater
+ * Called by theme-store on initialization to enable reactive updates
+ * @param setter - Function to call when theme changes
+ */
+export const initializeThemeWatcher = (setter: (name: ThemeName) => void) => {
+  themeStoreUpdater = setter
+}
+
+/**
+ * Recompute system theme and update store if it changed
+ * @param source - Source of the recomputation (for debugging)
+ */
+const recomputeSystemTheme = (source: string) => {
+  // Only recompute if theme is auto-detected (not explicitly set)
+  const envPreference = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
+  if (envPreference && envPreference.toLowerCase() !== 'opposite') {
+    // User explicitly set theme, don't react to system changes
+    return
+  }
+
+  const newTheme = detectSystemTheme()
+
+  // Always call the updater and let it decide if an update is needed
+  lastDetectedTheme = newTheme
+  if (themeStoreUpdater) {
+    themeStoreUpdater(newTheme)
+  }
+}
+
+// Initialize on module load
+lastDetectedTheme = detectSystemTheme()
+
+/**
+ * Setup file watchers for theme changes
+ * Watches parent directories which reliably catches all file modifications
+ */
+const setupFileWatchers = () => {
+  const watchTargets: string[] = []
+  const watchedDirs = new Set<string>()
+
+  // macOS system preferences
+  if (process.platform === 'darwin') {
+    watchTargets.push(
+      join(homedir(), 'Library/Preferences/.GlobalPreferences.plist'),
+      join(homedir(), 'Library/Preferences/com.apple.Terminal.plist'),
+    )
+  }
+
+  // IDE config files that we should watch
+  const ideConfigPaths = getIDEThemeConfigPaths()
+  watchTargets.push(...ideConfigPaths)
+
+  // Watch parent directories instead of individual files
+  // Directory watches are more reliable for catching all modifications including plist key deletions
+  for (const target of watchTargets) {
+    if (existsSync(target)) {
+      const parentDir = dirname(target)
+
+      // Only watch each directory once
+      if (watchedDirs.has(parentDir)) continue
+      watchedDirs.add(parentDir)
+
+      try {
+        // Watch the directory - catches all file modifications
+        const watcher = watch(parentDir, { persistent: false }, (eventType, filename) => {
+          // Only respond to changes affecting our target files
+          if (filename && watchTargets.some((t) => t.endsWith(filename))) {
+            recomputeSystemTheme(`watch:${join(parentDir, filename)}:${eventType}`)
+          }
+        })
+
+        watcher.on('error', () => {
+          // Silently ignore watcher errors
+        })
+      } catch {
+        // Silently ignore if we can't watch
+      }
+    }
+  }
+}
+
+setupFileWatchers()
+
+/**
+ * SIGUSR2 signal handler for manual theme refresh
+ * Users can send `kill -USR2 <pid>` to force theme recomputation
+ */
+process.on('SIGUSR2', () => {
+  recomputeSystemTheme('signal:SIGUSR2')
+})
