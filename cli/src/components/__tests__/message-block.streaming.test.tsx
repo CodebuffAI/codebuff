@@ -39,7 +39,6 @@ const baseProps = {
   collapsedAgents: new Set<string>(),
   streamingAgents: new Set<string>(),
   onToggleCollapsed: () => {},
-  registerAgentRef: () => {},
 }
 
 const createTimer = (elapsedSeconds: number) => ({

@@ -46,7 +46,6 @@ const baseProps = {
   collapsedAgents: new Set<string>(),
   streamingAgents: new Set<string>(),
   onToggleCollapsed: () => {},
-  registerAgentRef: () => {},
 }
 
 describe('MessageBlock completion time', () => {

@@ -465,7 +465,6 @@ export const App = ({
   // Track main agent streaming elapsed time
   const mainAgentTimer = useElapsedTime()
 
-  const agentRefsMap = useRef<Map<string, any>>(new Map())
   const hasAutoSubmittedRef = useRef(false)
   const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
 
@@ -486,16 +485,8 @@ export const App = ({
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  const registerAgentRef = useCallback((agentId: string, element: any) => {
-    if (element) {
-      agentRefsMap.current.set(agentId, element)
-    } else {
-      agentRefsMap.current.delete(agentId)
-    }
-  }, [])
-
-  const { scrollToLatest, scrollToAgent, scrollboxProps, isAtBottom } =
-    useChatScrollbox(scrollRef, messages, agentRefsMap)
+  const { scrollToLatest, scrollboxProps, isAtBottom } =
+    useChatScrollbox(scrollRef, messages)
 
   const inertialScrollAcceleration = useMemo(
     () => new QuadraticScrollAccel(),
@@ -1008,8 +999,6 @@ export const App = ({
     timer: mainAgentTimer,
     setCollapsedAgents,
     setFocusedAgentId,
-    registerAgentRef,
-    scrollToAgent,
   })
 
   const virtualizationNotice =

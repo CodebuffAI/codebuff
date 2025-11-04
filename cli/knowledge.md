@@ -555,9 +555,7 @@ This prevents invalid children from reaching `TextNodeRenderable` while preservi
 
 **Related**: `cli/src/hooks/use-message-renderer.tsx` ensures toggle headers render within a single `<text>` block for StyledText compatibility.
 
-### Scroll Behavior
 
-Toggling any agent/tool branch calls `scrollToAgent`, with each branch registering its container via `registerAgentRef`. This anchors the toggled item in the top third of the scrollbox for better navigation in long sessions.
 
 ## Command Menus
 

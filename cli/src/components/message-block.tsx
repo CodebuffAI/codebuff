@@ -45,7 +45,6 @@ interface MessageBlockProps {
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
-  registerAgentRef: (id: string, element: any) => void
 }
 
 export const MessageBlock = ({
@@ -68,7 +67,6 @@ export const MessageBlock = ({
   collapsedAgents,
   streamingAgents,
   onToggleCollapsed,
-  registerAgentRef,
 }: MessageBlockProps): ReactNode => {
   const theme = useTheme()
   const resolvedTextColor = textColor ?? theme.foreground
@@ -270,7 +268,6 @@ export const MessageBlock = ({
     return (
       <box
         key={keyPrefix}
-        ref={(el: any) => registerAgentRef(toolBlock.toolCallId, el)}
       >
         {toolRenderConfig.content ? (
           toolRenderConfig.content
@@ -348,7 +345,6 @@ export const MessageBlock = ({
     return (
       <box
         key={keyPrefix}
-        ref={(el: any) => registerAgentRef(agentBlock.agentId, el)}
         style={{ flexDirection: 'column', gap: 0 }}
       >
         <AgentBranchItem
@@ -440,7 +436,6 @@ export const MessageBlock = ({
     return (
       <box
         key={keyPrefix}
-        ref={(el: any) => registerAgentRef(agentListBlock.id, el)}
       >
         <AgentBranchItem
           name={headerText}

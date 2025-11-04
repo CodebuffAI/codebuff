@@ -27,8 +27,6 @@ interface UseMessageRendererProps {
   timer: ElapsedTimeTracker
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
-  registerAgentRef: (agentId: string, element: any) => void
-  scrollToAgent: (agentId: string, retries?: number) => void
 }
 
 export const useMessageRenderer = (
@@ -47,8 +45,6 @@ export const useMessageRenderer = (
     timer,
     setCollapsedAgents,
     setFocusedAgentId,
-    registerAgentRef,
-    scrollToAgent,
   } = props
 
   return useMemo(() => {
@@ -119,7 +115,6 @@ export const useMessageRenderer = (
         })
 
         setFocusedAgentId(message.id)
-        scrollToAgent(message.id)
       }
 
       const handleContentClick = (e: any): void => {
@@ -141,13 +136,11 @@ export const useMessageRenderer = (
         })
 
         setFocusedAgentId(message.id)
-        scrollToAgent(message.id)
       }
 
       return (
         <box
           key={message.id}
-          ref={(el: any) => registerAgentRef(message.id, el)}
           style={{
             flexDirection: 'column',
             gap: 0,
@@ -378,9 +371,7 @@ export const useMessageRenderer = (
                         }
                         return next
                       })
-                      scrollToAgent(id)
                     }}
-                    registerAgentRef={registerAgentRef}
                   />
                 </box>
               </box>
@@ -428,9 +419,7 @@ export const useMessageRenderer = (
                       }
                       return next
                     })
-                    scrollToAgent(id)
                   }}
-                  registerAgentRef={registerAgentRef}
                 />
               </box>
             )}
@@ -469,7 +458,5 @@ export const useMessageRenderer = (
     isWaitingForResponse,
     setCollapsedAgents,
     setFocusedAgentId,
-    registerAgentRef,
-    scrollToAgent,
   ])
 }
