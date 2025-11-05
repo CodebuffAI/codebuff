@@ -547,18 +547,42 @@ const handleGlob: ToolHandler<'glob'> = async (parameters, _id) => {
       .map((node) => node.filePath)
 
     // Filter by cwd if provided
+    let pathsToMatch = allFilePaths
     if (cwd) {
       const cwdPrefix = cwd.endsWith('/') ? cwd : `${cwd}/`
-      allFilePaths = allFilePaths.filter(
+      const filteredPaths = allFilePaths.filter(
         (filePath) =>
           filePath === cwd ||
           filePath.startsWith(cwdPrefix) ||
           filePath === cwd.replace(/\/$/, ''),
       )
+      
+      // Make paths relative to cwd for matching
+      pathsToMatch = filteredPaths.map((filePath) => {
+        if (filePath === cwd) {
+          return '.'
+        }
+        // Remove the cwd prefix to get path relative to cwd
+        return filePath.startsWith(cwdPrefix) ? filePath.slice(cwdPrefix.length) : filePath
+      })
     }
 
     // Use micromatch to filter files by the glob pattern
-    const matchingFiles = micromatch(allFilePaths, pattern)
+    const matchedRelativePaths = micromatch(pathsToMatch, pattern)
+    
+    // Convert matched paths back to project-relative paths
+    let matchingFiles: string[]
+    if (cwd) {
+      const cwdPrefix = cwd.endsWith('/') ? cwd : `${cwd}/`
+      matchingFiles = matchedRelativePaths.map((relativePath) => {
+        if (relativePath === '.') {
+          return cwd
+        }
+        return path.posix.join(cwd, relativePath)
+      })
+    } else {
+      matchingFiles = matchedRelativePaths
+    }
 
     const basename = path.basename(projectPath)
     console.log()
