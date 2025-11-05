@@ -1,4 +1,5 @@
 import { Queue } from './arrays'
+import { logger } from './logger'
 import { clamp } from './math'
 
 import type { ScrollAcceleration } from '@opentui/core'
@@ -93,6 +94,7 @@ type QuadraticScrollAccelOptions = {
   rollingWindowMs?: number
 }
 
+let lastTick = Date.now()
 /** Estimates the scrolling speed based on the frequency of scroll events.
  *
  * The number of lines scrolled is proportional to the number of scroll events
@@ -114,7 +116,7 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
   }
 
   /** Calculates the average number of scroll events */
-  tick(now = Date.now()): number {
+  tick(now = Date.now(), baseAmount: number = 1): number {
     this.tickHistory.enqueue(now)
 
     let oldestTick = this.tickHistory.peek() ?? now
@@ -122,6 +124,10 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
       this.tickHistory.dequeue()
       oldestTick = this.tickHistory.peek() ?? now
     }
+
+    const dt = now - lastTick
+    lastTick = now
+    logger.info({}, `asdf tick ${dt}ms ${baseAmount} ${this.tickHistory.length}speed`)
 
     this.buffer += clamp(
       this.tickHistory.length * this.multiplier,

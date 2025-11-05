@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react'
 import stringWidth from 'string-width'
+
 import { useTheme } from '../hooks/use-theme'
 
-import type { AgentMode } from '../utils/constants'
 import type { ChatTheme } from '../types/theme-system'
+import type { AgentMode } from '../utils/constants'
 
 const getModeConfig = (theme: ChatTheme) =>
   ({
@@ -76,7 +77,7 @@ export const AgentModeToggle = ({
     openTimeoutRef.current = setTimeout(() => {
       setIsOpen(true)
       openTimeoutRef.current = null
-    }, 250)
+    }, 0)
   }
 
   const handleMouseOut = () => {
@@ -90,7 +91,7 @@ export const AgentModeToggle = ({
     closeTimeoutRef.current = setTimeout(() => {
       setIsOpen(false)
       closeTimeoutRef.current = null
-    }, 1000)
+    }, 0)
   }
 
   if (!isOpen) {
