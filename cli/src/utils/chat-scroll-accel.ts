@@ -5,7 +5,7 @@ import type { ScrollAcceleration } from '@opentui/core'
 
 const SCROLL_MULTIPLIER = 'CODEBUFF_SCROLL_MULTIPLIER'
 
-const INERTIAL_HINT_VARS = [
+const ENVIRONMENT_TYPE_VARS = [
   'TERM_PROGRAM',
   'TERMINAL_EMULATOR',
   'TERM',
@@ -16,49 +16,38 @@ const INERTIAL_HINT_VARS = [
 
 const ENVIRONMENTS = ['zed', 'ghostty', 'vscode'] as const
 
-type ScrollEnvironment =
-  | {
-      enabled: true
-      hint?: (typeof ENVIRONMENTS)[number]
-      override?: 'slow' | 'fast'
-    }
-  | {
-      enabled: false
-      hint?: undefined
-      override?: 'default'
-    }
-
-const resolveScrollEnvironment = (): ScrollEnvironment => {
-  const override = process.env[SCROLL_MULTIPLIER]?.toLowerCase()
-
-  if (override === 'slow') {
-    return { enabled: true, override: 'slow' }
-  }
-  if (override === 'default' || override === 'off') {
-    return { enabled: false, override: 'default' }
-  }
-  if (override === 'fast') {
-    return { enabled: true, override: 'fast' }
-  }
-
-  for (const hintVar of INERTIAL_HINT_VARS) {
-    const value = process.env[hintVar]
-    for (const env of ENVIRONMENTS) {
-      if (value?.includes(env)) {
-        return { enabled: true, hint: env }
-      }
-    }
-  }
-
-  return { enabled: false }
-}
+type ScrollEnvironmentType = (typeof ENVIRONMENTS)[number] | 'default'
 
 const ENV_MULTIPLIERS = {
   zed: 0.015,
   ghostty: 0.2,
   vscode: 0.05,
   default: 0.05,
-} satisfies Record<(typeof ENVIRONMENTS)[number] | 'default', number>
+} satisfies Record<ScrollEnvironmentType, number>
+
+type ScrollEnvironment = {
+  type: ScrollEnvironmentType
+  multiplier: number
+}
+
+const resolveScrollEnvironment = (): ScrollEnvironment => {
+  let multiplier = parseFloat(process.env[SCROLL_MULTIPLIER] ?? '')
+
+  if (Number.isNaN(multiplier)) {
+    multiplier = 1
+  }
+
+  for (const hintVar of ENVIRONMENT_TYPE_VARS) {
+    const value = process.env[hintVar]
+    for (const env of ENVIRONMENTS) {
+      if (value?.includes(env)) {
+        return { type: env, multiplier }
+      }
+    }
+  }
+
+  return { type: 'default', multiplier }
+}
 
 type LinearScrollAccelOptions = {
   /** How fast to scale the scrolling. */
@@ -153,21 +142,7 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
 export const createChatScrollAcceleration = (): ScrollAcceleration => {
   const environment = resolveScrollEnvironment()
 
-  let environmentTunedOptions: { multiplier?: number } = {}
-
-  if (!environment.enabled) {
-    // No environment detected
-    environmentTunedOptions.multiplier = ENV_MULTIPLIERS.default
-  } else {
-    environmentTunedOptions.multiplier =
-      ENV_MULTIPLIERS[environment.hint ?? 'default']
-    if (environment.override === 'slow') {
-      environmentTunedOptions.multiplier *= 0.5
-    }
-    if (environment.override === 'fast') {
-      environmentTunedOptions.multiplier *= 2
-    }
-  }
-
-  return new QuadraticScrollAccel(environmentTunedOptions)
+  return new QuadraticScrollAccel({
+    multiplier: ENV_MULTIPLIERS[environment.type] * environment.multiplier,
+  })
 }
