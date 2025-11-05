@@ -1280,7 +1280,11 @@ export const App = ({
               paddingLeft: 2,
             }}
           >
-            <AgentModeToggle mode={agentMode} onToggle={toggleAgentMode} />
+            <AgentModeToggle
+              mode={agentMode}
+              onToggle={toggleAgentMode}
+              onSelectMode={setAgentMode}
+            />
           </box>
         </box>
         <Separator width={separatorWidth} />
