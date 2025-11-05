@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import stringWidth from 'string-width'
 import { useTheme } from '../hooks/use-theme'
 
@@ -38,6 +38,7 @@ export const AgentModeToggle = ({
   const theme = useTheme()
   const config = getModeConfig(theme)
   const [isOpen, setIsOpen] = useState(false)
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handlePress = (selectedMode: AgentMode) => {
     if (selectedMode === mode) {
@@ -54,11 +55,28 @@ export const AgentModeToggle = ({
     }
   }
 
+  const handleMouseOver = () => {
+    // Cancel any pending close
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = null
+    }
+    setIsOpen(true)
+  }
+
+  const handleMouseOut = () => {
+    // Delay closing by 1 second
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsOpen(false)
+      closeTimeoutRef.current = null
+    }, 1000)
+  }
+
   if (!isOpen) {
     // Collapsed state: show only current mode
     const { frameColor, textColor, label } = config[mode]
-    const arrow = ' <'
-    const contentText = ` ${label}${arrow} `
+    const arrow = '< '
+    const contentText = ` ${arrow}${label} `
     const contentWidth = stringWidth(contentText)
     const horizontal = '─'.repeat(contentWidth)
 
@@ -70,13 +88,19 @@ export const AgentModeToggle = ({
           backgroundColor: 'transparent',
         }}
         onMouseDown={() => handlePress(mode)}
+        onMouseOver={handleMouseOver}
+        onMouseOut={handleMouseOut}
       >
         <text>
           <span fg={frameColor}>{`╭${horizontal}╮`}</span>
         </text>
         <text>
           <span fg={frameColor}>│</span>
-          <span fg={textColor}>{contentText}</span>
+          <span fg={textColor}> {arrow}</span>
+          <b>
+            <span fg={textColor}>{label}</span>
+          </b>
+          <span fg={textColor}> </span>
           <span fg={frameColor}>│</span>
         </text>
         <text>
@@ -97,7 +121,7 @@ export const AgentModeToggle = ({
     const label = config[m].label
     if (m === mode) {
       // Active mode shows label with collapse arrow
-      return stringWidth(` ${label} > `)
+      return stringWidth(` < ${label} `)
     }
     return stringWidth(` ${label} `)
   })
@@ -110,15 +134,18 @@ export const AgentModeToggle = ({
     const { frameColor, textColor, label } = config[modeItem]
     const isActive = modeItem === mode
     const width = segmentWidths[index]
-    const content = isActive ? ` ${label} > ` : ` ${label} `
+    const content = isActive ? ` < ${label} ` : ` ${label} `
     const horizontal = '─'.repeat(width)
 
     return {
-      topBorder: isLast ? `${horizontal}╮` : `${horizontal}┬`,
+      topBorder: horizontal,
       content,
-      bottomBorder: isLast ? `${horizontal}╯` : `${horizontal}┴`,
+      bottomBorder: horizontal,
       frameColor,
       textColor,
+      isActive,
+      label,
+      width,
     }
   }
 
@@ -129,57 +156,75 @@ export const AgentModeToggle = ({
   return (
     <box
       style={{
-        flexDirection: 'column',
+        flexDirection: 'row',
         gap: 0,
         backgroundColor: 'transparent',
       }}
+      onMouseOver={handleMouseOver}
+      onMouseOut={handleMouseOut}
     >
-      {/* Top border */}
-      <text>
-        <span fg={segments[0].frameColor}>╭</span>
-        {segments.map((seg, idx) => (
-          <span key={`top-${idx}`} fg={seg.frameColor}>
-            {seg.topBorder}
-          </span>
-        ))}
-      </text>
-
-      {/* Content row with clickable segments */}
-      <box
-        style={{
-          flexDirection: 'row',
-          gap: 0,
-        }}
-      >
+      {/* Left edge */}
+      <box style={{ flexDirection: 'column', gap: 0 }}>
+        <text>
+          <span fg={segments[0].frameColor}>╭</span>
+        </text>
         <text>
           <span fg={segments[0].frameColor}>│</span>
         </text>
-        {segments.map((seg, idx) => {
-          const modeItem = orderedModes[idx]
-          return (
-            <React.Fragment key={`content-${idx}`}>
-              <box onMouseDown={() => handlePress(modeItem)}>
-                <text>
+        <text>
+          <span fg={segments[0].frameColor}>╰</span>
+        </text>
+      </box>
+
+      {/* Segments as vertical columns */}
+      {segments.map((seg, idx) => {
+        const modeItem = orderedModes[idx]
+        const isLast = idx === segments.length - 1
+        return (
+          <React.Fragment key={`segment-${idx}`}>
+            <box
+              onMouseDown={() => handlePress(modeItem)}
+              style={{
+                flexDirection: 'column',
+                gap: 0,
+                width: seg.width,
+                minWidth: seg.width,
+              }}
+            >
+              <text>
+                <span fg={seg.frameColor}>{seg.topBorder}</span>
+              </text>
+              <text>
+                {seg.isActive ? (
+                  <>
+                    <span fg={seg.textColor}> {'< '}</span>
+                    <b>
+                      <span fg={seg.textColor}>{seg.label}</span>
+                    </b>
+                    <span fg={seg.textColor}> </span>
+                  </>
+                ) : (
                   <span fg={seg.textColor}>{seg.content}</span>
-                </text>
-              </box>
+                )}
+              </text>
+              <text>
+                <span fg={seg.frameColor}>{seg.bottomBorder}</span>
+              </text>
+            </box>
+            <box style={{ flexDirection: 'column', gap: 0 }}>
+              <text>
+                <span fg={seg.frameColor}>{isLast ? '╮' : '┬'}</span>
+              </text>
               <text>
                 <span fg={seg.frameColor}>│</span>
               </text>
-            </React.Fragment>
-          )
-        })}
-      </box>
-
-      {/* Bottom border */}
-      <text>
-        <span fg={segments[0].frameColor}>╰</span>
-        {segments.map((seg, idx) => (
-          <span key={`bottom-${idx}`} fg={seg.frameColor}>
-            {seg.bottomBorder}
-          </span>
-        ))}
-      </text>
+              <text>
+                <span fg={seg.frameColor}>{isLast ? '╯' : '┴'}</span>
+              </text>
+            </box>
+          </React.Fragment>
+        )
+      })}
     </box>
   )
 }
