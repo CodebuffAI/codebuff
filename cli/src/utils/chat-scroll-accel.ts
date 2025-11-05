@@ -1,4 +1,5 @@
 import { Queue } from './arrays'
+import { clamp } from './math'
 
 import type { ScrollAcceleration } from '@opentui/core'
 
@@ -105,8 +106,9 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
       oldestTick = this.tickHistory.peek() ?? now
     }
 
-    return Math.min(
+    return clamp(
       Math.round(this.tickHistory.length * this.multiplier),
+      1,
       this.maxRows,
     )
   }
