@@ -19,12 +19,10 @@ const ENVIRONMENTS = ['zed', 'ghostty', 'vscode'] as const
 type ScrollEnvironmentType = (typeof ENVIRONMENTS)[number] | 'default'
 
 const ENV_MULTIPLIERS = {
-  zed: 0.015,
-  ghostty: 0.15,
-  zed: 0.07,
-  ghostty: 0.2,
-  vscode: 0.05,
-  default: 0.05,
+  zed: 0.5,
+  ghostty: 0.5,
+  vscode: 0.5,
+  default: 0.5,
 } satisfies Record<ScrollEnvironmentType, number>
 
 type ScrollEnvironment = {
@@ -51,24 +49,25 @@ const resolveScrollEnvironment = (): ScrollEnvironment => {
   return { type: 'default', multiplier }
 }
 
-type LinearScrollAccelOptions = {
+type ConstantScrollAccelOptions = {
   /** How fast to scale the scrolling. */
   multiplier?: number
 }
 
 /** Always scrolls at a constant speed per tick. */
-export class LinearScrollAccel implements ScrollAcceleration {
+export class ConstantScrollAccel implements ScrollAcceleration {
   private multiplier: number
   private buffer: number
 
-  constructor(private opts: LinearScrollAccelOptions = {}) {
+  constructor(private opts: ConstantScrollAccelOptions = {}) {
     this.buffer = 0
     this.multiplier = opts.multiplier ?? 1
   }
 
   tick(): number {
     this.buffer += this.multiplier
-    const rows = Math.floor(this.buffer)
+    const rows =
+      this.buffer > 0 ? Math.floor(this.buffer) : Math.ceil(this.buffer)
     this.buffer -= rows
     return rows
   }
@@ -78,7 +77,7 @@ export class LinearScrollAccel implements ScrollAcceleration {
   }
 }
 
-type QuadraticScrollAccelOptions = {
+type LinearScrollAccelOptions = {
   /** How fast to scale the scrolling. */
   multiplier?: number
 
@@ -100,14 +99,14 @@ type QuadraticScrollAccelOptions = {
  * The number of lines scrolled is proportional to the number of scroll events
  * in the last `rollingWindowMs`.
  */
-export class QuadraticScrollAccel implements ScrollAcceleration {
+export class LinearScrollAccel implements ScrollAcceleration {
   private rollingWindowMs: number
   private multiplier: number
   private maxRows: number
   private tickHistory: Queue<number>
   private buffer: number
 
-  constructor(private opts: QuadraticScrollAccelOptions = {}) {
+  constructor(private opts: LinearScrollAccelOptions = {}) {
     this.rollingWindowMs = opts.rollingWindowMs ?? 100
     this.multiplier = opts.multiplier ?? 0.3
     this.maxRows = opts.maxRows ?? Infinity
@@ -127,7 +126,7 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
 
     this.buffer += clamp(
       this.tickHistory.length * this.multiplier,
-      0,
+      -this.maxRows,
       this.maxRows,
     )
     const rows = Math.floor(this.buffer)
@@ -144,7 +143,7 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
 export const createChatScrollAcceleration = (): ScrollAcceleration => {
   const environment = resolveScrollEnvironment()
 
-  return new QuadraticScrollAccel({
+  return new ConstantScrollAccel({
     multiplier: ENV_MULTIPLIERS[environment.type] * environment.multiplier,
   })
 }
