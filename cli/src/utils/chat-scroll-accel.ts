@@ -118,12 +118,14 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
   private multiplier: number
   private maxRows: number
   private tickHistory: Queue<number>
+  private buffer: number
 
   constructor(private opts: QuadraticScrollAccelOptions = {}) {
     this.rollingWindowMs = opts.rollingWindowMs ?? 50
     this.multiplier = opts.multiplier ?? 0.3
     this.maxRows = opts.maxRows ?? Infinity
     this.tickHistory = new Queue<number>(undefined, 100)
+    this.buffer = 0
   }
 
   /** Calculates the average number of scroll events */
@@ -136,24 +138,24 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
       oldestTick = this.tickHistory.peek() ?? now
     }
 
-    return clamp(
-      Math.round(this.tickHistory.length * this.multiplier),
-      1,
+    this.buffer += clamp(
+      this.tickHistory.length * this.multiplier,
+      0,
       this.maxRows,
     )
+    const rows = Math.floor(this.buffer)
+    this.buffer -= rows
+    return rows
   }
 
   reset(): void {
     this.tickHistory.clear()
+    this.buffer = 0
   }
 }
 
 export const createChatScrollAcceleration = (): ScrollAcceleration => {
   const environment = resolveScrollEnvironment()
-
-  // MacOS handles the scroll acceleration differently
-  const ScrollAccel =
-    process.platform === 'darwin' ? LinearScrollAccel : QuadraticScrollAccel
 
   let environmentTunedOptions: { multiplier?: number } = {}
 
@@ -171,5 +173,5 @@ export const createChatScrollAcceleration = (): ScrollAcceleration => {
     }
   }
 
-  return new ScrollAccel(environmentTunedOptions)
+  return new QuadraticScrollAccel(environmentTunedOptions)
 }
