@@ -3,7 +3,7 @@ import { clamp } from './math'
 
 import type { ScrollAcceleration } from '@opentui/core'
 
-const SCROLL_MODE_OVERRIDE = 'CODEBUFF_SCROLL_MODE'
+const SCROLL_MULTIPLIER = 'CODEBUFF_SCROLL_MULTIPLIER'
 
 const INERTIAL_HINT_VARS = [
   'TERM_PROGRAM',
@@ -23,7 +23,7 @@ type ScrollEnvironment =
   | {
       enabled: true
       hint?: (typeof ENVIRONMENTS)[number]
-      override?: 'slow'
+      override?: 'slow' | 'fast'
     }
   | {
       enabled: false
@@ -32,13 +32,16 @@ type ScrollEnvironment =
     }
 
 const resolveScrollEnvironment = (): ScrollEnvironment => {
-  const override = process.env[SCROLL_MODE_OVERRIDE]?.toLowerCase()
+  const override = process.env[SCROLL_MULTIPLIER]?.toLowerCase()
 
-  if (override === 'slow' || override === 'inertial') {
+  if (override === 'slow') {
     return { enabled: true, override: 'slow' }
   }
   if (override === 'default' || override === 'off') {
     return { enabled: false, override: 'default' }
+  }
+  if (override === 'fast') {
+    return { enabled: true, override: 'fast' }
   }
 
   for (const hintVar of INERTIAL_HINT_VARS) {
@@ -60,6 +63,33 @@ const ENV_MULTIPLIERS = {
   vscode: 0.3,
   default: 0.3,
 } satisfies Record<(typeof ENVIRONMENTS)[number] | 'default', number>
+
+type LinearScrollAccelOptions = {
+  /** How fast to scale the scrolling. */
+  multiplier?: number
+}
+
+/** Always scrolls at a constant speed per tick. */
+export class LinearScrollAccel implements ScrollAcceleration {
+  private multiplier: number
+  private buffer: number
+
+  constructor(private opts: LinearScrollAccelOptions = {}) {
+    this.buffer = 0
+    this.multiplier = opts.multiplier ?? 1
+  }
+
+  tick(): number {
+    this.buffer += this.multiplier
+    const rows = Math.floor(this.buffer)
+    this.buffer -= rows
+    return rows
+  }
+
+  reset(): void {
+    this.buffer = 0
+  }
+}
 
 type QuadraticScrollAccelOptions = {
   /** How fast to scale the scrolling. */
@@ -118,23 +148,28 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
   }
 }
 
-export const createChatScrollAcceleration = ():
-  | ScrollAcceleration
-  | undefined => {
+export const createChatScrollAcceleration = (): ScrollAcceleration => {
   const environment = resolveScrollEnvironment()
 
-  let environmentTunedOptions: QuadraticScrollAccelOptions = {}
+  // MacOS handles the scroll acceleration differently
+  const ScrollAccel =
+    process.platform === 'darwin' ? LinearScrollAccel : QuadraticScrollAccel
+
+  let environmentTunedOptions: { multiplier?: number } = {}
 
   if (!environment.enabled) {
     // No environment detected
-    environmentTunedOptions.multiplier = 0.2
+    environmentTunedOptions.multiplier = ENV_MULTIPLIERS.default
   } else {
     environmentTunedOptions.multiplier =
       ENV_MULTIPLIERS[environment.hint ?? 'default']
     if (environment.override === 'slow') {
       environmentTunedOptions.multiplier *= 0.5
     }
+    if (environment.override === 'fast') {
+      environmentTunedOptions.multiplier *= 2
+    }
   }
 
-  return new QuadraticScrollAccel(environmentTunedOptions)
+  return new ScrollAccel(environmentTunedOptions)
 }
