@@ -35,7 +35,7 @@ import { useTheme, useResolvedThemeName } from './hooks/use-theme'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
-import { QuadraticScrollAccel } from './utils/chat-scroll-accel'
+import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { formatQueuedPreview } from './utils/helpers'
 import {
@@ -489,8 +489,7 @@ export const App = ({
     useChatScrollbox(scrollRef, messages)
 
   const inertialScrollAcceleration = useMemo(
-    () => new QuadraticScrollAccel(),
-    // () => createChatScrollAcceleration(),
+    () => createChatScrollAcceleration(),
     [],
   )
 
