@@ -21,6 +21,8 @@ type ScrollEnvironmentType = (typeof ENVIRONMENTS)[number] | 'default'
 const ENV_MULTIPLIERS = {
   zed: 0.015,
   ghostty: 0.15,
+  zed: 0.07,
+  ghostty: 0.2,
   vscode: 0.05,
   default: 0.05,
 } satisfies Record<ScrollEnvironmentType, number>
