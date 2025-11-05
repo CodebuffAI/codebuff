@@ -1,5 +1,4 @@
 import { Queue } from './arrays'
-import { clamp } from './math'
 
 import type { ScrollAcceleration } from '@opentui/core'
 
@@ -17,10 +16,12 @@ const INERTIAL_HINT_VARS = [
   'CURSOR_TERMINAL',
 ] as const
 
+const ENVIRONMENTS = ['zed', 'cursor', 'ghostty', 'vscode'] as const
+
 type ScrollEnvironment =
   | {
       enabled: true
-      hint?: 'zed' | 'cursor'
+      hint?: (typeof ENVIRONMENTS)[number]
       override?: 'slow'
     }
   | {
@@ -39,32 +40,40 @@ const resolveScrollEnvironment = (): ScrollEnvironment => {
     return { enabled: false, override: 'default' }
   }
 
-  const envHints = INERTIAL_HINT_VARS.flatMap((key) => {
-    const value = process.env[key]
-    return value ? [value.toLowerCase()] : []
-  })
-
-  const isZed = envHints.some((value) => value.includes('zed'))
-  if (isZed) {
-    return { enabled: true, hint: 'zed' }
-  }
-
-  const isCursor = envHints.some((value) => value.includes('cursor'))
-  if (isCursor) {
-    return { enabled: true, hint: 'cursor' }
+  for (const hintVar of INERTIAL_HINT_VARS) {
+    const value = process.env[hintVar]
+    for (const env of ENVIRONMENTS) {
+      if (value?.includes(env)) {
+        return { enabled: true, hint: env }
+      }
+    }
   }
 
   return { enabled: false }
 }
 
+const ENV_MULTIPLIERS = {
+  zed: 0.015,
+  cursor: 0.055,
+  ghostty: 0.3,
+  vscode: 0.3,
+  default: 0.3,
+} satisfies Record<(typeof ENVIRONMENTS)[number] | 'default', number>
+
 type QuadraticScrollAccelOptions = {
   /** How fast to scale the scrolling. */
   multiplier?: number
 
-  /** What to cap the scrolling speed at. This will also be ommitted most likely*/
+  /** What to cap the scrolling speed at.
+   *
+   * This will most likely be ommitted.
+   */
   maxRows?: number
 
-  /** Most likely this will just be the default option. */
+  /** How long to look back for scroll events.
+   *
+   * This will most likely be omitted.
+   */
   rollingWindowMs?: number
 }
 
@@ -96,7 +105,10 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
       oldestTick = this.tickHistory.peek() ?? now
     }
 
-    return clamp(this.tickHistory.length * this.multiplier, 1, this.maxRows)
+    return Math.min(
+      Math.round(this.tickHistory.length * this.multiplier),
+      this.maxRows,
+    )
   }
 
   reset(): void {
@@ -109,17 +121,17 @@ export const createChatScrollAcceleration = ():
   | undefined => {
   const environment = resolveScrollEnvironment()
 
-  if (!environment.enabled) {
-    return new QuadraticScrollAccel()
-  }
   let environmentTunedOptions: QuadraticScrollAccelOptions = {}
 
-  if (environment.override === 'slow') {
-    environmentTunedOptions.multiplier = 0.12
-  } else if (environment.hint === 'zed') {
-    environmentTunedOptions.multiplier = 0.015
-  } else if (environment.hint === 'cursor') {
-    environmentTunedOptions.multiplier = 0.055
+  if (!environment.enabled) {
+    // No environment detected
+    environmentTunedOptions.multiplier = 0.2
+  } else {
+    environmentTunedOptions.multiplier =
+      ENV_MULTIPLIERS[environment.hint ?? 'default']
+    if (environment.override === 'slow') {
+      environmentTunedOptions.multiplier *= 0.5
+    }
   }
 
   return new QuadraticScrollAccel(environmentTunedOptions)
