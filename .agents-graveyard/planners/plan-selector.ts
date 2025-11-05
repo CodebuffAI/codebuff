@@ -74,6 +74,11 @@ More on **Simplicity**:
 - Reusing existing code is better than writing new code.
 - It's good to match existing patterns and conventions in the codebase, including naming conventions, code style, and architecture.
 
+Code style notes:
+- Extra try/catch blocks clutter the code -- use them sparingly.
+- Optional arguments are code smell and worse than required arguments.
+- New components often should be added to a new file, not added to an existing file.
+
 For each implementation, evaluate:
 - Strengths and weaknesses
 - Implementation complexity

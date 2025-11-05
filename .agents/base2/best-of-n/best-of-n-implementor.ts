@@ -99,6 +99,11 @@ Your implementation should:
 - Reuse existing code wherever possible
 - Be well-structured and organized
 
+More style notes:
+- Extra try/catch blocks clutter the code -- use them sparingly.
+- Optional arguments are code smell and worse than required arguments.
+- New components often should be added to a new file, not added to an existing file.
+
 Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
 
     handleSteps: function* () {
