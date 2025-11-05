@@ -12,12 +12,9 @@ const INERTIAL_HINT_VARS = [
   'EDITOR',
   'ZED_TERM',
   'ZED_SHELL',
-  'CURSOR',
-  'CURSOR_TERM',
-  'CURSOR_TERMINAL',
 ] as const
 
-const ENVIRONMENTS = ['zed', 'cursor', 'ghostty', 'vscode'] as const
+const ENVIRONMENTS = ['zed', 'ghostty', 'vscode'] as const
 
 type ScrollEnvironment =
   | {
@@ -58,10 +55,9 @@ const resolveScrollEnvironment = (): ScrollEnvironment => {
 
 const ENV_MULTIPLIERS = {
   zed: 0.015,
-  cursor: 0.055,
-  ghostty: 0.3,
-  vscode: 0.3,
-  default: 0.3,
+  ghostty: 0.2,
+  vscode: 0.05,
+  default: 0.05,
 } satisfies Record<(typeof ENVIRONMENTS)[number] | 'default', number>
 
 type LinearScrollAccelOptions = {
