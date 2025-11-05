@@ -1,7 +1,9 @@
+import { runTerminalCommand } from '@codebuff/sdk'
+
 import { handleInitializationFlowLocally } from './init'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
-import type { ChatMessage } from '../types/chat'
+import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { User } from '../utils/auth'
 import type { AgentMode } from '../utils/constants'
@@ -61,6 +63,67 @@ export function routeUserPrompt(params: {
 
   let postUserMessage: Parameters<SendMessageFn>[0]['postUserMessage'] =
     undefined
+
+  if (trimmed.startsWith('!')) {
+    const toolCallId = crypto.randomUUID()
+    const resultBlock: ContentBlock = {
+      type: 'tool',
+      toolName: 'run_terminal_command',
+      toolCallId,
+      input: { command: trimmed.slice(1).trim() },
+      output: '',
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `user-${Date.now()}`,
+        variant: 'user',
+        content: trimmed,
+        timestamp: new Date().toISOString(),
+      },
+      {
+        id: `sys-${Date.now()}`,
+        variant: 'ai',
+        content: '',
+        blocks: [resultBlock],
+        timestamp: new Date().toISOString(),
+      },
+    ])
+
+    runTerminalCommand({
+      command: trimmed.slice(1).trim(),
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: -1,
+      env: process.env,
+    }).then(([{ value }]) => {
+      setMessages((prev) => {
+        const output = 'stdout' in value ? value.stdout : ''
+        return prev.map((msg) => {
+          if (!msg.blocks) {
+            return msg
+          }
+          return {
+            ...msg,
+            blocks: msg.blocks.map((block) =>
+              'toolCallId' in block && block.toolCallId === toolCallId
+                ? {
+                    ...block,
+                    output,
+                  }
+                : block,
+            ),
+          }
+        })
+      })
+    })
+
+    saveToHistory(trimmed)
+    setInputValue('')
+
+    return
+  }
 
   const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
   const cmd = normalized.split(/\s+/)[0].toLowerCase()

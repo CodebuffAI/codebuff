@@ -6,6 +6,7 @@ import {
   stripColors,
   truncateStringWithMessage,
 } from '../../../common/src/util/string'
+
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const COMMAND_OUTPUT_LIMIT = 50_000
@@ -21,7 +22,7 @@ export function runTerminalCommand({
   process_type: 'SYNC' | 'BACKGROUND'
   cwd: string
   timeout_seconds: number
-  env?: Record<string, string>
+  env?: Record<string, string | undefined>
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   if (process_type === 'BACKGROUND') {
     throw new Error('BACKGROUND process_type not implemented')

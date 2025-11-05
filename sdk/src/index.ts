@@ -31,3 +31,5 @@ export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
 
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+
+export { runTerminalCommand } from './tools/run-terminal-command'
