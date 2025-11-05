@@ -20,7 +20,7 @@ type ScrollEnvironmentType = (typeof ENVIRONMENTS)[number] | 'default'
 
 const ENV_MULTIPLIERS = {
   zed: 0.015,
-  ghostty: 0.2,
+  ghostty: 0.15,
   vscode: 0.05,
   default: 0.05,
 } satisfies Record<ScrollEnvironmentType, number>
@@ -106,7 +106,7 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
   private buffer: number
 
   constructor(private opts: QuadraticScrollAccelOptions = {}) {
-    this.rollingWindowMs = opts.rollingWindowMs ?? 50
+    this.rollingWindowMs = opts.rollingWindowMs ?? 100
     this.multiplier = opts.multiplier ?? 0.3
     this.maxRows = opts.maxRows ?? Infinity
     this.tickHistory = new Queue<number>(undefined, 100)
