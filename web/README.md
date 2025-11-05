@@ -100,8 +100,10 @@ On Render, set the Health Check Path to `/api/healthz` in your service settings 
 
 ### E2E tests for SSR and hydration
 
-- Hydration fallback: `src/__tests__/e2e/store-hydration.spec.ts`
-- SSR HTML: `src/__tests__/e2e/store-ssr.spec.ts` (JavaScript disabled) using server-side fixture `src/app/store/e2e-fixture.ts` when `E2E_ENABLE_QUERY_FIXTURE=1`.
+- Hydration fallback: `src/__tests__/e2e/store-hydration.spec.ts` - Tests client-side data fetching when SSR data is empty
+- SSR HTML: `src/__tests__/e2e/store-ssr.spec.ts` - Tests server-side rendering with JavaScript disabled
+
+Both tests use Playwright's `page.route()` to mock API responses without polluting production code.
 
 Run locally:
 

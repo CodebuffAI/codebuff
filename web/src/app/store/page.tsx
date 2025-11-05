@@ -9,16 +9,12 @@ interface PublisherProfileResponse {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  // In E2E mode, avoid DB by using local fixture
   let agents: Array<{
     name?: string
     publisher?: { avatar_url?: string | null }
   }> = []
   try {
-    agents =
-      process.env.E2E_ENABLE_QUERY_FIXTURE === '1'
-        ? (await import('./e2e-fixture')).getAgentsFixture()
-        : await (await import('@/server/agents-data')).getCachedAgents()
+    agents = await (await import('@/server/agents-data')).getCachedAgents()
   } catch {
     agents = []
   }
@@ -59,17 +55,10 @@ interface StorePageProps {
 }
 
 export default async function StorePage({ searchParams }: StorePageProps) {
-  // E2E fixture path to prevent DB dependency during e2e
-  const useFixture =
-    process.env.E2E_ENABLE_QUERY_FIXTURE === '1' &&
-    (searchParams['e2eFixture'] === '1' || searchParams['e2eFixture'] === 'true')
-
-  // Fetch agents data on the server with ISR cache (or use test fixture)
+  // Fetch agents data on the server with ISR cache
   let agentsData: any[] = []
   try {
-    agentsData = useFixture
-      ? (await import('./e2e-fixture')).getAgentsFixture()
-      : await (await import('@/server/agents-data')).getCachedAgents()
+    agentsData = await (await import('@/server/agents-data')).getCachedAgents()
   } catch {
     agentsData = []
   }
