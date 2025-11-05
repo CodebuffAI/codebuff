@@ -1,8 +1,9 @@
-import {
-  LinearScrollAccel,
-  MacOSScrollAccel,
-  type ScrollAcceleration,
-} from '@opentui/core'
+import { MacOSScrollAccel, LinearScrollAccel } from '@opentui/core'
+
+import { Queue } from './arrays'
+import { clamp } from './math'
+
+import type { ScrollAcceleration } from '@opentui/core'
 
 const SCROLL_MODE_OVERRIDE = 'CODEBUFF_SCROLL_MODE'
 
@@ -17,9 +18,6 @@ const INERTIAL_HINT_VARS = [
   'CURSOR_TERM',
   'CURSOR_TERMINAL',
 ] as const
-
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max)
 
 type ScrollEnvironment =
   | {
@@ -209,14 +207,50 @@ class InertialScrollAccel implements ScrollAcceleration {
   }
 }
 
+let previousTime = Date.now()
+export class QuadraticScrollAccel implements ScrollAcceleration {
+  private rollingWindowMs: number
+  private multiplier: number
+  private maxRows: number
+  private tickHistory: Queue<number>
+
+  constructor(
+    private opts: {
+      rollingWindowMs?: number
+      multiplier?: number
+      maxRows?: number
+    } = {},
+  ) {
+    this.rollingWindowMs = opts.rollingWindowMs ?? 50
+    this.multiplier = opts.multiplier ?? 0.5
+    this.maxRows = opts.maxRows ?? Infinity
+    this.tickHistory = new Queue<number>(undefined, 100)
+  }
+
+  /** Calculates the average number of scroll events */
+  tick(now = Date.now()): number {
+    this.tickHistory.enqueue(now)
+
+    let oldestTick = this.tickHistory.peek() ?? now
+    while (oldestTick < now - this.rollingWindowMs) {
+      this.tickHistory.dequeue()
+      oldestTick = this.tickHistory.peek() ?? now
+    }
+
+    const dt = now - previousTime
+    previousTime = now
+    return clamp(this.tickHistory.length * this.multiplier, 1, this.maxRows)
+  }
+
+  reset(): void {
+    this.tickHistory.clear()
+  }
+}
+
 export const createChatScrollAcceleration = ():
   | ScrollAcceleration
   | undefined => {
   const environment = resolveScrollEnvironment()
-
-  if (!environment.enabled) {
-    return undefined
-  }
 
   const base =
     process.platform === 'darwin'
