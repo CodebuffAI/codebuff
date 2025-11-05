@@ -42,8 +42,14 @@ export const AgentModeToggle = ({
   const openTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handlePress = (selectedMode: AgentMode) => {
+    // Cancel any pending open timeout - click should be immediate
+    if (openTimeoutRef.current) {
+      clearTimeout(openTimeoutRef.current)
+      openTimeoutRef.current = null
+    }
+
     if (selectedMode === mode) {
-      // Toggle collapsed/expanded when clicking current mode
+      // Toggle collapsed/expanded when clicking current mode (immediate)
       setIsOpen(!isOpen)
     } else {
       // Switch to different mode and close the toggle
