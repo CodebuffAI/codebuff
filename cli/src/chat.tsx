@@ -189,11 +189,6 @@ export const App = ({
     }
 
     const agentListId = 'loaded-agents-list'
-    const userCredentials = getUserCredentials()
-    const greeting = userCredentials?.name?.trim().length
-      ? `Welcome back, ${userCredentials.name.trim()}!`
-      : null
-
     const baseTextColor = theme.foreground
 
     const homeDir = os.homedir()
@@ -205,7 +200,7 @@ export const App = ({
 
     const agentSectionHeader = agentId
       ? `**Active agent: ${agentId}**`
-      : `**Active agent:** *fast default (base2-fast)*`
+      : undefined
 
     const buildBlocks = (listId: string): ContentBlock[] => {
       const blocks: ContentBlock[] = [
@@ -218,29 +213,27 @@ export const App = ({
         },
       ]
 
-      if (greeting) {
-        blocks.push({
-          type: 'text',
-          content: greeting,
-          color: baseTextColor,
-        })
-      }
-
       blocks.push({
         type: 'html',
         render: () => (
-          <text style={{ wrapMode: 'word' }}>
-            <span fg={baseTextColor}>
-              Codebuff can read and write files in{' '}
-              <TerminalLink
-                text={displayPath}
-                inline={true}
-                underlineOnHover={true}
-                onActivate={() => openFileAtPath(repoRoot)}
-              />
-              , and run terminal commands to help you build.
-            </span>
-          </text>
+          <>
+            <text style={{ wrapMode: 'word', marginBottom: 1 }}>
+              <span fg={baseTextColor}>
+                Codebuff will run commands on your behalf to help you build.
+              </span>
+            </text>
+            <text style={{ wrapMode: 'word', marginBottom: 1 }}>
+              <span fg={baseTextColor}>
+                Directory{' '}
+                <TerminalLink
+                  text={displayPath}
+                  inline={true}
+                  underlineOnHover={true}
+                  onActivate={() => openFileAtPath(repoRoot)}
+                />
+              </span>
+            </text>
+          </>
         ),
       })
 
@@ -251,13 +244,15 @@ export const App = ({
         agentsDir: loadedAgentsData.agentsDir,
       })
 
-      blocks.push({
-        type: 'text',
-        content: agentSectionHeader,
-        marginTop: 1,
-        marginBottom: 0,
-        color: baseTextColor,
-      })
+      if (agentSectionHeader) {
+        blocks.push({
+          type: 'text',
+          content: agentSectionHeader,
+          marginTop: 1,
+          marginBottom: 0,
+          color: baseTextColor,
+        })
+      }
 
       return blocks
     }
@@ -485,8 +480,10 @@ export const App = ({
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  const { scrollToLatest, scrollboxProps, isAtBottom } =
-    useChatScrollbox(scrollRef, messages)
+  const { scrollToLatest, scrollboxProps, isAtBottom } = useChatScrollbox(
+    scrollRef,
+    messages,
+  )
 
   const inertialScrollAcceleration = useMemo(
     () => createChatScrollAcceleration(),

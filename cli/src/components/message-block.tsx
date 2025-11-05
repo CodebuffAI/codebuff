@@ -266,9 +266,7 @@ export const MessageBlock = ({
     const headerName = displayInfo.name
 
     return (
-      <box
-        key={keyPrefix}
-      >
+      <box key={keyPrefix}>
         {toolRenderConfig.content ? (
           toolRenderConfig.content
         ) : (
@@ -343,10 +341,7 @@ export const MessageBlock = ({
     const statusIndicator = isActive ? '●' : '✓'
 
     return (
-      <box
-        key={keyPrefix}
-        style={{ flexDirection: 'column', gap: 0 }}
-      >
+      <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
         <AgentBranchItem
           name={agentBlock.agentName}
           content={displayContent}
@@ -371,7 +366,6 @@ export const MessageBlock = ({
     isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
-    const TRUNCATE_LIMIT = 3
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
     const { agents } = agentListBlock
 
@@ -388,9 +382,6 @@ export const MessageBlock = ({
     })
 
     const agentCount = sortedAgents.length
-    const previewAgents = sortedAgents.slice(0, TRUNCATE_LIMIT)
-    const remainingCount =
-      agentCount > TRUNCATE_LIMIT ? agentCount - TRUNCATE_LIMIT : 0
 
     const formatIdentifier = (agent: { id: string; displayName: string }) =>
       agent.displayName && agent.displayName !== agent.id
@@ -419,33 +410,16 @@ export const MessageBlock = ({
     )
 
     const headerText = pluralize(agentCount, 'local agent')
-    const previewLines = previewAgents.map(
-      (agent) => `  • ${formatIdentifier(agent)}`,
-    )
-    const finishedPreview = isCollapsed
-      ? [
-          ...previewLines,
-          remainingCount > 0
-            ? `  ... ${pluralize(remainingCount, 'more agent')} available`
-            : null,
-        ]
-          .filter(Boolean)
-          .join('\n')
-      : ''
-
     return (
-      <box
-        key={keyPrefix}
-      >
-        <AgentBranchItem
+      <box key={keyPrefix}>
+        <ToolCallItem
           name={headerText}
           content={agentListContent}
-          agentId={agentListBlock.id}
           isCollapsed={isCollapsed}
           isStreaming={false}
           branchChar=""
           streamingPreview=""
-          finishedPreview={finishedPreview}
+          finishedPreview=""
           onToggle={() => onToggleCollapsed(agentListBlock.id)}
         />
       </box>
