@@ -13,7 +13,7 @@ export interface UsageMetricRow {
   total_dollars: number | string
   avg_cost_per_run: number | string
   unique_users: number | string
-  last_used: Date | null
+  last_used: Date | string | null
 }
 
 export interface WeeklyMetricRow {
@@ -31,7 +31,7 @@ export interface PerVersionMetricRow {
   total_dollars: number | string
   avg_cost_per_run: number | string
   unique_users: number | string
-  last_used: Date | null
+  last_used: Date | string | null
 }
 
 export interface PerVersionWeeklyMetricRow {
@@ -89,7 +89,7 @@ export function buildAgentsData(params: {
       total_invocations: number
       avg_cost_per_run: number
       unique_users: number
-      last_used: Date | null
+      last_used: Date | string | null
     }
   >()
   usageMetrics.forEach((metric) => {
@@ -131,7 +131,11 @@ export function buildAgentsData(params: {
         total_invocations: Number(metric.total_invocations),
         avg_cost_per_run: Number(metric.avg_cost_per_run),
         unique_users: Number(metric.unique_users),
-        last_used: metric.last_used ? metric.last_used.toISOString() : null,
+        last_used: metric.last_used
+          ? typeof metric.last_used === 'string'
+            ? metric.last_used
+            : metric.last_used.toISOString()
+          : null,
       })
     }
   })
@@ -191,7 +195,11 @@ export function buildAgentsData(params: {
       total_spent: metrics.total_dollars,
       avg_cost_per_invocation: metrics.avg_cost_per_run,
       unique_users: metrics.unique_users,
-      last_used: metrics.last_used ? metrics.last_used.toISOString() : undefined,
+      last_used: metrics.last_used
+        ? typeof metrics.last_used === 'string'
+          ? metrics.last_used
+          : metrics.last_used.toISOString()
+        : undefined,
       version_stats,
       tags: agentData?.tags || [],
     }

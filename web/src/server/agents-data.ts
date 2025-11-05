@@ -27,7 +27,7 @@ export interface AgentData {
   tags?: string[]
 }
 
-const fetchAgentsWithMetrics = async (): Promise<AgentData[]> => {
+export const fetchAgentsWithMetrics = async (): Promise<AgentData[]> => {
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
   // Get all published agents with their publisher info

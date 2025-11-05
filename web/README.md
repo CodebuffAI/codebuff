@@ -90,13 +90,13 @@ The following scripts are available in the `package.json`:
 
 ### Warm the Store cache
 
-The agents cache is automatically warmed in multiple ways to ensure SEO data is available immediately:
+The agents cache is automatically warmed to ensure SEO data is available immediately:
 
-1. **Build-time warming** (Primary): `scripts/prebuild-agents-cache.ts` runs after `next build` to populate the cache before deployment
-2. **Health check warming** (Secondary): `/api/healthz` endpoint warms the cache when Render performs health checks
+1. **Build-time validation**: `scripts/prebuild-agents-cache.ts` runs after `next build` to validate the database connection and data pipeline
+2. **Health check warming** (Primary): `/api/healthz` endpoint warms the cache when Render performs health checks before routing traffic
 3. **Manual warming** (Optional): `scripts/warm-store-cache.ts` can be run manually with `bun run warm:store`
 
-On Render, the `render.yaml` configuration sets the Health Check Path to `/api/healthz`, which ensures the cache is warm before traffic is routed to the app.
+On Render, set the Health Check Path to `/api/healthz` in your service settings to ensure the cache is warm before traffic is routed to the app.
 
 ### E2E tests for SSR and hydration
 
