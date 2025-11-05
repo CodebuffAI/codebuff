@@ -154,6 +154,8 @@ jobs:
             cd ${{ matrix.package }}
             if [ "${{ matrix.package }}" = ".agents" ]; then
               find __tests__ -name '*.test.ts' ! -name '*.integration.test.ts' 2>/dev/null | sort | xargs -I {} bun test {} || echo "No regular tests found in .agents"
+            elif [ "${{ matrix.package }}" = "web" ]; then
+              bun run test --runInBand
             else
               find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
             fi
@@ -244,7 +246,4 @@ jobs:
               find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
             fi
 
-      # - name: Open interactive debug shell
-      #   if: ${{ failure() }}
-      #   uses: mxschmitt/action-tmate@v3
-      #   timeout-minutes: 15 # optional guard
+  # E2E tests for web intentionally omitted for now.

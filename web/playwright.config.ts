@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// Use the same port as the dev server, defaulting to 3000
+const PORT = process.env.NEXT_PUBLIC_WEB_PORT || '3000'
+const BASE_URL = `http://127.0.0.1:${PORT}`
+
 export default defineConfig({
   testDir: './src/__tests__/e2e',
   fullyParallel: true,
@@ -8,7 +12,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://127.0.0.1:3001',
+    baseURL: BASE_URL,
     trace: 'on-first-retry',
   },
 
@@ -28,8 +32,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'bun run dev',
-    url: 'http://127.0.0.1:3001',
+    command: `NEXT_PUBLIC_WEB_PORT=${PORT} bun run dev`,
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
   },
 })

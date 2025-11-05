@@ -76,5 +76,38 @@ The following scripts are available in the `package.json`:
 - `test:watch`: Run unit tests in watch mode
 - `e2e`: Run end-to-end tests
 - `e2e:ui`: Run end-to-end tests with UI
-- `postbuild`: Generate sitemap
 - `prepare`: Install Husky for managing Git hooks
+
+## SEO & SSR
+
+- Store SSR: `src/app/store/page.tsx` renders agents server-side using cached data (ISR `revalidate=600`).
+- Client fallback: `src/app/store/store-client.tsx` only fetches `/api/agents` if SSR data is empty.
+- Dynamic metadata:
+  - Store: `src/app/store/page.tsx`
+  - Publisher: `src/app/publishers/[id]/page.tsx`
+  - Agent detail: `src/app/publishers/[id]/agents/[agentId]/[version]/page.tsx`
+
+### Warm the Store cache
+
+The agents cache is automatically warmed to ensure SEO data is available immediately:
+
+1. **Build-time validation**: `scripts/prebuild-agents-cache.ts` runs after `next build` to validate the database connection and data pipeline
+2. **Health check warming** (Primary): `/api/healthz` endpoint warms the cache when Render performs health checks before routing traffic
+
+On Render, set the Health Check Path to `/api/healthz` in your service settings to ensure the cache is warm before traffic is routed to the app.
+
+### E2E tests for SSR and hydration
+
+- Hydration fallback: `src/__tests__/e2e/store-hydration.spec.ts` - Tests client-side data fetching when SSR data is empty
+- SSR HTML: `src/__tests__/e2e/store-ssr.spec.ts` - Tests server-side rendering with JavaScript disabled
+
+Both tests use Playwright's `page.route()` to mock API responses without polluting production code.
+
+Run locally:
+
+```
+cd web
+bun run e2e
+```
+
+<!-- Lighthouse CI workflow removed for now. Reintroduce later if needed. -->

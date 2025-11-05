@@ -58,12 +58,27 @@ export async function generateMetadata({ params }: AgentDetailPageProps) {
       ? JSON.parse(agent[0].data)
       : agent[0].data
   const agentName = agentData.name || params.agentId
+  // Fetch publisher for OG image
+  const pub = await db
+    .select()
+    .from(schema.publisher)
+    .where(eq(schema.publisher.id, params.id))
+    .limit(1)
+
+  const title = `${agentName} v${agent[0].version} - Agent Details`
+  const description =
+    agentData.description || `View details for ${agentName} version ${agent[0].version}`
+  const ogImages = (pub?.[0]?.avatar_url ? [pub[0].avatar_url] : []) as string[]
 
   return {
-    title: `${agentName} v${agent[0].version} - Agent Details`,
-    description:
-      agentData.description ||
-      `View details for ${agentName} version ${agent[0].version}`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      images: ogImages,
+    },
   }
 }
 

@@ -185,10 +185,24 @@ export default function AgentStoreClient({
     loadingStateRef.current = { isLoadingMore, hasMore }
   }, [isLoadingMore, hasMore])
 
-  // Use the initial agents directly
+  // Hydrate agents client-side if SSR provided none (build-time fallback)
+  const { data: hydratedAgents } = useQuery<AgentData[]>({
+    queryKey: ['agents'],
+    queryFn: async () => {
+      const response = await fetch('/api/agents')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch agents: ${response.statusText}`)
+      }
+      return response.json()
+    },
+    enabled: (initialAgents?.length ?? 0) === 0,
+    staleTime: 600000, // 10 minutes
+  })
+
+  // Prefer hydrated data if present; else use SSR data
   const agents = useMemo(() => {
-    return initialAgents
-  }, [initialAgents])
+    return hydratedAgents ?? initialAgents
+  }, [hydratedAgents, initialAgents])
 
   const editorsChoice = useMemo(() => {
     return agents.filter((agent) => EDITORS_CHOICE_AGENTS.includes(agent.id))

@@ -29,11 +29,20 @@ export async function generateMetadata({ params }: PublisherPageProps) {
     }
   }
 
+  const title = `${publisher[0].name} - Codebuff Publisher`
+  const description =
+    publisher[0].bio || `View ${publisher[0].name}'s published agents on Codebuff`
+  const ogImages = (publisher[0].avatar_url ? [publisher[0].avatar_url] : []) as string[]
+
   return {
-    title: `${publisher[0].name} - Codebuff Publisher`,
-    description:
-      publisher[0].bio ||
-      `View ${publisher[0].name}'s published agents on Codebuff`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+      images: ogImages,
+    },
   }
 }
 

@@ -4,7 +4,7 @@
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "baseUrl": ".",
-    "types": ["bun", "node"],
+    "types": ["bun", "node", "jest", "@testing-library/jest-dom"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
