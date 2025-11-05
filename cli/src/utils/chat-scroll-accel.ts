@@ -116,7 +116,7 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
   }
 
   /** Calculates the average number of scroll events */
-  tick(now = Date.now(), baseAmount: number = 1): number {
+  tick(now = Date.now(), baseAmount?: number): number {
     this.tickHistory.enqueue(now)
 
     let oldestTick = this.tickHistory.peek() ?? now
@@ -127,7 +127,10 @@ export class QuadraticScrollAccel implements ScrollAcceleration {
 
     const dt = now - lastTick
     lastTick = now
-    logger.info({}, `asdf tick ${dt}ms ${baseAmount} ${this.tickHistory.length}speed`)
+    logger.info(
+      {},
+      `asdf tick ${dt}ms ${baseAmount}baseAmount ${this.tickHistory.length}calulatedSpeed`,
+    )
 
     this.buffer += clamp(
       this.tickHistory.length * this.multiplier,
