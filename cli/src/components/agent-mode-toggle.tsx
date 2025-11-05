@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react'
 import stringWidth from 'string-width'
+
 import { useTheme } from '../hooks/use-theme'
 
-import type { AgentMode } from '../utils/constants'
 import type { ChatTheme } from '../types/theme-system'
+import type { AgentMode } from '../utils/constants'
 
 const getModeConfig = (theme: ChatTheme) =>
   ({
@@ -72,11 +73,8 @@ export const AgentModeToggle = ({
     // If already open, do nothing
     if (isOpen) return
 
-    // Delay opening by 500ms
-    openTimeoutRef.current = setTimeout(() => {
-      setIsOpen(true)
-      openTimeoutRef.current = null
-    }, 250)
+    setIsOpen(true)
+    openTimeoutRef.current = null
   }
 
   const handleMouseOut = () => {
@@ -86,11 +84,11 @@ export const AgentModeToggle = ({
       openTimeoutRef.current = null
     }
 
-    // Delay closing by 1 second
+    // Delay closing by 0.1 seconds
     closeTimeoutRef.current = setTimeout(() => {
       setIsOpen(false)
       closeTimeoutRef.current = null
-    }, 1000)
+    }, 100)
   }
 
   if (!isOpen) {
@@ -132,12 +130,12 @@ export const AgentModeToggle = ({
   }
 
   // Expanded state: show all modes with current mode rightmost
-  const orderedModes = [...ALL_MODES.filter((m) => m !== mode), mode]
+  const orderedModes = [...ALL_MODES, mode]
 
   // Calculate widths for each segment
-  const segmentWidths = orderedModes.map((m) => {
+  const segmentWidths = orderedModes.map((m, i) => {
     const label = config[m].label
-    if (m === mode) {
+    if (i === orderedModes.length - 1) {
       // Active mode shows label with collapse arrow
       return stringWidth(` < ${label} `)
     }
@@ -150,7 +148,7 @@ export const AgentModeToggle = ({
     isLast: boolean,
   ) => {
     const { frameColor, textColor, label } = config[modeItem]
-    const isActive = modeItem === mode
+    const isActive = isLast
     const width = segmentWidths[index]
     const content = isActive ? ` < ${label} ` : ` ${label} `
     const horizontal = '─'.repeat(width)
@@ -231,13 +229,13 @@ export const AgentModeToggle = ({
             </box>
             <box style={{ flexDirection: 'column', gap: 0 }}>
               <text>
-                <span fg={seg.frameColor}>{isLast ? '╮' : '┬'}</span>
+                <span fg={seg.frameColor}>╮</span>
               </text>
               <text>
                 <span fg={seg.frameColor}>│</span>
               </text>
               <text>
-                <span fg={seg.frameColor}>{isLast ? '╯' : '┴'}</span>
+                <span fg={seg.frameColor}>╯</span>
               </text>
             </box>
           </React.Fragment>
