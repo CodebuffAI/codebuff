@@ -16,7 +16,8 @@ export async function generateMetadata(): Promise<Metadata> {
   }> = []
   try {
     agents = await getCachedAgents()
-  } catch {
+  } catch (error) {
+    console.error('[Store] Failed to fetch agents for metadata:', error)
     agents = []
   }
   const count = agents.length
@@ -60,7 +61,8 @@ export default async function StorePage({ searchParams }: StorePageProps) {
   let agentsData: any[] = []
   try {
     agentsData = await getCachedAgents()
-  } catch {
+  } catch (error) {
+    console.error('[Store] Failed to fetch agents data:', error)
     agentsData = []
   }
 

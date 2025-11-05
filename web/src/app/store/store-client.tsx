@@ -186,21 +186,18 @@ export default function AgentStoreClient({
   }, [isLoadingMore, hasMore])
 
   // Hydrate agents client-side if SSR provided none (build-time fallback)
-  const [hydratedAgents, setHydratedAgents] = useState<AgentData[] | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    if ((initialAgents?.length ?? 0) === 0) {
-      fetch('/api/agents')
-        .then((res) => (res.ok ? res.json() : Promise.reject(res.statusText)))
-        .then((data: AgentData[]) => {
-          if (!cancelled) setHydratedAgents(data)
-        })
-        .catch(() => {})
-    }
-    return () => {
-      cancelled = true
-    }
-  }, [initialAgents])
+  const { data: hydratedAgents } = useQuery<AgentData[]>({
+    queryKey: ['agents'],
+    queryFn: async () => {
+      const response = await fetch('/api/agents')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch agents: ${response.statusText}`)
+      }
+      return response.json()
+    },
+    enabled: (initialAgents?.length ?? 0) === 0,
+    staleTime: 600000, // 10 minutes
+  })
 
   // Prefer hydrated data if present; else use SSR data
   const agents = useMemo(() => {

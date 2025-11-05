@@ -4,8 +4,7 @@ import { getCachedAgents } from '@/server/agents-data'
 import type { MetadataRoute } from 'next'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
-  const toUrl = (path: string) => `${base}${path}`
+  const toUrl = (path: string) => `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}${path}`
 
   const items: MetadataRoute.Sitemap = [
     {
@@ -46,14 +45,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
       if (pubId && agent.id && agent.version) {
         items.push({
-          url: toUrl(`/publishers/${pubId}/agents/${agent.id}/${agent.version}`),
+          url: toUrl(
+            `/publishers/${pubId}/agents/${agent.id}/${agent.version}`,
+          ),
           lastModified: new Date(agent.last_used || agent.created_at),
           changeFrequency: 'daily',
           priority: 0.8,
         })
       }
     }
-  } catch {
+  } catch (error) {
+    console.error(
+      '[Sitemap] Failed to fetch agents for sitemap generation:',
+      error,
+    )
     // If fetching fails, fall back to base entries only
   }
 
