@@ -57,6 +57,12 @@ import type { ScrollBoxRenderable } from '@opentui/core'
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
 
+const DEFAULT_AGENT_IDS = {
+  FAST: 'base2-fast',
+  MAX: 'base2-max',
+  PLAN: 'base2-plan',
+} as const
+
 export const App = ({
   initialPrompt,
   agentId,
@@ -198,10 +204,6 @@ export const App = ({
       ? repoRoot
       : `~/${relativePath}`
 
-    const agentSectionHeader = agentId
-      ? `**Active agent: ${agentId}**`
-      : undefined
-
     const buildBlocks = (listId: string): ContentBlock[] => {
       const blocks: ContentBlock[] = [
         {
@@ -243,16 +245,6 @@ export const App = ({
         agents: loadedAgentsData.agents,
         agentsDir: loadedAgentsData.agentsDir,
       })
-
-      if (agentSectionHeader) {
-        blocks.push({
-          type: 'text',
-          content: agentSectionHeader,
-          marginTop: 1,
-          marginBottom: 0,
-          color: baseTextColor,
-        })
-      }
 
       return blocks
     }
@@ -389,6 +381,15 @@ export const App = ({
       resetChatStore: store.reset,
     })),
   )
+
+  // Get current agent display name based on mode
+  const agentDisplayName = useMemo(() => {
+    if (!loadedAgentsData) return null
+
+    const currentAgentId = agentId || DEFAULT_AGENT_IDS[agentMode]
+    const agent = loadedAgentsData.agents.find((a) => a.id === currentAgentId)
+    return agent?.displayName || currentAgentId
+  }, [loadedAgentsData, agentId, agentMode])
 
   // Handle successful login
   const handleLoginSuccess = useCallback(
@@ -1288,6 +1289,21 @@ export const App = ({
           </box>
         </box>
         <Separator width={separatorWidth} />
+        {/* Agent status line - right-aligned under toggle */}
+        {loadedAgentsData && (
+          <box
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'flex-end',
+              paddingRight: 1,
+              paddingTop: 0,
+            }}
+          >
+            <text>
+              <span fg={theme.muted}>Agent: {agentDisplayName}</span>
+            </text>
+          </box>
+        )}
       </box>
 
       {/* Login Modal Overlay - show when not authenticated and done checking */}

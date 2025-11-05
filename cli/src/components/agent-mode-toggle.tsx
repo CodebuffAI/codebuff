@@ -39,6 +39,7 @@ export const AgentModeToggle = ({
   const config = getModeConfig(theme)
   const [isOpen, setIsOpen] = useState(false)
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const openTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handlePress = (selectedMode: AgentMode) => {
     if (selectedMode === mode) {
@@ -61,10 +62,24 @@ export const AgentModeToggle = ({
       clearTimeout(closeTimeoutRef.current)
       closeTimeoutRef.current = null
     }
-    setIsOpen(true)
+
+    // If already open, do nothing
+    if (isOpen) return
+
+    // Delay opening by 500ms
+    openTimeoutRef.current = setTimeout(() => {
+      setIsOpen(true)
+      openTimeoutRef.current = null
+    }, 250)
   }
 
   const handleMouseOut = () => {
+    // Cancel any pending open
+    if (openTimeoutRef.current) {
+      clearTimeout(openTimeoutRef.current)
+      openTimeoutRef.current = null
+    }
+
     // Delay closing by 1 second
     closeTimeoutRef.current = setTimeout(() => {
       setIsOpen(false)
@@ -111,10 +126,7 @@ export const AgentModeToggle = ({
   }
 
   // Expanded state: show all modes with current mode rightmost
-  const orderedModes = [
-    ...ALL_MODES.filter((m) => m !== mode),
-    mode,
-  ]
+  const orderedModes = [...ALL_MODES.filter((m) => m !== mode), mode]
 
   // Calculate widths for each segment
   const segmentWidths = orderedModes.map((m) => {
