@@ -10,6 +10,7 @@ import type { ChatTheme } from '../../types/theme-system'
 import { ListDirectoryComponent } from './list-directory'
 import { RunTerminalCommandComponent } from './run-terminal-command'
 import { CodeSearchComponent } from './code-search'
+import { ReadFilesComponent } from './read-files'
 
 /**
  * Registry of all tool-specific UI components.
@@ -19,6 +20,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [CodeSearchComponent.toolName, CodeSearchComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],
   [RunTerminalCommandComponent.toolName, RunTerminalCommandComponent],
+  [ReadFilesComponent.toolName, ReadFilesComponent],
 ])
 
 /**
