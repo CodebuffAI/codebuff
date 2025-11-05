@@ -135,7 +135,7 @@ export const SimpleToolCallItem = ({
 
   return (
     <box style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-      <text style={{ wrapMode: 'none' }}>
+      <text style={{ wrapMode: 'word' }}>
         <span fg={theme.foreground}>{branchChar || bulletChar}</span>
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
           {name}
