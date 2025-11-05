@@ -36,7 +36,6 @@ import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
-import { getCodebuffClient } from './utils/codebuff-client'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { formatQueuedPreview } from './utils/helpers'
 import {
@@ -223,39 +222,6 @@ export const App = ({
         blocks.push({
           type: 'text',
           content: greeting,
-          color: baseTextColor,
-        })
-      }
-
-      // Display SDK environment variables when the client is available
-      const client = getCodebuffClient()
-      const envGetter = client ? (client as any)?.getEnvironmentInfo : null
-
-      if (typeof envGetter === 'function') {
-        const sdkEnv = envGetter.call(client) as {
-          rawEnv: Record<string, string>
-          computed: Record<string, unknown>
-        }
-        const sdkEnvLines = [
-          'Raw SDK env vars:',
-          ...Object.entries(sdkEnv.rawEnv).map(
-            ([key, value]) => `  ${key}=${value}`,
-          ),
-          '',
-          'Computed SDK constants:',
-          ...Object.entries(sdkEnv.computed).map(([key, value]) => {
-            const displayValue =
-              typeof value === 'string' && value.length > 50
-                ? value.substring(0, 47) + '...'
-                : String(value)
-            return `  ${key}=${displayValue}`
-          }),
-        ].join('\n')
-
-        blocks.push({
-          type: 'text',
-          content: `\nSDK Environment:\n${sdkEnvLines}`,
-          marginTop: 1,
           color: baseTextColor,
         })
       }
