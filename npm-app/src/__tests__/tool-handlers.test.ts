@@ -387,4 +387,45 @@ export interface TestInterface {
       expect(stdout).toContain('Global limit of 250 results reached')
     }
   })
+
+  test('handles glob pattern flags correctly without regex parse errors', async () => {
+    // Create test files with different extensions
+    await fs.promises.writeFile(
+      path.join(testDataDir, 'typescript-file.ts'),
+      `export const GLOB_TEST_TS = 'typescript file';`,
+    )
+
+    await fs.promises.writeFile(
+      path.join(testDataDir, 'javascript-file.js'),
+      `export const GLOB_TEST_JS = 'javascript file';`,
+    )
+
+    await fs.promises.writeFile(
+      path.join(testDataDir, 'text-file.txt'),
+      `GLOB_TEST_TXT in text file`,
+    )
+
+    // Search with glob flags to only match .ts and .tsx files
+    const parameters = {
+      pattern: 'GLOB_TEST',
+      flags: '-g *.ts -g *.tsx',
+      cwd: 'src/__tests__/data',
+      maxResults: 30,
+    }
+
+    const result = await handleCodeSearch(parameters, 'test-id')
+
+    // Should not have a stderr with regex parse error
+    expect((result[0].value as any).stderr).toBeUndefined()
+
+    const stdout = (result[0].value as any).stdout
+
+    // Should find the .ts file
+    expect(stdout).toContain('typescript-file.ts')
+    expect(stdout).toContain('GLOB_TEST_TS')
+
+    // Should not find the .js or .txt files
+    expect(stdout).not.toContain('javascript-file.js')
+    expect(stdout).not.toContain('text-file.txt')
+  })
 })
