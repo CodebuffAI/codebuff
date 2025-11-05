@@ -76,7 +76,6 @@ The following scripts are available in the `package.json`:
 - `test:watch`: Run unit tests in watch mode
 - `e2e`: Run end-to-end tests
 - `e2e:ui`: Run end-to-end tests with UI
-- `warm:store`: Warm Store cache via `/api/agents`
 - `prepare`: Install Husky for managing Git hooks
 
 ## SEO & SSR
@@ -94,7 +93,6 @@ The agents cache is automatically warmed to ensure SEO data is available immedia
 
 1. **Build-time validation**: `scripts/prebuild-agents-cache.ts` runs after `next build` to validate the database connection and data pipeline
 2. **Health check warming** (Primary): `/api/healthz` endpoint warms the cache when Render performs health checks before routing traffic
-3. **Manual warming** (Optional): `scripts/warm-store-cache.ts` can be run manually with `bun run warm:store`
 
 On Render, set the Health Check Path to `/api/healthz` in your service settings to ensure the cache is warm before traffic is routed to the app.
 
