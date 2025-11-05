@@ -373,7 +373,7 @@ export const MessageBlock = ({
     isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
-    const TRUNCATE_LIMIT = 5
+    const TRUNCATE_LIMIT = 3
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
     const { agents } = agentListBlock
 

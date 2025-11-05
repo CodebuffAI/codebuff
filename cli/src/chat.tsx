@@ -1,8 +1,6 @@
 import os from 'os'
 import path from 'path'
 
-import { env } from '@codebuff/common/env'
-import { clientEnvVars } from '@codebuff/common/env-schema'
 import { useRenderer, useTerminalDimensions } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import stringWidth from 'string-width'
@@ -214,8 +212,10 @@ export const App = ({
       const blocks: ContentBlock[] = [
         {
           type: 'text',
-          content: '\n\n' + logoBlock,
+          content: logoBlock,
           color: theme.foreground,
+          marginBottom: 1,
+          marginTop: 2,
         },
       ]
 
@@ -226,25 +226,6 @@ export const App = ({
           color: baseTextColor,
         })
       }
-
-      // Log all client environment variables (works with both dev and binary modes)
-      const envVarsList = clientEnvVars
-        .map((key) => {
-          const value = env[key]
-          const displayValue =
-            typeof value === 'string' && value.length > 50
-              ? value.substring(0, 47) + '...'
-              : value
-          return `  ${key}=${displayValue}`
-        })
-        .join('\n')
-
-      blocks.push({
-        type: 'text',
-        content: `\nCLI Environment variables:\n${envVarsList}`,
-        marginTop: 1,
-        color: baseTextColor,
-      })
 
       // Display SDK environment variables when the client is available
       const client = getCodebuffClient()
