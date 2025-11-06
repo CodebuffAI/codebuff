@@ -349,6 +349,7 @@ export async function run({
       projectFiles,
       maxAgentSteps,
       fs,
+      logger,
     })
   }
 
