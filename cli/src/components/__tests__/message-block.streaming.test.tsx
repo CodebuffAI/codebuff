@@ -9,8 +9,6 @@ import { chatThemes } from '../../utils/theme-system'
 
 const theme = chatThemes.dark
 
-// No custom markdown palette; rely on defaults
-
 const baseProps = {
   messageId: 'ai-stream',
   blocks: undefined,
@@ -42,11 +40,7 @@ const createTimer = (elapsedSeconds: number) => ({
 describe('MessageBlock streaming indicator', () => {
   test('shows elapsed seconds while streaming', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isLoading={true}
-        timer={createTimer(4)}
-      />,
+      <MessageBlock {...baseProps} isLoading={true} timer={createTimer(4)} />,
     )
 
     expect(markup).toContain('4s')
@@ -54,11 +48,7 @@ describe('MessageBlock streaming indicator', () => {
 
   test('hides elapsed seconds when timer has not advanced', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isLoading={true}
-        timer={createTimer(0)}
-      />,
+      <MessageBlock {...baseProps} isLoading={true} timer={createTimer(0)} />,
     )
 
     expect(markup).not.toContain('0s')

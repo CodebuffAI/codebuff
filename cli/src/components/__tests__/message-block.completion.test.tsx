@@ -9,8 +9,6 @@ import { chatThemes } from '../../utils/theme-system'
 
 const theme = chatThemes.dark
 
-// No custom markdown palette; rely on defaults
-
 const baseProps = {
   messageId: 'ai-1',
   blocks: undefined,
