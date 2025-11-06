@@ -23,8 +23,6 @@ export async function generateLoginUrl(
   const { fetch, logger } = deps
   const { baseUrl, fingerprintId } = options
 
-  // no info-level logging
-
   const url = `${baseUrl}/api/auth/cli/code`
   const response = await fetch(url, {
     method: 'POST',
@@ -33,8 +31,6 @@ export async function generateLoginUrl(
     },
     body: JSON.stringify({ fingerprintId }),
   })
-
-  // no info-level logging
 
   if (!response.ok) {
     logger.error(
@@ -48,8 +44,6 @@ export async function generateLoginUrl(
   }
 
   const data = (await response.json()) as LoginUrlResponse
-
-  // no info-level logging
 
   return data
 }
@@ -95,8 +89,6 @@ export async function pollLoginStatus(
   const startTime = now()
   let attempts = 0
 
-  // no info-level logging
-
   while (true) {
     if (shouldContinue && !shouldContinue()) {
       logger.warn('🛑 Polling aborted by caller')
@@ -115,8 +107,6 @@ export async function pollLoginStatus(
     url.searchParams.set('fingerprintHash', fingerprintHash)
     url.searchParams.set('expiresAt', expiresAt)
 
-    // no info-level logging
-
     let response: Response
     try {
       response = await fetch(url.toString())
@@ -131,8 +121,6 @@ export async function pollLoginStatus(
       await sleep(intervalMs)
       continue
     }
-
-    // no info-level logging
 
     if (!response.ok) {
       if (response.status !== 401) {
@@ -167,7 +155,7 @@ export async function pollLoginStatus(
     const rawUser = (data as { user?: unknown } | null)?.user
     if (rawUser && typeof rawUser === 'object') {
       const user = rawUser as Record<string, unknown>
-      // no info-level logging
+
       return { status: 'success', user, attempts }
     }
 

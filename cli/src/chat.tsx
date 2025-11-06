@@ -100,7 +100,6 @@ export const App = ({
   const theme = useTheme()
   const resolvedThemeName = useResolvedThemeName()
 
-
   // Get formatted logo for display in chat messages
   const contentMaxWidth = Math.max(10, Math.min(terminalWidth - 4, 80))
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
@@ -801,7 +800,6 @@ export const App = ({
         event.type === 'start'
           ? 'Main agent timer started'
           : `Main agent timer stopped (${event.outcome})`
-      // no info-level logging
     },
     [agentId],
   )
@@ -839,7 +837,6 @@ export const App = ({
       hasAutoSubmittedRef.current = true
 
       const timeout = setTimeout(() => {
-        // no info-level logging
         if (sendMessageRef.current) {
           sendMessageRef.current({ content: initialPrompt, agentMode })
         }
@@ -962,7 +959,7 @@ export const App = ({
     topLevelMessages: virtualTopLevelMessages,
     availableWidth: separatorWidth,
     theme,
-    
+
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,

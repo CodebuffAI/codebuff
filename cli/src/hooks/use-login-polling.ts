@@ -55,8 +55,6 @@ export function useLoginPolling({
 
     let active = true
 
-    // no info-level logging
-
     const sleep = (ms: number) =>
       new Promise<void>((resolve) => {
         setTimeout(resolve, ms)
@@ -83,7 +81,6 @@ export function useLoginPolling({
 
         if (result.status === 'success') {
           const user = result.user as User
-          // no info-level logging
 
           onSuccessRef.current(user)
         } else if (result.status === 'timeout') {

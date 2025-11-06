@@ -113,11 +113,8 @@ export function useLoginMutation(deps: UseLoginMutationDeps = {}) {
 
   return useMutation({
     mutationFn: async (user: User) => {
-      // no info-level logging
-
       // Save credentials to file system
       saveUserCredentials(user)
-      // no info-level logging
 
       // Validate the new credentials
       const authResult = await validateApiKey({
@@ -125,16 +122,14 @@ export function useLoginMutation(deps: UseLoginMutationDeps = {}) {
         getUserInfoFromApiKey,
         logger,
       })
-      // no info-level logging
 
       const mergedUser = { ...user, ...authResult }
-      // no info-level logging
+
       return mergedUser
     },
     onSuccess: (data) => {
       // Invalidate auth queries to trigger refetch with new credentials
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
-      // no info-level logging
     },
     onError: (error) => {
       logger.error(
