@@ -15,7 +15,7 @@ const MODE_LABELS: Record<AgentMode, string> = {
 
 const ALL_MODES = Object.keys(MODE_LABELS) as AgentMode[]
 
-export const OPEN_DELAY_MS = 100 // Delay before expanding on hover
+export const OPEN_DELAY_MS = 0 // Delay before expanding on hover
 export const CLOSE_DELAY_MS = 250 // Delay before collapsing when mouse leaves
 export const REOPEN_SUPPRESS_MS = 250 // Time to block reopening after explicit close (prevents flicker)
 
