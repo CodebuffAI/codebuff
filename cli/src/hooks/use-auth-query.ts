@@ -124,7 +124,6 @@ export function useLoginMutation(deps: UseLoginMutationDeps = {}) {
       })
 
       const mergedUser = { ...user, ...authResult }
-
       return mergedUser
     },
     onSuccess: (data) => {

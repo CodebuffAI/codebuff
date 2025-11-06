@@ -12,6 +12,7 @@ export type ContentBlock =
       marginTop?: number
       marginBottom?: number
       status?: 'running' | 'complete'
+      textType?: 'reasoning' | 'text'
     }
   | {
       type: 'html'

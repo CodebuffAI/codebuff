@@ -63,16 +63,17 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modePlanBg: '#1e40af',
     modePlanText: '#1e40af',
     markdown: {
-      codeBackground: '#1f2933',
+      // Dark mode: slightly darker gray for less brightness
+      codeBackground: '#374151',
       codeHeaderFg: '#5b647a',
-      inlineCodeFg: '#f1f5f9',
+      inlineCodeFg: '#fa8329',
       codeTextFg: '#f1f5f9',
       headingFg: { 1: '#facc15', 2: '#facc15', 3: '#facc15', 4: '#facc15', 5: '#facc15', 6: '#facc15' },
       listBulletFg: '#a3aed0',
       blockquoteBorderFg: '#334155',
       blockquoteTextFg: '#e2e8f0',
       dividerFg: '#283042',
-      codeMonochrome: true,
+      codeMonochrome: false,
     },
   },
   light: {
@@ -105,16 +106,17 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modePlanBg: '#2563eb',
     modePlanText: '#2563eb',
     markdown: {
+      // Light mode: lighter gray background so inline code feels airy
       codeBackground: '#f3f4f6',
       codeHeaderFg: '#6b7280',
-      inlineCodeFg: '#dc2626',
+      inlineCodeFg: '#fa8329',
       codeTextFg: '#111827',
       headingFg: { 1: '#dc2626', 2: '#dc2626', 3: '#dc2626', 4: '#dc2626', 5: '#dc2626', 6: '#dc2626' },
       listBulletFg: '#6b7280',
       blockquoteBorderFg: '#d1d5db',
       blockquoteTextFg: '#374151',
       dividerFg: '#e5e7eb',
-      codeMonochrome: true,
+      codeMonochrome: false,
     },
   },
 }

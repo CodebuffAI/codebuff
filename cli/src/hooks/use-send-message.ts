@@ -557,8 +557,12 @@ export const useSendMessage = ({
         )
       }
 
-      const appendRootTextChunk = (delta: string) => {
-        if (!delta) {
+      const appendRootChunk = (
+        delta:
+          | { type: 'text'; text: string }
+          | { type: 'reasoning'; text: string },
+      ) => {
+        if (!delta.text) {
           return
         }
 
@@ -571,10 +575,14 @@ export const useSendMessage = ({
             const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
             const lastBlock = blocks[blocks.length - 1]
 
-            if (lastBlock && lastBlock.type === 'text') {
+            if (
+              lastBlock &&
+              lastBlock.type === 'text' &&
+              delta.type === lastBlock.textType
+            ) {
               const updatedBlock: ContentBlock = {
                 ...lastBlock,
-                content: lastBlock.content + delta,
+                content: lastBlock.content + delta.text,
               }
               return {
                 ...msg,
@@ -584,7 +592,15 @@ export const useSendMessage = ({
 
             return {
               ...msg,
-              blocks: [...blocks, { type: 'text', content: delta }],
+              blocks: [
+                ...blocks,
+                {
+                  type: 'text',
+                  content: delta.text,
+                  textType: delta.type,
+                  ...(delta.type === 'reasoning' && { color: 'grey' }),
+                },
+              ],
             }
           }),
         )
@@ -627,7 +643,29 @@ export const useSendMessage = ({
           maxAgentSteps: 40,
 
           handleStreamChunk: (event) => {
-            if (typeof event !== 'string') {
+            if (typeof event === 'string' || event.type === 'reasoning_chunk') {
+              const eventObj:
+                | { type: 'text'; text: string }
+                | { type: 'reasoning'; text: string } =
+                typeof event === 'string'
+                  ? { type: 'text', text: event }
+                  : { type: 'reasoning', text: event.chunk }
+              if (!hasReceivedContent) {
+                hasReceivedContent = true
+                setIsWaitingForResponse(false)
+              }
+
+              if (!eventObj.text) {
+                return
+              }
+
+              if (eventObj.type === 'text') {
+                rootStreamBufferRef.current =
+                  (rootStreamBufferRef.current ?? '') + eventObj.text
+              }
+              rootStreamSeenRef.current = true
+              appendRootChunk(eventObj)
+            } else if (event.type === 'subagent_chunk') {
               const { agentId, chunk } = event
 
               const previous =
@@ -642,21 +680,9 @@ export const useSendMessage = ({
                 content: chunk,
               })
               return
+            } else {
+              event satisfies never
             }
-
-            if (!hasReceivedContent) {
-              hasReceivedContent = true
-              setIsWaitingForResponse(false)
-            }
-
-            const previous = rootStreamBufferRef.current ?? ''
-            if (!event) {
-              return
-            }
-
-            rootStreamBufferRef.current = previous + event
-            rootStreamSeenRef.current = true
-            appendRootTextChunk(event)
           },
 
           handleEvent: (event: any) => {
@@ -727,7 +753,7 @@ export const useSendMessage = ({
                 )
                 rootStreamBufferRef.current = previous + text
 
-                appendRootTextChunk(text)
+                appendRootChunk({ type: 'text', text })
               }
               return
             }
@@ -897,7 +923,6 @@ export const useSendMessage = ({
                     setCollapsedAgents((prev) => {
                       const next = new Set(prev)
                       next.delete(tempId)
-                      next.add(event.agentId)
                       return next
                     })
 
@@ -994,7 +1019,6 @@ export const useSendMessage = ({
                   )
 
                   setStreamingAgents((prev) => new Set(prev).add(event.agentId))
-                  setCollapsedAgents((prev) => new Set(prev).add(event.agentId))
                 }
               }
             } else if (
@@ -1078,7 +1102,6 @@ export const useSendMessage = ({
                 agents.forEach((_: any, index: number) => {
                   const agentId = `${toolCallId}-${index}`
                   setStreamingAgents((prev) => new Set(prev).add(agentId))
-                  setCollapsedAgents((prev) => new Set(prev).add(agentId))
                 })
 
                 return

@@ -155,7 +155,6 @@ export async function pollLoginStatus(
     const rawUser = (data as { user?: unknown } | null)?.user
     if (rawUser && typeof rawUser === 'object') {
       const user = rawUser as Record<string, unknown>
-
       return { status: 'success', user, attempts }
     }
 

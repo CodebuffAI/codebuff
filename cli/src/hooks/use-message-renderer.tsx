@@ -3,7 +3,11 @@ import { useMemo, type ReactNode } from 'react'
 import React from 'react'
 
 import { MessageBlock } from '../components/message-block'
-import { renderMarkdown, hasMarkdown } from '../utils/markdown-renderer'
+import {
+  renderMarkdown,
+  hasMarkdown,
+  type MarkdownPalette,
+} from '../utils/markdown-renderer'
 import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
@@ -16,6 +20,7 @@ interface UseMessageRendererProps {
   topLevelMessages: ChatMessage[]
   availableWidth: number
   theme: ChatTheme
+  markdownPalette: MarkdownPalette
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   isWaitingForResponse: boolean
@@ -33,6 +38,7 @@ export const useMessageRenderer = (
     topLevelMessages,
     availableWidth,
     theme,
+    markdownPalette,
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
@@ -42,11 +48,10 @@ export const useMessageRenderer = (
   } = props
 
   return useMemo(() => {
+    const SIDE_GUTTER = 1
     const renderAgentMessage = (
       message: ChatMessage,
       depth: number,
-      isLastSibling: boolean,
-      ancestorBranches: boolean[] = [],
     ): ReactNode => {
       const agentInfo = message.agent!
       const isCollapsed = collapsedAgents.has(message.id)
@@ -54,12 +59,8 @@ export const useMessageRenderer = (
 
       const agentChildren = messageTree.get(message.id) ?? []
 
-      let branchPrefix = ''
-      for (let i = 0; i < ancestorBranches.length; i++) {
-        branchPrefix += '   '
-      }
-      const treeBranch = isLastSibling ? '└─ ' : '├─ '
-      const fullPrefix = branchPrefix + treeBranch
+      const bulletChar = '• '
+      const fullPrefix = bulletChar
 
       const lines = message.content.split('\n').filter((line) => line.trim())
       const firstLine = lines[0] || ''
@@ -76,8 +77,13 @@ export const useMessageRenderer = (
           : ''
 
       const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
+      const agentPalette: MarkdownPalette = {
+        ...markdownPalette,
+        codeTextFg: theme.foreground,
+      }
       const agentMarkdownOptions = {
         codeBlockWidth: agentCodeBlockWidth,
+        palette: agentPalette,
       }
       const displayContent = hasMarkdown(rawDisplayContent)
         ? renderMarkdown(rawDisplayContent, agentMarkdownOptions)
@@ -220,8 +226,6 @@ export const useMessageRenderer = (
                   {renderMessageWithAgents(
                     childAgent,
                     depth + 1,
-                    idx === agentChildren.length - 1,
-                    [...ancestorBranches, !isLastSibling],
                   )}
                 </box>
               ))}
@@ -234,8 +238,6 @@ export const useMessageRenderer = (
     const renderMessageWithAgents = (
       message: ChatMessage,
       depth = 0,
-      isLastSibling = false,
-      ancestorBranches: boolean[] = [],
       isLastMessage = false,
     ): ReactNode => {
       const isAgent = message.variant === 'agent'
@@ -244,8 +246,6 @@ export const useMessageRenderer = (
         return renderAgentMessage(
           message,
           depth,
-          isLastSibling,
-          ancestorBranches,
         )
       }
 
@@ -265,7 +265,11 @@ export const useMessageRenderer = (
           : theme.muted
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
-      const markdownOptions = { codeBlockWidth }
+      const paletteForMessage: MarkdownPalette = {
+        ...markdownPalette,
+        codeTextFg: textColor,
+      }
+      const markdownOptions = { codeBlockWidth, palette: paletteForMessage }
 
       const isLoading =
         isAi &&
@@ -315,8 +319,8 @@ export const useMessageRenderer = (
                   style={{
                     backgroundColor: theme.background,
                     padding: 0,
-                    paddingLeft: 1,
-                    paddingRight: 1,
+                    paddingLeft: SIDE_GUTTER,
+                    paddingRight: SIDE_GUTTER,
                     paddingTop: 0,
                     paddingBottom: 0,
                     gap: 0,
@@ -341,6 +345,7 @@ export const useMessageRenderer = (
                     timestampColor={timestampColor}
                     markdownOptions={markdownOptions}
                     availableWidth={availableWidth}
+                    markdownPalette={markdownPalette}
                     collapsedAgents={collapsedAgents}
                     streamingAgents={streamingAgents}
                     onToggleCollapsed={(id: string) => {
@@ -362,8 +367,8 @@ export const useMessageRenderer = (
                 style={{
                   backgroundColor: theme.background,
                   padding: 0,
-                  paddingLeft: 0,
-                  paddingRight: 0,
+                  paddingLeft: SIDE_GUTTER,
+                  paddingRight: SIDE_GUTTER,
                   paddingTop: 0,
                   paddingBottom: 0,
                   gap: 0,
@@ -388,6 +393,7 @@ export const useMessageRenderer = (
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
                   availableWidth={availableWidth}
+                  markdownPalette={markdownPalette}
                   collapsedAgents={collapsedAgents}
                   streamingAgents={streamingAgents}
                   onToggleCollapsed={(id: string) => {
@@ -413,7 +419,6 @@ export const useMessageRenderer = (
                   {renderMessageWithAgents(
                     agent,
                     depth + 1,
-                    idx === agentChildren.length - 1,
                   )}
                 </box>
               ))}
@@ -425,7 +430,7 @@ export const useMessageRenderer = (
 
     return topLevelMessages.map((message, idx) => {
       const isLast = idx === topLevelMessages.length - 1
-      return renderMessageWithAgents(message, 0, false, [], isLast)
+      return renderMessageWithAgents(message, 0, isLast)
     })
   }, [
     messages,
@@ -433,6 +438,7 @@ export const useMessageRenderer = (
     topLevelMessages,
     availableWidth,
     theme,
+    markdownPalette,
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,

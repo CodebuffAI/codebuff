@@ -1,14 +1,18 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
-import stringWidth from 'string-width'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { renderToolComponent } from './tools/registry'
 import { ToolCallItem } from './tools/tool-call-item'
 import { useTheme } from '../hooks/use-theme'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
-import { renderMarkdown, renderStreamingMarkdown, hasMarkdown } from '../utils/markdown-renderer'
+import {
+  renderMarkdown,
+  renderStreamingMarkdown,
+  hasMarkdown,
+  type MarkdownPalette,
+} from '../utils/markdown-renderer'
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ContentBlock } from '../types/chat'
@@ -34,8 +38,9 @@ interface MessageBlockProps {
   timer: ElapsedTimeTracker
   textColor?: ThemeColor
   timestampColor: string
-  markdownOptions: { codeBlockWidth: number }
+  markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
   availableWidth: number
+  markdownPalette: MarkdownPalette
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
@@ -57,6 +62,7 @@ export const MessageBlock = ({
   timestampColor,
   markdownOptions,
   availableWidth,
+  markdownPalette,
   collapsedAgents,
   streamingAgents,
   onToggleCollapsed,
@@ -66,26 +72,11 @@ export const MessageBlock = ({
 
   // Get elapsed time from timer for streaming AI messages
   const elapsedSeconds = timer.elapsedSeconds
-  const computeBranchChar = (
-    ancestorBranchStates: boolean[],
-    isLastBranch: boolean,
-  ) => {
-    // Only show branching characters when inside a subagent (indentLevel > 0)
-    if (ancestorBranchStates.length === 0) {
-      return ''
-    }
-    const ancestorPrefix = ancestorBranchStates
-      // Skip first level of ancestors for less clutter
-      .slice(1)
-      .map(() => '  ')
-      .join('')
-    return `${ancestorPrefix}${isLastBranch ? '└ ' : '├ '}`
-  }
 
   const renderContentWithMarkdown = (
     rawContent: string,
     isStreaming: boolean,
-    options: { codeBlockWidth: number },
+    options: { codeBlockWidth: number; palette: MarkdownPalette },
   ): ReactNode => {
     if (!hasMarkdown(rawContent)) {
       return rawContent
@@ -119,31 +110,22 @@ export const MessageBlock = ({
     return sanitizePreview(lastLine)
   }
 
-  const hasBranchAfter = (
-    sourceBlocks: ContentBlock[] | undefined,
-    currentIndex: number,
-  ): boolean =>
-    !!sourceBlocks
-      ?.slice(currentIndex + 1)
-      .some(
-        (candidate) => candidate.type === 'tool' || candidate.type === 'agent',
-      )
-
   const getAgentMarkdownOptions = (indentLevel: number) => {
     const indentationOffset = indentLevel * 2
 
     return {
       codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
-      
+      palette: {
+        ...markdownPalette,
+        codeTextFg: theme.foreground,
+      },
     }
   }
 
   const renderToolBranch = (
     toolBlock: Extract<ContentBlock, { type: 'tool' }>,
     indentLevel: number,
-    isLastBranch: boolean,
     keyPrefix: string,
-    ancestorBranchStates: boolean[],
   ): React.ReactNode => {
     if (toolBlock.toolName === 'end_turn') {
       return null
@@ -171,61 +153,19 @@ export const MessageBlock = ({
         ? `$ ${(toolBlock.input as any).command.trim()}`
         : null
 
-    const branchChar = computeBranchChar(ancestorBranchStates, isLastBranch)
-    const indentPrefix = branchChar.replace(/[├└]\s*$/, '')
-    // Only show preview prefix with branching when inside a subagent
-    const previewBasePrefix =
-      ancestorBranchStates.length > 0
-        ? indentPrefix.length > 0
-          ? `${indentPrefix}│ `
-          : '  │ '
-        : ''
-    const branchIndentWidth = stringWidth(branchChar)
-    const headerPrefixWidth = stringWidth(branchChar)
-    const previewBaseWidth = stringWidth(previewBasePrefix)
-    const alignmentPadding = Math.max(0, headerPrefixWidth - previewBaseWidth)
-    const paddedPreviewPrefix = previewBasePrefix
-      ? `${previewBasePrefix}${' '.repeat(alignmentPadding)}`
-      : ''
-    const blankPreviewPrefix = previewBasePrefix
-      ? previewBasePrefix.replace(/\s+$/, '') || previewBasePrefix
-      : ''
     const toolRenderConfig =
       renderToolComponent(toolBlock, theme, {
         availableWidth,
-        indentationOffset: branchIndentWidth,
-        previewPrefix: previewBasePrefix,
-        labelWidth: headerPrefixWidth,
-        branchChar,
+        indentationOffset: 0,
+        previewPrefix: '',
+        labelWidth: 0,
       }) ?? {}
-    const formatPreview = (value: string | null): string => {
-      if (!value) return ''
-      // At top level, don't add preview prefix with branching characters
-      if (ancestorBranchStates.length === 0) {
-        return value
-      }
-      const rawLines = value.split('\n')
-      const decorated = rawLines.map((line) =>
-        line.trim().length > 0
-          ? `${paddedPreviewPrefix}${line}`
-          : blankPreviewPrefix,
-      )
-      if (!decorated.some((line) => line.trim().length === 0)) {
-        decorated.push(blankPreviewPrefix)
-      }
-      return decorated.join('\n')
-    }
-    const rawStreamingPreview = isStreaming
+    const streamingPreview = isStreaming
       ? commandPreview ?? `${sanitizePreview(firstLine)}...`
       : ''
-    const streamingPreview = isStreaming
-      ? formatPreview(rawStreamingPreview)
-      : ''
-    const collapsedPreviewBase =
-      toolRenderConfig.collapsedPreview ??
-      getToolFinishedPreview(toolBlock, commandPreview, lastLine)
     const finishedPreview = !isStreaming
-      ? formatPreview(collapsedPreviewBase)
+      ? toolRenderConfig.collapsedPreview ??
+        getToolFinishedPreview(toolBlock, commandPreview, lastLine)
       : ''
     const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
     const displayContent = renderContentWithMarkdown(
@@ -264,7 +204,6 @@ export const MessageBlock = ({
             content={renderableDisplayContent}
             isCollapsed={isCollapsed}
             isStreaming={isStreaming}
-            branchChar={branchChar}
             streamingPreview={streamingPreview}
             finishedPreview={finishedPreview}
             onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
@@ -278,9 +217,7 @@ export const MessageBlock = ({
   function renderAgentBranch(
     agentBlock: Extract<ContentBlock, { type: 'agent' }>,
     indentLevel: number,
-    isLastBranch: boolean,
     keyPrefix: string,
-    ancestorBranchStates: boolean[],
   ): React.ReactNode {
     const isCollapsed = collapsedAgents.has(agentBlock.agentId)
     const isStreaming =
@@ -306,14 +243,11 @@ export const MessageBlock = ({
         ? sanitizePreview(agentBlock.initialPrompt)
         : ''
 
-    const branchChar = ''
-    const nextAncestorBranches = [...ancestorBranchStates, isLastBranch]
     const childNodes = renderAgentBody(
       agentBlock,
       indentLevel + 1,
       keyPrefix,
       isStreaming,
-      nextAncestorBranches,
     )
 
     const displayContent =
@@ -338,7 +272,6 @@ export const MessageBlock = ({
           agentId={agentBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
-          branchChar={branchChar}
           streamingPreview={streamingPreview}
           finishedPreview={finishedPreview}
           statusLabel={statusLabel ?? undefined}
@@ -352,7 +285,6 @@ export const MessageBlock = ({
 
   function renderAgentListBranch(
     agentListBlock: Extract<ContentBlock, { type: 'agent-list' }>,
-    isLastBranch: boolean,
     keyPrefix: string,
   ): React.ReactNode {
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
@@ -387,7 +319,7 @@ export const MessageBlock = ({
           key={`agent-${idx}`}
           style={{ wrapMode: 'word', fg: theme.foreground }}
         >
-          {`  • ${identifier}`}
+          {`• ${identifier}`}
         </text>
       )
     }
@@ -406,10 +338,10 @@ export const MessageBlock = ({
           content={agentListContent}
           isCollapsed={isCollapsed}
           isStreaming={false}
-          branchChar=""
           streamingPreview=""
           finishedPreview=""
           onToggle={() => onToggleCollapsed(agentListBlock.id)}
+          dense
         />
       </box>
     )
@@ -420,12 +352,12 @@ export const MessageBlock = ({
     indentLevel: number,
     keyPrefix: string,
     parentIsStreaming: boolean,
-    ancestorBranchStates: boolean[],
   ): React.ReactNode[] {
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
 
-    nestedBlocks.forEach((nestedBlock, nestedIdx) => {
+    for (let nestedIdx = 0; nestedIdx < nestedBlocks.length; ) {
+      const nestedBlock = nestedBlocks[nestedIdx]
       switch (nestedBlock.type) {
         case 'text': {
           const nestedStatus =
@@ -465,6 +397,7 @@ export const MessageBlock = ({
               {renderedContent}
             </text>,
           )
+          nestedIdx++
           break
         }
 
@@ -487,38 +420,89 @@ export const MessageBlock = ({
               })}
             </box>,
           )
+          nestedIdx++
           break
         }
 
         case 'tool': {
-          const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
-          nodes.push(
-            renderToolBranch(
-              nestedBlock,
+          const start = nestedIdx
+          const toolGroup: Extract<ContentBlock, { type: 'tool' }>[] = []
+          while (
+            nestedIdx < nestedBlocks.length &&
+            nestedBlocks[nestedIdx].type === 'tool'
+          ) {
+            toolGroup.push(nestedBlocks[nestedIdx] as any)
+            nestedIdx++
+          }
+
+          const groupNodes = toolGroup.map((toolBlock, idxInGroup) => {
+            return renderToolBranch(
+              toolBlock,
               indentLevel,
-              isLastBranch,
-              `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
-              ancestorBranchStates,
-            ),
-          )
+              `${keyPrefix}-tool-${toolBlock.toolCallId}`,
+            )
+          })
+
+          const nonNullGroupNodes = groupNodes.filter(
+            Boolean,
+          ) as React.ReactNode[]
+          if (nonNullGroupNodes.length > 0) {
+            const isRenderableBlock = (b: ContentBlock): boolean => {
+              if (b.type === 'tool') {
+                return (b as any).toolName !== 'end_turn'
+              }
+              switch (b.type) {
+                case 'text':
+                case 'html':
+                case 'agent':
+                case 'agent-list':
+                  return true
+                default:
+                  return false
+              }
+            }
+
+            // Check for any subsequent renderable blocks without allocating a slice
+            let hasRenderableAfter = false
+            for (let i = nestedIdx; i < nestedBlocks.length; i++) {
+              if (isRenderableBlock(nestedBlocks[i] as any)) {
+                hasRenderableAfter = true
+                break
+              }
+            }
+            nodes.push(
+              <box
+                key={`${keyPrefix}-tool-group-${start}`}
+                style={{
+                  flexDirection: 'column',
+                  gap: 0,
+                  // Avoid double spacing with the agent header, which already
+                  // adds bottom padding. Only add top margin if this group is
+                  // not the first rendered child.
+                  marginTop: nodes.length === 0 ? 0 : 1,
+                  marginBottom: hasRenderableAfter ? 1 : 0,
+                }}
+              >
+                {nonNullGroupNodes}
+              </box>,
+            )
+          }
           break
         }
 
         case 'agent': {
-          const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
           nodes.push(
             renderAgentBranch(
               nestedBlock,
               indentLevel,
-              isLastBranch,
               `${keyPrefix}-agent-${nestedIdx}`,
-              ancestorBranchStates,
             ),
           )
+          nestedIdx++
           break
         }
       }
-    })
+    }
 
     return nodes
   }
@@ -543,7 +527,7 @@ export const MessageBlock = ({
     )
   }
 
-  const renderBlock = (block: ContentBlock, idx: number) => {
+  const renderSingleBlock = (block: ContentBlock, idx: number) => {
     switch (block.type) {
       case 'text': {
         const isStreamingText = isLoading || !isComplete
@@ -602,32 +586,21 @@ export const MessageBlock = ({
       }
 
       case 'tool': {
-        const isLastBranch = !hasBranchAfter(blocks, idx)
-        return renderToolBranch(
-          block,
-          0,
-          isLastBranch,
-          `${messageId}-tool-${block.toolCallId}`,
-          [],
-        )
+        // Handled in renderBlocks grouping logic
+        return null
       }
 
       case 'agent': {
-        const isLastBranch = !hasBranchAfter(blocks, idx)
         return renderAgentBranch(
           block,
           0,
-          isLastBranch,
           `${messageId}-agent-${block.agentId}`,
-          [],
         )
       }
 
       case 'agent-list': {
-        const isLastBranch = !hasBranchAfter(blocks, idx)
         return renderAgentListBranch(
           block,
-          isLastBranch,
           `${messageId}-agent-list-${block.id}`,
         )
       }
@@ -635,6 +608,53 @@ export const MessageBlock = ({
       default:
         return null
     }
+  }
+
+  const renderBlocks = (sourceBlocks: ContentBlock[]) => {
+    const nodes: React.ReactNode[] = []
+    for (let i = 0; i < sourceBlocks.length; ) {
+      const block = sourceBlocks[i]
+      if (block.type === 'tool') {
+        const start = i
+        const group: Extract<ContentBlock, { type: 'tool' }>[] = []
+        while (i < sourceBlocks.length && sourceBlocks[i].type === 'tool') {
+          group.push(sourceBlocks[i] as any)
+          i++
+        }
+
+        const groupNodes = group.map((toolBlock, idxInGroup) => {
+          return renderToolBranch(
+            toolBlock,
+            0,
+            `${messageId}-tool-${toolBlock.toolCallId}`,
+          )
+        })
+
+        const nonNullGroupNodes = groupNodes.filter(
+          Boolean,
+        ) as React.ReactNode[]
+        if (nonNullGroupNodes.length > 0) {
+          nodes.push(
+            <box
+              key={`${messageId}-tool-group-${start}`}
+              style={{
+                flexDirection: 'column',
+                gap: 0,
+                marginTop: 1,
+                marginBottom: 1,
+              }}
+            >
+              {nonNullGroupNodes}
+            </box>,
+          )
+        }
+        continue
+      }
+
+      nodes.push(renderSingleBlock(block, i))
+      i++
+    }
+    return nodes
   }
 
   return (
@@ -655,7 +675,7 @@ export const MessageBlock = ({
       )}
       {blocks ? (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-          {blocks.map(renderBlock)}
+          {renderBlocks(blocks)}
         </box>
       ) : (
         renderSimpleContent()

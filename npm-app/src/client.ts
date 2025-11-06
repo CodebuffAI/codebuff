@@ -47,6 +47,7 @@ import {
   blueBright,
   bold,
   cyan,
+  gray,
   green,
   red,
   underline,
@@ -209,6 +210,8 @@ export class Client {
   private responseComplete: boolean = false
   private userInputId: string | undefined
   private currentOnChunk: ((chunk: string | PrintModeEvent) => void) | undefined
+  private streamStarted: boolean = false
+  private textStreamStarted: boolean = false
 
   public usageData: UsageData = {
     usage: 0,
@@ -1127,6 +1130,13 @@ export class Client {
 
     const f = this.subscribeToResponse.bind(this)
 
+    const onStreamStart = () => {
+      if (this.userInputId !== userInputId) {
+        return
+      }
+      Spinner.get().stop()
+      process.stdout.write('\n' + green(underline('Codebuff') + ':') + '\n\n')
+    }
     const { responsePromise, stopResponse } = f(
       (chunk) => {
         if (this.userInputId !== userInputId) {
@@ -1144,16 +1154,18 @@ export class Client {
         } else {
           printModeLog(chunk)
           printSubagentHeader(chunk)
+          if (chunk.type === 'reasoning' && chunk.text) {
+            if (!this.streamStarted) {
+              this.streamStarted = true
+              onStreamStart()
+            }
+            Spinner.get().stop()
+            process.stdout.write(gray(chunk.text))
+          }
         }
       },
       userInputId,
-      () => {
-        if (this.userInputId !== userInputId) {
-          return
-        }
-        Spinner.get().stop()
-        process.stdout.write('\n' + green(underline('Codebuff') + ':') + '\n\n')
-      },
+      onStreamStart,
       prompt,
       startTime,
     )
@@ -1326,7 +1338,8 @@ export class Client {
     startTime: number,
   ) {
     const rawChunkBuffer: string[] = []
-    let streamStarted = false
+    this.streamStarted = false
+    this.textStreamStarted = false
     let responseStopped = false
     let resolveResponse: (value: PromptResponse) => void
     let rejectResponse: (reason?: any) => void
@@ -1385,9 +1398,16 @@ export class Client {
     }
 
     const xmlStreamParser = createXMLStreamParser(toolRenderers, (chunk) => {
-      if (!streamStarted) {
-        streamStarted = true
+      const streamWasStarted = this.streamStarted
+      if (!this.streamStarted) {
+        this.streamStarted = true
         onStreamStart()
+      }
+      if (!this.textStreamStarted) {
+        this.textStreamStarted = true
+        if (streamWasStarted) {
+          onChunk('\n\n')
+        }
       }
       onChunk(chunk)
     })

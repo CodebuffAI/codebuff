@@ -46,7 +46,6 @@ export const ListDirectoryComponent = defineToolComponent({
         <SimpleToolCallItem
           name="List"
           description={description}
-          branchChar={options.branchChar}
         />
       ),
     }

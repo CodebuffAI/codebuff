@@ -51,7 +51,7 @@ export const useLogo = ({
 }: UseLogoOptions): LogoResult => {
   const rawLogoString = useMemo(() => {
     if (availableWidth >= 70) return LOGO
-    if (availableWidth >= 40) return LOGO_SMALL
+    if (availableWidth >= 20) return LOGO_SMALL
     return 'CODEBUFF'
   }, [availableWidth])
 

@@ -1,8 +1,8 @@
 import { TextAttributes, type BorderCharacters } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
-import { RaisedPill } from './raised-pill'
 import { useTheme } from '../hooks/use-theme'
+import { BORDER_CHARS } from '../utils/ui-constants'
 
 interface AgentBranchItemProps {
   name: string
@@ -11,7 +11,6 @@ interface AgentBranchItemProps {
   agentId?: string
   isCollapsed: boolean
   isStreaming: boolean
-  branchChar?: string
   streamingPreview: string
   finishedPreview: string
   statusLabel?: string
@@ -19,20 +18,6 @@ interface AgentBranchItemProps {
   statusIndicator?: string
   onToggle?: () => void
   titleSuffix?: string
-}
-
-const containerBorderChars: BorderCharacters = {
-  topLeft: '╭',
-  topRight: '╮',
-  bottomLeft: '╰',
-  bottomRight: '╯',
-  horizontal: '─',
-  vertical: '│',
-  topT: '┬',
-  bottomT: '┴',
-  leftT: '├',
-  rightT: '┤',
-  cross: '┼',
 }
 
 export const AgentBranchItem = ({
@@ -44,7 +29,6 @@ export const AgentBranchItem = ({
   isStreaming,
   streamingPreview,
   finishedPreview,
-  branchChar = '',
   statusLabel,
   statusColor,
   statusIndicator = '●',
@@ -61,13 +45,12 @@ export const AgentBranchItem = ({
 
   const isExpanded = !isCollapsed
   const toggleFrameColor = isExpanded
-    ? theme.agentToggleExpandedBg
+    ? theme.secondary
     : theme.muted
   const toggleIconColor = isStreaming ? theme.primary : theme.foreground
+  const bulletChar = '• '
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
-  const toggleLabel = `${branchChar}${toggleIndicator}`
-  const collapseButtonFrame = theme.agentToggleExpandedBg
-  const collapseButtonText = collapseButtonFrame
+  const toggleLabel = onToggle ? toggleIndicator : bulletChar
   const statusText =
     statusLabel && statusLabel.length > 0
       ? statusIndicator === '✓'
@@ -182,7 +165,7 @@ export const AgentBranchItem = ({
         border
         borderStyle="single"
         borderColor={toggleFrameColor}
-        customBorderChars={containerBorderChars}
+        customBorderChars={BORDER_CHARS}
         style={{
           flexDirection: 'column',
           gap: 0,
@@ -233,8 +216,8 @@ export const AgentBranchItem = ({
           showCollapsedPreview ? (
             <box
               style={{
-                paddingLeft: 0,
-                paddingRight: 0,
+                paddingLeft: 1,
+                paddingRight: 1,
                 paddingTop: 0,
                 paddingBottom: 0,
               }}
@@ -252,8 +235,8 @@ export const AgentBranchItem = ({
             style={{
               flexDirection: 'column',
               gap: 0,
-              paddingLeft: 0,
-              paddingRight: 0,
+              paddingLeft: 1,
+              paddingRight: 1,
               paddingTop: 0,
               paddingBottom: 0,
             }}
@@ -266,19 +249,13 @@ export const AgentBranchItem = ({
                   marginBottom: content ? 1 : 0,
                 }}
               >
-                <text fg={theme.foreground}>Prompt</text>
                 <text
                   fg={theme.foreground}
                   style={{ wrapMode: 'word' }}
-                  attributes={getAttributes()}
+                  attributes={getAttributes(TextAttributes.ITALIC)}
                 >
                   {prompt}
                 </text>
-                {content && (
-                  <text fg={theme.foreground} style={{ marginTop: 1 }}>
-                    Response
-                  </text>
-                )}
               </box>
             )}
             {renderExpandedContent(content)}
@@ -286,18 +263,16 @@ export const AgentBranchItem = ({
               <box
                 style={{
                   alignSelf: 'flex-end',
-                  marginTop: content ? 0 : 1,
-                  paddingRight: 1,
-                  paddingBottom: 0,
-                  marginBottom: 0,
+                  marginTop: 1,
                 }}
+                onMouseDown={onToggle}
               >
-                <RaisedPill
-                  segments={[{ text: 'Collapse', fg: collapseButtonText }]}
-                  frameColor={collapseButtonFrame}
-                  textColor={collapseButtonText}
-                  onPress={onToggle}
-                />
+                <text
+                  fg={theme.secondary}
+                  style={{ wrapMode: 'none' }}
+                >
+                  ▴ collapse
+                </text>
               </box>
             )}
           </box>

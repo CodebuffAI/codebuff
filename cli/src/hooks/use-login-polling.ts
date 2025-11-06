@@ -81,7 +81,6 @@ export function useLoginPolling({
 
         if (result.status === 'success') {
           const user = result.user as User
-
           onSuccessRef.current(user)
         } else if (result.status === 'timeout') {
           logger.warn('Login polling timed out after configured limit')

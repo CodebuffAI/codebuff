@@ -627,6 +627,88 @@ describe('codeSearch', () => {
     })
   })
 
+  describe('glob pattern handling', () => {
+    it('should handle -g flag with glob patterns like *.ts', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        flags: '-g *.ts',
+      })
+
+      const output = [
+        createRgJsonMatch('file.ts', 1, 'import foo from "bar"'),
+        createRgJsonMatch('file.ts', 5, 'import { baz } from "qux"'),
+      ].join('\n')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      expect(result[0].type).toBe('json')
+      const value = result[0].value as any
+      expect(value.stdout).toContain('file.ts:')
+      
+      // Verify the args passed to spawn include the glob flag correctly
+      expect(mockSpawn).toHaveBeenCalled()
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[]
+      expect(spawnArgs).toContain('-g')
+      expect(spawnArgs).toContain('*.ts')
+    })
+
+    it('should handle -g flag with multiple glob patterns', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        flags: '-g *.ts -g *.tsx',
+      })
+
+      const output = createRgJsonMatch('file.tsx', 1, 'import React from "react"')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      expect(result[0].type).toBe('json')
+      const value = result[0].value as any
+      expect(value.stdout).toContain('file.tsx:')
+      
+      // Verify both glob patterns are passed correctly
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[]
+      // Should have two -g flags, each followed by its pattern
+      const gFlagIndices = spawnArgs.map((arg, i) => arg === '-g' ? i : -1).filter(i => i !== -1)
+      expect(gFlagIndices.length).toBe(2)
+      expect(spawnArgs[gFlagIndices[0] + 1]).toBe('*.ts')
+      expect(spawnArgs[gFlagIndices[1] + 1]).toBe('*.tsx')
+    })
+
+    it('should not deduplicate flag-argument pairs', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        flags: '-g *.ts -i -g *.tsx',
+      })
+
+      const output = createRgJsonMatch('file.tsx', 1, 'import React from "react"')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      
+      // Verify flags are preserved in order without deduplication
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[]
+      const flagsSection = spawnArgs.slice(0, spawnArgs.indexOf('--'))
+      expect(flagsSection).toContain('-g')
+      expect(flagsSection).toContain('*.ts')
+      expect(flagsSection).toContain('-i')
+      expect(flagsSection).toContain('*.tsx')
+      
+      // Count -g flags - should be 2, not deduplicated to 1
+      const gCount = flagsSection.filter(arg => arg === '-g').length
+      expect(gCount).toBe(2)
+    })
+  })
+
   describe('timeout handling', () => {
     it('should timeout after specified seconds', async () => {
       const searchPromise = codeSearch({

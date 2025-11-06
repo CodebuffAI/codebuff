@@ -10,7 +10,6 @@ export type ToolRenderOptions = {
   indentationOffset: number
   previewPrefix?: string
   labelWidth: number
-  branchChar: string
 }
 
 export type ToolRenderConfig = {

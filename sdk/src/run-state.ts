@@ -196,12 +196,6 @@ export async function initialSessionState(
   if (!customToolDefinitions) {
     customToolDefinitions = []
   }
-  if (!projectFiles) {
-    projectFiles = {}
-  }
-  if (!knowledgeFiles) {
-    knowledgeFiles = {}
-  }
   if (!fs) {
     fs = (require('fs') as typeof fsType).promises
   }
@@ -218,11 +212,9 @@ export async function initialSessionState(
   if (projectFiles === undefined && cwd) {
     projectFiles = await discoverProjectFiles({ cwd, fs, logger })
   }
-  logger.info({ projectFiles }, 'asdf')
   if (knowledgeFiles === undefined) {
     knowledgeFiles = projectFiles ? deriveKnowledgeFiles(projectFiles) : {}
   }
-  logger.info({ knowledgeFiles }, 'asdf')
 
   const processedAgentTemplates = processAgentDefinitions(agentDefinitions)
   const processedCustomToolDefinitions = processCustomToolDefinitions(
