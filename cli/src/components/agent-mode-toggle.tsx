@@ -1,33 +1,157 @@
-import { TextAttributes } from '@opentui/core'
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import stringWidth from 'string-width'
 
+import { SegmentedControl } from './segmented-control'
 import { useTheme } from '../hooks/use-theme'
 
-import type { ChatTheme } from '../types/theme-system'
+import type { Segment } from './segmented-control'
 import type { AgentMode } from '../utils/constants'
 
-const getModeConfig = (theme: ChatTheme) =>
-  ({
-    FAST: {
-      frameColor: theme.modeFastBg,
-      textColor: theme.modeFastText,
-      label: 'FAST',
-    },
-    MAX: {
-      frameColor: theme.modeMaxBg,
-      textColor: theme.modeMaxText,
-      label: 'MAX',
-    },
-    PLAN: {
-      frameColor: theme.modePlanBg,
-      textColor: theme.modePlanText,
-      label: 'PLAN',
-    },
-  }) as const
+const MODE_LABELS: Record<AgentMode, string> = {
+  FAST: 'FAST',
+  MAX: 'MAX',
+  PLAN: 'PLAN',
+}
 
-const ALL_MODES: AgentMode[] = ['FAST', 'MAX', 'PLAN']
+const ALL_MODES = Object.keys(MODE_LABELS) as AgentMode[]
 
+export const OPEN_DELAY_MS = 100 // Delay before expanding on hover
+export const CLOSE_DELAY_MS = 250 // Delay before collapsing when mouse leaves
+export const REOPEN_SUPPRESS_MS = 250 // Time to block reopening after explicit close (prevents flicker)
+
+/**
+ * Manages the open/close state with hover delays and reopen suppression.
+ * Provides timer-based state transitions to create smooth hover interactions.
+ */
+export function useHoverToggle() {
+  const [isOpen, setIsOpen] = useState(false)
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const openTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const reopenBlockedUntilRef = useRef<number>(0)
+
+  // Timer cleanup helpers
+  const clearOpenTimer = () => {
+    clearTimeout(openTimeoutRef.current!)
+    openTimeoutRef.current = null
+  }
+
+  const clearCloseTimer = () => {
+    clearTimeout(closeTimeoutRef.current!)
+    closeTimeoutRef.current = null
+  }
+
+  const clearAllTimers = () => {
+    clearOpenTimer()
+    clearCloseTimer()
+  }
+
+  // State transition actions
+  const openNow = () => {
+    clearAllTimers()
+    setIsOpen(true)
+  }
+
+  const closeNow = (suppressReopen = false) => {
+    clearAllTimers()
+    setIsOpen(false)
+    if (suppressReopen) {
+      reopenBlockedUntilRef.current = Date.now() + REOPEN_SUPPRESS_MS
+    }
+  }
+
+  const scheduleOpen = () => {
+    if (isOpen) return
+    if (Date.now() < reopenBlockedUntilRef.current) return
+
+    clearOpenTimer()
+    openTimeoutRef.current = setTimeout(() => {
+      openNow()
+    }, OPEN_DELAY_MS)
+  }
+
+  const scheduleClose = () => {
+    if (!isOpen) return
+
+    clearCloseTimer()
+    closeTimeoutRef.current = setTimeout(() => {
+      closeNow()
+    }, CLOSE_DELAY_MS)
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => clearAllTimers()
+  }, [])
+
+  return {
+    isOpen,
+    openNow,
+    closeNow,
+    scheduleOpen,
+    scheduleClose,
+    // Expose individual timer clear helpers so callers can
+    // cancel the opposite pending action during hover transitions.
+    // These were used by the component but not returned previously,
+    // causing runtime errors when hover events fired.
+    clearOpenTimer,
+    clearCloseTimer,
+    clearAllTimers,
+  }
+}
+
+/**
+ * Builds the segment configuration for the expanded state.
+ * Shows all modes plus an active indicator with reversed arrow.
+ */
+export function buildExpandedSegments(currentMode: AgentMode): Segment[] {
+  return [
+    // All mode options (disabled for current mode)
+    ...ALL_MODES.map((m) => ({
+      id: m,
+      label: MODE_LABELS[m],
+      isBold: false,
+      disabled: m === currentMode,
+    })),
+    // Active mode indicator with reversed arrow
+    {
+      id: `active-${currentMode}`,
+      label: `> ${MODE_LABELS[currentMode]}`,
+      isSelected: true,
+      defaultHighlighted: true,
+    },
+  ]
+}
+
+export type AgentModeClickAction =
+  | { type: 'closeActive' }
+  | { type: 'selectMode'; mode: AgentMode }
+  | { type: 'toggleMode'; mode: AgentMode }
+
+/**
+ * Decide what high-level action a click on a segment should perform.
+ * Extracted for unit testing and clarity.
+ */
+export const resolveAgentModeClick = (
+  currentMode: AgentMode,
+  clickedId: string,
+  hasOnSelectMode: boolean,
+): AgentModeClickAction => {
+  if (clickedId.startsWith('active-')) return { type: 'closeActive' }
+  const target = clickedId as AgentMode
+  if (hasOnSelectMode && target !== currentMode) {
+    return { type: 'selectMode', mode: target }
+  }
+  return { type: 'toggleMode', mode: target }
+}
+
+/**
+ * AgentModeToggle
+ *
+ * Compact, hover-expandable segmented control for switching agent modes.
+ * - Clicking the current mode toggles expansion (open/close)
+ * - Clicking a different mode calls `onSelectMode` when provided,
+ *   otherwise falls back to `onToggle`
+ */
 export const AgentModeToggle = ({
   mode,
   onToggle,
@@ -38,69 +162,56 @@ export const AgentModeToggle = ({
   onSelectMode?: (mode: AgentMode) => void
 }) => {
   const theme = useTheme()
-  const config = getModeConfig(theme)
-  const [isOpen, setIsOpen] = useState(false)
-  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const openTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const [hoveredIndex, setHoveredIndex] = useState<number>(ALL_MODES.length)
+  const [isCollapsedHovered, setIsCollapsedHovered] = useState(false)
+  const hoverToggle = useHoverToggle()
 
-  const handlePress = (selectedMode: AgentMode) => {
-    // Cancel any pending open timeout - click should be immediate
-    if (openTimeoutRef.current) {
-      clearTimeout(openTimeoutRef.current)
-      openTimeoutRef.current = null
-    }
-
-    if (selectedMode === mode) {
-      // Toggle collapsed/expanded when clicking current mode (immediate)
-      setIsOpen(!isOpen)
+  const handleCollapsedClick = () => {
+    hoverToggle.clearAllTimers()
+    if (hoverToggle.isOpen) {
+      hoverToggle.closeNow(true)
     } else {
-      // Switch to different mode and close the toggle
-      if (onSelectMode) {
-        onSelectMode(selectedMode)
-      } else {
-        onToggle()
-      }
-      setIsOpen(false)
+      hoverToggle.openNow()
     }
   }
 
   const handleMouseOver = () => {
-    // Cancel any pending close
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current)
-      closeTimeoutRef.current = null
-    }
-
-    // If already open, do nothing
-    if (isOpen) return
-
-    setIsOpen(true)
-    openTimeoutRef.current = null
+    if (!hoverToggle.isOpen) setIsCollapsedHovered(true)
+    // Cancel any pending close and schedule open with delay
+    hoverToggle.clearCloseTimer()
+    hoverToggle.scheduleOpen()
   }
 
   const handleMouseOut = () => {
-    // Cancel any pending open
-    if (openTimeoutRef.current) {
-      clearTimeout(openTimeoutRef.current)
-      openTimeoutRef.current = null
-    }
-
-    // Delay closing by 0.1 seconds
-    closeTimeoutRef.current = setTimeout(() => {
-      setIsOpen(false)
-      closeTimeoutRef.current = null
-      setHoveredIndex(ALL_MODES.length)
-    }, 100)
+    setIsCollapsedHovered(false)
+    // Schedule close using the hook's configured delay
+    hoverToggle.scheduleClose()
   }
 
-  if (!isOpen) {
-    // Collapsed state: show only current mode
-    const { frameColor, textColor, label } = config[mode]
+  const handleSegmentClick = (id: string) => {
+    const action = resolveAgentModeClick(mode, id, !!onSelectMode)
+    if (action.type === 'closeActive') {
+      hoverToggle.closeNow(true)
+      return
+    }
+    if (action.type === 'selectMode') {
+      onSelectMode?.(action.mode)
+      hoverToggle.closeNow(true)
+      return
+    }
+    // Toggle fallback (no onSelectMode provided)
+    hoverToggle.clearAllTimers()
+    onToggle()
+    hoverToggle.closeNow(true)
+  }
+
+  const renderCollapsedState = () => {
+    const label = MODE_LABELS[mode]
     const arrow = '< '
     const contentText = ` ${arrow}${label} `
     const contentWidth = stringWidth(contentText)
     const horizontal = '─'.repeat(contentWidth)
+
+    const borderColor = isCollapsedHovered ? theme.foreground : theme.border
 
     return (
       <box
@@ -109,134 +220,38 @@ export const AgentModeToggle = ({
           gap: 0,
           backgroundColor: 'transparent',
         }}
-        onMouseDown={() => handlePress(mode)}
+        onMouseDown={handleCollapsedClick}
         onMouseOver={handleMouseOver}
         onMouseOut={handleMouseOut}
       >
-        <text>
-          <span fg={frameColor}>{`╭${horizontal}╮`}</span>
+        <text fg={borderColor}>{`╭${horizontal}╮`}</text>
+        <text fg={theme.foreground}>
+          <span fg={borderColor}>│</span>
+          {isCollapsedHovered ? (
+            <b>{` ${arrow}${label} `}</b>
+          ) : (
+            ` ${arrow}${label} `
+          )}
+          <span fg={borderColor}>│</span>
         </text>
-        <text>
-          <span fg={frameColor}>│</span>
-          <span fg={textColor}> {arrow}</span>
-          <b>
-            <span fg={textColor}>{label}</span>
-          </b>
-          <span fg={textColor}> </span>
-          <span fg={frameColor}>│</span>
-        </text>
-        <text>
-          <span fg={frameColor}>{`╰${horizontal}╯`}</span>
-        </text>
+        <text fg={borderColor}>{`╰${horizontal}╯`}</text>
       </box>
     )
   }
 
-  // Expanded state: show all modes with current mode rightmost
-  const orderedModes = [...ALL_MODES, mode]
-
-  // Calculate widths for each segment
-  const segmentWidths = orderedModes.map((m, i) => {
-    const label = config[m].label
-    if (i === orderedModes.length - 1) {
-      // Active mode shows label with collapse arrow
-      return stringWidth(` < ${label} `)
-    }
-    return stringWidth(` ${label} `)
-  })
-
-  const buildSegment = (
-    modeItem: AgentMode,
-    index: number,
-    isLast: boolean,
-  ) => {
-    const { frameColor, textColor, label } = config[modeItem]
-    const isActive = isLast
-    const width = segmentWidths[index]
-    const content = isLast ? ` < ${label} ` : ` ${label} `
-    const horizontal = '─'.repeat(width)
-
-    return {
-      topBorder: horizontal,
-      content,
-      bottomBorder: horizontal,
-      frameColor,
-      textColor,
-      isActive,
-      label,
-      width,
-    }
+  if (!hoverToggle.isOpen) {
+    return renderCollapsedState()
   }
 
-  const segments = orderedModes.map((m, idx) =>
-    buildSegment(m, idx, idx === orderedModes.length - 1),
-  )
+  // Expanded state: delegate rendering to SegmentedControl
+  const segments: Segment[] = buildExpandedSegments(mode)
 
   return (
-    <box
-      style={{
-        flexDirection: 'row',
-        gap: 0,
-        backgroundColor: 'transparent',
-      }}
+    <SegmentedControl
+      segments={segments}
+      onSegmentClick={handleSegmentClick}
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
-    >
-      {/* Segments as vertical columns */}
-      {segments.map((seg, idx) => {
-        const modeItem = orderedModes[idx]
-        const leftOfHovered = idx <= hoveredIndex
-        const rightOfHovered = idx >= hoveredIndex
-
-        return (
-          <React.Fragment key={`segment-${idx}`}>
-            <box
-              onMouseDown={() => handlePress(modeItem)}
-              onMouseOver={() => setHoveredIndex(idx)}
-              style={{
-                flexDirection: 'row',
-                gap: 0,
-              }}
-            >
-              {
-                /* Left edge */
-                leftOfHovered ? (
-                  <box style={{ flexDirection: 'column', gap: 0, maxWidth: 1 }}>
-                    <text fg={seg.frameColor}>╭│╰</text>
-                  </box>
-                ) : null
-              }
-              {
-                /* Segments as vertical columns for sorting */
-                <box>
-                  <text>
-                    <span fg={seg.frameColor}>{seg.topBorder}</span>
-                  </text>
-                  <text
-                    attributes={
-                      idx === hoveredIndex ? TextAttributes.BOLD : undefined
-                    }
-                    fg={seg.textColor}
-                  >
-                    {seg.isActive ? ` < ${seg.label} ` : seg.content}
-                  </text>
-                  <text>
-                    <span fg={seg.frameColor}>{seg.bottomBorder}</span>
-                  </text>
-                </box>
-              }
-              {
-                /* Right edge */
-                rightOfHovered ? (
-                  <box style={{ flexDirection: 'column', gap: 0, maxWidth: 1 }}>
-                    <text fg={seg.frameColor}>╮│╯</text>
-                  </box>
-                ) : null
-              }
-            </box>
-          </React.Fragment>
-        )
-      })}
-    </box>
+    />
   )
 }
