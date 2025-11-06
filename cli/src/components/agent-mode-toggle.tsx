@@ -1,3 +1,4 @@
+import { TextAttributes } from '@opentui/core'
 import React, { useRef, useState } from 'react'
 import stringWidth from 'string-width'
 
@@ -41,6 +42,7 @@ export const AgentModeToggle = ({
   const [isOpen, setIsOpen] = useState(false)
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const openTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [hoveredIndex, setHoveredIndex] = useState<number>(ALL_MODES.length)
 
   const handlePress = (selectedMode: AgentMode) => {
     // Cancel any pending open timeout - click should be immediate
@@ -88,6 +90,7 @@ export const AgentModeToggle = ({
     closeTimeoutRef.current = setTimeout(() => {
       setIsOpen(false)
       closeTimeoutRef.current = null
+      setHoveredIndex(ALL_MODES.length)
     }, 100)
   }
 
@@ -150,7 +153,7 @@ export const AgentModeToggle = ({
     const { frameColor, textColor, label } = config[modeItem]
     const isActive = isLast
     const width = segmentWidths[index]
-    const content = isActive ? ` < ${label} ` : ` ${label} `
+    const content = isLast ? ` < ${label} ` : ` ${label} `
     const horizontal = '─'.repeat(width)
 
     return {
@@ -179,64 +182,57 @@ export const AgentModeToggle = ({
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
     >
-      {/* Left edge */}
-      <box style={{ flexDirection: 'column', gap: 0 }}>
-        <text>
-          <span fg={segments[0].frameColor}>╭</span>
-        </text>
-        <text>
-          <span fg={segments[0].frameColor}>│</span>
-        </text>
-        <text>
-          <span fg={segments[0].frameColor}>╰</span>
-        </text>
-      </box>
-
       {/* Segments as vertical columns */}
       {segments.map((seg, idx) => {
         const modeItem = orderedModes[idx]
-        const isLast = idx === segments.length - 1
+        const leftOfHovered = idx <= hoveredIndex
+        const rightOfHovered = idx >= hoveredIndex
+
         return (
           <React.Fragment key={`segment-${idx}`}>
             <box
               onMouseDown={() => handlePress(modeItem)}
+              onMouseOver={() => setHoveredIndex(idx)}
               style={{
-                flexDirection: 'column',
+                flexDirection: 'row',
                 gap: 0,
-                width: seg.width,
-                minWidth: seg.width,
               }}
             >
-              <text>
-                <span fg={seg.frameColor}>{seg.topBorder}</span>
-              </text>
-              <text>
-                {seg.isActive ? (
-                  <>
-                    <span fg={seg.textColor}> {'< '}</span>
-                    <b>
-                      <span fg={seg.textColor}>{seg.label}</span>
-                    </b>
-                    <span fg={seg.textColor}> </span>
-                  </>
-                ) : (
-                  <span fg={seg.textColor}>{seg.content}</span>
-                )}
-              </text>
-              <text>
-                <span fg={seg.frameColor}>{seg.bottomBorder}</span>
-              </text>
-            </box>
-            <box style={{ flexDirection: 'column', gap: 0 }}>
-              <text>
-                <span fg={seg.frameColor}>╮</span>
-              </text>
-              <text>
-                <span fg={seg.frameColor}>│</span>
-              </text>
-              <text>
-                <span fg={seg.frameColor}>╯</span>
-              </text>
+              {
+                /* Left edge */
+                leftOfHovered ? (
+                  <box style={{ flexDirection: 'column', gap: 0, maxWidth: 1 }}>
+                    <text fg={seg.frameColor}>╭│╰</text>
+                  </box>
+                ) : null
+              }
+              {
+                /* Segments as vertical columns for sorting */
+                <box>
+                  <text>
+                    <span fg={seg.frameColor}>{seg.topBorder}</span>
+                  </text>
+                  <text
+                    attributes={
+                      idx === hoveredIndex ? TextAttributes.BOLD : undefined
+                    }
+                    fg={seg.textColor}
+                  >
+                    {seg.isActive ? ` < ${seg.label} ` : seg.content}
+                  </text>
+                  <text>
+                    <span fg={seg.frameColor}>{seg.bottomBorder}</span>
+                  </text>
+                </box>
+              }
+              {
+                /* Right edge */
+                rightOfHovered ? (
+                  <box style={{ flexDirection: 'column', gap: 0, maxWidth: 1 }}>
+                    <text fg={seg.frameColor}>╮│╯</text>
+                  </box>
+                ) : null
+              }
             </box>
           </React.Fragment>
         )
