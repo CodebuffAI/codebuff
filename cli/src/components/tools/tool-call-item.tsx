@@ -11,7 +11,6 @@ interface ToolCallItemProps {
   content: ReactNode
   isCollapsed: boolean
   isStreaming: boolean
-  branchChar: string
   streamingPreview: string
   finishedPreview: string
   onToggle?: () => void
@@ -124,35 +123,19 @@ const renderExpandedContent = (
 interface SimpleToolCallItemProps {
   name: string
   description: string
-  branchChar: string
 }
 
 export const SimpleToolCallItem = ({
   name,
   description,
-  branchChar,
 }: SimpleToolCallItemProps) => {
   const theme = useTheme()
   const bulletChar = '• '
-  // When there is no toggle, indent labels so they align with
-  // toggle-based items at the same branch depth. We simulate the
-  // width of the toggle indicator (e.g., "▸ "). Only add this extra
-  // spacing when a branch character is present; at top level the
-  // bullet ("• ") already matches the toggle width.
-  const hasBranch = !!branchChar && branchChar.length > 0
-  const toggleIndicator = '▸ '
-  const toggleWidth = stringWidth(toggleIndicator)
-  // Extend the branch stub visually with dashes when there's no toggle
-  const branchHead = hasBranch ? branchChar.replace(/\s+$/, '') : ''
-  const dashFiller = '─'.repeat(toggleWidth - 1)
-  const labelPrefix = hasBranch
-    ? `${branchHead}${dashFiller}` + '  '
-    : branchChar || bulletChar
 
   return (
     <box style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
       <text style={{ wrapMode: 'word' }}>
-        <span fg={theme.foreground}>{labelPrefix}</span>
+        <span fg={theme.foreground}>{bulletChar}</span>
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
           {name}
         </span>
@@ -167,7 +150,6 @@ export const ToolCallItem = ({
   content,
   isCollapsed,
   isStreaming,
-  branchChar,
   streamingPreview,
   finishedPreview,
   onToggle,
@@ -183,9 +165,10 @@ export const ToolCallItem = ({
   }
 
   const isExpanded = !isCollapsed
+  const bulletChar = '• '
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
-  const toggleLabel = `${branchChar}${toggleIndicator}`
-  // Width in cells of the toggle label (branch + arrow). Used to align
+  const toggleLabel = onToggle ? toggleIndicator : bulletChar
+  // Width in cells of the toggle label (toggle arrow or bullet). Used to align
   // expanded content directly under the toggle icon.
   const toggleIndent = stringWidth(toggleLabel)
   const collapsedPreviewText = isStreaming ? streamingPreview : finishedPreview

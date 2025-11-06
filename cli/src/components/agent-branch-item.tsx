@@ -63,7 +63,7 @@ export const AgentBranchItem = ({
   const toggleIconColor = isStreaming ? theme.primary : theme.foreground
   const bulletChar = '• '
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
-  const toggleLabel = `${bulletChar}${toggleIndicator}`
+  const toggleLabel = onToggle ? toggleIndicator : bulletChar
   const statusText =
     statusLabel && statusLabel.length > 0
       ? statusIndicator === '✓'

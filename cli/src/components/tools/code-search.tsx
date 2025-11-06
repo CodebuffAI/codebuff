@@ -68,7 +68,6 @@ export const CodeSearchComponent = defineToolComponent({
         <SimpleToolCallItem
           name="Search"
           description={summary}
-          branchChar={options.branchChar}
         />
       ),
     }

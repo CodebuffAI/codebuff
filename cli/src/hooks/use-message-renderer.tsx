@@ -52,8 +52,6 @@ export const useMessageRenderer = (
     const renderAgentMessage = (
       message: ChatMessage,
       depth: number,
-      isLastSibling: boolean,
-      ancestorBranches: boolean[] = [],
     ): ReactNode => {
       const agentInfo = message.agent!
       const isCollapsed = collapsedAgents.has(message.id)
@@ -61,12 +59,8 @@ export const useMessageRenderer = (
 
       const agentChildren = messageTree.get(message.id) ?? []
 
-      let branchPrefix = ''
-      for (let i = 0; i < ancestorBranches.length; i++) {
-        branchPrefix += '   '
-      }
-      const treeBranch = isLastSibling ? '└─ ' : '├─ '
-      const fullPrefix = branchPrefix + treeBranch
+      const bulletChar = '• '
+      const fullPrefix = bulletChar
 
       const lines = message.content.split('\n').filter((line) => line.trim())
       const firstLine = lines[0] || ''
@@ -233,8 +227,6 @@ export const useMessageRenderer = (
                   {renderMessageWithAgents(
                     childAgent,
                     depth + 1,
-                    idx === agentChildren.length - 1,
-                    [...ancestorBranches, !isLastSibling],
                   )}
                 </box>
               ))}
@@ -247,8 +239,6 @@ export const useMessageRenderer = (
     const renderMessageWithAgents = (
       message: ChatMessage,
       depth = 0,
-      isLastSibling = false,
-      ancestorBranches: boolean[] = [],
       isLastMessage = false,
     ): ReactNode => {
       const isAgent = message.variant === 'agent'
@@ -257,8 +247,6 @@ export const useMessageRenderer = (
         return renderAgentMessage(
           message,
           depth,
-          isLastSibling,
-          ancestorBranches,
         )
       }
 
@@ -433,7 +421,6 @@ export const useMessageRenderer = (
                   {renderMessageWithAgents(
                     agent,
                     depth + 1,
-                    idx === agentChildren.length - 1,
                   )}
                 </box>
               ))}
@@ -445,7 +432,7 @@ export const useMessageRenderer = (
 
     return topLevelMessages.map((message, idx) => {
       const isLast = idx === topLevelMessages.length - 1
-      return renderMessageWithAgents(message, 0, false, [], isLast)
+      return renderMessageWithAgents(message, 0, isLast)
     })
   }, [
     messages,

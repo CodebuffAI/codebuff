@@ -27,11 +27,7 @@ export const ReadSubtreeComponent = defineToolComponent({
     // Render a single bullet line like the Read tool
     return {
       content: (
-        <SimpleToolCallItem
-          name="List deeply"
-          description={finalPath}
-          branchChar={options.branchChar}
-        />
+        <SimpleToolCallItem name="List deeply" description={finalPath} />
       ),
     }
   },

@@ -6,10 +6,9 @@ import type { ToolRenderConfig } from './types'
 
 interface WriteTodosItemProps {
   todos: Array<{ task: string; completed: boolean }>
-  branchChar: string
 }
 
-const WriteTodosItem = ({ todos, branchChar }: WriteTodosItemProps) => {
+const WriteTodosItem = ({ todos }: WriteTodosItemProps) => {
   const theme = useTheme()
   const bulletChar = '• '
 
@@ -20,7 +19,7 @@ const WriteTodosItem = ({ todos, branchChar }: WriteTodosItemProps) => {
         style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}
       >
         <text style={{ wrapMode: 'word' }}>
-          <span fg={theme.foreground}>{branchChar || bulletChar}</span>
+          <span fg={theme.foreground}>{bulletChar}</span>
           <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
             TODOs
           </span>
@@ -89,7 +88,7 @@ export const WriteTodosComponent = defineToolComponent({
     }
 
     return {
-      content: <WriteTodosItem todos={todos} branchChar={options.branchChar} />,
+      content: <WriteTodosItem todos={todos} />,
     }
   },
 })

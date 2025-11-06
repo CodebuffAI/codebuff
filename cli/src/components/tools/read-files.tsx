@@ -10,27 +10,17 @@ import type { ToolRenderConfig } from './types'
 interface ReadFilesSimpleToolCallItemProps {
   name: string
   filePaths: string[]
-  branchChar: string
   maxNewlineFiles?: number
 }
 
 const ReadFilesSimpleToolCallItem = ({
   name,
   filePaths,
-  branchChar,
   maxNewlineFiles = 2,
 }: ReadFilesSimpleToolCallItemProps) => {
   const theme = useTheme()
   const bulletChar = '• '
-  const hasBranch = !!branchChar && branchChar.length > 0
-  const toggleIndicator = '▸ '
-  const toggleWidth = stringWidth(toggleIndicator)
-  const branchHead = hasBranch ? branchChar.replace(/\s+$/, '') : ''
-  const dashFiller = '─'.repeat(toggleWidth)
-  const labelPrefix = hasBranch
-    ? `${branchHead}${dashFiller} `
-    : branchChar || bulletChar
-  const baseIndentWidth = stringWidth(labelPrefix) + stringWidth(name + ' ')
+  const baseIndentWidth = stringWidth(bulletChar) + stringWidth(name + ' ')
 
   // Split files into two groups
   const firstFilePath = filePaths[0]
@@ -44,7 +34,7 @@ const ReadFilesSimpleToolCallItem = ({
         style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}
       >
         <text style={{ wrapMode: 'word' }}>
-          <span fg={theme.foreground}>{labelPrefix}</span>
+          <span fg={theme.foreground}>{bulletChar}</span>
           <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
             {name}
           </span>
@@ -121,7 +111,6 @@ export const ReadFilesComponent = defineToolComponent({
         <ReadFilesSimpleToolCallItem
           name="Read"
           filePaths={filePaths}
-          branchChar={options.branchChar}
         />
       ),
     }
