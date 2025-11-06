@@ -1,9 +1,4 @@
-import os from 'os'
-import path from 'path'
-
-import { useRenderer, useTerminalDimensions } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import stringWidth from 'string-width'
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
@@ -17,10 +12,11 @@ import {
 import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
-import { TerminalLink } from './components/terminal-link'
 import { SLASH_COMMANDS } from './data/slash-commands'
+import { useAgentInitialization } from './hooks/use-agent-initialization'
 import { useAgentValidation } from './hooks/use-agent-validation'
-import { useAuthQuery, useLogoutMutation } from './hooks/use-auth-query'
+import { useAuthState } from './hooks/use-auth-state'
+import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
 import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useInputHistory } from './hooks/use-input-history'
@@ -31,27 +27,20 @@ import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
+import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme, useResolvedThemeName } from './hooks/use-theme'
+import { useValidationBanner } from './hooks/use-validation-banner'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
-import { getUserCredentials } from './utils/auth'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
-import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { formatQueuedPreview } from './utils/helpers'
-import {
-  loadLocalAgents,
-  type LocalAgentInfo,
-} from './utils/local-agent-registry'
-import { logger } from './utils/logger'
+import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
-import { openFileAtPath } from './utils/open-file'
 import { createMarkdownPalette } from './utils/theme-system'
-import { formatValidationError } from './utils/validation-error-formatting'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
-import type { ChatMessage, ContentBlock } from './types/chat'
+import { logger } from './utils/logger'
 import type { SendMessageFn } from './types/contracts/send-message'
-import type { User } from './utils/auth'
 import type { ScrollBoxRenderable } from '@opentui/core'
 
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
@@ -81,33 +70,17 @@ export const App = ({
   } | null
   validationErrors: Array<{ id: string; message: string }>
 }) => {
-  const renderer = useRenderer()
-  const { width: measuredWidth } = useTerminalDimensions()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<MultilineInputHandle | null>(null)
-  const sanitizeDimension = (
-    value: number | null | undefined,
-  ): number | null => {
-    if (typeof value !== 'number') return null
-    if (!Number.isFinite(value) || value <= 0) return null
-    return value
-  }
-  const resolvedTerminalWidth =
-    sanitizeDimension(measuredWidth) ?? sanitizeDimension(renderer?.width) ?? 80
-  const terminalWidth = resolvedTerminalWidth
-  const separatorWidth = Math.max(1, Math.floor(terminalWidth) - 2)
 
-  // Use theme hooks (transparent variant is default)
+  const { terminalWidth, separatorWidth, contentMaxWidth } =
+    useTerminalDimensions()
+
   const theme = useTheme()
   const resolvedThemeName = useResolvedThemeName()
-
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
-
-  // Get formatted logo for display in chat messages
-  const contentMaxWidth = Math.max(10, Math.min(terminalWidth - 4, 80))
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
-  // Set up agent validation (manual trigger)
   const { validationErrors: liveValidationErrors, validate: validateAgents } =
     useAgentValidation(validationErrors)
 
@@ -116,213 +89,6 @@ export const App = ({
   const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
-  const lastSigintTimeRef = useRef<number>(0)
-
-  // Track authentication state using TanStack Query
-  const authQuery = useAuthQuery()
-  const logoutMutation = useLogoutMutation()
-
-  // If requireAuth is null (checking), defer showing auth UI until resolved
-  const initialAuthState =
-    requireAuth === false ? true : requireAuth === true ? false : null
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(
-    initialAuthState,
-  )
-  const [user, setUser] = useState<User | null>(null)
-
-  // Update authentication state when requireAuth changes
-  useEffect(() => {
-    if (requireAuth === null) {
-      return
-    }
-    setIsAuthenticated(!requireAuth)
-  }, [requireAuth])
-
-  // Update authentication state based on query results
-  useEffect(() => {
-    if (authQuery.isSuccess && authQuery.data) {
-      setIsAuthenticated(true)
-      if (!user) {
-        // Convert authQuery data to User format if needed
-        const userCredentials = getUserCredentials()
-        const userData: User = {
-          id: authQuery.data.id,
-          name: userCredentials?.name || '',
-          email: authQuery.data.email || '',
-          authToken: userCredentials?.authToken || '',
-        }
-        setUser(userData)
-      }
-    } else if (authQuery.isError) {
-      setIsAuthenticated(false)
-      setUser(null)
-    }
-  }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
-
-  // Update logo when terminal width changes
-  useEffect(() => {
-    if (messages.length > 0) {
-      const systemMessage = messages.find((m) =>
-        m.id.startsWith('system-loaded-agents-'),
-      )
-      if (systemMessage?.blocks) {
-        const logoBlockIndex = systemMessage.blocks.findIndex(
-          (b) => b.type === 'text' && b.content.includes('█'),
-        )
-        if (logoBlockIndex !== -1) {
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === systemMessage.id) {
-                const newBlocks = [...msg.blocks!]
-                newBlocks[logoBlockIndex] = {
-                  type: 'text',
-                  content: '\n\n' + logoBlock,
-                }
-                return { ...msg, blocks: newBlocks }
-              }
-              return msg
-            }),
-          )
-        }
-      }
-    }
-  }, [logoBlock])
-
-  // Initialize and update loaded agents message when theme changes
-  useEffect(() => {
-    if (!loadedAgentsData) {
-      return
-    }
-
-    const agentListId = 'loaded-agents-list'
-    const baseTextColor = theme.foreground
-
-    const homeDir = os.homedir()
-    const repoRoot = path.dirname(loadedAgentsData.agentsDir)
-    const relativePath = path.relative(homeDir, repoRoot)
-    const displayPath = relativePath.startsWith('..')
-      ? repoRoot
-      : `~/${relativePath}`
-
-    const buildBlocks = (listId: string): ContentBlock[] => {
-      const blocks: ContentBlock[] = [
-        {
-          type: 'text',
-          content: logoBlock,
-          color: theme.foreground,
-          marginBottom: 1,
-          marginTop: 2,
-        },
-      ]
-
-      blocks.push({
-        type: 'html',
-        render: () => (
-          <>
-            <text style={{ wrapMode: 'word', marginBottom: 1 }}>
-              <span fg={baseTextColor}>
-                Codebuff will run commands on your behalf to help you build.
-              </span>
-            </text>
-            <text style={{ wrapMode: 'word', marginBottom: 1 }}>
-              <span fg={baseTextColor}>
-                Directory{' '}
-                <TerminalLink
-                  text={displayPath}
-                  inline={true}
-                  underlineOnHover={true}
-                  onActivate={() => openFileAtPath(repoRoot)}
-                />
-              </span>
-            </text>
-          </>
-        ),
-      })
-
-      blocks.push({
-        type: 'agent-list',
-        id: listId,
-        agents: loadedAgentsData.agents,
-        agentsDir: loadedAgentsData.agentsDir,
-      })
-
-      return blocks
-    }
-
-    if (messages.length === 0) {
-      const initialBlocks = buildBlocks(agentListId)
-      const initialMessage: ChatMessage = {
-        id: `system-loaded-agents-${Date.now()}`,
-        variant: 'ai',
-        content: '',
-        blocks: initialBlocks,
-        timestamp: new Date().toISOString(),
-      }
-
-      setCollapsedAgents((prev) => new Set([...prev, agentListId]))
-
-      const messagesToAdd: ChatMessage[] = [initialMessage]
-
-      if (validationErrors.length > 0) {
-        const errorBlocks = createValidationErrorBlocks({
-          errors: validationErrors,
-          loadedAgentsData,
-          availableWidth: separatorWidth,
-        })
-
-        const validationErrorMessage: ChatMessage = {
-          id: `validation-error-${Date.now()}`,
-          variant: 'error',
-          content: '',
-          blocks: errorBlocks,
-          timestamp: new Date().toISOString(),
-        }
-
-        messagesToAdd.push(validationErrorMessage)
-      }
-
-      setMessages(messagesToAdd)
-      return
-    }
-
-    setMessages((prev) => {
-      if (prev.length === 0) {
-        return prev
-      }
-
-      const [firstMessage, ...rest] = prev
-      if (!firstMessage.blocks) {
-        return prev
-      }
-
-      const agentListBlock = firstMessage.blocks.find(
-        (block): block is Extract<ContentBlock, { type: 'agent-list' }> =>
-          block.type === 'agent-list',
-      )
-
-      if (!agentListBlock) {
-        return prev
-      }
-
-      const updatedBlocks = buildBlocks(agentListBlock.id)
-
-      return [
-        {
-          ...firstMessage,
-          blocks: updatedBlocks,
-        },
-        ...rest,
-      ]
-    })
-  }, [
-    agentId,
-    loadedAgentsData,
-    logoBlock,
-    resolvedThemeName,
-    separatorWidth,
-    theme,
-    validationErrors,
-  ])
 
   const {
     inputValue,
@@ -382,8 +148,35 @@ export const App = ({
     })),
   )
 
+  const {
+    isAuthenticated,
+    setIsAuthenticated,
+    user,
+    setUser,
+    handleLoginSuccess,
+    logoutMutation,
+  } = useAuthState({
+    requireAuth,
+    hasInvalidCredentials,
+    inputRef,
+    setInputFocused,
+    resetChatStore,
+  })
+
+  useAgentInitialization({
+    loadedAgentsData,
+    validationErrors,
+    logoBlock,
+    theme,
+    separatorWidth,
+    agentId,
+    resolvedThemeName,
+    messages,
+    setMessages,
+    setCollapsedAgents,
+  })
+
   const showAgentDisplayName = !!agentId
-  // Get current agent display name based on mode
   const agentDisplayName = useMemo(() => {
     if (!loadedAgentsData) return null
 
@@ -392,77 +185,10 @@ export const App = ({
     return agent?.displayName || currentAgentId
   }, [loadedAgentsData, agentId, agentMode])
 
-  // Handle successful login
-  const handleLoginSuccess = useCallback(
-    (loggedInUser: User) => {
-      logger.info(
-        {
-          userName: loggedInUser.name,
-          userEmail: loggedInUser.email,
-          userId: loggedInUser.id,
-        },
-        '🎊 handleLoginSuccess called - updating UI state',
-      )
-
-      logger.info('🔄 Resetting chat store...')
-      resetChatStore()
-      logger.info('✅ Chat store reset')
-
-      logger.info('🎯 Setting input focused...')
-      setInputFocused(true)
-      logger.info('✅ Input focused')
-
-      logger.info('👤 Setting user state...')
-      setUser(loggedInUser)
-      logger.info('✅ User state set')
-
-      logger.info('🔓 Setting isAuthenticated to true...')
-      setIsAuthenticated(true)
-      logger.info('✅ isAuthenticated set to true - modal should close now')
-
-      logger.info(
-        { user: loggedInUser.name },
-        '🎉 Login flow completed successfully!',
-      )
-    },
-    [resetChatStore, setInputFocused],
-  )
-
-  useEffect(() => {
-    if (isAuthenticated !== true) return
-
-    setInputFocused(true)
-
-    const focusNow = () => {
-      const handle = inputRef.current
-      if (handle && typeof handle.focus === 'function') {
-        handle.focus()
-      }
-    }
-
-    focusNow()
-    const timeoutId = setTimeout(focusNow, 0)
-
-    return () => clearTimeout(timeoutId)
-  }, [isAuthenticated, setInputFocused])
-
-  const agentToggleLabel =
-    agentMode === 'FAST' ? 'FAST' : agentMode === 'MAX' ? '💪 MAX' : '📋 PLAN'
-  const agentTogglePadding = agentMode === 'FAST' ? 4 : 2 // paddingLeft + paddingRight inside the button
-  const agentToggleGap = 2 // paddingLeft on the container box next to the input
-  const estimatedToggleWidth =
-    agentTogglePadding + agentToggleGap + stringWidth(agentToggleLabel)
-  const inputWidth = Math.max(1, separatorWidth - estimatedToggleWidth)
-
   const activeAgentStreamsRef = useRef<number>(0)
   const isChainInProgressRef = useRef<boolean>(isChainInProgress)
-
   const { clipboardMessage } = useClipboard()
-
-  // Track main agent streaming elapsed time
   const mainAgentTimer = useElapsedTime()
-
-  const hasAutoSubmittedRef = useRef(false)
   const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
 
   useEffect(() => {
@@ -862,21 +588,15 @@ export const App = ({
 
   sendMessageRef.current = sendMessage
 
-  useEffect(() => {
-    if (initialPrompt && !hasAutoSubmittedRef.current) {
-      hasAutoSubmittedRef.current = true
-
-      const timeout = setTimeout(() => {
-        logger.info({ prompt: initialPrompt }, 'Auto-submitting initial prompt')
-        if (sendMessageRef.current) {
-          sendMessageRef.current({ content: initialPrompt, agentMode })
-        }
-      }, 100)
-
-      return () => clearTimeout(timeout)
-    }
-    return undefined
-  }, [initialPrompt, agentMode])
+  const { inputWidth, handleBuildFast, handleBuildMax } = useChatInput({
+    inputValue,
+    setInputValue,
+    agentMode,
+    setAgentMode,
+    separatorWidth,
+    initialPrompt,
+    sendMessageRef,
+  })
 
   // Status is active when waiting for response or streaming
   const isStatusActive = isWaitingForResponse || isStreaming
@@ -924,28 +644,6 @@ export const App = ({
       handleCtrlC,
     ],
   )
-
-  const handleBuildFast = useCallback(() => {
-    setAgentMode('FAST')
-    setInputValue('Build it!')
-    setTimeout(() => {
-      if (sendMessageRef.current) {
-        sendMessageRef.current({ content: 'Build it!', agentMode: 'FAST' })
-      }
-      setInputValue('')
-    }, 0)
-  }, [setAgentMode, setInputValue])
-
-  const handleBuildMax = useCallback(() => {
-    setAgentMode('MAX')
-    setInputValue('Build it!')
-    setTimeout(() => {
-      if (sendMessageRef.current) {
-        sendMessageRef.current({ content: 'Build it!', agentMode: 'MAX' })
-      }
-      setInputValue('')
-    }, 0)
-  }, [setAgentMode, setInputValue])
 
   useKeyboardHandlers({
     isStreaming,
@@ -1025,118 +723,11 @@ export const App = ({
     />
   )
 
-  // Render validation banner
-  const renderValidationBanner = () => {
-    if (liveValidationErrors.length === 0) {
-      return null
-    }
-
-    const MAX_VISIBLE_ERRORS = 5
-    const errorCount = liveValidationErrors.length
-    const visibleErrors = liveValidationErrors.slice(0, MAX_VISIBLE_ERRORS)
-    const hasMoreErrors = errorCount > MAX_VISIBLE_ERRORS
-
-    // Helper to normalize relative path
-    const normalizeRelativePath = (filePath: string): string => {
-      if (!loadedAgentsData) return filePath
-      const relativeToAgentsDir = path.relative(
-        loadedAgentsData.agentsDir,
-        filePath,
-      )
-      const normalized = relativeToAgentsDir.replace(/\\/g, '/')
-      return `.agents/${normalized}`
-    }
-
-    // Get agent info by ID
-    const createAgentInfoEntry = (agent: any): [string, LocalAgentInfo] => [
-      agent.id,
-      agent as LocalAgentInfo,
-    ]
-
-    const agentInfoById = new Map<string, LocalAgentInfo>(
-      (loadedAgentsData?.agents.map(createAgentInfoEntry) || []) as [
-        string,
-        LocalAgentInfo,
-      ][],
-    )
-
-    const formatErrorLine = (
-      error: { id: string; message: string },
-      index: number,
-    ): string => {
-      const agentId = error.id.replace(/_\d+$/, '')
-      const agentInfo = agentInfoById.get(agentId)
-      const relativePath = agentInfo
-        ? normalizeRelativePath(agentInfo.filePath)
-        : null
-
-      const { fieldName, message } = formatValidationError(error.message)
-      const errorMsg = fieldName ? `${fieldName}: ${message}` : message
-      const truncatedMsg =
-        errorMsg.length > 68 ? errorMsg.substring(0, 65) + '...' : errorMsg
-
-      let output = index === 0 ? '\n' : '\n\n'
-      output += agentId
-      if (relativePath) {
-        output += ` (${relativePath})`
-      }
-      output += '\n  ' + truncatedMsg
-      return output
-    }
-
-    const messageAiTextColor = theme.foreground
-    const statusSecondaryColor = theme.secondary
-
-    return (
-      <box
-        style={{
-          flexDirection: 'column',
-          paddingLeft: 1,
-          paddingRight: 1,
-          paddingTop: 1,
-          paddingBottom: 1,
-          backgroundColor: theme.surface,
-          border: true,
-          borderStyle: 'single',
-          borderColor: theme.warning,
-        }}
-      >
-        {/* Header */}
-        <box
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingBottom: 0,
-          }}
-        >
-          <text style={{ wrapMode: 'none', fg: messageAiTextColor }}>
-            {`⚠️  ${errorCount === 1 ? '1 agent has validation issues' : `${errorCount} agents have validation issues`}`}
-            {hasMoreErrors &&
-              ` (showing ${MAX_VISIBLE_ERRORS} of ${errorCount})`}
-          </text>
-        </box>
-
-        {/* Error list - build as single text with newlines */}
-        <text style={{ wrapMode: 'word', fg: messageAiTextColor }}>
-          {visibleErrors.map(formatErrorLine).join('')}
-        </text>
-
-        {/* Show count of additional errors */}
-        {hasMoreErrors && (
-          <box
-            style={{
-              flexDirection: 'row',
-              paddingTop: 0,
-            }}
-          >
-            <text style={{ wrapMode: 'none', fg: statusSecondaryColor }}>
-              {`... and ${errorCount - MAX_VISIBLE_ERRORS} more`}
-            </text>
-          </box>
-        )}
-      </box>
-    )
-  }
+  const validationBanner = useValidationBanner({
+    liveValidationErrors,
+    loadedAgentsData,
+    theme,
+  })
 
   return (
     <box
@@ -1308,6 +899,8 @@ export const App = ({
       </box>
 
       {/* Login Modal Overlay - show when not authenticated and done checking */}
+      {validationBanner}
+
       {requireAuth !== null && isAuthenticated === false && (
         <LoginModal
           onLoginSuccess={handleLoginSuccess}
