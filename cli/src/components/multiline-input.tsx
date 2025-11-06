@@ -116,7 +116,8 @@ export const MultilineInput = forwardRef<
       focus: () => {
         const node = scrollBoxRef.current
         if (node && typeof (node as any).focus === 'function') {
-          ;(node as any).focus()
+          const focusableNode = node as any
+          focusableNode.focus()
         }
       },
     }),

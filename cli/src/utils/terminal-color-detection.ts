@@ -117,7 +117,10 @@ function queryTerminalOSC(oscCode: number): Promise<string | null> {
           readStream.removeListener('error', onError)
           try {
             // Prefer close() so stream owns its FD lifecycle
-            ;(readStream as any).close?.()
+            const stream = readStream as any
+            if (stream.close) {
+              stream.close()
+            }
           } catch {}
           cleanup()
           resolve(response)
@@ -128,7 +131,10 @@ function queryTerminalOSC(oscCode: number): Promise<string | null> {
         readStream.removeListener('data', onData)
         readStream.removeListener('error', onError)
         try {
-          ;(readStream as any).close?.()
+          const stream = readStream as any
+          if (stream.close) {
+            stream.close()
+          }
         } catch {}
         cleanup()
         resolve(null)
@@ -146,7 +152,10 @@ function queryTerminalOSC(oscCode: number): Promise<string | null> {
         readStream.removeListener('data', onData)
         readStream.removeListener('error', onError)
         try {
-          ;(readStream as any).close?.()
+          const stream = readStream as any
+          if (stream.close) {
+            stream.close()
+          }
         } catch {}
         cleanup()
         resolve(null)

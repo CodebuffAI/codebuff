@@ -31,7 +31,8 @@ export const useClipboard = () => {
 
   useEffect(() => {
     const handleSelection = (selectionEvent: any) => {
-      const selectionObj = selectionEvent ?? (renderer as any)?.getSelection?.()
+      const rendererAny = renderer as any
+      const selectionObj = selectionEvent ?? (rendererAny?.getSelection ? rendererAny.getSelection() : undefined)
       const rawText: string | null = selectionObj?.getSelectedText
         ? selectionObj.getSelectedText()
         : typeof selectionObj === 'string'

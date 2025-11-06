@@ -237,7 +237,8 @@ export const App = ({
 
       const flushed = flushAnalytics()
       if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
-        ;(flushed as Promise<void>).finally(() => process.exit(0))
+        const flushedPromise = flushed as Promise<void>
+        flushedPromise.finally(() => process.exit(0))
       } else {
         process.exit(0)
       }
@@ -260,7 +261,8 @@ export const App = ({
 
     const flushed = flushAnalytics()
     if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
-      ;(flushed as Promise<void>).finally(() => process.exit(0))
+      const flushedPromise = flushed as Promise<void>
+      flushedPromise.finally(() => process.exit(0))
     } else {
       process.exit(0)
     }

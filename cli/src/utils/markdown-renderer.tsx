@@ -673,7 +673,8 @@ const renderTable = (table: Table, state: RenderState): ReactNode[] => {
   // Calculate column widths
   const columnWidths: number[] = []
   table.children.forEach((row) => {
-    ;(row as TableRow).children.forEach((cell, colIdx) => {
+    const tableRow = row as TableRow
+    tableRow.children.forEach((cell, colIdx) => {
       const cellText = nodeToPlainText(cell as TableCell)
       const width = cellText.length
       columnWidths[colIdx] = Math.max(columnWidths[colIdx] || 0, width)
