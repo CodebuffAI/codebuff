@@ -130,6 +130,12 @@ export const MessageBlock = ({
     if (toolBlock.toolName === 'end_turn') {
       return null
     }
+    if (
+      'includeToolCall' in toolBlock.input &&
+      toolBlock.input.includeToolCall === false
+    ) {
+      return null
+    }
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
     const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
