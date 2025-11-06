@@ -5,7 +5,7 @@
  * This only works on terminals that support these queries (iTerm2, Terminal.app, Alacritty, etc.)
  *
  * IMPORTANT: This implementation writes directly to /dev/tty to avoid interfering with
- * Ink's stdout/stdin handling in the CLI app.
+ * OpenTUI's stdout/stdin handling in the CLI app.
  */
 
 import { openSync, closeSync, writeSync, createReadStream } from 'fs'
@@ -203,7 +203,9 @@ export function parseOSCResponse(
  * @returns Brightness value 0-255
  */
 function calculateBrightness([r, g, b]: [number, number, number]): number {
-  return Math.floor(LUMINANCE_RED * r + LUMINANCE_GREEN * g + LUMINANCE_BLUE * b)
+  return Math.floor(
+    LUMINANCE_RED * r + LUMINANCE_GREEN * g + LUMINANCE_BLUE * b,
+  )
 }
 
 function themeFromRgb(rgb: [number, number, number]): ThemeName {
