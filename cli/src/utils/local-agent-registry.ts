@@ -156,10 +156,6 @@ export const loadLocalAgents = (): LocalAgentInfo[] => {
   return cachedAgents
 }
 
-export const announceLoadedAgents = (): void => {
-  // no-op: avoid console noise
-}
-
 export const getLoadedAgentsMessage = (): string | null => {
   const agents = loadLocalAgents()
   const agentsDir = findAgentsDirectory()
