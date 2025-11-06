@@ -138,7 +138,7 @@ export const resolveAgentModeClick = (
 ): AgentModeClickAction => {
   if (clickedId.startsWith('active-')) return { type: 'closeActive' }
   const target = clickedId as AgentMode
-  if (hasOnSelectMode && target !== currentMode) {
+  if (hasOnSelectMode) {
     return { type: 'selectMode', mode: target }
   }
   return { type: 'toggleMode', mode: target }

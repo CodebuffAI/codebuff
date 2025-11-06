@@ -62,7 +62,6 @@ export const SegmentedControl = ({
     >
       {/* Segments rendered with dynamic left/right edges based on hover */}
       {processedSegments.map((seg, idx) => {
-        const isClickable = !!onSegmentClick && !segments[idx].disabled
         const leftOfHovered = idx <= hoveredIndex
         const rightOfHovered = idx >= hoveredIndex
 
@@ -77,12 +76,10 @@ export const SegmentedControl = ({
             ) : null}
 
             <box
-              onMouseDown={() => isClickable && onSegmentClick(seg.id)}
+              onMouseDown={() => onSegmentClick && onSegmentClick(seg.id)}
               onMouseOver={() => {
-                if (isClickable) {
-                  setHoveredId(seg.id)
-                  setHasHoveredSinceOpen(true)
-                }
+                setHoveredId(seg.id)
+                setHasHoveredSinceOpen(true)
               }}
               style={{
                 flexDirection: 'column',
@@ -150,7 +147,7 @@ export const processSegments = (
     const defaultHL = !!seg.defaultHighlighted
 
     // Hover and highlight state
-    const canHover = !isDisabled && (!isSelected || defaultHL)
+    const canHover = !isSelected || defaultHL
     const isHovered = hoveredId === seg.id && canHover
     const isDefaultHighlighted = defaultHL && !hasHoveredSinceOpen
     const isHighlighted = isHovered || isDefaultHighlighted
@@ -159,7 +156,7 @@ export const processSegments = (
     const isBold = !!(seg.isBold || isHovered || (isSelected && isHighlighted))
 
     // Colors
-    const frameColor = !isDisabled && isHighlighted ? theme.foreground : theme.border
+    const frameColor = isHighlighted ? theme.foreground : theme.border
     const textMuted = isDisabled || (isSelected && !isHighlighted)
     const textColor = textMuted ? theme.muted : theme.foreground
 
