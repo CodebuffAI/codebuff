@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ChatTheme } from '../types/theme-system'
 
 export const BuildModeButtons = ({
@@ -9,43 +10,60 @@ export const BuildModeButtons = ({
   onBuildFast: () => void
   onBuildMax: () => void
 }) => {
+  const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | null>(null)
   return (
     <box
       style={{
-        flexDirection: 'row',
-        gap: 2,
+        flexDirection: 'column',
+        gap: 0,
         paddingTop: 1,
         paddingBottom: 1,
         paddingLeft: 1,
       }}
     >
+      <text style={{ wrapMode: 'none', marginBottom: 1 }}>
+        <span fg={theme.secondary}>Ready to build? Choose your mode:</span>
+      </text>
       <box
         style={{
           flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: '#0a6515',
-          paddingLeft: 2,
-          paddingRight: 2,
+          gap: 2,
         }}
-        onMouseDown={onBuildFast}
       >
-        <text wrapMode="none">
-          <span fg="#ffffff">Build Fast</span>
-        </text>
-      </box>
-      <box
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: '#ac1626',
-          paddingLeft: 2,
-          paddingRight: 2,
-        }}
-        onMouseDown={onBuildMax}
-      >
-        <text wrapMode="none">
-          <span fg="#ffffff">Build Max</span>
-        </text>
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingLeft: 2,
+            paddingRight: 2,
+            borderStyle: 'single',
+            borderColor: hoveredButton === 'fast' ? '#ffffff' : theme.secondary,
+          }}
+          onMouseDown={onBuildFast}
+          onMouseOver={() => setHoveredButton('fast')}
+          onMouseOut={() => setHoveredButton(null)}
+        >
+          <text wrapMode="none">
+            <span fg="#ffffff">Build FAST</span>
+          </text>
+        </box>
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingLeft: 2,
+            paddingRight: 2,
+            borderStyle: 'single',
+            borderColor: hoveredButton === 'max' ? '#ffffff' : theme.secondary,
+          }}
+          onMouseDown={onBuildMax}
+          onMouseOver={() => setHoveredButton('max')}
+          onMouseOut={() => setHoveredButton(null)}
+        >
+          <text wrapMode="none">
+            <span fg="#ffffff">Build MAX</span>
+          </text>
+        </box>
       </box>
     </box>
   )
