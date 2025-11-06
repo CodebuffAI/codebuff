@@ -46,10 +46,9 @@ export function codeSearch({
       searchCwd = requestedPath
     }
 
-    // Deduplicate flags
-    const flagsArray = Array.from(
-      new Set((flags || '').split(' ').filter(Boolean)),
-    )
+    // Parse flags - do NOT deduplicate to preserve flag-argument pairs like '-g *.ts'
+    // Deduplicating would break up these pairs and cause errors
+    const flagsArray = (flags || '').split(' ').filter(Boolean)
 
     // Use JSON output for robust parsing and early stopping
     // --no-config prevents user/system .ripgreprc from interfering
