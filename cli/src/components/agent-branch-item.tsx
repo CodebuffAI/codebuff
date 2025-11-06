@@ -1,7 +1,6 @@
 import { TextAttributes, type BorderCharacters } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
-import { RaisedPill } from './raised-pill'
 import { useTheme } from '../hooks/use-theme'
 
 interface AgentBranchItemProps {
@@ -11,7 +10,6 @@ interface AgentBranchItemProps {
   agentId?: string
   isCollapsed: boolean
   isStreaming: boolean
-  branchChar?: string
   streamingPreview: string
   finishedPreview: string
   statusLabel?: string
@@ -44,7 +42,6 @@ export const AgentBranchItem = ({
   isStreaming,
   streamingPreview,
   finishedPreview,
-  branchChar = '',
   statusLabel,
   statusColor,
   statusIndicator = '●',
@@ -61,13 +58,12 @@ export const AgentBranchItem = ({
 
   const isExpanded = !isCollapsed
   const toggleFrameColor = isExpanded
-    ? theme.agentToggleExpandedBg
+    ? theme.secondary
     : theme.muted
   const toggleIconColor = isStreaming ? theme.primary : theme.foreground
+  const bulletChar = '• '
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
-  const toggleLabel = `${branchChar}${toggleIndicator}`
-  const collapseButtonFrame = theme.agentToggleExpandedBg
-  const collapseButtonText = collapseButtonFrame
+  const toggleLabel = `${bulletChar}${toggleIndicator}`
   const statusText =
     statusLabel && statusLabel.length > 0
       ? statusIndicator === '✓'
@@ -285,18 +281,16 @@ export const AgentBranchItem = ({
               <box
                 style={{
                   alignSelf: 'flex-end',
-                  marginTop: 0,
-                  paddingRight: 1,
-                  paddingBottom: 0,
-                  marginBottom: 0,
+                  marginTop: 1,
                 }}
+                onMouseDown={onToggle}
               >
-                <RaisedPill
-                  segments={[{ text: 'Collapse', fg: collapseButtonText }]}
-                  frameColor={collapseButtonFrame}
-                  textColor={collapseButtonText}
-                  onPress={onToggle}
-                />
+                <text
+                  fg={theme.secondary}
+                  style={{ wrapMode: 'none' }}
+                >
+                  ▴ collapse
+                </text>
               </box>
             )}
           </box>

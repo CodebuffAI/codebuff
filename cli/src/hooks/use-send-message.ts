@@ -897,7 +897,6 @@ export const useSendMessage = ({
                     setCollapsedAgents((prev) => {
                       const next = new Set(prev)
                       next.delete(tempId)
-                      next.add(event.agentId)
                       return next
                     })
 
@@ -994,7 +993,6 @@ export const useSendMessage = ({
                   )
 
                   setStreamingAgents((prev) => new Set(prev).add(event.agentId))
-                  setCollapsedAgents((prev) => new Set(prev).add(event.agentId))
                 }
               }
             } else if (
@@ -1078,7 +1076,6 @@ export const useSendMessage = ({
                 agents.forEach((_: any, index: number) => {
                   const agentId = `${toolCallId}-${index}`
                   setStreamingAgents((prev) => new Set(prev).add(agentId))
-                  setCollapsedAgents((prev) => new Set(prev).add(agentId))
                 })
 
                 return
