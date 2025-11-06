@@ -519,7 +519,7 @@ Tool markdown output (via `renderMarkdown`) now gets wrapped in a `<text>` eleme
     displayContent
       ? (
           <text
-            fg={resolveThemeColor(theme.agentText)}
+            fg={theme.foreground}
             style={{ wrapMode: 'word' }}
             attributes={theme.messageTextAttributes || undefined}
           >

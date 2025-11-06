@@ -8,12 +8,7 @@ import { renderToolComponent } from './tools/registry'
 import { ToolCallItem } from './tools/tool-call-item'
 import { useTheme } from '../hooks/use-theme'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
-import {
-  renderMarkdown,
-  renderStreamingMarkdown,
-  hasMarkdown,
-  type MarkdownPalette,
-} from '../utils/markdown-renderer'
+import { renderMarkdown, renderStreamingMarkdown, hasMarkdown } from '../utils/markdown-renderer'
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ContentBlock } from '../types/chat'
@@ -39,9 +34,8 @@ interface MessageBlockProps {
   timer: ElapsedTimeTracker
   textColor?: ThemeColor
   timestampColor: string
-  markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
+  markdownOptions: { codeBlockWidth: number }
   availableWidth: number
-  markdownPalette: MarkdownPalette
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
@@ -63,7 +57,6 @@ export const MessageBlock = ({
   timestampColor,
   markdownOptions,
   availableWidth,
-  markdownPalette,
   collapsedAgents,
   streamingAgents,
   onToggleCollapsed,
@@ -92,7 +85,7 @@ export const MessageBlock = ({
   const renderContentWithMarkdown = (
     rawContent: string,
     isStreaming: boolean,
-    options: { codeBlockWidth: number; palette: MarkdownPalette },
+    options: { codeBlockWidth: number },
   ): ReactNode => {
     if (!hasMarkdown(rawContent)) {
       return rawContent
@@ -141,11 +134,7 @@ export const MessageBlock = ({
 
     return {
       codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
-      palette: {
-        ...markdownPalette,
-        inlineCodeFg: theme.foreground,
-        codeTextFg: theme.foreground,
-      },
+      
     }
   }
 

@@ -3,11 +3,7 @@ import { useMemo, type ReactNode } from 'react'
 import React from 'react'
 
 import { MessageBlock } from '../components/message-block'
-import {
-  renderMarkdown,
-  hasMarkdown,
-  type MarkdownPalette,
-} from '../utils/markdown-renderer'
+import { renderMarkdown, hasMarkdown } from '../utils/markdown-renderer'
 import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
@@ -20,7 +16,6 @@ interface UseMessageRendererProps {
   topLevelMessages: ChatMessage[]
   availableWidth: number
   theme: ChatTheme
-  markdownPalette: MarkdownPalette
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   isWaitingForResponse: boolean
@@ -38,7 +33,6 @@ export const useMessageRenderer = (
     topLevelMessages,
     availableWidth,
     theme,
-    markdownPalette,
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
@@ -82,14 +76,8 @@ export const useMessageRenderer = (
           : ''
 
       const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
-      const agentPalette: MarkdownPalette = {
-        ...markdownPalette,
-        inlineCodeFg: theme.foreground,
-        codeTextFg: theme.foreground,
-      }
       const agentMarkdownOptions = {
         codeBlockWidth: agentCodeBlockWidth,
-        palette: agentPalette,
       }
       const displayContent = hasMarkdown(rawDisplayContent)
         ? renderMarkdown(rawDisplayContent, agentMarkdownOptions)
@@ -277,12 +265,7 @@ export const useMessageRenderer = (
           : theme.muted
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
-      const paletteForMessage: MarkdownPalette = {
-        ...markdownPalette,
-        inlineCodeFg: textColor,
-        codeTextFg: textColor,
-      }
-      const markdownOptions = { codeBlockWidth, palette: paletteForMessage }
+      const markdownOptions = { codeBlockWidth }
 
       const isLoading =
         isAi &&
@@ -358,7 +341,6 @@ export const useMessageRenderer = (
                     timestampColor={timestampColor}
                     markdownOptions={markdownOptions}
                     availableWidth={availableWidth}
-                    markdownPalette={markdownPalette}
                     collapsedAgents={collapsedAgents}
                     streamingAgents={streamingAgents}
                     onToggleCollapsed={(id: string) => {
@@ -406,7 +388,6 @@ export const useMessageRenderer = (
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
                   availableWidth={availableWidth}
-                  markdownPalette={markdownPalette}
                   collapsedAgents={collapsedAgents}
                   streamingAgents={streamingAgents}
                   onToggleCollapsed={(id: string) => {
@@ -452,7 +433,6 @@ export const useMessageRenderer = (
     topLevelMessages,
     availableWidth,
     theme,
-    markdownPalette,
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,

@@ -55,15 +55,7 @@ export function useLoginPolling({
 
     let active = true
 
-    logger.info(
-      {
-        fingerprintId,
-        fingerprintHash,
-        expiresAt,
-        loginUrl,
-      },
-      '🚀 Starting login polling session',
-    )
+    // no info-level logging
 
     const sleep = (ms: number) =>
       new Promise<void>((resolve) => {
@@ -91,13 +83,7 @@ export function useLoginPolling({
 
         if (result.status === 'success') {
           const user = result.user as User
-          logger.info(
-            {
-              attempts: result.attempts,
-              user: user.name,
-            },
-            '✅ Polling returned authenticated user',
-          )
+          // no info-level logging
 
           onSuccessRef.current(user)
         } else if (result.status === 'timeout') {

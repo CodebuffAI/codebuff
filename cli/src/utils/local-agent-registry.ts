@@ -157,29 +157,7 @@ export const loadLocalAgents = (): LocalAgentInfo[] => {
 }
 
 export const announceLoadedAgents = (): void => {
-  const agents = loadLocalAgents()
-  const agentsDir = findAgentsDirectory()
-
-  if (!agentsDir) {
-    console.log('[agents] No .agents directory found in this project.')
-    return
-  }
-
-  if (!agents.length) {
-    console.log(`[agents] No agent files found in ${agentsDir}`)
-    return
-  }
-
-  console.log(
-    `[agents] Loaded ${pluralize(agents.length, 'local agent')} from ${agentsDir}`,
-  )
-  for (const agent of agents) {
-    const identifier =
-      agent.displayName && agent.displayName !== agent.id
-        ? `${agent.displayName} (${agent.id})`
-        : agent.displayName || agent.id
-    console.log(`  - ${identifier}`)
-  }
+  // no-op: avoid console noise
 }
 
 export const getLoadedAgentsMessage = (): string | null => {

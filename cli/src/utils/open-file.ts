@@ -13,40 +13,30 @@ const escapeForCmd = (value: string): string =>
   `"${value.replace(/"/g, '""')}"`
 
 const replaceFilePlaceholder = (command: string, filePath: string): string => {
-  if (command.includes('%f')) {
-    return command.replace(/%f/g, filePath)
-  }
-  if (command.includes('{file}')) {
-    return command.replace(/{file}/g, filePath)
-  }
-  return command
+  // Support common placeholders used in editor configs
+  let out = command
+  if (out.includes('%f')) out = out.replace(/%f/g, filePath)
+  if (out.includes('{file}')) out = out.replace(/{file}/g, filePath)
+  if (out.includes('${file}')) out = out.replace(/\$\{file\}/g, filePath)
+  return out
 }
 
 const buildEditorCommands = (filePath: string): string[] => {
-  const commands: string[] = []
   const shellPath = isWindows ? escapeForCmd(filePath) : escapeForShell(filePath)
   const rawPath = filePath
 
-  const editorEnvVars = [
-    'CODEBUFF_CLI_EDITOR',
-    'CODEBUFF_EDITOR',
-    'VISUAL',
-    'EDITOR',
-  ]
-
-  for (const envVar of editorEnvVars) {
-    const value = process.env[envVar]
-    if (!value) continue
-    const withFile = replaceFilePlaceholder(value, rawPath)
-    if (withFile !== value) {
-      commands.push(withFile)
-    } else {
-      commands.push(`${value} ${isWindows ? shellPath : shellPath}`)
-    }
-  }
+  // Start with env-provided editor commands (highest priority)
+  const editorEnvVars = ['CODEBUFF_CLI_EDITOR', 'CODEBUFF_EDITOR', 'VISUAL', 'EDITOR']
+  const envCommands = editorEnvVars
+    .map((envVar) => process.env[envVar])
+    .filter((v): v is string => !!v)
+    .map((value) => {
+      const withFile = replaceFilePlaceholder(value, rawPath)
+      return withFile !== value ? withFile : `${value} ${shellPath}`
+    })
 
   const termProgram = (process.env.TERM_PROGRAM || '').toLowerCase()
-  const candidates: Array<{ detect: boolean; command: string }> = [
+  const knownCandidates: Array<{ detect: boolean; command: string }> = [
     {
       detect:
         termProgram.includes('vscode') ||
@@ -62,36 +52,27 @@ const buildEditorCommands = (filePath: string): string[] => {
       command: `cursor --goto ${shellPath}`,
     },
     {
-      detect:
-        termProgram.includes('zed') ||
-        process.env.ZED_NODE_ENV !== undefined,
+      detect: termProgram.includes('zed') || process.env.ZED_NODE_ENV !== undefined,
       command: `zed --add ${shellPath}`,
     },
-    {
-      detect: termProgram.includes('sublime'),
-      command: `subl ${shellPath}`,
-    },
-    {
-      detect: termProgram.includes('atom'),
-      command: `atom ${shellPath}`,
-    },
+    { detect: termProgram.includes('sublime'), command: `subl ${shellPath}` },
+    { detect: termProgram.includes('atom'), command: `atom ${shellPath}` },
   ]
 
-  for (const candidate of candidates) {
-    if (candidate.detect) {
-      commands.push(candidate.command)
-    }
-  }
+  const detectedCommands = knownCandidates.filter((c) => c.detect).map((c) => c.command)
 
-  if (isMac) {
-    commands.push(`open ${shellPath}`)
-  } else if (isWindows) {
-    commands.push(`start "" ${escapeForCmd(filePath)}`)
-  } else {
-    commands.push(`xdg-open ${shellPath}`)
-  }
+  // OS fallbacks
+  const fallbackCommands = isMac
+    ? [`open ${shellPath}`]
+    : isWindows
+      ? [`start "" ${escapeForCmd(filePath)}`]
+      : [`xdg-open ${shellPath}`]
 
-  return [...new Set(commands)]
+  // Deduplicate while preserving priority: env → detected → fallback
+  const seen = new Set<string>()
+  const ordered = [...envCommands, ...detectedCommands, ...fallbackCommands]
+  const unique = ordered.filter((cmd) => (seen.has(cmd) ? false : (seen.add(cmd), true)))
+  return unique
 }
 
 const runCommand = async (command: string): Promise<boolean> => {

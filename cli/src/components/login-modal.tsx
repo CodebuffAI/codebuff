@@ -148,13 +148,6 @@ export const LoginModal = ({
   const handleLoginSuccess = useCallback((user: User) => {
     loginMutationRef.current.mutate(user, {
       onSuccess: (validatedUser) => {
-        logger.info(
-          {
-            user: validatedUser.name,
-            validatedFields: Object.keys(validatedUser),
-          },
-          '✅ Login mutation succeeded, notifying parent',
-        )
         onLoginSuccessRef.current(validatedUser)
       },
       onError: (error) => {
@@ -290,7 +283,7 @@ export const LoginModal = ({
         width: modalWidth,
         height: modalHeight,
         maxHeight: modalHeight,
-        backgroundColor: theme.background,
+        backgroundColor: theme.surface,
         padding: 0,
         flexDirection: 'column',
       }}
@@ -323,7 +316,7 @@ export const LoginModal = ({
           alignItems: 'center',
           width: '100%',
           height: '100%',
-          backgroundColor: theme.background,
+          backgroundColor: theme.surface,
           padding: containerPadding,
           gap: 0,
         }}

@@ -12,7 +12,7 @@ let DEBUG_DEV_EVENTS = false
 let currentUserId: string | undefined
 let client: PostHog | undefined
 
-export let identified: boolean = false
+// Deprecated/unused: previously exposed outside; remove to avoid dead exports
 
 export function initAnalytics() {
   if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {

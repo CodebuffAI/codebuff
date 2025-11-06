@@ -60,22 +60,22 @@ export interface MarkdownRenderOptions {
 
 const defaultPalette: MarkdownPalette = {
   inlineCodeFg: 'brightYellow',
-  codeBackground: '#0d1117',
-  codeHeaderFg: '#666',
+  codeBackground: '#1f2933',
+  codeHeaderFg: '#6b7280',
   headingFg: {
-    1: 'magenta',
-    2: 'green',
-    3: 'green',
-    4: 'green',
-    5: 'green',
-    6: 'green',
+    1: 'yellow',
+    2: 'yellow',
+    3: 'yellow',
+    4: 'yellow',
+    5: 'yellow',
+    6: 'yellow',
   },
-  listBulletFg: 'white',
+  listBulletFg: 'gray',
   blockquoteBorderFg: 'gray',
   blockquoteTextFg: 'gray',
   dividerFg: '#666',
   codeTextFg: 'brightWhite',
-  codeMonochrome: false,
+  codeMonochrome: true,
 }
 
 const resolvePalette = (

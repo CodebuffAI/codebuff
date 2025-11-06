@@ -5,18 +5,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 import { MessageBlock } from '../message-block'
 import '../../state/theme-store' // Initialize theme store
-import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
-import type { MarkdownPalette } from '../../utils/markdown-renderer'
+import { chatThemes } from '../../utils/theme-system'
 
 const theme = chatThemes.dark
 
-const basePalette = createMarkdownPalette(theme)
-
-const palette: MarkdownPalette = {
-  ...basePalette,
-  inlineCodeFg: theme.foreground,
-  codeTextFg: theme.foreground,
-}
+// No custom markdown palette; rely on defaults
 
 const baseProps = {
   messageId: 'ai-1',
@@ -39,10 +32,8 @@ const baseProps = {
   timestampColor: theme.muted,
   markdownOptions: {
     codeBlockWidth: 72,
-    palette,
   },
   availableWidth: 80,
-  markdownPalette: basePalette,
   collapsedAgents: new Set<string>(),
   streamingAgents: new Set<string>(),
   onToggleCollapsed: () => {},

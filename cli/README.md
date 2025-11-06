@@ -75,3 +75,29 @@ codebuff-tui
 - Built with OpenTUI for modern terminal interfaces
 - Uses React for declarative component-based UI
 - TypeScript support out of the box
+
+## Theme Detection
+
+The CLI auto‑detects light/dark mode using multiple sources with a clear precedence:
+
+- Preferred: Terminal OSC 10/11 polling (background/foreground color)
+  - Polled every 5s
+  - Works in native terminals that answer OSC (Terminal.app, iTerm2, WezTerm, kitty, Alacritty, Ghostty)
+  - Supports tmux/screen via passthrough wrapping
+- Fallback: IDE theme (when running in an integrated terminal)
+  - VS Code family (Code/Cursor/VSCodium) via settings.json and env
+  - JetBrains (IntelliJ family) via laf.xml and env
+  - Zed via its settings and explicit env vars (e.g., `ZED_TERM`)
+- Last resort: OS/platform theme
+  - macOS via `defaults read -g AppleInterfaceStyle`
+  - Windows registry and common Linux desktop settings
+
+Live updates
+
+- Terminal OSC polling updates the theme automatically when the terminal changes its colors.
+- File watchers are enabled for IDE settings and macOS preference files, so theme changes propagate even when OSC is unavailable.
+- When both are available, OSC results take precedence over IDE/OS.
+
+Manual refresh
+
+- Send `SIGUSR2` to the process to force a theme recomputation.

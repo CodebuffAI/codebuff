@@ -45,7 +45,6 @@ import {
 import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { openFileAtPath } from './utils/open-file'
-import { createMarkdownPalette } from './utils/theme-system'
 import { formatValidationError } from './utils/validation-error-formatting'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
@@ -101,7 +100,6 @@ export const App = ({
   const theme = useTheme()
   const resolvedThemeName = useResolvedThemeName()
 
-  const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
   // Get formatted logo for display in chat messages
   const contentMaxWidth = Math.max(10, Math.min(terminalWidth - 4, 80))
@@ -394,35 +392,10 @@ export const App = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
-      logger.info(
-        {
-          userName: loggedInUser.name,
-          userEmail: loggedInUser.email,
-          userId: loggedInUser.id,
-        },
-        '🎊 handleLoginSuccess called - updating UI state',
-      )
-
-      logger.info('🔄 Resetting chat store...')
       resetChatStore()
-      logger.info('✅ Chat store reset')
-
-      logger.info('🎯 Setting input focused...')
       setInputFocused(true)
-      logger.info('✅ Input focused')
-
-      logger.info('👤 Setting user state...')
       setUser(loggedInUser)
-      logger.info('✅ User state set')
-
-      logger.info('🔓 Setting isAuthenticated to true...')
       setIsAuthenticated(true)
-      logger.info('✅ isAuthenticated set to true - modal should close now')
-
-      logger.info(
-        { user: loggedInUser.name },
-        '🎉 Login flow completed successfully!',
-      )
     },
     [resetChatStore, setInputFocused],
   )
@@ -828,7 +801,7 @@ export const App = ({
         event.type === 'start'
           ? 'Main agent timer started'
           : `Main agent timer stopped (${event.outcome})`
-      logger.info(payload, message)
+      // no info-level logging
     },
     [agentId],
   )
@@ -866,7 +839,7 @@ export const App = ({
       hasAutoSubmittedRef.current = true
 
       const timeout = setTimeout(() => {
-        logger.info({ prompt: initialPrompt }, 'Auto-submitting initial prompt')
+        // no info-level logging
         if (sendMessageRef.current) {
           sendMessageRef.current({ content: initialPrompt, agentMode })
         }
@@ -989,7 +962,7 @@ export const App = ({
     topLevelMessages: virtualTopLevelMessages,
     availableWidth: separatorWidth,
     theme,
-    markdownPalette,
+    
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
