@@ -382,6 +382,7 @@ export const App = ({
     })),
   )
 
+  const showAgentDisplayName = !!agentId
   // Get current agent display name based on mode
   const agentDisplayName = useMemo(() => {
     if (!loadedAgentsData) return null
@@ -1290,7 +1291,7 @@ export const App = ({
         </box>
         <Separator width={separatorWidth} />
         {/* Agent status line - right-aligned under toggle */}
-        {loadedAgentsData && (
+        {showAgentDisplayName && loadedAgentsData && (
           <box
             style={{
               flexDirection: 'row',
