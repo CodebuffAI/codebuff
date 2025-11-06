@@ -117,7 +117,6 @@ export const MessageBlock = ({
       codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
       palette: {
         ...markdownPalette,
-        inlineCodeFg: theme.foreground,
         codeTextFg: theme.foreground,
       },
     }

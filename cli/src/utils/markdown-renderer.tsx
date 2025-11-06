@@ -59,7 +59,7 @@ export interface MarkdownRenderOptions {
 }
 
 const defaultPalette: MarkdownPalette = {
-  inlineCodeFg: 'brightYellow',
+  inlineCodeFg: '#86efac',
   codeBackground: '#0d1117',
   codeHeaderFg: '#666',
   headingFg: {

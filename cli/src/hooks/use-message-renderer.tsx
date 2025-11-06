@@ -79,7 +79,6 @@ export const useMessageRenderer = (
       const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
       const agentPalette: MarkdownPalette = {
         ...markdownPalette,
-        inlineCodeFg: theme.foreground,
         codeTextFg: theme.foreground,
       }
       const agentMarkdownOptions = {
@@ -268,7 +267,6 @@ export const useMessageRenderer = (
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
       const paletteForMessage: MarkdownPalette = {
         ...markdownPalette,
-        inlineCodeFg: textColor,
         codeTextFg: textColor,
       }
       const markdownOptions = { codeBlockWidth, palette: paletteForMessage }
