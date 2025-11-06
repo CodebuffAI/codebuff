@@ -643,7 +643,6 @@ export const useSendMessage = ({
           maxAgentSteps: 40,
 
           handleStreamChunk: (event) => {
-            logger.info({ event }, 'asdf event')
             if (typeof event === 'string' || event.type === 'reasoning_chunk') {
               const eventObj:
                 | { type: 'text'; text: string }
