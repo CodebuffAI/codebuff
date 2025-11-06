@@ -5,9 +5,10 @@ import { fileURLToPath } from 'url'
 import { spawn } from 'child_process'
 import { connect, type Socket } from 'net'
 
-import type { ThemeName } from '../types/theme-system'
+import type { ThemeName, ChatTheme as ChatThemeType, MarkdownHeadingLevel } from '../types/theme-system'
 export type { ThemeName } from '../types/theme-system'
 
+import type { MarkdownPalette } from './markdown-renderer'
 import { detectTerminalTheme, terminalLikelySupportsOSC } from './terminal-color-detection'
 import { logger } from './logger'
 import { detectIDETheme, getIDEThemeConfigPaths } from './theme-ide'
@@ -135,7 +136,34 @@ export const cloneChatTheme = (input: ChatTheme): ChatTheme => ({
     : undefined,
 })
 
-// No markdown palette helpers; markdown renderer uses its own defaults.
+export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
+  const headingDefaults: Record<MarkdownHeadingLevel, string> = {
+    1: theme.primary,
+    2: theme.primary,
+    3: theme.primary,
+    4: theme.primary,
+    5: theme.primary,
+    6: theme.primary,
+  }
+
+  const overrides = theme.markdown?.headingFg ?? {}
+
+  return {
+    inlineCodeFg: theme.markdown?.inlineCodeFg ?? theme.foreground,
+    codeBackground: theme.markdown?.codeBackground ?? theme.background,
+    codeHeaderFg: theme.markdown?.codeHeaderFg ?? theme.secondary,
+    headingFg: {
+      ...headingDefaults,
+      ...overrides,
+    },
+    listBulletFg: theme.markdown?.listBulletFg ?? theme.secondary,
+    blockquoteBorderFg: theme.markdown?.blockquoteBorderFg ?? theme.secondary,
+    blockquoteTextFg: theme.markdown?.blockquoteTextFg ?? theme.foreground,
+    dividerFg: theme.markdown?.dividerFg ?? theme.secondary,
+    codeTextFg: theme.markdown?.codeTextFg ?? theme.foreground,
+    codeMonochrome: theme.markdown?.codeMonochrome ?? true,
+  }
+}
 
 // -----------------------------
 // Theme Resolution (no env mode)
