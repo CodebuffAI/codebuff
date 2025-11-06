@@ -583,12 +583,9 @@ export const MultilineInput = forwardRef<
   const textStyle: Record<string, unknown> = {
     bg: 'transparent',
     fg: inputColor,
-  }
-
-  if (isPlaceholder) {
-    textStyle.attributes = TextAttributes.DIM
-  } else if (textAttributes !== undefined && textAttributes !== 0) {
-    textStyle.attributes = textAttributes
+    attributes: isPlaceholder
+      ? TextAttributes.DIM
+      : textAttributes ?? TextAttributes.NONE,
   }
 
   const cursorFg = theme.info
