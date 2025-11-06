@@ -3,19 +3,18 @@ import './polyfills/bun-strip-ansi'
 import { createRequire } from 'module'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { validateAgents } from '@codebuff/sdk'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
 import React from 'react'
 
-import { validateAgents } from '@codebuff/sdk'
-
 import { App } from './chat'
 import './state/theme-store' // Initialize theme store and watchers
 import { getUserCredentials } from './utils/auth'
+import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile } from './utils/logger'
-import { loadAgentDefinitions } from './utils/load-agent-definitions'
 
 const require = createRequire(import.meta.url)
 
@@ -153,6 +152,7 @@ function startApp() {
     </QueryClientProvider>,
     {
       backgroundColor: 'transparent',
+      exitOnCtrlC: false,
     },
   )
 }
