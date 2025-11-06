@@ -39,7 +39,11 @@ describe('detectTerminalTheme (integration)', () => {
       }),
     )
     spies.push(spyOn(fs, 'closeSync').mockImplementation(() => {}))
-    spies.push(spyOn(fs, 'writeSync').mockImplementation(() => 0 as any))
+    // Mock writeSync to return the length of what was written (indicates success)
+    spies.push(spyOn(fs, 'writeSync').mockImplementation((_fd, data) => {
+      const length = typeof data === 'string' ? Buffer.byteLength(data) : (data as Buffer).length
+      return length
+    }))
     spies.push(
       spyOn(fs, 'createReadStream').mockImplementation(() => {
         createReadStreamInstance = new FakeReadStream()

@@ -1,13 +1,24 @@
-import { existsSync, watch } from 'fs'
-import { homedir } from 'os'
+import { existsSync, watch, type FSWatcher } from 'fs'
+import { homedir, tmpdir } from 'os'
 import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
+import { spawn } from 'child_process'
+import { connect, type Socket } from 'net'
 
 import type { ThemeName } from '../types/theme-system'
 export type { ThemeName } from '../types/theme-system'
 
 import { detectTerminalTheme, terminalLikelySupportsOSC } from './terminal-color-detection'
+import { logger } from './logger'
 import { detectIDETheme, getIDEThemeConfigPaths } from './theme-ide'
 import { detectPlatformTheme } from './theme-platform'
+
+// Timing constants
+const FILE_WATCHER_DEBOUNCE_MS = 250
+const SOCKET_CONNECT_INITIAL_DELAY_MS = 500
+const SOCKET_CONNECT_RETRY_DELAY_MS = 200
+const SOCKET_CONNECT_MAX_RETRIES = 5
+const SOCKET_SHUTDOWN_TIMEOUT_MS = 1000
 
 // Re-export helpers and theming utilities for compatibility
 export { isZedTerminal } from './theme-ide'
@@ -16,6 +27,10 @@ export { isZedTerminal } from './theme-ide'
 // Default Chat Themes (no overrides)
 // -----------------------------
 import type { ChatTheme } from '../types/theme-system'
+
+// __dirname in ESM
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
@@ -207,6 +222,9 @@ let themeStoreUpdater: ((name: ThemeName) => void) | null = null
 let pollingInterval: NodeJS.Timeout | null = null
 let pollingInFlight = false
 
+// Track active file watchers for cleanup
+const activeWatchers: FSWatcher[] = []
+
 // Debounce recomputations triggered by noisy file watcher events
 let pendingRecomputeTimer: NodeJS.Timeout | null = null
 const enqueueRecomputeSystemTheme = (reason: string) => {
@@ -214,7 +232,28 @@ const enqueueRecomputeSystemTheme = (reason: string) => {
   pendingRecomputeTimer = setTimeout(() => {
     pendingRecomputeTimer = null
     recomputeSystemTheme(reason)
-  }, 250)
+  }, FILE_WATCHER_DEBOUNCE_MS)
+}
+
+/**
+ * Get a secure directory for socket files
+ * Prefers XDG_RUNTIME_DIR (user-specific, tmpfs-backed) over /tmp
+ */
+function getSocketDir(): string {
+  // XDG_RUNTIME_DIR is user-specific and automatically cleaned up
+  if (process.env.XDG_RUNTIME_DIR && existsSync(process.env.XDG_RUNTIME_DIR)) {
+    return process.env.XDG_RUNTIME_DIR
+  }
+  // Fallback to tmpdir (usually /tmp)
+  return tmpdir()
+}
+
+/**
+ * Get socket path for daemon communication
+ */
+function getSocketPath(): string {
+  const dir = getSocketDir()
+  return join(dir, `codebuff-terminal-theme-${process.pid}.sock`)
 }
 
 export const initializeThemeWatcher = (setter: (name: ThemeName) => void) => {
@@ -293,11 +332,22 @@ const setupFileWatchers = () => {
           }
         },
       )
-      watcher.on('error', () => {
-        // Ignore watch errors
+
+      // Handle watcher errors and cleanup
+      watcher.on('error', (err) => {
+        logger.debug({ source: 'theme', err, dir: parentDir }, 'file watcher error')
+        try {
+          watcher.close()
+        } catch {}
+        // Remove from active watchers
+        const index = activeWatchers.indexOf(watcher)
+        if (index !== -1) activeWatchers.splice(index, 1)
       })
-    } catch {
-      // Ignore inability to watch
+
+      // Track watcher for cleanup
+      activeWatchers.push(watcher)
+    } catch (err) {
+      logger.debug({ source: 'theme', err, dir: parentDir }, 'failed to setup file watcher')
     }
   }
 }
@@ -322,24 +372,96 @@ const pollTerminalColors = async () => {
 }
 
 let pollerProcess: any = null
-let socketClient: any = null
-const SOCKET_PATH = '/tmp/codebuff-terminal-theme.sock'
+let socketClient: Socket | null = null
+const SOCKET_PATH = getSocketPath()
+
+/**
+ * Connect to daemon socket with retry logic
+ */
+async function connectToDaemonSocket(): Promise<Socket | null> {
+  let retries = 0
+
+  while (retries < SOCKET_CONNECT_MAX_RETRIES) {
+    try {
+      const client = connect(SOCKET_PATH)
+
+      // Wait for connection or error
+      await new Promise<void>((resolve, reject) => {
+        const onConnect = () => {
+          client.removeListener('error', onError)
+          resolve()
+        }
+        const onError = (err: Error) => {
+          client.removeListener('connect', onConnect)
+          reject(err)
+        }
+        client.once('connect', onConnect)
+        client.once('error', onError)
+      })
+
+      logger.debug(
+        { source: 'theme', socket: SOCKET_PATH, retries },
+        'connected to terminal theme daemon',
+      )
+
+      return client
+    } catch (err) {
+      retries++
+      if (retries < SOCKET_CONNECT_MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, SOCKET_CONNECT_RETRY_DELAY_MS))
+      }
+    }
+  }
+
+  logger.debug(
+    { source: 'theme', socket: SOCKET_PATH, maxRetries: SOCKET_CONNECT_MAX_RETRIES },
+    'failed to connect to daemon after retries',
+  )
+  return null
+}
 
 const startTerminalColorPolling = () => {
   // Allow disabling polling via env
   if (themeWatchDisabled()) return
 
+  // In compiled binary builds, skip external daemon spawn (no filesystem)
+  if (process.env.CODEBUFF_IS_BINARY === 'true') {
+    logger.debug(
+      { source: 'theme', reason: 'compiled-binary' },
+      'skip terminal polling in binary build',
+    )
+    return
+  }
+
   const supportsOSC = terminalLikelySupportsOSC()
-  if (!supportsOSC) return
+  if (!supportsOSC) {
+    logger.debug({ source: 'theme', reason: 'no-osc-support' }, 'skip terminal polling')
+    return
+  }
 
   try {
-    // Spawn a completely detached daemon that broadcasts via Unix socket
-    // This avoids ANY connection to the parent's terminal I/O
-    const { spawn } = require('child_process')
-    const { join } = require('path')
-    const { connect } = require('net')
+    // Resolve compiled daemon in dist, fallback to TS in src during dev
+    const jsPathRoot = join(__dirname, 'terminal-theme-daemon.js')
+    const jsPathUtils = join(__dirname, 'utils', 'terminal-theme-daemon.js')
+    const tsPath = join(__dirname, 'terminal-theme-daemon.ts')
+    const daemonPath =
+      (existsSync(jsPathRoot) && jsPathRoot) ||
+      (existsSync(jsPathUtils) && jsPathUtils) ||
+      (existsSync(tsPath) && tsPath) ||
+      ''
 
-    const daemonPath = join(__dirname, 'terminal-theme-daemon.ts')
+    logger.debug(
+      { source: 'theme', daemonPath, exists: existsSync(daemonPath) },
+      'resolved terminal theme daemon path',
+    )
+
+    if (!daemonPath) {
+      logger.debug(
+        { source: 'theme' },
+        'no daemon path available; skipping terminal polling',
+      )
+      return
+    }
 
     // Spawn completely detached with no stdio connection
     pollerProcess = spawn(process.execPath, [daemonPath], {
@@ -348,39 +470,62 @@ const startTerminalColorPolling = () => {
       env: {
         ...process.env,
         SOCKET_PATH,
+        PARENT_PID: process.pid.toString(),
       },
     })
 
     // Unref so parent can exit independently
     pollerProcess.unref()
+    logger.debug(
+      { source: 'theme', pid: pollerProcess.pid, socket: SOCKET_PATH },
+      'spawned terminal theme daemon',
+    )
 
-    // Wait a moment for daemon to create socket, then connect
-    setTimeout(() => {
+    // Wait briefly for daemon to create socket, then connect with retry
+    setTimeout(async () => {
       try {
-        socketClient = connect(SOCKET_PATH)
+        const client = await connectToDaemonSocket()
+        if (!client) {
+          logger.debug({ source: 'theme' }, 'failed to connect to daemon after retries')
+          return
+        }
+
+        socketClient = client
 
         socketClient.on('data', (data: Buffer) => {
-          const theme = data.toString().trim() as ThemeName
-          if (theme && (theme === 'dark' || theme === 'light')) {
+          const message = data.toString().trim()
+
+          // Handle theme updates (format: "dark\n" or "light\n")
+          if (message === 'dark' || message === 'light') {
+            const theme = message as ThemeName
             if (theme !== lastDetectedTerminalTheme) {
               lastDetectedTerminalTheme = theme
               lastDetectedTheme = theme
               if (themeStoreUpdater) themeStoreUpdater(theme)
+              logger.debug(
+                { source: 'theme', theme },
+                'terminal theme updated from daemon',
+              )
             }
           }
         })
 
-        socketClient.on('error', (_err: any) => {})
+        socketClient.on('error', (err: any) => {
+          logger.debug({ source: 'theme', err }, 'daemon socket error')
+        })
 
-        socketClient.on('close', () => {})
+        socketClient.on('close', () => {
+          logger.debug({ source: 'theme' }, 'daemon socket closed')
+          socketClient = null
+        })
 
       } catch (err) {
-        // Ignore connection errors
+        logger.debug({ source: 'theme', err }, 'failed to connect to daemon')
       }
-    }, 500)
+    }, SOCKET_CONNECT_INITIAL_DELAY_MS)
 
   } catch (err) {
-    // Ignore failures to start daemon
+    logger.debug({ source: 'theme', err }, 'failed to start terminal theme daemon')
   }
 }
 
@@ -390,16 +535,74 @@ process.on('SIGUSR2', () => {
   recomputeSystemTheme('signal:SIGUSR2')
 })
 
-process.on('exit', () => {
-  if (pollingInterval) clearInterval(pollingInterval)
-  if (socketClient) {
-    try {
-      socketClient.destroy()
-    } catch {}
+/**
+ * Send shutdown command to daemon and wait for acknowledgment
+ */
+async function sendShutdownToDaemon(): Promise<boolean> {
+  if (!socketClient) return false
+
+  return new Promise<boolean>((resolve) => {
+    const timeout = setTimeout(() => {
+      resolve(false)
+    }, SOCKET_SHUTDOWN_TIMEOUT_MS)
+
+    const onData = (data: Buffer) => {
+      const message = data.toString().trim()
+      if (message === 'OK') {
+        clearTimeout(timeout)
+        socketClient?.removeListener('data', onData)
+        resolve(true)
+      }
+    }
+
+    socketClient.on('data', onData)
+    socketClient.write('SHUTDOWN\n')
+  })
+}
+
+async function cleanupPoller(reason: string) {
+  try {
+    if (pollingInterval) clearInterval(pollingInterval)
+
+    // Try graceful shutdown via socket first
+    if (socketClient) {
+      logger.debug({ source: 'theme', reason }, 'sending shutdown command to daemon')
+      const shutdownSuccess = await sendShutdownToDaemon()
+
+      if (shutdownSuccess) {
+        logger.debug({ source: 'theme' }, 'daemon acknowledged shutdown')
+      } else {
+        logger.debug({ source: 'theme' }, 'daemon shutdown timeout, forcing kill')
+      }
+
+      try {
+        socketClient.destroy()
+      } catch {}
+      socketClient = null
+    }
+
+    // Force kill if still running (should rarely be needed with health checks)
+    if (pollerProcess) {
+      try {
+        pollerProcess.kill()
+      } catch {}
+      pollerProcess = null
+    }
+
+    // Close all file watchers
+    for (const watcher of activeWatchers) {
+      try {
+        watcher.close()
+      } catch {}
+    }
+    activeWatchers.length = 0
+  } finally {
+    logger.debug({ source: 'theme', reason }, 'cleaned up terminal polling resources')
   }
-  if (pollerProcess) {
-    try {
-      pollerProcess.kill()
-    } catch {}
-  }
-})
+}
+
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGQUIT'] as const) {
+  process.on(sig, () => cleanupPoller(`signal:${sig}`))
+}
+
+process.on('exit', () => cleanupPoller('exit'))

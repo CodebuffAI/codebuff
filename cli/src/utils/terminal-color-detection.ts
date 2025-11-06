@@ -12,8 +12,14 @@ import { openSync, closeSync, writeSync, createReadStream } from 'fs'
 
 import type { ThemeName } from '../types/theme-system'
 
+// Timing constants
 const OSC_TIMEOUT_MS = 1000
 const BRIGHTNESS_THRESHOLD = 128
+
+// Luminance coefficients (ITU-R BT.709)
+const LUMINANCE_RED = 0.2126
+const LUMINANCE_GREEN = 0.7152
+const LUMINANCE_BLUE = 0.0722
 
 export function buildOscQuery(oscCode: number): string {
   const base = `\x1b]${oscCode};?\x07` // ESC ] <code> ; ? BEL
@@ -133,7 +139,19 @@ function queryTerminalOSC(oscCode: number): Promise<string | null> {
 
       // Send OSC query: ESC ] <code> ; ? BEL (wrapped if needed)
       const query = buildOscQuery(oscCode)
-      writeSync(ttyWriteFd!, query)
+      const bytesWritten = writeSync(ttyWriteFd!, query)
+
+      // Verify write succeeded
+      if (bytesWritten < query.length) {
+        readStream.removeListener('data', onData)
+        readStream.removeListener('error', onError)
+        try {
+          ;(readStream as any).close?.()
+        } catch {}
+        cleanup()
+        resolve(null)
+        return
+      }
     } catch {
       cleanup()
       resolve(null)
@@ -185,7 +203,7 @@ export function parseOSCResponse(
  * @returns Brightness value 0-255
  */
 function calculateBrightness([r, g, b]: [number, number, number]): number {
-  return Math.floor((2126 * r + 7152 * g + 722 * b) / 10000)
+  return Math.floor(LUMINANCE_RED * r + LUMINANCE_GREEN * g + LUMINANCE_BLUE * b)
 }
 
 function themeFromRgb(rgb: [number, number, number]): ThemeName {
@@ -200,6 +218,18 @@ function themeFromForegroundRgb(rgb: [number, number, number]): ThemeName {
 }
 
 /**
+ * Query foreground color as fallback when background query fails
+ * @returns Theme based on foreground color, or null if detection failed
+ */
+async function queryForegroundFallback(): Promise<ThemeName | null> {
+  const fgResponse = await queryTerminalOSC(10)
+  if (!fgResponse) return null
+  const fgRgb = parseOSCResponse(fgResponse)
+  if (!fgRgb) return null
+  return themeFromForegroundRgb(fgRgb)
+}
+
+/**
  * Detect terminal theme by querying background color
  * @returns 'dark' or 'light' based on background brightness, or null if detection failed
  */
@@ -208,22 +238,12 @@ export async function detectTerminalTheme(): Promise<ThemeName | null> {
     // Query background color (OSC 11)
     const bgResponse = await queryTerminalOSC(11)
     if (!bgResponse) {
-      // Fallback: try foreground (OSC 10)
-      const fgResponse = await queryTerminalOSC(10)
-      if (!fgResponse) return null
-      const fgRgb = parseOSCResponse(fgResponse)
-      if (!fgRgb) return null
-      return themeFromForegroundRgb(fgRgb)
+      return await queryForegroundFallback()
     }
 
     const bgRgb = parseOSCResponse(bgResponse)
     if (!bgRgb) {
-      // Fallback: try foreground (OSC 10)
-      const fgResponse = await queryTerminalOSC(10)
-      if (!fgResponse) return null
-      const fgRgb = parseOSCResponse(fgResponse)
-      if (!fgRgb) return null
-      return themeFromForegroundRgb(fgRgb)
+      return await queryForegroundFallback()
     }
 
     // Calculate brightness and determine theme
