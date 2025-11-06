@@ -23,11 +23,6 @@ export async function generateLoginUrl(
   const { fetch, logger } = deps
   const { baseUrl, fingerprintId } = options
 
-  logger.info(
-    { fingerprintId, baseUrl },
-    '🌐 Generating login URL via CLI auth endpoint',
-  )
-
   const url = `${baseUrl}/api/auth/cli/code`
   const response = await fetch(url, {
     method: 'POST',
@@ -36,14 +31,6 @@ export async function generateLoginUrl(
     },
     body: JSON.stringify({ fingerprintId }),
   })
-
-  logger.info(
-    {
-      status: response.status,
-      statusText: response.statusText,
-    },
-    '📥 Received response from login URL endpoint',
-  )
 
   if (!response.ok) {
     logger.error(
@@ -57,15 +44,6 @@ export async function generateLoginUrl(
   }
 
   const data = (await response.json()) as LoginUrlResponse
-
-  logger.info(
-    {
-      hasLoginUrl: !!data.loginUrl,
-      hasFingerprintHash: !!data.fingerprintHash,
-      expiresAt: data.expiresAt,
-    },
-    '✅ Login URL generated successfully',
-  )
 
   return data
 }
@@ -111,18 +89,6 @@ export async function pollLoginStatus(
   const startTime = now()
   let attempts = 0
 
-  logger.info(
-    {
-      baseUrl,
-      fingerprintId,
-      fingerprintHash,
-      expiresAt,
-      intervalMs,
-      timeoutMs,
-    },
-    '🚀 Starting login polling session',
-  )
-
   while (true) {
     if (shouldContinue && !shouldContinue()) {
       logger.warn('🛑 Polling aborted by caller')
@@ -141,11 +107,6 @@ export async function pollLoginStatus(
     url.searchParams.set('fingerprintHash', fingerprintHash)
     url.searchParams.set('expiresAt', expiresAt)
 
-    logger.info(
-      { attempts, url: url.toString() },
-      '📡 Polling login status endpoint',
-    )
-
     let response: Response
     try {
       response = await fetch(url.toString())
@@ -160,15 +121,6 @@ export async function pollLoginStatus(
       await sleep(intervalMs)
       continue
     }
-
-    logger.info(
-      {
-        attempts,
-        status: response.status,
-        ok: response.ok,
-      },
-      '📥 Received polling response',
-    )
 
     if (!response.ok) {
       if (response.status !== 401) {
@@ -203,17 +155,6 @@ export async function pollLoginStatus(
     const rawUser = (data as { user?: unknown } | null)?.user
     if (rawUser && typeof rawUser === 'object') {
       const user = rawUser as Record<string, unknown>
-      logger.info(
-        {
-          attempts,
-          userPreview: {
-            name: (user as { name?: string }).name ?? null,
-            email: (user as { email?: string }).email ?? null,
-            id: (user as { id?: string }).id ?? null,
-          },
-        },
-        '🎉 Login detected during polling',
-      )
       return { status: 'success', user, attempts }
     }
 

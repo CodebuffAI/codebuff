@@ -63,35 +63,10 @@ export const useAuthState = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
-      logger.info(
-        {
-          userName: loggedInUser.name,
-          userEmail: loggedInUser.email,
-          userId: loggedInUser.id,
-        },
-        '🎊 handleLoginSuccess called - updating UI state',
-      )
-
-      logger.info('🔄 Resetting chat store...')
       resetChatStore()
-      logger.info('✅ Chat store reset')
-
-      logger.info('🎯 Setting input focused...')
       setInputFocused(true)
-      logger.info('✅ Input focused')
-
-      logger.info('👤 Setting user state...')
       setUser(loggedInUser)
-      logger.info('✅ User state set')
-
-      logger.info('🔓 Setting isAuthenticated to true...')
       setIsAuthenticated(true)
-      logger.info('✅ isAuthenticated set to true - modal should close now')
-
-      logger.info(
-        { user: loggedInUser.name },
-        '🎉 Login flow completed successfully!',
-      )
     },
     [resetChatStore, setInputFocused],
   )

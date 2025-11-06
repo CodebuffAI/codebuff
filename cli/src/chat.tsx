@@ -556,7 +556,6 @@ export const App = ({
         event.type === 'start'
           ? 'Main agent timer started'
           : `Main agent timer stopped (${event.outcome})`
-      logger.info(payload, message)
     },
     [agentId],
   )

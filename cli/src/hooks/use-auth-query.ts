@@ -113,52 +113,22 @@ export function useLoginMutation(deps: UseLoginMutationDeps = {}) {
 
   return useMutation({
     mutationFn: async (user: User) => {
-      logger.info(
-        {
-          userName: user.name,
-          userEmail: user.email,
-          userId: user.id,
-          hasAuthToken: !!user.authToken,
-        },
-        '🔄 Login mutation started - saving and validating credentials',
-      )
-
       // Save credentials to file system
-      logger.info('💾 Saving credentials to file system...')
       saveUserCredentials(user)
-      logger.info('✅ Credentials saved to file system')
 
       // Validate the new credentials
-      logger.info('🔍 Validating the saved credentials...')
       const authResult = await validateApiKey({
         apiKey: user.authToken,
         getUserInfoFromApiKey,
         logger,
       })
-      logger.info('✅ Credentials validated successfully')
 
       const mergedUser = { ...user, ...authResult }
-      logger.info(
-        {
-          mergedFields: Object.keys(mergedUser),
-        },
-        '📦 Returning merged user data',
-      )
       return mergedUser
     },
     onSuccess: (data) => {
-      logger.info(
-        {
-          userName: data.name,
-          userId: data.id,
-        },
-        '🎉 Login mutation onSuccess - invalidating queries',
-      )
-
       // Invalidate auth queries to trigger refetch with new credentials
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
-
-      logger.info({ user: data.name }, '✅ User logged in successfully')
     },
     onError: (error) => {
       logger.error(
@@ -191,8 +161,6 @@ export function useLogoutMutation(deps: UseLogoutMutationDeps = {}) {
     onSuccess: () => {
       // Clear all auth-related cache
       queryClient.removeQueries({ queryKey: authQueryKeys.all })
-
-      logger.info('User logged out successfully')
     },
     onError: (error) => {
       logger.error(error, 'Logout failed')

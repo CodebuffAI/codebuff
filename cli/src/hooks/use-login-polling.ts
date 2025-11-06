@@ -55,16 +55,6 @@ export function useLoginPolling({
 
     let active = true
 
-    logger.info(
-      {
-        fingerprintId,
-        fingerprintHash,
-        expiresAt,
-        loginUrl,
-      },
-      '🚀 Starting login polling session',
-    )
-
     const sleep = (ms: number) =>
       new Promise<void>((resolve) => {
         setTimeout(resolve, ms)
@@ -91,14 +81,6 @@ export function useLoginPolling({
 
         if (result.status === 'success') {
           const user = result.user as User
-          logger.info(
-            {
-              attempts: result.attempts,
-              user: user.name,
-            },
-            '✅ Polling returned authenticated user',
-          )
-
           onSuccessRef.current(user)
         } else if (result.status === 'timeout') {
           logger.warn('Login polling timed out after configured limit')

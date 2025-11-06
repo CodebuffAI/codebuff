@@ -62,7 +62,6 @@ export const useChatInput = ({
       hasAutoSubmittedRef.current = true
 
       const timeout = setTimeout(() => {
-        logger.info({ prompt: initialPrompt }, 'Auto-submitting initial prompt')
         if (sendMessageRef.current) {
           sendMessageRef.current({ content: initialPrompt, agentMode })
         }

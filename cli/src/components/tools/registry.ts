@@ -80,9 +80,9 @@ export function renderToolComponent(
   try {
     return component.render(toolBlock as any, theme, options)
   } catch (error) {
-    logger.error(
-      { error: getErrorObject(error) },
+    console.error(
       `Error rendering tool component for ${toolBlock.toolName}:`,
+      error,
     )
     return null
   }

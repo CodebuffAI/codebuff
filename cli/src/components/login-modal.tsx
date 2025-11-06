@@ -148,13 +148,6 @@ export const LoginModal = ({
   const handleLoginSuccess = useCallback((user: User) => {
     loginMutationRef.current.mutate(user, {
       onSuccess: (validatedUser) => {
-        logger.info(
-          {
-            user: validatedUser.name,
-            validatedFields: Object.keys(validatedUser),
-          },
-          '✅ Login mutation succeeded, notifying parent',
-        )
         onLoginSuccessRef.current(validatedUser)
       },
       onError: (error) => {
