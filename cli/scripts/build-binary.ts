@@ -156,7 +156,7 @@ async function main() {
 
   const buildArgs = [
     'build',
-    'src/index.tsx',
+    'src/entry.tsx',
     '--compile',
     `--target=${targetInfo.bunTarget}`,
     `--outfile=${outputFile}`,

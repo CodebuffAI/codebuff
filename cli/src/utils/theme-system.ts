@@ -282,6 +282,12 @@ function getSocketDir(): string {
  * Get socket path for daemon communication
  */
 function getSocketPath(): string {
+  // On Windows use a named pipe path: \\ . \pipe\<name>
+  if (process.platform === 'win32') {
+    // Keep name unique per-process to avoid collisions
+    return `\\\\.\\pipe\\codebuff-terminal-theme-${process.pid}`
+  }
+  // Unix-like: use a filesystem socket under a secure runtime dir
   const dir = getSocketDir()
   return join(dir, `codebuff-terminal-theme-${process.pid}.sock`)
 }
@@ -454,15 +460,6 @@ const startTerminalColorPolling = () => {
   // Allow disabling polling via env
   if (themeWatchDisabled()) return
 
-  // In compiled binary builds, skip external daemon spawn (no filesystem)
-  if (process.env.CODEBUFF_IS_BINARY === 'true') {
-    logger.debug(
-      { source: 'theme', reason: 'compiled-binary' },
-      'skip terminal polling in binary build',
-    )
-    return
-  }
-
   const supportsOSC = terminalLikelySupportsOSC()
   if (!supportsOSC) {
     logger.debug({ source: 'theme', reason: 'no-osc-support' }, 'skip terminal polling')
@@ -470,31 +467,49 @@ const startTerminalColorPolling = () => {
   }
 
   try {
-    // Resolve compiled daemon in dist, fallback to TS in src during dev
-    const jsPathRoot = join(__dirname, 'terminal-theme-daemon.js')
-    const jsPathUtils = join(__dirname, 'utils', 'terminal-theme-daemon.js')
-    const tsPath = join(__dirname, 'terminal-theme-daemon.ts')
-    const daemonPath =
-      (existsSync(jsPathRoot) && jsPathRoot) ||
-      (existsSync(jsPathUtils) && jsPathUtils) ||
-      (existsSync(tsPath) && tsPath) ||
-      ''
+    // Determine the executable to spawn
+    // In binary mode: spawn ourselves with --internal-daemon flag
+    // In dev mode: spawn the TS file directly with bun/node
+    let daemonExec: string
+    let daemonArgs: string[]
 
-    logger.debug(
-      { source: 'theme', daemonPath, exists: existsSync(daemonPath) },
-      'resolved terminal theme daemon path',
-    )
-
-    if (!daemonPath) {
+    if (process.env.CODEBUFF_IS_BINARY === 'true') {
+      // Binary build: use the current executable
+      daemonExec = process.execPath
+      daemonArgs = ['--internal-daemon']
       logger.debug(
-        { source: 'theme' },
-        'no daemon path available; skipping terminal polling',
+        { source: 'theme', executable: daemonExec },
+        'spawning daemon from binary (self-spawn)',
       )
-      return
+    } else {
+      // Dev mode: look for the daemon script
+      const jsPathRoot = join(__dirname, 'terminal-theme-daemon.js')
+      const jsPathUtils = join(__dirname, 'utils', 'terminal-theme-daemon.js')
+      const tsPath = join(__dirname, 'terminal-theme-daemon.ts')
+      const daemonPath =
+        (existsSync(jsPathRoot) && jsPathRoot) ||
+        (existsSync(jsPathUtils) && jsPathUtils) ||
+        (existsSync(tsPath) && tsPath) ||
+        ''
+
+      if (!daemonPath) {
+        logger.debug(
+          { source: 'theme' },
+          'no daemon script available; skipping terminal polling',
+        )
+        return
+      }
+
+      daemonExec = process.execPath
+      daemonArgs = [daemonPath]
+      logger.debug(
+        { source: 'theme', daemonPath },
+        'spawning daemon from script file',
+      )
     }
 
     // Spawn completely detached with no stdio connection
-    pollerProcess = spawn(process.execPath, [daemonPath], {
+    pollerProcess = spawn(daemonExec, daemonArgs, {
       detached: true,
       stdio: 'ignore',
       env: {

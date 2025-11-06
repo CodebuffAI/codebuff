@@ -15,7 +15,11 @@ const IDLE_EXIT_MS = 15_000
 const HEALTH_CHECK_INTERVAL_MS = 10_000
 
 // Socket configuration
-const SOCKET_PATH = process.env.SOCKET_PATH || '/tmp/codebuff-terminal-theme.sock'
+const SOCKET_PATH = process.env.SOCKET_PATH || (
+  process.platform === 'win32'
+    ? `\\\\.\\pipe\\codebuff-terminal-theme-${process.pid}`
+    : '/tmp/codebuff-terminal-theme.sock'
+)
 const PARENT_PID = process.env.PARENT_PID ? parseInt(process.env.PARENT_PID, 10) : null
 
 // Protocol constants
@@ -84,7 +88,9 @@ function cleanup() {
     if (server) server.close()
   } catch {}
   try {
-    if (existsSync(SOCKET_PATH)) unlinkSync(SOCKET_PATH)
+    if (process.platform !== 'win32') {
+      if (existsSync(SOCKET_PATH)) unlinkSync(SOCKET_PATH)
+    }
   } catch {}
   if (pollInterval) {
     try { clearInterval(pollInterval) } catch {}
@@ -116,12 +122,14 @@ async function pollAndBroadcast() {
   }
 }
 
-async function main() {
-  // Clean up stale socket
-  if (existsSync(SOCKET_PATH)) {
-    try {
-      unlinkSync(SOCKET_PATH)
-    } catch {}
+export async function runDaemonMain() {
+  // Clean up stale socket on Unix only; Windows named pipes are not filesystem entries
+  if (process.platform !== 'win32') {
+    if (existsSync(SOCKET_PATH)) {
+      try {
+        unlinkSync(SOCKET_PATH)
+      } catch {}
+    }
   }
 
   // Create Unix domain socket server
@@ -164,11 +172,13 @@ async function main() {
   })
 
   server.listen(SOCKET_PATH, () => {
-    // Set restrictive permissions (owner read/write only)
-    try {
-      chmodSync(SOCKET_PATH, 0o600)
-    } catch {
-      // Best effort; some platforms may not support chmod on sockets
+    // Set restrictive permissions (owner read/write only) on Unix domain sockets
+    if (process.platform !== 'win32') {
+      try {
+        chmodSync(SOCKET_PATH, 0o600)
+      } catch {
+        // Best effort; some platforms may not support chmod on sockets
+      }
     }
   })
 
@@ -180,14 +190,20 @@ async function main() {
     pollAndBroadcast().catch(() => {})
   }, POLL_INTERVAL_MS)
   // Don't keep the event loop alive for the interval alone
-  ;(pollInterval as any)?.unref?.()
+  const intervalTimer = pollInterval as any
+  if (intervalTimer?.unref) {
+    intervalTimer.unref()
+  }
 
   // Health check: verify parent process is still alive
   if (PARENT_PID) {
     healthCheckInterval = setInterval(() => {
       performHealthCheck()
     }, HEALTH_CHECK_INTERVAL_MS)
-    ;(healthCheckInterval as any)?.unref?.()
+    const healthTimer = healthCheckInterval as any
+    if (healthTimer?.unref) {
+      healthTimer.unref()
+    }
   }
 
   // If no one connects, exit after idle period
@@ -205,4 +221,7 @@ process.on('exit', () => cleanup())
 process.on('uncaughtException', () => { try { cleanup() } finally { process.exit(1) } })
 process.on('unhandledRejection', () => { try { cleanup() } finally { process.exit(1) } })
 
-main().catch(() => { try { cleanup() } finally { process.exit(1) } })
+// Only auto-run if executed directly (not imported)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runDaemonMain().catch(() => { try { cleanup() } finally { process.exit(1) } })
+}
