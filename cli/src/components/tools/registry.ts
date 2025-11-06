@@ -12,6 +12,7 @@ import { RunTerminalCommandComponent } from './run-terminal-command'
 import { CodeSearchComponent } from './code-search'
 import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
+import { WriteTodosComponent } from './write-todos'
 
 /**
  * Registry of all tool-specific UI components.
@@ -23,6 +24,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [RunTerminalCommandComponent.toolName, RunTerminalCommandComponent],
   [ReadFilesComponent.toolName, ReadFilesComponent],
   [ReadSubtreeComponent.toolName, ReadSubtreeComponent],
+  [WriteTodosComponent.toolName, WriteTodosComponent],
 ])
 
 /**
