@@ -233,8 +233,8 @@ export const AgentBranchItem = ({
           showCollapsedPreview ? (
             <box
               style={{
-                paddingLeft: 0,
-                paddingRight: 0,
+                paddingLeft: 1,
+                paddingRight: 1,
                 paddingTop: 0,
                 paddingBottom: 0,
               }}
@@ -252,8 +252,8 @@ export const AgentBranchItem = ({
             style={{
               flexDirection: 'column',
               gap: 0,
-              paddingLeft: 0,
-              paddingRight: 0,
+              paddingLeft: 1,
+              paddingRight: 1,
               paddingTop: 0,
               paddingBottom: 0,
             }}
@@ -263,7 +263,6 @@ export const AgentBranchItem = ({
                 style={{
                   flexDirection: 'column',
                   gap: 0,
-                  marginBottom: content ? 1 : 0,
                 }}
               >
                 <text fg={theme.foreground}>Prompt</text>
@@ -286,7 +285,7 @@ export const AgentBranchItem = ({
               <box
                 style={{
                   alignSelf: 'flex-end',
-                  marginTop: content ? 0 : 1,
+                  marginTop: 0,
                   paddingRight: 1,
                   paddingBottom: 0,
                   marginBottom: 0,

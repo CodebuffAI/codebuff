@@ -1,5 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
+import stringWidth from 'string-width'
 
 import { useTheme } from '../../hooks/use-theme'
 
@@ -15,6 +16,7 @@ interface ToolCallItemProps {
   finishedPreview: string
   onToggle?: () => void
   titleSuffix?: string
+  dense?: boolean
 }
 
 const isTextRenderable = (value: ReactNode): boolean => {
@@ -132,11 +134,25 @@ export const SimpleToolCallItem = ({
 }: SimpleToolCallItemProps) => {
   const theme = useTheme()
   const bulletChar = '• '
+  // When there is no toggle, indent labels so they align with
+  // toggle-based items at the same branch depth. We simulate the
+  // width of the toggle indicator (e.g., "▸ "). Only add this extra
+  // spacing when a branch character is present; at top level the
+  // bullet ("• ") already matches the toggle width.
+  const hasBranch = !!branchChar && branchChar.length > 0
+  const toggleIndicator = '▸ '
+  const toggleWidth = stringWidth(toggleIndicator)
+  // Extend the branch stub visually with dashes when there's no toggle
+  const branchHead = hasBranch ? branchChar.replace(/\s+$/, '') : ''
+  const dashFiller = '─'.repeat(toggleWidth - 1)
+  const labelPrefix = hasBranch
+    ? `${branchHead}${dashFiller}` + '  '
+    : branchChar || bulletChar
 
   return (
     <box style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
       <text style={{ wrapMode: 'word' }}>
-        <span fg={theme.foreground}>{branchChar || bulletChar}</span>
+        <span fg={theme.foreground}>{labelPrefix}</span>
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
           {name}
         </span>
@@ -156,6 +172,7 @@ export const ToolCallItem = ({
   finishedPreview,
   onToggle,
   titleSuffix,
+  dense = false,
 }: ToolCallItemProps) => {
   const theme = useTheme()
 
@@ -168,6 +185,9 @@ export const ToolCallItem = ({
   const isExpanded = !isCollapsed
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
   const toggleLabel = `${branchChar}${toggleIndicator}`
+  // Width in cells of the toggle label (branch + arrow). Used to align
+  // expanded content directly under the toggle icon.
+  const toggleIndent = stringWidth(toggleLabel)
   const collapsedPreviewText = isStreaming ? streamingPreview : finishedPreview
   const showCollapsedPreview = collapsedPreviewText.length > 0
 
@@ -191,7 +211,7 @@ export const ToolCallItem = ({
             paddingLeft: 0,
             paddingRight: 0,
             paddingTop: 0,
-            paddingBottom: isCollapsed ? 0 : 1,
+            paddingBottom: isCollapsed ? 0 : dense ? 0 : 1,
             width: '100%',
           }}
           onMouseDown={onToggle}
@@ -242,8 +262,9 @@ export const ToolCallItem = ({
             style={{
               flexDirection: 'column',
               gap: 0,
-              paddingLeft: 0,
-              paddingRight: 0,
+              // Indent expanded content underneath the toggle icon
+              paddingLeft: toggleIndent,
+              paddingRight: dense ? 0 : toggleIndent,
               paddingTop: 0,
               paddingBottom: 0,
             }}

@@ -1,5 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import React from 'react'
+import stringWidth from 'string-width'
 
 import { useTheme } from '../../hooks/use-theme'
 import { defineToolComponent } from './types'
@@ -21,6 +22,15 @@ const ReadFilesSimpleToolCallItem = ({
 }: ReadFilesSimpleToolCallItemProps) => {
   const theme = useTheme()
   const bulletChar = '• '
+  const hasBranch = !!branchChar && branchChar.length > 0
+  const toggleIndicator = '▸ '
+  const toggleWidth = stringWidth(toggleIndicator)
+  const branchHead = hasBranch ? branchChar.replace(/\s+$/, '') : ''
+  const dashFiller = '─'.repeat(toggleWidth)
+  const labelPrefix = hasBranch
+    ? `${branchHead}${dashFiller} `
+    : branchChar || bulletChar
+  const baseIndentWidth = stringWidth(labelPrefix) + stringWidth(name + ' ')
 
   // Split files into two groups
   const firstFilePath = filePaths[0]
@@ -34,7 +44,7 @@ const ReadFilesSimpleToolCallItem = ({
         style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}
       >
         <text style={{ wrapMode: 'word' }}>
-          <span fg={theme.foreground}>{branchChar || bulletChar}</span>
+          <span fg={theme.foreground}>{labelPrefix}</span>
           <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
             {name}
           </span>
@@ -54,7 +64,7 @@ const ReadFilesSimpleToolCallItem = ({
             flexDirection: 'row',
             alignItems: 'center',
             width: '100%',
-            paddingLeft: 7,
+            paddingLeft: baseIndentWidth,
           }}
         >
           <text style={{ wrapMode: 'word' }}>
@@ -70,7 +80,7 @@ const ReadFilesSimpleToolCallItem = ({
             flexDirection: 'row',
             alignItems: 'center',
             width: '100%',
-            paddingLeft: 7,
+            paddingLeft: baseIndentWidth,
           }}
         >
           <text style={{ wrapMode: 'word' }}>

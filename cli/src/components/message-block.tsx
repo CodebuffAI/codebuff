@@ -221,9 +221,6 @@ export const MessageBlock = ({
           ? `${paddedPreviewPrefix}${line}`
           : blankPreviewPrefix,
       )
-      if (!decorated.some((line) => line.trim().length === 0)) {
-        decorated.push(blankPreviewPrefix)
-      }
       return decorated.join('\n')
     }
     const rawStreamingPreview = isStreaming
@@ -398,7 +395,7 @@ export const MessageBlock = ({
           key={`agent-${idx}`}
           style={{ wrapMode: 'word', fg: theme.foreground }}
         >
-          {`  • ${identifier}`}
+          {`• ${identifier}`}
         </text>
       )
     }
@@ -421,6 +418,7 @@ export const MessageBlock = ({
           streamingPreview=""
           finishedPreview=""
           onToggle={() => onToggleCollapsed(agentListBlock.id)}
+          dense
         />
       </box>
     )
@@ -436,7 +434,8 @@ export const MessageBlock = ({
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
 
-    nestedBlocks.forEach((nestedBlock, nestedIdx) => {
+    for (let nestedIdx = 0; nestedIdx < nestedBlocks.length; ) {
+      const nestedBlock = nestedBlocks[nestedIdx]
       switch (nestedBlock.type) {
         case 'text': {
           const nestedStatus =
@@ -476,6 +475,7 @@ export const MessageBlock = ({
               {renderedContent}
             </text>,
           )
+          nestedIdx++
           break
         }
 
@@ -498,20 +498,77 @@ export const MessageBlock = ({
               })}
             </box>,
           )
+          nestedIdx++
           break
         }
 
         case 'tool': {
-          const isLastBranch = !hasBranchAfter(nestedBlocks, nestedIdx)
-          nodes.push(
-            renderToolBranch(
-              nestedBlock,
+          const start = nestedIdx
+          const toolGroup: Extract<ContentBlock, { type: 'tool' }>[] = []
+          while (
+            nestedIdx < nestedBlocks.length &&
+            nestedBlocks[nestedIdx].type === 'tool'
+          ) {
+            toolGroup.push(nestedBlocks[nestedIdx] as any)
+            nestedIdx++
+          }
+
+          const groupNodes = toolGroup.map((toolBlock, idxInGroup) => {
+            const globalIdx = start + idxInGroup
+            const isLastBranch = !hasBranchAfter(nestedBlocks, globalIdx)
+            return renderToolBranch(
+              toolBlock,
               indentLevel,
               isLastBranch,
-              `${keyPrefix}-tool-${nestedBlock.toolCallId}`,
+              `${keyPrefix}-tool-${toolBlock.toolCallId}`,
               ancestorBranchStates,
-            ),
-          )
+            )
+          })
+
+          const nonNullGroupNodes = groupNodes.filter(
+            Boolean,
+          ) as React.ReactNode[]
+          if (nonNullGroupNodes.length > 0) {
+            const isRenderableBlock = (b: ContentBlock): boolean => {
+              if (b.type === 'tool') {
+                return (b as any).toolName !== 'end_turn'
+              }
+              switch (b.type) {
+                case 'text':
+                case 'html':
+                case 'agent':
+                case 'agent-list':
+                  return true
+                default:
+                  return false
+              }
+            }
+
+            // Check for any subsequent renderable blocks without allocating a slice
+            let hasRenderableAfter = false
+            for (let i = nestedIdx; i < nestedBlocks.length; i++) {
+              if (isRenderableBlock(nestedBlocks[i] as any)) {
+                hasRenderableAfter = true
+                break
+              }
+            }
+            nodes.push(
+              <box
+                key={`${keyPrefix}-tool-group-${start}`}
+                style={{
+                  flexDirection: 'column',
+                  gap: 0,
+                  // Avoid double spacing with the agent header, which already
+                  // adds bottom padding. Only add top margin if this group is
+                  // not the first rendered child.
+                  marginTop: nodes.length === 0 ? 0 : 1,
+                  marginBottom: hasRenderableAfter ? 1 : 0,
+                }}
+              >
+                {nonNullGroupNodes}
+              </box>,
+            )
+          }
           break
         }
 
@@ -526,10 +583,11 @@ export const MessageBlock = ({
               ancestorBranchStates,
             ),
           )
+          nestedIdx++
           break
         }
       }
-    })
+    }
 
     return nodes
   }
@@ -554,7 +612,7 @@ export const MessageBlock = ({
     )
   }
 
-  const renderBlock = (block: ContentBlock, idx: number) => {
+  const renderSingleBlock = (block: ContentBlock, idx: number) => {
     switch (block.type) {
       case 'text': {
         const isStreamingText = isLoading || !isComplete
@@ -613,14 +671,8 @@ export const MessageBlock = ({
       }
 
       case 'tool': {
-        const isLastBranch = !hasBranchAfter(blocks, idx)
-        return renderToolBranch(
-          block,
-          0,
-          isLastBranch,
-          `${messageId}-tool-${block.toolCallId}`,
-          [],
-        )
+        // Handled in renderBlocks grouping logic
+        return null
       }
 
       case 'agent': {
@@ -648,6 +700,57 @@ export const MessageBlock = ({
     }
   }
 
+  const renderBlocks = (sourceBlocks: ContentBlock[]) => {
+    const nodes: React.ReactNode[] = []
+    for (let i = 0; i < sourceBlocks.length; ) {
+      const block = sourceBlocks[i]
+      if (block.type === 'tool') {
+        const start = i
+        const group: Extract<ContentBlock, { type: 'tool' }>[] = []
+        while (i < sourceBlocks.length && sourceBlocks[i].type === 'tool') {
+          group.push(sourceBlocks[i] as any)
+          i++
+        }
+
+        const groupNodes = group.map((toolBlock, idxInGroup) => {
+          const globalIdx = start + idxInGroup
+          const isLastBranch = !hasBranchAfter(sourceBlocks, globalIdx)
+          return renderToolBranch(
+            toolBlock,
+            0,
+            isLastBranch,
+            `${messageId}-tool-${toolBlock.toolCallId}`,
+            [],
+          )
+        })
+
+        const nonNullGroupNodes = groupNodes.filter(
+          Boolean,
+        ) as React.ReactNode[]
+        if (nonNullGroupNodes.length > 0) {
+          nodes.push(
+            <box
+              key={`${messageId}-tool-group-${start}`}
+              style={{
+                flexDirection: 'column',
+                gap: 0,
+                marginTop: 1,
+                marginBottom: 1,
+              }}
+            >
+              {nonNullGroupNodes}
+            </box>,
+          )
+        }
+        continue
+      }
+
+      nodes.push(renderSingleBlock(block, i))
+      i++
+    }
+    return nodes
+  }
+
   return (
     <>
       {isUser && (
@@ -666,7 +769,7 @@ export const MessageBlock = ({
       )}
       {blocks ? (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-          {blocks.map(renderBlock)}
+          {renderBlocks(blocks)}
         </box>
       ) : (
         renderSimpleContent()

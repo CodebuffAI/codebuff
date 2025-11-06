@@ -48,6 +48,7 @@ export const useMessageRenderer = (
   } = props
 
   return useMemo(() => {
+    const SIDE_GUTTER = 1
     const renderAgentMessage = (
       message: ChatMessage,
       depth: number,
@@ -332,8 +333,8 @@ export const useMessageRenderer = (
                   style={{
                     backgroundColor: theme.background,
                     padding: 0,
-                    paddingLeft: 1,
-                    paddingRight: 1,
+                    paddingLeft: SIDE_GUTTER,
+                    paddingRight: SIDE_GUTTER,
                     paddingTop: 0,
                     paddingBottom: 0,
                     gap: 0,
@@ -380,8 +381,8 @@ export const useMessageRenderer = (
                 style={{
                   backgroundColor: theme.background,
                   padding: 0,
-                  paddingLeft: 0,
-                  paddingRight: 0,
+                  paddingLeft: SIDE_GUTTER,
+                  paddingRight: SIDE_GUTTER,
                   paddingTop: 0,
                   paddingBottom: 0,
                   gap: 0,
