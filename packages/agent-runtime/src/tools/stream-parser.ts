@@ -1,9 +1,4 @@
-import {
-  endToolTag,
-  startToolTag,
-  toolNameParam,
-  toolNames,
-} from '@codebuff/common/tools/constants'
+import { toolNames } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
@@ -181,7 +176,6 @@ export async function processStreamWithTools(
     },
   })
 
-  let reasoning = false
   let messageId: string | null = null
   while (true) {
     const { value: chunk, done } = await streamWithTags.next()
@@ -191,18 +185,8 @@ export async function processStreamWithTools(
     }
 
     if (chunk.type === 'reasoning') {
-      if (!reasoning) {
-        reasoning = true
-        onResponseChunk(`\n\n${startToolTag}{
-  ${JSON.stringify(toolNameParam)}: "think_deeply",
-  "thought": "`)
-      }
-      onResponseChunk(JSON.stringify(chunk.text).slice(1, -1))
+      onResponseChunk(chunk)
     } else if (chunk.type === 'text') {
-      if (reasoning) {
-        reasoning = false
-        onResponseChunk(`"\n}${endToolTag}\n\n`)
-      }
       onResponseChunk(chunk.text)
       fullResponseChunks.push(chunk.text)
     } else if (chunk.type === 'error') {

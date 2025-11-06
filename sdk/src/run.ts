@@ -64,6 +64,10 @@ export type CodebuffClientOptions = {
           agentId: string
           agentType: string
           chunk: string
+        }
+      | {
+          type: 'reasoning_chunk'
+          chunk: string
         },
   ) => void | Promise<void>
 
@@ -151,13 +155,31 @@ export async function run({
 
   const buffers: Record<string | 0, string> = { 0: '' }
 
+  let reasoning = ''
+  async function flushReasoning() {
+    if (reasoning) {
+      await handleEvent?.({
+        type: 'reasoning',
+        text: reasoning,
+      })
+    }
+    reasoning = ''
+  }
   const onResponseChunk = async (
     action: ServerAction<'response-chunk'>,
   ): Promise<void> => {
     checkAborted(signal)
     const { chunk } = action
     if (typeof chunk !== 'string') {
-      await handleEvent?.(chunk)
+      if (chunk.type === 'reasoning') {
+        handleStreamChunk?.({
+          type: 'reasoning_chunk',
+          chunk: chunk.text,
+        })
+      } else {
+        await flushReasoning()
+        await handleEvent?.(chunk)
+      }
       return
     }
 
@@ -173,7 +195,10 @@ export async function run({
           break
         }
 
-        await handleStreamChunk(value.chunk)
+        if (value.chunk) {
+          await flushReasoning()
+          await handleStreamChunk(value.chunk)
+        }
       }
     }
   }
