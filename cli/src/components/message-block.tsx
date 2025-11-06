@@ -1,7 +1,6 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { type ReactNode } from 'react'
-import stringWidth from 'string-width'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { renderToolComponent } from './tools/registry'
@@ -74,7 +73,6 @@ export const MessageBlock = ({
   // Get elapsed time from timer for streaming AI messages
   const elapsedSeconds = timer.elapsedSeconds
 
-
   const renderContentWithMarkdown = (
     rawContent: string,
     isStreaming: boolean,
@@ -111,8 +109,6 @@ export const MessageBlock = ({
 
     return sanitizePreview(lastLine)
   }
-
-
 
   const getAgentMarkdownOptions = (indentLevel: number) => {
     const indentationOffset = indentLevel * 2
@@ -165,10 +161,6 @@ export const MessageBlock = ({
         previewPrefix: '',
         labelWidth: 0,
       }) ?? {}
-    const formatPreview = (value: string | null): string => {
-      if (!value) return ''
-      return value
-    }
     const streamingPreview = isStreaming
       ? commandPreview ?? `${sanitizePreview(firstLine)}...`
       : ''

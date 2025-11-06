@@ -16,6 +16,8 @@ import { WriteTodosComponent } from './write-todos'
 import { StrReplaceComponent } from './str-replace'
 import { WriteFileComponent } from './write-file'
 import { TaskCompleteComponent } from './task-complete'
+import { getErrorObject } from '../../utils/error'
+import { logger } from '../../utils/logger'
 
 /**
  * Registry of all tool-specific UI components.
@@ -78,9 +80,9 @@ export function renderToolComponent(
   try {
     return component.render(toolBlock as any, theme, options)
   } catch (error) {
-    console.error(
+    logger.error(
+      { error: getErrorObject(error) },
       `Error rendering tool component for ${toolBlock.toolName}:`,
-      error,
     )
     return null
   }

@@ -94,12 +94,10 @@ export const StrReplaceComponent = defineToolComponent({
         ? (toolBlock.input as any).path
         : null)
 
-    if (!diff) {
-      return null
-    }
-
     return {
-      content: <EditBody name="Edit" filePath={filePath} diffText={diff} />,
+      content: (
+        <EditBody name="Edit" filePath={filePath} diffText={diff ?? ''} />
+      ),
     }
   },
 })

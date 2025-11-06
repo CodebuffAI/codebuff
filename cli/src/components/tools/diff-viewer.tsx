@@ -40,7 +40,7 @@ const lineColor = (line: string): { fg: string; attrs?: number } => {
 
 export const DiffViewer = ({ diffText }: DiffViewerProps) => {
   const theme = useTheme()
-  const lines = (diffText || '').split('\n')
+  const lines = diffText.split('\n')
 
   return (
     <box
