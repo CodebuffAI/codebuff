@@ -13,6 +13,9 @@ import { CodeSearchComponent } from './code-search'
 import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
 import { WriteTodosComponent } from './write-todos'
+import { StrReplaceComponent } from './str-replace'
+import { WriteFileComponent } from './write-file'
+import { TaskCompleteComponent } from './task-complete'
 
 /**
  * Registry of all tool-specific UI components.
@@ -25,6 +28,9 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [ReadFilesComponent.toolName, ReadFilesComponent],
   [ReadSubtreeComponent.toolName, ReadSubtreeComponent],
   [WriteTodosComponent.toolName, WriteTodosComponent],
+  [StrReplaceComponent.toolName, StrReplaceComponent],
+  [WriteFileComponent.toolName, WriteFileComponent],
+  [TaskCompleteComponent.toolName, TaskCompleteComponent],
 ])
 
 /**
