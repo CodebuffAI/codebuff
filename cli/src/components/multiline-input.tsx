@@ -198,6 +198,10 @@ export const MultilineInput = forwardRef<
           typeof key.sequence === 'string' &&
           key.sequence.length > 0 &&
           key.sequence.charCodeAt(0) === 0x1b
+        // Check if the character before cursor is a backslash for line continuation
+        const hasBackslashBeforeCursor =
+          cursorPosition > 0 && value[cursorPosition - 1] === '\\'
+
         const isPlainEnter =
           isEnterKey &&
           !key.shift &&
@@ -207,7 +211,8 @@ export const MultilineInput = forwardRef<
           !key.option &&
           !isAltLikeModifier &&
           !hasEscapePrefix &&
-          key.sequence === '\r'
+          key.sequence === '\r' &&
+          !hasBackslashBeforeCursor
         const isShiftEnter =
           isEnterKey && (Boolean(key.shift) || key.sequence === '\n')
         const isOptionEnter =
@@ -218,6 +223,7 @@ export const MultilineInput = forwardRef<
           !key.option &&
           !key.alt &&
           (lowerKeyName === 'j' || isEnterKey)
+        const isBackslashEnter = isEnterKey && hasBackslashBeforeCursor
 
         if (isEnterKey || lowerKeyName === 'j') {
           const snapshot: Record<string, unknown> = {
@@ -253,10 +259,24 @@ export const MultilineInput = forwardRef<
           }
         }
 
-        const shouldInsertNewline = isShiftEnter || isOptionEnter || isCtrlJ
+        const shouldInsertNewline =
+          isShiftEnter || isOptionEnter || isCtrlJ || isBackslashEnter
 
         if (shouldInsertNewline) {
           if ('preventDefault' in key) (key as any).preventDefault()
+
+          // For backslash+Enter, remove the backslash and insert newline
+          if (isBackslashEnter) {
+            const newValue =
+              value.slice(0, cursorPosition - 1) +
+              '\n' +
+              value.slice(cursorPosition)
+            onChange(newValue)
+            setCursorPosition(cursorPosition)
+            return
+          }
+
+          // For other newline shortcuts, just insert newline
           const newValue =
             value.slice(0, cursorPosition) + '\n' + value.slice(cursorPosition)
           onChange(newValue)
