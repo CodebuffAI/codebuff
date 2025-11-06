@@ -42,6 +42,7 @@ import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import { logger } from './utils/logger'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { ScrollBoxRenderable } from '@opentui/core'
+import { BORDER_CHARS } from './utils/ui-constants'
 
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
@@ -820,67 +821,74 @@ export const App = ({
             </text>
           </box>
         )}
-        <Separator width={separatorWidth} />
-        {agentMode === 'PLAN' && hasReceivedPlanResponse && (
-          <BuildModeButtons
-            theme={theme}
-            onBuildFast={handleBuildFast}
-            onBuildMax={handleBuildMax}
-          />
-        )}
-        {slashContext.active && slashSuggestionItems.length > 0 ? (
-          <SuggestionMenu
-            items={slashSuggestionItems}
-            selectedIndex={slashSelectedIndex}
-            maxVisible={10}
-            prefix="/"
-          />
-        ) : null}
-        {!slashContext.active &&
-        mentionContext.active &&
-        agentSuggestionItems.length > 0 ? (
-          <SuggestionMenu
-            items={agentSuggestionItems}
-            selectedIndex={agentSelectedIndex}
-            maxVisible={10}
-            prefix="@"
-          />
-        ) : null}
         <box
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
             width: '100%',
+            borderStyle: 'single',
+            borderColor: theme.secondary,
+            customBorderChars: BORDER_CHARS,
           }}
         >
-          <box style={{ flexGrow: 1, minWidth: 0 }}>
-            <MultilineInput
-              value={inputValue}
-              onChange={setInputValue}
-              onSubmit={handleSubmit}
-              placeholder="Share your thoughts and press Enter…"
-              focused={inputFocused}
-              maxHeight={5}
-              width={inputWidth}
-              onKeyIntercept={handleSuggestionMenuKey}
-              textAttributes={theme.messageTextAttributes}
-              ref={inputRef}
+          {agentMode === 'PLAN' && hasReceivedPlanResponse && (
+            <BuildModeButtons
+              theme={theme}
+              onBuildFast={handleBuildFast}
+              onBuildMax={handleBuildMax}
             />
-          </box>
+          )}
+          {slashContext.active && slashSuggestionItems.length > 0 ? (
+            <SuggestionMenu
+              items={slashSuggestionItems}
+              selectedIndex={slashSelectedIndex}
+              maxVisible={10}
+              prefix="/"
+            />
+          ) : null}
+          {!slashContext.active &&
+          mentionContext.active &&
+          agentSuggestionItems.length > 0 ? (
+            <SuggestionMenu
+              items={agentSuggestionItems}
+              selectedIndex={agentSelectedIndex}
+              maxVisible={10}
+              prefix="@"
+            />
+          ) : null}
           <box
             style={{
-              flexShrink: 0,
-              paddingLeft: 2,
+              flexDirection: 'row',
+              alignItems: 'center',
+              width: '100%',
             }}
           >
-            <AgentModeToggle
-              mode={agentMode}
-              onToggle={toggleAgentMode}
-              onSelectMode={setAgentMode}
-            />
+            <box style={{ flexGrow: 1, minWidth: 0 }}>
+              <MultilineInput
+                value={inputValue}
+                onChange={setInputValue}
+                onSubmit={handleSubmit}
+                placeholder="Share your thoughts and press Enter…"
+                focused={inputFocused}
+                maxHeight={5}
+                width={inputWidth}
+                onKeyIntercept={handleSuggestionMenuKey}
+                textAttributes={theme.messageTextAttributes}
+                ref={inputRef}
+              />
+            </box>
+            <box
+              style={{
+                flexShrink: 0,
+                paddingLeft: 2,
+              }}
+            >
+              <AgentModeToggle
+                mode={agentMode}
+                onToggle={toggleAgentMode}
+                onSelectMode={setAgentMode}
+              />
+            </box>
           </box>
         </box>
-        <Separator width={separatorWidth} />
         {/* Agent status line - right-aligned under toggle */}
         {showAgentDisplayName && loadedAgentsData && (
           <box

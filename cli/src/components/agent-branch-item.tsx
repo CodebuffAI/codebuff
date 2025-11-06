@@ -2,6 +2,7 @@ import { TextAttributes, type BorderCharacters } from '@opentui/core'
 import React, { type ReactNode } from 'react'
 
 import { useTheme } from '../hooks/use-theme'
+import { BORDER_CHARS } from '../utils/ui-constants'
 
 interface AgentBranchItemProps {
   name: string
@@ -17,20 +18,6 @@ interface AgentBranchItemProps {
   statusIndicator?: string
   onToggle?: () => void
   titleSuffix?: string
-}
-
-const containerBorderChars: BorderCharacters = {
-  topLeft: '╭',
-  topRight: '╮',
-  bottomLeft: '╰',
-  bottomRight: '╯',
-  horizontal: '─',
-  vertical: '│',
-  topT: '┬',
-  bottomT: '┴',
-  leftT: '├',
-  rightT: '┤',
-  cross: '┼',
 }
 
 export const AgentBranchItem = ({
@@ -178,7 +165,7 @@ export const AgentBranchItem = ({
         border
         borderStyle="single"
         borderColor={toggleFrameColor}
-        customBorderChars={containerBorderChars}
+        customBorderChars={BORDER_CHARS}
         style={{
           flexDirection: 'column',
           gap: 0,
