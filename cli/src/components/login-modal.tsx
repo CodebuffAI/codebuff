@@ -283,7 +283,7 @@ export const LoginModal = ({
         width: modalWidth,
         height: modalHeight,
         maxHeight: modalHeight,
-        backgroundColor: theme.background,
+        backgroundColor: theme.surface,
         padding: 0,
         flexDirection: 'column',
       }}
@@ -316,7 +316,6 @@ export const LoginModal = ({
           alignItems: 'center',
           width: '100%',
           height: '100%',
-          backgroundColor: theme.background,
           padding: containerPadding,
           gap: 0,
         }}
@@ -449,9 +448,7 @@ export const LoginModal = ({
                 <text style={{ wrapMode: 'none' }}>
                   <span
                     fg={
-                      copyMessage.startsWith('✓')
-                        ? theme.success
-                        : theme.error
+                      copyMessage.startsWith('✓') ? theme.success : theme.error
                     }
                   >
                     {copyMessage}
