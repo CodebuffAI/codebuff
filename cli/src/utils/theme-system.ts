@@ -9,6 +9,7 @@ import type {
   MarkdownThemeOverrides,
   ThemeName,
 } from '../types/theme-system'
+import { detectTerminalTheme } from './terminal-color-detection'
 
 const IDE_THEME_INFERENCE = {
   dark: [
@@ -668,6 +669,11 @@ export const detectSystemTheme = (): ThemeName => {
     return 'dark'
   }
 
+  // Use OSC-detected theme if available
+  if (oscDetectedTheme) {
+    return oscDetectedTheme
+  }
+
   const ideTheme = detectIDETheme()
   const platformTheme = detectPlatformTheme()
   const preferredTheme = ideTheme ?? platformTheme
@@ -900,6 +906,7 @@ export const resolveThemeColor = (
 
 let lastDetectedTheme: ThemeName | null = null
 let themeStoreUpdater: ((name: ThemeName) => void) | null = null
+let oscDetectedTheme: ThemeName | null = null
 
 /**
  * Initialize theme store updater
@@ -998,3 +1005,26 @@ setupFileWatchers()
 process.on('SIGUSR2', () => {
   recomputeSystemTheme('signal:SIGUSR2')
 })
+
+/**
+ * OSC Terminal Theme Detection
+ * Query terminal colors once at startup using OSC 10/11
+ */
+
+/**
+ * Initialize OSC theme detection with a one-time check
+ */
+async function initializeOSCDetection(): Promise<void> {
+  try {
+    // Run one-time detection
+    const theme = await detectTerminalTheme()
+    if (theme) {
+      oscDetectedTheme = theme
+    }
+  } catch {
+    // Silently ignore OSC detection errors
+  }
+}
+
+// Initialize OSC detection on module load
+initializeOSCDetection()
