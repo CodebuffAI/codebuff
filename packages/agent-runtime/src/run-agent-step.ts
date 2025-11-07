@@ -371,16 +371,15 @@ export const runAgentStep = async (
 
   // Exception: if the only tool call is write_todos and all todos are completed, then end turn.
   let hasOnlyFinishedTodos = false
-  if (toolCalls.length === 1 && toolCalls[0].toolName === 'write_todos') {
-    const todos = toolCalls[0].input.todos as
-      | {
-          task: string
-          completed: boolean
-        }[]
-      | undefined
-    if (todos && todos.every((todo) => todo.completed)) {
-      hasOnlyFinishedTodos = true
-    }
+  if (
+    toolCalls.every((call) => call.toolName === 'write_todos') &&
+    toolCalls.some((call) =>
+      (call.input.todos as { task: string; completed: boolean }[]).every(
+        (todo) => todo.completed,
+      ),
+    )
+  ) {
+    hasOnlyFinishedTodos = true
   }
 
   const hasTaskCompleted = toolCalls.some(
