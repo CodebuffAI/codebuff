@@ -1392,9 +1392,9 @@ export const useSendMessage = ({
           },
         })
 
-        if (runState.output.type === 'error') {
+        if (!runState.output || runState.output.type === 'error') {
           logger.warn(
-            { errorMessage: runState.output.message },
+            { errorMessage: runState.output?.type === 'error' ? runState.output.message : 'No output from agent run' },
             'Agent run failed',
           )
           return
