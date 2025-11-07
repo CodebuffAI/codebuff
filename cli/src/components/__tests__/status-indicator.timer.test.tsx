@@ -1,20 +1,19 @@
-import React from 'react'
-
 import {
   describe,
   test,
   expect,
-  beforeAll,
-  afterAll,
   beforeEach,
   afterEach,
   mock,
   spyOn,
 } from 'bun:test'
+import React from 'react'
 
 import { StatusIndicator } from '../status-indicator'
+
 import '../../state/theme-store' // Initialize theme store
 import { renderToStaticMarkup } from 'react-dom/server'
+
 import * as codebuffClient from '../../utils/codebuff-client'
 
 const createTimer = (elapsedSeconds: number, started: boolean) => ({
@@ -43,6 +42,7 @@ describe('StatusIndicator timer rendering', () => {
         clipboardMessage={null}
         isActive={true}
         timer={createTimer(5, true)}
+        nextCtrlCWillExit={false}
       />,
     )
 
@@ -53,6 +53,7 @@ describe('StatusIndicator timer rendering', () => {
         clipboardMessage={null}
         isActive={false}
         timer={createTimer(0, false)}
+        nextCtrlCWillExit={false}
       />,
     )
 
@@ -65,6 +66,7 @@ describe('StatusIndicator timer rendering', () => {
         clipboardMessage="Copied!"
         isActive={true}
         timer={createTimer(12, true)}
+        nextCtrlCWillExit={false}
       />,
     )
 
