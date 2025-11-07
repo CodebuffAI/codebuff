@@ -50,7 +50,7 @@ async function main() {
     },
   })
 
-  const runOrError = await client.run({
+  const { output } = await client.run({
     // Run a custom agent by id. Must match an id in the agentDefinitions field below.
     agent: 'my-custom-agent',
     prompt: "Today I'm feeling very happy!",
@@ -64,10 +64,6 @@ async function main() {
       console.log('Codebuff Event', JSON.stringify(event))
     },
   })
-  if (!runOrError.success) {
-    throw new Error('Run failed: ' + runOrError.error.message)
-  }
-  const { output } = runOrError.value
 
   if (output.type === 'error') {
     console.error(`The run failed:\n${output.message}`)

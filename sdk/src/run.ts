@@ -98,12 +98,15 @@ export type RunOptions = {
   signal?: AbortSignal
 }
 
-function checkAborted(signal?: AbortSignal) {
-  if (signal?.aborted) {
-    const error = new Error('Run cancelled by user')
-    error.name = 'AbortError'
-    throw error
+class AbortError extends Error {
+  name = 'AbortError'
+}
+
+function checkAborted(signal?: AbortSignal): AbortError | null {
+  if (!signal?.aborted) {
+    return null
   }
+  return new AbortError('Run cancelled by user')
 }
 
 type RunReturnType = Awaited<ReturnType<typeof run>>
@@ -138,9 +141,55 @@ export async function run({
     apiKey: string
     fingerprintId: string
   }): Promise<RunState> {
-  checkAborted(signal)
-
   const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
+
+  // Init session state
+  let agentId
+  if (typeof agent !== 'string') {
+    agentDefinitions = [...(cloneDeep(agentDefinitions) ?? []), agent]
+    agentId = agent.id
+  } else {
+    agentId = agent
+  }
+  let sessionState: SessionState
+  if (previousRun?.sessionState) {
+    // applyOverridesToSessionState handles deep cloning and applying any provided overrides
+    sessionState = await applyOverridesToSessionState(
+      cwd,
+      previousRun.sessionState,
+      {
+        knowledgeFiles,
+        agentDefinitions,
+        customToolDefinitions,
+        projectFiles,
+        maxAgentSteps,
+      },
+    )
+  } else {
+    // No previous run, so create a fresh session state
+    sessionState = await initialSessionState({
+      cwd,
+      knowledgeFiles,
+      agentDefinitions,
+      customToolDefinitions,
+      projectFiles,
+      maxAgentSteps,
+      fs,
+      logger,
+    })
+  }
+  {
+    const aborted = checkAborted(signal)
+    if (aborted) {
+      return {
+        sessionState,
+        output: {
+          type: 'error',
+          message: aborted.message,
+        },
+      }
+    }
+  }
 
   let resolve: (value: RunReturnType) => any = () => {}
   const promise = new Promise<RunReturnType>((res) => {
@@ -168,7 +217,17 @@ export async function run({
   const onResponseChunk = async (
     action: ServerAction<'response-chunk'>,
   ): Promise<void> => {
-    checkAborted(signal)
+    const aborted = checkAborted(signal)
+    if (aborted) {
+      resolve({
+        sessionState,
+        output: {
+          type: 'error',
+          message: aborted.message,
+        },
+      })
+      return
+    }
     const { chunk } = action
     if (typeof chunk !== 'string') {
       if (chunk.type === 'reasoning') {
@@ -205,7 +264,17 @@ export async function run({
   const onSubagentResponseChunk = async (
     action: ServerAction<'subagent-response-chunk'>,
   ) => {
-    checkAborted(signal)
+    const aborted = checkAborted(signal)
+    if (aborted) {
+      resolve({
+        sessionState,
+        output: {
+          type: 'error',
+          message: aborted.message,
+        },
+      })
+      return
+    }
     const { agentId, agentType, chunk } = action
 
     if (handleStreamChunk) {
@@ -342,46 +411,21 @@ export async function run({
     },
   })
 
-  // Init session state
-  let agentId
-  if (typeof agent !== 'string') {
-    agentDefinitions = [...(cloneDeep(agentDefinitions) ?? []), agent]
-    agentId = agent.id
-  } else {
-    agentId = agent
-  }
-  let sessionState: SessionState
-  if (previousRun?.sessionState) {
-    // applyOverridesToSessionState handles deep cloning and applying any provided overrides
-    sessionState = await applyOverridesToSessionState(
-      cwd,
-      previousRun.sessionState,
-      {
-        knowledgeFiles,
-        agentDefinitions,
-        customToolDefinitions,
-        projectFiles,
-        maxAgentSteps,
-      },
-    )
-  } else {
-    // No previous run, so create a fresh session state
-    sessionState = await initialSessionState({
-      cwd,
-      knowledgeFiles,
-      agentDefinitions,
-      customToolDefinitions,
-      projectFiles,
-      maxAgentSteps,
-      fs,
-      logger,
-    })
-  }
-
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
-  checkAborted(signal)
+  {
+    const aborted = checkAborted(signal)
+    if (aborted) {
+      return {
+        sessionState,
+        output: {
+          type: 'error',
+          message: aborted.message,
+        },
+      }
+    }
+  }
 
   const userInfo = await getUserInfoFromApiKey({
     ...agentRuntimeImpl,
@@ -570,13 +614,15 @@ async function handlePromptResponse({
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
-    resolve({
-      sessionState: initialSessionState,
-      output: {
-        type: 'error',
-        message: action.message,
+    resolve(
+      {
+        sessionState: initialSessionState,
+        output: {
+          type: 'error',
+          message: action.message,
+        },
       },
-    })
+    )
   } else if (action.type === 'prompt-response') {
     // Stop enforcing session state schema! It's a black box we will pass back to the server.
     // Only check the output schema.
@@ -590,7 +636,10 @@ async function handlePromptResponse({
       onError({ message })
       resolve({
         sessionState: initialSessionState,
-        output: { type: 'error', message },
+        output: {
+          type: 'error',
+          message,
+        },
       })
       return
     }

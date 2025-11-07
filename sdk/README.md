@@ -28,7 +28,7 @@ async function main() {
   })
 
   // First run
-  const runOrError1 = await client.run({
+  const runState1 = await client.run({
     // The agent id. Any agent on the store (https://codebuff.com/store)
     agent: 'codebuff/base@0.0.16',
     prompt: 'Create a simple calculator class',
@@ -37,23 +37,16 @@ async function main() {
       console.log('Codebuff Event', JSON.stringify(event))
     },
   })
-  if (!runOrError1.success) {
-    throw new Error('Run failed' + runOrError1.error.message)
-  }
-  const run1 = runOrError1.value
 
   // Continue the same session with a follow-up
   const runOrError2 = await client.run({
     agent: 'codebuff/base@0.0.16',
     prompt: 'Add unit tests for the calculator',
-    previousRun: run1, // <-- this is where your next run differs from the previous run
+    previousRun: runState1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
       console.log('Codebuff Event', JSON.stringify(event))
     },
   })
-  if (!runOrError2.success) {
-    throw new Error('Run failed: ' + runOrError2.error.message)
-  }
 }
 
 main()
@@ -116,7 +109,7 @@ async function main() {
     },
   })
 
-  const runOrError = await client.run({
+  const { output } = await client.run({
     // Run a custom agent by id. Must match an id in the agentDefinitions field below.
     agent: 'my-custom-agent',
     prompt: "Today I'm feeling very happy!",
@@ -130,10 +123,6 @@ async function main() {
       console.log('Codebuff Event', JSON.stringify(event))
     },
   })
-  if (!runOrError.success) {
-    throw new Error('Run failed: ' + runOrError.error.message)
-  }
-  const { output } = runOrError.value
 
   if (output.type === 'error') {
     console.error(`The run failed:\n${output.message}`)
