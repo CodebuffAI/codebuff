@@ -2,12 +2,11 @@ import { create } from 'zustand'
 
 import { chatThemes, cloneChatTheme, detectSystemTheme, initializeThemeWatcher } from '../utils/theme-system'
 import type { ChatTheme, ThemeName } from '../types/theme-system'
-import { themeConfig, buildTheme } from '../utils/theme-config'
 
 export type ThemeStoreState = {
   /** Current theme name (dark or light) */
   themeName: ThemeName
-  /** Built theme with customizations applied */
+  /** Palette for the active theme */
   theme: ChatTheme
 }
 
@@ -20,25 +19,14 @@ type ThemeStore = ThemeStoreState & ThemeStoreActions
 
 // Build initial theme
 const initialThemeName = detectSystemTheme()
-const initialTheme = buildTheme(
-  cloneChatTheme(chatThemes[initialThemeName]),
-  initialThemeName,
-  themeConfig.customColors,
-  themeConfig.plugins,
-)
+const initialTheme = cloneChatTheme(chatThemes[initialThemeName])
 
 export const useThemeStore = create<ThemeStore>((set) => ({
   themeName: initialThemeName,
   theme: initialTheme,
 
   setThemeName: (name: ThemeName) => {
-    const baseTheme = cloneChatTheme(chatThemes[name])
-    const theme = buildTheme(
-      baseTheme,
-      name,
-      themeConfig.customColors,
-      themeConfig.plugins,
-    )
+    const theme = cloneChatTheme(chatThemes[name])
     set({ themeName: name, theme })
   },
 }))
