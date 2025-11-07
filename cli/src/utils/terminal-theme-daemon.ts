@@ -7,27 +7,15 @@
 
 import { createServer, type Server, type Socket } from 'net'
 import { unlinkSync, existsSync, chmodSync } from 'fs'
-import { join } from 'path'
 import { detectTerminalTheme } from './terminal-color-detection'
+import { getSocketPath } from './terminal-theme-paths'
 
 // Timing constants
 const POLL_INTERVAL_MS = 5_000
 const IDLE_EXIT_MS = 15_000
 
 // Socket configuration - use fixed path for shared daemon
-const SOCKET_PATH =
-  process.env.SOCKET_PATH ||
-  (process.platform === 'win32'
-    ? `\\\\.\\pipe\\codebuff-terminal-theme`
-    : getUnixSocketPath())
-
-function getUnixSocketPath() {
-  const runtimeDir = process.env.XDG_RUNTIME_DIR
-  if (runtimeDir && existsSync(runtimeDir)) {
-    return join(runtimeDir, 'codebuff-terminal-theme.sock')
-  }
-  return '/tmp/codebuff-terminal-theme.sock'
-}
+const SOCKET_PATH = getSocketPath()
 
 // Protocol constants
 const SHUTDOWN_COMMAND = 'SHUTDOWN\n'

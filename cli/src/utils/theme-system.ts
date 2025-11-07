@@ -1,5 +1,5 @@
 import { existsSync, watch, type FSWatcher } from 'fs'
-import { homedir, tmpdir } from 'os'
+import { homedir } from 'os'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import { spawn } from 'child_process'
@@ -13,6 +13,7 @@ import { detectTerminalTheme, terminalLikelySupportsOSC } from './terminal-color
 import { logger } from './logger'
 import { detectIDETheme, getIDEThemeConfigPaths } from './theme-ide'
 import { detectPlatformTheme } from './theme-platform'
+import { getSocketPath } from './terminal-theme-paths'
 
 // Timing constants
 const FILE_WATCHER_DEBOUNCE_MS = 250
@@ -263,33 +264,6 @@ const enqueueRecomputeSystemTheme = (reason: string) => {
     pendingRecomputeTimer = null
     recomputeSystemTheme(reason)
   }, FILE_WATCHER_DEBOUNCE_MS)
-}
-
-/**
- * Get a secure directory for socket files
- * Prefers XDG_RUNTIME_DIR (user-specific, tmpfs-backed) over /tmp
- */
-function getSocketDir(): string {
-  // XDG_RUNTIME_DIR is user-specific and automatically cleaned up
-  if (process.env.XDG_RUNTIME_DIR && existsSync(process.env.XDG_RUNTIME_DIR)) {
-    return process.env.XDG_RUNTIME_DIR
-  }
-  // Fallback to tmpdir (usually /tmp)
-  return tmpdir()
-}
-
-/**
- * Get socket path for daemon communication
- * Uses a fixed path so all CLI instances share a single daemon
- */
-function getSocketPath(): string {
-  // On Windows use a named pipe path: \\ . \pipe\<name>
-  if (process.platform === 'win32') {
-    return `\\\\.\\pipe\\codebuff-terminal-theme`
-  }
-  // Unix-like: use a filesystem socket under a secure runtime dir
-  const dir = getSocketDir()
-  return join(dir, 'codebuff-terminal-theme.sock')
 }
 
 export const initializeThemeWatcher = (setter: (name: ThemeName) => void) => {

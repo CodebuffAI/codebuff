@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { EventEmitter } from 'events'
 import type { Server, Socket } from 'net'
+import { getSocketPath } from '../terminal-theme-paths'
 
 /**
  * Integration tests for shared terminal theme daemon
@@ -95,31 +97,35 @@ describe('Terminal Theme Daemon - Shared Socket Path', () => {
 
   it('uses fixed socket path on Unix (not per-PID)', () => {
     Object.defineProperty(process, 'platform', { value: 'linux' })
-    process.env.XDG_RUNTIME_DIR = '/run/user/1000'
+    const runtimeDir = mkdtempSync(join(tmpdir(), 'terminal-theme-test-'))
+    process.env.XDG_RUNTIME_DIR = runtimeDir
 
-    // Socket path should be fixed, not include process.pid
-    const socketPath = '/run/user/1000/codebuff-terminal-theme.sock'
-    // Verify the socket path doesn't include process ID
-    expect(socketPath).not.toContain(process.pid.toString())
-    expect(socketPath).toContain('codebuff-terminal-theme.sock')
-    expect(socketPath).toBe('/run/user/1000/codebuff-terminal-theme.sock')
+    try {
+      const socketPath = getSocketPath({ platform: 'linux', env: process.env })
+      expect(socketPath).not.toContain(process.pid.toString())
+      expect(socketPath).toContain('codebuff-terminal-theme.sock')
+      expect(socketPath.startsWith(runtimeDir)).toBe(true)
+    } finally {
+      rmSync(runtimeDir, { recursive: true, force: true })
+    }
   })
 
   it('uses fixed named pipe on Windows (not per-PID)', () => {
     Object.defineProperty(process, 'platform', { value: 'win32' })
 
-    const expectedPath = '\\\\.\\pipe\\codebuff-terminal-theme'
+    const expectedPath = getSocketPath({ platform: 'win32', env: process.env })
     expect(expectedPath).not.toContain(process.pid.toString())
     expect(expectedPath).toContain('codebuff-terminal-theme')
+    expect(expectedPath).toBe('\\\\.\\pipe\\codebuff-terminal-theme')
   })
 
   it('falls back to tmpdir when XDG_RUNTIME_DIR not available', () => {
     Object.defineProperty(process, 'platform', { value: 'linux' })
     delete process.env.XDG_RUNTIME_DIR
 
-    const expectedDir = tmpdir()
-    const expectedPath = join(expectedDir, 'codebuff-terminal-theme.sock')
+    const expectedPath = getSocketPath({ platform: 'linux', env: process.env })
     expect(expectedPath).toContain('codebuff-terminal-theme.sock')
+    expect(expectedPath.startsWith(tmpdir())).toBe(true)
   })
 })
 
