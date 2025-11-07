@@ -731,7 +731,7 @@ export const useSendMessage = ({
             logger.info(
               {
                 type: event.type,
-                hasAgentId: 'agentId' in event && event.agentId,
+                hasAgentId: has(event, 'agentId') && event.agentId,
                 event,
               },
               `SDK ${JSON.stringify(event.type)} Event received (raw)`,
@@ -1234,10 +1234,9 @@ export const useSendMessage = ({
 
               // Check if this is a spawn_agents result
               // The structure is: output[0].value = [{ agentName, agentType, value }]
-              const firstOutputValue =
-                'value' in event.output?.[0]
-                  ? event.output?.[0]?.value
-                  : undefined
+              const firstOutputValue = has(event.output?.[0], 'value')
+                ? event.output?.[0]?.value
+                : undefined
               const isSpawnAgentsResult =
                 Array.isArray(firstOutputValue) &&
                 firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
