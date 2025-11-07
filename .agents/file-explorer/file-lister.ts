@@ -33,11 +33,12 @@ const definition: SecretAgentDefinition = {
 
   systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out.`,
   instructionsPrompt: `Instructions:
+- Do not write any introductory commentary.
+- Do not write any analysis or any English text at all.
 - Do not use any tools.
-- Do not write any analysis.
 - List out the full paths of up to 12 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root.
 
-<example_output>
+<example_response>
 packages/core/src/index.ts
 packages/core/src/api/server.ts
 packages/core/src/api/routes/user.ts
@@ -50,10 +51,10 @@ docs/routes/index.md
 docs/routes/user.md
 package.json
 README.md
-</example_output>
+</example_response>
 
-Do not write an introduction. Do not use any tools. Do not write anything else other than the file paths.
-  `.trim(),
+Again: Do not write anything else other than the file paths on new lines.
+`.trim(),
 
   handleSteps: function* ({ params }) {
     const directories = params?.directories ?? []
