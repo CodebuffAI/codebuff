@@ -122,6 +122,8 @@ export const App = ({
     toggleAgentMode,
     hasReceivedPlanResponse,
     setHasReceivedPlanResponse,
+    lastMessageMode,
+    setLastMessageMode,
     resetChatStore,
   } = useChatStore(
     useShallow((store) => ({
@@ -152,6 +154,8 @@ export const App = ({
       toggleAgentMode: store.toggleAgentMode,
       hasReceivedPlanResponse: store.hasReceivedPlanResponse,
       setHasReceivedPlanResponse: store.setHasReceivedPlanResponse,
+      lastMessageMode: store.lastMessageMode,
+      setLastMessageMode: store.setLastMessageMode,
       resetChatStore: store.reset,
     })),
   )
@@ -615,6 +619,8 @@ export const App = ({
     availableWidth: separatorWidth,
     onTimerEvent: handleTimerEvent,
     setHasReceivedPlanResponse,
+    lastMessageMode,
+    setLastMessageMode,
   })
 
   sendMessageRef.current = sendMessage

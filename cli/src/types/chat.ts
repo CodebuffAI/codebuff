@@ -44,10 +44,15 @@ export type AgentListContentBlock = {
   agents: Array<{ id: string; displayName: string }>
   agentsDir: string
 }
+export type ModeDividerContentBlock = {
+  type: 'mode-divider'
+  mode: string
+}
 export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
   | HtmlContentBlock
+  | ModeDividerContentBlock
   | TextContentBlock
   | ToolContentBlock
 

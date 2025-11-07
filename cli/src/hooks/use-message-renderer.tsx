@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from 'react'
 import React from 'react'
 
 import { MessageBlock } from '../components/message-block'
+import { ModeDivider } from '../components/mode-divider'
 import {
   renderMarkdown,
   hasMarkdown,
@@ -271,6 +272,22 @@ export const useMessageRenderer = (
       const isAi = message.variant === 'ai'
       const isUser = message.variant === 'user'
       const isError = message.variant === 'error'
+      
+      // Check if this is a mode divider message
+      if (
+        message.blocks &&
+        message.blocks.length === 1 &&
+        message.blocks[0].type === 'mode-divider'
+      ) {
+        const dividerBlock = message.blocks[0]
+        return (
+          <ModeDivider
+            key={message.id}
+            mode={dividerBlock.mode}
+            width={availableWidth}
+          />
+        )
+      }
       const lineColor = isError ? 'red' : isAi ? theme.aiLine : theme.userLine
       const textColor = isError
         ? theme.foreground

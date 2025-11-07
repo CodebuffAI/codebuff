@@ -15,6 +15,7 @@ import type { ChatMessage, ContentBlock, ToolContentBlock } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
+import type { AgentMode } from '../utils/constants'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 
@@ -172,6 +173,8 @@ interface UseSendMessageOptions {
   availableWidth?: number
   onTimerEvent?: (event: SendMessageTimerEvent) => void
   setHasReceivedPlanResponse: (value: boolean) => void
+  lastMessageMode: AgentMode | null
+  setLastMessageMode: (mode: AgentMode | null) => void
 }
 
 export const useSendMessage = ({
@@ -201,6 +204,8 @@ export const useSendMessage = ({
   availableWidth = 80,
   onTimerEvent = () => {},
   setHasReceivedPlanResponse,
+  lastMessageMode,
+  setLastMessageMode,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -351,6 +356,10 @@ export const useSendMessage = ({
       // This is computed efficiently in the Zustand store
       const previousToggleIds = allToggleIds
 
+      // Check if mode changed and insert divider if needed
+      // Also show divider on first message (when lastMessageMode is null)
+      const shouldInsertDivider = lastMessageMode === null || lastMessageMode !== agentMode
+
       // Add user message to UI first
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -360,7 +369,27 @@ export const useSendMessage = ({
       }
 
       applyMessageUpdate((prev) => {
-        let newMessages = [...prev, userMessage]
+        let newMessages = [...prev]
+        
+        // Insert mode divider if mode changed
+        if (shouldInsertDivider) {
+          const dividerMessage: ChatMessage = {
+            id: `divider-${Date.now()}`,
+            variant: 'ai',
+            content: '',
+            blocks: [
+              {
+                type: 'mode-divider',
+                mode: agentMode,
+              },
+            ],
+            timestamp: formatTimestamp(),
+          }
+          newMessages.push(dividerMessage)
+        }
+        
+        newMessages.push(userMessage)
+        
         if (postUserMessage) {
           newMessages = postUserMessage(newMessages)
         }
@@ -369,6 +398,10 @@ export const useSendMessage = ({
         }
         return newMessages
       })
+      
+      // Update last message mode
+      setLastMessageMode(agentMode)
+      
       await yieldToEventLoop()
 
       // Auto-collapse previous message toggles to minimize clutter.
@@ -1488,6 +1521,8 @@ export const useSendMessage = ({
       scrollToLatest,
       availableWidth,
       setHasReceivedPlanResponse,
+      lastMessageMode,
+      setLastMessageMode,
     ],
   )
 
