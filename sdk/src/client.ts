@@ -1,9 +1,10 @@
-import { BACKEND_URL, WEBSITE_URL } from './constants'
+import { WEBSITE_URL } from './constants'
 import { run } from './run'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
 import type { RunState } from './run-state'
+import type { ErrorOr } from '@codebuff/common/util/error'
 
 export class CodebuffClient {
   public options: CodebuffClientOptions & {
@@ -48,11 +49,13 @@ export class CodebuffClient {
    * @param maxAgentSteps - (Optional) Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
    * @param env - (Optional) Environment variables to pass to terminal commands executed by the agent. These will be merged with process.env, with the custom values taking precedence. Can also be provided in individual run() calls to override.
    *
-   * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run. Use result.output to get the agent's output.
+   * @returns A Promise that resolves to one of:
+   * - { "success": true, value: runState } (a RunState JSON object which you can pass to a subsequent run() call to continue the run. Use result.output to get the agent's output.)
+   * - { "success": false, error: error } (a JSON object containing `name`, `message`, and `stack` properties)
    */
   public async run(
     options: RunOptions & CodebuffClientOptions,
-  ): Promise<RunState> {
+  ): Promise<ErrorOr<RunState>> {
     return run({ ...this.options, ...options })
   }
 

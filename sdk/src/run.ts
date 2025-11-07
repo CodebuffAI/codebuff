@@ -7,6 +7,7 @@ import { toOptionalFile } from '@codebuff/common/old-constants'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
+import { failure, success } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
@@ -44,6 +45,7 @@ import type {
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
+import type { ErrorOr, Failure } from '@codebuff/common/util/error'
 
 export type CodebuffClientOptions = {
   apiKey?: string
@@ -98,12 +100,13 @@ export type RunOptions = {
   signal?: AbortSignal
 }
 
-function checkAborted(signal?: AbortSignal) {
-  if (signal?.aborted) {
-    const error = new Error('Run cancelled by user')
-    error.name = 'AbortError'
-    throw error
+function checkAborted(signal?: AbortSignal): Failure | null {
+  if (!signal?.aborted) {
+    return null
   }
+  const error = new Error('Run cancelled by user')
+  error.name = 'AbortError'
+  return failure(error)
 }
 
 type RunReturnType = Awaited<ReturnType<typeof run>>
@@ -137,8 +140,11 @@ export async function run({
   CodebuffClientOptions & {
     apiKey: string
     fingerprintId: string
-  }): Promise<RunState> {
-  checkAborted(signal)
+  }): Promise<ErrorOr<RunState>> {
+  const aborted = checkAborted(signal)
+  if (aborted) {
+    return aborted
+  }
 
   const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
 
@@ -168,7 +174,11 @@ export async function run({
   const onResponseChunk = async (
     action: ServerAction<'response-chunk'>,
   ): Promise<void> => {
-    checkAborted(signal)
+    const aborted = checkAborted(signal)
+    if (aborted) {
+      resolve(aborted)
+      return
+    }
     const { chunk } = action
     if (typeof chunk !== 'string') {
       if (chunk.type === 'reasoning') {
@@ -205,7 +215,11 @@ export async function run({
   const onSubagentResponseChunk = async (
     action: ServerAction<'subagent-response-chunk'>,
   ) => {
-    checkAborted(signal)
+    const aborted = checkAborted(signal)
+    if (aborted) {
+      resolve(aborted)
+      return
+    }
     const { agentId, agentType, chunk } = action
 
     if (handleStreamChunk) {
@@ -381,7 +395,10 @@ export async function run({
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
-  checkAborted(signal)
+  const isAborted = checkAborted(signal)
+  if (isAborted) {
+    return isAborted
+  }
 
   const userInfo = await getUserInfoFromApiKey({
     ...agentRuntimeImpl,
@@ -570,13 +587,15 @@ async function handlePromptResponse({
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
-    resolve({
-      sessionState: initialSessionState,
-      output: {
-        type: 'error',
-        message: action.message,
-      },
-    })
+    resolve(
+      failure({
+        sessionState: initialSessionState,
+        output: {
+          type: 'error',
+          message: action.message,
+        },
+      }),
+    )
   } else if (action.type === 'prompt-response') {
     // Stop enforcing session state schema! It's a black box we will pass back to the server.
     // Only check the output schema.
@@ -588,10 +607,7 @@ async function handlePromptResponse({
         'If this issues persists, please contact support@codebuff.com',
       ].join('\n')
       onError({ message })
-      resolve({
-        sessionState: initialSessionState,
-        output: { type: 'error', message },
-      })
+      resolve(failure(new Error(message)))
       return
     }
     const { sessionState, output } = action
@@ -603,18 +619,14 @@ async function handlePromptResponse({
         message: 'No output from agent',
       },
     }
-    resolve(state)
+    resolve(success(state))
   } else {
     action satisfies never
     onError({
       message: 'Internal error: prompt response type not handled',
     })
-    resolve({
-      sessionState: initialSessionState,
-      output: {
-        type: 'error',
-        message: 'Internal error: prompt response type not handled',
-      },
-    })
+    resolve(
+      failure(new Error('Internal error: prompt response type not handled')),
+    )
   }
 }

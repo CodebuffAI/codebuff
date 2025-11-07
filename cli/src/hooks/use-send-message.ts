@@ -616,6 +616,46 @@ export const useSendMessage = ({
 
       const abortController = new AbortController()
       abortControllerRef.current = abortController
+      abortController.signal.addEventListener('abort', () => {
+        setIsStreaming(false)
+        setCanProcessQueue(true)
+        updateChainInProgress(false)
+        setIsWaitingForResponse(false)
+        timerController.stop('aborted')
+
+        applyMessageUpdate((prev) =>
+          prev.map((msg) => {
+            if (msg.id !== aiMessageId) {
+              return msg
+            }
+
+            const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
+            const lastBlock = blocks[blocks.length - 1]
+
+            if (lastBlock && lastBlock.type === 'text') {
+              const interruptedBlock: ContentBlock = {
+                type: 'text',
+                content: `${lastBlock.content}\n\n[response interrupted]`,
+              }
+              return {
+                ...msg,
+                blocks: [...blocks.slice(0, -1), interruptedBlock],
+                isComplete: true,
+              }
+            }
+
+            const interruptionNotice: ContentBlock = {
+              type: 'text',
+              content: '[response interrupted]',
+            }
+            return {
+              ...msg,
+              blocks: [...blocks, interruptionNotice],
+              isComplete: true,
+            }
+          }),
+        )
+      })
 
       try {
         // Load local agent definitions from .agents directory
@@ -1306,6 +1346,11 @@ export const useSendMessage = ({
           },
         })
 
+        if (!result.success) {
+          logger.warn({ error: result.error }, 'Agent run failed')
+          return
+        }
+
         setIsStreaming(false)
         setCanProcessQueue(true)
         updateChainInProgress(false)
@@ -1342,8 +1387,6 @@ export const useSendMessage = ({
 
         previousRunStateRef.current = result
       } catch (error) {
-        const isAborted = error instanceof Error && error.name === 'AbortError'
-
         logger.error(
           { error: getErrorObject(error) },
           'SDK client.run() failed',
@@ -1352,61 +1395,26 @@ export const useSendMessage = ({
         setCanProcessQueue(true)
         updateChainInProgress(false)
         setIsWaitingForResponse(false)
-        timerController.stop(isAborted ? 'aborted' : 'error')
+        timerController.stop('error')
 
-        if (isAborted) {
-          applyMessageUpdate((prev) =>
-            prev.map((msg) => {
-              if (msg.id !== aiMessageId) {
-                return msg
-              }
-
-              const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
-              const lastBlock = blocks[blocks.length - 1]
-
-              if (lastBlock && lastBlock.type === 'text') {
-                const interruptedBlock: ContentBlock = {
-                  type: 'text',
-                  content: `${lastBlock.content}\n\n[response interrupted]`,
-                }
-                return {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error occurred'
+        applyMessageUpdate((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMessageId
+              ? {
                   ...msg,
-                  blocks: [...blocks.slice(0, -1), interruptedBlock],
-                  isComplete: true,
+                  content: msg.content + `\n\n**Error:** ${errorMessage}`,
                 }
-              }
+              : msg,
+          ),
+        )
 
-              const interruptionNotice: ContentBlock = {
-                type: 'text',
-                content: '[response interrupted]',
-              }
-              return {
-                ...msg,
-                blocks: [...blocks, interruptionNotice],
-                isComplete: true,
-              }
-            }),
-          )
-        } else {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error occurred'
-          applyMessageUpdate((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMessageId
-                ? {
-                    ...msg,
-                    content: msg.content + `\n\n**Error:** ${errorMessage}`,
-                  }
-                : msg,
-            ),
-          )
-
-          applyMessageUpdate((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMessageId ? { ...msg, isComplete: true } : msg,
-            ),
-          )
-        }
+        applyMessageUpdate((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMessageId ? { ...msg, isComplete: true } : msg,
+          ),
+        )
       }
     },
     [
