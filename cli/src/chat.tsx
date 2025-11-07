@@ -83,8 +83,6 @@ export const App = ({
   const { validationErrors: liveValidationErrors, validate: validateAgents } =
     useAgentValidation(validationErrors)
 
-  const [exitWarning, setExitWarning] = useState<string | null>(null)
-  const exitArmedRef = useRef(false)
   const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
@@ -202,13 +200,6 @@ export const App = ({
     activeSubagentsRef.current = activeSubagents
   }, [activeSubagents])
 
-  useEffect(() => {
-    if (exitArmedRef.current && inputValue.length > 0) {
-      exitArmedRef.current = false
-      setExitWarning(null)
-    }
-  }, [inputValue])
-
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const { scrollToLatest, scrollboxProps, isAtBottom } = useChatScrollbox(
@@ -234,9 +225,6 @@ export const App = ({
         exitWarningTimeoutRef.current = null
       }
 
-      exitArmedRef.current = false
-      setExitWarning(null)
-
       const flushed = flushAnalytics()
       if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
         ;(flushed as Promise<void>).finally(() => process.exit(0))
@@ -260,10 +248,8 @@ export const App = ({
 
     if (!nextCtrlCWillExit) {
       setNextCtrlCWillExit(true)
-      setExitWarning('Press Ctrl+C again to exit')
       setTimeout(() => {
         setNextCtrlCWillExit(false)
-        setExitWarning(null)
       }, 2000)
       return true
     }
@@ -273,19 +259,10 @@ export const App = ({
       exitWarningTimeoutRef.current = null
     }
 
-    exitArmedRef.current = false
-    setExitWarning(null)
-
     flushAnalytics().then(() => process.exit(0))
 
     return true
-  }, [
-    inputValue,
-    setInputValue,
-    setExitWarning,
-    nextCtrlCWillExit,
-    setNextCtrlCWillExit,
-  ])
+  }, [inputValue, setInputValue, nextCtrlCWillExit, setNextCtrlCWillExit])
 
   const {
     slashContext,
@@ -732,7 +709,7 @@ export const App = ({
 
   const shouldShowQueuePreview = queuedMessages.length > 0
   const shouldShowStatusLine = Boolean(
-    exitWarning || hasStatus || shouldShowQueuePreview,
+    nextCtrlCWillExit || hasStatus || shouldShowQueuePreview,
   )
 
   const statusIndicatorNode = (
@@ -825,9 +802,9 @@ export const App = ({
           >
             <text style={{ wrapMode: 'none' }}>
               {hasStatus && statusIndicatorNode}
-              {hasStatus && (exitWarning || shouldShowQueuePreview) && '  '}
-              {exitWarning && <span fg={theme.secondary}>{exitWarning}</span>}
-              {exitWarning && shouldShowQueuePreview && '  '}
+              {hasStatus && (nextCtrlCWillExit || shouldShowQueuePreview) && '  '}
+              {nextCtrlCWillExit && <span fg={theme.secondary}>Press Ctrl-C again to exit</span>}
+              {nextCtrlCWillExit && shouldShowQueuePreview && '  '}
               {shouldShowQueuePreview && (
                 <span fg={theme.secondary} bg={theme.inputFocusedBg}>
                   {' '}
