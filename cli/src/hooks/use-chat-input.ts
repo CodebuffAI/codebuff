@@ -27,12 +27,15 @@ export const useChatInput = ({
 }: UseChatInputOptions) => {
   const hasAutoSubmittedRef = useRef(false)
 
-  const agentToggleLabel =
-    agentMode === 'FAST' ? 'FAST' : agentMode === 'MAX' ? '💪 MAX' : '📋 PLAN'
-  const agentTogglePadding = agentMode === 'FAST' ? 4 : 2
-  const agentToggleGap = 2
-  const estimatedToggleWidth =
-    agentTogglePadding + agentToggleGap + stringWidth(agentToggleLabel)
+  // Estimate the actual collapsed toggle width as rendered by AgentModeToggle
+  // Collapsed content is: " < " + LABEL + " " inside a bordered box.
+  // Full width = contentWidth + 2 (vertical borders). We also include the
+  // inter-element gap (the right container has paddingLeft: 2).
+  const MODE_LABELS = { FAST: 'FAST', MAX: 'MAX', PLAN: 'PLAN' } as const
+  const collapsedContentWidth = stringWidth(` < ${MODE_LABELS[agentMode]} `)
+  const collapsedBoxWidth = collapsedContentWidth + 2 // account for │ │
+  const gapWidth = 2 // paddingLeft on the toggle container
+  const estimatedToggleWidth = collapsedBoxWidth + gapWidth
   const inputWidth = Math.max(1, separatorWidth - estimatedToggleWidth)
 
   const handleBuildFast = useCallback(() => {
