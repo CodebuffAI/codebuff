@@ -296,6 +296,11 @@ const isJetBrainsTerminal = (): boolean => {
   return false
 }
 
+const isZedTerminal = (): boolean => {
+  const termProgram = process.env.TERM_PROGRAM?.toLowerCase()
+  return termProgram === 'zed' || false
+}
+
 const detectVSCodeTheme = (): ThemeName | null => {
   if (!isVSCodeFamilyTerminal()) {
     return null
@@ -659,24 +664,10 @@ export const detectSystemTheme = (): ThemeName => {
     return normalizedEnv
   }
 
-  // Detect Ghostty terminal and default to dark.
-  if (
-    (typeof Bun !== 'undefined' &&
-      Bun.env.GHOSTTY_RESOURCES_DIR !== undefined) ||
-    process.env.GHOSTTY_RESOURCES_DIR !== undefined ||
-    (process.env.TERM ?? '').toLowerCase() === 'xterm-ghostty'
-  ) {
-    return 'dark'
-  }
-
-  // Use OSC-detected theme if available
-  if (oscDetectedTheme) {
-    return oscDetectedTheme
-  }
-
+  // Priority: IDE > OSC > Platform > Default
   const ideTheme = detectIDETheme()
   const platformTheme = detectPlatformTheme()
-  const preferredTheme = ideTheme ?? platformTheme
+  const preferredTheme = ideTheme ?? oscDetectedTheme ?? platformTheme ?? 'dark'
 
   if (normalizedEnv === 'opposite') {
     return preferredTheme === 'dark' ? 'light' : 'dark'
@@ -904,9 +895,13 @@ export const resolveThemeColor = (
  * Watches for system theme changes and updates zustand store
  */
 
+// Debounce timing for file watcher events
+const FILE_WATCHER_DEBOUNCE_MS = 250
+
 let lastDetectedTheme: ThemeName | null = null
 let themeStoreUpdater: ((name: ThemeName) => void) | null = null
 let oscDetectedTheme: ThemeName | null = null
+let pendingRecomputeTimer: NodeJS.Timeout | null = null
 
 /**
  * Initialize theme store updater
@@ -938,6 +933,20 @@ const recomputeSystemTheme = (source: string) => {
   }
 }
 
+/**
+ * Debounced version of recomputeSystemTheme for file watcher events
+ * Prevents excessive recomputations when files change rapidly
+ */
+const debouncedRecomputeSystemTheme = (source: string) => {
+  if (pendingRecomputeTimer) {
+    clearTimeout(pendingRecomputeTimer)
+  }
+  pendingRecomputeTimer = setTimeout(() => {
+    pendingRecomputeTimer = null
+    recomputeSystemTheme(source)
+  }, FILE_WATCHER_DEBOUNCE_MS)
+}
+
 // Initialize on module load
 lastDetectedTheme = detectSystemTheme()
 
@@ -957,9 +966,16 @@ const setupFileWatchers = () => {
     )
   }
 
-  // IDE config files that we should watch
-  const ideConfigPaths = getIDEThemeConfigPaths()
-  watchTargets.push(...ideConfigPaths)
+  // IDE config files - only watch for the active IDE terminal
+  if (isVSCodeFamilyTerminal()) {
+    watchTargets.push(...resolveVSCodeSettingsPaths())
+  }
+  if (isJetBrainsTerminal()) {
+    watchTargets.push(...resolveJetBrainsLafPaths())
+  }
+  if (isZedTerminal()) {
+    watchTargets.push(...resolveZedSettingsPaths())
+  }
 
   // Watch parent directories instead of individual files
   // Directory watches are more reliable for catching all modifications including plist key deletions
@@ -979,7 +995,7 @@ const setupFileWatchers = () => {
           (eventType, filename) => {
             // Only respond to changes affecting our target files
             if (filename && watchTargets.some((t) => t.endsWith(filename))) {
-              recomputeSystemTheme(
+              debouncedRecomputeSystemTheme(
                 `watch:${join(parentDir, filename)}:${eventType}`,
               )
             }
