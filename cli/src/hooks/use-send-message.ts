@@ -1,3 +1,4 @@
+import { has } from 'lodash'
 import { useCallback, useEffect, useRef } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
@@ -10,9 +11,10 @@ import { getLoadedAgentsData } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
-import type { ChatMessage, ContentBlock } from '../types/chat'
+import type { ChatMessage, ContentBlock, ToolContentBlock } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
+import type { SetElement } from '../types/utils'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 
@@ -725,9 +727,13 @@ export const useSendMessage = ({
             }
           },
 
-          handleEvent: (event: any) => {
+          handleEvent: (event) => {
             logger.info(
-              { type: event.type, hasAgentId: !!event.agentId, event },
+              {
+                type: event.type,
+                hasAgentId: 'agentId' in event && event.agentId,
+                event,
+              },
               `SDK ${JSON.stringify(event.type)} Event received (raw)`,
             )
 
@@ -802,14 +808,11 @@ export const useSendMessage = ({
               actualCredits = event.totalCost
             }
 
-            if (event.credits !== undefined) {
-              actualCredits = event.credits
+            if ('totalCost' in event && event.totalCost !== undefined) {
+              actualCredits = event.totalCost
             }
 
-            if (
-              event.type === 'subagent_start' ||
-              event.type === 'subagent-start'
-            ) {
+            if (event.type === 'subagent_start') {
               // Skip rendering hidden agents
               if (shouldHideAgent(event.agentType)) {
                 return
@@ -1061,10 +1064,7 @@ export const useSendMessage = ({
                   setStreamingAgents((prev) => new Set(prev).add(event.agentId))
                 }
               }
-            } else if (
-              event.type === 'subagent_finish' ||
-              event.type === 'subagent-finish'
-            ) {
+            } else if (event.type === 'subagent_finish') {
               if (event.agentId) {
                 if (shouldHideAgent(event.agentType)) {
                   return
@@ -1148,7 +1148,14 @@ export const useSendMessage = ({
                 return
               }
 
-              if (hiddenToolNames.has(toolName)) {
+              function isHiddenToolName(
+                toolName: string,
+              ): toolName is SetElement<typeof hiddenToolNames> {
+                return hiddenToolNames.has(
+                  toolName as SetElement<typeof hiddenToolNames>,
+                )
+              }
+              if (isHiddenToolName(toolName)) {
                 return
               }
 
@@ -1171,7 +1178,7 @@ export const useSendMessage = ({
                         const agentBlocks: ContentBlock[] = block.blocks
                           ? [...block.blocks]
                           : []
-                        const newToolBlock: ContentBlock = {
+                        const newToolBlock: ToolContentBlock = {
                           type: 'tool',
                           toolCallId,
                           toolName,
@@ -1227,7 +1234,10 @@ export const useSendMessage = ({
 
               // Check if this is a spawn_agents result
               // The structure is: output[0].value = [{ agentName, agentType, value }]
-              const firstOutputValue = event.output?.[0]?.value
+              const firstOutputValue =
+                'value' in event.output?.[0]
+                  ? event.output?.[0]?.value
+                  : undefined
               const isSpawnAgentsResult =
                 Array.isArray(firstOutputValue) &&
                 firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
@@ -1247,17 +1257,21 @@ export const useSendMessage = ({
                           )
                           const result = firstOutputValue[agentIndex]
 
-                          if (result?.value) {
+                          if (has(result, 'value') && result.value) {
                             let content: string
                             if (typeof result.value === 'string') {
                               content = result.value
                             } else if (
+                              has(result.value, 'value') &&
                               result.value.value &&
                               typeof result.value.value === 'string'
                             ) {
                               // Handle nested value structure like { type: "lastMessage", value: "..." }
                               content = result.value.value
-                            } else if (result.value.message) {
+                            } else if (
+                              has(result.value, 'message') &&
+                              result.value.message
+                            ) {
                               content = result.value.message
                             } else {
                               content = formatToolOutput([result])
@@ -1311,10 +1325,8 @@ export const useSendMessage = ({
                     block.toolCallId === toolCallId
                   ) {
                     let output: string
-                    if (event.error) {
-                      output = `**Error:** ${typeof event.error === 'string' ? event.error : JSON.stringify(event.error)}`
-                    } else if (block.toolName === 'run_terminal_command') {
-                      const parsed = event.output?.[0]?.value
+                    if (block.toolName === 'run_terminal_command') {
+                      const parsed = (event.output?.[0] as any)?.value
                       if (parsed?.stdout || parsed?.stderr) {
                         output = (parsed.stdout || '') + (parsed.stderr || '')
                       } else {

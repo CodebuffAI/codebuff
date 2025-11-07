@@ -1,4 +1,13 @@
-import type { ToolName } from '@codebuff/sdk'
+import { CodeSearchComponent } from './code-search'
+import { ListDirectoryComponent } from './list-directory'
+import { ReadFilesComponent } from './read-files'
+import { ReadSubtreeComponent } from './read-subtree'
+import { RunTerminalCommandComponent } from './run-terminal-command'
+import { StrReplaceComponent } from './str-replace'
+import { TaskCompleteComponent } from './task-complete'
+import { WriteFileComponent } from './write-file'
+import { WriteTodosComponent } from './write-todos'
+
 import type {
   ToolComponent,
   ToolRenderConfig,
@@ -6,18 +15,7 @@ import type {
   ToolBlock,
 } from './types'
 import type { ChatTheme } from '../../types/theme-system'
-
-import { ListDirectoryComponent } from './list-directory'
-import { RunTerminalCommandComponent } from './run-terminal-command'
-import { CodeSearchComponent } from './code-search'
-import { ReadFilesComponent } from './read-files'
-import { ReadSubtreeComponent } from './read-subtree'
-import { WriteTodosComponent } from './write-todos'
-import { StrReplaceComponent } from './str-replace'
-import { WriteFileComponent } from './write-file'
-import { TaskCompleteComponent } from './task-complete'
-import { getErrorObject } from '../../utils/error'
-import { logger } from '../../utils/logger'
+import type { ToolName } from '@codebuff/sdk'
 
 /**
  * Registry of all tool-specific UI components.
@@ -71,7 +69,9 @@ export function renderToolComponent(
   theme: ChatTheme,
   options: ToolRenderOptions,
 ): ToolRenderConfig | null {
-  const component = getToolComponent(toolBlock.toolName)
+  const component = getToolComponent(
+    toolBlock.toolName satisfies string as ToolName,
+  )
 
   if (!component) {
     return null
