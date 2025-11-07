@@ -240,6 +240,7 @@ export const App = ({
   }, [])
 
   const [nextCtrlCWillExit, setNextCtrlCWillExit] = useState(false)
+
   const handleCtrlC = useCallback(() => {
     if (inputValue) {
       setInputValue('')
@@ -597,11 +598,12 @@ export const App = ({
 
   // Status is active when waiting for response or streaming
   const isStatusActive = isWaitingForResponse || isStreaming
-  const hasStatus = useHasStatus(
-    isStatusActive,
+  const hasStatus = useHasStatus({
+    isActive: isStatusActive,
     clipboardMessage,
-    mainAgentTimer,
-  )
+    timer: mainAgentTimer,
+    nextCtrlCWillExit,
+  })
 
   const handleSubmit = useCallback(
     () =>
@@ -708,15 +710,14 @@ export const App = ({
     ) : null
 
   const shouldShowQueuePreview = queuedMessages.length > 0
-  const shouldShowStatusLine = Boolean(
-    nextCtrlCWillExit || hasStatus || shouldShowQueuePreview,
-  )
+  const shouldShowStatusLine = Boolean(hasStatus || shouldShowQueuePreview)
 
   const statusIndicatorNode = (
     <StatusIndicator
       clipboardMessage={clipboardMessage}
       isActive={isStatusActive}
       timer={mainAgentTimer}
+      nextCtrlCWillExit={nextCtrlCWillExit}
     />
   )
 
@@ -802,9 +803,6 @@ export const App = ({
           >
             <text style={{ wrapMode: 'none' }}>
               {hasStatus && statusIndicatorNode}
-              {hasStatus && (nextCtrlCWillExit || shouldShowQueuePreview) && '  '}
-              {nextCtrlCWillExit && <span fg={theme.secondary}>Press Ctrl-C again to exit</span>}
-              {nextCtrlCWillExit && shouldShowQueuePreview && '  '}
               {shouldShowQueuePreview && (
                 <span fg={theme.secondary} bg={theme.inputFocusedBg}>
                   {' '}

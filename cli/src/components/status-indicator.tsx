@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react'
 import { ShimmerText } from './shimmer-text'
 import { useTheme } from '../hooks/use-theme'
 import { getCodebuffClient } from '../utils/codebuff-client'
-import { logger } from '../utils/logger'
 
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 
@@ -40,14 +39,20 @@ export const StatusIndicator = ({
   clipboardMessage,
   isActive = false,
   timer,
+  nextCtrlCWillExit,
 }: {
   clipboardMessage?: string | null
   isActive?: boolean
   timer: ElapsedTimeTracker
+  nextCtrlCWillExit: boolean
 }) => {
   const theme = useTheme()
   const isConnected = useConnectionStatus()
   const elapsedSeconds = timer.elapsedSeconds
+
+  if (nextCtrlCWillExit) {
+    return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
+  }
 
   if (clipboardMessage) {
     return <span fg={theme.primary}>{clipboardMessage}</span>
@@ -82,16 +87,20 @@ export const StatusIndicator = ({
   return null
 }
 
-export const useHasStatus = (
-  isActive: boolean,
-  clipboardMessage?: string | null,
-  timer?: ElapsedTimeTracker,
-): boolean => {
+export const useHasStatus = (params: {
+  isActive: boolean
+  clipboardMessage?: string | null
+  timer?: ElapsedTimeTracker
+  nextCtrlCWillExit: boolean
+}): boolean => {
+  const { isActive, clipboardMessage, timer, nextCtrlCWillExit } = params
+
   const isConnected = useConnectionStatus()
   return (
     isConnected === false ||
     isActive ||
     Boolean(clipboardMessage) ||
-    Boolean(timer?.startTime)
+    Boolean(timer?.startTime) ||
+    nextCtrlCWillExit
   )
 }
