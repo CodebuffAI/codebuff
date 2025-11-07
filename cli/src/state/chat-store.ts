@@ -11,6 +11,7 @@ export type ChatStoreState = {
   collapsedAgents: Set<string>
   focusedAgentId: string | null
   inputValue: string
+  cursorPosition: number
   inputFocused: boolean
   activeSubagents: Set<string>
   isChainInProgress: boolean
@@ -34,6 +35,7 @@ type ChatStoreActions = {
     value: string | null | ((prev: string | null) => string | null),
   ) => void
   setInputValue: (value: string | ((prev: string) => string)) => void
+  setCursorPosition: (value: number | ((prev: number) => number)) => void
   setInputFocused: (focused: boolean) => void
   setActiveSubagents: (
     value: Set<string> | ((prev: Set<string>) => Set<string>),
@@ -57,6 +59,7 @@ const initialState: ChatStoreState = {
   collapsedAgents: new Set<string>(),
   focusedAgentId: null,
   inputValue: '',
+  cursorPosition: 0,
   inputFocused: true,
   activeSubagents: new Set<string>(),
   isChainInProgress: false,
@@ -98,6 +101,12 @@ export const useChatStore = create<ChatStore>()(
       set((state) => {
         state.inputValue =
           typeof value === 'function' ? value(state.inputValue) : value
+      }),
+
+    setCursorPosition: (value) =>
+      set((state) => {
+        state.cursorPosition =
+          typeof value === 'function' ? value(state.cursorPosition) : value
       }),
 
     setInputFocused: (focused) =>
@@ -156,6 +165,7 @@ export const useChatStore = create<ChatStore>()(
         state.collapsedAgents = new Set(initialState.collapsedAgents)
         state.focusedAgentId = initialState.focusedAgentId
         state.inputValue = initialState.inputValue
+        state.cursorPosition = initialState.cursorPosition
         state.inputFocused = initialState.inputFocused
         state.activeSubagents = new Set(initialState.activeSubagents)
         state.isChainInProgress = initialState.isChainInProgress

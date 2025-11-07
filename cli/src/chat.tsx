@@ -94,6 +94,8 @@ export const App = ({
   const {
     inputValue,
     setInputValue,
+    cursorPosition,
+    setCursorPosition,
     inputFocused,
     setInputFocused,
     slashSelectedIndex,
@@ -122,6 +124,8 @@ export const App = ({
     useShallow((store) => ({
       inputValue: store.inputValue,
       setInputValue: store.setInputValue,
+      cursorPosition: store.cursorPosition,
+      setCursorPosition: store.setCursorPosition,
       inputFocused: store.inputFocused,
       setInputFocused: store.setInputFocused,
       slashSelectedIndex: store.slashSelectedIndex,
@@ -514,6 +518,7 @@ export const App = ({
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
     inputValue,
     setInputValue,
+    setCursorPosition,
   )
 
   const sendMessageRef = useRef<SendMessageFn>()
@@ -872,6 +877,8 @@ export const App = ({
                 onKeyIntercept={handleSuggestionMenuKey}
                 textAttributes={theme.messageTextAttributes}
                 ref={inputRef}
+                cursorPosition={cursorPosition}
+                setCursorPosition={setCursorPosition}
               />
             </box>
             <box

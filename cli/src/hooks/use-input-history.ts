@@ -8,6 +8,7 @@ import {
 export const useInputHistory = (
   inputValue: string,
   setInputValue: (value: string) => void,
+  setCursorPosition: (position: number) => void,
 ) => {
   const messageHistoryRef = useRef<string[]>([])
   const historyIndexRef = useRef<number>(-1)
@@ -28,7 +29,7 @@ export const useInputHistory = (
     messageHistoryRef.current = newHistory
     historyIndexRef.current = -1
     currentDraftRef.current = ''
-    
+
     // Persist to disk
     saveMessageHistory(newHistory)
   }, [])
@@ -46,6 +47,7 @@ export const useInputHistory = (
 
     const historyMessage = history[historyIndexRef.current]
     setInputValue(historyMessage)
+    setCursorPosition(historyMessage.length)
   }, [inputValue, setInputValue])
 
   const navigateDown = useCallback(() => {
@@ -57,10 +59,12 @@ export const useInputHistory = (
       historyIndexRef.current += 1
       const historyMessage = history[historyIndexRef.current]
       setInputValue(historyMessage)
+      setCursorPosition(historyMessage.length)
     } else {
       historyIndexRef.current = -1
       const draft = currentDraftRef.current
       setInputValue(draft)
+      setCursorPosition(draft.length)
     }
   }, [setInputValue])
 

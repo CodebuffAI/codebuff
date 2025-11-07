@@ -67,9 +67,12 @@ function findNextWordBoundary(text: string, cursor: number): number {
 
 const CURSOR_CHAR = '┃'
 
-type KeyWithPreventDefault = {
-  preventDefault?: () => void
-} | null | undefined
+type KeyWithPreventDefault =
+  | {
+      preventDefault?: () => void
+    }
+  | null
+  | undefined
 
 function preventKeyDefault(key: KeyWithPreventDefault) {
   key?.preventDefault?.()
@@ -93,6 +96,8 @@ interface MultilineInputProps {
   maxHeight?: number
   width: number
   textAttributes?: number
+  cursorPosition: number
+  setCursorPosition: (position: number) => void
 }
 
 export type MultilineInputHandle = {
@@ -113,12 +118,13 @@ export const MultilineInput = forwardRef<
     width,
     textAttributes,
     onKeyIntercept,
+    cursorPosition,
+    setCursorPosition,
   }: MultilineInputProps,
   forwardedRef,
 ) {
   const theme = useTheme()
   const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
-  const [cursorPosition, setCursorPosition] = useState(value.length)
   const [measuredCols, setMeasuredCols] = useState<number | null>(null)
   const getEffectiveCols = useCallback(() => {
     // Prefer measured viewport columns; fallback to a conservative
