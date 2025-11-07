@@ -49,8 +49,6 @@ export const useKeyboardHandlers = ({
           if (abortControllerRef.current) {
             abortControllerRef.current.abort()
           }
-
-          return
         }
 
         if (isCtrlC) {
