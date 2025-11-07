@@ -280,16 +280,16 @@ function getSocketDir(): string {
 
 /**
  * Get socket path for daemon communication
+ * Uses a fixed path so all CLI instances share a single daemon
  */
 function getSocketPath(): string {
   // On Windows use a named pipe path: \\ . \pipe\<name>
   if (process.platform === 'win32') {
-    // Keep name unique per-process to avoid collisions
-    return `\\\\.\\pipe\\codebuff-terminal-theme-${process.pid}`
+    return `\\\\.\\pipe\\codebuff-terminal-theme`
   }
   // Unix-like: use a filesystem socket under a secure runtime dir
   const dir = getSocketDir()
-  return join(dir, `codebuff-terminal-theme-${process.pid}.sock`)
+  return join(dir, 'codebuff-terminal-theme.sock')
 }
 
 export const initializeThemeWatcher = (setter: (name: ThemeName) => void) => {
@@ -456,7 +456,7 @@ async function connectToDaemonSocket(): Promise<Socket | null> {
   return null
 }
 
-const startTerminalColorPolling = () => {
+const startTerminalColorPolling = async () => {
   // Allow disabling polling via env
   if (themeWatchDisabled()) return
 
@@ -467,6 +467,18 @@ const startTerminalColorPolling = () => {
   }
 
   try {
+    // Try to connect to existing daemon first
+    const existingClient = await connectToDaemonSocket()
+    if (existingClient) {
+      logger.debug({ source: 'theme' }, 'connected to existing daemon')
+      socketClient = existingClient
+      setupSocketHandlers()
+      return
+    }
+
+    // No existing daemon, spawn a new one
+    logger.debug({ source: 'theme' }, 'no existing daemon found, spawning new one')
+
     // Determine the executable to spawn
     // In binary mode: spawn ourselves with --internal-daemon flag
     // In dev mode: spawn the TS file directly with bun/node
@@ -515,7 +527,6 @@ const startTerminalColorPolling = () => {
       env: {
         ...process.env,
         SOCKET_PATH,
-        PARENT_PID: process.pid.toString(),
       },
     })
 
@@ -536,33 +547,7 @@ const startTerminalColorPolling = () => {
         }
 
         socketClient = client
-
-        socketClient.on('data', (data: Buffer) => {
-          const message = data.toString().trim()
-
-          // Handle theme updates (format: "dark\n" or "light\n")
-          if (message === 'dark' || message === 'light') {
-            const theme = message as ThemeName
-            if (theme !== lastDetectedTerminalTheme) {
-              lastDetectedTerminalTheme = theme
-              lastDetectedTheme = theme
-              if (themeStoreUpdater) themeStoreUpdater(theme)
-              logger.debug(
-                { source: 'theme', theme },
-                'terminal theme updated from daemon',
-              )
-            }
-          }
-        })
-
-        socketClient.on('error', (err: any) => {
-          logger.debug({ source: 'theme', err }, 'daemon socket error')
-        })
-
-        socketClient.on('close', () => {
-          logger.debug({ source: 'theme' }, 'daemon socket closed')
-          socketClient = null
-        })
+        setupSocketHandlers()
 
       } catch (err) {
         logger.debug({ source: 'theme', err }, 'failed to connect to daemon')
@@ -574,7 +559,42 @@ const startTerminalColorPolling = () => {
   }
 }
 
-startTerminalColorPolling()
+function setupSocketHandlers() {
+  if (!socketClient) return
+
+  const client = socketClient
+
+  client.on('data', (data: Buffer) => {
+    const message = data.toString().trim()
+
+    // Handle theme updates (format: "dark\n" or "light\n")
+    if (message === 'dark' || message === 'light') {
+      const theme = message as ThemeName
+      if (theme !== lastDetectedTerminalTheme) {
+        lastDetectedTerminalTheme = theme
+        lastDetectedTheme = theme
+        if (themeStoreUpdater) themeStoreUpdater(theme)
+        logger.debug(
+          { source: 'theme', theme },
+          'terminal theme updated from daemon',
+        )
+      }
+    }
+  })
+
+  client.on('error', (err: any) => {
+    logger.debug({ source: 'theme', err }, 'daemon socket error')
+  })
+
+  client.on('close', () => {
+    logger.debug({ source: 'theme' }, 'daemon socket closed')
+    socketClient = null
+  })
+}
+
+startTerminalColorPolling().catch((err) => {
+  logger.debug({ source: 'theme', err }, 'failed to initialize terminal polling')
+})
 
 process.on('SIGUSR2', () => {
   recomputeSystemTheme('signal:SIGUSR2')
@@ -586,6 +606,8 @@ process.on('SIGUSR2', () => {
 async function sendShutdownToDaemon(): Promise<boolean> {
   if (!socketClient) return false
 
+  const client = socketClient
+
   return new Promise<boolean>((resolve) => {
     const timeout = setTimeout(() => {
       resolve(false)
@@ -595,13 +617,13 @@ async function sendShutdownToDaemon(): Promise<boolean> {
       const message = data.toString().trim()
       if (message === 'OK') {
         clearTimeout(timeout)
-        socketClient?.removeListener('data', onData)
+        client.removeListener('data', onData)
         resolve(true)
       }
     }
 
-    socketClient.on('data', onData)
-    socketClient.write('SHUTDOWN\n')
+    client.on('data', onData)
+    client.write('SHUTDOWN\n')
   })
 }
 
@@ -609,15 +631,24 @@ async function cleanupPoller(reason: string) {
   try {
     if (pollingInterval) clearInterval(pollingInterval)
 
-    // Try graceful shutdown via socket first
-    if (socketClient) {
-      logger.debug({ source: 'theme', reason }, 'sending shutdown command to daemon')
-      const shutdownSuccess = await sendShutdownToDaemon()
+    const spawnedDaemon = Boolean(pollerProcess)
 
-      if (shutdownSuccess) {
-        logger.debug({ source: 'theme' }, 'daemon acknowledged shutdown')
+    // Try graceful shutdown via socket first (only if we spawned it)
+    if (socketClient) {
+      if (spawnedDaemon) {
+        logger.debug({ source: 'theme', reason }, 'sending shutdown command to daemon we spawned')
+        const shutdownSuccess = await sendShutdownToDaemon()
+
+        if (shutdownSuccess) {
+          logger.debug({ source: 'theme' }, 'daemon acknowledged shutdown')
+        } else {
+          logger.debug({ source: 'theme' }, 'daemon shutdown timeout, forcing kill')
+        }
       } else {
-        logger.debug({ source: 'theme' }, 'daemon shutdown timeout, forcing kill')
+        logger.debug(
+          { source: 'theme', reason },
+          'closing shared daemon socket without requesting shutdown',
+        )
       }
 
       try {
@@ -627,7 +658,7 @@ async function cleanupPoller(reason: string) {
     }
 
     // Force kill if still running (should rarely be needed with health checks)
-    if (pollerProcess) {
+    if (spawnedDaemon && pollerProcess) {
       try {
         pollerProcess.kill()
       } catch {}

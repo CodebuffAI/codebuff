@@ -7,20 +7,27 @@
 
 import { createServer, type Server, type Socket } from 'net'
 import { unlinkSync, existsSync, chmodSync } from 'fs'
+import { join } from 'path'
 import { detectTerminalTheme } from './terminal-color-detection'
 
 // Timing constants
 const POLL_INTERVAL_MS = 5_000
 const IDLE_EXIT_MS = 15_000
-const HEALTH_CHECK_INTERVAL_MS = 10_000
 
-// Socket configuration
-const SOCKET_PATH = process.env.SOCKET_PATH || (
-  process.platform === 'win32'
-    ? `\\\\.\\pipe\\codebuff-terminal-theme-${process.pid}`
-    : '/tmp/codebuff-terminal-theme.sock'
-)
-const PARENT_PID = process.env.PARENT_PID ? parseInt(process.env.PARENT_PID, 10) : null
+// Socket configuration - use fixed path for shared daemon
+const SOCKET_PATH =
+  process.env.SOCKET_PATH ||
+  (process.platform === 'win32'
+    ? `\\\\.\\pipe\\codebuff-terminal-theme`
+    : getUnixSocketPath())
+
+function getUnixSocketPath() {
+  const runtimeDir = process.env.XDG_RUNTIME_DIR
+  if (runtimeDir && existsSync(runtimeDir)) {
+    return join(runtimeDir, 'codebuff-terminal-theme.sock')
+  }
+  return '/tmp/codebuff-terminal-theme.sock'
+}
 
 // Protocol constants
 const SHUTDOWN_COMMAND = 'SHUTDOWN\n'
@@ -32,7 +39,6 @@ let clients: Set<Socket> = new Set()
 let lastTheme: string | null = null
 let pollInterval: NodeJS.Timeout | null = null
 let idleTimer: NodeJS.Timeout | null = null
-let healthCheckInterval: NodeJS.Timeout | null = null
 
 function scheduleIdleExit() {
   if (idleTimer) return
@@ -52,37 +58,6 @@ function cancelIdleExit() {
   }
 }
 
-/**
- * Check if parent process is still alive
- * @returns true if parent is alive or PID not provided, false otherwise
- */
-function isParentAlive(): boolean {
-  if (!PARENT_PID) return true // No parent tracking, assume alive
-
-  try {
-    // Sending signal 0 checks if process exists without actually sending a signal
-    process.kill(PARENT_PID, 0)
-    return true
-  } catch (err) {
-    // ESRCH means process doesn't exist
-    return false
-  }
-}
-
-/**
- * Periodic health check to ensure parent process is still alive
- */
-function performHealthCheck() {
-  if (!isParentAlive()) {
-    // Parent died, clean up and exit
-    try {
-      cleanup()
-    } finally {
-      process.exit(0)
-    }
-  }
-}
-
 function cleanup() {
   try {
     if (server) server.close()
@@ -93,12 +68,10 @@ function cleanup() {
     }
   } catch {}
   if (pollInterval) {
-    try { clearInterval(pollInterval) } catch {}
+    try {
+      clearInterval(pollInterval)
+    } catch {}
     pollInterval = null
-  }
-  if (healthCheckInterval) {
-    try { clearInterval(healthCheckInterval) } catch {}
-    healthCheckInterval = null
   }
 }
 
@@ -195,17 +168,6 @@ export async function runDaemonMain() {
     intervalTimer.unref()
   }
 
-  // Health check: verify parent process is still alive
-  if (PARENT_PID) {
-    healthCheckInterval = setInterval(() => {
-      performHealthCheck()
-    }, HEALTH_CHECK_INTERVAL_MS)
-    const healthTimer = healthCheckInterval as any
-    if (healthTimer?.unref) {
-      healthTimer.unref()
-    }
-  }
-
   // If no one connects, exit after idle period
   scheduleIdleExit()
 }
@@ -213,15 +175,37 @@ export async function runDaemonMain() {
 // Graceful shutdown on common signals and exit events
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGQUIT'] as const) {
   process.on(sig, () => {
-    try { cleanup() } finally { process.exit(0) }
+    try {
+      cleanup()
+    } finally {
+      process.exit(0)
+    }
   })
 }
 process.on('beforeExit', () => cleanup())
 process.on('exit', () => cleanup())
-process.on('uncaughtException', () => { try { cleanup() } finally { process.exit(1) } })
-process.on('unhandledRejection', () => { try { cleanup() } finally { process.exit(1) } })
+process.on('uncaughtException', () => {
+  try {
+    cleanup()
+  } finally {
+    process.exit(1)
+  }
+})
+process.on('unhandledRejection', () => {
+  try {
+    cleanup()
+  } finally {
+    process.exit(1)
+  }
+})
 
 // Only auto-run if executed directly (not imported)
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runDaemonMain().catch(() => { try { cleanup() } finally { process.exit(1) } })
+  runDaemonMain().catch(() => {
+    try {
+      cleanup()
+    } finally {
+      process.exit(1)
+    }
+  })
 }

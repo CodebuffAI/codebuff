@@ -5,9 +5,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 import { MessageBlock } from '../message-block'
 import '../../state/theme-store' // Initialize theme store
-import { chatThemes } from '../../utils/theme-system'
+import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 
 const theme = chatThemes.dark
+const markdownPalette = createMarkdownPalette(theme)
 
 const baseProps = {
   messageId: 'ai-1',
@@ -30,6 +31,7 @@ const baseProps = {
   timestampColor: theme.muted,
   markdownOptions: {
     codeBlockWidth: 72,
+    palette: markdownPalette,
   },
   availableWidth: 80,
   collapsedAgents: new Set<string>(),
@@ -45,6 +47,7 @@ describe('MessageBlock completion time', () => {
         isComplete={true}
         completionTime="7s"
         credits={3}
+        markdownPalette={markdownPalette}
       />,
     )
 
@@ -59,6 +62,7 @@ describe('MessageBlock completion time', () => {
         isComplete={false}
         completionTime="7s"
         credits={3}
+        markdownPalette={markdownPalette}
       />,
     )
 

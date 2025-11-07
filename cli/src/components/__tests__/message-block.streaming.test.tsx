@@ -5,9 +5,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 import { MessageBlock } from '../message-block'
 import '../../state/theme-store' // Initialize theme store
-import { chatThemes } from '../../utils/theme-system'
+import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 
 const theme = chatThemes.dark
+const markdownPalette = createMarkdownPalette(theme)
 
 const baseProps = {
   messageId: 'ai-stream',
@@ -23,6 +24,7 @@ const baseProps = {
   timestampColor: theme.muted,
   markdownOptions: {
     codeBlockWidth: 72,
+    palette: markdownPalette,
   },
   availableWidth: 80,
   collapsedAgents: new Set<string>(),
@@ -40,7 +42,7 @@ const createTimer = (elapsedSeconds: number) => ({
 describe('MessageBlock streaming indicator', () => {
   test('shows elapsed seconds while streaming', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock {...baseProps} isLoading={true} timer={createTimer(4)} />,
+      <MessageBlock {...baseProps} isLoading={true} timer={createTimer(4)} markdownPalette={markdownPalette} />,
     )
 
     expect(markup).toContain('4s')
@@ -48,7 +50,7 @@ describe('MessageBlock streaming indicator', () => {
 
   test('hides elapsed seconds when timer has not advanced', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock {...baseProps} isLoading={true} timer={createTimer(0)} />,
+      <MessageBlock {...baseProps} isLoading={true} timer={createTimer(0)} markdownPalette={markdownPalette} />,
     )
 
     expect(markup).not.toContain('0s')
