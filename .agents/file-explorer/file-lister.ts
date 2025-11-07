@@ -36,7 +36,7 @@ const definition: SecretAgentDefinition = {
 - Do not write any introductory commentary.
 - Do not write any analysis or any English text at all.
 - Do not use any tools.
-- List out the full paths of up to 12 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root.
+- List out the full paths of up to 12 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root. Don't forget to include all the subdirectories in the path -- sometimes you have forgotten to include 'src' in the path.
 
 <example_response>
 packages/core/src/index.ts
