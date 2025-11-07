@@ -78,25 +78,29 @@ codebuff-tui
 
 ## Theme Detection
 
-The CLI auto‑detects light/dark mode using multiple sources with a clear precedence:
+The CLI auto-detects light/dark mode using multiple sources in order of priority:
 
-- Preferred: Terminal OSC 10/11 polling (background/foreground color)
-  - Polled every 5s
-  - Works in native terminals that answer OSC (Terminal.app, iTerm2, WezTerm, kitty, Alacritty, Ghostty)
-  - Supports tmux/screen via passthrough wrapping
-- Fallback: IDE theme (when running in an integrated terminal)
-  - VS Code family (Code/Cursor/VSCodium) via settings.json and env
-  - JetBrains (IntelliJ family) via laf.xml and env
-  - Zed via its settings and explicit env vars (e.g., `ZED_TERM`)
-- Last resort: OS/platform theme
-  - macOS via `defaults read -g AppleInterfaceStyle`
-  - Windows registry and common Linux desktop settings
+1. **Terminal colors** (highest priority)
+   - Detects via OSC 10/11 queries to terminal background/foreground colors
+   - Updates within 5 seconds when terminal theme changes
+   - Supports: Terminal.app, iTerm2, WezTerm, kitty, Alacritty, Ghostty
+   - Works in tmux/screen via passthrough wrapping
 
-Live updates
+2. **IDE theme** (when running in integrated terminal)
+   - VS Code/Cursor/VSCodium: `settings.json` + `VSCODE_THEME_KIND` env var
+   - JetBrains (IntelliJ, PyCharm, etc.): `laf.xml` + env vars
+   - Zed: `settings.json` + `ZED_TERM` env var
+   - Updates within ~250ms via file watchers
 
-- Terminal OSC polling updates the theme automatically when the terminal changes its colors.
-- File watchers are enabled for IDE settings and macOS preference files, so theme changes propagate even when OSC is unavailable.
-- When both are available, OSC results take precedence over IDE/OS.
+3. **OS/Platform theme** (fallback)
+   - macOS: `defaults read -g AppleInterfaceStyle` + file watchers on `.GlobalPreferences.plist`, `com.apple.Terminal.plist`, `com.googlecode.iterm2.plist`
+   - Windows: Registry keys for system theme
+   - Linux: GTK theme, GNOME/KDE settings
+   - Updates within ~250ms via file watchers (macOS)
+
+4. **Default dark** (if all detection fails)
+
+All detection methods run in parallel. Terminal colors take precedence when available
 
 Manual refresh
 
