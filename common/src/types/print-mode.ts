@@ -31,6 +31,7 @@ export const printModeToolCallSchema = z.object({
   input: z.record(z.string(), z.any()),
   agentId: z.string().optional(),
   parentAgentId: z.string().optional(),
+  includeToolCall: z.boolean().optional(),
 })
 export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
 

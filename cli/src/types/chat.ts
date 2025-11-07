@@ -28,6 +28,7 @@ export type ContentBlock =
       output?: string
       outputRaw?: unknown
       agentId?: string
+      includeToolCall?: boolean
     }
   | {
       type: 'agent'

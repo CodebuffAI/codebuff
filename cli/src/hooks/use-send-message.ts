@@ -1056,7 +1056,7 @@ export const useSendMessage = ({
             }
 
             if (event.type === 'tool_call' && event.toolCallId) {
-              const { toolCallId, toolName, input, agentId } = event
+              const { toolCallId, toolName, input, agentId, includeToolCall } = event
 
               if (toolName === 'spawn_agents' && input?.agents) {
                 const agents = Array.isArray(input.agents) ? input.agents : []
@@ -1136,6 +1136,7 @@ export const useSendMessage = ({
                           toolName,
                           input,
                           agentId,
+                          ...(includeToolCall !== undefined && { includeToolCall }),
                         }
 
                         return {
@@ -1165,6 +1166,7 @@ export const useSendMessage = ({
                       toolName,
                       input,
                       agentId,
+                      ...(includeToolCall !== undefined && { includeToolCall }),
                     }
 
                     return {

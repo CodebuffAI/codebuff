@@ -130,10 +130,7 @@ export const MessageBlock = ({
     if (toolBlock.toolName === 'end_turn') {
       return null
     }
-    if (
-      'includeToolCall' in toolBlock.input &&
-      toolBlock.input.includeToolCall === false
-    ) {
+    if ('includeToolCall' in toolBlock && toolBlock.includeToolCall === false) {
       return null
     }
 
