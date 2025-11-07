@@ -9,7 +9,6 @@ import {
   MultilineInput,
   type MultilineInputHandle,
 } from './components/multiline-input'
-import { Separator } from './components/separator'
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
@@ -37,12 +36,11 @@ import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { createMarkdownPalette } from './utils/theme-system'
+import { BORDER_CHARS } from './utils/ui-constants'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
-import { logger } from './utils/logger'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { ScrollBoxRenderable } from '@opentui/core'
-import { BORDER_CHARS } from './utils/ui-constants'
 
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
@@ -253,7 +251,23 @@ export const App = ({
     }
   }, [])
 
+  const [nextCtrlCWillExit, setNextCtrlCWillExit] = useState(false)
   const handleCtrlC = useCallback(() => {
+    if (inputValue) {
+      setInputValue('')
+      return true
+    }
+
+    if (!nextCtrlCWillExit) {
+      setNextCtrlCWillExit(true)
+      setExitWarning('Press Ctrl+C again to exit')
+      setTimeout(() => {
+        setNextCtrlCWillExit(false)
+        setExitWarning(null)
+      }, 2000)
+      return true
+    }
+
     if (exitWarningTimeoutRef.current) {
       clearTimeout(exitWarningTimeoutRef.current)
       exitWarningTimeoutRef.current = null
@@ -262,15 +276,16 @@ export const App = ({
     exitArmedRef.current = false
     setExitWarning(null)
 
-    const flushed = flushAnalytics()
-    if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
-      ;(flushed as Promise<void>).finally(() => process.exit(0))
-    } else {
-      process.exit(0)
-    }
+    flushAnalytics().then(() => process.exit(0))
 
     return true
-  }, [setExitWarning])
+  }, [
+    inputValue,
+    setInputValue,
+    setExitWarning,
+    nextCtrlCWillExit,
+    setNextCtrlCWillExit,
+  ])
 
   const {
     slashContext,
