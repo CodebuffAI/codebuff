@@ -60,6 +60,7 @@ const fileExplorer: SecretAgentDefinition = {
       input: {
         results: spawnResult,
       },
+      includeToolCall: false,
     }
   },
 }

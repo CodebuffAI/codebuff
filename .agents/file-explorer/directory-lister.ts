@@ -67,6 +67,7 @@ const directoryLister: SecretAgentDefinition = {
       input: {
         results: toolResults,
       },
+      includeToolCall: false,
     }
   },
 }

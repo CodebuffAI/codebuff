@@ -61,10 +61,7 @@ function* handleStepsSonnet({
 > {
   const implementorAgent = 'best-of-n-implementor'
   const selectorAgent = 'best-of-n-selector'
-  const n = Math.min(
-    10,
-    Math.max(1, (params?.n as number | undefined) ?? 5),
-  )
+  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
   // Remove userInstruction message for this agent.
   const messages = agentState.messageHistory.concat()
@@ -158,6 +155,7 @@ function* handleStepsSonnet({
       response: chosenImplementation.content,
       toolResults: editToolResults,
     },
+    includeToolCall: false,
   } satisfies ToolCall<'set_output'>
 
   function extractSpawnResults<T>(
@@ -189,10 +187,7 @@ function* handleStepsGpt5({
 > {
   const implementorAgent = 'best-of-n-implementor-gpt-5'
   const selectorAgent = 'best-of-n-selector-gpt-5'
-  const n = Math.min(
-    10,
-    Math.max(1, (params?.n as number | undefined) ?? 5),
-  )
+  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
   // Remove userInstruction message for this agent.
   const messages = agentState.messageHistory.concat()

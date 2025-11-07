@@ -87,6 +87,7 @@ const codeSearcher: SecretAgentDefinition = {
       input: {
         results: toolResults,
       },
+      includeToolCall: false,
     }
   },
 }

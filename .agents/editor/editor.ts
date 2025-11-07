@@ -114,6 +114,7 @@ Implement the requested changes, using your judgment as needed, but referring to
         ...agentState.output,
         edits: accumulatedEditToolResults,
       },
+      includeToolCall: false,
     }
 
     function getLatestEditToolResults(messageHistory: Message[]) {

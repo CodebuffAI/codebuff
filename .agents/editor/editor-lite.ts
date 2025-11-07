@@ -137,6 +137,7 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
         ...agentState.output,
         edits: accumulatedEditToolResults,
       },
+      includeToolCall: false,
     }
 
     function getLatestEditToolResults(messageHistory: Message[]) {
