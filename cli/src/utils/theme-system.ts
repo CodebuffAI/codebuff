@@ -617,6 +617,22 @@ const runSystemCommand = (command: string[]): string | null => {
   }
 }
 
+const detectTerminalOverrides = (): ThemeName | null => {
+  const termProgram = (process.env.TERM_PROGRAM ?? '').toLowerCase()
+  const term = (process.env.TERM ?? '').toLowerCase()
+
+  // Ghostty renders our light theme text too dark; force dark for legibility
+  if (
+    termProgram.includes('ghostty') ||
+    term.includes('ghostty') ||
+    typeof process.env.GHOSTTY_RESOURCES_DIR === 'string'
+  ) {
+    return 'dark'
+  }
+
+  return null
+}
+
 function detectPlatformTheme(): ThemeName {
   if (typeof Bun !== 'undefined') {
     if (process.platform === 'darwin') {
@@ -664,10 +680,13 @@ export const detectSystemTheme = (): ThemeName => {
     return normalizedEnv
   }
 
-  // Priority: IDE > OSC > Platform > Default
+  const terminalOverrideTheme = detectTerminalOverrides()
+
+  // Priority: Terminal override > IDE > OSC > Platform > Default
   const ideTheme = detectIDETheme()
   const platformTheme = detectPlatformTheme()
-  const preferredTheme = ideTheme ?? oscDetectedTheme ?? platformTheme ?? 'dark'
+  const preferredTheme =
+    terminalOverrideTheme ?? ideTheme ?? oscDetectedTheme ?? platformTheme ?? 'dark'
 
   if (normalizedEnv === 'opposite') {
     return preferredTheme === 'dark' ? 'light' : 'dark'
