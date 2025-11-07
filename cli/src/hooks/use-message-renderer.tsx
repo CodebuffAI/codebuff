@@ -27,6 +27,8 @@ interface UseMessageRendererProps {
   timer: ElapsedTimeTracker
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
+  userOpenedAgents: Set<string>
+  setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
 }
 
 export const useMessageRenderer = (
@@ -45,6 +47,8 @@ export const useMessageRenderer = (
     timer,
     setCollapsedAgents,
     setFocusedAgentId,
+    userOpenedAgents,
+    setUserOpenedAgents,
   } = props
 
   return useMemo(() => {
@@ -94,6 +98,8 @@ export const useMessageRenderer = (
           e.stopPropagation()
         }
 
+        const wasCollapsed = collapsedAgents.has(message.id)
+
         setCollapsedAgents((prev) => {
           const next = new Set(prev)
 
@@ -105,6 +111,19 @@ export const useMessageRenderer = (
             descendantIds.forEach((id) => next.add(id))
           }
 
+          return next
+        })
+
+        // Track user interaction: if they're opening it, mark as user-opened
+        setUserOpenedAgents((prev) => {
+          const next = new Set(prev)
+          if (wasCollapsed) {
+            // User is opening it, mark as user-opened
+            next.add(message.id)
+          } else {
+            // User is closing it, remove from user-opened
+            next.delete(message.id)
+          }
           return next
         })
 
@@ -349,12 +368,25 @@ export const useMessageRenderer = (
                     collapsedAgents={collapsedAgents}
                     streamingAgents={streamingAgents}
                     onToggleCollapsed={(id: string) => {
+                      const wasCollapsed = collapsedAgents.has(id)
                       setCollapsedAgents((prev) => {
                         const next = new Set(prev)
                         if (next.has(id)) {
                           next.delete(id)
                         } else {
                           next.add(id)
+                        }
+                        return next
+                      })
+                      // Track user interaction
+                      setUserOpenedAgents((prev) => {
+                        const next = new Set(prev)
+                        if (wasCollapsed) {
+                          // User is opening it, mark as user-opened
+                          next.add(id)
+                        } else {
+                          // User is closing it, remove from user-opened
+                          next.delete(id)
                         }
                         return next
                       })
@@ -397,12 +429,25 @@ export const useMessageRenderer = (
                   collapsedAgents={collapsedAgents}
                   streamingAgents={streamingAgents}
                   onToggleCollapsed={(id: string) => {
+                    const wasCollapsed = collapsedAgents.has(id)
                     setCollapsedAgents((prev) => {
                       const next = new Set(prev)
                       if (next.has(id)) {
                         next.delete(id)
                       } else {
                         next.add(id)
+                      }
+                      return next
+                    })
+                    // Track user interaction
+                    setUserOpenedAgents((prev) => {
+                      const next = new Set(prev)
+                      if (wasCollapsed) {
+                        // User is opening it, mark as user-opened
+                        next.add(id)
+                      } else {
+                        // User is closing it, remove from user-opened
+                        next.delete(id)
                       }
                       return next
                     })
@@ -443,6 +488,8 @@ export const useMessageRenderer = (
     streamingAgents,
     isWaitingForResponse,
     setCollapsedAgents,
+    setUserOpenedAgents,
     setFocusedAgentId,
+    userOpenedAgents,
   ])
 }

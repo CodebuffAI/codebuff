@@ -2,7 +2,7 @@ import { has } from 'lodash'
 import { useCallback, useEffect, useRef } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
-import { shouldHideAgent } from '../utils/constants'
+import { MAIN_AGENT_ID, shouldHideAgent } from '../utils/constants'
 import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
 import { getErrorObject } from '../utils/error'
 import { formatTimestamp } from '../utils/helpers'
@@ -48,6 +48,7 @@ const updateBlocksRecursively = (
     return block
   })
 }
+
 
 export type SendMessageTimerEvent =
   | {
@@ -142,12 +143,15 @@ export const createSendMessageTimerController = (
 }
 
 interface UseSendMessageOptions {
+  messages: ChatMessage[]
+  allToggleIds: Set<string>
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   setFocusedAgentId: (id: string | null) => void
   setInputFocused: (focused: boolean) => void
   inputRef: React.MutableRefObject<any>
   setStreamingAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
+  userOpenedAgents: Set<string>
   activeSubagentsRef: React.MutableRefObject<Set<string>>
   isChainInProgressRef: React.MutableRefObject<boolean>
   setActiveSubagents: React.Dispatch<React.SetStateAction<Set<string>>>
@@ -171,12 +175,15 @@ interface UseSendMessageOptions {
 }
 
 export const useSendMessage = ({
+  messages,
+  allToggleIds,
   setMessages,
   setFocusedAgentId,
   setInputFocused,
   inputRef,
   setStreamingAgents,
   setCollapsedAgents,
+  userOpenedAgents,
   activeSubagentsRef,
   isChainInProgressRef,
   setActiveSubagents,
@@ -340,6 +347,10 @@ export const useSendMessage = ({
         agentId,
       })
 
+      // Use memoized toggle IDs from the store selector
+      // This is computed efficiently in the Zustand store
+      const previousToggleIds = allToggleIds
+
       // Add user message to UI first
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -359,6 +370,19 @@ export const useSendMessage = ({
         return newMessages
       })
       await yieldToEventLoop()
+
+      // Auto-collapse previous message toggles to minimize clutter.
+      // Respects user intent by keeping toggles open that the user manually expanded.
+      setCollapsedAgents((prev) => {
+        const next = new Set(prev)
+        // Add all previous toggle IDs to collapsed, except those the user manually opened
+        for (const id of previousToggleIds) {
+          if (!userOpenedAgents.has(id)) {
+            next.add(id)
+          }
+        }
+        return next
+      })
 
       // Scroll to bottom after user message appears
       setTimeout(() => scrollToLatest(), 0)
@@ -966,6 +990,10 @@ export const useSendMessage = ({
                     setCollapsedAgents((prev) => {
                       const next = new Set(prev)
                       next.delete(tempId)
+                      // Only collapse if parent is NOT main agent (i.e., it's a nested agent)
+                      if (event.parentAgentId && event.parentAgentId !== MAIN_AGENT_ID) {
+                        next.add(event.agentId)
+                      }
                       return next
                     })
 
@@ -1062,6 +1090,10 @@ export const useSendMessage = ({
                   )
 
                   setStreamingAgents((prev) => new Set(prev).add(event.agentId))
+                  // Only collapse if parent is NOT main agent (i.e., it's a nested agent)
+                  if (event.parentAgentId && event.parentAgentId !== MAIN_AGENT_ID) {
+                    setCollapsedAgents((prev) => new Set(prev).add(event.agentId))
+                  }
                 }
               }
             } else if (event.type === 'subagent_finish') {
@@ -1438,6 +1470,8 @@ export const useSendMessage = ({
       inputRef,
       setStreamingAgents,
       setCollapsedAgents,
+      allToggleIds,
+      userOpenedAgents,
       activeSubagentsRef,
       isChainInProgressRef,
       setIsWaitingForResponse,

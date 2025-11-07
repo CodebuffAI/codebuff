@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
+import type { ContentBlock } from './types/chat'
+
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { BuildModeButtons } from './components/build-mode-buttons'
@@ -87,6 +89,11 @@ export const App = ({
     null,
   )
 
+  // Track which agent toggles the user has manually opened.
+  const [userOpenedAgents, setUserOpenedAgents] = useState<Set<string>>(
+    new Set(),
+  )
+
   const {
     inputValue,
     setInputValue,
@@ -148,6 +155,29 @@ export const App = ({
       resetChatStore: store.reset,
     })),
   )
+
+  // Memoize toggle IDs extraction - only recompute when messages change
+  const allToggleIds = useMemo(() => {
+    const ids = new Set<string>()
+
+    const extractFromBlocks = (blocks: ContentBlock[] | undefined) => {
+      if (!blocks) return
+      for (const block of blocks) {
+        if (block.type === 'agent') {
+          ids.add(block.agentId)
+          extractFromBlocks(block.blocks)
+        } else if (block.type === 'tool') {
+          ids.add(block.toolCallId)
+        }
+      }
+    }
+
+    for (const message of messages) {
+      extractFromBlocks(message.blocks)
+    }
+
+    return ids
+  }, [messages])
 
   const {
     isAuthenticated,
@@ -559,12 +589,15 @@ export const App = ({
   )
 
   const { sendMessage, clearMessages } = useSendMessage({
+    messages,
+    allToggleIds,
     setMessages,
     setFocusedAgentId,
     setInputFocused,
     inputRef,
     setStreamingAgents,
     setCollapsedAgents,
+    userOpenedAgents,
     activeSubagentsRef,
     isChainInProgressRef,
     setActiveSubagents,
@@ -694,6 +727,8 @@ export const App = ({
     timer: mainAgentTimer,
     setCollapsedAgents,
     setFocusedAgentId,
+    userOpenedAgents,
+    setUserOpenedAgents,
   })
 
   const virtualizationNotice =
