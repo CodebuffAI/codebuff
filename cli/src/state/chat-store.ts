@@ -5,6 +5,12 @@ import { immer } from 'zustand/middleware/immer'
 import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 
+export type InputValue = {
+  text: string
+  cursorPosition: number
+  lastEditDueToNav: boolean
+}
+
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
@@ -12,6 +18,7 @@ export type ChatStoreState = {
   focusedAgentId: string | null
   inputValue: string
   cursorPosition: number
+  lastEditDueToNav: boolean
   inputFocused: boolean
   activeSubagents: Set<string>
   isChainInProgress: boolean
@@ -35,7 +42,9 @@ type ChatStoreActions = {
   setFocusedAgentId: (
     value: string | null | ((prev: string | null) => string | null),
   ) => void
-  setInputValue: (value: string | ((prev: string) => string)) => void
+  setInputValue: (
+    value: InputValue | ((prev: InputValue) => InputValue),
+  ) => void
   setCursorPosition: (value: number | ((prev: number) => number)) => void
   setInputFocused: (focused: boolean) => void
   setActiveSubagents: (
@@ -62,6 +71,7 @@ const initialState: ChatStoreState = {
   focusedAgentId: null,
   inputValue: '',
   cursorPosition: 0,
+  lastEditDueToNav: false,
   inputFocused: true,
   activeSubagents: new Set<string>(),
   isChainInProgress: false,
@@ -102,8 +112,17 @@ export const useChatStore = create<ChatStore>()(
 
     setInputValue: (value) =>
       set((state) => {
-        state.inputValue =
-          typeof value === 'function' ? value(state.inputValue) : value
+        const { text, cursorPosition, lastEditDueToNav } =
+          typeof value === 'function'
+            ? value({
+                text: state.inputValue,
+                cursorPosition: state.cursorPosition,
+                lastEditDueToNav: state.lastEditDueToNav,
+              })
+            : value
+        state.inputValue = text
+        state.cursorPosition = cursorPosition
+        state.lastEditDueToNav = lastEditDueToNav
       }),
 
     setCursorPosition: (value) =>
@@ -174,6 +193,7 @@ export const useChatStore = create<ChatStore>()(
         state.focusedAgentId = initialState.focusedAgentId
         state.inputValue = initialState.inputValue
         state.cursorPosition = initialState.cursorPosition
+        state.lastEditDueToNav = initialState.lastEditDueToNav
         state.inputFocused = initialState.inputFocused
         state.activeSubagents = new Set(initialState.activeSubagents)
         state.isChainInProgress = initialState.isChainInProgress

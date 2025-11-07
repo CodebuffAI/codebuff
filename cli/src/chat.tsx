@@ -96,8 +96,9 @@ export const App = ({
 
   const {
     inputValue,
-    setInputValue,
     cursorPosition,
+    lastEditDueToNav,
+    setInputValue,
     setCursorPosition,
     inputFocused,
     setInputFocused,
@@ -128,8 +129,9 @@ export const App = ({
   } = useChatStore(
     useShallow((store) => ({
       inputValue: store.inputValue,
-      setInputValue: store.setInputValue,
       cursorPosition: store.cursorPosition,
+      lastEditDueToNav: store.lastEditDueToNav,
+      setInputValue: store.setInputValue,
       setCursorPosition: store.setCursorPosition,
       inputFocused: store.inputFocused,
       setInputFocused: store.setInputFocused,
@@ -277,7 +279,7 @@ export const App = ({
 
   const handleCtrlC = useCallback(() => {
     if (inputValue) {
-      setInputValue('')
+      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
       return true
     }
 
@@ -311,6 +313,37 @@ export const App = ({
     slashCommands: SLASH_COMMANDS,
     localAgents,
   })
+
+  const [suggestionMenuDisabled, setSuggestionMenuDisabled] = useState(false)
+  // Disable suggestion menu during navigation
+  useEffect(() => {
+    setSuggestionMenuDisabled(!lastEditDueToNav)
+  }, [setSuggestionMenuDisabled, lastEditDueToNav])
+
+  // Disable history navigation during suggesion menu
+  const [historyNavEnabled, setHistoryNavEnabled] = useState(true)
+  useEffect(() => {
+    if (lastEditDueToNav) {
+      setHistoryNavEnabled(true)
+      return
+    }
+
+    if (slashContext.active) {
+      setHistoryNavEnabled(false)
+      return
+    }
+    if (mentionContext.active) {
+      setHistoryNavEnabled(false)
+      return
+    }
+
+    setHistoryNavEnabled(true)
+  }, [
+    setHistoryNavEnabled,
+    lastEditDueToNav,
+    slashContext.active,
+    mentionContext.active,
+  ])
 
   useEffect(() => {
     if (!slashContext.active) {
@@ -545,7 +578,6 @@ export const App = ({
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
     inputValue,
     setInputValue,
-    setCursorPosition,
   )
 
   const sendMessageRef = useRef<SendMessageFn>()
@@ -696,6 +728,7 @@ export const App = ({
     navigateDown,
     toggleAgentMode,
     onCtrlC: handleCtrlC,
+    historyNavEnabled,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(

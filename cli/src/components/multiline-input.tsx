@@ -14,6 +14,7 @@ import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
 
+import type { InputValue } from '../state/chat-store'
 import type { PasteEvent, ScrollBoxRenderable } from '@opentui/core'
 
 // Helper functions for text manipulation
@@ -80,7 +81,7 @@ function preventKeyDefault(key: KeyWithPreventDefault) {
 
 interface MultilineInputProps {
   value: string
-  onChange: (value: string) => void
+  onChange: (value: InputValue | ((prev: InputValue) => InputValue)) => void
   onSubmit: () => void
   onKeyIntercept?: (
     key: any,
@@ -153,6 +154,9 @@ export const MultilineInput = forwardRef<
     if (cursorPosition > value.length) {
       setCursorPosition(value.length)
     }
+    if (cursorPosition < 0) {
+      setCursorPosition(0)
+    }
   }, [value.length, cursorPosition])
 
   useOpentuiPaste(
@@ -165,8 +169,11 @@ export const MultilineInput = forwardRef<
 
         const newValue =
           value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
-        onChange(newValue)
-        setCursorPosition(cursorPosition + text.length)
+        onChange((prev) => ({
+          text: newValue,
+          cursorPosition: prev.cursorPosition + text.length,
+          lastEditDueToNav: false,
+        }))
       },
       [focused, value, cursorPosition, onChange],
     ),
@@ -183,7 +190,6 @@ export const MultilineInput = forwardRef<
       scrollBox.verticalScrollBar.scrollPosition = maxScroll
     }
   }, [value, cursorPosition, focused])
-
   // Measure actual viewport width from the scrollbox to avoid
   // wrap miscalculations from heuristic padding/border math.
   useEffect(() => {
@@ -206,7 +212,11 @@ export const MultilineInput = forwardRef<
             value,
             cursorPosition,
             setValue: (newValue: string) => {
-              onChange(newValue)
+              onChange({
+                text: newValue,
+                cursorPosition,
+                lastEditDueToNav: false,
+              })
               return newValue.length
             },
             setCursorPosition: (position: number) =>
@@ -270,16 +280,22 @@ export const MultilineInput = forwardRef<
               value.slice(0, cursorPosition - 1) +
               '\n' +
               value.slice(cursorPosition)
-            onChange(newValue)
-            setCursorPosition(cursorPosition)
+            onChange({
+              text: newValue,
+              cursorPosition,
+              lastEditDueToNav: false,
+            })
             return
           }
 
           // For other newline shortcuts, just insert newline
           const newValue =
             value.slice(0, cursorPosition) + '\n' + value.slice(cursorPosition)
-          onChange(newValue)
-          setCursorPosition(cursorPosition + 1)
+          onChange((prev) => ({
+            text: newValue,
+            cursorPosition: prev.cursorPosition + 1,
+            lastEditDueToNav: false,
+          }))
           return
         }
 
@@ -326,8 +342,11 @@ export const MultilineInput = forwardRef<
             return
           }
 
-          onChange(newValue)
-          setCursorPosition(Math.max(0, nextCursor))
+          onChange({
+            text: newValue,
+            cursorPosition: nextCursor,
+            lastEditDueToNav: false,
+          })
           return
         }
 
@@ -339,8 +358,11 @@ export const MultilineInput = forwardRef<
           preventKeyDefault(key)
           const newValue =
             value.slice(0, wordStart) + value.slice(cursorPosition)
-          onChange(newValue)
-          setCursorPosition(wordStart)
+          onChange({
+            text: newValue,
+            cursorPosition: wordStart,
+            lastEditDueToNav: false,
+          })
           return
         } // Cmd+Delete: Delete to line start; fallback to single delete if nothing changes
         if (key.name === 'delete' && key.meta && !isAltLikeModifier) {
@@ -374,14 +396,21 @@ export const MultilineInput = forwardRef<
             return
           }
 
-          onChange(newValue)
-          setCursorPosition(Math.max(0, nextCursor))
+          onChange({
+            text: newValue,
+            cursorPosition: nextCursor,
+            lastEditDueToNav: false,
+          })
           return
         } // Alt+Delete: Delete word forward
         if (key.name === 'delete' && isAltLikeModifier) {
           preventKeyDefault(key)
           const newValue = value.slice(0, cursorPosition) + value.slice(wordEnd)
-          onChange(newValue)
+          onChange({
+            text: newValue,
+            cursorPosition,
+            lastEditDueToNav: false,
+          })
           return
         }
 
@@ -389,7 +418,7 @@ export const MultilineInput = forwardRef<
         if (key.ctrl && lowerKeyName === 'k' && !key.meta && !key.option) {
           preventKeyDefault(key)
           const newValue = value.slice(0, cursorPosition) + value.slice(lineEnd)
-          onChange(newValue)
+          onChange({ text: newValue, cursorPosition, lastEditDueToNav: true })
           return
         }
 
@@ -399,8 +428,11 @@ export const MultilineInput = forwardRef<
           if (cursorPosition > 0) {
             const newValue =
               value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
-            onChange(newValue)
-            setCursorPosition(cursorPosition - 1)
+            onChange({
+              text: newValue,
+              cursorPosition: cursorPosition - 1,
+              lastEditDueToNav: false,
+            })
           }
           return
         }
@@ -411,7 +443,11 @@ export const MultilineInput = forwardRef<
           if (cursorPosition < value.length) {
             const newValue =
               value.slice(0, cursorPosition) + value.slice(cursorPosition + 1)
-            onChange(newValue)
+            onChange({
+              text: newValue,
+              cursorPosition,
+              lastEditDueToNav: false,
+            })
           }
           return
         }
@@ -422,8 +458,11 @@ export const MultilineInput = forwardRef<
           if (cursorPosition > 0) {
             const newValue =
               value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
-            onChange(newValue)
-            setCursorPosition(cursorPosition - 1)
+            onChange({
+              text: newValue,
+              cursorPosition: cursorPosition - 1,
+              lastEditDueToNav: false,
+            })
           }
           return
         }
@@ -434,7 +473,11 @@ export const MultilineInput = forwardRef<
           if (cursorPosition < value.length) {
             const newValue =
               value.slice(0, cursorPosition) + value.slice(cursorPosition + 1)
-            onChange(newValue)
+            onChange({
+              text: newValue,
+              cursorPosition,
+              lastEditDueToNav: false,
+            })
           }
           return
         }
@@ -544,8 +587,11 @@ export const MultilineInput = forwardRef<
             value.slice(0, cursorPosition) +
             key.sequence +
             value.slice(cursorPosition)
-          onChange(newValue)
-          setCursorPosition(cursorPosition + 1)
+          onChange({
+            text: newValue,
+            cursorPosition: cursorPosition + 1,
+            lastEditDueToNav: false,
+          })
           return
         }
       },

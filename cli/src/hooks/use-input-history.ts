@@ -5,10 +5,11 @@ import {
   saveMessageHistory,
 } from '../utils/message-history'
 
+import type { InputValue } from '../state/chat-store'
+
 export const useInputHistory = (
   inputValue: string,
-  setInputValue: (value: string) => void,
-  setCursorPosition: (position: number) => void,
+  setInputValue: (value: InputValue) => void,
 ) => {
   const messageHistoryRef = useRef<string[]>([])
   const historyIndexRef = useRef<number>(-1)
@@ -46,8 +47,11 @@ export const useInputHistory = (
     }
 
     const historyMessage = history[historyIndexRef.current]
-    setInputValue(historyMessage)
-    setCursorPosition(historyMessage.length)
+    setInputValue({
+      text: historyMessage,
+      cursorPosition: historyMessage.length,
+      lastEditDueToNav: true,
+    })
   }, [inputValue, setInputValue])
 
   const navigateDown = useCallback(() => {
@@ -58,13 +62,19 @@ export const useInputHistory = (
     if (historyIndexRef.current < history.length - 1) {
       historyIndexRef.current += 1
       const historyMessage = history[historyIndexRef.current]
-      setInputValue(historyMessage)
-      setCursorPosition(historyMessage.length)
+      setInputValue({
+        text: historyMessage,
+        cursorPosition: historyMessage.length,
+        lastEditDueToNav: true,
+      })
     } else {
       historyIndexRef.current = -1
       const draft = currentDraftRef.current
-      setInputValue(draft)
-      setCursorPosition(draft.length)
+      setInputValue({
+        text: draft,
+        cursorPosition: draft.length,
+        lastEditDueToNav: true,
+      })
     }
   }, [setInputValue])
 

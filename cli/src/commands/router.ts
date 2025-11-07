@@ -3,6 +3,7 @@ import { runTerminalCommand } from '@codebuff/sdk'
 import { handleInitializationFlowLocally } from './init'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
+import type { InputValue } from '../state/chat-store'
 import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { User } from '../utils/auth'
@@ -26,7 +27,9 @@ export function routeUserPrompt(params: {
   sendMessage: SendMessageFn
   setCanProcessQueue: (value: React.SetStateAction<boolean>) => void
   setInputFocused: (focused: boolean) => void
-  setInputValue: (value: string | ((prev: string) => string)) => void
+  setInputValue: (
+    value: InputValue | ((prev: InputValue) => InputValue),
+  ) => void
   setIsAuthenticated: (value: React.SetStateAction<boolean | null>) => void
   setMessages: (
     value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
@@ -120,7 +123,7 @@ export function routeUserPrompt(params: {
     })
 
     saveToHistory(trimmed)
-    setInputValue('')
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
     return
   }
@@ -135,7 +138,7 @@ export function routeUserPrompt(params: {
       timestamp: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, msg])
-    setInputValue('')
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     return
   }
   if (cmd === 'logout' || cmd === 'signout') {
@@ -152,7 +155,7 @@ export function routeUserPrompt(params: {
           timestamp: new Date().toISOString(),
         }
         setMessages((prev) => [...prev, msg])
-        setInputValue('')
+        setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
         setTimeout(() => {
           setUser(null)
           setIsAuthenticated(false)
@@ -166,7 +169,7 @@ export function routeUserPrompt(params: {
     abortControllerRef.current?.abort()
     stopStreaming()
     setCanProcessQueue(false)
-    setInputValue('')
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     handleCtrlC()
     return
   }
@@ -176,7 +179,7 @@ export function routeUserPrompt(params: {
     clearMessages()
 
     saveToHistory(trimmed)
-    setInputValue('')
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
     stopStreaming()
     setCanProcessQueue(false)
@@ -189,7 +192,7 @@ export function routeUserPrompt(params: {
   }
 
   saveToHistory(trimmed)
-  setInputValue('')
+  setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
   if (
     isStreaming ||

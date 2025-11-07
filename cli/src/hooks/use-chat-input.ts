@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useRef } from 'react'
 import stringWidth from 'string-width'
 
-import { logger } from '../utils/logger'
-
+import type { InputValue } from '../state/chat-store'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 
 interface UseChatInputOptions {
   inputValue: string
-  setInputValue: (value: string) => void
+  setInputValue: (value: InputValue) => void
   agentMode: AgentMode
   setAgentMode: (mode: AgentMode) => void
   separatorWidth: number
   initialPrompt: string | null
   sendMessageRef: React.MutableRefObject<SendMessageFn | undefined>
 }
+
+const BUILD_IT_TEXT = 'Build it!'
 
 export const useChatInput = ({
   inputValue,
@@ -40,23 +41,31 @@ export const useChatInput = ({
 
   const handleBuildFast = useCallback(() => {
     setAgentMode('FAST')
-    setInputValue('Build it!')
+    setInputValue({
+      text: BUILD_IT_TEXT,
+      cursorPosition: BUILD_IT_TEXT.length,
+      lastEditDueToNav: true,
+    })
     setTimeout(() => {
       if (sendMessageRef.current) {
-        sendMessageRef.current({ content: 'Build it!', agentMode: 'FAST' })
+        sendMessageRef.current({ content: BUILD_IT_TEXT, agentMode: 'FAST' })
       }
-      setInputValue('')
+      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     }, 0)
   }, [setAgentMode, setInputValue, sendMessageRef])
 
   const handleBuildMax = useCallback(() => {
     setAgentMode('MAX')
-    setInputValue('Build it!')
+    setInputValue({
+      text: BUILD_IT_TEXT,
+      cursorPosition: BUILD_IT_TEXT.length,
+      lastEditDueToNav: true,
+    })
     setTimeout(() => {
       if (sendMessageRef.current) {
         sendMessageRef.current({ content: 'Build it!', agentMode: 'MAX' })
       }
-      setInputValue('')
+      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     }, 0)
   }, [setAgentMode, setInputValue, sendMessageRef])
 
