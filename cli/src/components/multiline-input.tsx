@@ -65,7 +65,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
   return pos
 }
 
-const CURSOR_CHAR = '┃'
+const CURSOR_CHAR = '▍'
 
 type KeyWithPreventDefault =
   | {
@@ -561,10 +561,7 @@ export const MultilineInput = forwardRef<
   const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
   const activeChar = afterCursor.charAt(0) || ' '
   const shouldHighlight =
-    showCursor &&
-    !isPlaceholder &&
-    cursorPosition > 0 &&
-    cursorPosition < displayValue.length
+    showCursor && !isPlaceholder && cursorPosition < displayValue.length
 
   const layoutContent = showCursor
     ? shouldHighlight
