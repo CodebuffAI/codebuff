@@ -28,7 +28,7 @@ async function main() {
   })
 
   // First run
-  const run1 = await client.run({
+  const runOrError1 = await client.run({
     // The agent id. Any agent on the store (https://codebuff.com/store)
     agent: 'codebuff/base@0.0.16',
     prompt: 'Create a simple calculator class',
@@ -37,9 +37,13 @@ async function main() {
       console.log('Codebuff Event', JSON.stringify(event))
     },
   })
+  if (!runOrError1.success) {
+    throw new Error('Run failed' + runOrError1.error.message)
+  }
+  const run1 = runOrError1.value
 
   // Continue the same session with a follow-up
-  const run2 = await client.run({
+  const runOrError2 = await client.run({
     agent: 'codebuff/base@0.0.16',
     prompt: 'Add unit tests for the calculator',
     previousRun: run1, // <-- this is where your next run differs from the previous run
@@ -47,6 +51,9 @@ async function main() {
       console.log('Codebuff Event', JSON.stringify(event))
     },
   })
+  if (!runOrError2.success) {
+    throw new Error('Run failed: ' + runOrError2.error.message)
+  }
 }
 
 main()
@@ -77,7 +84,7 @@ async function main() {
     id: 'my-custom-agent',
     model: 'x-ai/grok-4-fast',
     displayName: 'Sentiment analyzer',
-    toolNames: ['fetch_api_data'] // Defined below!
+    toolNames: ['fetch_api_data'], // Defined below!
     instructionsPrompt: `
 1. Describe the different sentiments in the given prompt.
 2. Score the prompt along the following 5 dimensions:
@@ -109,7 +116,7 @@ async function main() {
     },
   })
 
-  const { output } = await client.run({
+  const runOrError = await client.run({
     // Run a custom agent by id. Must match an id in the agentDefinitions field below.
     agent: 'my-custom-agent',
     prompt: "Today I'm feeling very happy!",
@@ -123,6 +130,10 @@ async function main() {
       console.log('Codebuff Event', JSON.stringify(event))
     },
   })
+  if (!runOrError.success) {
+    throw new Error('Run failed: ' + runOrError.error.message)
+  }
+  const { output } = runOrError.value
 
   if (output.type === 'error') {
     console.error(`The run failed:\n${output.message}`)
@@ -164,9 +175,13 @@ Runs a Codebuff agent with the specified options.
 
 #### Returns
 
-Returns a Promise that resolves to a `RunState` object which can be passed into subsequent runs via the `previousRun` parameter to resume the conversation.
+Returns a Promise that resolves to either a "success" or a "failure" object.
+
+- The "success" object contains a `RunState` object which can be passed into subsequent runs via the `previousRun` parameter to resume the conversation.
+- The "failure" object contains an `Error` object with a `name`, `message`, and `stack` properties.
 
 The `RunState` object contains:
+
 - `sessionState`: Internal state to be passed to the next run
 - `output`: The agent's output (text, error, or other types)
 
