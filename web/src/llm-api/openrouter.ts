@@ -274,6 +274,7 @@ export async function handleOpenRouterStream({
       clearInterval(heartbeatInterval)
       clientDisconnected = true
       logger.warn(
+        { clientDisconnected, state },
         'Client cancelled stream, continuing OpenRouter consumption for billing',
       )
     },
