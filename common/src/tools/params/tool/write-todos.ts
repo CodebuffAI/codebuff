@@ -21,7 +21,7 @@ export const writeTodosParams = {
         ),
     })
     .describe(
-      'Write a todo list to track tasks. Use this frequently to maintain a step-by-step plan.',
+      'Write a todo list to track tasks for multi-step implementations. Use this frequently to maintain an updated step-by-step plan.',
     ),
   outputs: z.tuple([
     z.object({
