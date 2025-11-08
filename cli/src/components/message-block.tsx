@@ -637,6 +637,25 @@ export const MessageBlock = ({
           Boolean,
         ) as React.ReactNode[]
         if (nonNullGroupNodes.length > 0) {
+          // Check for any subsequent renderable blocks without allocating a slice
+          let hasRenderableAfter = false
+          for (let j = i; j < sourceBlocks.length; j++) {
+            const b = sourceBlocks[j] as any
+            if (b.type === 'tool') {
+              if ((b as any).toolName !== 'end_turn') {
+                hasRenderableAfter = true
+                break
+              }
+            } else if (
+              b.type === 'text' ||
+              b.type === 'html' ||
+              b.type === 'agent' ||
+              b.type === 'agent-list'
+            ) {
+              hasRenderableAfter = true
+              break
+            }
+          }
           nodes.push(
             <box
               key={`${messageId}-tool-group-${start}`}
@@ -644,7 +663,7 @@ export const MessageBlock = ({
                 flexDirection: 'column',
                 gap: 0,
                 marginTop: 1,
-                marginBottom: 1,
+                marginBottom: hasRenderableAfter ? 1 : 0,
               }}
             >
               {nonNullGroupNodes}
