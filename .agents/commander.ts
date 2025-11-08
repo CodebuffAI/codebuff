@@ -26,8 +26,7 @@ const commander: AgentDefinition = {
         },
         timeout_seconds: {
           type: 'number',
-          description:
-            'Set to -1 for no timeout. Default 30',
+          description: 'Set to -1 for no timeout. Default 30',
         },
       },
       required: ['command'],
@@ -36,10 +35,10 @@ const commander: AgentDefinition = {
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['run_terminal_command'],
-  systemPrompt: `You are an expert at running terminal commands and analyzing their output.
+  systemPrompt: `You are an expert at analyzing the output of a terminal command.
 
 Your job is to:
-1. Run the terminal commands provided
+1. Review the terminal command and its output
 2. Analyze the output based on what the user requested
 3. Provide a clear, concise description of the relevant information
 
@@ -51,7 +50,9 @@ When describing command output:
 - Don't include any follow up recommendations, suggestions, or offers to help`,
   instructionsPrompt: `The user has provided a command to run and specified what information they want from the output.
 
-Run the command and then describe the relevant information from the output, following the user's instructions about what to focus on.`,
+Run the command and then describe the relevant information from the output, following the user's instructions about what to focus on.
+
+Do not use any tools! Only analyze the output of the command.`,
   handleSteps: function* ({ params }: AgentStepContext) {
     const command = params?.command as string | undefined
     if (!command) {
@@ -70,7 +71,7 @@ Run the command and then describe the relevant information from the output, foll
     }
 
     // Let the model analyze and describe the output
-    yield 'STEP_ALL'
+    yield 'STEP'
   },
 }
 
