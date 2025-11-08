@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { memo, useCallback, type ReactNode } from 'react'
+import { memo, useCallback, useMemo, type ReactNode } from 'react'
 import React from 'react'
 
 import { MessageBlock } from './message-block'
@@ -194,11 +194,17 @@ const MessageWithAgents = memo(
     const timestampColor = isError ? 'red' : isAi ? theme.muted : theme.muted
     const estimatedMessageWidth = availableWidth
     const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
-    const paletteForMessage: MarkdownPalette = {
-      ...markdownPalette,
-      codeTextFg: textColor,
-    }
-    const markdownOptions = { codeBlockWidth, palette: paletteForMessage }
+    const paletteForMessage: MarkdownPalette = useMemo(
+      () => ({
+        ...markdownPalette,
+        codeTextFg: textColor,
+      }),
+      [markdownPalette, textColor],
+    )
+    const markdownOptions = useMemo(
+      () => ({ codeBlockWidth, palette: paletteForMessage }),
+      [codeBlockWidth, paletteForMessage],
+    )
 
     const isLoading =
       isAi && message.content === '' && !message.blocks && isWaitingForResponse
