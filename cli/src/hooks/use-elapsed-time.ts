@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 export interface ElapsedTimeTracker {
   /**
@@ -67,5 +67,10 @@ export const useElapsedTime = (): ElapsedTimeTracker => {
     return () => clearInterval(interval)
   }, [startTime])
 
-  return { start, stop, elapsedSeconds, startTime }
+  const timer = useMemo(
+    () => ({ start, stop, elapsedSeconds, startTime }),
+    [start, stop, elapsedSeconds, startTime],
+  )
+
+  return timer
 }
