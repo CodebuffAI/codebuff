@@ -297,62 +297,6 @@ export const Chat = ({
     localAgents,
   })
 
-  const [suggestionMenuDisabled, setSuggestionMenuDisabled] = useState(false)
-  // Disable suggestion menu during navigation
-  useEffect(() => {
-    setSuggestionMenuDisabled(!lastEditDueToNav)
-  }, [setSuggestionMenuDisabled, lastEditDueToNav])
-
-  const [historyNavUpEnabled, setHistoryNavUpEnabled] = useState(true)
-  useEffect(() => {
-    if (lastEditDueToNav) {
-      setHistoryNavUpEnabled(true)
-      return
-    }
-
-    if (slashContext.active) {
-      setHistoryNavUpEnabled(false)
-      return
-    }
-    if (mentionContext.active) {
-      setHistoryNavUpEnabled(false)
-      return
-    }
-
-    setHistoryNavUpEnabled(cursorPosition === 0)
-  }, [
-    setHistoryNavUpEnabled,
-    lastEditDueToNav,
-    slashContext.active,
-    mentionContext.active,
-    cursorPosition,
-  ])
-
-  const [historyNavDownEnabled, setHistoryNavDownEnabled] = useState(true)
-  useEffect(() => {
-    if (lastEditDueToNav) {
-      setHistoryNavDownEnabled(true)
-      return
-    }
-
-    if (slashContext.active) {
-      setHistoryNavDownEnabled(false)
-      return
-    }
-    if (mentionContext.active) {
-      setHistoryNavDownEnabled(false)
-      return
-    }
-
-    setHistoryNavDownEnabled(inputValue.length === cursorPosition)
-  }, [
-    setHistoryNavDownEnabled,
-    lastEditDueToNav,
-    slashContext.active,
-    mentionContext.active,
-    cursorPosition,
-    inputValue.length,
-  ])
   useEffect(() => {
     if (!slashContext.active) {
       setSlashSelectedIndex(0)
@@ -422,15 +366,19 @@ export const Chat = ({
 
       if (key.name === 'down' && !hasModifier) {
         // Move down (no wrap)
-        setSlashSelectedIndex((prev) =>
-          Math.min(prev + 1, slashMatches.length - 1),
-        )
+        if (slashSelectedIndex === slashMatches.length - 1) {
+          return false
+        }
+        setSlashSelectedIndex((prev) => prev + 1)
         return true
       }
 
       if (key.name === 'up' && !hasModifier) {
         // Move up (no wrap)
-        setSlashSelectedIndex((prev) => Math.max(prev - 1, 0))
+        if (slashSelectedIndex === 0) {
+          return false
+        }
+        setSlashSelectedIndex((prev) => prev - 1)
         return true
       }
 
@@ -506,15 +454,19 @@ export const Chat = ({
 
       if (key.name === 'down' && !hasModifier) {
         // Move down (no wrap)
-        setAgentSelectedIndex((prev) =>
-          Math.min(prev + 1, agentMatches.length - 1),
-        )
+        if (agentSelectedIndex === agentMatches.length - 1) {
+          return false
+        }
+        setAgentSelectedIndex((prev) => prev + 1)
         return true
       }
 
       if (key.name === 'up' && !hasModifier) {
         // Move up (no wrap)
-        setAgentSelectedIndex((prev) => Math.max(prev - 1, 0))
+        if (agentSelectedIndex === 0) {
+          return false
+        }
+        setAgentSelectedIndex((prev) => prev - 1)
         return true
       }
 
@@ -708,6 +660,21 @@ export const Chat = ({
       handleCtrlC,
     ],
   )
+
+  const historyNavUpEnabled =
+    lastEditDueToNav ||
+    (cursorPosition === 0 &&
+      ((slashContext.active && slashSelectedIndex === 0) ||
+        (mentionContext.active && agentSelectedIndex === 0) ||
+        (!slashContext.active && !mentionContext.active)))
+  const historyNavDownEnabled =
+    lastEditDueToNav ||
+    (cursorPosition === inputValue.length &&
+      ((slashContext.active &&
+        slashSelectedIndex === slashMatches.length - 1) ||
+        (mentionContext.active &&
+          agentSelectedIndex === agentMatches.length - 1) ||
+        (!slashContext.active && !mentionContext.active)))
 
   useKeyboardHandlers({
     isStreaming,

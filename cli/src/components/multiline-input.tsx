@@ -12,7 +12,6 @@ import {
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
-import { clamp } from '../utils/math'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
 
 import type { InputValue } from '../state/chat-store'
@@ -139,7 +138,6 @@ export const MultilineInput = forwardRef<
     }),
     [],
   )
-
 
   useOpentuiPaste(
     useCallback(
