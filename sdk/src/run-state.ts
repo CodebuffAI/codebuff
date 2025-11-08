@@ -160,20 +160,61 @@ async function discoverProjectFiles(params: {
 }
 
 /**
- * Auto-derives knowledge files from project files if knowledgeFiles is undefined
+ * Selects knowledge files from a list of file paths with fallback logic.
+ * For each directory, checks for knowledge.md first, then AGENTS.md, then CLAUDE.md.
+ * @internal Exported for testing
+ */
+export function selectKnowledgeFilePaths(allFilePaths: string[]): string[] {
+  const knowledgeCandidates = allFilePaths.filter((filePath) => {
+    const lowercaseFilePath = filePath.toLowerCase()
+    return (
+      lowercaseFilePath.endsWith('knowledge.md') ||
+      lowercaseFilePath.endsWith('agents.md') ||
+      lowercaseFilePath.endsWith('claude.md')
+    )
+  })
+
+  // Group candidates by directory
+  const byDirectory = new Map<string, string[]>()
+  for (const filePath of knowledgeCandidates) {
+    const dir = path.dirname(filePath)
+    if (!byDirectory.has(dir)) {
+      byDirectory.set(dir, [])
+    }
+    byDirectory.get(dir)!.push(filePath)
+  }
+
+  const selectedFiles: string[] = []
+
+  // For each directory, select one knowledge file using fallback priority
+  for (const [_dir, files] of byDirectory.entries()) {
+    const knowledgeMd = files.find((f) => f.toLowerCase().endsWith('knowledge.md'))
+    const agentsMd = files.find((f) => f.toLowerCase().endsWith('agents.md'))
+    const claudeMd = files.find((f) => f.toLowerCase().endsWith('claude.md'))
+
+    // Priority: knowledge.md > AGENTS.md > CLAUDE.md
+    const selectedKnowledgeFile = knowledgeMd || agentsMd || claudeMd
+    if (selectedKnowledgeFile) {
+      selectedFiles.push(selectedKnowledgeFile)
+    }
+  }
+
+  return selectedFiles
+}
+
+/**
+ * Auto-derives knowledge files from project files if knowledgeFiles is undefined.
+ * Implements fallback priority: knowledge.md > AGENTS.md > CLAUDE.md per directory.
  */
 function deriveKnowledgeFiles(
   projectFiles: Record<string, string>,
 ): Record<string, string> {
+  const allFilePaths = Object.keys(projectFiles)
+  const selectedFilePaths = selectKnowledgeFilePaths(allFilePaths)
+
   const knowledgeFiles: Record<string, string> = {}
-  for (const [filePath, fileContents] of Object.entries(projectFiles)) {
-    const lowercasePathName = filePath.toLowerCase()
-    if (
-      lowercasePathName.endsWith('knowledge.md') ||
-      lowercasePathName.endsWith('claude.md')
-    ) {
-      knowledgeFiles[filePath] = fileContents
-    }
+  for (const filePath of selectedFilePaths) {
+    knowledgeFiles[filePath] = projectFiles[filePath]
   }
   return knowledgeFiles
 }
