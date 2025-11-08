@@ -3,6 +3,7 @@ import { TextAttributes } from '@opentui/core'
 import React, { memo, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
+import { ElapsedTimer } from './elapsed-timer'
 import { renderToolComponent } from './tools/registry'
 import { ToolCallItem } from './tools/tool-call-item'
 import { useTheme } from '../hooks/use-theme'
@@ -14,7 +15,6 @@ import {
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
 
-import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ContentBlock } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
 
@@ -35,7 +35,7 @@ interface MessageBlockProps {
   isComplete?: boolean
   completionTime?: string
   credits?: number
-  timer: ElapsedTimeTracker
+  timerStartTime: number | null
   textColor?: ThemeColor
   timestampColor: string
   markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
@@ -58,7 +58,7 @@ export const MessageBlock = memo(
     isComplete,
     completionTime,
     credits,
-    timer,
+    timerStartTime,
     textColor,
     timestampColor,
     markdownOptions,
@@ -70,9 +70,6 @@ export const MessageBlock = memo(
   }: MessageBlockProps): ReactNode => {
     const theme = useTheme()
     const resolvedTextColor = textColor ?? theme.foreground
-
-    // Get elapsed time from timer for streaming AI messages
-    const elapsedSeconds = timer.elapsedSeconds
 
     const renderContentWithMarkdown = (
       rawContent: string,
@@ -711,18 +708,20 @@ export const MessageBlock = memo(
         {isAi && (
           <>
             {/* Show elapsed time while streaming */}
-            {isLoading && !isComplete && elapsedSeconds > 0 && (
+            {isLoading && !isComplete && (
               <text
                 attributes={TextAttributes.DIM}
                 style={{
                   wrapMode: 'none',
-                  fg: theme.secondary,
                   marginTop: 0,
                   marginBottom: 0,
                   alignSelf: 'flex-start',
                 }}
               >
-                {elapsedSeconds}s
+                <ElapsedTimer
+                  startTime={timerStartTime}
+                  attributes={TextAttributes.DIM}
+                />
               </text>
             )}
             {/* Show completion time and credits when complete */}

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react'
 
+import { ElapsedTimer } from './elapsed-timer'
 import { ShimmerText } from './shimmer-text'
 import { useTheme } from '../hooks/use-theme'
 import { getCodebuffClient } from '../utils/codebuff-client'
-
-import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 
 const useConnectionStatus = () => {
   const [isConnected, setIsConnected] = useState(true)
@@ -38,17 +37,16 @@ const useConnectionStatus = () => {
 export const StatusIndicator = ({
   clipboardMessage,
   isActive = false,
-  timer,
+  timerStartTime,
   nextCtrlCWillExit,
 }: {
   clipboardMessage?: string | null
   isActive?: boolean
-  timer: ElapsedTimeTracker
+  timerStartTime: number | null
   nextCtrlCWillExit: boolean
 }) => {
   const theme = useTheme()
   const isConnected = useConnectionStatus()
-  const elapsedSeconds = timer.elapsedSeconds
 
   if (nextCtrlCWillExit) {
     return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
@@ -69,19 +67,16 @@ export const StatusIndicator = ({
   }
 
   if (isActive) {
-    // If we have elapsed time > 0, show it
-    if (elapsedSeconds > 0) {
-      return <span fg={theme.secondary}>{elapsedSeconds}s</span>
+    if (!timerStartTime || Date.now() - timerStartTime < 1000) {
+      return (
+        <ShimmerText
+          text="thinking..."
+          interval={160}
+          primaryColor={theme.secondary}
+        />
+      )
     }
-
-    // Otherwise show thinking...
-    return (
-      <ShimmerText
-        text="thinking..."
-        interval={160}
-        primaryColor={theme.secondary}
-      />
-    )
+    return <ElapsedTimer startTime={timerStartTime} />
   }
 
   return null
@@ -90,17 +85,18 @@ export const StatusIndicator = ({
 export const useHasStatus = (params: {
   isActive: boolean
   clipboardMessage?: string | null
-  timer?: ElapsedTimeTracker
+  timerStartTime?: number | null
   nextCtrlCWillExit: boolean
 }): boolean => {
-  const { isActive, clipboardMessage, timer, nextCtrlCWillExit } = params
+  const { isActive, clipboardMessage, timerStartTime, nextCtrlCWillExit } =
+    params
 
   const isConnected = useConnectionStatus()
   return (
     isConnected === false ||
     isActive ||
     Boolean(clipboardMessage) ||
-    Boolean(timer?.startTime) ||
+    Boolean(timerStartTime) ||
     nextCtrlCWillExit
   )
 }

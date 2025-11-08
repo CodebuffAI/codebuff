@@ -208,6 +208,9 @@ export const Chat = ({
   const mainAgentTimer = useElapsedTime()
   const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
 
+  // Extract just the startTime for passing to components
+  const timerStartTime = mainAgentTimer.startTime
+
   useEffect(() => {
     isChainInProgressRef.current = isChainInProgress
   }, [isChainInProgress])
@@ -663,7 +666,7 @@ export const Chat = ({
   const hasStatus = useHasStatus({
     isActive: isStatusActive,
     clipboardMessage,
-    timer: mainAgentTimer,
+    timerStartTime,
     nextCtrlCWillExit,
   })
 
@@ -765,7 +768,7 @@ export const Chat = ({
     <StatusIndicator
       clipboardMessage={clipboardMessage}
       isActive={isStatusActive}
-      timer={mainAgentTimer}
+      timerStartTime={timerStartTime}
       nextCtrlCWillExit={nextCtrlCWillExit}
     />
   )
@@ -841,7 +844,7 @@ export const Chat = ({
             collapsedAgents={collapsedAgents}
             streamingAgents={streamingAgents}
             isWaitingForResponse={isWaitingForResponse}
-            timer={mainAgentTimer}
+            timerStartTime={timerStartTime}
             setCollapsedAgents={setCollapsedAgents}
             setFocusedAgentId={setFocusedAgentId}
             userOpenedAgents={userOpenedAgents}

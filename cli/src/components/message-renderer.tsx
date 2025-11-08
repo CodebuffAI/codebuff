@@ -11,7 +11,6 @@ import {
 } from '../utils/markdown-renderer'
 import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
-import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
 
@@ -25,7 +24,7 @@ interface MessageRendererProps {
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   isWaitingForResponse: boolean
-  timer: ElapsedTimeTracker
+  timerStartTime: number | null
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   userOpenedAgents: Set<string>
@@ -43,7 +42,7 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
-    timer,
+    timerStartTime,
     setCollapsedAgents,
     setFocusedAgentId,
     setUserOpenedAgents,
@@ -95,7 +94,7 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
             setUserOpenedAgents={setUserOpenedAgents}
             setFocusedAgentId={setFocusedAgentId}
             isWaitingForResponse={isWaitingForResponse}
-            timer={timer}
+            timerStartTime={timerStartTime}
             onToggleCollapsed={onToggleCollapsed}
           />
         )
@@ -119,7 +118,7 @@ interface MessageWithAgentsProps {
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
-  timer: ElapsedTimeTracker
+  timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
 }
 
@@ -139,7 +138,7 @@ const MessageWithAgents = memo(
     setUserOpenedAgents,
     setFocusedAgentId,
     isWaitingForResponse,
-    timer,
+    timerStartTime,
     onToggleCollapsed,
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
@@ -161,7 +160,7 @@ const MessageWithAgents = memo(
           setUserOpenedAgents={setUserOpenedAgents}
           setFocusedAgentId={setFocusedAgentId}
           isWaitingForResponse={isWaitingForResponse}
-          timer={timer}
+          timerStartTime={timerStartTime}
           onToggleCollapsed={onToggleCollapsed}
         />
       )
@@ -272,7 +271,7 @@ const MessageWithAgents = memo(
                   isComplete={message.isComplete}
                   completionTime={message.completionTime}
                   credits={message.credits}
-                  timer={timer}
+                  timerStartTime={timerStartTime}
                   textColor={textColor}
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
@@ -310,7 +309,7 @@ const MessageWithAgents = memo(
                 isComplete={message.isComplete}
                 completionTime={message.completionTime}
                 credits={message.credits}
-                timer={timer}
+                timerStartTime={timerStartTime}
                 textColor={textColor}
                 timestampColor={timestampColor}
                 markdownOptions={markdownOptions}
@@ -343,7 +342,7 @@ const MessageWithAgents = memo(
                   setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
-                  timer={timer}
+                  timerStartTime={timerStartTime}
                   onToggleCollapsed={onToggleCollapsed}
                 />
               </box>
@@ -369,7 +368,7 @@ interface AgentMessageProps {
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
-  timer: ElapsedTimeTracker
+  timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
 }
 
@@ -388,7 +387,7 @@ const AgentMessage = memo(
     setUserOpenedAgents,
     setFocusedAgentId,
     isWaitingForResponse,
-    timer,
+    timerStartTime,
     onToggleCollapsed,
   }: AgentMessageProps): ReactNode => {
     const agentInfo = message.agent!
@@ -581,7 +580,7 @@ const AgentMessage = memo(
                   setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
-                  timer={timer}
+                  timerStartTime={timerStartTime}
                   onToggleCollapsed={onToggleCollapsed}
                 />
               </box>
