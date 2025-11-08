@@ -83,15 +83,7 @@ interface MultilineInputProps {
   value: string
   onChange: (value: InputValue | ((prev: InputValue) => InputValue)) => void
   onSubmit: () => void
-  onKeyIntercept?: (
-    key: any,
-    helpers: {
-      value: string
-      cursorPosition: number
-      setValue: (newValue: string) => number
-      setCursorPosition: (position: number) => void
-    },
-  ) => boolean
+  onKeyIntercept?: (key: any) => boolean
   placeholder?: string
   focused?: boolean
   maxHeight?: number
@@ -208,20 +200,7 @@ export const MultilineInput = forwardRef<
         if (!focused) return
 
         if (onKeyIntercept) {
-          const handled = onKeyIntercept(key, {
-            value,
-            cursorPosition,
-            setValue: (newValue: string) => {
-              onChange({
-                text: newValue,
-                cursorPosition,
-                lastEditDueToNav: false,
-              })
-              return newValue.length
-            },
-            setCursorPosition: (position: number) =>
-              setCursorPosition(Math.max(0, position)),
-          })
+          const handled = onKeyIntercept(key)
           if (handled) {
             return
           }

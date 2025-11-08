@@ -389,12 +389,6 @@ export const Chat = ({
   const handleSlashMenuKey = useCallback(
     (
       key: any,
-      helpers: {
-        value: string
-        cursorPosition: number
-        setValue: (newValue: string) => number
-        setCursorPosition: (position: number) => void
-      },
     ): boolean => {
       if (!slashContext.active || slashMatches.length === 0) {
         return false
@@ -411,15 +405,14 @@ export const Chat = ({
         if (startIndex < 0) {
           return false
         }
-        const before = helpers.value.slice(0, startIndex)
-        const after = helpers.value.slice(
+        const before = inputValue.slice(0, startIndex)
+        const after = inputValue.slice(
           startIndex + 1 + slashContext.query.length,
-          helpers.value.length,
+          inputValue.length,
         )
         const replacement = `/${selected.id} `
         const newValue = before + replacement + after
-        helpers.setValue(newValue)
-        helpers.setCursorPosition(before.length + replacement.length)
+        setInputValue({text: newValue, cursorPosition: before.length + replacement.length, lastEditDueToNav: false})
         setSlashSelectedIndex(0)
         return true
       }
@@ -469,18 +462,14 @@ export const Chat = ({
       slashContext.query,
       slashMatches,
       slashSelectedIndex,
+      inputValue,
+      setInputValue,
     ],
   )
 
   const handleAgentMenuKey = useCallback(
     (
       key: any,
-      helpers: {
-        value: string
-        cursorPosition: number
-        setValue: (newValue: string) => number
-        setCursorPosition: (position: number) => void
-      },
     ): boolean => {
       if (!mentionContext.active || agentMatches.length === 0) {
         return false
@@ -498,15 +487,17 @@ export const Chat = ({
           return false
         }
 
-        const before = helpers.value.slice(0, startIndex)
-        const after = helpers.value.slice(
+        const before = inputValue.slice(0, startIndex)
+        const after = inputValue.slice(
           startIndex + 1 + mentionContext.query.length,
-          helpers.value.length,
+          inputValue.length,
         )
         const replacement = `@${selected.displayName} `
         const newValue = before + replacement + after
-        helpers.setValue(newValue)
-        helpers.setCursorPosition(before.length + replacement.length)
+        setInputValue({text: newValue, 
+          cursorPosition: before.length + replacement.length,
+          lastEditDueToNav: false,
+        })
         setAgentSelectedIndex(0)
         return true
       }
@@ -556,24 +547,20 @@ export const Chat = ({
       mentionContext.query,
       agentMatches,
       agentSelectedIndex,
+      inputValue,
+      setInputValue,
     ],
   )
 
   const handleSuggestionMenuKey = useCallback(
     (
       key: any,
-      helpers: {
-        value: string
-        cursorPosition: number
-        setValue: (newValue: string) => number
-        setCursorPosition: (position: number) => void
-      },
     ): boolean => {
-      if (handleSlashMenuKey(key, helpers)) {
+      if (handleSlashMenuKey(key)) {
         return true
       }
 
-      if (handleAgentMenuKey(key, helpers)) {
+      if (handleAgentMenuKey(key)) {
         return true
       }
 
