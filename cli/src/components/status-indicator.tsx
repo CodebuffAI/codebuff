@@ -37,11 +37,13 @@ const useConnectionStatus = () => {
 export const StatusIndicator = ({
   clipboardMessage,
   isActive = false,
+  isWaitingForResponse = false,
   timerStartTime,
   nextCtrlCWillExit,
 }: {
   clipboardMessage?: string | null
   isActive?: boolean
+  isWaitingForResponse?: boolean
   timerStartTime: number | null
   nextCtrlCWillExit: boolean
 }) => {
@@ -67,7 +69,7 @@ export const StatusIndicator = ({
   }
 
   if (isActive) {
-    if (!timerStartTime || Date.now() - timerStartTime < 1000) {
+    if (isWaitingForResponse) {
       return (
         <ShimmerText
           text="thinking..."

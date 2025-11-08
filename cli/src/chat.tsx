@@ -735,6 +735,7 @@ export const Chat = ({
     <StatusIndicator
       clipboardMessage={clipboardMessage}
       isActive={isStatusActive}
+      isWaitingForResponse={isWaitingForResponse}
       timerStartTime={timerStartTime}
       nextCtrlCWillExit={nextCtrlCWillExit}
     />
