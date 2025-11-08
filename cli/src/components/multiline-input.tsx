@@ -12,6 +12,7 @@ import {
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
+import { clamp } from '../utils/math'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
 
 import type { InputValue } from '../state/chat-store'
@@ -90,7 +91,6 @@ interface MultilineInputProps {
   width: number
   textAttributes?: number
   cursorPosition: number
-  setCursorPosition: (position: number) => void
 }
 
 export type MultilineInputHandle = {
@@ -112,7 +112,6 @@ export const MultilineInput = forwardRef<
     textAttributes,
     onKeyIntercept,
     cursorPosition,
-    setCursorPosition,
   }: MultilineInputProps,
   forwardedRef,
 ) {
@@ -143,12 +142,10 @@ export const MultilineInput = forwardRef<
 
   // Sync cursor when value changes externally
   useEffect(() => {
-    if (cursorPosition > value.length) {
-      setCursorPosition(value.length)
-    }
-    if (cursorPosition < 0) {
-      setCursorPosition(0)
-    }
+    onChange((prev) => ({
+      ...prev,
+      cursorPosition: clamp(cursorPosition, 0, value.length),
+    }))
   }, [value.length, cursorPosition])
 
   useOpentuiPaste(
@@ -467,7 +464,11 @@ export const MultilineInput = forwardRef<
           (key.name === 'left' || lowerKeyName === 'b')
         ) {
           preventKeyDefault(key)
-          setCursorPosition(wordStart)
+          onChange({
+            text: value,
+            cursorPosition: wordStart,
+            lastEditDueToNav: false,
+          })
           return
         }
 
@@ -477,7 +478,11 @@ export const MultilineInput = forwardRef<
           (key.name === 'right' || lowerKeyName === 'f')
         ) {
           preventKeyDefault(key)
-          setCursorPosition(wordEnd)
+          onChange({
+            text: value,
+            cursorPosition: wordEnd,
+            lastEditDueToNav: false,
+          })
           return
         }
 
@@ -488,7 +493,11 @@ export const MultilineInput = forwardRef<
           (key.name === 'home' && !key.ctrl && !key.meta)
         ) {
           preventKeyDefault(key)
-          setCursorPosition(lineStart)
+          onChange({
+            text: value,
+            cursorPosition: lineStart,
+            lastEditDueToNav: false,
+          })
           return
         }
 
@@ -499,7 +508,11 @@ export const MultilineInput = forwardRef<
           (key.name === 'end' && !key.ctrl && !key.meta)
         ) {
           preventKeyDefault(key)
-          setCursorPosition(lineEnd)
+          onChange({
+            text: value,
+            cursorPosition: lineEnd,
+            lastEditDueToNav: false,
+          })
           return
         }
 
@@ -509,7 +522,7 @@ export const MultilineInput = forwardRef<
           (key.ctrl && key.name === 'home')
         ) {
           preventKeyDefault(key)
-          setCursorPosition(0)
+          onChange({ text: value, cursorPosition: 0, lastEditDueToNav: false })
           return
         }
 
@@ -519,48 +532,76 @@ export const MultilineInput = forwardRef<
           (key.ctrl && key.name === 'end')
         ) {
           preventKeyDefault(key)
-          setCursorPosition(value.length)
+          onChange({
+            text: value,
+            cursorPosition: value.length,
+            lastEditDueToNav: false,
+          })
           return
         }
 
         // Ctrl+B: Backward char (Emacs)
         if (key.ctrl && lowerKeyName === 'b' && !key.meta && !key.option) {
           preventKeyDefault(key)
-          setCursorPosition(Math.max(0, cursorPosition - 1))
+          onChange({
+            text: value,
+            cursorPosition: cursorPosition - 1,
+            lastEditDueToNav: false,
+          })
           return
         }
 
         // Ctrl+F: Forward char (Emacs)
         if (key.ctrl && lowerKeyName === 'f' && !key.meta && !key.option) {
           preventKeyDefault(key)
-          setCursorPosition(Math.min(value.length, cursorPosition + 1))
+          onChange({
+            text: value,
+            cursorPosition: Math.min(value.length, cursorPosition + 1),
+            lastEditDueToNav: false,
+          })
           return
         }
 
         // Left arrow (no modifiers)
         if (key.name === 'left' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          setCursorPosition(Math.max(0, cursorPosition - 1))
+          onChange({
+            text: value,
+            cursorPosition: cursorPosition - 1,
+            lastEditDueToNav: false,
+          })
           return
         }
 
         // Right arrow (no modifiers)
         if (key.name === 'right' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          setCursorPosition(Math.min(value.length, cursorPosition + 1))
+          onChange({
+            text: value,
+            cursorPosition: cursorPosition + 1,
+            lastEditDueToNav: false,
+          })
           return
         }
 
         // Up arrow (no modifiers)
         if (key.name === 'up' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          setCursorPosition(cursorPosition - getEffectiveCols())
+          onChange({
+            text: value,
+            cursorPosition: cursorPosition - getEffectiveCols(),
+            lastEditDueToNav: false,
+          })
         }
 
         // Down arrow (no modifiers)
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          setCursorPosition(cursorPosition + getEffectiveCols())
+          onChange({
+            text: value,
+            cursorPosition: cursorPosition + getEffectiveCols(),
+            lastEditDueToNav: false,
+          })
         }
 
         // Regular character input

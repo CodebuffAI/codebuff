@@ -45,7 +45,6 @@ type ChatStoreActions = {
   setInputValue: (
     value: InputValue | ((prev: InputValue) => InputValue),
   ) => void
-  setCursorPosition: (value: number | ((prev: number) => number)) => void
   setInputFocused: (focused: boolean) => void
   setActiveSubagents: (
     value: Set<string> | ((prev: Set<string>) => Set<string>),
@@ -123,12 +122,6 @@ export const useChatStore = create<ChatStore>()(
         state.inputValue = text
         state.cursorPosition = cursorPosition
         state.lastEditDueToNav = lastEditDueToNav
-      }),
-
-    setCursorPosition: (value) =>
-      set((state) => {
-        state.cursorPosition =
-          typeof value === 'function' ? value(state.cursorPosition) : value
       }),
 
     setInputFocused: (focused) =>

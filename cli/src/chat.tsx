@@ -94,7 +94,6 @@ export const Chat = ({
     cursorPosition,
     lastEditDueToNav,
     setInputValue,
-    setCursorPosition,
     inputFocused,
     setInputFocused,
     slashSelectedIndex,
@@ -127,7 +126,6 @@ export const Chat = ({
       cursorPosition: store.cursorPosition,
       lastEditDueToNav: store.lastEditDueToNav,
       setInputValue: store.setInputValue,
-      setCursorPosition: store.setCursorPosition,
       inputFocused: store.inputFocused,
       setInputFocused: store.setInputFocused,
       slashSelectedIndex: store.slashSelectedIndex,
@@ -935,7 +933,6 @@ export const Chat = ({
                 textAttributes={theme.messageTextAttributes}
                 ref={inputRef}
                 cursorPosition={cursorPosition}
-                setCursorPosition={setCursorPosition}
               />
             </box>
             <box
