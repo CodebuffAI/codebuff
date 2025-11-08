@@ -29,12 +29,7 @@ const baseProps = {
   isComplete: false,
   completionTime: undefined,
   credits: undefined,
-  timer: {
-    start: () => {},
-    stop: () => {},
-    elapsedSeconds: 0,
-    startTime: null,
-  },
+  timerStartTime: null,
   textColor: theme.foreground,
   timestampColor: theme.muted,
   markdownOptions: {

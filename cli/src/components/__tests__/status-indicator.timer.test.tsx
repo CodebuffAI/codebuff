@@ -16,12 +16,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 import * as codebuffClient from '../../utils/codebuff-client'
 
-const createTimer = (elapsedSeconds: number, started: boolean) => ({
-  start: () => {},
-  stop: () => {},
-  elapsedSeconds,
-  startTime: started ? Date.now() - elapsedSeconds * 1000 : null,
-})
+const createTimerStartTime = (
+  elapsedSeconds: number,
+  started: boolean,
+): number | null =>
+  started ? Date.now() - elapsedSeconds * 1000 : null
 
 describe('StatusIndicator timer rendering', () => {
   let getClientSpy: ReturnType<typeof spyOn>
@@ -41,7 +40,7 @@ describe('StatusIndicator timer rendering', () => {
       <StatusIndicator
         clipboardMessage={null}
         isActive={true}
-        timer={createTimer(5, true)}
+        timerStartTime={createTimerStartTime(5, true)}
         nextCtrlCWillExit={false}
       />,
     )
@@ -52,7 +51,7 @@ describe('StatusIndicator timer rendering', () => {
       <StatusIndicator
         clipboardMessage={null}
         isActive={false}
-        timer={createTimer(0, false)}
+        timerStartTime={createTimerStartTime(0, false)}
         nextCtrlCWillExit={false}
       />,
     )
@@ -65,7 +64,7 @@ describe('StatusIndicator timer rendering', () => {
       <StatusIndicator
         clipboardMessage="Copied!"
         isActive={true}
-        timer={createTimer(12, true)}
+        timerStartTime={createTimerStartTime(12, true)}
         nextCtrlCWillExit={false}
       />,
     )

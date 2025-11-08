@@ -19,7 +19,14 @@ export const ElapsedTimer = ({
   attributes,
 }: ElapsedTimerProps) => {
   const theme = useTheme()
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0)
+  
+  // Calculate elapsed seconds synchronously for SSR/initial render
+  const calculateElapsed = () => {
+    if (!startTime) return 0
+    return Math.floor((Date.now() - startTime) / 1000)
+  }
+  
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(calculateElapsed)
 
   useEffect(() => {
     if (!startTime) {

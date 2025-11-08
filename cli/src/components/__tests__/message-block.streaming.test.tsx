@@ -41,12 +41,8 @@ const baseProps = {
   onToggleCollapsed: () => {},
 }
 
-const createTimer = (elapsedSeconds: number) => ({
-  start: () => {},
-  stop: () => {},
-  elapsedSeconds,
-  startTime: elapsedSeconds > 0 ? Date.now() - elapsedSeconds * 1000 : null,
-})
+const createTimerStartTime = (elapsedSeconds: number): number | null =>
+  elapsedSeconds > 0 ? Date.now() - elapsedSeconds * 1000 : null
 
 describe('MessageBlock streaming indicator', () => {
   test('shows elapsed seconds while streaming', () => {
@@ -54,7 +50,7 @@ describe('MessageBlock streaming indicator', () => {
       <MessageBlock
         {...baseProps}
         isLoading={true}
-        timer={createTimer(4)}
+        timerStartTime={createTimerStartTime(4)}
       />,
     )
 
@@ -66,7 +62,7 @@ describe('MessageBlock streaming indicator', () => {
       <MessageBlock
         {...baseProps}
         isLoading={true}
-        timer={createTimer(0)}
+        timerStartTime={createTimerStartTime(0)}
       />,
     )
 
