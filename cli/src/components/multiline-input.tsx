@@ -140,13 +140,6 @@ export const MultilineInput = forwardRef<
     [],
   )
 
-  // Sync cursor when value changes externally
-  useEffect(() => {
-    onChange((prev) => ({
-      ...prev,
-      cursorPosition: clamp(cursorPosition, 0, value.length),
-    }))
-  }, [value.length, cursorPosition])
 
   useOpentuiPaste(
     useCallback(

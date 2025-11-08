@@ -2,6 +2,8 @@ import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
+import { clamp } from '../utils/math'
+
 import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 
@@ -120,7 +122,7 @@ export const useChatStore = create<ChatStore>()(
               })
             : value
         state.inputValue = text
-        state.cursorPosition = cursorPosition
+        state.cursorPosition = clamp(cursorPosition, 0, text.length)
         state.lastEditDueToNav = lastEditDueToNav
       }),
 
