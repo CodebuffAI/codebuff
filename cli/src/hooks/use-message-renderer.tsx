@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { useMemo, type ReactNode } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 import React from 'react'
 
 import { MessageBlock } from '../components/message-block'
@@ -182,22 +182,15 @@ export const useMessageRenderer = (
                 style={{
                   flexDirection: 'row',
                   alignSelf: 'flex-start',
-                  backgroundColor: isCollapsed
-                    ? theme.muted
-                    : theme.success,
+                  backgroundColor: isCollapsed ? theme.muted : theme.success,
                   paddingLeft: 1,
                   paddingRight: 1,
                 }}
                 onMouseDown={handleTitleClick}
               >
                 <text style={{ wrapMode: 'word' }}>
-                  <span fg={theme.foreground}>
-                    {isCollapsed ? '▸ ' : '▾ '}
-                  </span>
-                  <span
-                    fg={theme.foreground}
-                    attributes={TextAttributes.BOLD}
-                  >
+                  <span fg={theme.foreground}>{isCollapsed ? '▸ ' : '▾ '}</span>
+                  <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                     {agentInfo.agentName}
                   </span>
                 </text>
@@ -243,10 +236,7 @@ export const useMessageRenderer = (
             >
               {agentChildren.map((childAgent, idx) => (
                 <box key={childAgent.id} style={{ flexShrink: 0 }}>
-                  {renderMessageWithAgents(
-                    childAgent,
-                    depth + 1,
-                  )}
+                  {renderMessageWithAgents(childAgent, depth + 1)}
                 </box>
               ))}
             </box>
@@ -263,16 +253,13 @@ export const useMessageRenderer = (
       const isAgent = message.variant === 'agent'
 
       if (isAgent) {
-        return renderAgentMessage(
-          message,
-          depth,
-        )
+        return renderAgentMessage(message, depth)
       }
 
       const isAi = message.variant === 'ai'
       const isUser = message.variant === 'user'
       const isError = message.variant === 'error'
-      
+
       // Check if this is a mode divider message
       if (
         message.blocks &&
@@ -294,11 +281,7 @@ export const useMessageRenderer = (
         : isAi
           ? theme.foreground
           : theme.foreground
-      const timestampColor = isError
-        ? 'red'
-        : isAi
-          ? theme.muted
-          : theme.muted
+      const timestampColor = isError ? 'red' : isAi ? theme.muted : theme.muted
       const estimatedMessageWidth = availableWidth
       const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
       const paletteForMessage: MarkdownPalette = {
@@ -316,6 +299,34 @@ export const useMessageRenderer = (
       const agentChildren = messageTree.get(message.id) ?? []
       const hasAgentChildren = agentChildren.length > 0
       const showVerticalLine = isUser
+
+      const onToggleCollapsed = useCallback(
+        (id: string) => {
+          const wasCollapsed = collapsedAgents.has(id)
+          setCollapsedAgents((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) {
+              next.delete(id)
+            } else {
+              next.add(id)
+            }
+            return next
+          })
+          // Track user interaction
+          setUserOpenedAgents((prev) => {
+            const next = new Set(prev)
+            if (wasCollapsed) {
+              // User is opening it, mark as user-opened
+              next.add(id)
+            } else {
+              // User is closing it, remove from user-opened
+              next.delete(id)
+            }
+            return next
+          })
+        },
+        [collapsedAgents, setCollapsedAgents, setUserOpenedAgents],
+      )
 
       return (
         <box
@@ -384,30 +395,7 @@ export const useMessageRenderer = (
                     markdownPalette={markdownPalette}
                     collapsedAgents={collapsedAgents}
                     streamingAgents={streamingAgents}
-                    onToggleCollapsed={(id: string) => {
-                      const wasCollapsed = collapsedAgents.has(id)
-                      setCollapsedAgents((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(id)) {
-                          next.delete(id)
-                        } else {
-                          next.add(id)
-                        }
-                        return next
-                      })
-                      // Track user interaction
-                      setUserOpenedAgents((prev) => {
-                        const next = new Set(prev)
-                        if (wasCollapsed) {
-                          // User is opening it, mark as user-opened
-                          next.add(id)
-                        } else {
-                          // User is closing it, remove from user-opened
-                          next.delete(id)
-                        }
-                        return next
-                      })
-                    }}
+                    onToggleCollapsed={onToggleCollapsed}
                   />
                 </box>
               </box>
@@ -478,10 +466,7 @@ export const useMessageRenderer = (
             <box style={{ flexDirection: 'column', width: '100%', gap: 0 }}>
               {agentChildren.map((agent, idx) => (
                 <box key={agent.id} style={{ width: '100%' }}>
-                  {renderMessageWithAgents(
-                    agent,
-                    depth + 1,
-                  )}
+                  {renderMessageWithAgents(agent, depth + 1)}
                 </box>
               ))}
             </box>
