@@ -276,6 +276,15 @@ const extractVSCodeTheme = (content: string): ThemeName | null => {
 }
 
 const extractJetBrainsTheme = (content: string): ThemeName | null => {
+  // Check if autodetect is enabled (Sync with OS setting)
+  const autodetectMatch = content.match(
+    /<component[^>]+name="LafManager"[^>]+autodetect="(true|false)"/i,
+  )
+  if (autodetectMatch?.[1]?.toLowerCase() === 'true') {
+    // When syncing with OS, return null to trigger platform detection
+    return null
+  }
+
   const normalized = content.toLowerCase()
   if (normalized.includes('darcula') || normalized.includes('dark')) {
     return 'dark'
@@ -371,6 +380,15 @@ const detectJetBrainsTheme = (): ThemeName | null => {
     if (theme) {
       return theme
     }
+
+    // If extractJetBrainsTheme returned null, check if autodetect is enabled
+    // and fall back to platform detection
+    const autodetectMatch = content.match(
+      /<component[^>]+name="LafManager"[^>]+autodetect="(true|false)"/i,
+    )
+    if (autodetectMatch?.[1]?.toLowerCase() === 'true') {
+      return detectPlatformTheme()
+    }
   }
 
   return null
@@ -390,6 +408,10 @@ const extractZedTheme = (content: string): ThemeName | null => {
       const modeRaw = themeConfig.mode
       if (typeof modeRaw === 'string') {
         const mode = modeRaw.toLowerCase()
+        // If mode is 'system', return null to trigger platform detection
+        if (mode === 'system') {
+          return null
+        }
         if (mode === 'dark' || mode === 'light') {
           candidates.push(mode)
           const modeTheme = themeConfig[mode]
