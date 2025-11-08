@@ -6,7 +6,6 @@ import type {
   StepText,
   ToolCall,
 } from '../../types/agent-definition'
-
 export function createBestOfNEditor(
   model: 'sonnet' | 'gpt-5',
 ): Omit<SecretAgentDefinition, 'id'> {
@@ -132,10 +131,15 @@ function* handleStepsSonnet({
     return
   }
 
-  // Apply the chosen implementation using STEP_TEXT
+  // Apply the chosen implementation using STEP_TEXT (only tool calls, no commentary)
+  const toolCallsOnly = extractToolCallsOnly(
+    typeof chosenImplementation.content === 'string'
+      ? chosenImplementation.content
+      : '',
+  )
   const { agentState: postEditsAgentState } = yield {
     type: 'STEP_TEXT',
-    text: chosenImplementation.content,
+    text: toolCallsOnly,
   } as StepText
   const { messageHistory } = postEditsAgentState
   const lastAssistantMessageIndex = messageHistory.findLastIndex(
@@ -176,6 +180,19 @@ function* handleStepsSonnet({
             result.value.errorMessage ?? 'Error extracting spawn results',
         },
     )
+  }
+
+  // Extract only tool calls from text, removing any commentary
+  function extractToolCallsOnly(text: string): string {
+    const toolExtractionPattern =
+      /<codebuff_tool_call>\n(.*?)\n<\/codebuff_tool_call>/gs
+    const matches: string[] = []
+
+    for (const match of text.matchAll(toolExtractionPattern)) {
+      matches.push(match[0]) // Include the full tool call with tags
+    }
+
+    return matches.join('\n')
   }
 }
 
@@ -258,10 +275,15 @@ function* handleStepsGpt5({
     return
   }
 
-  // Apply the chosen implementation using STEP_TEXT
+  // Apply the chosen implementation using STEP_TEXT (only tool calls, no commentary)
+  const toolCallsOnly = extractToolCallsOnly(
+    typeof chosenImplementation.content === 'string'
+      ? chosenImplementation.content
+      : '',
+  )
   const { agentState: postEditsAgentState } = yield {
     type: 'STEP_TEXT',
-    text: chosenImplementation.content,
+    text: toolCallsOnly,
   } as StepText
   const { messageHistory } = postEditsAgentState
   const lastAssistantMessageIndex = messageHistory.findLastIndex(
@@ -301,6 +323,19 @@ function* handleStepsGpt5({
             result.value.errorMessage ?? 'Error extracting spawn results',
         },
     )
+  }
+
+  // Extract only tool calls from text, removing any commentary
+  function extractToolCallsOnly(text: string): string {
+    const toolExtractionPattern =
+      /<codebuff_tool_call>\n(.*?)\n<\/codebuff_tool_call>/gs
+    const matches: string[] = []
+
+    for (const match of text.matchAll(toolExtractionPattern)) {
+      matches.push(match[0]) // Include the full tool call with tags
+    }
+
+    return matches.join('\n')
   }
 }
 
