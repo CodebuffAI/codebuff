@@ -20,7 +20,7 @@ import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
 import { useMessageQueue } from './hooks/use-message-queue'
-import { useMessageRenderer } from './hooks/use-message-renderer'
+import { MessageRenderer } from './components/message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
@@ -761,22 +761,7 @@ export const Chat = ({
     topLevelMessages.length - virtualTopLevelMessages.length,
   )
 
-  const messageItems = useMessageRenderer({
-    messages,
-    messageTree,
-    topLevelMessages: virtualTopLevelMessages,
-    availableWidth: separatorWidth,
-    theme,
-    markdownPalette,
-    collapsedAgents,
-    streamingAgents,
-    isWaitingForResponse,
-    timer: mainAgentTimer,
-    setCollapsedAgents,
-    setFocusedAgentId,
-    userOpenedAgents,
-    setUserOpenedAgents,
-  })
+
 
   const virtualizationNotice =
     shouldVirtualize && hiddenTopLevelCount > 0 ? (
@@ -864,7 +849,22 @@ export const Chat = ({
         >
           {headerContent}
           {virtualizationNotice}
-          {messageItems}
+          <MessageRenderer
+            messages={messages}
+            messageTree={messageTree}
+            topLevelMessages={virtualTopLevelMessages}
+            availableWidth={separatorWidth}
+            theme={theme}
+            markdownPalette={markdownPalette}
+            collapsedAgents={collapsedAgents}
+            streamingAgents={streamingAgents}
+            isWaitingForResponse={isWaitingForResponse}
+            timer={mainAgentTimer}
+            setCollapsedAgents={setCollapsedAgents}
+            setFocusedAgentId={setFocusedAgentId}
+            userOpenedAgents={userOpenedAgents}
+            setUserOpenedAgents={setUserOpenedAgents}
+          />
         </scrollbox>
       </box>
 
