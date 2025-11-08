@@ -66,7 +66,7 @@ export const SuggestionMenu = ({
           paddingRight: 1,
           paddingTop: 0,
           paddingBottom: 0,
-          backgroundColor: isSelected ? theme.agentFocusedBg : theme.background,
+          backgroundColor: isSelected ? theme.surfaceHover : theme.background,
           width: '100%',
         }}
       >
