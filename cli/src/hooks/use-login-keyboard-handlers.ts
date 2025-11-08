@@ -1,6 +1,8 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback } from 'react'
 
+import type { KeyEvent } from '@opentui/core'
+
 interface UseLoginKeyboardHandlersParams {
   loginUrl: string | null
   hasOpenedBrowser: boolean
@@ -23,7 +25,7 @@ export function useLoginKeyboardHandlers({
 }: UseLoginKeyboardHandlersParams) {
   useKeyboard(
     useCallback(
-      (key: any) => {
+      (key: KeyEvent) => {
         const isEnter =
           (key.name === 'return' || key.name === 'enter') &&
           !key.ctrl &&

@@ -15,7 +15,7 @@ import { useTheme } from '../hooks/use-theme'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
 
 import type { InputValue } from '../state/chat-store'
-import type { PasteEvent, ScrollBoxRenderable } from '@opentui/core'
+import type { KeyEvent, PasteEvent, ScrollBoxRenderable } from '@opentui/core'
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
@@ -83,7 +83,7 @@ interface MultilineInputProps {
   value: string
   onChange: (value: InputValue | ((prev: InputValue) => InputValue)) => void
   onSubmit: () => void
-  onKeyIntercept?: (key: any) => boolean
+  onKeyIntercept?: (key: KeyEvent) => boolean
   placeholder?: string
   focused?: boolean
   maxHeight?: number
@@ -196,7 +196,7 @@ export const MultilineInput = forwardRef<
   // Handle all keyboard input with advanced shortcuts
   useKeyboard(
     useCallback(
-      (key: any) => {
+      (key: KeyEvent) => {
         if (!focused) return
 
         if (onKeyIntercept) {
@@ -229,7 +229,6 @@ export const MultilineInput = forwardRef<
           !key.shift &&
           !key.ctrl &&
           !key.meta &&
-          !key.alt &&
           !key.option &&
           !isAltLikeModifier &&
           !hasEscapePrefix &&
@@ -243,7 +242,6 @@ export const MultilineInput = forwardRef<
           key.ctrl &&
           !key.meta &&
           !key.option &&
-          !key.alt &&
           (lowerKeyName === 'j' || isEnterKey)
         const isBackslashEnter = isEnterKey && hasBackslashBeforeCursor
 
@@ -432,7 +430,7 @@ export const MultilineInput = forwardRef<
         }
 
         // Basic Backspace (no modifiers)
-        if (key.name === 'backspace' && !key.ctrl && !key.meta && !key.alt) {
+        if (key.name === 'backspace' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
           if (cursorPosition > 0) {
             const newValue =
@@ -447,7 +445,7 @@ export const MultilineInput = forwardRef<
         }
 
         // Basic Delete (no modifiers)
-        if (key.name === 'delete' && !key.ctrl && !key.meta && !key.alt) {
+        if (key.name === 'delete' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
           if (cursorPosition < value.length) {
             const newValue =
@@ -540,27 +538,27 @@ export const MultilineInput = forwardRef<
         }
 
         // Left arrow (no modifiers)
-        if (key.name === 'left' && !key.ctrl && !key.meta && !key.alt) {
+        if (key.name === 'left' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
           setCursorPosition(Math.max(0, cursorPosition - 1))
           return
         }
 
         // Right arrow (no modifiers)
-        if (key.name === 'right' && !key.ctrl && !key.meta && !key.alt) {
+        if (key.name === 'right' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
           setCursorPosition(Math.min(value.length, cursorPosition + 1))
           return
         }
 
         // Up arrow (no modifiers)
-        if (key.name === 'up' && !key.ctrl && !key.meta && !key.alt) {
+        if (key.name === 'up' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
           setCursorPosition(cursorPosition - getEffectiveCols())
         }
 
         // Down arrow (no modifiers)
-        if (key.name === 'down' && !key.ctrl && !key.meta && !key.alt) {
+        if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
           setCursorPosition(cursorPosition + getEffectiveCols())
         }
@@ -571,7 +569,7 @@ export const MultilineInput = forwardRef<
           key.sequence.length === 1 &&
           !key.ctrl &&
           !key.meta &&
-          !key.alt
+          !key.option
         ) {
           preventKeyDefault(key)
           const newValue =

@@ -5,6 +5,7 @@ import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { BuildModeButtons } from './components/build-mode-buttons'
 import { LoginModal } from './components/login-modal'
+import { MessageRenderer } from './components/message-renderer'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -20,7 +21,6 @@ import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
 import { useMessageQueue } from './hooks/use-message-queue'
-import { MessageRenderer } from './components/message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
@@ -39,7 +39,7 @@ import { BORDER_CHARS } from './utils/ui-constants'
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
-import type { ScrollBoxRenderable } from '@opentui/core'
+import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
 const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
@@ -387,14 +387,12 @@ export const Chat = ({
   }, [agentMatches.length, agentSelectedIndex])
 
   const handleSlashMenuKey = useCallback(
-    (
-      key: any,
-    ): boolean => {
+    (key: KeyEvent): boolean => {
       if (!slashContext.active || slashMatches.length === 0) {
         return false
       }
 
-      const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
+      const hasModifier = Boolean(key.ctrl || key.meta || key.option)
 
       function selectCurrent(): boolean {
         const selected = slashMatches[slashSelectedIndex] ?? slashMatches[0]
@@ -412,7 +410,11 @@ export const Chat = ({
         )
         const replacement = `/${selected.id} `
         const newValue = before + replacement + after
-        setInputValue({text: newValue, cursorPosition: before.length + replacement.length, lastEditDueToNav: false})
+        setInputValue({
+          text: newValue,
+          cursorPosition: before.length + replacement.length,
+          lastEditDueToNav: false,
+        })
         setSlashSelectedIndex(0)
         return true
       }
@@ -468,14 +470,12 @@ export const Chat = ({
   )
 
   const handleAgentMenuKey = useCallback(
-    (
-      key: any,
-    ): boolean => {
+    (key: KeyEvent): boolean => {
       if (!mentionContext.active || agentMatches.length === 0) {
         return false
       }
 
-      const hasModifier = Boolean(key.ctrl || key.meta || key.alt || key.option)
+      const hasModifier = Boolean(key.ctrl || key.meta || key.option)
 
       function selectCurrent(): boolean {
         const selected = agentMatches[agentSelectedIndex] ?? agentMatches[0]
@@ -494,7 +494,8 @@ export const Chat = ({
         )
         const replacement = `@${selected.displayName} `
         const newValue = before + replacement + after
-        setInputValue({text: newValue, 
+        setInputValue({
+          text: newValue,
           cursorPosition: before.length + replacement.length,
           lastEditDueToNav: false,
         })
@@ -553,9 +554,7 @@ export const Chat = ({
   )
 
   const handleSuggestionMenuKey = useCallback(
-    (
-      key: any,
-    ): boolean => {
+    (key: KeyEvent): boolean => {
       if (handleSlashMenuKey(key)) {
         return true
       }
@@ -747,8 +746,6 @@ export const Chat = ({
     0,
     topLevelMessages.length - virtualTopLevelMessages.length,
   )
-
-
 
   const virtualizationNotice =
     shouldVirtualize && hiddenTopLevelCount > 0 ? (
