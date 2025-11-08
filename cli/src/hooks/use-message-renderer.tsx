@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useCallback, type ReactNode } from 'react'
 import React from 'react'
 
 import { MessageBlock } from '../components/message-block'
@@ -51,6 +51,34 @@ export const useMessageRenderer = (
     userOpenedAgents,
     setUserOpenedAgents,
   } = props
+
+  const onToggleCollapsed = useCallback(
+    (id: string) => {
+      const wasCollapsed = collapsedAgents.has(id)
+      setCollapsedAgents((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) {
+          next.delete(id)
+        } else {
+          next.add(id)
+        }
+        return next
+      })
+      // Track user interaction
+      setUserOpenedAgents((prev) => {
+        const next = new Set(prev)
+        if (wasCollapsed) {
+          // User is opening it, mark as user-opened
+          next.add(id)
+        } else {
+          // User is closing it, remove from user-opened
+          next.delete(id)
+        }
+        return next
+      })
+    },
+    [collapsedAgents, setCollapsedAgents, setUserOpenedAgents],
+  )
 
   return useMemo(() => {
     const SIDE_GUTTER = 1
@@ -384,30 +412,7 @@ export const useMessageRenderer = (
                     markdownPalette={markdownPalette}
                     collapsedAgents={collapsedAgents}
                     streamingAgents={streamingAgents}
-                    onToggleCollapsed={(id: string) => {
-                      const wasCollapsed = collapsedAgents.has(id)
-                      setCollapsedAgents((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(id)) {
-                          next.delete(id)
-                        } else {
-                          next.add(id)
-                        }
-                        return next
-                      })
-                      // Track user interaction
-                      setUserOpenedAgents((prev) => {
-                        const next = new Set(prev)
-                        if (wasCollapsed) {
-                          // User is opening it, mark as user-opened
-                          next.add(id)
-                        } else {
-                          // User is closing it, remove from user-opened
-                          next.delete(id)
-                        }
-                        return next
-                      })
-                    }}
+                    onToggleCollapsed={onToggleCollapsed}
                   />
                 </box>
               </box>
@@ -445,30 +450,7 @@ export const useMessageRenderer = (
                   markdownPalette={markdownPalette}
                   collapsedAgents={collapsedAgents}
                   streamingAgents={streamingAgents}
-                  onToggleCollapsed={(id: string) => {
-                    const wasCollapsed = collapsedAgents.has(id)
-                    setCollapsedAgents((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(id)) {
-                        next.delete(id)
-                      } else {
-                        next.add(id)
-                      }
-                      return next
-                    })
-                    // Track user interaction
-                    setUserOpenedAgents((prev) => {
-                      const next = new Set(prev)
-                      if (wasCollapsed) {
-                        // User is opening it, mark as user-opened
-                        next.add(id)
-                      } else {
-                        // User is closing it, remove from user-opened
-                        next.delete(id)
-                      }
-                      return next
-                    })
-                  }}
+                  onToggleCollapsed={onToggleCollapsed}
                 />
               </box>
             )}
@@ -508,5 +490,6 @@ export const useMessageRenderer = (
     setUserOpenedAgents,
     setFocusedAgentId,
     userOpenedAgents,
+    onToggleCollapsed,
   ])
 }
