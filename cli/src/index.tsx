@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
 import React from 'react'
 
-import { App } from './chat'
+import { App } from './app'
 import './state/theme-store' // Initialize theme store and watchers
 import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'

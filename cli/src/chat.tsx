@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { ContentBlock } from './types/chat'
@@ -14,7 +14,6 @@ import {
 import { StatusIndicator, useHasStatus } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
-import { useAgentInitialization } from './hooks/use-agent-initialization'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthState } from './hooks/use-auth-state'
 import { useChatInput } from './hooks/use-chat-input'
@@ -22,14 +21,13 @@ import { useClipboard } from './hooks/use-clipboard'
 import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
-import { useLogo } from './hooks/use-logo'
 import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageRenderer } from './hooks/use-message-renderer'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
-import { useTheme, useResolvedThemeName } from './hooks/use-theme'
+import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
 import { useChatStore } from './state/chat-store'
 import { flushAnalytics } from './utils/analytics'
@@ -53,7 +51,8 @@ const DEFAULT_AGENT_IDS = {
   PLAN: 'base2-plan',
 } as const
 
-export const App = ({
+export const Chat = ({
+  headerContent,
   initialPrompt,
   agentId,
   requireAuth,
@@ -61,6 +60,7 @@ export const App = ({
   loadedAgentsData,
   validationErrors,
 }: {
+  headerContent: React.ReactNode
   initialPrompt: string | null
   agentId?: string
   requireAuth: boolean | null
@@ -74,16 +74,12 @@ export const App = ({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<MultilineInputHandle | null>(null)
 
-  const { terminalWidth, separatorWidth, contentMaxWidth } =
-    useTerminalDimensions()
+  const { terminalWidth, separatorWidth } = useTerminalDimensions()
 
   const theme = useTheme()
-  const resolvedThemeName = useResolvedThemeName()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
-  const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
-  const { validationErrors: liveValidationErrors, validate: validateAgents } =
-    useAgentValidation(validationErrors)
+  const { validate: validateAgents } = useAgentValidation(validationErrors)
 
   const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -198,19 +194,6 @@ export const App = ({
     inputRef,
     setInputFocused,
     resetChatStore,
-  })
-
-  useAgentInitialization({
-    loadedAgentsData,
-    validationErrors,
-    logoBlock,
-    theme,
-    separatorWidth,
-    agentId,
-    resolvedThemeName,
-    messages,
-    setMessages,
-    setCollapsedAgents,
   })
 
   const showAgentDisplayName = !!agentId
@@ -796,7 +779,7 @@ export const App = ({
   )
 
   const validationBanner = useValidationBanner({
-    liveValidationErrors,
+    liveValidationErrors: validationErrors,
     loadedAgentsData,
     theme,
   })
@@ -854,6 +837,7 @@ export const App = ({
             },
           }}
         >
+          {headerContent}
           {virtualizationNotice}
           {messageItems}
         </scrollbox>
