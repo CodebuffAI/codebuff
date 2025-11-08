@@ -702,17 +702,26 @@ export const detectSystemTheme = (): ThemeName => {
     return normalizedEnv
   }
 
-  const terminalOverrideTheme = detectTerminalOverrides()
+  // Helper to detect theme with priority: Terminal override > IDE > OSC > Platform > Default
+  const detectPreferredTheme = (): ThemeName => {
+    const terminalOverrideTheme = detectTerminalOverrides()
+    if (terminalOverrideTheme) {
+      return terminalOverrideTheme
+    }
 
-  // Priority: Terminal override > IDE > OSC > Platform > Default
-  const ideTheme = detectIDETheme()
-  const platformTheme = detectPlatformTheme()
-  const preferredTheme =
-    terminalOverrideTheme ??
-    ideTheme ??
-    oscDetectedTheme ??
-    platformTheme ??
-    'dark'
+    const ideTheme = detectIDETheme()
+    if (ideTheme) {
+      return ideTheme
+    }
+
+    if (oscDetectedTheme) {
+      return oscDetectedTheme
+    }
+
+    return detectPlatformTheme()
+  }
+
+  const preferredTheme = detectPreferredTheme()
 
   if (normalizedEnv === 'opposite') {
     return preferredTheme === 'dark' ? 'light' : 'dark'
