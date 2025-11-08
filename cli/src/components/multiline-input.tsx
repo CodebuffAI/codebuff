@@ -574,6 +574,18 @@ export const MultilineInput = forwardRef<
           return
         }
 
+        // Up arrow (no modifiers)
+        if (key.name === 'up' && !key.ctrl && !key.meta && !key.alt) {
+          preventKeyDefault(key)
+          setCursorPosition(cursorPosition - getEffectiveCols())
+        }
+
+        // Down arrow (no modifiers)
+        if (key.name === 'down' && !key.ctrl && !key.meta && !key.alt) {
+          preventKeyDefault(key)
+          setCursorPosition(cursorPosition + getEffectiveCols())
+        }
+
         // Regular character input
         if (
           key.sequence &&
@@ -680,7 +692,7 @@ export const MultilineInput = forwardRef<
         },
       }}
     >
-      <text style={{ ...textStyle, wrapMode: 'word' }}>
+      <text style={{ ...textStyle, wrapMode: 'char' }}>
         {showCursor ? (
           <>
             {beforeCursor}

@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { ContentBlock } from './types/chat'
-
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { BuildModeButtons } from './components/build-mode-buttons'
@@ -39,6 +37,7 @@ import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
+import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { ScrollBoxRenderable } from '@opentui/core'
 
@@ -303,31 +302,56 @@ export const Chat = ({
     setSuggestionMenuDisabled(!lastEditDueToNav)
   }, [setSuggestionMenuDisabled, lastEditDueToNav])
 
-  // Disable history navigation during suggesion menu
-  const [historyNavEnabled, setHistoryNavEnabled] = useState(true)
+  const [historyNavUpEnabled, setHistoryNavUpEnabled] = useState(true)
   useEffect(() => {
     if (lastEditDueToNav) {
-      setHistoryNavEnabled(true)
+      setHistoryNavUpEnabled(true)
       return
     }
 
     if (slashContext.active) {
-      setHistoryNavEnabled(false)
+      setHistoryNavUpEnabled(false)
       return
     }
     if (mentionContext.active) {
-      setHistoryNavEnabled(false)
+      setHistoryNavUpEnabled(false)
       return
     }
 
-    setHistoryNavEnabled(true)
+    setHistoryNavUpEnabled(cursorPosition === 0)
   }, [
-    setHistoryNavEnabled,
+    setHistoryNavUpEnabled,
     lastEditDueToNav,
     slashContext.active,
     mentionContext.active,
+    cursorPosition,
   ])
 
+  const [historyNavDownEnabled, setHistoryNavDownEnabled] = useState(true)
+  useEffect(() => {
+    if (lastEditDueToNav) {
+      setHistoryNavDownEnabled(true)
+      return
+    }
+
+    if (slashContext.active) {
+      setHistoryNavDownEnabled(false)
+      return
+    }
+    if (mentionContext.active) {
+      setHistoryNavDownEnabled(false)
+      return
+    }
+
+    setHistoryNavDownEnabled(inputValue.length === cursorPosition)
+  }, [
+    setHistoryNavDownEnabled,
+    lastEditDueToNav,
+    slashContext.active,
+    mentionContext.active,
+    cursorPosition,
+    inputValue.length,
+  ])
   useEffect(() => {
     if (!slashContext.active) {
       setSlashSelectedIndex(0)
@@ -711,7 +735,8 @@ export const Chat = ({
     navigateDown,
     toggleAgentMode,
     onCtrlC: handleCtrlC,
-    historyNavEnabled,
+    historyNavUpEnabled,
+    historyNavDownEnabled,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(

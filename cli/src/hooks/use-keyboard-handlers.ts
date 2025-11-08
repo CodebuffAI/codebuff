@@ -16,7 +16,8 @@ interface KeyboardHandlersConfig {
   navigateDown: () => void
   toggleAgentMode: () => void
   onCtrlC: () => boolean
-  historyNavEnabled: boolean
+  historyNavUpEnabled: boolean
+  historyNavDownEnabled: boolean
 }
 
 export const useKeyboardHandlers = ({
@@ -32,7 +33,8 @@ export const useKeyboardHandlers = ({
   navigateDown,
   toggleAgentMode,
   onCtrlC,
-  historyNavEnabled,
+  historyNavUpEnabled,
+  historyNavDownEnabled,
 }: KeyboardHandlersConfig) => {
   useKeyboard(
     useCallback(
@@ -147,8 +149,6 @@ export const useKeyboardHandlers = ({
   useKeyboard(
     useCallback(
       (key) => {
-        if (!historyNavEnabled) return
-
         const isUpArrow =
           key.name === 'up' && !key.ctrl && !key.meta && !key.shift
         const isDownArrow =
@@ -164,12 +164,14 @@ export const useKeyboardHandlers = ({
         }
 
         if (isUpArrow) {
+          if (!historyNavUpEnabled) return
           navigateUp()
         } else {
+          if (!historyNavDownEnabled) return
           navigateDown()
         }
       },
-      [historyNavEnabled, navigateUp, navigateDown],
+      [historyNavUpEnabled, historyNavDownEnabled, navigateUp, navigateDown],
     ),
   )
 
