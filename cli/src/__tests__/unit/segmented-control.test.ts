@@ -69,7 +69,7 @@ const theme: ChatTheme = {
 describe('SegmentedControl - processSegments', () => {
   test('computes width from label using string-width', () => {
     const segments: Segment[] = [
-      { id: 'FAST', label: 'FAST' },
+      { id: 'DEFAULT', label: 'DEFAULT' },
       { id: 'MAX', label: 'MAX' },
       { id: 'PLAN', label: 'PLAN' },
     ]
@@ -77,7 +77,7 @@ describe('SegmentedControl - processSegments', () => {
     const processed = processSegments(segments, null, false, theme)
     const widths = processed.map((s) => s.width)
     expect(widths).toEqual([
-      stringWidth(' FAST '),
+      stringWidth(' DEFAULT '),
       stringWidth(' MAX '),
       stringWidth(' PLAN '),
     ])
@@ -85,11 +85,11 @@ describe('SegmentedControl - processSegments', () => {
 
   test('applies defaultHighlighted when nothing hovered', () => {
     const segments: Segment[] = [
-      { id: 'FAST', label: 'FAST' },
+      { id: 'DEFAULT', label: 'DEFAULT' },
       { id: 'MAX', label: 'MAX' },
       {
-        id: 'active-FAST',
-        label: '> FAST',
+        id: 'active-DEFAULT',
+        label: '> DEFAULT',
         isSelected: true,
         defaultHighlighted: true,
       },
@@ -100,13 +100,13 @@ describe('SegmentedControl - processSegments', () => {
       processed.map((p) => [p.id, p]),
     )
 
-    expect(map['active-FAST'].leftBorderColor).toBe(theme.foreground)
-    expect(map['FAST'].leftBorderColor).toBe(theme.border)
+    expect(map['active-DEFAULT'].leftBorderColor).toBe(theme.foreground)
+    expect(map['DEFAULT'].leftBorderColor).toBe(theme.border)
   })
 
   test('hovering a segment highlights it', () => {
     const segments: Segment[] = [
-      { id: 'FAST', label: 'FAST' },
+      { id: 'DEFAULT', label: 'DEFAULT' },
       { id: 'MAX', label: 'MAX' },
       { id: 'PLAN', label: 'PLAN' },
     ]
@@ -117,12 +117,12 @@ describe('SegmentedControl - processSegments', () => {
 
     expect(map.MAX.isHovered).toBe(true)
     expect(map.MAX.leftBorderColor).toBe(theme.foreground)
-    expect(map.FAST.leftBorderColor).toBe(theme.border)
+    expect(map.DEFAULT.leftBorderColor).toBe(theme.border)
   })
 
   test('disabled segments use muted text and border colors', () => {
     const segments: Segment[] = [
-      { id: 'FAST', label: 'FAST', disabled: true },
+      { id: 'DEFAULT', label: 'DEFAULT', disabled: true },
       { id: 'MAX', label: 'MAX' },
     ]
     const [fast, max] = processSegments(segments, null, false, theme)

@@ -50,7 +50,6 @@ const updateBlocksRecursively = (
   })
 }
 
-
 export type SendMessageTimerEvent =
   | {
       type: 'start'
@@ -358,7 +357,8 @@ export const useSendMessage = ({
 
       // Check if mode changed and insert divider if needed
       // Also show divider on first message (when lastMessageMode is null)
-      const shouldInsertDivider = lastMessageMode === null || lastMessageMode !== agentMode
+      const shouldInsertDivider =
+        lastMessageMode === null || lastMessageMode !== agentMode
 
       // Add user message to UI first
       const userMessage: ChatMessage = {
@@ -370,7 +370,7 @@ export const useSendMessage = ({
 
       applyMessageUpdate((prev) => {
         let newMessages = [...prev]
-        
+
         // Insert mode divider if mode changed
         if (shouldInsertDivider) {
           const dividerMessage: ChatMessage = {
@@ -387,9 +387,9 @@ export const useSendMessage = ({
           }
           newMessages.push(dividerMessage)
         }
-        
+
         newMessages.push(userMessage)
-        
+
         if (postUserMessage) {
           newMessages = postUserMessage(newMessages)
         }
@@ -398,10 +398,10 @@ export const useSendMessage = ({
         }
         return newMessages
       })
-      
+
       // Update last message mode
       setLastMessageMode(agentMode)
-      
+
       await yieldToEventLoop()
 
       // Auto-collapse previous message toggles to minimize clutter.
@@ -727,8 +727,8 @@ export const useSendMessage = ({
             : undefined
 
         const fallbackAgent =
-          agentMode === 'FAST'
-            ? 'base2-fast'
+          agentMode === 'DEFAULT'
+            ? 'base2'
             : agentMode === 'MAX'
               ? 'base2-max'
               : 'base2-plan'
@@ -1024,7 +1024,10 @@ export const useSendMessage = ({
                       const next = new Set(prev)
                       next.delete(tempId)
                       // Only collapse if parent is NOT main agent (i.e., it's a nested agent)
-                      if (event.parentAgentId && event.parentAgentId !== MAIN_AGENT_ID) {
+                      if (
+                        event.parentAgentId &&
+                        event.parentAgentId !== MAIN_AGENT_ID
+                      ) {
                         next.add(event.agentId)
                       }
                       return next
@@ -1124,8 +1127,13 @@ export const useSendMessage = ({
 
                   setStreamingAgents((prev) => new Set(prev).add(event.agentId))
                   // Only collapse if parent is NOT main agent (i.e., it's a nested agent)
-                  if (event.parentAgentId && event.parentAgentId !== MAIN_AGENT_ID) {
-                    setCollapsedAgents((prev) => new Set(prev).add(event.agentId))
+                  if (
+                    event.parentAgentId &&
+                    event.parentAgentId !== MAIN_AGENT_ID
+                  ) {
+                    setCollapsedAgents((prev) =>
+                      new Set(prev).add(event.agentId),
+                    )
                   }
                 }
               }
@@ -1427,7 +1435,12 @@ export const useSendMessage = ({
 
         if (!runState.output || runState.output.type === 'error') {
           logger.warn(
-            { errorMessage: runState.output?.type === 'error' ? runState.output.message : 'No output from agent run' },
+            {
+              errorMessage:
+                runState.output?.type === 'error'
+                  ? runState.output.message
+                  : 'No output from agent run',
+            },
             'Agent run failed',
           )
           return

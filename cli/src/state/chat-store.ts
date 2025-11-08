@@ -78,7 +78,7 @@ const initialState: ChatStoreState = {
   isChainInProgress: false,
   slashSelectedIndex: 0,
   agentSelectedIndex: 0,
-  agentMode: 'FAST',
+  agentMode: 'DEFAULT',
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
 }
@@ -161,12 +161,12 @@ export const useChatStore = create<ChatStore>()(
 
     toggleAgentMode: () =>
       set((state) => {
-        if (state.agentMode === 'FAST') {
+        if (state.agentMode === 'DEFAULT') {
           state.agentMode = 'MAX'
         } else if (state.agentMode === 'MAX') {
           state.agentMode = 'PLAN'
         } else {
-          state.agentMode = 'FAST'
+          state.agentMode = 'DEFAULT'
         }
       }),
 

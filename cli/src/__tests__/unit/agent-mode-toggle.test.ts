@@ -6,7 +6,7 @@ import { createHoverToggleControllerForTest } from '../mocks/hover-toggle-contro
 import type { AgentMode } from '../../utils/constants'
 
 describe('AgentModeToggle - buildExpandedSegments', () => {
-  const modes: AgentMode[] = ['FAST', 'MAX', 'PLAN']
+  const modes: AgentMode[] = ['DEFAULT', 'MAX', 'PLAN']
 
   for (const mode of modes) {
     test(`returns segments with active indicator for ${mode}`, () => {
@@ -29,17 +29,17 @@ describe('AgentModeToggle - buildExpandedSegments', () => {
 
 describe('AgentModeToggle - resolveAgentModeClick', () => {
   test('clicking active indicator returns closeActive', () => {
-    const action = resolveAgentModeClick('FAST', 'active-FAST', true)
+    const action = resolveAgentModeClick('DEFAULT', 'active-DEFAULT', true)
     expect(action).toEqual({ type: 'closeActive' })
   })
 
   test('with onSelectMode provided, clicking different mode selects it', () => {
-    const action = resolveAgentModeClick('FAST', 'MAX', true)
+    const action = resolveAgentModeClick('DEFAULT', 'MAX', true)
     expect(action).toEqual({ type: 'selectMode', mode: 'MAX' })
   })
 
   test('without onSelectMode, clicking different mode toggles', () => {
-    const action = resolveAgentModeClick('FAST', 'PLAN', false)
+    const action = resolveAgentModeClick('DEFAULT', 'PLAN', false)
     expect(action).toEqual({ type: 'toggleMode', mode: 'PLAN' })
   })
 })

@@ -8,7 +8,7 @@ import type { Segment } from './segmented-control'
 import type { AgentMode } from '../utils/constants'
 
 const MODE_LABELS: Record<AgentMode, string> = {
-  FAST: 'FAST',
+  DEFAULT: 'DEFAULT',
   MAX: 'MAX',
   PLAN: 'PLAN',
 }

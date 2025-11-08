@@ -45,7 +45,7 @@ const MAX_VIRTUALIZED_TOP_LEVEL = 60
 const VIRTUAL_OVERSCAN = 12
 
 const DEFAULT_AGENT_IDS = {
-  FAST: 'base2-fast',
+  DEFAULT: 'base2',
   MAX: 'base2-max',
   PLAN: 'base2-plan',
 } as const

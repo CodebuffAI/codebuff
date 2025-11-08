@@ -32,7 +32,7 @@ export const useChatInput = ({
   // Collapsed content is: " < " + LABEL + " " inside a bordered box.
   // Full width = contentWidth + 2 (vertical borders). We also include the
   // inter-element gap (the right container has paddingLeft: 2).
-  const MODE_LABELS = { FAST: 'FAST', MAX: 'MAX', PLAN: 'PLAN' } as const
+  const MODE_LABELS = { DEFAULT: 'DEFAULT', MAX: 'MAX', PLAN: 'PLAN' } as const
   const collapsedContentWidth = stringWidth(` < ${MODE_LABELS[agentMode]} `)
   const collapsedBoxWidth = collapsedContentWidth + 2 // account for │ │
   const gapWidth = 2 // paddingLeft on the toggle container
@@ -40,7 +40,7 @@ export const useChatInput = ({
   const inputWidth = Math.max(1, separatorWidth - estimatedToggleWidth)
 
   const handleBuildFast = useCallback(() => {
-    setAgentMode('FAST')
+    setAgentMode('DEFAULT')
     setInputValue({
       text: BUILD_IT_TEXT,
       cursorPosition: BUILD_IT_TEXT.length,
@@ -48,7 +48,7 @@ export const useChatInput = ({
     })
     setTimeout(() => {
       if (sendMessageRef.current) {
-        sendMessageRef.current({ content: BUILD_IT_TEXT, agentMode: 'FAST' })
+        sendMessageRef.current({ content: BUILD_IT_TEXT, agentMode: 'DEFAULT' })
       }
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     }, 0)
