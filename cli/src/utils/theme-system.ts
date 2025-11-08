@@ -33,6 +33,7 @@ const IDE_THEME_INFERENCE = {
     'tokyo',
     'abyss',
     'zed dark',
+    'vs dark',
   ],
   light: [
     'light',
@@ -48,6 +49,7 @@ const IDE_THEME_INFERENCE = {
     'pastel',
     'cream',
     'zed light',
+    'vs light',
   ],
 } as const
 
@@ -236,6 +238,7 @@ const resolveZedSettingsPaths = (): string[] => {
 }
 
 const extractVSCodeTheme = (content: string): ThemeName | null => {
+  // Try standard colorTheme setting
   const colorThemeMatch = content.match(
     /"workbench\.colorTheme"\s*:\s*"([^"]+)"/i,
   )
@@ -244,12 +247,29 @@ const extractVSCodeTheme = (content: string): ThemeName | null => {
     if (inferred) return inferred
   }
 
-  const themeKindEnv =
-    process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
-  if (themeKindEnv) {
-    const normalized = themeKindEnv.trim().toLowerCase()
-    if (normalized === 'dark' || normalized === 'hc') return 'dark'
-    if (normalized === 'light') return 'light'
+  // Check if auto-detect is enabled and try preferred themes
+  const autoDetectMatch = content.match(
+    /"window\.autoDetectColorScheme"\s*:\s*(true|false)/i,
+  )
+  const autoDetectEnabled = autoDetectMatch?.[1]?.toLowerCase() === 'true'
+
+  if (autoDetectEnabled) {
+    // Try to extract both preferred themes and infer from their names
+    const preferredDarkMatch = content.match(
+      /"workbench\.preferredDarkColorTheme"\s*:\s*"([^"]+)"/i,
+    )
+    if (preferredDarkMatch) {
+      const inferred = inferThemeFromName(preferredDarkMatch[1])
+      if (inferred) return inferred
+    }
+
+    const preferredLightMatch = content.match(
+      /"workbench\.preferredLightColorTheme"\s*:\s*"([^"]+)"/i,
+    )
+    if (preferredLightMatch) {
+      const inferred = inferThemeFromName(preferredLightMatch[1])
+      if (inferred) return inferred
+    }
   }
 
   return null
@@ -315,6 +335,15 @@ const detectVSCodeTheme = (): ThemeName | null => {
     if (theme) {
       return theme
     }
+
+    // If extractVSCodeTheme returned null but auto-detect is enabled,
+    // use platform theme as fallback
+    const autoDetectMatch = content.match(
+      /"window\.autoDetectColorScheme"\s*:\s*(true|false)/i,
+    )
+    if (autoDetectMatch?.[1]?.toLowerCase() === 'true') {
+      return detectPlatformTheme()
+    }
   }
 
   const themeKindEnv =
@@ -366,13 +395,6 @@ const extractZedTheme = (content: string): ThemeName | null => {
           const modeTheme = themeConfig[mode]
           if (typeof modeTheme === 'string') {
             candidates.push(modeTheme)
-          }
-        } else if (mode === 'system') {
-          const platformTheme = detectPlatformTheme()
-          candidates.push(platformTheme)
-          const platformThemeName = themeConfig[platformTheme]
-          if (typeof platformThemeName === 'string') {
-            candidates.push(platformThemeName)
           }
         }
       }
@@ -435,6 +457,23 @@ const detectZedTheme = (): ThemeName | null => {
     if (theme) {
       return theme
     }
+
+    // If extractZedTheme returned null, check if theme mode is 'system'
+    // and fall back to platform detection
+    try {
+      const sanitized = stripJsonStyleComments(content)
+      const parsed = JSON.parse(sanitized) as Record<string, unknown>
+      const themeSetting = parsed.theme
+      if (themeSetting && typeof themeSetting === 'object') {
+        const themeConfig = themeSetting as Record<string, unknown>
+        const modeRaw = themeConfig.mode
+        if (typeof modeRaw === 'string' && modeRaw.toLowerCase() === 'system') {
+          return detectPlatformTheme()
+        }
+      }
+    } catch {
+      // Ignore parsing errors
+    }
   }
 
   return null
@@ -472,11 +511,6 @@ type ChatThemeOverrides = Partial<Omit<ChatTheme, 'markdown'>> & {
 type ThemeOverrideConfig = Partial<Record<ThemeName, ChatThemeOverrides>> & {
   all?: ChatThemeOverrides
 }
-
-const CHAT_THEME_ENV_KEYS = [
-  'OPEN_TUI_CHAT_THEME_OVERRIDES',
-  'OPENTUI_CHAT_THEME_OVERRIDES',
-] as const
 
 const mergeMarkdownOverrides = (
   base: MarkdownThemeOverrides | undefined,
@@ -569,18 +603,6 @@ const parseThemeOverrides = (
   } catch {
     return {}
   }
-}
-
-const loadThemeOverrides = (): Partial<
-  Record<ThemeName, ChatThemeOverrides>
-> => {
-  for (const key of CHAT_THEME_ENV_KEYS) {
-    const raw = process.env[key]
-    if (raw && raw.trim().length > 0) {
-      return parseThemeOverrides(raw)
-    }
-  }
-  return {}
 }
 
 const textDecoder = new TextDecoder()
@@ -686,7 +708,11 @@ export const detectSystemTheme = (): ThemeName => {
   const ideTheme = detectIDETheme()
   const platformTheme = detectPlatformTheme()
   const preferredTheme =
-    terminalOverrideTheme ?? ideTheme ?? oscDetectedTheme ?? platformTheme ?? 'dark'
+    terminalOverrideTheme ??
+    ideTheme ??
+    oscDetectedTheme ??
+    platformTheme ??
+    'dark'
 
   if (normalizedEnv === 'opposite') {
     return preferredTheme === 'dark' ? 'light' : 'dark'
@@ -824,13 +850,10 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   },
 }
 
-export const chatThemes = (() => {
-  const overrides = loadThemeOverrides()
-  return {
-    dark: mergeTheme(DEFAULT_CHAT_THEMES.dark, overrides.dark),
-    light: mergeTheme(DEFAULT_CHAT_THEMES.light, overrides.light),
-  }
-})()
+export const chatThemes = {
+  dark: DEFAULT_CHAT_THEMES.dark,
+  light: DEFAULT_CHAT_THEMES.light,
+}
 
 export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
   const headingDefaults: Record<MarkdownHeadingLevel, string> = {
