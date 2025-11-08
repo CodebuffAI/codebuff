@@ -18,6 +18,7 @@ interface AgentBranchItemProps {
   statusIndicator?: string
   onToggle?: () => void
   titleSuffix?: string
+  isUserCollapsingRef?: React.MutableRefObject<boolean>
 }
 
 export const AgentBranchItem = ({
@@ -34,6 +35,7 @@ export const AgentBranchItem = ({
   statusIndicator = '●',
   onToggle,
   titleSuffix,
+  isUserCollapsingRef,
 }: AgentBranchItemProps) => {
   const theme = useTheme()
 
@@ -140,6 +142,12 @@ export const AgentBranchItem = ({
           ))}
         </box>
       )
+    }
+
+    // Check if value is a plain object (not a React element)
+    if (typeof value === 'object' && value !== null && !React.isValidElement(value)) {
+      console.warn('Attempted to render plain object in agent content:', value)
+      return null
     }
 
     return (
@@ -281,7 +289,13 @@ export const AgentBranchItem = ({
                   alignSelf: 'flex-end',
                   marginTop: 1,
                 }}
-                onMouseDown={onToggle}
+                onMouseDown={() => {
+                  // Set flag to prevent auto-scroll during user-initiated collapse
+                  if (isUserCollapsingRef) {
+                    isUserCollapsingRef.current = true
+                  }
+                  onToggle()
+                }}
               >
                 <text
                   fg={theme.secondary}

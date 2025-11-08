@@ -40,7 +40,11 @@ import { BORDER_CHARS } from './utils/ui-constants'
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
-import type { ScrollBoxRenderable } from '@opentui/core'
+import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
+import { TextAttributes } from '@opentui/core'
+
+const MAX_VIRTUALIZED_TOP_LEVEL = 60
+const VIRTUAL_OVERSCAN = 12
 
 const DEFAULT_AGENT_IDS = {
   DEFAULT: 'base2',
@@ -493,7 +497,8 @@ export const Chat = ({
     ) : null
 
   const shouldShowQueuePreview = queuedMessages.length > 0
-  const shouldShowStatusLine = Boolean(hasStatus || shouldShowQueuePreview)
+  const shouldShowStatusLine =
+    hasStatus || shouldShowQueuePreview || !isAtBottom
 
   const statusIndicatorNode = (
     <StatusIndicator
@@ -603,18 +608,45 @@ export const Chat = ({
               width: '100%',
             }}
           >
-            <text style={{ wrapMode: 'none' }}>
-              {hasStatus && statusIndicatorNode}
+            {/* Left section - queue preview */}
+            <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}>
               {shouldShowQueuePreview && (
-                <span fg={theme.secondary} bg={theme.inputFocusedBg}>
-                  {' '}
-                  {formatQueuedPreview(
-                    queuedMessages,
-                    Math.max(30, terminalWidth - 25),
-                  )}{' '}
-                </span>
+                <text style={{ wrapMode: 'none' }}>
+                  <span fg={theme.secondary} bg={theme.inputFocusedBg}>
+                    {` ${formatQueuedPreview(
+                      queuedMessages,
+                      Math.max(30, terminalWidth - 25),
+                    )} `}
+                  </span>
+                </text>
               )}
-            </text>
+            </box>
+
+            {/* Center section - scroll indicator (always centered) */}
+            <box style={{ flexShrink: 0 }}>
+              {!isAtBottom && (
+                <text onMouseDown={scrollToLatest}>
+                  <span fg={theme.info} attributes={TextAttributes.BOLD}>
+                    ↓
+                  </span>
+                </text>
+              )}
+            </box>
+
+            {/* Right section - status indicator */}
+            <box
+              style={{
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: 0,
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+              }}
+            >
+              {hasStatus && (
+                <text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
+              )}
+            </box>
           </box>
         )}
         <box

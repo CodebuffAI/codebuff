@@ -50,8 +50,16 @@ const EditHeader = ({ name, filePath }: EditHeaderProps) => {
   const bulletChar = '• '
 
   return (
-    <box style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-      <text style={{ wrapMode: 'word' }}>
+    <box
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+        marginTop: 0,
+        marginBottom: 0,
+      }}
+    >
+      <text style={{ wrapMode: 'word', marginTop: 0, marginBottom: 0 }}>
         <span fg={theme.foreground}>{bulletChar}</span>
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
           {name}
@@ -69,12 +77,34 @@ interface EditBodyProps {
 }
 
 const EditBody = ({ name, filePath, diffText }: EditBodyProps) => {
+  const hasDiff = diffText && diffText.trim().length > 0
+
   return (
-    <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+    <box
+      style={{
+        flexDirection: 'column',
+        gap: 0,
+        width: '100%',
+        marginTop: 0,
+        marginBottom: 0,
+      }}
+    >
       <EditHeader name={name} filePath={filePath} />
-      <box style={{ paddingLeft: 2, width: '100%' }}>
-        <DiffViewer diffText={diffText} />
-      </box>
+      {hasDiff && (
+        <box
+          style={{
+            paddingLeft: 2,
+            paddingRight: 0,
+            paddingTop: 0,
+            paddingBottom: 0,
+            width: '100%',
+            marginTop: 0,
+            marginBottom: 0,
+          }}
+        >
+          <DiffViewer diffText={diffText} />
+        </box>
+      )}
     </box>
   )
 }
