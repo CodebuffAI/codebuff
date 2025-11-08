@@ -526,6 +526,7 @@ export const MessageBlock = memo(
         <text
           key={`message-content-${messageId}`}
           style={{ wrapMode: 'word', fg: resolvedTextColor }}
+          attributes={isUser ? TextAttributes.ITALIC : undefined}
         >
           {displayContent}
         </text>
@@ -566,6 +567,7 @@ export const MessageBlock = memo(
                 marginTop,
                 marginBottom,
               }}
+              attributes={isUser ? TextAttributes.ITALIC : undefined}
             >
               {renderedContent}
             </text>

@@ -244,18 +244,34 @@ export const AgentBranchItem = ({
             {prompt && (
               <box
                 style={{
-                  flexDirection: 'column',
+                  flexDirection: 'row',
                   gap: 0,
+                  alignItems: 'stretch',
                   marginBottom: content ? 1 : 0,
                 }}
               >
-                <text
-                  fg={theme.foreground}
-                  style={{ wrapMode: 'word' }}
-                  attributes={getAttributes(TextAttributes.ITALIC)}
+                <box
+                  style={{
+                    width: 1,
+                    backgroundColor: theme.userLine,
+                    marginTop: 0,
+                    marginBottom: 0,
+                  }}
+                />
+                <box
+                  style={{
+                    paddingLeft: 1,
+                    flexGrow: 1,
+                  }}
                 >
-                  {prompt}
-                </text>
+                  <text
+                    fg={theme.foreground}
+                    style={{ wrapMode: 'word' }}
+                    attributes={getAttributes(TextAttributes.ITALIC)}
+                  >
+                    {prompt}
+                  </text>
+                </box>
               </box>
             )}
             {renderExpandedContent(content)}
