@@ -1,4 +1,5 @@
 import { CodeSearchComponent } from './code-search'
+import { GlobComponent } from './glob'
 import { ListDirectoryComponent } from './list-directory'
 import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
@@ -23,6 +24,7 @@ import type { ToolName } from '@codebuff/sdk'
  */
 const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [CodeSearchComponent.toolName, CodeSearchComponent],
+  [GlobComponent.toolName, GlobComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],
   [RunTerminalCommandComponent.toolName, RunTerminalCommandComponent],
   [ReadFilesComponent.toolName, ReadFilesComponent],
