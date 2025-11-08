@@ -762,6 +762,13 @@ export const useSendMessage = ({
                 rootStreamBufferRef.current =
                   (rootStreamBufferRef.current ?? '') + eventObj.text
               }
+              
+              // Auto-collapse thinking blocks by default
+              if (eventObj.type === 'reasoning') {
+                const thinkingId = `${aiMessageId}-thinking-0`
+                setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
+              }
+              
               rootStreamSeenRef.current = true
               appendRootChunk(eventObj)
             } else if (event.type === 'subagent_chunk') {
