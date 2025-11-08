@@ -30,6 +30,31 @@ const yieldToEventLoop = () =>
     setTimeout(resolve, 0)
   })
 
+const scrubPlanTags = (s: string) =>
+  s
+    .replace(/<cb_plan>[\s\S]*?<\/cb_plan>/g, '')
+    .replace(/<cb_plan>[\s\S]*$/g, '')
+
+const scrubPlanTagsInBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
+  return blocks.map((b) => {
+    if (b.type === 'text') {
+      return {
+        ...b,
+        content: (b as any).content
+          ? scrubPlanTags((b as any).content as string)
+          : (b as any).content,
+      } as any
+    }
+    if (b.type === 'agent' && (b as any).blocks) {
+      return {
+        ...b,
+        blocks: scrubPlanTagsInBlocks((b as any).blocks as ContentBlock[]),
+      }
+    }
+    return b
+  })
+}
+
 // Helper function to recursively update blocks
 const updateBlocksRecursively = (
   blocks: ContentBlock[],
@@ -216,6 +241,7 @@ export const useSendMessage = ({
   const rootStreamBufferRef = useRef('')
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
   const rootStreamSeenRef = useRef(false)
+  const autoCollapsedThinkingIdsRef = useRef<Set<string>>(new Set())
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -762,13 +788,16 @@ export const useSendMessage = ({
                 rootStreamBufferRef.current =
                   (rootStreamBufferRef.current ?? '') + eventObj.text
               }
-              
-              // Auto-collapse thinking blocks by default
+
+              // Auto-collapse thinking blocks by default (only once per thinking block)
               if (eventObj.type === 'reasoning') {
                 const thinkingId = `${aiMessageId}-thinking-0`
-                setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
+                if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
+                  autoCollapsedThinkingIdsRef.current.add(thinkingId)
+                  setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
+                }
               }
-              
+
               rootStreamSeenRef.current = true
               appendRootChunk(eventObj)
             } else if (event.type === 'subagent_chunk') {
@@ -832,6 +861,15 @@ export const useSendMessage = ({
                   event.agentId,
                   previous + text,
                 )
+
+                // Auto-collapse thinking blocks for subagents on first content
+                if (previous.length === 0) {
+                  const thinkingId = `${aiMessageId}-agent-${event.agentId}-thinking-0`
+                  if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
+                    autoCollapsedThinkingIdsRef.current.add(thinkingId)
+                    setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
+                  }
+                }
 
                 updateAgentContent(event.agentId, {
                   type: 'text',

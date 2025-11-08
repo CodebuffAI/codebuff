@@ -6,6 +6,7 @@ import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
 import { renderToolComponent } from './tools/registry'
 import { ToolCallItem } from './tools/tool-call-item'
+import { Thinking } from './thinking'
 import { useTheme } from '../hooks/use-theme'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
@@ -23,6 +24,12 @@ const trimTrailingNewlines = (value: string): string =>
 
 const sanitizePreview = (value: string): string =>
   value.replace(/[#*_`~\[\]()]/g, '').trim()
+
+// Delete any complete <cb_plan>...</cb_plan> segment; hide any partial open <cb_plan>... (until closing tag arrives)
+const scrubPlanTags = (value: string): string =>
+  value
+    .replace(/<cb_plan>[\s\S]*?<\/cb_plan>/g, '')
+    .replace(/<cb_plan>[\s\S]*$/g, '')
 
 interface MessageBlockProps {
   messageId: string
@@ -100,9 +107,8 @@ export const MessageBlock = memo(
           .filter((line) => line.trim())
         const lastThreeLines = outputLines.slice(-3)
         const hasMoreLines = outputLines.length > 3
-        return hasMoreLines
-          ? '...\n' + lastThreeLines.join('\n')
-          : lastThreeLines.join('\n')
+        const preview = lastThreeLines.join('\n')
+        return hasMoreLines ? `...\n${preview}` : preview
       }
 
       return sanitizePreview(lastLine)
@@ -118,6 +124,45 @@ export const MessageBlock = memo(
           codeTextFg: theme.foreground,
         },
       }
+    }
+
+    const isReasoningTextBlock = (b: any): boolean =>
+      b?.type === 'text' &&
+      (b.textType === 'reasoning' ||
+        b.textType === 'reasoning_chunk' ||
+        (typeof b.color === 'string' &&
+          (b.color.toLowerCase() === 'grey' || b.color.toLowerCase() === 'gray')))
+
+    const renderThinkingBlock = (
+      blocks: Extract<ContentBlock, { type: 'text' }>[],
+      keyPrefix: string,
+      startIndex: number,
+      indentLevel: number = 0,
+    ): React.ReactNode => {
+      const thinkingId = `${keyPrefix}-thinking-${startIndex}`
+      const combinedContent = blocks
+        .map((b) => b.content)
+        .join('')
+        .trim()
+
+      if (!combinedContent) {
+        return null
+      }
+
+      const isCollapsed = collapsedAgents.has(thinkingId)
+      const marginLeft = Math.max(0, indentLevel * 2)
+      const availWidth = Math.max(10, availableWidth - marginLeft - 4)
+
+      return (
+        <box key={thinkingId} style={{ marginLeft }}>
+          <Thinking
+            content={scrubPlanTags(combinedContent)}
+            isCollapsed={isCollapsed}
+            onToggle={() => onToggleCollapsed(thinkingId)}
+            availableWidth={availWidth}
+          />
+        </box>
+      )
     }
 
     const renderToolBranch = (
@@ -363,6 +408,29 @@ export const MessageBlock = memo(
 
       for (let nestedIdx = 0; nestedIdx < nestedBlocks.length; ) {
         const nestedBlock = nestedBlocks[nestedIdx]
+        // Handle reasoning text blocks in agents
+        if (isReasoningTextBlock(nestedBlock)) {
+          const start = nestedIdx
+          const reasoningBlocks: Extract<ContentBlock, { type: 'text' }>[] = []
+          while (
+            nestedIdx < nestedBlocks.length &&
+            isReasoningTextBlock(nestedBlocks[nestedIdx] as any)
+          ) {
+            reasoningBlocks.push(nestedBlocks[nestedIdx] as any)
+            nestedIdx++
+          }
+
+          const thinkingNode = renderThinkingBlock(
+            reasoningBlocks,
+            keyPrefix,
+            start,
+            indentLevel,
+          )
+          if (thinkingNode) {
+            nodes.push(thinkingNode)
+          }
+          continue
+        }
         switch (nestedBlock.type) {
           case 'text': {
             const nestedStatus =
@@ -374,10 +442,11 @@ export const MessageBlock = memo(
             const rawNestedContent = isNestedStreamingText
               ? trimTrailingNewlines(nestedBlock.content)
               : nestedBlock.content.trim()
+            const filteredNestedContent = scrubPlanTags(rawNestedContent)
             const renderKey = `${keyPrefix}-text-${nestedIdx}`
             const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
             const renderedContent = renderContentWithMarkdown(
-              rawNestedContent,
+              filteredNestedContent,
               isNestedStreamingText,
               markdownOptionsForLevel,
             )
@@ -517,8 +586,9 @@ export const MessageBlock = memo(
       const normalizedContent = isStreamingMessage
         ? trimTrailingNewlines(content)
         : content.trim()
+      const sanitizedContent = scrubPlanTags(normalizedContent)
       const displayContent = renderContentWithMarkdown(
-        normalizedContent,
+        sanitizedContent,
         isStreamingMessage,
         markdownOptions,
       )
@@ -536,13 +606,18 @@ export const MessageBlock = memo(
     const renderSingleBlock = (block: ContentBlock, idx: number) => {
       switch (block.type) {
         case 'text': {
+          // Skip raw rendering for reasoning; grouped above into <Thinking>
+          if (isReasoningTextBlock(block as any)) {
+            return null
+          }
           const isStreamingText = isLoading || !isComplete
           const rawContent = isStreamingText
             ? trimTrailingNewlines(block.content)
             : block.content.trim()
+          const filteredContent = scrubPlanTags(rawContent)
           const renderKey = `${messageId}-text-${idx}`
           const renderedContent = renderContentWithMarkdown(
-            rawContent,
+            filteredContent,
             isStreamingText,
             markdownOptions,
           )
@@ -622,6 +697,28 @@ export const MessageBlock = memo(
       const nodes: React.ReactNode[] = []
       for (let i = 0; i < sourceBlocks.length; ) {
         const block = sourceBlocks[i]
+        // Handle reasoning text blocks
+        if (isReasoningTextBlock(block as any)) {
+          const start = i
+          const reasoningBlocks: Extract<ContentBlock, { type: 'text' }>[] = []
+          while (
+            i < sourceBlocks.length &&
+            isReasoningTextBlock(sourceBlocks[i] as any)
+          ) {
+            reasoningBlocks.push(sourceBlocks[i] as any)
+            i++
+          }
+
+          const thinkingNode = renderThinkingBlock(
+            reasoningBlocks,
+            messageId,
+            start,
+          )
+          if (thinkingNode) {
+            nodes.push(thinkingNode)
+          }
+          continue
+        }
         if (block.type === 'tool') {
           const start = i
           const group: Extract<ContentBlock, { type: 'tool' }>[] = []

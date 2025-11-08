@@ -5,6 +5,8 @@ import { useTheme } from '../hooks/use-theme'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { getLastNVisualLines } from '../utils/text-layout'
 
+const PREVIEW_LINE_COUNT = 3
+
 interface ThinkingProps {
   content: string
   isCollapsed: boolean
@@ -13,64 +15,129 @@ interface ThinkingProps {
 }
 
 export const Thinking = memo(
-  ({ content, isCollapsed, onToggle, availableWidth }: ThinkingProps): ReactNode => {
+  ({
+    content,
+    isCollapsed,
+    onToggle,
+    availableWidth,
+  }: ThinkingProps): ReactNode => {
     const theme = useTheme()
     const { contentMaxWidth } = useTerminalDimensions()
 
-    const width = Math.max(10, Math.min((availableWidth ?? contentMaxWidth), 120))
-    const { lines: lastLines, hasMore } = getLastNVisualLines(content, width, 3)
-    const collapsedText = (hasMore ? '...\n' : '') + lastLines.join('\n')
+    const width = Math.max(10, Math.min(availableWidth ?? contentMaxWidth, 120))
+    // Normalize content to single line for consistent preview
+    const normalizedContent = content.replace(/\n+/g, ' ').trim()
+    const { lines, hasMore } = getLastNVisualLines(
+      normalizedContent,
+      width,
+      PREVIEW_LINE_COUNT,
+    )
+    // Pad to exactly PREVIEW_LINE_COUNT lines for consistent height while streaming
+    const previewLines = [...lines]
+    while (previewLines.length < PREVIEW_LINE_COUNT) {
+      previewLines.push('')
+    }
 
     return (
       <box
         style={{
           flexDirection: 'column',
           gap: 0,
-          marginTop: 1,
-          marginBottom: 1,
+          marginTop: 0,
+          marginBottom: 0,
         }}
+        onMouseDown={onToggle}
       >
         <box
           style={{
             flexDirection: 'row',
             alignSelf: 'flex-start',
-            backgroundColor: theme.muted,
-            paddingLeft: 1,
-            paddingRight: 1,
           }}
-          onMouseDown={onToggle}
         >
-          <text style={{ wrapMode: 'none' }}>
-            <span fg={theme.foreground}>{isCollapsed ? '▸ ' : '▾ '}</span>
-            <span fg={theme.foreground} attributes={TextAttributes.ITALIC}>
-              Thinking
-            </span>
+          <text
+            style={{ wrapMode: 'none', attributes: TextAttributes.BOLD }}
+            fg={theme.foreground}
+          >
+            • Thinking
           </text>
         </box>
-        {isCollapsed && collapsedText && (
-          <box style={{ flexShrink: 1, marginTop: 0 }}>
-            <text
+        {isCollapsed ? (
+          previewLines.length > 0 && (
+            <box
               style={{
-                wrapMode: 'word',
-                fg: theme.muted,
+                flexDirection: 'row',
+                gap: 0,
+                alignItems: 'stretch',
+                marginTop: 0,
               }}
-              attributes={TextAttributes.ITALIC}
             >
-              {collapsedText}
-            </text>
-          </box>
-        )}
-        {!isCollapsed && (
-          <box style={{ flexShrink: 1, marginTop: 0 }}>
-            <text
+              <box
+                style={{
+                  width: 1,
+                  backgroundColor: theme.muted,
+                  marginTop: 0,
+                  marginBottom: 0,
+                }}
+              />
+              <box
+                style={{
+                  paddingLeft: 1,
+                  flexGrow: 1,
+                  flexDirection: 'column',
+                  gap: 0,
+                }}
+              >
+                {hasMore && (
+                  <text
+                    style={{
+                      wrapMode: 'none',
+                      fg: theme.muted,
+                    }}
+                    attributes={TextAttributes.ITALIC}
+                  >
+                    ...
+                  </text>
+                )}
+                <text
+                  style={{
+                    wrapMode: 'word',
+                    fg: theme.muted,
+                  }}
+                  attributes={TextAttributes.ITALIC}
+                >
+                  {previewLines.join(' ')}
+                </text>
+              </box>
+            </box>
+          )
+        ) : (
+          <box
+            style={{
+              flexDirection: 'row',
+              gap: 0,
+              alignItems: 'stretch',
+              marginTop: 0,
+            }}
+          >
+            <box
               style={{
-                wrapMode: 'word',
-                fg: theme.muted,
+                width: 1,
+                backgroundColor: theme.muted,
+                marginTop: 0,
+                marginBottom: 0,
               }}
-              attributes={TextAttributes.ITALIC}
-            >
-              {content}
-            </text>
+            />
+            <box style={{ paddingLeft: 1, flexGrow: 1 }}>
+              <text
+                style={{
+                  wrapMode: 'word',
+                  fg: theme.muted,
+                }}
+                attributes={TextAttributes.ITALIC}
+              >
+                {content}
+              </text>
+            </box>
           </box>
         )}
       </box>
