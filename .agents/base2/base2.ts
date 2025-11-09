@@ -7,20 +7,26 @@ import {
 } from '../types/secret-agent-definition'
 
 export function createBase2(
-  mode: 'fast' | 'max',
+  mode: 'fast' | 'default' | 'max',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const { hasNoValidation = false, planOnly = false } = options ?? {}
+  const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
+
   const isGpt5 = isMax
 
   return {
     publisher,
-    model: isGpt5 ? 'openai/gpt-5' : 'anthropic/claude-sonnet-4.5',
+    model: isGpt5
+      ? 'openai/gpt-5'
+      : isFast
+        ? 'z-ai/glm-4.6:nitro'
+        : 'anthropic/claude-sonnet-4.5',
     ...(isGpt5 && {
       reasoningModel: {
         effort: 'high',
@@ -63,7 +69,8 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'commander',
-      isGpt5 ? 'best-of-n-editor-gpt-5' : 'best-of-n-editor',
+      isGpt5 && 'best-of-n-editor-gpt-5',
+      isDefault && 'best-of-n-editor',
       'context-pruner',
     ),
 
@@ -144,7 +151,8 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       ? buildPlanOnlyInstructionsPrompt({})
       : buildImplementationInstructionsPrompt({
           isGpt5,
-          isFast,
+          isDefault,
+          isMax,
           hasNoValidation,
         }),
     stepPrompt: planOnly
@@ -177,11 +185,13 @@ export default definition
 
 function buildImplementationInstructionsPrompt({
   isGpt5,
-  isFast,
+  isDefault,
+  isMax,
   hasNoValidation,
 }: {
   isGpt5: boolean
-  isFast: boolean
+  isDefault: boolean
+  isMax: boolean
   hasNoValidation: boolean
 }) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents. Take your time and be comprehensive.
@@ -196,7 +206,7 @@ ${buildArray(
   `- For multi-step tasks, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for trivial tasks like single-line edits or simple questions.`,
   `- You must spawn the ${isGpt5 ? 'best-of-n-editor-gpt-5' : 'best-of-n-editor'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very small and trivial.`,
   !hasNoValidation &&
-    `- Test your changes${isFast ? ' briefly' : ''} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.).${isFast ? ' If you can, only typecheck/test the area of the project that you are editing, rather than the entire project.' : ' Start by type checking the specific area of the project that you are editing and then test the entire project if necessary.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
+    `- Test your changes${isMax ? '' : ' briefly'} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.).${isMax ? ' Start by type checking the specific area of the project that you are editing and then test the entire project if necessary.' : ' If you can, only typecheck/test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points. Don't create any markdown summary files or example documentation files, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
   isGpt5 && `- Use the task_completed tool.`,
 ).join('\n')}`
