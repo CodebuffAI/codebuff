@@ -36,7 +36,7 @@ export const BuildModeButtons = ({
       <box
         style={{
           flexDirection: 'row',
-          gap: 2,
+          gap: 1,
         }}
       >
         <box

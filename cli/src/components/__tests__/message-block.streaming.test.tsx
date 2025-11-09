@@ -39,6 +39,8 @@ const baseProps = {
   collapsedAgents: new Set<string>(),
   streamingAgents: new Set<string>(),
   onToggleCollapsed: () => {},
+  onBuildFast: () => {},
+  onBuildMax: () => {},
 }
 
 const createTimerStartTime = (elapsedSeconds: number): number | null =>

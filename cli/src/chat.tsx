@@ -3,7 +3,6 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
-import { BuildModeButtons } from './components/build-mode-buttons'
 import { LoginModal } from './components/login-modal'
 import { MessageRenderer } from './components/message-renderer'
 import {
@@ -817,6 +816,8 @@ export const Chat = ({
             setFocusedAgentId={setFocusedAgentId}
             userOpenedAgents={userOpenedAgents}
             setUserOpenedAgents={setUserOpenedAgents}
+            onBuildFast={handleBuildFast}
+            onBuildMax={handleBuildMax}
           />
         </scrollbox>
       </box>
@@ -859,13 +860,6 @@ export const Chat = ({
             customBorderChars: BORDER_CHARS,
           }}
         >
-          {agentMode === 'PLAN' && hasReceivedPlanResponse && (
-            <BuildModeButtons
-              theme={theme}
-              onBuildFast={handleBuildFast}
-              onBuildMax={handleBuildMax}
-            />
-          )}
           {slashContext.active && slashSuggestionItems.length > 0 ? (
             <SuggestionMenu
               items={slashSuggestionItems}

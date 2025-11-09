@@ -18,7 +18,6 @@ import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
-
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
   'end_turn',
@@ -29,31 +28,6 @@ const yieldToEventLoop = () =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, 0)
   })
-
-const scrubPlanTags = (s: string) =>
-  s
-    .replace(/<cb_plan>[\s\S]*?<\/cb_plan>/g, '')
-    .replace(/<cb_plan>[\s\S]*$/g, '')
-
-const scrubPlanTagsInBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
-  return blocks.map((b) => {
-    if (b.type === 'text') {
-      return {
-        ...b,
-        content: (b as any).content
-          ? scrubPlanTags((b as any).content as string)
-          : (b as any).content,
-      } as any
-    }
-    if (b.type === 'agent' && (b as any).blocks) {
-      return {
-        ...b,
-        blocks: scrubPlanTagsInBlocks((b as any).blocks as ContentBlock[]),
-      }
-    }
-    return b
-  })
-}
 
 // Helper function to recursively update blocks
 const updateBlocksRecursively = (
@@ -73,6 +47,24 @@ const updateBlocksRecursively = (
     }
     return block
   })
+}
+
+const scrubPlanTags = (s: string) =>
+  s.replace(/<PLAN>[\s\S]*?<\/cb_plan>/g, '').replace(/<PLAN>[\s\S]*$/g, '')
+
+const scrubPlanTagsInBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
+  return blocks
+    .map((b) => {
+      if (b.type === 'text') {
+        const newContent = scrubPlanTags(b.content)
+        return {
+          ...b,
+          content: newContent,
+        }
+      }
+      return b
+    })
+    .filter((b) => b.type !== 'text' || b.content.trim() !== '')
 }
 
 export type SendMessageTimerEvent =
@@ -241,6 +233,7 @@ export const useSendMessage = ({
   const rootStreamBufferRef = useRef('')
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
   const rootStreamSeenRef = useRef(false)
+  const planExtractedRef = useRef(false)
   const autoCollapsedThinkingIdsRef = useRef<Set<string>>(new Set())
 
   const updateChainInProgress = useCallback(
@@ -520,6 +513,7 @@ export const useSendMessage = ({
 
       rootStreamBufferRef.current = ''
       rootStreamSeenRef.current = false
+      planExtractedRef.current = false
       agentStreamAccumulatorsRef.current = new Map<string, string>()
       timerController.start(aiMessageId)
 
@@ -689,6 +683,43 @@ export const useSendMessage = ({
             }
           }),
         )
+
+        // Detect and extract <PLAN>...</PLAN> once available
+        if (
+          agentMode === 'PLAN' &&
+          delta.type === 'text' &&
+          !planExtractedRef.current &&
+          rootStreamBufferRef.current.includes('</PLAN>')
+        ) {
+          const buffer = rootStreamBufferRef.current
+          const openIdx = buffer.indexOf('<PLAN>')
+          const closeIdx = buffer.indexOf('</PLAN>')
+          if (openIdx !== -1 && closeIdx !== -1 && closeIdx > openIdx) {
+            const rawPlan = buffer
+              .slice(openIdx + '<PLAN>'.length, closeIdx)
+              .trim()
+            planExtractedRef.current = true
+            setHasReceivedPlanResponse(true)
+
+            applyMessageUpdate((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== aiMessageId) return msg
+                const cleanedBlocks = scrubPlanTagsInBlocks(msg.blocks || [])
+                const newBlocks = [
+                  ...cleanedBlocks,
+                  {
+                    type: 'plan' as const,
+                    content: rawPlan,
+                  },
+                ]
+                return {
+                  ...msg,
+                  blocks: newBlocks,
+                }
+              }),
+            )
+          }
+        }
       }
 
       setIsWaitingForResponse(true)

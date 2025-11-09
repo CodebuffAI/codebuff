@@ -29,6 +29,8 @@ interface MessageRendererProps {
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   userOpenedAgents: Set<string>
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
+  onBuildFast: () => void
+  onBuildMax: () => void
 }
 
 export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
@@ -46,6 +48,8 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
     setCollapsedAgents,
     setFocusedAgentId,
     setUserOpenedAgents,
+    onBuildFast,
+    onBuildMax,
   } = props
 
   const onToggleCollapsed = useCallback(
@@ -96,6 +100,8 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
             isWaitingForResponse={isWaitingForResponse}
             timerStartTime={timerStartTime}
             onToggleCollapsed={onToggleCollapsed}
+            onBuildFast={onBuildFast}
+            onBuildMax={onBuildMax}
           />
         )
       })}
@@ -120,6 +126,8 @@ interface MessageWithAgentsProps {
   isWaitingForResponse: boolean
   timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
 }
 
 const MessageWithAgents = memo(
@@ -140,6 +148,8 @@ const MessageWithAgents = memo(
     isWaitingForResponse,
     timerStartTime,
     onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
@@ -162,6 +172,8 @@ const MessageWithAgents = memo(
           isWaitingForResponse={isWaitingForResponse}
           timerStartTime={timerStartTime}
           onToggleCollapsed={onToggleCollapsed}
+          onBuildFast={onBuildFast}
+          onBuildMax={onBuildMax}
         />
       )
     }
@@ -280,6 +292,8 @@ const MessageWithAgents = memo(
                   collapsedAgents={collapsedAgents}
                   streamingAgents={streamingAgents}
                   onToggleCollapsed={onToggleCollapsed}
+                  onBuildFast={onBuildFast}
+                  onBuildMax={onBuildMax}
                 />
               </box>
             </box>
@@ -318,6 +332,8 @@ const MessageWithAgents = memo(
                 collapsedAgents={collapsedAgents}
                 streamingAgents={streamingAgents}
                 onToggleCollapsed={onToggleCollapsed}
+                onBuildFast={onBuildFast}
+                onBuildMax={onBuildMax}
               />
             </box>
           )}
@@ -344,6 +360,8 @@ const MessageWithAgents = memo(
                   isWaitingForResponse={isWaitingForResponse}
                   timerStartTime={timerStartTime}
                   onToggleCollapsed={onToggleCollapsed}
+                  onBuildFast={onBuildFast}
+                  onBuildMax={onBuildMax}
                 />
               </box>
             ))}
@@ -370,6 +388,8 @@ interface AgentMessageProps {
   isWaitingForResponse: boolean
   timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
 }
 
 const AgentMessage = memo(
@@ -389,6 +409,8 @@ const AgentMessage = memo(
     isWaitingForResponse,
     timerStartTime,
     onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
   }: AgentMessageProps): ReactNode => {
     const agentInfo = message.agent!
     const isCollapsed = collapsedAgents.has(message.id)
@@ -582,6 +604,8 @@ const AgentMessage = memo(
                   isWaitingForResponse={isWaitingForResponse}
                   timerStartTime={timerStartTime}
                   onToggleCollapsed={onToggleCollapsed}
+                  onBuildFast={onBuildFast}
+                  onBuildMax={onBuildMax}
                 />
               </box>
             ))}

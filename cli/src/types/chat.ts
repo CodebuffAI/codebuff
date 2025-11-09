@@ -48,6 +48,12 @@ export type ModeDividerContentBlock = {
   type: 'mode-divider'
   mode: string
 }
+
+export type PlanContentBlock = {
+  type: 'plan'
+  content: string
+}
+
 export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
@@ -55,6 +61,7 @@ export type ContentBlock =
   | ModeDividerContentBlock
   | TextContentBlock
   | ToolContentBlock
+  | PlanContentBlock
 
 export type AgentMessage = {
   agentName: string

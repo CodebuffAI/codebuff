@@ -6,7 +6,6 @@ import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
 import { renderToolComponent } from './tools/registry'
 import { ToolCallItem } from './tools/tool-call-item'
-import { Thinking } from './thinking'
 import { useTheme } from '../hooks/use-theme'
 import { getToolDisplayInfo } from '../utils/codebuff-client'
 import {
@@ -15,6 +14,9 @@ import {
   hasMarkdown,
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
+import { BORDER_CHARS } from '../utils/ui-constants'
+import { BuildModeButtons } from './build-mode-buttons'
+import { Thinking } from './thinking'
 
 import type { ContentBlock } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
@@ -24,12 +26,6 @@ const trimTrailingNewlines = (value: string): string =>
 
 const sanitizePreview = (value: string): string =>
   value.replace(/[#*_`~\[\]()]/g, '').trim()
-
-// Delete any complete <cb_plan>...</cb_plan> segment; hide any partial open <cb_plan>... (until closing tag arrives)
-const scrubPlanTags = (value: string): string =>
-  value
-    .replace(/<cb_plan>[\s\S]*?<\/cb_plan>/g, '')
-    .replace(/<cb_plan>[\s\S]*$/g, '')
 
 interface MessageBlockProps {
   messageId: string
@@ -51,6 +47,8 @@ interface MessageBlockProps {
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
 }
 
 export const MessageBlock = memo(
@@ -74,6 +72,8 @@ export const MessageBlock = memo(
     collapsedAgents,
     streamingAgents,
     onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
   }: MessageBlockProps): ReactNode => {
     const theme = useTheme()
     const resolvedTextColor = textColor ?? theme.foreground
@@ -131,7 +131,8 @@ export const MessageBlock = memo(
       (b.textType === 'reasoning' ||
         b.textType === 'reasoning_chunk' ||
         (typeof b.color === 'string' &&
-          (b.color.toLowerCase() === 'grey' || b.color.toLowerCase() === 'gray')))
+          (b.color.toLowerCase() === 'grey' ||
+            b.color.toLowerCase() === 'gray')))
 
     const renderThinkingBlock = (
       blocks: Extract<ContentBlock, { type: 'text' }>[],
@@ -156,10 +157,42 @@ export const MessageBlock = memo(
       return (
         <box key={thinkingId} style={{ marginLeft }}>
           <Thinking
-            content={scrubPlanTags(combinedContent)}
+            content={combinedContent}
             isCollapsed={isCollapsed}
             onToggle={() => onToggleCollapsed(thinkingId)}
             availableWidth={availWidth}
+          />
+        </box>
+      )
+    }
+
+    const renderPlanBox = (planContent: string): React.ReactNode => {
+      const planNodes = renderMarkdown(planContent, {
+        codeBlockWidth: Math.max(10, availableWidth - 8),
+        palette: markdownPalette,
+      })
+      return (
+        <box
+          style={{
+            flexDirection: 'column',
+            gap: 1,
+            width: '100%',
+            borderStyle: 'single',
+            borderColor: theme.secondary,
+            customBorderChars: BORDER_CHARS,
+            paddingLeft: 1,
+            paddingRight: 1,
+            paddingTop: 0,
+            paddingBottom: 1,
+          }}
+        >
+          <text style={{ wrapMode: 'word', fg: theme.foreground }}>
+            {planNodes}
+          </text>
+          <BuildModeButtons
+            theme={theme}
+            onBuildFast={onBuildFast}
+            onBuildMax={onBuildMax}
           />
         </box>
       )
@@ -439,10 +472,9 @@ export const MessageBlock = memo(
                 : undefined
             const isNestedStreamingText =
               parentIsStreaming || nestedStatus === 'running'
-            const rawNestedContent = isNestedStreamingText
+            const filteredNestedContent = isNestedStreamingText
               ? trimTrailingNewlines(nestedBlock.content)
               : nestedBlock.content.trim()
-            const filteredNestedContent = scrubPlanTags(rawNestedContent)
             const renderKey = `${keyPrefix}-text-${nestedIdx}`
             const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
             const renderedContent = renderContentWithMarkdown(
@@ -586,9 +618,8 @@ export const MessageBlock = memo(
       const normalizedContent = isStreamingMessage
         ? trimTrailingNewlines(content)
         : content.trim()
-      const sanitizedContent = scrubPlanTags(normalizedContent)
       const displayContent = renderContentWithMarkdown(
-        sanitizedContent,
+        normalizedContent,
         isStreamingMessage,
         markdownOptions,
       )
@@ -611,10 +642,9 @@ export const MessageBlock = memo(
             return null
           }
           const isStreamingText = isLoading || !isComplete
-          const rawContent = isStreamingText
+          const filteredContent = isStreamingText
             ? trimTrailingNewlines(block.content)
             : block.content.trim()
-          const filteredContent = scrubPlanTags(rawContent)
           const renderKey = `${messageId}-text-${idx}`
           const renderedContent = renderContentWithMarkdown(
             filteredContent,
@@ -646,6 +676,14 @@ export const MessageBlock = memo(
             >
               {renderedContent}
             </text>
+          )
+        }
+
+        case 'plan': {
+          return (
+            <box key={`${messageId}-plan-${idx}`} style={{ width: '100%' }}>
+              {renderPlanBox(block.content)}
+            </box>
           )
         }
 
@@ -806,7 +844,6 @@ export const MessageBlock = memo(
         )}
         {isAi && (
           <>
-            {/* Show elapsed time while streaming */}
             {isLoading && !isComplete && (
               <text
                 attributes={TextAttributes.DIM}
@@ -823,7 +860,6 @@ export const MessageBlock = memo(
                 />
               </text>
             )}
-            {/* Show completion time and credits when complete */}
             {isComplete && (
               <text
                 attributes={TextAttributes.DIM}
