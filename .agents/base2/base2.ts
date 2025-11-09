@@ -180,7 +180,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
   }
 }
 
-const definition = { ...createBase2('fast'), id: 'base2' }
+const definition = { ...createBase2('default'), id: 'base2' }
 export default definition
 
 function buildImplementationInstructionsPrompt({
