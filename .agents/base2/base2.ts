@@ -181,7 +181,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
   }
 }
 
-const EXPLORE_PROMPT = `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to use to find relevant files -- try spawning mulitple in parallel to explore different parts of the codebase. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`
+const EXPLORE_PROMPT = `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to use to find relevant files -- try spawning multiple in parallel to explore different parts of the codebase. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`
 
 function buildImplementationInstructionsPrompt({
   isGpt5,
