@@ -69,8 +69,10 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'commander',
-      isGpt5 && 'best-of-n-editor-gpt-5',
       isDefault && 'best-of-n-editor',
+      isGpt5 && 'best-of-n-editor-gpt-5',
+      isDefault && 'thinker-best-of-n',
+      isGpt5 && 'thinker-best-of-n-gpt-5',
       'context-pruner',
     ),
 

@@ -8,13 +8,11 @@ import type { ToolRenderConfig } from './types'
 interface ReadFilesSimpleToolCallItemProps {
   name: string
   filePaths: string[]
-  maxNewlineFiles?: number
 }
 
 const ReadFilesSimpleToolCallItem = ({
   name,
   filePaths,
-  maxNewlineFiles = 2,
 }: ReadFilesSimpleToolCallItemProps) => {
   const theme = useTheme()
   const bulletChar = '• '
