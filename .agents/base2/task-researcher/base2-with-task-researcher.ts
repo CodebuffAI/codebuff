@@ -42,7 +42,7 @@ export const createBase2WithTaskResearcher: () => Omit<
     ],
     spawnableAgents: buildArray(
       'task-researcher2',
-      'file-picker-max',
+      'file-picker',
       'code-searcher',
       'directory-lister',
       'glob-matcher',

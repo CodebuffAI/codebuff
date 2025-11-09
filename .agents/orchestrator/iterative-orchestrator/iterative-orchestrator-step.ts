@@ -11,7 +11,7 @@ const definition: SecretAgentDefinition = {
     'Orchestrates the completion of a large task through batches of independent steps.',
   toolNames: ['spawn_agents', 'read_files', 'set_output'],
   spawnableAgents: [
-    'file-picker-max',
+    'file-picker',
     'code-searcher',
     'directory-lister',
     'glob-matcher',

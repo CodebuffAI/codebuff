@@ -43,7 +43,7 @@ export const createBase2Implementor: () => Omit<
     includeMessageHistory: false,
     toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
     spawnableAgents: buildArray(
-      'file-picker-max',
+      'file-picker',
       'code-searcher',
       'directory-lister',
       'glob-matcher',
@@ -125,15 +125,15 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 The user asks you to implement a new feature. You respond in multiple steps:
 
 1. Read all the files provided by the user using the read_files tool.
-2. As needed, spawn a couple different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+2. As needed, spawn a couple different file-picker's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 2a. Read all the new relevant files using the read_files tool.
-3. As needed, spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
+3. As needed, spawn one more file-picker and one more code-searcher with different prompts to find relevant files.
 3a. Read all the new relevant files using the read_files tool.
 5. Use the str_replace or write_file tool to make the changes.
 6. Spawn a code-reviewer-gpt-5 to review the changes. Consider making changes suggested by the code-reviewer-gpt-5.
 7. Spawn a validator-gpt-5 to run validation checks (tests, typechecks, etc.) to ensure the changes are correct.`,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, code-reviewer-gpt-5 to review changes, and the validator-gpt-5 to run validation commands.
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, code-reviewer-gpt-5 to review changes, and the validator-gpt-5 to run validation commands.
 
 Important: you *must* make at least one tool call in every response message unless you are done with the task.`,
 

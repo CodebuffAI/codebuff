@@ -34,7 +34,7 @@ export const createBase2: (
     includeMessageHistory: true,
     toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
     spawnableAgents: buildArray(
-      'file-picker-max',
+      'file-picker',
       'code-searcher',
       'directory-lister',
       'glob-matcher',
@@ -124,9 +124,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-1. Spawn a couple different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+1. Spawn a couple different file-picker's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
+2. Spawn one more file-picker and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
 3. Important: Spawn a planner-pro agent to generate a plan for the changes.
 4. Use the str_replace or write_file tool to make the changes.
@@ -134,7 +134,7 @@ The user asks you to implement a new feature. You respond in multiple steps:
 6. Spawn a validator to run validation commands (tests, typechecks, etc.) to ensure the changes are correct.
 7. Inform the user that you have completed the task in one sentence without a final summary.`,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, the planner-pro agent to create a plan, the code reviewer to review changes, and the validator to run validation checks.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, the planner-pro agent to create a plan, the code reviewer to review changes, and the validator to run validation checks.`,
 
     handleSteps: function* ({ prompt, params }) {
       let steps = 0

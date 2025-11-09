@@ -5,7 +5,7 @@ const definition: SecretAgentDefinition = {
   id: 'file-lister',
   displayName: 'Liszt the File Lister',
   publisher,
-  model: 'anthropic/claude-haiku-4.5',
+  model: 'x-ai/grok-4-fast',
   spawnerPrompt:
     'Lists up to 12 files that are relevant to the prompt within the given directories. Unless you know which directories are relevant, omit the directories parameter. This agent is great for finding files that could be relevant to the prompt.',
   inputSchema: {
@@ -62,7 +62,7 @@ Again: Do not write anything else other than the file paths on new lines.
       toolName: 'read_subtree',
       input: {
         paths: directories,
-        maxTokens: 200_000,
+        maxTokens: 500_000,
       },
     }
 

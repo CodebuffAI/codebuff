@@ -5,7 +5,8 @@ import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
-import { ToolCall, AgentState } from '../types/agent-definition'
+
+import type { ToolCall, AgentState } from '../types/agent-definition'
 
 export const createTaskResearcher: () => Omit<
   SecretAgentDefinition,
@@ -49,7 +50,7 @@ export const createTaskResearcher: () => Omit<
     },
     toolNames: ['spawn_agents', 'read_files', 'set_output'],
     spawnableAgents: buildArray(
-      'file-picker-max',
+      'file-picker',
       'code-searcher',
       'directory-lister',
       'glob-matcher',
@@ -78,16 +79,16 @@ ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 
 You recieve a coding task to implement a new feature. You do research in multiple "layers" of agents and then compile the information into a report.
 
-1. Spawn a couple different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+1. Spawn a couple different file-picker's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
+2. Spawn one more file-picker and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
 4. Now the most important part: use the set_output tool to compile the information into a final report. Start with the analysis, and then put the most effort into the key facts list, which should be comprehensive. Finally, include ALL the relevant files in the report.
 Important: the report should only include the analysis, key facts, and relevant files. It should not include a plan or recommendations or any other information.
 5. End your turn.
 `,
 
-    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker-max and find-all-referencer to get codebase context, and the decomposing-thinker agent to help figure out key facts and insights.`,
+    stepPrompt: `Don't forget to spawn agents that could help, especially: the file-picker and find-all-referencer to get codebase context, and the decomposing-thinker agent to help figure out key facts and insights.`,
 
     handleSteps: function* ({ prompt, agentState, logger }) {
       // Reset the message history to the initial user message and the input prompt.

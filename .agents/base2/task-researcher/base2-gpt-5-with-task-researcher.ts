@@ -38,7 +38,7 @@ export const createBase2WithTaskResearcher: () => Omit<
     toolNames: ['spawn_agents', 'read_files', 'str_replace', 'write_file'],
     spawnableAgents: buildArray(
       'task-researcher',
-      'file-picker-max',
+      'file-picker',
       'code-searcher',
       'directory-lister',
       'glob-matcher',

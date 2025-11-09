@@ -1,13 +1,16 @@
 import fs from 'fs'
 import path from 'path'
+
+import { getErrorObject } from '@codebuff/common/util/error'
+import { withTimeout } from '@codebuff/common/util/promise'
+
+import { truncateTrace } from './trace-utils'
+
+import type { AgentStep } from './agent-runner'
+import type { JudgingResult } from './judge'
+import type { FileDiff } from './types'
 import type { AgentDefinition } from '../../sdk/src'
 import type { CodebuffClient } from '../../sdk/src/client'
-import type { AgentStep } from './agent-runner'
-import type { FileDiff } from './types'
-import type { JudgingResult } from './judge'
-import { withTimeout } from '@codebuff/common/util/promise'
-import { getErrorObject } from '@codebuff/common/util/error'
-import { truncateTrace } from './trace-utils'
 
 export interface Lesson {
   whatWentWrong: string
@@ -31,7 +34,7 @@ const lessonsExtractorAgent: AgentDefinition = {
   displayName: 'Buffbench Lessons Extractor',
   model: 'openai/gpt-5',
   toolNames: ['spawn_agents', 'read_files', 'set_output'],
-  spawnableAgents: ['file-picker-max', 'find-all-referencer'],
+  spawnableAgents: ['file-picker', 'find-all-referencer'],
   inputSchema: {
     prompt: { type: 'string', description: 'Lessons extraction prompt' },
   },

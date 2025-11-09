@@ -62,7 +62,7 @@ export function createBase2(
       isGpt5 && 'task_completed',
     ),
     spawnableAgents: buildArray(
-      'file-picker-max',
+      'file-picker',
       'code-searcher',
       'directory-lister',
       'glob-matcher',
@@ -151,6 +151,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       ? buildPlanOnlyInstructionsPrompt({})
       : buildImplementationInstructionsPrompt({
           isGpt5,
+          isFast,
           isDefault,
           isMax,
           hasNoValidation,
@@ -180,16 +181,17 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
   }
 }
 
-const definition = { ...createBase2('default'), id: 'base2' }
-export default definition
+const EXPLORE_PROMPT = `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to use to find relevant files -- try spawning mulitple in parallel to explore different parts of the codebase. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`
 
 function buildImplementationInstructionsPrompt({
   isGpt5,
+  isFast,
   isDefault,
   isMax,
   hasNoValidation,
 }: {
   isGpt5: boolean
+  isFast: boolean
   isDefault: boolean
   isMax: boolean
   hasNoValidation: boolean
@@ -201,10 +203,11 @@ function buildImplementationInstructionsPrompt({
 The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
-  `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and web/docs researchers to gather context as needed. The file-picker-max agent in particular is very useful to use to find relevant files. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`,
+  EXPLORE_PROMPT,
   `- Important: Read as many files as could possibly be relevant to the task to improve your understanding of the user's request and produce the best possible code changes. This is frequently 12-20 files, depending on the task.`,
   `- For multi-step tasks, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for trivial tasks like single-line edits or simple questions.`,
-  `- You must spawn the ${isGpt5 ? 'best-of-n-editor-gpt-5' : 'best-of-n-editor'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very small and trivial.`,
+  !isFast &&
+    `- You must spawn the ${isGpt5 ? 'best-of-n-editor-gpt-5' : 'best-of-n-editor'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very small and trivial.`,
   !hasNoValidation &&
     `- Test your changes${isMax ? '' : ' briefly'} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.).${isMax ? ' Start by type checking the specific area of the project that you are editing and then test the entire project if necessary.' : ' If you can, only typecheck/test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points. Don't create any markdown summary files or example documentation files, unless asked by the user. If you already finished the user request and said you're done, then don't say anything else.`,
@@ -220,7 +223,7 @@ function buildPlanOnlyInstructionsPrompt({}: {}) {
 The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
-  `- Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and researchers to gather context as needed. The file-picker-max agent in particular is very useful to use to find relevant files. Read all the relevant files using the read_files tool. Read as many files as possible so that you have a comprehensive context on the user's request.`,
+  EXPLORE_PROMPT,
   `- After exploring the codebase, translate the user request into a clear and concise spec. If the user is just asking a question, you can answer it instead of writing a spec.
 
 ## Creating a spec
@@ -287,3 +290,6 @@ function buildPlanOnlyStepPrompt({}: {}) {
     `Your are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not spawn the best-of-n-editor agent to implement. Do not use the write_todos tool.`,
   ).join('\n')
 }
+
+const definition = { ...createBase2('default'), id: 'base2' }
+export default definition

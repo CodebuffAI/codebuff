@@ -26,9 +26,9 @@ const definition = {
 
 You recieve a coding task to implement a new feature. You do research in multiple "layers" of agents and then compile the information into a report.
 
-1. Spawn a couple different file-picker-max's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
+1. Spawn a couple different file-picker's with different prompts to find relevant files; spawn a code-searcher and glob-matcher to find more relevant files and answer questions about the codebase; spawn 1 docs researcher to find relevant docs.
 1a. Read all the relevant files using the read_files tool.
-2. Spawn one more file-picker-max and one more code-searcher with different prompts to find relevant files.
+2. Spawn one more file-picker and one more code-searcher with different prompts to find relevant files.
 2a. Read all the relevant files using the read_files tool.
 3. Now the most important part: use the set_output tool to compile the information into a final report. Give a comprehensive, facts-only report of all the useful information you've gathered. Finally, include ALL the relevant files in the report.
 Important: the report should not include a plan or recommendations or any other opinion.

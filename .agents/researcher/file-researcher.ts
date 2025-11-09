@@ -41,7 +41,7 @@ export const createFileResearcher: () => Omit<
     },
     toolNames: ['spawn_agents', 'set_output'],
     spawnableAgents: buildArray(
-      'file-picker-max',
+      'file-picker',
       'code-searcher',
       'directory-lister',
       'glob-matcher',
@@ -57,7 +57,7 @@ Research the coding task by spawning agents and create a report with a list of r
 
 You recieve a coding task to implement a new feature. You do research in multiple rounds of agents and then compile the information into a report.
 
-1. Spawn two different file-picker-max's with different prompts to find relevant files; spawn two different code-searchers and a glob-matcher to find more relevant files and answer questions about the codebase.
+1. Spawn two different file-picker's with different prompts to find relevant files; spawn two different code-searchers and a glob-matcher to find more relevant files and answer questions about the codebase.
 2. Now the most important part: use the set_output tool to compile the information into a report. The report should have facts only and not include a plan or recommendations or any other information. Finally, include ALL the relevant files in the report.
 3. End your turn.
 

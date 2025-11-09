@@ -2,7 +2,7 @@ import { SecretAgentDefinition } from 'types/secret-agent-definition'
 import { createBase2 } from '../../base2/base2'
 
 const definition: SecretAgentDefinition = {
-  ...createBase2('fast'),
+  ...createBase2('default'),
   id: 'base2-with-files-input',
   displayName: 'Buffy the Fast Orchestrator',
 
