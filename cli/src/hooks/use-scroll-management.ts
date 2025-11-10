@@ -9,7 +9,7 @@ const easeOutCubic = (t: number): number => {
 export const useChatScrollbox = (
   scrollRef: React.RefObject<ScrollBoxRenderable | null>,
   messages: any[],
-  isUserCollapsingRef: React.MutableRefObject<boolean>,
+  isUserCollapsing: () => boolean,
 ) => {
   const autoScrollEnabledRef = useRef<boolean>(true)
   const programmaticScrollRef = useRef<boolean>(false)
@@ -112,7 +112,7 @@ export const useChatScrollbox = (
         if (scrollbox.scrollTop > maxScroll) {
           programmaticScrollRef.current = true
           scrollbox.scrollTop = maxScroll
-        } else if (autoScrollEnabledRef.current && !isUserCollapsingRef.current) {
+        } else if (autoScrollEnabledRef.current && !isUserCollapsing()) {
           programmaticScrollRef.current = true
           scrollbox.scrollTop = maxScroll
         }
@@ -121,7 +121,7 @@ export const useChatScrollbox = (
       return () => clearTimeout(timeoutId)
     }
     return undefined
-  }, [messages, scrollToLatest, scrollRef, isUserCollapsingRef])
+  }, [messages, scrollToLatest, scrollRef, isUserCollapsing])
 
   useEffect(() => {
     return () => {

@@ -222,25 +222,13 @@ export const Chat = ({
 
   const isUserCollapsingRef = useRef<boolean>(false)
 
-  // Reset the collapse flag after collapse state changes
-  useEffect(() => {
-    isUserCollapsingRef.current = false
-  }, [collapsedAgents])
-
-  // Wrapper for setCollapsedAgents that sets the flag to prevent auto-scroll
-  const setCollapsedAgentsWithFlag = useCallback(
-    (action: React.SetStateAction<Set<string>>) => {
-      isUserCollapsingRef.current = true
-      setCollapsedAgents(action)
-    },
-    [setCollapsedAgents],
-  )
-
   const handleCollapseToggle = useCallback(
     (id: string) => {
       const wasCollapsed = collapsedAgents.has(id)
 
-      setCollapsedAgentsWithFlag((prev) => {
+      // Set flag to prevent auto-scroll during user-initiated collapse
+      isUserCollapsingRef.current = true
+      setCollapsedAgents((prev) => {
         const next = new Set(prev)
         if (next.has(id)) {
           next.delete(id)
@@ -249,6 +237,11 @@ export const Chat = ({
         }
         return next
       })
+
+      // Reset flag after state update completes
+      setTimeout(() => {
+        isUserCollapsingRef.current = false
+      }, 0)
 
       setUserOpenedAgents((prev) => {
         const next = new Set(prev)
@@ -260,13 +253,17 @@ export const Chat = ({
         return next
       })
     },
-    [collapsedAgents, setCollapsedAgentsWithFlag, setUserOpenedAgents],
+    [collapsedAgents, setCollapsedAgents, setUserOpenedAgents],
   )
+
+  const isUserCollapsing = useCallback(() => {
+    return isUserCollapsingRef.current
+  }, [])
 
   const { scrollToLatest, scrollboxProps, isAtBottom } = useChatScrollbox(
     scrollRef,
     messages,
-    isUserCollapsingRef,
+    isUserCollapsing,
   )
 
   const inertialScrollAcceleration = useMemo(
@@ -629,7 +626,7 @@ export const Chat = ({
             isWaitingForResponse={isWaitingForResponse}
             timerStartTime={timerStartTime}
             onCollapseToggle={handleCollapseToggle}
-            setCollapsedAgents={setCollapsedAgentsWithFlag}
+            setCollapsedAgents={setCollapsedAgents}
             setFocusedAgentId={setFocusedAgentId}
             userOpenedAgents={userOpenedAgents}
             setUserOpenedAgents={setUserOpenedAgents}
