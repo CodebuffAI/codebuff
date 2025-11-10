@@ -188,7 +188,9 @@ export function selectKnowledgeFilePaths(allFilePaths: string[]): string[] {
 
   // For each directory, select one knowledge file using fallback priority
   for (const [_dir, files] of byDirectory.entries()) {
-    const knowledgeMd = files.find((f) => f.toLowerCase().endsWith('knowledge.md'))
+    const knowledgeMd = files.find((f) =>
+      f.toLowerCase().endsWith('knowledge.md'),
+    )
     const agentsMd = files.find((f) => f.toLowerCase().endsWith('agents.md'))
     const claudeMd = files.find((f) => f.toLowerCase().endsWith('claude.md'))
 
