@@ -24,7 +24,7 @@ interface MessageRendererProps {
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   isWaitingForResponse: boolean
-  timer: any
+  timerStartTime: number | null
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   userOpenedAgents: Set<string>
@@ -45,7 +45,7 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
-    timer,
+    timerStartTime,
     setCollapsedAgents,
     setFocusedAgentId,
     setUserOpenedAgents,
@@ -53,8 +53,6 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
     onBuildFast,
     onBuildMax,
   } = props
-
-  const timerStartTime = timer?.startTime ?? null
 
   const onToggleCollapsed = useCallback(
     (id: string) => {
@@ -106,7 +104,7 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
             setUserOpenedAgents={setUserOpenedAgents}
             setFocusedAgentId={setFocusedAgentId}
             isWaitingForResponse={isWaitingForResponse}
-            timer={timer}
+            timerStartTime={timerStartTime}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
@@ -132,7 +130,7 @@ interface MessageWithAgentsProps {
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
-  timer: any
+  timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -154,14 +152,13 @@ const MessageWithAgents = memo(
     setUserOpenedAgents,
     setFocusedAgentId,
     isWaitingForResponse,
-    timer,
+    timerStartTime,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
-    const timerStartTime = timer?.startTime ?? null
 
     if (isAgent) {
       return (
@@ -292,7 +289,7 @@ const MessageWithAgents = memo(
                   isComplete={message.isComplete}
                   completionTime={message.completionTime}
                   credits={message.credits}
-                  timer={timer}
+                  timerStartTime={timerStartTime}
                   textColor={textColor}
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
@@ -367,7 +364,7 @@ const MessageWithAgents = memo(
                   setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
-                  timer={timer}
+                  timerStartTime={timerStartTime}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
@@ -611,7 +608,7 @@ const AgentMessage = memo(
                   setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
-                  timer={timer}
+                  timerStartTime={timerStartTime}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
