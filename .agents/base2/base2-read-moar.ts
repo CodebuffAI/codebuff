@@ -3,7 +3,7 @@ import { createBase2 } from './base2'
 import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
-  ...createBase2('fast'),
+  ...createBase2('default'),
   id: 'base2-read-moar',
   displayName: 'Buffy Needs Moar Files',
 

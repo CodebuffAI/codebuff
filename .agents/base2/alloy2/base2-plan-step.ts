@@ -1,7 +1,7 @@
 import { createBase2 } from '../base2'
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
-const base2 = createBase2('fast')
+const base2 = createBase2('default')
 const definition: SecretAgentDefinition = {
   ...base2,
   id: 'base2-plan-step',
