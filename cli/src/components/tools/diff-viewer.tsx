@@ -41,21 +41,25 @@ const lineColor = (line: string): { fg: string; attrs?: number } => {
 export const DiffViewer = ({ diffText }: DiffViewerProps) => {
   const theme = useTheme()
   const lines = diffText.split('\n')
-  const filteredLines = lines.filter((rawLine) => !rawLine.startsWith('@@'))
 
   return (
-    <text style={{ wrapMode: 'none', marginTop: 0, marginBottom: 0 }}>
-      {filteredLines.map((rawLine, idx) => {
-        const line = rawLine.length === 0 ? ' ' : rawLine
-        const { fg, attrs } = lineColor(line)
-        const resolvedFg = fg || theme.foreground
-        return (
-          <span key={`diff-line-${idx}`} fg={resolvedFg} attributes={attrs}>
-            {line}
-            {idx < filteredLines.length - 1 ? '\n' : ''}
-          </span>
-        )
-      })}
-    </text>
+    <box
+      style={{ flexDirection: 'column', gap: 0, width: '100%', flexGrow: 1 }}
+    >
+      {lines
+        .filter((rawLine) => !rawLine.startsWith('@@'))
+        .map((rawLine, idx) => {
+          const line = rawLine.length === 0 ? ' ' : rawLine
+          const { fg, attrs } = lineColor(line)
+          const resolvedFg = fg || theme.foreground
+          return (
+            <text key={`diff-line-${idx}`} style={{ wrapMode: 'none' }}>
+              <span fg={resolvedFg} attributes={attrs}>
+                {line}
+              </span>
+            </text>
+          )
+        })}
+    </box>
   )
 }

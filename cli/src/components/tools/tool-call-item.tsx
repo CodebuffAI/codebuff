@@ -110,12 +110,6 @@ const renderExpandedContent = (
     )
   }
 
-  // Check if value is a plain object (not a React element)
-  if (typeof value === 'object' && value !== null && !React.isValidElement(value)) {
-    console.warn('Attempted to render plain object in tool content:', value)
-    return null
-  }
-
   return (
     <box
       key="tool-expanded-unknown"
