@@ -220,9 +220,18 @@ export const Chat = ({
     activeSubagentsRef.current = activeSubagents
   }, [activeSubagents])
 
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const isUserCollapsingRef = useRef<boolean>(false)
+
+  // Reset the collapse flag after collapse state changes
+  useEffect(() => {
+    isUserCollapsingRef.current = false
+  }, [collapsedAgents])
+
   const { scrollToLatest, scrollboxProps, isAtBottom } = useChatScrollbox(
     scrollRef,
     messages,
+    isUserCollapsingRef,
   )
 
   const inertialScrollAcceleration = useMemo(
@@ -397,7 +406,7 @@ export const Chat = ({
   const hasStatus = useHasStatus({
     isActive: isStatusActive,
     clipboardMessage,
-    timerStartTime,
+    timer: mainAgentTimer,
     nextCtrlCWillExit,
   })
 
@@ -504,8 +513,7 @@ export const Chat = ({
     <StatusIndicator
       clipboardMessage={clipboardMessage}
       isActive={isStatusActive}
-      isWaitingForResponse={isWaitingForResponse}
-      timerStartTime={timerStartTime}
+      timer={mainAgentTimer}
       nextCtrlCWillExit={nextCtrlCWillExit}
     />
   )
@@ -581,11 +589,12 @@ export const Chat = ({
             collapsedAgents={collapsedAgents}
             streamingAgents={streamingAgents}
             isWaitingForResponse={isWaitingForResponse}
-            timerStartTime={timerStartTime}
+            timer={mainAgentTimer}
             setCollapsedAgents={setCollapsedAgents}
             setFocusedAgentId={setFocusedAgentId}
             userOpenedAgents={userOpenedAgents}
             setUserOpenedAgents={setUserOpenedAgents}
+            isUserCollapsingRef={isUserCollapsingRef}
             onBuildFast={handleBuildFast}
             onBuildMax={handleBuildMax}
           />
@@ -625,7 +634,7 @@ export const Chat = ({
             {/* Center section - scroll indicator (always centered) */}
             <box style={{ flexShrink: 0 }}>
               {!isAtBottom && (
-                <text onMouseDown={scrollToLatest}>
+                <text onMouseDown={() => scrollToLatest()}>
                   <span fg={theme.info} attributes={TextAttributes.BOLD}>
                     ↓
                   </span>

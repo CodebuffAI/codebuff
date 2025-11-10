@@ -24,11 +24,12 @@ interface MessageRendererProps {
   collapsedAgents: Set<string>
   streamingAgents: Set<string>
   isWaitingForResponse: boolean
-  timerStartTime: number | null
+  timer: any
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   userOpenedAgents: Set<string>
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
+  isUserCollapsingRef: React.MutableRefObject<boolean>
   onBuildFast: () => void
   onBuildMax: () => void
 }
@@ -44,17 +45,24 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
     collapsedAgents,
     streamingAgents,
     isWaitingForResponse,
-    timerStartTime,
+    timer,
     setCollapsedAgents,
     setFocusedAgentId,
     setUserOpenedAgents,
+    isUserCollapsingRef,
     onBuildFast,
     onBuildMax,
   } = props
 
+  const timerStartTime = timer?.startTime ?? null
+
   const onToggleCollapsed = useCallback(
     (id: string) => {
       const wasCollapsed = collapsedAgents.has(id)
+
+      // Set flag to prevent auto-scroll during user-initiated collapse
+      isUserCollapsingRef.current = true
+
       setCollapsedAgents((prev) => {
         const next = new Set(prev)
         if (next.has(id)) {
@@ -74,7 +82,7 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
         return next
       })
     },
-    [collapsedAgents, setCollapsedAgents, setUserOpenedAgents],
+    [collapsedAgents, setCollapsedAgents, setUserOpenedAgents, isUserCollapsingRef],
   )
 
   return (
@@ -98,7 +106,7 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
             setUserOpenedAgents={setUserOpenedAgents}
             setFocusedAgentId={setFocusedAgentId}
             isWaitingForResponse={isWaitingForResponse}
-            timerStartTime={timerStartTime}
+            timer={timer}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
@@ -124,7 +132,7 @@ interface MessageWithAgentsProps {
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
-  timerStartTime: number | null
+  timer: any
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -146,13 +154,14 @@ const MessageWithAgents = memo(
     setUserOpenedAgents,
     setFocusedAgentId,
     isWaitingForResponse,
-    timerStartTime,
+    timer,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
+    const timerStartTime = timer?.startTime ?? null
 
     if (isAgent) {
       return (
@@ -283,7 +292,7 @@ const MessageWithAgents = memo(
                   isComplete={message.isComplete}
                   completionTime={message.completionTime}
                   credits={message.credits}
-                  timerStartTime={timerStartTime}
+                  timer={timer}
                   textColor={textColor}
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
@@ -358,7 +367,7 @@ const MessageWithAgents = memo(
                   setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
-                  timerStartTime={timerStartTime}
+                  timer={timer}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
@@ -602,7 +611,7 @@ const AgentMessage = memo(
                   setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
-                  timerStartTime={timerStartTime}
+                  timer={timer}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
