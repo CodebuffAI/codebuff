@@ -250,6 +250,8 @@ export const Chat = ({
     setInputValue,
   })
 
+  const [scrollIndicatorHovered, setScrollIndicatorHovered] = useState(false)
+
   const {
     slashContext,
     mentionContext,
@@ -634,9 +636,20 @@ export const Chat = ({
             {/* Center section - scroll indicator (always centered) */}
             <box style={{ flexShrink: 0 }}>
               {!isAtBottom && (
-                <text onMouseDown={() => scrollToLatest()}>
-                  <span fg={theme.info} attributes={TextAttributes.BOLD}>
-                    ↓
+                <text
+                  onMouseDown={() => scrollToLatest()}
+                  onMouseOver={() => setScrollIndicatorHovered(true)}
+                  onMouseOut={() => setScrollIndicatorHovered(false)}
+                >
+                  <span
+                    fg={theme.info}
+                    attributes={
+                      scrollIndicatorHovered
+                        ? TextAttributes.BOLD
+                        : TextAttributes.DIM
+                    }
+                  >
+                    {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
                   </span>
                 </text>
               )}
