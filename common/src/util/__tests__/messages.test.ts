@@ -57,13 +57,13 @@ describe('withCacheControl', () => {
     const result = withCacheControl(obj)
 
     expect(result.providerOptions).toBeDefined()
-    expect(result.providerOptions?.anthropic?.cacheControl).toEqual({
+    expect(result.providerOptions?.anthropic?.cache_control).toEqual({
       type: 'ephemeral',
     })
-    expect(result.providerOptions?.openrouter?.cacheControl).toEqual({
+    expect(result.providerOptions?.openrouter?.cache_control).toEqual({
       type: 'ephemeral',
     })
-    expect(result.providerOptions?.codebuff?.cacheControl).toEqual({
+    expect(result.providerOptions?.openaiCompatible?.cache_control).toEqual({
       type: 'ephemeral',
     })
   })
@@ -76,7 +76,7 @@ describe('withCacheControl', () => {
     }
     const result = withCacheControl(obj)
 
-    expect((result.providerOptions?.anthropic as any)?.cacheControl).toEqual({
+    expect((result.providerOptions?.anthropic as any)?.cache_control).toEqual({
       type: 'ephemeral',
     })
     expect((result.providerOptions?.anthropic as any)?.someOtherOption).toBe(
@@ -96,15 +96,15 @@ describe('withCacheControl', () => {
     const obj: { providerOptions?: any } = {}
     const result = withCacheControl(obj)
 
-    expect((result.providerOptions?.anthropic as any)?.cacheControl?.type).toBe(
-      'ephemeral',
-    )
     expect(
-      (result.providerOptions?.openrouter as any)?.cacheControl?.type,
+      (result.providerOptions?.anthropic as any)?.cache_control?.type,
     ).toBe('ephemeral')
-    expect((result.providerOptions?.codebuff as any)?.cacheControl?.type).toBe(
-      'ephemeral',
-    )
+    expect(
+      (result.providerOptions?.openrouter as any)?.cache_control?.type,
+    ).toBe('ephemeral')
+    expect(
+      (result.providerOptions?.openaiCompatible as any)?.cache_control?.type,
+    ).toBe('ephemeral')
   })
 })
 
@@ -113,9 +113,9 @@ describe('withoutCacheControl', () => {
     const obj = {
       id: 'test',
       providerOptions: {
-        anthropic: { cacheControl: { type: 'ephemeral' } },
-        openrouter: { cacheControl: { type: 'ephemeral' } },
-        codebuff: { cacheControl: { type: 'ephemeral' } },
+        anthropic: { cache_control: { type: 'ephemeral' } },
+        openrouter: { cache_control: { type: 'ephemeral' } },
+        openaiCompatible: { cache_control: { type: 'ephemeral' } },
       },
     }
     const result = withoutCacheControl(obj)
@@ -128,14 +128,14 @@ describe('withoutCacheControl', () => {
       id: 'test',
       providerOptions: {
         anthropic: {
-          cacheControl: { type: 'ephemeral' },
+          cache_control: { type: 'ephemeral' },
           otherOption: 'value',
         },
       },
     }
     const result = withoutCacheControl(obj)
 
-    expect(result.providerOptions?.anthropic?.cacheControl).toBeUndefined()
+    expect(result.providerOptions?.anthropic?.cache_control).toBeUndefined()
     expect(result.providerOptions?.anthropic?.otherOption).toBe('value')
   })
 
@@ -143,13 +143,13 @@ describe('withoutCacheControl', () => {
     const original = {
       id: 'test',
       providerOptions: {
-        anthropic: { cacheControl: { type: 'ephemeral' } },
+        anthropic: { cache_control: { type: 'ephemeral' } },
       },
     }
     const result = withoutCacheControl(original)
 
-    expect(original.providerOptions?.anthropic?.cacheControl).toBeDefined()
-    expect(result.providerOptions?.anthropic?.cacheControl).toBeUndefined()
+    expect(original.providerOptions?.anthropic?.cache_control).toBeDefined()
+    expect(result.providerOptions?.anthropic?.cache_control).toBeUndefined()
   })
 
   it('should handle object with no cache control', () => {
@@ -163,7 +163,7 @@ describe('withoutCacheControl', () => {
     const obj = {
       id: 'test',
       providerOptions: {
-        anthropic: { cacheControl: { type: 'ephemeral' } },
+        anthropic: { cache_control: { type: 'ephemeral' } },
       },
     }
     const result = withoutCacheControl(obj)
@@ -591,7 +591,7 @@ describe('convertCbToModelMessages', () => {
       ) {
         const lastContentPart = result[2].content[result[2].content.length - 1]
         expect(
-          (lastContentPart as any).providerOptions?.anthropic?.cacheControl,
+          (lastContentPart as any).providerOptions?.anthropic?.cache_control,
         ).toEqual({
           type: 'ephemeral',
         })
@@ -642,8 +642,8 @@ describe('convertCbToModelMessages', () => {
               type: 'text',
               text: 'ore context',
               providerOptions: expect.objectContaining({
-                codebuff: {
-                  cacheControl: {
+                openaiCompatible: {
+                  cache_control: {
                     type: 'ephemeral',
                   },
                 },
@@ -688,8 +688,8 @@ describe('convertCbToModelMessages', () => {
               type: 'text',
               text: 'nstructions',
               providerOptions: expect.objectContaining({
-                codebuff: {
-                  cacheControl: {
+                openaiCompatible: {
+                  cache_control: {
                     type: 'ephemeral',
                   },
                 },
@@ -730,8 +730,8 @@ describe('convertCbToModelMessages', () => {
               type: 'text',
               text: 'ore context',
               providerOptions: expect.objectContaining({
-                codebuff: {
-                  cacheControl: {
+                openaiCompatible: {
+                  cache_control: {
                     type: 'ephemeral',
                   },
                 },
@@ -774,8 +774,8 @@ describe('convertCbToModelMessages', () => {
               type: 'text',
               text: 'ser message',
               providerOptions: expect.objectContaining({
-                codebuff: {
-                  cacheControl: {
+                openaiCompatible: {
+                  cache_control: {
                     type: 'ephemeral',
                   },
                 },
@@ -804,8 +804,8 @@ describe('convertCbToModelMessages', () => {
           role: 'system',
           content: 'Long system prompt',
           providerOptions: expect.objectContaining({
-            codebuff: {
-              cacheControl: {
+            openaiCompatible: {
+              cache_control: {
                 type: 'ephemeral',
               },
             },
@@ -850,8 +850,8 @@ describe('convertCbToModelMessages', () => {
               data: 'base64',
               mediaType: 'image/png',
               providerOptions: expect.objectContaining({
-                codebuff: {
-                  cacheControl: {
+                openaiCompatible: {
+                  cache_control: {
                     type: 'ephemeral',
                   },
                 },
@@ -891,8 +891,8 @@ describe('convertCbToModelMessages', () => {
               type: 'text',
               text: 'ong enough text',
               providerOptions: expect.objectContaining({
-                codebuff: {
-                  cacheControl: {
+                openaiCompatible: {
+                  cache_control: {
                     type: 'ephemeral',
                   },
                 },
