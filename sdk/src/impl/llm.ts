@@ -8,10 +8,11 @@ import {
   checkLiveUserInput,
   getLiveUserInputIds,
 } from '@codebuff/agent-runtime/live-user-inputs'
-import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
+import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
+import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
 import { streamText, APICallError, generateText, generateObject } from 'ai'
 
@@ -24,8 +25,8 @@ import type {
   PromptAiSdkStructuredInput,
   PromptAiSdkStructuredOutput,
 } from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
+import type { JSONObject } from '@codebuff/common/types/json'
 import type { OpenRouterProviderOptions } from '@openrouter/ai-sdk-provider'
 import type z from 'zod/v4'
 
@@ -37,18 +38,59 @@ type OpenRouterUsageAccounting = {
   }
 }
 
+// Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
+const providerOrder = {
+  [models.openrouter_claude_sonnet_4]: [
+    'Google',
+    'Anthropic',
+    'Amazon Bedrock',
+  ],
+  [models.openrouter_claude_sonnet_4_5]: [
+    'Google',
+    'Anthropic',
+    'Amazon Bedrock',
+  ],
+  [models.openrouter_claude_opus_4]: ['Google', 'Anthropic'],
+}
+
 function calculateUsedCredits(params: { costDollars: number }): number {
   const { costDollars } = params
 
   return Math.round(costDollars * (1 + PROFIT_MARGIN) * 100)
 }
 
+function getProviderOptions(params: {
+  model: string
+  runId: string
+  clientSessionId: string
+}): { codebuff: JSONObject } {
+  const { model, runId, clientSessionId } = params
+
+  // Set allow_fallbacks based on whether model is explicitly defined
+  const isExplicitlyDefined = isExplicitlyDefinedModel(model)
+
+  return {
+    // Could either be "codebuff" or "openaiCompatible"
+    codebuff: {
+      // All values here get appended to the request body
+      codebuff_metadata: {
+        run_id: runId,
+        client_id: clientSessionId,
+      },
+      transforms: ['middle-out'],
+      provider: {
+        order: providerOrder[model as keyof typeof providerOrder],
+        allow_fallbacks: !isExplicitlyDefined,
+      },
+    },
+  }
+}
+
 function getAiSdkModel(params: {
   apiKey: string
   model: string
-  logger: Logger
 }): LanguageModelV2 {
-  const { apiKey, model, logger } = params
+  const { apiKey, model } = params
 
   const openrouterUsage: OpenRouterUsageAccounting = {
     cost: null,
@@ -58,7 +100,7 @@ function getAiSdkModel(params: {
   }
 
   const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(model, {
-    provider: 'codebuff.chat',
+    provider: 'codebuff',
     url: ({ path: endpoint }) =>
       new URL(path.join('/api/v1', endpoint), WEBSITE_URL).toString(),
     headers: () => ({
@@ -132,14 +174,7 @@ export async function* promptAiSdkStream(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
-    providerOptions: {
-      codebuff: {
-        codebuff_metadata: {
-          run_id: params.runId,
-          client_id: params.clientSessionId,
-        },
-      },
-    },
+    providerOptions: getProviderOptions(params),
   })
 
   let content = ''
@@ -285,14 +320,7 @@ export async function promptAiSdk(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
-    providerOptions: {
-      codebuff: {
-        codebuff_metadata: {
-          run_id: params.runId,
-          client_id: params.clientSessionId,
-        },
-      },
-    },
+    providerOptions: getProviderOptions(params),
   })
   const content = response.text
 
@@ -343,14 +371,7 @@ export async function promptAiSdkStructured<T>(
     model: aiSDKModel,
     output: 'object',
     messages: convertCbToModelMessages(params),
-    providerOptions: {
-      codebuff: {
-        codebuff_metadata: {
-          run_id: params.runId,
-          client_id: params.clientSessionId,
-        },
-      },
-    },
+    providerOptions: getProviderOptions(params),
   })
 
   const content = response.object
