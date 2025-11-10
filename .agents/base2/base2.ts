@@ -301,8 +301,7 @@ function buildImplementationStepPrompt({
 }) {
   return buildArray(
     isMax &&
-      `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}. `,
-    `You must spawn the ${isGpt5 ? 'best-of-n-editor-gpt-5' : 'best-of-n-editor'} agent to implement any code changes. Don't forget to do this! `,
+      `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself.`,
     isGpt5 &&
       `IMPORTANT: if you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
