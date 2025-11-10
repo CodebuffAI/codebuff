@@ -297,8 +297,8 @@ For example, here is a nice short question, where the options are helpfully writ
 Questions:
 
 1. Do you want to:
-a) (DEFAULT) Keep Express and integrate Bun WebSockets
-b) Migrate the entire HTTP server to Bun.serve()
+  a) (DEFAULT) Keep Express and integrate Bun WebSockets
+  b) Migrate the entire HTTP server to Bun.serve()
 
 Try to have as few questions as possible (even none), and focus on the most important decisions or assumptions that it would be helpful to clarify with the user.
 You should also let them know what you plan to do by default, and let them know that they can choose a different option if they want to.
