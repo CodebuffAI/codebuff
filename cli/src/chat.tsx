@@ -228,6 +228,42 @@ export const Chat = ({
     isUserCollapsingRef.current = false
   }, [collapsedAgents])
 
+  // Wrapper for setCollapsedAgents that sets the flag to prevent auto-scroll
+  const setCollapsedAgentsWithFlag = useCallback(
+    (action: React.SetStateAction<Set<string>>) => {
+      isUserCollapsingRef.current = true
+      setCollapsedAgents(action)
+    },
+    [setCollapsedAgents],
+  )
+
+  const handleCollapseToggle = useCallback(
+    (id: string) => {
+      const wasCollapsed = collapsedAgents.has(id)
+
+      setCollapsedAgentsWithFlag((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) {
+          next.delete(id)
+        } else {
+          next.add(id)
+        }
+        return next
+      })
+
+      setUserOpenedAgents((prev) => {
+        const next = new Set(prev)
+        if (wasCollapsed) {
+          next.add(id)
+        } else {
+          next.delete(id)
+        }
+        return next
+      })
+    },
+    [collapsedAgents, setCollapsedAgentsWithFlag, setUserOpenedAgents],
+  )
+
   const { scrollToLatest, scrollboxProps, isAtBottom } = useChatScrollbox(
     scrollRef,
     messages,
@@ -592,11 +628,11 @@ export const Chat = ({
             streamingAgents={streamingAgents}
             isWaitingForResponse={isWaitingForResponse}
             timerStartTime={timerStartTime}
-            setCollapsedAgents={setCollapsedAgents}
+            onCollapseToggle={handleCollapseToggle}
+            setCollapsedAgents={setCollapsedAgentsWithFlag}
             setFocusedAgentId={setFocusedAgentId}
             userOpenedAgents={userOpenedAgents}
             setUserOpenedAgents={setUserOpenedAgents}
-            isUserCollapsingRef={isUserCollapsingRef}
             onBuildFast={handleBuildFast}
             onBuildMax={handleBuildMax}
           />

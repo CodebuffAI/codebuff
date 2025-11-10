@@ -30,7 +30,6 @@ interface UseMessageRendererProps {
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   userOpenedAgents: Set<string>
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
-  isUserCollapsingRef: React.MutableRefObject<boolean>
 }
 
 export const useMessageRenderer = (
@@ -51,7 +50,6 @@ export const useMessageRenderer = (
     setFocusedAgentId,
     userOpenedAgents,
     setUserOpenedAgents,
-    isUserCollapsingRef,
   } = props
 
   return useMemo(() => {
@@ -102,9 +100,6 @@ export const useMessageRenderer = (
         }
 
         const wasCollapsed = collapsedAgents.has(message.id)
-
-        // Set flag to prevent auto-scroll during user-initiated collapse
-        isUserCollapsingRef.current = true
 
         setCollapsedAgents((prev) => {
           const next = new Set(prev)
@@ -381,7 +376,7 @@ export const useMessageRenderer = (
                     isComplete={message.isComplete}
                     completionTime={message.completionTime}
                     credits={message.credits}
-                    timer={timer}
+                    timerStartTime={timer.startTime}
                     textColor={textColor}
                     timestampColor={timestampColor}
                     markdownOptions={markdownOptions}
@@ -391,10 +386,7 @@ export const useMessageRenderer = (
                     streamingAgents={streamingAgents}
                     onToggleCollapsed={(id: string) => {
                       const wasCollapsed = collapsedAgents.has(id)
-                      
-                      // Set flag to prevent auto-scroll during user-initiated collapse
-                      isUserCollapsingRef.current = true
-                      
+
                       setCollapsedAgents((prev) => {
                         const next = new Set(prev)
                         if (next.has(id)) {
@@ -447,7 +439,7 @@ export const useMessageRenderer = (
                   isComplete={message.isComplete}
                   completionTime={message.completionTime}
                   credits={message.credits}
-                  timer={timer}
+                  timerStartTime={timer.startTime}
                   textColor={textColor}
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
@@ -457,10 +449,7 @@ export const useMessageRenderer = (
                   streamingAgents={streamingAgents}
                   onToggleCollapsed={(id: string) => {
                     const wasCollapsed = collapsedAgents.has(id)
-                    
-                    // Set flag to prevent auto-scroll during user-initiated collapse
-                    isUserCollapsingRef.current = true
-                    
+
                     setCollapsedAgents((prev) => {
                       const next = new Set(prev)
                       if (next.has(id)) {
@@ -484,7 +473,6 @@ export const useMessageRenderer = (
                       return next
                     })
                   }}
-                  isUserCollapsingRef={isUserCollapsingRef}
                 />
               </box>
             )}
@@ -524,6 +512,5 @@ export const useMessageRenderer = (
     setUserOpenedAgents,
     setFocusedAgentId,
     userOpenedAgents,
-    isUserCollapsingRef,
   ])
 }

@@ -25,11 +25,11 @@ interface MessageRendererProps {
   streamingAgents: Set<string>
   isWaitingForResponse: boolean
   timerStartTime: number | null
+  onCollapseToggle: (id: string) => void
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   userOpenedAgents: Set<string>
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
-  isUserCollapsingRef: React.MutableRefObject<boolean>
   onBuildFast: () => void
   onBuildMax: () => void
 }
@@ -46,42 +46,13 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
     streamingAgents,
     isWaitingForResponse,
     timerStartTime,
+    onCollapseToggle,
     setCollapsedAgents,
     setFocusedAgentId,
     setUserOpenedAgents,
-    isUserCollapsingRef,
     onBuildFast,
     onBuildMax,
   } = props
-
-  const onToggleCollapsed = useCallback(
-    (id: string) => {
-      const wasCollapsed = collapsedAgents.has(id)
-
-      // Set flag to prevent auto-scroll during user-initiated collapse
-      isUserCollapsingRef.current = true
-
-      setCollapsedAgents((prev) => {
-        const next = new Set(prev)
-        if (next.has(id)) {
-          next.delete(id)
-        } else {
-          next.add(id)
-        }
-        return next
-      })
-      setUserOpenedAgents((prev) => {
-        const next = new Set(prev)
-        if (wasCollapsed) {
-          next.add(id)
-        } else {
-          next.delete(id)
-        }
-        return next
-      })
-    },
-    [collapsedAgents, setCollapsedAgents, setUserOpenedAgents, isUserCollapsingRef],
-  )
 
   return (
     <>
@@ -105,7 +76,7 @@ export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
             setFocusedAgentId={setFocusedAgentId}
             isWaitingForResponse={isWaitingForResponse}
             timerStartTime={timerStartTime}
-            onToggleCollapsed={onToggleCollapsed}
+            onToggleCollapsed={onCollapseToggle}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
           />

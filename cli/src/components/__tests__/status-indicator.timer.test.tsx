@@ -15,12 +15,17 @@ import '../../state/theme-store' // Initialize theme store
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import * as codebuffClient from '../../utils/codebuff-client'
+import type { ElapsedTimeTracker } from '../../hooks/use-elapsed-time'
 
-const createTimerStartTime = (
+const createMockTimer = (
   elapsedSeconds: number,
   started: boolean,
-): number | null =>
-  started ? Date.now() - elapsedSeconds * 1000 : null
+): ElapsedTimeTracker => ({
+  startTime: started ? Date.now() - elapsedSeconds * 1000 : null,
+  elapsedSeconds,
+  start: () => {},
+  stop: () => {},
+})
 
 describe('StatusIndicator timer rendering', () => {
   let getClientSpy: ReturnType<typeof spyOn>
@@ -40,7 +45,7 @@ describe('StatusIndicator timer rendering', () => {
       <StatusIndicator
         clipboardMessage={null}
         isActive={true}
-        timerStartTime={createTimerStartTime(5, true)}
+        timer={createMockTimer(5, true)}
         nextCtrlCWillExit={false}
       />,
     )
@@ -51,7 +56,7 @@ describe('StatusIndicator timer rendering', () => {
       <StatusIndicator
         clipboardMessage={null}
         isActive={false}
-        timerStartTime={createTimerStartTime(0, false)}
+        timer={createMockTimer(0, false)}
         nextCtrlCWillExit={false}
       />,
     )
@@ -64,7 +69,7 @@ describe('StatusIndicator timer rendering', () => {
       <StatusIndicator
         clipboardMessage="Copied!"
         isActive={true}
-        timerStartTime={createTimerStartTime(12, true)}
+        timer={createMockTimer(12, true)}
         nextCtrlCWillExit={false}
       />,
     )
