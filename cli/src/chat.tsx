@@ -555,39 +555,6 @@ export const Chat = ({
     <StatusElapsedTime streamStatus={streamStatus} timerStartTime={timerStartTime} />
   )
 
-  // Calculate available width for queue preview based on actual content
-  const calculateQueuePreviewWidth = () => {
-    // Estimate status text length
-    let statusTextLength = 0
-    if (nextCtrlCWillExit) {
-      statusTextLength = 27 // "Press Ctrl-C again to exit"
-    } else if (clipboardMessage) {
-      statusTextLength = clipboardMessage.length
-    } else if (streamStatus === 'waiting') {
-      statusTextLength = 11 // "thinking..."
-    } else if (streamStatus === 'streaming') {
-      statusTextLength = 10 // "working..."
-    }
-
-    // Estimate scroll indicator (1 char normally, 20 when hovered, use 1 for calculation)
-    const scrollIndicatorLength = !isAtBottom ? 1 : 0
-
-    // Estimate elapsed time length (typically 2-7 chars like "5s" or "1m 30s")
-    const elapsedTimeLength = streamStatus !== 'idle' ? 7 : 0
-
-    // Account for padding, gaps, and margins (~10 chars)
-    const overhead = 10
-
-    // Calculate available space
-    const availableWidth =
-      terminalWidth - statusTextLength - scrollIndicatorLength - elapsedTimeLength - overhead
-
-    // Return reasonable bounds: minimum 20, maximum 60
-    return Math.max(20, Math.min(60, availableWidth))
-  }
-
-  const queuePreviewWidth = calculateQueuePreviewWidth()
-
   const validationBanner = useValidationBanner({
     liveValidationErrors: validationErrors,
     loadedAgentsData,
@@ -682,68 +649,86 @@ export const Chat = ({
         {shouldShowStatusLine && (
           <box
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
+              flexDirection: 'column',
               width: '100%',
             }}
           >
-            {/* Left section */}
+            {/* Main status line: status indicator | scroll indicator | elapsed time */}
             <box
               style={{
-                flexGrow: 1,
-                flexShrink: 1,
-                flexBasis: 0,
                 flexDirection: 'row',
-                gap: 2,
+                alignItems: 'center',
+                width: '100%',
               }}
             >
-              <text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
-              {shouldShowQueuePreview && (
+              {/* Left section - status indicator */}
+              <box
+                style={{
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                }}
+              >
+                <text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
+              </box>
+
+              {/* Center section - scroll indicator (always centered) */}
+              <box style={{ flexShrink: 0 }}>
+                {!isAtBottom && (
+                  <box
+                    style={{ paddingLeft: 2, paddingRight: 2 }}
+                    onMouseDown={() => scrollToLatest()}
+                    onMouseOver={() => setScrollIndicatorHovered(true)}
+                    onMouseOut={() => setScrollIndicatorHovered(false)}
+                  >
+                    <text>
+                      <span
+                        fg={theme.info}
+                        attributes={
+                          scrollIndicatorHovered
+                            ? TextAttributes.BOLD
+                            : TextAttributes.DIM
+                        }
+                      >
+                        {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
+                      </span>
+                    </text>
+                  </box>
+                )}
+              </box>
+
+              {/* Right section - elapsed time */}
+              <box
+                style={{
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                <text style={{ wrapMode: 'none' }}>{elapsedTimeNode}</text>
+              </box>
+            </box>
+
+            {/* Queue preview line - separate row */}
+            {shouldShowQueuePreview && (
+              <box
+                style={{
+                  flexDirection: 'row',
+                  width: '100%',
+                }}
+              >
                 <text style={{ wrapMode: 'none' }}>
                   <span fg={theme.secondary} bg={theme.inputFocusedBg}>
-                    {` ${formatQueuedPreview(queuedMessages, queuePreviewWidth)} `}
+                    {` ${formatQueuedPreview(
+                      queuedMessages,
+                      Math.max(30, terminalWidth - 10),
+                    )} `}
                   </span>
                 </text>
-              )}
-            </box>
-
-            {/* Center section - scroll indicator (always centered) */}
-            <box style={{ flexShrink: 0 }}>
-              {!isAtBottom && (
-                <box
-                  style={{ paddingLeft: 2, paddingRight: 2 }}
-                  onMouseDown={() => scrollToLatest()}
-                  onMouseOver={() => setScrollIndicatorHovered(true)}
-                  onMouseOut={() => setScrollIndicatorHovered(false)}
-                >
-                  <text>
-                    <span
-                      fg={theme.info}
-                      attributes={
-                        scrollIndicatorHovered
-                          ? TextAttributes.BOLD
-                          : TextAttributes.DIM
-                      }
-                    >
-                      {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
-                    </span>
-                  </text>
-                </box>
-              )}
-            </box>
-
-            {/* Right section */}
-            <box
-              style={{
-                flexGrow: 1,
-                flexShrink: 1,
-                flexBasis: 0,
-                flexDirection: 'row',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <text style={{ wrapMode: 'none' }}>{elapsedTimeNode}</text>
-            </box>
+              </box>
+            )}
           </box>
         )}
         <box
