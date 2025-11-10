@@ -582,10 +582,7 @@ export const MessageBlock = memo(
                   style={{
                     flexDirection: 'column',
                     gap: 0,
-                    // Avoid double spacing with the agent header, which already
-                    // adds bottom padding. Only add top margin if this group is
-                    // not the first rendered child.
-                    marginTop: nodes.length === 0 ? 0 : 1,
+                    marginTop: 0,
                     marginBottom: hasRenderableAfter ? 1 : 0,
                   }}
                 >
@@ -802,7 +799,7 @@ export const MessageBlock = memo(
                 style={{
                   flexDirection: 'column',
                   gap: 0,
-                  marginTop: 1,
+                  marginTop: 0,
                   marginBottom: hasRenderableAfter ? 1 : 0,
                 }}
               >
@@ -851,7 +848,7 @@ export const MessageBlock = memo(
                   wrapMode: 'none',
                   marginTop: 0,
                   marginBottom: 0,
-                  alignSelf: 'flex-start',
+                  alignSelf: 'flex-end',
                 }}
               >
                 <ElapsedTimer
@@ -868,11 +865,11 @@ export const MessageBlock = memo(
                   fg: theme.secondary,
                   marginTop: 0,
                   marginBottom: 0,
-                  alignSelf: 'flex-start',
+                  alignSelf: 'flex-end',
                 }}
               >
+                {credits && `${credits} credits • `}
                 {completionTime}
-                {credits && ` • ${credits} credits`}
               </text>
             )}
           </>
