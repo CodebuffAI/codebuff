@@ -17,17 +17,19 @@ import { useAuthState } from './hooks/use-auth-state'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
 import { useElapsedTime } from './hooks/use-elapsed-time'
+import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
 import { useMessageQueue } from './hooks/use-message-queue'
+import { useMessageVirtualization } from './hooks/use-message-virtualization'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
+import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
 import { useChatStore } from './state/chat-store'
-import { flushAnalytics } from './utils/analytics'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
@@ -38,10 +40,7 @@ import { BORDER_CHARS } from './utils/ui-constants'
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
-import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
-
-const MAX_VIRTUALIZED_TOP_LEVEL = 60
-const VIRTUAL_OVERSCAN = 12
+import type { ScrollBoxRenderable } from '@opentui/core'
 
 const DEFAULT_AGENT_IDS = {
   DEFAULT: 'base2',
@@ -78,10 +77,6 @@ export const Chat = ({
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
   const { validate: validateAgents } = useAgentValidation(validationErrors)
-
-  const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  )
 
   // Track which agent toggles the user has manually opened.
   const [userOpenedAgents, setUserOpenedAgents] = useState<Set<string>>(
@@ -201,15 +196,18 @@ export const Chat = ({
     return agent?.displayName || currentAgentId
   }, [loadedAgentsData, agentId, agentMode])
 
+  // Refs for tracking state across renders
   const activeAgentStreamsRef = useRef<number>(0)
   const isChainInProgressRef = useRef<boolean>(isChainInProgress)
+  const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const sendMessageRef = useRef<SendMessageFn>()
+
   const { clipboardMessage } = useClipboard()
   const mainAgentTimer = useElapsedTime()
-  const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
-
-  // Extract just the startTime for passing to components
   const timerStartTime = mainAgentTimer.startTime
 
+  // Sync refs with state
   useEffect(() => {
     isChainInProgressRef.current = isChainInProgress
   }, [isChainInProgress])
@@ -217,8 +215,6 @@ export const Chat = ({
   useEffect(() => {
     activeSubagentsRef.current = activeSubagents
   }, [activeSubagents])
-
-  const abortControllerRef = useRef<AbortController | null>(null)
 
   const { scrollToLatest, scrollboxProps, isAtBottom } = useChatScrollbox(
     scrollRef,
@@ -236,52 +232,10 @@ export const Chat = ({
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
 
-  useEffect(() => {
-    const handleSigint = () => {
-      if (exitWarningTimeoutRef.current) {
-        clearTimeout(exitWarningTimeoutRef.current)
-        exitWarningTimeoutRef.current = null
-      }
-
-      const flushed = flushAnalytics()
-      if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
-        ;(flushed as Promise<void>).finally(() => process.exit(0))
-      } else {
-        process.exit(0)
-      }
-    }
-
-    process.on('SIGINT', handleSigint)
-    return () => {
-      process.off('SIGINT', handleSigint)
-    }
-  }, [])
-
-  const [nextCtrlCWillExit, setNextCtrlCWillExit] = useState(false)
-
-  const handleCtrlC = useCallback(() => {
-    if (inputValue) {
-      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-      return true
-    }
-
-    if (!nextCtrlCWillExit) {
-      setNextCtrlCWillExit(true)
-      setTimeout(() => {
-        setNextCtrlCWillExit(false)
-      }, 2000)
-      return true
-    }
-
-    if (exitWarningTimeoutRef.current) {
-      clearTimeout(exitWarningTimeoutRef.current)
-      exitWarningTimeoutRef.current = null
-    }
-
-    flushAnalytics().then(() => process.exit(0))
-
-    return true
-  }, [inputValue, setInputValue, nextCtrlCWillExit, setNextCtrlCWillExit])
+  const { handleCtrlC, nextCtrlCWillExit } = useExitHandler({
+    inputValue,
+    setInputValue,
+  })
 
   const {
     slashContext,
@@ -296,13 +250,14 @@ export const Chat = ({
     localAgents,
   })
 
+  // Reset suggestion menu indexes when context changes
   useEffect(() => {
     if (!slashContext.active) {
       setSlashSelectedIndex(0)
       return
     }
     setSlashSelectedIndex(0)
-  }, [slashContext.active, slashContext.query])
+  }, [slashContext.active, slashContext.query, setSlashSelectedIndex])
 
   useEffect(() => {
     if (slashMatches.length > 0 && slashSelectedIndex >= slashMatches.length) {
@@ -311,7 +266,7 @@ export const Chat = ({
     if (slashMatches.length === 0 && slashSelectedIndex !== 0) {
       setSlashSelectedIndex(0)
     }
-  }, [slashMatches.length, slashSelectedIndex])
+  }, [slashMatches.length, slashSelectedIndex, setSlashSelectedIndex])
 
   useEffect(() => {
     if (!mentionContext.active) {
@@ -319,7 +274,7 @@ export const Chat = ({
       return
     }
     setAgentSelectedIndex(0)
-  }, [mentionContext.active, mentionContext.query])
+  }, [mentionContext.active, mentionContext.query, setAgentSelectedIndex])
 
   useEffect(() => {
     if (agentMatches.length > 0 && agentSelectedIndex >= agentMatches.length) {
@@ -328,204 +283,25 @@ export const Chat = ({
     if (agentMatches.length === 0 && agentSelectedIndex !== 0) {
       setAgentSelectedIndex(0)
     }
-  }, [agentMatches.length, agentSelectedIndex])
+  }, [agentMatches.length, agentSelectedIndex, setAgentSelectedIndex])
 
-  const handleSlashMenuKey = useCallback(
-    (key: KeyEvent): boolean => {
-      if (!slashContext.active || slashMatches.length === 0) {
-        return false
-      }
-
-      const hasModifier = Boolean(key.ctrl || key.meta || key.option)
-
-      function selectCurrent(): boolean {
-        const selected = slashMatches[slashSelectedIndex] ?? slashMatches[0]
-        if (!selected) {
-          return false
-        }
-        const startIndex = slashContext.startIndex
-        if (startIndex < 0) {
-          return false
-        }
-        const before = inputValue.slice(0, startIndex)
-        const after = inputValue.slice(
-          startIndex + 1 + slashContext.query.length,
-          inputValue.length,
-        )
-        const replacement = `/${selected.id} `
-        const newValue = before + replacement + after
-        setInputValue({
-          text: newValue,
-          cursorPosition: before.length + replacement.length,
-          lastEditDueToNav: false,
-        })
-        setSlashSelectedIndex(0)
-        return true
-      }
-
-      if (key.name === 'down' && !hasModifier) {
-        // Move down (no wrap)
-        if (slashSelectedIndex === slashMatches.length - 1) {
-          return false
-        }
-        setSlashSelectedIndex((prev) => prev + 1)
-        return true
-      }
-
-      if (key.name === 'up' && !hasModifier) {
-        // Move up (no wrap)
-        if (slashSelectedIndex === 0) {
-          return false
-        }
-        setSlashSelectedIndex((prev) => prev - 1)
-        return true
-      }
-
-      if (key.name === 'tab' && key.shift && !hasModifier) {
-        // Move up with wrap
-        setSlashSelectedIndex(
-          (prev) => (slashMatches.length + prev - 1) % slashMatches.length,
-        )
-        return true
-      }
-
-      if (key.name === 'tab' && !key.shift && !hasModifier) {
-        if (slashMatches.length > 1) {
-          // Move up with wrap
-          setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length)
-        } else {
-          selectCurrent()
-        }
-        return true
-      }
-
-      if (key.name === 'return' && !key.shift && !hasModifier) {
-        selectCurrent()
-        return true
-      }
-
-      return false
-    },
-    [
-      slashContext.active,
-      slashContext.startIndex,
-      slashContext.query,
-      slashMatches,
-      slashSelectedIndex,
-      inputValue,
-      setInputValue,
-    ],
-  )
-
-  const handleAgentMenuKey = useCallback(
-    (key: KeyEvent): boolean => {
-      if (!mentionContext.active || agentMatches.length === 0) {
-        return false
-      }
-
-      const hasModifier = Boolean(key.ctrl || key.meta || key.option)
-
-      function selectCurrent(): boolean {
-        const selected = agentMatches[agentSelectedIndex] ?? agentMatches[0]
-        if (!selected) {
-          return false
-        }
-        const startIndex = mentionContext.startIndex
-        if (startIndex < 0) {
-          return false
-        }
-
-        const before = inputValue.slice(0, startIndex)
-        const after = inputValue.slice(
-          startIndex + 1 + mentionContext.query.length,
-          inputValue.length,
-        )
-        const replacement = `@${selected.displayName} `
-        const newValue = before + replacement + after
-        setInputValue({
-          text: newValue,
-          cursorPosition: before.length + replacement.length,
-          lastEditDueToNav: false,
-        })
-        setAgentSelectedIndex(0)
-        return true
-      }
-
-      if (key.name === 'down' && !hasModifier) {
-        // Move down (no wrap)
-        if (agentSelectedIndex === agentMatches.length - 1) {
-          return false
-        }
-        setAgentSelectedIndex((prev) => prev + 1)
-        return true
-      }
-
-      if (key.name === 'up' && !hasModifier) {
-        // Move up (no wrap)
-        if (agentSelectedIndex === 0) {
-          return false
-        }
-        setAgentSelectedIndex((prev) => prev - 1)
-        return true
-      }
-
-      if (key.name === 'tab' && key.shift && !hasModifier) {
-        // Move up with wrap
-        setAgentSelectedIndex(
-          (prev) => (agentMatches.length + prev - 1) % agentMatches.length,
-        )
-        return true
-      }
-
-      if (key.name === 'tab' && !key.shift && !hasModifier) {
-        if (agentMatches.length > 1) {
-          // Move down with wrap
-          setAgentSelectedIndex((prev) => (prev + 1) % agentMatches.length)
-        } else {
-          selectCurrent()
-        }
-        return true
-      }
-
-      if (key.name === 'return' && !key.shift && !hasModifier) {
-        selectCurrent()
-        return true
-      }
-
-      return false
-    },
-    [
-      mentionContext.active,
-      mentionContext.startIndex,
-      mentionContext.query,
-      agentMatches,
-      agentSelectedIndex,
-      inputValue,
-      setInputValue,
-    ],
-  )
-
-  const handleSuggestionMenuKey = useCallback(
-    (key: KeyEvent): boolean => {
-      if (handleSlashMenuKey(key)) {
-        return true
-      }
-
-      if (handleAgentMenuKey(key)) {
-        return true
-      }
-
-      return false
-    },
-    [handleSlashMenuKey, handleAgentMenuKey],
-  )
+  const { handleSuggestionMenuKey } = useSuggestionMenuHandlers({
+    slashContext,
+    mentionContext,
+    slashMatches,
+    agentMatches,
+    slashSelectedIndex,
+    agentSelectedIndex,
+    inputValue,
+    setInputValue,
+    setSlashSelectedIndex,
+    setAgentSelectedIndex,
+  })
 
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
     inputValue,
     setInputValue,
   )
-
-  const sendMessageRef = useRef<SendMessageFn>()
 
   const {
     queuedMessages,
@@ -697,22 +473,11 @@ export const Chat = ({
     [messages],
   )
 
-  const shouldVirtualize =
-    isAtBottom && topLevelMessages.length > MAX_VIRTUALIZED_TOP_LEVEL
-
-  const virtualTopLevelMessages = useMemo(() => {
-    if (!shouldVirtualize) {
-      return topLevelMessages
-    }
-    const windowSize = MAX_VIRTUALIZED_TOP_LEVEL + VIRTUAL_OVERSCAN
-    const sliceStart = Math.max(0, topLevelMessages.length - windowSize)
-    return topLevelMessages.slice(sliceStart)
-  }, [shouldVirtualize, topLevelMessages])
-
-  const hiddenTopLevelCount = Math.max(
-    0,
-    topLevelMessages.length - virtualTopLevelMessages.length,
-  )
+  const { shouldVirtualize, virtualTopLevelMessages, hiddenTopLevelCount } =
+    useMessageVirtualization({
+      topLevelMessages,
+      isAtBottom,
+    })
 
   const virtualizationNotice =
     shouldVirtualize && hiddenTopLevelCount > 0 ? (
