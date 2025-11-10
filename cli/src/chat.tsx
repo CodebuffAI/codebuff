@@ -39,6 +39,7 @@ import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
+import { computeInputLayoutMetrics } from './utils/text-layout'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import type { ContentBlock } from './types/chat'
@@ -535,6 +536,36 @@ export const Chat = ({
     ) : null
 
   const shouldShowQueuePreview = queuedMessages.length > 0
+  const queuePreviewTitle = useMemo(() => {
+    if (!shouldShowQueuePreview) return undefined
+    const previewWidth = Math.max(30, separatorWidth - 20)
+    return formatQueuedPreview(queuedMessages, previewWidth)
+  }, [queuedMessages, separatorWidth, shouldShowQueuePreview])
+  const hasSlashSuggestions = slashContext.active && slashSuggestionItems.length > 0
+  const hasMentionSuggestions =
+    !slashContext.active && mentionContext.active && agentSuggestionItems.length > 0
+  const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
+  const showAgentStatusLine = showAgentDisplayName && loadedAgentsData
+
+  const inputLayoutMetrics = useMemo(() => {
+    const text = inputValue ?? ''
+    const layoutContent = text.length > 0 ? text : ' '
+    const safeCursor = Math.max(0, Math.min(cursorPosition, layoutContent.length))
+    const cursorProbe =
+      safeCursor >= layoutContent.length
+        ? layoutContent
+        : layoutContent.slice(0, safeCursor)
+    const cols = Math.max(1, inputWidth - 4)
+    return computeInputLayoutMetrics({
+      layoutContent,
+      cursorProbe,
+      cols,
+      maxHeight: 5,
+    })
+  }, [inputValue, cursorPosition, inputWidth])
+  const isMultilineInput = inputLayoutMetrics.heightLines > 1
+  const shouldCenterInputVertically =
+    !hasSuggestionMenu && !showAgentStatusLine && !isMultilineInput
   const shouldShowStatusLine =
     streamStatus !== 'idle' ||
     shouldShowQueuePreview ||
@@ -711,36 +742,30 @@ export const Chat = ({
               </box>
             </box>
 
-            {/* Queue preview line - separate row */}
-            {shouldShowQueuePreview && (
-              <box
-                style={{
-                  flexDirection: 'row',
-                  width: '100%',
-                  justifyContent: 'center',
-                }}
-              >
-                <text style={{ wrapMode: 'none' }}>
-                  <span fg={theme.secondary} bg={theme.inputFocusedBg}>
-                    {` ${formatQueuedPreview(
-                      queuedMessages,
-                      Math.max(30, terminalWidth - 10),
-                    )} `}
-                  </span>
-                </text>
-              </box>
-            )}
           </box>
         )}
+
+        {/* Wrap the input row in a single OpenTUI border so the toggle stays inside the flex layout.
+            The queue preview is injected via the border title rather than custom text nodes, which
+            keeps the border coupled to the content height while preserving the inline preview look. */}
         <box
+          title={queuePreviewTitle ? ` ${queuePreviewTitle} ` : undefined}
+          titleAlignment="center"
           style={{
             width: '100%',
             borderStyle: 'single',
             borderColor: theme.secondary,
+            focusedBorderColor: theme.foreground,
             customBorderChars: BORDER_CHARS,
+            paddingLeft: 1,
+            paddingRight: 1,
+            paddingTop: 0,
+            paddingBottom: 0,
+            flexDirection: 'column',
+            gap: hasSuggestionMenu ? 1 : 0,
           }}
         >
-          {slashContext.active && slashSuggestionItems.length > 0 ? (
+          {hasSlashSuggestions ? (
             <SuggestionMenu
               items={slashSuggestionItems}
               selectedIndex={slashSelectedIndex}
@@ -748,9 +773,7 @@ export const Chat = ({
               prefix="/"
             />
           ) : null}
-          {!slashContext.active &&
-          mentionContext.active &&
-          agentSuggestionItems.length > 0 ? (
+          {hasMentionSuggestions ? (
             <SuggestionMenu
               items={agentSuggestionItems}
               selectedIndex={agentSelectedIndex}
@@ -760,55 +783,65 @@ export const Chat = ({
           ) : null}
           <box
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              width: '100%',
+              flexDirection: 'column',
+              justifyContent: shouldCenterInputVertically
+                ? 'center'
+                : 'flex-start',
+              minHeight: shouldCenterInputVertically ? 3 : undefined,
+              gap: showAgentStatusLine ? 1 : 0,
             }}
           >
-            <box style={{ flexGrow: 1, minWidth: 0 }}>
-              <MultilineInput
-                value={inputValue}
-                onChange={setInputValue}
-                onSubmit={handleSubmit}
-                placeholder="Enter a coding task or / for commands"
-                focused={inputFocused}
-                maxHeight={5}
-                width={inputWidth}
-                onKeyIntercept={handleSuggestionMenuKey}
-                textAttributes={theme.messageTextAttributes}
-                ref={inputRef}
-                cursorPosition={cursorPosition}
-              />
-            </box>
             <box
               style={{
-                flexShrink: 0,
-                paddingLeft: 2,
+                flexDirection: 'row',
+                alignItems: shouldCenterInputVertically ? 'center' : 'flex-start',
+                width: '100%',
               }}
             >
-              <AgentModeToggle
-                mode={agentMode}
-                onToggle={toggleAgentMode}
-                onSelectMode={setAgentMode}
-              />
+              <box style={{ flexGrow: 1, minWidth: 0 }}>
+                <MultilineInput
+                  value={inputValue}
+                  onChange={setInputValue}
+                  onSubmit={handleSubmit}
+                  placeholder="Enter a coding task or / for commands"
+                  focused={inputFocused}
+                  maxHeight={5}
+                  width={inputWidth}
+                  onKeyIntercept={handleSuggestionMenuKey}
+                  textAttributes={theme.messageTextAttributes}
+                  ref={inputRef}
+                  cursorPosition={cursorPosition}
+                />
+              </box>
+              <box
+                style={{
+                  flexShrink: 0,
+                  paddingLeft: 2,
+                }}
+              >
+                <AgentModeToggle
+                  mode={agentMode}
+                  onToggle={toggleAgentMode}
+                  onSelectMode={setAgentMode}
+                />
+              </box>
             </box>
+            {/* Agent status line - right-aligned under toggle */}
+            {showAgentStatusLine && (
+              <box
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                  paddingTop: 0,
+                }}
+              >
+                <text>
+                  <span fg={theme.muted}>Agent: {agentDisplayName}</span>
+                </text>
+              </box>
+            )}
           </box>
         </box>
-        {/* Agent status line - right-aligned under toggle */}
-        {showAgentDisplayName && loadedAgentsData && (
-          <box
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'flex-end',
-              paddingRight: 1,
-              paddingTop: 0,
-            }}
-          >
-            <text>
-              <span fg={theme.muted}>Agent: {agentDisplayName}</span>
-            </text>
-          </box>
-        )}
       </box>
 
       {/* Login Modal Overlay - show when not authenticated and done checking */}

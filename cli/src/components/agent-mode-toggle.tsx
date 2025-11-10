@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import stringWidth from 'string-width'
 
 import { SegmentedControl } from './segmented-control'
 import { useTheme } from '../hooks/use-theme'
+import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { Segment } from './segmented-control'
 import type { AgentMode } from '../utils/constants'
@@ -165,26 +165,14 @@ export const AgentModeToggle = ({
   const [isCollapsedHovered, setIsCollapsedHovered] = useState(false)
   const hoverToggle = useHoverToggle()
 
-  const handleCollapsedClick = () => {
-    hoverToggle.clearAllTimers()
-    if (hoverToggle.isOpen) {
-      hoverToggle.closeNow(true)
-    } else {
-      hoverToggle.openNow()
-    }
-  }
-
   const handleMouseOver = () => {
-    if (!hoverToggle.isOpen) setIsCollapsedHovered(true)
-    // Cancel any pending close and schedule open with delay
     hoverToggle.clearCloseTimer()
     hoverToggle.scheduleOpen()
   }
 
   const handleMouseOut = () => {
-    setIsCollapsedHovered(false)
-    // Schedule close using the hook's configured delay
     hoverToggle.scheduleClose()
+    setIsCollapsedHovered(false)
   }
 
   const handleSegmentClick = (id: string) => {
@@ -204,43 +192,37 @@ export const AgentModeToggle = ({
     hoverToggle.closeNow(true)
   }
 
-  const renderCollapsedState = () => {
-    const label = MODE_LABELS[mode]
-    const arrow = '< '
-    const contentText = ` ${arrow}${label} `
-    const contentWidth = stringWidth(contentText)
-    const horizontal = '─'.repeat(contentWidth)
-
-    const borderColor = isCollapsedHovered ? theme.foreground : theme.border
-
+  if (!hoverToggle.isOpen) {
     return (
       <box
         style={{
-          flexDirection: 'column',
-          gap: 0,
-          backgroundColor: 'transparent',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingLeft: 1,
+          paddingRight: 1,
+          borderStyle: 'single',
+          borderColor: isCollapsedHovered ? theme.foreground : theme.border,
+          customBorderChars: BORDER_CHARS,
         }}
-        onMouseDown={handleCollapsedClick}
-        onMouseOver={handleMouseOver}
+        onMouseDown={() => {
+          hoverToggle.clearAllTimers()
+          hoverToggle.openNow()
+        }}
+        onMouseOver={() => {
+          setIsCollapsedHovered(true)
+          handleMouseOver()
+        }}
         onMouseOut={handleMouseOut}
       >
-        <text fg={borderColor}>{`╭${horizontal}╮`}</text>
-        <text fg={theme.foreground}>
-          <span fg={borderColor}>│</span>
+        <text wrapMode="none">
           {isCollapsedHovered ? (
-            <b>{` ${arrow}${label} `}</b>
+            <b>{`< ${MODE_LABELS[mode]}`}</b>
           ) : (
-            ` ${arrow}${label} `
+            `< ${MODE_LABELS[mode]}`
           )}
-          <span fg={borderColor}>│</span>
         </text>
-        <text fg={borderColor}>{`╰${horizontal}╯`}</text>
       </box>
     )
-  }
-
-  if (!hoverToggle.isOpen) {
-    return renderCollapsedState()
   }
 
   // Expanded state: delegate rendering to SegmentedControl
