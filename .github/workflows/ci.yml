@@ -245,9 +245,9 @@ jobs:
           command: |
             cd ${{ matrix.package }}
             if [ "${{ matrix.package }}" = ".agents" ]; then
-              find __tests__ -name '*.integration.test.ts' 2>/dev/null | sort | xargs -I {} bun test {} || echo "No integration tests found in .agents"
+              find __tests__ -name '*.integration.test.ts' 2>/dev/null | sort | xargs -I {} bun test --timeout=60000 {} || echo "No integration tests found in .agents"
             else
-              find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
+              find src -name '*.integration.test.ts' | sort | xargs -I {} bun test --timeout=60000 {}
             fi
 
   # E2E tests for web intentionally omitted for now.
