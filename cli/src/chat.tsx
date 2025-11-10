@@ -9,7 +9,10 @@ import {
   MultilineInput,
   type MultilineInputHandle,
 } from './components/multiline-input'
-import { StatusIndicator, useHasStatus } from './components/status-indicator'
+import {
+  StatusIndicator,
+  StatusElapsedTime,
+} from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
@@ -352,21 +355,23 @@ export const Chat = ({
 
   const {
     queuedMessages,
-    isStreaming,
-    isWaitingForResponse,
+    streamStatus,
     streamMessageIdRef,
     addToQueue,
     startStreaming,
     stopStreaming,
-    setIsWaitingForResponse,
+    setStreamStatus,
     setCanProcessQueue,
-    setIsStreaming,
   } = useMessageQueue(
     (content: string) =>
       sendMessageRef.current?.({ content, agentMode }) ?? Promise.resolve(),
     isChainInProgressRef,
     activeAgentStreamsRef,
   )
+
+  // Derive boolean flags from streamStatus for convenience
+  const isWaitingForResponse = streamStatus === 'waiting'
+  const isStreaming = streamStatus !== 'idle'
 
   const handleTimerEvent = useCallback(
     (event: SendMessageTimerEvent) => {
@@ -406,10 +411,9 @@ export const Chat = ({
     isChainInProgressRef,
     setActiveSubagents,
     setIsChainInProgress,
-    setIsWaitingForResponse,
+    setStreamStatus,
     startStreaming,
     stopStreaming,
-    setIsStreaming,
     setCanProcessQueue,
     abortControllerRef,
     agentId,
@@ -433,15 +437,6 @@ export const Chat = ({
     separatorWidth,
     initialPrompt,
     sendMessageRef,
-  })
-
-  // Status is active when waiting for response or streaming
-  const isStatusActive = isWaitingForResponse || isStreaming
-  const hasStatus = useHasStatus({
-    isActive: isStatusActive,
-    clipboardMessage,
-    timerStartTime,
-    nextCtrlCWillExit,
   })
 
   const handleSubmit = useCallback(
@@ -541,16 +536,23 @@ export const Chat = ({
 
   const shouldShowQueuePreview = queuedMessages.length > 0
   const shouldShowStatusLine =
-    hasStatus || shouldShowQueuePreview || !isAtBottom
+    streamStatus !== 'idle' ||
+    shouldShowQueuePreview ||
+    !isAtBottom ||
+    clipboardMessage != null ||
+    nextCtrlCWillExit
 
   const statusIndicatorNode = (
     <StatusIndicator
       clipboardMessage={clipboardMessage}
-      isActive={isStatusActive}
-      isWaitingForResponse={isWaitingForResponse}
+      streamStatus={streamStatus}
       timerStartTime={timerStartTime}
       nextCtrlCWillExit={nextCtrlCWillExit}
     />
+  )
+
+  const elapsedTimeNode = (
+    <StatusElapsedTime streamStatus={streamStatus} timerStartTime={timerStartTime} />
   )
 
   const validationBanner = useValidationBanner({
@@ -652,8 +654,17 @@ export const Chat = ({
               width: '100%',
             }}
           >
-            {/* Left section - queue preview */}
-            <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}>
+            {/* Left section */}
+            <box
+              style={{
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: 0,
+                flexDirection: 'row',
+                gap: 2,
+              }}
+            >
+              <text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
               {shouldShowQueuePreview && (
                 <text style={{ wrapMode: 'none' }}>
                   <span fg={theme.secondary} bg={theme.inputFocusedBg}>
@@ -688,7 +699,7 @@ export const Chat = ({
               )}
             </box>
 
-            {/* Right section - status indicator */}
+            {/* Right section */}
             <box
               style={{
                 flexGrow: 1,
@@ -698,9 +709,7 @@ export const Chat = ({
                 justifyContent: 'flex-end',
               }}
             >
-              {hasStatus && (
-                <text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
-              )}
+              <text style={{ wrapMode: 'none' }}>{elapsedTimeNode}</text>
             </box>
           </box>
         )}

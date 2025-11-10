@@ -173,10 +173,9 @@ interface UseSendMessageOptions {
   isChainInProgressRef: React.MutableRefObject<boolean>
   setActiveSubagents: React.Dispatch<React.SetStateAction<Set<string>>>
   setIsChainInProgress: (value: boolean) => void
-  setIsWaitingForResponse: (waiting: boolean) => void
+  setStreamStatus: (status: import('./use-message-queue').StreamStatus) => void
   startStreaming: () => void
   stopStreaming: () => void
-  setIsStreaming: (streaming: boolean) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
@@ -207,10 +206,9 @@ export const useSendMessage = ({
   isChainInProgressRef,
   setActiveSubagents,
   setIsChainInProgress,
-  setIsWaitingForResponse,
+  setStreamStatus,
   startStreaming,
   stopStreaming,
-  setIsStreaming,
   setCanProcessQueue,
   abortControllerRef,
   agentId,
@@ -722,9 +720,8 @@ export const useSendMessage = ({
         }
       }
 
-      setIsWaitingForResponse(true)
+      setStreamStatus('waiting')
       applyMessageUpdate((prev) => [...prev, aiMessage])
-      setIsStreaming(true)
       setCanProcessQueue(false)
       updateChainInProgress(true)
       let hasReceivedContent = false
@@ -733,10 +730,9 @@ export const useSendMessage = ({
       const abortController = new AbortController()
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
-        setIsStreaming(false)
+        setStreamStatus('idle')
         setCanProcessQueue(true)
         updateChainInProgress(false)
-        setIsWaitingForResponse(false)
         timerController.stop('aborted')
 
         applyMessageUpdate((prev) =>
@@ -808,7 +804,7 @@ export const useSendMessage = ({
                   : { type: 'reasoning', text: event.chunk }
               if (!hasReceivedContent) {
                 hasReceivedContent = true
-                setIsWaitingForResponse(false)
+                setStreamStatus('streaming')
               }
 
               if (!eventObj.text) {
@@ -869,10 +865,10 @@ export const useSendMessage = ({
               // Track if main agent (no agentId) started streaming
               if (!hasReceivedContent && !event.agentId) {
                 hasReceivedContent = true
-                setIsWaitingForResponse(false)
+                setStreamStatus('streaming')
               } else if (!hasReceivedContent) {
                 hasReceivedContent = true
-                setIsWaitingForResponse(false)
+                setStreamStatus('streaming')
               }
 
               if (event.agentId) {
@@ -1522,10 +1518,9 @@ export const useSendMessage = ({
           return
         }
 
-        setIsStreaming(false)
+        setStreamStatus('idle')
         setCanProcessQueue(true)
         updateChainInProgress(false)
-        setIsWaitingForResponse(false)
         const timerResult = timerController.stop('success')
 
         if (agentMode === 'PLAN') {
@@ -1558,10 +1553,9 @@ export const useSendMessage = ({
           { error: getErrorObject(error) },
           'SDK client.run() failed',
         )
-        setIsStreaming(false)
+        setStreamStatus('idle')
         setCanProcessQueue(true)
         updateChainInProgress(false)
-        setIsWaitingForResponse(false)
         timerController.stop('error')
 
         const errorMessage =
@@ -1596,10 +1590,9 @@ export const useSendMessage = ({
       userOpenedAgents,
       activeSubagentsRef,
       isChainInProgressRef,
-      setIsWaitingForResponse,
+      setStreamStatus,
       startStreaming,
       stopStreaming,
-      setIsStreaming,
       setCanProcessQueue,
       abortControllerRef,
       updateChainInProgress,
