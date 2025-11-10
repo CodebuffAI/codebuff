@@ -606,11 +606,11 @@ export const MultilineInput = forwardRef<
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
           const cols = getEffectiveCols()
-          let nextNewline = value.indexOf('\n', cursorPosition)
-          if (nextNewline === -1) {
-            nextNewline = value.length
+          let nextNewlineInclusive = value.indexOf('\n', cursorPosition)
+          if (nextNewlineInclusive === -1) {
+            nextNewlineInclusive = value.length
           }
-          if (cursorPosition + cols <= nextNewline) {
+          if (cursorPosition + cols <= nextNewlineInclusive) {
             onChange({
               text: value,
               cursorPosition: cursorPosition + cols,
@@ -619,16 +619,15 @@ export const MultilineInput = forwardRef<
             return
           }
 
-          const col =
-            (cursorPosition - value.lastIndexOf('\n', cursorPosition - 1) - 1) %
-            cols
-          let afterNewline = value.indexOf('\n', nextNewline + 1)
+          let afterNewline = value.indexOf('\n', nextNewlineInclusive + 1)
           if (afterNewline === -1) {
             afterNewline = value.length
           }
+          let prevNewlineExclusive = value.lastIndexOf('\n', cursorPosition - 1)
+          const col = (cursorPosition - prevNewlineExclusive) % cols
           onChange({
             text: value,
-            cursorPosition: Math.min(nextNewline + col, afterNewline),
+            cursorPosition: Math.min(nextNewlineInclusive + col, afterNewline),
             lastEditDueToNav: false,
           })
         }
