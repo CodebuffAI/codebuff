@@ -717,6 +717,7 @@ export const Chat = ({
                 style={{
                   flexDirection: 'row',
                   width: '100%',
+                  justifyContent: 'center',
                 }}
               >
                 <text style={{ wrapMode: 'none' }}>
