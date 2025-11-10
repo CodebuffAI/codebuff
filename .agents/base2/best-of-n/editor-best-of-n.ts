@@ -341,6 +341,6 @@ function* handleStepsGpt5({
 
 const definition = {
   ...createBestOfNEditor('sonnet'),
-  id: 'best-of-n-editor',
+  id: 'editor-best-of-n',
 }
 export default definition

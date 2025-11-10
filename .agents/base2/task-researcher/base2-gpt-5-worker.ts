@@ -18,7 +18,7 @@ const definition: SecretAgentDefinition = {
     'researcher-web',
     'researcher-docs',
     'commander',
-    'best-of-n-editor-gpt-5',
+    'editor-best-of-n-gpt-5',
     'context-pruner',
   ),
 
@@ -32,7 +32,7 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 - Gather context on the user's request by spawning agents and reading files.
 - Use the write_todos tool to write out your step-by-step implementation plan.
-- Use the best-of-n-editor-gpt-5 tool to implement the changes. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tool.
+- Use the editor-best-of-n-gpt-5 tool to implement the changes. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tool.
 - For smaller fixes, use the str_replace or write_file tool to make the changes.
 - Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). You may have to explore the project to find the appropriate commands.`,
 

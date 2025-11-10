@@ -70,8 +70,8 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'commander',
-      isDefault && 'best-of-n-editor',
-      isGpt5 && 'best-of-n-editor-gpt-5',
+      isDefault && 'editor-best-of-n',
+      isGpt5 && 'editor-best-of-n-gpt-5',
       isDefault && 'thinker-best-of-n',
       isGpt5 && 'thinker-best-of-n-gpt-5',
       'context-pruner',
@@ -124,7 +124,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other. Be conservative sequencing agents so they can build on each other's insights:
   - Spawn file pickers, code-searcher, directory-lister, glob-matcher, commanders, and web/docs researchers before making edits.
   ${buildArray(
-    `- Spawn a ${isGpt5 ? 'best-of-n-editor-gpt-5' : 'best-of-n-editor'} agent to implement the changes after you have gathered all the context you need.`,
+    `- Spawn a ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need.`,
   ).join('\n  ')}
 - **Spawn with the correct prompt and/or params:** Each agent has a schema for the input it expects. The prompt is a string, and the params is a json object. Some agents require prompts and/or params, and some require you to NOT include any input prompt or params.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
@@ -228,7 +228,7 @@ ${buildArray(
   `- Important: Read as many files as could possibly be relevant to the task to improve your understanding of the user's request and produce the best possible code changes. This is frequently 12-20 files, depending on the task.`,
   `- For multi-step tasks, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for trivial tasks like single-line edits or simple questions.`,
   !isFast &&
-    `- You must spawn the ${isGpt5 ? 'best-of-n-editor-gpt-5' : 'best-of-n-editor'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very small and trivial.`,
+    `- You must spawn the ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very small and trivial.`,
   !hasNoValidation &&
     `- Test your changes${isMax ? '' : ' briefly'} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.).${isMax ? ' Start by type checking the specific area of the project that you are editing and then test the entire project if necessary.' : ' If you can, only typecheck/test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
@@ -311,7 +311,7 @@ On subsequent turns with the user, you should rewrite the spec to reflect the us
 
 function buildPlanOnlyStepPrompt({}: {}) {
   return buildArray(
-    `Your are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not spawn the best-of-n-editor agent. Do not use the write_todos tool.`,
+    `Your are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not spawn the editor-best-of-n agent. Do not use the write_todos tool.`,
   ).join('\n')
 }
 
