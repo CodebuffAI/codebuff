@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 
+import { ElapsedTimer } from './elapsed-timer'
 import { ShimmerText } from './shimmer-text'
 import { useTheme } from '../hooks/use-theme'
 import { getCodebuffClient } from '../utils/codebuff-client'
-
-import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
+import { formatElapsedTime } from '../utils/format-elapsed-time'
 
 const useConnectionStatus = () => {
   const [isConnected, setIsConnected] = useState(true)
@@ -38,17 +38,37 @@ const useConnectionStatus = () => {
 export const StatusIndicator = ({
   clipboardMessage,
   isActive = false,
-  timer,
+  isWaitingForResponse = false,
+  timerStartTime,
   nextCtrlCWillExit,
 }: {
   clipboardMessage?: string | null
   isActive?: boolean
-  timer: ElapsedTimeTracker
+  isWaitingForResponse?: boolean
+  timerStartTime: number | null
   nextCtrlCWillExit: boolean
 }) => {
   const theme = useTheme()
   const isConnected = useConnectionStatus()
-  const elapsedSeconds = timer.elapsedSeconds
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+
+  useEffect(() => {
+    if (!timerStartTime || !isWaitingForResponse) {
+      setElapsedSeconds(0)
+      return
+    }
+
+    const updateElapsed = () => {
+      const now = Date.now()
+      const elapsed = Math.floor((now - timerStartTime) / 1000)
+      setElapsedSeconds(elapsed)
+    }
+
+    updateElapsed()
+    const interval = setInterval(updateElapsed, 1000)
+
+    return () => clearInterval(interval)
+  }, [timerStartTime, isWaitingForResponse])
 
   if (nextCtrlCWillExit) {
     return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
@@ -69,29 +89,24 @@ export const StatusIndicator = ({
   }
 
   if (isActive) {
-    // If we have elapsed time > 0, show it with "working..."
-    if (elapsedSeconds > 0) {
+    if (isWaitingForResponse) {
       return (
         <>
           <ShimmerText
-            text="working..."
+            text="thinking..."
             interval={160}
             primaryColor={theme.secondary}
           />
-          <span fg={theme.muted}> </span>
-          <span fg={theme.secondary}>{elapsedSeconds}s</span>
+          {elapsedSeconds > 0 && (
+            <>
+              <span fg={theme.muted}> </span>
+              <span fg={theme.secondary}>{formatElapsedTime(elapsedSeconds)}</span>
+            </>
+          )}
         </>
       )
     }
-
-    // Otherwise show thinking...
-    return (
-      <ShimmerText
-        text="thinking..."
-        interval={160}
-        primaryColor={theme.secondary}
-      />
-    )
+    return <ElapsedTimer startTime={timerStartTime} />
   }
 
   return null
@@ -100,17 +115,18 @@ export const StatusIndicator = ({
 export const useHasStatus = (params: {
   isActive: boolean
   clipboardMessage?: string | null
-  timer?: ElapsedTimeTracker
+  timerStartTime?: number | null
   nextCtrlCWillExit: boolean
 }): boolean => {
-  const { isActive, clipboardMessage, timer, nextCtrlCWillExit } = params
+  const { isActive, clipboardMessage, timerStartTime, nextCtrlCWillExit } =
+    params
 
   const isConnected = useConnectionStatus()
   return (
     isConnected === false ||
     isActive ||
     Boolean(clipboardMessage) ||
-    Boolean(timer?.startTime) ||
+    Boolean(timerStartTime) ||
     nextCtrlCWillExit
   )
 }

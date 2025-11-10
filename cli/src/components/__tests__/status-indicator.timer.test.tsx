@@ -15,17 +15,7 @@ import '../../state/theme-store' // Initialize theme store
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import * as codebuffClient from '../../utils/codebuff-client'
-import type { ElapsedTimeTracker } from '../../hooks/use-elapsed-time'
 
-const createMockTimer = (
-  elapsedSeconds: number,
-  started: boolean,
-): ElapsedTimeTracker => ({
-  startTime: started ? Date.now() - elapsedSeconds * 1000 : null,
-  elapsedSeconds,
-  start: () => {},
-  stop: () => {},
-})
 
 describe('StatusIndicator timer rendering', () => {
   let getClientSpy: ReturnType<typeof spyOn>
@@ -40,23 +30,26 @@ describe('StatusIndicator timer rendering', () => {
     getClientSpy.mockRestore()
   })
 
-  test('shows elapsed seconds when timer is active', () => {
+  test('shows elapsed seconds when waiting for response', () => {
+    const now = Date.now()
     const markup = renderToStaticMarkup(
       <StatusIndicator
         clipboardMessage={null}
         isActive={true}
-        timer={createMockTimer(5, true)}
+        isWaitingForResponse={true}
+        timerStartTime={now - 5000}
         nextCtrlCWillExit={false}
       />,
     )
 
-    expect(markup).toContain('5s')
+    expect(markup).toContain('thinking...')
 
     const inactiveMarkup = renderToStaticMarkup(
       <StatusIndicator
         clipboardMessage={null}
         isActive={false}
-        timer={createMockTimer(0, false)}
+        isWaitingForResponse={false}
+        timerStartTime={null}
         nextCtrlCWillExit={false}
       />,
     )
@@ -65,11 +58,13 @@ describe('StatusIndicator timer rendering', () => {
   })
 
   test('clipboard message takes priority over timer output', () => {
+    const now = Date.now()
     const markup = renderToStaticMarkup(
       <StatusIndicator
         clipboardMessage="Copied!"
         isActive={true}
-        timer={createMockTimer(12, true)}
+        isWaitingForResponse={true}
+        timerStartTime={now - 12000}
         nextCtrlCWillExit={false}
       />,
     )

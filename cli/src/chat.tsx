@@ -443,7 +443,7 @@ export const Chat = ({
   const hasStatus = useHasStatus({
     isActive: isStatusActive,
     clipboardMessage,
-    timer: mainAgentTimer,
+    timerStartTime,
     nextCtrlCWillExit,
   })
 
@@ -550,7 +550,8 @@ export const Chat = ({
     <StatusIndicator
       clipboardMessage={clipboardMessage}
       isActive={isStatusActive}
-      timer={mainAgentTimer}
+      isWaitingForResponse={isWaitingForResponse}
+      timerStartTime={timerStartTime}
       nextCtrlCWillExit={nextCtrlCWillExit}
     />
   )
