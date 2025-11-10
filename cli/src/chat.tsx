@@ -220,7 +220,6 @@ export const Chat = ({
     activeSubagentsRef.current = activeSubagents
   }, [activeSubagents])
 
-  const abortControllerRef = useRef<AbortController | null>(null)
   const isUserCollapsingRef = useRef<boolean>(false)
 
   // Reset the collapse flag after collapse state changes
