@@ -143,6 +143,7 @@ For other questions, you can direct them to codebuff.com, or especially codebuff
 # Response guidelines
 
 ${buildArray(
+  "- NEVER write out <tool_result> tags in your response. Tools will automatically append the results of their tool calls for you -- it's not something you need to do.",
   isSonnet &&
     `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
   '- **Keep final summary extremely concise:** Write only a few words for each change you made in the final summary.',
@@ -235,6 +236,26 @@ ${buildArray(
 ).join('\n')}`
 }
 
+function buildImplementationStepPrompt({
+  isMax,
+  isGpt5,
+  hasNoValidation,
+  isSonnet,
+}: {
+  isMax: boolean
+  isGpt5: boolean
+  hasNoValidation: boolean
+  isSonnet: boolean
+}) {
+  return buildArray(
+    isMax &&
+      `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
+    `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself.`,
+    isGpt5 &&
+      `IMPORTANT: if you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
+  ).join('\n')
+}
+
 function buildPlanOnlyInstructionsPrompt({}: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents.
 
@@ -286,26 +307,6 @@ The questions section should be last and there should be no summary or further e
 
 On subsequent turns with the user, you should rewrite the spec to reflect the user's choices.`,
 ).join('\n')}`
-}
-
-function buildImplementationStepPrompt({
-  isMax,
-  isGpt5,
-  hasNoValidation,
-  isSonnet,
-}: {
-  isMax: boolean
-  isGpt5: boolean
-  hasNoValidation: boolean
-  isSonnet: boolean
-}) {
-  return buildArray(
-    isMax &&
-      `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
-    `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself.`,
-    isGpt5 &&
-      `IMPORTANT: if you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
-  ).join('\n')
 }
 
 function buildPlanOnlyStepPrompt({}: {}) {
