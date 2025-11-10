@@ -216,8 +216,8 @@ function buildImplementationInstructionsPrompt({
   isMax: boolean
   hasNoValidation: boolean
 }) {
-  return `Orchestrate the completion of the user's request using your specialized sub-agents as needed. Take your time and be comprehensive.
-    
+  return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive.
+
 ## Example response
 
 The user asks you to implement a new feature. You respond in multiple steps:
