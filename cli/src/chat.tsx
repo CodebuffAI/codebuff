@@ -555,6 +555,39 @@ export const Chat = ({
     <StatusElapsedTime streamStatus={streamStatus} timerStartTime={timerStartTime} />
   )
 
+  // Calculate available width for queue preview based on actual content
+  const calculateQueuePreviewWidth = () => {
+    // Estimate status text length
+    let statusTextLength = 0
+    if (nextCtrlCWillExit) {
+      statusTextLength = 27 // "Press Ctrl-C again to exit"
+    } else if (clipboardMessage) {
+      statusTextLength = clipboardMessage.length
+    } else if (streamStatus === 'waiting') {
+      statusTextLength = 11 // "thinking..."
+    } else if (streamStatus === 'streaming') {
+      statusTextLength = 10 // "working..."
+    }
+
+    // Estimate scroll indicator (1 char normally, 20 when hovered, use 1 for calculation)
+    const scrollIndicatorLength = !isAtBottom ? 1 : 0
+
+    // Estimate elapsed time length (typically 2-7 chars like "5s" or "1m 30s")
+    const elapsedTimeLength = streamStatus !== 'idle' ? 7 : 0
+
+    // Account for padding, gaps, and margins (~10 chars)
+    const overhead = 10
+
+    // Calculate available space
+    const availableWidth =
+      terminalWidth - statusTextLength - scrollIndicatorLength - elapsedTimeLength - overhead
+
+    // Return reasonable bounds: minimum 20, maximum 60
+    return Math.max(20, Math.min(60, availableWidth))
+  }
+
+  const queuePreviewWidth = calculateQueuePreviewWidth()
+
   const validationBanner = useValidationBanner({
     liveValidationErrors: validationErrors,
     loadedAgentsData,
@@ -668,10 +701,7 @@ export const Chat = ({
               {shouldShowQueuePreview && (
                 <text style={{ wrapMode: 'none' }}>
                   <span fg={theme.secondary} bg={theme.inputFocusedBg}>
-                    {` ${formatQueuedPreview(
-                      queuedMessages,
-                      Math.max(30, terminalWidth - 25),
-                    )} `}
+                    {` ${formatQueuedPreview(queuedMessages, queuePreviewWidth)} `}
                   </span>
                 </text>
               )}
@@ -680,22 +710,25 @@ export const Chat = ({
             {/* Center section - scroll indicator (always centered) */}
             <box style={{ flexShrink: 0 }}>
               {!isAtBottom && (
-                <text
+                <box
+                  style={{ paddingLeft: 2, paddingRight: 2 }}
                   onMouseDown={() => scrollToLatest()}
                   onMouseOver={() => setScrollIndicatorHovered(true)}
                   onMouseOut={() => setScrollIndicatorHovered(false)}
                 >
-                  <span
-                    fg={theme.info}
-                    attributes={
-                      scrollIndicatorHovered
-                        ? TextAttributes.BOLD
-                        : TextAttributes.DIM
-                    }
-                  >
-                    {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
-                  </span>
-                </text>
+                  <text>
+                    <span
+                      fg={theme.info}
+                      attributes={
+                        scrollIndicatorHovered
+                          ? TextAttributes.BOLD
+                          : TextAttributes.DIM
+                      }
+                    >
+                      {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
+                    </span>
+                  </text>
+                </box>
               )}
             </box>
 
