@@ -578,9 +578,26 @@ export const MultilineInput = forwardRef<
         // Up arrow (no modifiers)
         if (key.name === 'up' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
+          const cols = getEffectiveCols()
+          const prevNewline = value.lastIndexOf('\n', cursorPosition - 1)
+          if (cursorPosition - cols >= prevNewline) {
+            onChange({
+              text: value,
+              cursorPosition: cursorPosition - cols,
+              lastEditDueToNav: false,
+            })
+            return
+          }
+
+          const priorNewline = value.lastIndexOf('\n', prevNewline - 1)
+          const lastParagraphLength = prevNewline - priorNewline
+          const lastRow = Math.floor(lastParagraphLength / cols)
           onChange({
             text: value,
-            cursorPosition: cursorPosition - getEffectiveCols(),
+            cursorPosition: Math.min(
+              priorNewline + lastRow * cols + cursorPosition - prevNewline,
+              prevNewline,
+            ),
             lastEditDueToNav: false,
           })
         }
@@ -588,9 +605,30 @@ export const MultilineInput = forwardRef<
         // Down arrow (no modifiers)
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
+          const cols = getEffectiveCols()
+          let nextNewline = value.indexOf('\n', cursorPosition)
+          if (nextNewline === -1) {
+            nextNewline = value.length
+          }
+          if (cursorPosition + cols <= nextNewline) {
+            onChange({
+              text: value,
+              cursorPosition: cursorPosition + cols,
+              lastEditDueToNav: false,
+            })
+            return
+          }
+
+          const col =
+            (cursorPosition - value.lastIndexOf('\n', cursorPosition - 1) - 1) %
+            cols
+          let afterNewline = value.indexOf('\n', nextNewline + 1)
+          if (afterNewline === -1) {
+            afterNewline = value.length
+          }
           onChange({
             text: value,
-            cursorPosition: cursorPosition + getEffectiveCols(),
+            cursorPosition: Math.min(nextNewline + col, afterNewline),
             lastEditDueToNav: false,
           })
         }
@@ -628,7 +666,10 @@ export const MultilineInput = forwardRef<
   const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
   const activeChar = afterCursor.charAt(0) || ' '
   const shouldHighlight =
-    showCursor && !isPlaceholder && cursorPosition < displayValue.length
+    showCursor &&
+    !isPlaceholder &&
+    cursorPosition < displayValue.length &&
+    displayValue[cursorPosition] !== '\n'
 
   const layoutContent = showCursor
     ? shouldHighlight
