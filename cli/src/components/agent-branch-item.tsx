@@ -1,12 +1,13 @@
-import { TextAttributes, type BorderCharacters } from '@opentui/core'
-import React, { type ReactNode } from 'react'
+import { TextAttributes } from '@opentui/core'
+import React, { memo, type ReactNode } from 'react'
 
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
+import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 
 interface AgentBranchItemProps {
   name: string
-  content: ReactNode
+  children?: ReactNode
   prompt?: string
   agentId?: string
   isCollapsed: boolean
@@ -20,21 +21,26 @@ interface AgentBranchItemProps {
   titleSuffix?: string
 }
 
-export const AgentBranchItem = ({
-  name,
-  content,
-  prompt,
-  agentId,
-  isCollapsed,
-  isStreaming,
-  streamingPreview,
-  finishedPreview,
-  statusLabel,
-  statusColor,
-  statusIndicator = '●',
-  onToggle,
-  titleSuffix,
-}: AgentBranchItemProps) => {
+export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
+  const {
+    name,
+    children,
+    prompt,
+    agentId,
+    isCollapsed,
+    isStreaming,
+    streamingPreview,
+    finishedPreview,
+    statusLabel,
+    statusColor,
+    statusIndicator = '●',
+    onToggle,
+    titleSuffix,
+  } = props
+  useWhyDidYouUpdateById('AgentBranchItem', agentId ?? '', props, {
+    logLevel: 'debug',
+    enabled: false,
+  })
   const theme = useTheme()
 
   const baseTextAttributes = theme.messageTextAttributes ?? 0
@@ -44,9 +50,7 @@ export const AgentBranchItem = ({
   }
 
   const isExpanded = !isCollapsed
-  const toggleFrameColor = isExpanded
-    ? theme.secondary
-    : theme.muted
+  const toggleFrameColor = isExpanded ? theme.secondary : theme.muted
   const toggleIconColor = isStreaming ? theme.primary : theme.foreground
   const bulletChar = '• '
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
@@ -59,6 +63,95 @@ export const AgentBranchItem = ({
       : null
   const showCollapsedPreview =
     (isStreaming && !!streamingPreview) || (!isStreaming && !!finishedPreview)
+
+  const isTextRenderable = (value: ReactNode): boolean => {
+    if (value === null || value === undefined || typeof value === 'boolean') {
+      return false
+    }
+
+    if (typeof value === 'string' || typeof value === 'number') {
+      return true
+    }
+
+    if (Array.isArray(value)) {
+      return value.every((child) => isTextRenderable(child))
+    }
+
+    if (React.isValidElement(value)) {
+      if (value.type === React.Fragment) {
+        return isTextRenderable(value.props.children)
+      }
+
+      if (typeof value.type === 'string') {
+        if (
+          value.type === 'span' ||
+          value.type === 'strong' ||
+          value.type === 'em'
+        ) {
+          return isTextRenderable(value.props.children)
+        }
+
+        return false
+      }
+    }
+
+    return false
+  }
+
+  const renderExpandedContent = (value: ReactNode): ReactNode => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === false ||
+      value === true
+    ) {
+      return null
+    }
+
+    if (isTextRenderable(value)) {
+      return (
+        <text
+          fg={theme.foreground}
+          key="expanded-text"
+          attributes={getAttributes()}
+        >
+          {value}
+        </text>
+      )
+    }
+
+    if (React.isValidElement(value)) {
+      if (value.key === null || value.key === undefined) {
+        return (
+          <box key="expanded-node" style={{ flexDirection: 'column', gap: 0 }}>
+            {value}
+          </box>
+        )
+      }
+      return value
+    }
+
+    if (Array.isArray(value)) {
+      return (
+        <box key="expanded-array" style={{ flexDirection: 'column', gap: 0 }}>
+          {value.map((child, idx) => (
+            <box
+              key={`expanded-array-${idx}`}
+              style={{ flexDirection: 'column', gap: 0 }}
+            >
+              {child}
+            </box>
+          ))}
+        </box>
+      )
+    }
+
+    return (
+      <box key="expanded-unknown" style={{ flexDirection: 'column', gap: 0 }}>
+        {value}
+      </box>
+    )
+  }
 
   return (
     <box
@@ -158,7 +251,7 @@ export const AgentBranchItem = ({
                   flexDirection: 'row',
                   gap: 0,
                   alignItems: 'stretch',
-                  marginBottom: content ? 1 : 0,
+                  marginBottom: children ? 1 : 0,
                 }}
               >
                 <box
@@ -185,7 +278,7 @@ export const AgentBranchItem = ({
                 </box>
               </box>
             )}
-            {content}
+            {renderExpandedContent(children)}
             {onToggle && (
               <box
                 style={{
@@ -194,10 +287,7 @@ export const AgentBranchItem = ({
                 }}
                 onMouseDown={onToggle}
               >
-                <text
-                  fg={theme.secondary}
-                  style={{ wrapMode: 'none' }}
-                >
+                <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
                   ▴ collapse
                 </text>
               </box>
@@ -207,4 +297,4 @@ export const AgentBranchItem = ({
       </box>
     </box>
   )
-}
+})

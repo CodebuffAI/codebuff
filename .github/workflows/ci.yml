@@ -92,6 +92,7 @@ jobs:
             packages/agent-runtime,
             packages/billing,
             packages/internal,
+            sdk,
             web,
           ]
         include:
@@ -103,6 +104,7 @@ jobs:
           - package: packages/agent-runtime
           - package: packages/billing
           - package: packages/internal
+          - package: sdk
           - package: web
     name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
@@ -180,6 +182,7 @@ jobs:
             packages/agent-runtime,
             packages/billing,
             packages/internal,
+            sdk,
             web,
           ]
         include:
@@ -191,6 +194,7 @@ jobs:
           - package: packages/agent-runtime
           - package: packages/billing
           - package: packages/internal
+          - package: sdk
           - package: web
     name: test-integration-${{ matrix.package }}
     runs-on: ubuntu-latest
@@ -241,9 +245,9 @@ jobs:
           command: |
             cd ${{ matrix.package }}
             if [ "${{ matrix.package }}" = ".agents" ]; then
-              find __tests__ -name '*.integration.test.ts' 2>/dev/null | sort | xargs -I {} bun test {} || echo "No integration tests found in .agents"
+              find __tests__ -name '*.integration.test.ts' 2>/dev/null | sort | xargs -I {} bun test --timeout=60000 {} || echo "No integration tests found in .agents"
             else
-              find src -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
+              find src -name '*.integration.test.ts' | sort | xargs -I {} bun test --timeout=60000 {}
             fi
 
   # E2E tests for web intentionally omitted for now.

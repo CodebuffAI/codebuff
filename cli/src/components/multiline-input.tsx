@@ -12,6 +12,7 @@ import {
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
+import { clamp } from '../utils/math'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
 
 import type { InputValue } from '../state/chat-store'
@@ -159,17 +160,45 @@ export const MultilineInput = forwardRef<
     ),
   )
 
-  // Auto-scroll to bottom when content changes
+  const getCursorRow = useCallback(() => {
+    const cols = getEffectiveCols()
+
+    let lines = 0
+    let index = 0
+    let nextNewline = value.indexOf('\n', index)
+    if (nextNewline === -1 || nextNewline > cursorPosition) {
+      nextNewline = cursorPosition
+    }
+    while (index < cursorPosition) {
+      lines += Math.floor((nextNewline - index) / cols) + 1
+      if ((nextNewline - index) % cols === 0 && nextNewline - index > 0) {
+        // special case for the newline being exactly at the end of the line
+        lines -= 1
+      }
+      index = nextNewline + 1
+      nextNewline = value.indexOf('\n', index)
+      if (nextNewline === -1 || nextNewline > cursorPosition) {
+        nextNewline = cursorPosition
+      }
+    }
+    return lines
+  }, [getEffectiveCols, cursorPosition, value])
+
+  // Auto-scroll to cursor when content changes
   useEffect(() => {
     const scrollBox = scrollBoxRef.current
     if (scrollBox && focused) {
-      const maxScroll = Math.max(
-        0,
-        scrollBox.scrollHeight - scrollBox.viewport.height,
+      const cursorRow = getCursorRow()
+      const scrollPosition = clamp(
+        scrollBox.verticalScrollBar.scrollPosition,
+        Math.max(0, cursorRow - scrollBox.viewport.height + 1),
+        Math.min(scrollBox.scrollHeight - scrollBox.viewport.height, cursorRow),
       )
-      scrollBox.verticalScrollBar.scrollPosition = maxScroll
+
+      scrollBox.verticalScrollBar.scrollPosition = scrollPosition
     }
-  }, [value, cursorPosition, focused])
+  }, [value, cursorPosition, focused, getCursorRow])
+
   // Measure actual viewport width from the scrollbox to avoid
   // wrap miscalculations from heuristic padding/border math.
   useEffect(() => {
@@ -578,9 +607,26 @@ export const MultilineInput = forwardRef<
         // Up arrow (no modifiers)
         if (key.name === 'up' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
+          const cols = getEffectiveCols()
+          const prevNewline = value.lastIndexOf('\n', cursorPosition - 1)
+          if (cursorPosition - cols >= prevNewline) {
+            onChange({
+              text: value,
+              cursorPosition: cursorPosition - cols,
+              lastEditDueToNav: false,
+            })
+            return
+          }
+
+          const priorNewline = value.lastIndexOf('\n', prevNewline - 1)
+          const lastParagraphLength = prevNewline - priorNewline
+          const lastRow = Math.floor(lastParagraphLength / cols)
           onChange({
             text: value,
-            cursorPosition: cursorPosition - getEffectiveCols(),
+            cursorPosition: Math.min(
+              priorNewline + lastRow * cols + cursorPosition - prevNewline,
+              prevNewline,
+            ),
             lastEditDueToNav: false,
           })
         }
@@ -588,9 +634,36 @@ export const MultilineInput = forwardRef<
         // Down arrow (no modifiers)
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
+          const cols = getEffectiveCols()
+          let nextNewlineInclusive = value.indexOf('\n', cursorPosition)
+          if (nextNewlineInclusive === -1) {
+            nextNewlineInclusive = value.length
+          }
+          if (cursorPosition + cols <= nextNewlineInclusive) {
+            onChange({
+              text: value,
+              cursorPosition: cursorPosition + cols,
+              lastEditDueToNav: false,
+            })
+            return
+          }
+
+          let afterNewline = value.indexOf('\n', nextNewlineInclusive + 1)
+          if (afterNewline === -1) {
+            afterNewline = value.length
+          }
+          /*
+           * The second argument of lastIndexOf is converted to 0 if it's
+           * negative, so we need to special case cursorPosition === 0
+           */
+          let prevNewlineExclusive =
+            cursorPosition === 0
+              ? -1
+              : value.lastIndexOf('\n', cursorPosition - 1)
+          const col = (cursorPosition - prevNewlineExclusive) % cols
           onChange({
             text: value,
-            cursorPosition: cursorPosition + getEffectiveCols(),
+            cursorPosition: Math.min(nextNewlineInclusive + col, afterNewline),
             lastEditDueToNav: false,
           })
         }
@@ -628,7 +701,10 @@ export const MultilineInput = forwardRef<
   const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
   const activeChar = afterCursor.charAt(0) || ' '
   const shouldHighlight =
-    showCursor && !isPlaceholder && cursorPosition < displayValue.length
+    showCursor &&
+    !isPlaceholder &&
+    cursorPosition < displayValue.length &&
+    displayValue[cursorPosition] !== '\n'
 
   const layoutContent = showCursor
     ? shouldHighlight

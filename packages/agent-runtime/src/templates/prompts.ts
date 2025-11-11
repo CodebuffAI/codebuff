@@ -6,6 +6,7 @@ import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
+import { getToolCallString } from '@codebuff/common/tools/utils'
 
 export async function buildSpawnableAgentsDescription(
   params: {
@@ -65,7 +66,22 @@ params: None`
 
   return `\n\n## Spawnable Agents
 
-Use the spawn_agents tool to spawn agents to help you complete the user request. Below are the *only* available agents by their agent_type. Other agents may be referenced earlier in the conversation, but they are not available to you. Spawn only the below agents:
+Use the spawn_agents tool to spawn agents to help you complete the user request. Below are the *only* available agents by their agent_type. Other agents may be referenced earlier in the conversation, but they are not available to you.
+
+Note: You can not call the agents as tool names directly: you must use the spawn_agents tool with the correct parameters to spawn them!
+
+Example:
+
+${getToolCallString('spawn_agents', {
+  agents: [
+    {
+      agent_type: 'example-agent',
+      prompt: 'Example prompt for the example agent',
+    },
+  ],
+})}
+
+Spawn only the below agents:
 
 ${agentsDescription}`
 }

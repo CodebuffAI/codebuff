@@ -252,7 +252,7 @@ function buildImplementationStepPrompt({
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself.`,
     isGpt5 &&
-      `IMPORTANT: if you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
+      `IMPORTANT: You should include at least one tool call ("<codebuff_tool_call>") per message response. If you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
   ).join('\n')
 }
 
@@ -297,8 +297,8 @@ For example, here is a nice short question, where the options are helpfully writ
 Questions:
 
 1. Do you want to:
-a) (DEFAULT) Keep Express and integrate Bun WebSockets
-b) Migrate the entire HTTP server to Bun.serve()
+  a) (DEFAULT) Keep Express and integrate Bun WebSockets
+  b) Migrate the entire HTTP server to Bun.serve()
 
 Try to have as few questions as possible (even none), and focus on the most important decisions or assumptions that it would be helpful to clarify with the user.
 You should also let them know what you plan to do by default, and let them know that they can choose a different option if they want to.

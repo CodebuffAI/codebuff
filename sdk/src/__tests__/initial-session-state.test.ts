@@ -1,6 +1,8 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 import { z } from 'zod/v4'
+
 import { initialSessionState } from '../run-state'
+
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 describe('Initial Session State', () => {
@@ -32,9 +34,17 @@ describe('Initial Session State', () => {
           return [
             { name: 'src', isDirectory: () => true, isFile: () => false },
             { name: '.git', isDirectory: () => true, isFile: () => false },
-            { name: 'knowledge.md', isDirectory: () => false, isFile: () => true },
+            {
+              name: 'knowledge.md',
+              isDirectory: () => false,
+              isFile: () => true,
+            },
             { name: 'README.md', isDirectory: () => false, isFile: () => true },
-            { name: '.gitignore', isDirectory: () => false, isFile: () => true },
+            {
+              name: '.gitignore',
+              isDirectory: () => false,
+              isFile: () => true,
+            },
           ] as any
         }
         if (path.includes('src')) {
@@ -45,10 +55,11 @@ describe('Initial Session State', () => {
         }
         return []
       },
-      stat: async (path: string) => ({
-        isDirectory: () => path.includes('src') || path.includes('.git'),
-        isFile: () => !path.includes('src') && !path.includes('.git'),
-      }) as any,
+      stat: async (path: string) =>
+        ({
+          isDirectory: () => path.includes('src') || path.includes('.git'),
+          isFile: () => !path.includes('src') && !path.includes('.git'),
+        }) as any,
       exists: async (path: string) => {
         if (path.includes('.gitignore')) return true
         if (path.includes('src')) return true
@@ -70,7 +81,8 @@ describe('Initial Session State', () => {
   test('creates initial session state with explicit projectFiles', async () => {
     const projectFiles = {
       'src/index.ts': 'console.log("Hello world");',
-      'src/utils.ts': 'export function add(a: number, b: number) { return a + b; }',
+      'src/utils.ts':
+        'export function add(a: number, b: number) { return a + b; }',
       'knowledge.md': '# Knowledge\n\nThis is a knowledge file.',
     }
 
@@ -121,7 +133,30 @@ describe('Initial Session State', () => {
     expect(sessionState.fileContext.knowledgeFiles['knowledge.md']).toBe(
       '# Knowledge\n\nThis is a knowledge file.',
     )
-    expect(sessionState.fileContext.knowledgeFiles['claude.md']).toBe(
+    expect(sessionState.fileContext.knowledgeFiles['claude.md']).toBeUndefined()
+    expect(sessionState.fileContext.knowledgeFiles['README.md']).toBeUndefined()
+  })
+
+  test('derives reads knowledgeFiles from claude.md when knowledge.md is not present', async () => {
+    const projectFiles = {
+      'src/index.ts': 'console.log("Hello world");',
+      'claude.md': '# Claude context\n\nThis is claude context.',
+      'README.md': '# Project\n\nThis is a readme.',
+    }
+
+    const sessionState = await initialSessionState({
+      cwd: '/test-project',
+      projectFiles,
+      knowledgeFiles: undefined,
+      fs: mockFs,
+      logger: mockLogger,
+    })
+
+    expect(sessionState.fileContext.knowledgeFiles).toBeDefined()
+    expect(
+      sessionState.fileContext.knowledgeFiles['knowledge.md'],
+    ).toBeUndefined()
+    expect(sessionState.fileContext.knowledgeFiles['claude.md']).toEqual(
       '# Claude context\n\nThis is claude context.',
     )
     expect(sessionState.fileContext.knowledgeFiles['README.md']).toBeUndefined()
@@ -146,7 +181,9 @@ describe('Initial Session State', () => {
     })
 
     expect(sessionState.fileContext.knowledgeFiles).toEqual(knowledgeFiles)
-    expect(sessionState.fileContext.knowledgeFiles['knowledge.md']).toBeUndefined()
+    expect(
+      sessionState.fileContext.knowledgeFiles['knowledge.md'],
+    ).toBeUndefined()
   })
 
   test('sets maxAgentSteps when provided', async () => {
@@ -198,10 +235,12 @@ describe('Initial Session State', () => {
     })
 
     expect(sessionState.fileContext.agentTemplates).toBeDefined()
-    expect(sessionState.fileContext.agentTemplates['custom-agent']).toBeDefined()
-    expect(sessionState.fileContext.agentTemplates['custom-agent'].displayName).toBe(
-      'Custom Agent',
-    )
+    expect(
+      sessionState.fileContext.agentTemplates['custom-agent'],
+    ).toBeDefined()
+    expect(
+      sessionState.fileContext.agentTemplates['custom-agent'].displayName,
+    ).toBe('Custom Agent')
   })
 
   test('includes custom tool definitions', async () => {
@@ -236,10 +275,12 @@ describe('Initial Session State', () => {
     })
 
     expect(sessionState.fileContext.customToolDefinitions).toBeDefined()
-    expect(sessionState.fileContext.customToolDefinitions['custom_tool']).toBeDefined()
-    expect(sessionState.fileContext.customToolDefinitions['custom_tool'].description).toBe(
-      'A custom tool',
-    )
+    expect(
+      sessionState.fileContext.customToolDefinitions['custom_tool'],
+    ).toBeDefined()
+    expect(
+      sessionState.fileContext.customToolDefinitions['custom_tool'].description,
+    ).toBe('A custom tool')
   })
 
   test('populates system info correctly', async () => {
@@ -257,7 +298,9 @@ describe('Initial Session State', () => {
     expect(sessionState.fileContext.systemInfo).toBeDefined()
     expect(sessionState.fileContext.systemInfo.platform).toBe(process.platform)
     expect(sessionState.fileContext.systemInfo.shell).toBeDefined()
-    expect(sessionState.fileContext.systemInfo.nodeVersion).toBe(process.version)
+    expect(sessionState.fileContext.systemInfo.nodeVersion).toBe(
+      process.version,
+    )
     expect(sessionState.fileContext.systemInfo.cpus).toBeGreaterThan(0)
   })
 
