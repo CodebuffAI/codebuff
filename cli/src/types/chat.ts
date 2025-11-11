@@ -1,5 +1,6 @@
 import type { ChatTheme } from './theme-system'
 import type { ReactNode } from 'react'
+import type { ToolName } from '@codebuff/sdk'
 
 export type ChatVariant = 'ai' | 'user' | 'agent' | 'error'
 
@@ -21,7 +22,7 @@ export type HtmlContentBlock = {
 export type ToolContentBlock = {
   type: 'tool'
   toolCallId: string
-  toolName: string
+  toolName: ToolName
   input: any
   output?: string
   outputRaw?: unknown
@@ -83,4 +84,33 @@ export type ChatMessage = {
   completionTime?: string
   isComplete?: boolean
   metadata?: Record<string, any>
+}
+
+// Type guard functions for safe type narrowing
+export function isTextBlock(block: ContentBlock): block is TextContentBlock {
+  return block.type === 'text'
+}
+
+export function isToolBlock(block: ContentBlock): block is ToolContentBlock {
+  return block.type === 'tool'
+}
+
+export function isAgentBlock(block: ContentBlock): block is AgentContentBlock {
+  return block.type === 'agent'
+}
+
+export function isHtmlBlock(block: ContentBlock): block is HtmlContentBlock {
+  return block.type === 'html'
+}
+
+export function isAgentListBlock(block: ContentBlock): block is AgentListContentBlock {
+  return block.type === 'agent-list'
+}
+
+export function isPlanBlock(block: ContentBlock): block is PlanContentBlock {
+  return block.type === 'plan'
+}
+
+export function isModeDividerBlock(block: ContentBlock): block is ModeDividerContentBlock {
+  return block.type === 'mode-divider'
 }

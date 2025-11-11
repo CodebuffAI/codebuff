@@ -71,9 +71,7 @@ export function renderToolComponent(
   theme: ChatTheme,
   options: ToolRenderOptions,
 ): ToolRenderConfig | null {
-  const component = getToolComponent(
-    toolBlock.toolName satisfies string as ToolName,
-  )
+  const component = getToolComponent(toolBlock.toolName)
 
   if (!component) {
     return null

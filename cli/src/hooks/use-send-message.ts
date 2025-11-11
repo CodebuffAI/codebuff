@@ -1359,7 +1359,7 @@ export const useSendMessage = ({
                         const newToolBlock: ToolContentBlock = {
                           type: 'tool',
                           toolCallId,
-                          toolName,
+                          toolName: toolName as ToolName,
                           input,
                           agentId,
                           ...(includeToolCall !== undefined && {
@@ -1391,7 +1391,7 @@ export const useSendMessage = ({
                     const newToolBlock: ContentBlock = {
                       type: 'tool',
                       toolCallId,
-                      toolName,
+                      toolName: toolName as ToolName,
                       input,
                       agentId,
                       ...(includeToolCall !== undefined && { includeToolCall }),
