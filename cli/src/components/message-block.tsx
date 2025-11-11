@@ -1188,7 +1188,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
                 wrapMode: 'none',
                 marginTop: 0,
                 marginBottom: 0,
-                alignSelf: 'flex-start',
+                alignSelf: 'flex-end',
               }}
             >
               <ElapsedTimer
@@ -1205,7 +1205,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
                 fg: theme.secondary,
                 marginTop: 0,
                 marginBottom: 0,
-                alignSelf: 'flex-start',
+                alignSelf: 'flex-end',
               }}
             >
               {completionTime}
