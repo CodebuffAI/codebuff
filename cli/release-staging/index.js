@@ -240,12 +240,30 @@ async function downloadBinary(version) {
     throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
   }
 
-  const downloadUrl = `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'}/api/releases/download/${version}/${fileName}`
+  const downloadUrl = `${
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+  }/api/releases/download/${version}/${fileName}`
 
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
 
   if (fs.existsSync(CONFIG.binaryPath)) {
-    fs.unlinkSync(CONFIG.binaryPath)
+    try {
+      fs.unlinkSync(CONFIG.binaryPath)
+    } catch (err) {
+      // Fallback: try renaming the locked/undeletable binary
+      const backupPath = CONFIG.binaryPath + `.old.${Date.now()}`
+
+      try {
+        fs.renameSync(CONFIG.binaryPath, backupPath)
+      } catch (renameErr) {
+        // If we can't unlink OR rename, we can't safely proceed
+        throw new Error(
+          `Failed to replace existing binary. ` +
+            `unlink error: ${err.code || err.message}, ` +
+            `rename error: ${renameErr.code || renameErr.message}`,
+        )
+      }
+    }
   }
 
   term.write('Downloading...')
