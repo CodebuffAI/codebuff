@@ -169,16 +169,14 @@ export const App = ({
   ])
 
   return (
-    <box style={{ flexDirection: 'column', gap: 0, flexGrow: 1 }}>
-      <Chat
-        headerContent={headerContent}
-        initialPrompt={initialPrompt}
-        agentId={agentId}
-        requireAuth={requireAuth}
-        hasInvalidCredentials={hasInvalidCredentials}
-        loadedAgentsData={loadedAgentsData}
-        validationErrors={validationErrors}
-      />
-    </box>
+    <Chat
+      headerContent={headerContent}
+      initialPrompt={initialPrompt}
+      agentId={agentId}
+      requireAuth={requireAuth}
+      hasInvalidCredentials={hasInvalidCredentials}
+      loadedAgentsData={loadedAgentsData}
+      validationErrors={validationErrors}
+    />
   )
 }

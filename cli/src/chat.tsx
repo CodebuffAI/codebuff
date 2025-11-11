@@ -593,78 +593,64 @@ export const Chat = ({
         flexGrow: 1,
       }}
     >
-      <box
+      <scrollbox
+        ref={scrollRef}
+        stickyScroll
+        stickyStart="bottom"
+        scrollX={false}
+        scrollbarOptions={{ visible: false }}
+        {...appliedScrollboxProps}
         style={{
-          flexDirection: 'column',
           flexGrow: 1,
-          paddingLeft: 0,
-          paddingRight: 0,
-          paddingTop: 0,
-          paddingBottom: 0,
-          backgroundColor: 'transparent',
+          rootOptions: {
+            flexGrow: 1,
+            padding: 0,
+            gap: 0,
+            flexDirection: 'column',
+            shouldFill: true,
+            backgroundColor: 'transparent',
+          },
+          wrapperOptions: {
+            flexGrow: 1,
+            border: false,
+            shouldFill: true,
+            backgroundColor: 'transparent',
+          },
+          contentOptions: {
+            flexDirection: 'column',
+            gap: 0,
+            shouldFill: true,
+            justifyContent: 'flex-end',
+            backgroundColor: 'transparent',
+          },
         }}
       >
-        <scrollbox
-          ref={scrollRef}
-          stickyScroll
-          stickyStart="bottom"
-          scrollX={false}
-          scrollbarOptions={{ visible: false }}
-          {...appliedScrollboxProps}
-          style={{
-            flexGrow: 1,
-            rootOptions: {
-              flexGrow: 1,
-              padding: 0,
-              gap: 0,
-              flexDirection: 'column',
-              shouldFill: true,
-              backgroundColor: 'transparent',
-            },
-            wrapperOptions: {
-              flexGrow: 1,
-              border: false,
-              shouldFill: true,
-              backgroundColor: 'transparent',
-            },
-            contentOptions: {
-              flexDirection: 'column',
-              gap: 0,
-              shouldFill: true,
-              justifyContent: 'flex-end',
-              backgroundColor: 'transparent',
-            },
-          }}
-        >
-          {headerContent}
-          {virtualizationNotice}
-          <MessageRenderer
-            messages={messages}
-            messageTree={messageTree}
-            topLevelMessages={virtualTopLevelMessages}
-            availableWidth={separatorWidth}
-            theme={theme}
-            markdownPalette={markdownPalette}
-            collapsedAgents={collapsedAgents}
-            streamingAgents={streamingAgents}
-            isWaitingForResponse={isWaitingForResponse}
-            timerStartTime={timerStartTime}
-            onCollapseToggle={handleCollapseToggle}
-            setCollapsedAgents={setCollapsedAgents}
-            setFocusedAgentId={setFocusedAgentId}
-            userOpenedAgents={userOpenedAgents}
-            setUserOpenedAgents={setUserOpenedAgents}
-            onBuildFast={handleBuildFast}
-            onBuildMax={handleBuildMax}
-          />
-        </scrollbox>
-      </box>
+        {headerContent}
+        {virtualizationNotice}
+        <MessageRenderer
+          messages={messages}
+          messageTree={messageTree}
+          topLevelMessages={virtualTopLevelMessages}
+          availableWidth={separatorWidth}
+          theme={theme}
+          markdownPalette={markdownPalette}
+          collapsedAgents={collapsedAgents}
+          streamingAgents={streamingAgents}
+          isWaitingForResponse={isWaitingForResponse}
+          timerStartTime={timerStartTime}
+          onCollapseToggle={handleCollapseToggle}
+          setCollapsedAgents={setCollapsedAgents}
+          setFocusedAgentId={setFocusedAgentId}
+          userOpenedAgents={userOpenedAgents}
+          setUserOpenedAgents={setUserOpenedAgents}
+          onBuildFast={handleBuildFast}
+          onBuildMax={handleBuildMax}
+        />
+      </scrollbox>
 
       <box
         style={{
           flexShrink: 0,
-          paddingLeft: 0,
-          paddingRight: 0,
           backgroundColor: 'transparent',
         }}
       >
