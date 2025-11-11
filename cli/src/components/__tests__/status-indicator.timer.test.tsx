@@ -1,34 +1,13 @@
-import {
-  describe,
-  test,
-  expect,
-  beforeEach,
-  afterEach,
-  mock,
-  spyOn,
-} from 'bun:test'
+import { describe, test, expect } from 'bun:test'
 import React from 'react'
 
 import { StatusIndicator, StatusElapsedTime } from '../status-indicator'
 
 import '../../state/theme-store' // Initialize theme store
 import { renderToStaticMarkup } from 'react-dom/server'
-
-import * as codebuffClient from '../../utils/codebuff-client'
-
+import { getStatusIndicatorState } from '../status-indicator'
 
 describe('StatusIndicator state transitions', () => {
-  let getClientSpy: ReturnType<typeof spyOn>
-
-  beforeEach(() => {
-    getClientSpy = spyOn(codebuffClient, 'getCodebuffClient').mockReturnValue({
-      checkConnection: mock(async () => true),
-    } as any)
-  })
-
-  afterEach(() => {
-    getClientSpy.mockRestore()
-  })
 
   describe('StatusIndicator text states', () => {
     test('shows "thinking..." when waiting for first response (streamStatus = waiting)', () => {
@@ -39,6 +18,7 @@ describe('StatusIndicator state transitions', () => {
           streamStatus="waiting"
           timerStartTime={now - 5000}
           nextCtrlCWillExit={false}
+          isConnected={true}
         />,
       )
 
@@ -59,6 +39,7 @@ describe('StatusIndicator state transitions', () => {
           streamStatus="streaming"
           timerStartTime={now - 5000}
           nextCtrlCWillExit={false}
+          isConnected={true}
         />,
       )
 
@@ -76,6 +57,7 @@ describe('StatusIndicator state transitions', () => {
           streamStatus="idle"
           timerStartTime={null}
           nextCtrlCWillExit={false}
+          isConnected={true}
         />,
       )
 
@@ -92,6 +74,7 @@ describe('StatusIndicator state transitions', () => {
           streamStatus="waiting"
           timerStartTime={now - 5000}
           nextCtrlCWillExit={true}
+          isConnected={true}
         />,
       )
 
@@ -109,11 +92,41 @@ describe('StatusIndicator state transitions', () => {
           streamStatus="waiting"
           timerStartTime={now - 12000}
           nextCtrlCWillExit={false}
+          isConnected={true}
         />,
       )
 
       expect(markup).toContain('Copied!')
       // Shimmer text would contain individual characters, but clipboard message doesn't
+    })
+  })
+
+  describe('Connectivity states', () => {
+    test('shows "connecting..." shimmer when offline and idle', () => {
+      const markup = renderToStaticMarkup(
+        <StatusIndicator
+          clipboardMessage={null}
+          streamStatus="idle"
+          timerStartTime={null}
+          nextCtrlCWillExit={false}
+          isConnected={false}
+        />,
+      )
+
+      expect(markup).toContain('c')
+      expect(markup).toContain('o')
+      expect(markup).toContain('n')
+    })
+
+    test('getStatusIndicatorState reports connecting state when offline', () => {
+      const state = getStatusIndicatorState({
+        clipboardMessage: null,
+        streamStatus: 'idle',
+        nextCtrlCWillExit: false,
+        isConnected: false,
+      })
+
+      expect(state.kind).toBe('connecting')
     })
   })
 

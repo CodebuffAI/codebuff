@@ -12,6 +12,7 @@ import {
 import {
   StatusIndicator,
   StatusElapsedTime,
+  getStatusIndicatorState,
 } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
@@ -32,6 +33,7 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
+import { useConnectionStatus } from './hooks/use-connection-status'
 import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
@@ -212,6 +214,7 @@ export const Chat = ({
   const sendMessageRef = useRef<SendMessageFn>()
 
   const { clipboardMessage } = useClipboard()
+  const isConnected = useConnectionStatus()
   const mainAgentTimer = useElapsedTime()
   const timerStartTime = mainAgentTimer.startTime
 
@@ -566,12 +569,16 @@ export const Chat = ({
   const isMultilineInput = inputLayoutMetrics.heightLines > 1
   const shouldCenterInputVertically =
     !hasSuggestionMenu && !showAgentStatusLine && !isMultilineInput
+  const statusIndicatorState = getStatusIndicatorState({
+    clipboardMessage,
+    streamStatus,
+    nextCtrlCWillExit,
+    isConnected,
+  })
+  const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
+
   const shouldShowStatusLine =
-    streamStatus !== 'idle' ||
-    shouldShowQueuePreview ||
-    !isAtBottom ||
-    clipboardMessage != null ||
-    nextCtrlCWillExit
+    hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom
 
   const statusIndicatorNode = (
     <StatusIndicator
@@ -579,6 +586,7 @@ export const Chat = ({
       streamStatus={streamStatus}
       timerStartTime={timerStartTime}
       nextCtrlCWillExit={nextCtrlCWillExit}
+      isConnected={isConnected}
     />
   )
 
