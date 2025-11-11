@@ -652,7 +652,10 @@ export const MultilineInput = forwardRef<
           if (afterNewline === -1) {
             afterNewline = value.length
           }
-          // For some reason, there is a special case for lastIndexOf for negative indices if the match is a prefix
+          /*
+           * The second argument of lastIndexOf is converted to 0 if it's
+           * negative, so we need to special case cursorPosition === 0
+           */
           let prevNewlineExclusive =
             cursorPosition === 0
               ? -1
