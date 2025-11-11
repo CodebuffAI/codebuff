@@ -1,4 +1,4 @@
-import { has } from 'lodash'
+import { has, isEqual } from 'lodash'
 import { useCallback, useEffect, useRef } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
@@ -40,9 +40,21 @@ const updateBlocksRecursively = (
       return updateFn(block)
     }
     if (block.type === 'agent' && block.blocks) {
+      const updatedBlocks = updateBlocksRecursively(
+        block.blocks,
+        targetAgentId,
+        updateFn,
+      )
+      // Avoid creating a new block if nested blocks haven't changed
+      if (
+        block.blocks === updatedBlocks ||
+        isEqual(block.blocks, updatedBlocks)
+      ) {
+        return block
+      }
       return {
         ...block,
-        blocks: updateBlocksRecursively(block.blocks, targetAgentId, updateFn),
+        blocks: updatedBlocks,
       }
     }
     return block
@@ -1485,7 +1497,12 @@ export const useSendMessage = ({
                     }
                     return { ...block, output }
                   } else if (block.type === 'agent' && block.blocks) {
-                    return { ...block, blocks: updateToolBlock(block.blocks) }
+                    const updatedBlocks = updateToolBlock(block.blocks)
+                    // Avoid creating new block if nested blocks didn't change
+                    if (isEqual(block.blocks, updatedBlocks)) {
+                      return block
+                    }
+                    return { ...block, blocks: updatedBlocks }
                   }
                   return block
                 })
@@ -1538,18 +1555,19 @@ export const useSendMessage = ({
           elapsedSeconds > 0 ? `${elapsedSeconds}s` : undefined
 
         applyMessageUpdate((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMessageId
-              ? {
-                  ...msg,
-                  isComplete: true,
-                  ...(completionTime && { completionTime }),
-                  ...(actualCredits !== undefined && {
-                    credits: actualCredits,
-                  }),
-                }
-              : msg,
-          ),
+          prev.map((msg) => {
+            if (msg.id !== aiMessageId) {
+              return msg
+            }
+            return {
+              ...msg,
+              isComplete: true,
+              ...(completionTime && { completionTime }),
+              ...(actualCredits !== undefined && {
+                credits: actualCredits,
+              }),
+            }
+          }),
         )
 
         previousRunStateRef.current = runState
@@ -1567,20 +1585,26 @@ export const useSendMessage = ({
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred'
         applyMessageUpdate((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMessageId
-              ? {
-                  ...msg,
-                  content: msg.content + `\n\n**Error:** ${errorMessage}`,
-                }
-              : msg,
-          ),
+          prev.map((msg) => {
+            if (msg.id !== aiMessageId) {
+              return msg
+            }
+            const updatedContent =
+              msg.content + `\n\n**Error:** ${errorMessage}`
+            return {
+              ...msg,
+              content: updatedContent,
+            }
+          }),
         )
 
         applyMessageUpdate((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMessageId ? { ...msg, isComplete: true } : msg,
-          ),
+          prev.map((msg) => {
+            if (msg.id !== aiMessageId) {
+              return msg
+            }
+            return { ...msg, isComplete: true }
+          }),
         )
       }
     },
