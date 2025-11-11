@@ -214,7 +214,10 @@ export const AgentModeToggle = ({
         }}
         onMouseOut={handleMouseOut}
       >
-        <text wrapMode="none">
+        <text
+          wrapMode="none"
+          fg={isCollapsedHovered ? theme.foreground : theme.muted}
+        >
           {isCollapsedHovered ? (
             <b>{`< ${MODE_LABELS[mode]}`}</b>
           ) : (
