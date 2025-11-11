@@ -8,13 +8,12 @@ import type { MetaAnalysisResult } from './meta-analyzer'
 
 async function main() {
   console.log('Starting nightly buffbench evaluation...')
-  console.log('Agents: base, base2')
   console.log('Eval set: codebuff')
   console.log()
 
   const results = await runBuffBench({
     evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
-    agents: ['base', 'base2-fast-no-validation'],
+    agents: ['base2-fast', 'base2-fast-no-validation'],
     taskConcurrency: 5,
   })
 
@@ -25,7 +24,11 @@ async function main() {
   console.log(`\n📧 Sending buffbench results email to ${recipientEmail}...`)
 
   const { metadata, metaAnalysis, ...agentResults } = results
-  const emailContent = formatBuffBenchEmailContent(agentResults, metadata, metaAnalysis)
+  const emailContent = formatBuffBenchEmailContent(
+    agentResults,
+    metadata,
+    metaAnalysis,
+  )
 
   try {
     const emailResult = await sendBasicEmail({
