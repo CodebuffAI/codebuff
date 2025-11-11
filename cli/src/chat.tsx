@@ -1,3 +1,4 @@
+import { TextAttributes } from '@opentui/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -20,6 +21,7 @@ import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthState } from './hooks/use-auth-state'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
+import { useConnectionStatus } from './hooks/use-connection-status'
 import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
@@ -33,24 +35,19 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
-import { useConnectionStatus } from './hooks/use-connection-status'
 import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
+import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
-import { computeInputLayoutMetrics } from './utils/text-layout'
 
 import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
-import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
-import { TextAttributes } from '@opentui/core'
-
-const MAX_VIRTUALIZED_TOP_LEVEL = 60
-const VIRTUAL_OVERSCAN = 12
+import type { ScrollBoxRenderable } from '@opentui/core'
 
 const DEFAULT_AGENT_IDS = {
   DEFAULT: 'base2',
@@ -81,7 +78,7 @@ export const Chat = ({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<MultilineInputHandle | null>(null)
 
-  const { terminalWidth, separatorWidth } = useTerminalDimensions()
+  const { separatorWidth } = useTerminalDimensions()
 
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
@@ -119,7 +116,6 @@ export const Chat = ({
     agentMode,
     setAgentMode,
     toggleAgentMode,
-    hasReceivedPlanResponse,
     setHasReceivedPlanResponse,
     lastMessageMode,
     setLastMessageMode,
@@ -185,7 +181,6 @@ export const Chat = ({
   const {
     isAuthenticated,
     setIsAuthenticated,
-    user,
     setUser,
     handleLoginSuccess,
     logoutMutation,
@@ -378,26 +373,7 @@ export const Chat = ({
   const isStreaming = streamStatus !== 'idle'
 
   const handleTimerEvent = useCallback(
-    (event: SendMessageTimerEvent) => {
-      const payload = {
-        event: 'cli_main_agent_timer',
-        timerEventType: event.type,
-        agentId: agentId ?? 'main',
-        messageId: event.messageId,
-        startedAt: event.startedAt,
-        ...(event.type === 'stop'
-          ? {
-              finishedAt: event.finishedAt,
-              elapsedMs: event.elapsedMs,
-              outcome: event.outcome,
-            }
-          : {}),
-      }
-      const message =
-        event.type === 'start'
-          ? 'Main agent timer started'
-          : `Main agent timer stopped (${event.outcome})`
-    },
+    (event: SendMessageTimerEvent) => {},
     [agentId],
   )
 
@@ -544,16 +520,22 @@ export const Chat = ({
     const previewWidth = Math.max(30, separatorWidth - 20)
     return formatQueuedPreview(queuedMessages, previewWidth)
   }, [queuedMessages, separatorWidth, shouldShowQueuePreview])
-  const hasSlashSuggestions = slashContext.active && slashSuggestionItems.length > 0
+  const hasSlashSuggestions =
+    slashContext.active && slashSuggestionItems.length > 0
   const hasMentionSuggestions =
-    !slashContext.active && mentionContext.active && agentSuggestionItems.length > 0
+    !slashContext.active &&
+    mentionContext.active &&
+    agentSuggestionItems.length > 0
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
   const showAgentStatusLine = showAgentDisplayName && loadedAgentsData
 
   const inputLayoutMetrics = useMemo(() => {
     const text = inputValue ?? ''
     const layoutContent = text.length > 0 ? text : ' '
-    const safeCursor = Math.max(0, Math.min(cursorPosition, layoutContent.length))
+    const safeCursor = Math.max(
+      0,
+      Math.min(cursorPosition, layoutContent.length),
+    )
     const cursorProbe =
       safeCursor >= layoutContent.length
         ? layoutContent
@@ -591,7 +573,10 @@ export const Chat = ({
   )
 
   const elapsedTimeNode = (
-    <StatusElapsedTime streamStatus={streamStatus} timerStartTime={timerStartTime} />
+    <StatusElapsedTime
+      streamStatus={streamStatus}
+      timerStartTime={timerStartTime}
+    />
   )
 
   const validationBanner = useValidationBanner({
@@ -749,7 +734,6 @@ export const Chat = ({
                 <text style={{ wrapMode: 'none' }}>{elapsedTimeNode}</text>
               </box>
             </box>
-
           </box>
         )}
 
@@ -802,7 +786,9 @@ export const Chat = ({
             <box
               style={{
                 flexDirection: 'row',
-                alignItems: shouldCenterInputVertically ? 'center' : 'flex-start',
+                alignItems: shouldCenterInputVertically
+                  ? 'center'
+                  : 'flex-start',
                 width: '100%',
               }}
             >

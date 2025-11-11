@@ -296,6 +296,69 @@ export const MessageBlock = memo(
       )
     }
 
+    const normalizeAgentContent = (
+      nodes: React.ReactNode[],
+    ): React.ReactNode | null => {
+      const normalizedChildren: React.ReactNode[] = []
+      let fallbackKey = 0
+
+      const appendNode = (value: React.ReactNode): void => {
+        if (
+          value === null ||
+          value === undefined ||
+          typeof value === 'boolean'
+        ) {
+          return
+        }
+
+        if (Array.isArray(value)) {
+          value.forEach(appendNode)
+          return
+        }
+
+        if (React.isValidElement(value)) {
+          if (value.type === React.Fragment) {
+            appendNode(value.props.children)
+            return
+          }
+          normalizedChildren.push(value)
+          return
+        }
+
+        if (typeof value === 'string' || typeof value === 'number') {
+          normalizedChildren.push(
+            <text
+              key={`agent-node-${fallbackKey++}`}
+              fg={theme.foreground}
+              style={{ wrapMode: 'word' }}
+            >
+              {value}
+            </text>,
+          )
+          return
+        }
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            'Dropping unsupported agent content before render:',
+            value,
+          )
+        }
+      }
+
+      nodes.forEach(appendNode)
+
+      if (normalizedChildren.length === 0) {
+        return null
+      }
+
+      return (
+        <box style={{ flexDirection: 'column', gap: 0 }}>
+          {normalizedChildren}
+        </box>
+      )
+    }
+
     function renderAgentBranch(
       agentBlock: Extract<ContentBlock, { type: 'agent' }>,
       indentLevel: number,
@@ -333,10 +396,7 @@ export const MessageBlock = memo(
         isStreaming,
       )
 
-      const displayContent =
-        childNodes.length > 0 ? (
-          <box style={{ flexDirection: 'column', gap: 0 }}>{childNodes}</box>
-        ) : null
+      const displayContent = normalizeAgentContent(childNodes)
       const isActive = isStreaming || agentBlock.status === 'running'
       const statusLabel = isActive
         ? 'running'

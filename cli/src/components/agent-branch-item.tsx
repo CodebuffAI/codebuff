@@ -60,101 +60,6 @@ export const AgentBranchItem = ({
   const showCollapsedPreview =
     (isStreaming && !!streamingPreview) || (!isStreaming && !!finishedPreview)
 
-  const isTextRenderable = (value: ReactNode): boolean => {
-    if (value === null || value === undefined || typeof value === 'boolean') {
-      return false
-    }
-
-    if (typeof value === 'string' || typeof value === 'number') {
-      return true
-    }
-
-    if (Array.isArray(value)) {
-      return value.every((child) => isTextRenderable(child))
-    }
-
-    if (React.isValidElement(value)) {
-      if (value.type === React.Fragment) {
-        return isTextRenderable(value.props.children)
-      }
-
-      if (typeof value.type === 'string') {
-        if (
-          value.type === 'span' ||
-          value.type === 'strong' ||
-          value.type === 'em'
-        ) {
-          return isTextRenderable(value.props.children)
-        }
-
-        return false
-      }
-    }
-
-    return false
-  }
-
-  const renderExpandedContent = (value: ReactNode): ReactNode => {
-    if (
-      value === null ||
-      value === undefined ||
-      value === false ||
-      value === true
-    ) {
-      return null
-    }
-
-    if (isTextRenderable(value)) {
-      return (
-        <text
-          fg={theme.foreground}
-          key="expanded-text"
-          attributes={getAttributes()}
-        >
-          {value}
-        </text>
-      )
-    }
-
-    if (React.isValidElement(value)) {
-      if (value.key === null || value.key === undefined) {
-        return (
-          <box key="expanded-node" style={{ flexDirection: 'column', gap: 0 }}>
-            {value}
-          </box>
-        )
-      }
-      return value
-    }
-
-    if (Array.isArray(value)) {
-      return (
-        <box key="expanded-array" style={{ flexDirection: 'column', gap: 0 }}>
-          {value.map((child, idx) => (
-            <box
-              key={`expanded-array-${idx}`}
-              style={{ flexDirection: 'column', gap: 0 }}
-            >
-              {child}
-            </box>
-          ))}
-        </box>
-      )
-    }
-
-    // Check if value is a plain object (not a React element)
-    if (typeof value === 'object' && value !== null && !React.isValidElement(value)) {
-      console.warn('Attempted to render plain object in agent content:', value)
-      return null
-    }
-
-    return (
-      <box key="expanded-unknown" style={{ flexDirection: 'column', gap: 0 }}>
-        {value}
-      </box>
-    )
-  }
-
   return (
     <box
       style={{
@@ -280,7 +185,7 @@ export const AgentBranchItem = ({
                 </box>
               </box>
             )}
-            {renderExpandedContent(content)}
+            {content}
             {onToggle && (
               <box
                 style={{
