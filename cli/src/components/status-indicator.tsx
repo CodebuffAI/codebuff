@@ -5,6 +5,9 @@ import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 import type { StreamStatus } from '../hooks/use-message-queue'
 
+// Shimmer animation interval for status text (milliseconds)
+const SHIMMER_INTERVAL_MS = 160
+
 export type StatusIndicatorState =
   | { kind: 'idle' }
   | { kind: 'clipboard'; message: string }
@@ -20,6 +23,20 @@ export type StatusIndicatorStateArgs = {
   isConnected: boolean
 }
 
+/**
+ * Determines the status indicator state based on current context.
+ * 
+ * State priority (highest to lowest):
+ * 1. nextCtrlCWillExit - User pressed Ctrl+C once, warn about exit
+ * 2. clipboardMessage - Temporary feedback for clipboard operations
+ * 3. connecting - Not connected to backend
+ * 4. waiting - Waiting for AI response to start
+ * 5. streaming - AI is actively responding
+ * 6. idle - No activity
+ * 
+ * @param args - Context for determining indicator state
+ * @returns The appropriate state indicator
+ */
 export const getStatusIndicatorState = ({
   clipboardMessage,
   streamStatus,
@@ -84,7 +101,7 @@ export const StatusIndicator = ({
     return (
       <ShimmerText
         text="thinking..."
-        interval={160}
+        interval={SHIMMER_INTERVAL_MS}
         primaryColor={theme.secondary}
       />
     )
@@ -94,7 +111,7 @@ export const StatusIndicator = ({
     return (
       <ShimmerText
         text="working..."
-        interval={160}
+        interval={SHIMMER_INTERVAL_MS}
         primaryColor={theme.secondary}
       />
     )

@@ -372,10 +372,8 @@ export const Chat = ({
   const isWaitingForResponse = streamStatus === 'waiting'
   const isStreaming = streamStatus !== 'idle'
 
-  const handleTimerEvent = useCallback(
-    (event: SendMessageTimerEvent) => {},
-    [agentId],
-  )
+  // Timer events are currently tracked but not used for UI updates
+  // Future: Could be used for analytics or debugging
 
   const { sendMessage, clearMessages } = useSendMessage({
     messages,
@@ -401,7 +399,7 @@ export const Chat = ({
     mainAgentTimer,
     scrollToLatest,
     availableWidth: separatorWidth,
-    onTimerEvent: handleTimerEvent,
+    onTimerEvent: () => {}, // No-op for now
     setHasReceivedPlanResponse,
     lastMessageMode,
     setLastMessageMode,

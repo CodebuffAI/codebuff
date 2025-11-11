@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { getCodebuffClient } from '../utils/codebuff-client'
+import { logger } from '../utils/logger'
 
 export const useConnectionStatus = () => {
   const [isConnected, setIsConnected] = useState(true)
@@ -22,7 +23,8 @@ export const useConnectionStatus = () => {
         if (isMounted) {
           setIsConnected(connected)
         }
-      } catch {
+      } catch (error) {
+        logger.debug({ error }, 'Connection check failed')
         if (isMounted) {
           setIsConnected(false)
         }

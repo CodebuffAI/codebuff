@@ -68,6 +68,31 @@ const scrubPlanTagsInBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
     .filter((b) => b.type !== 'text' || b.content.trim() !== '')
 }
 
+/**
+ * Auto-collapse thinking blocks to reduce UI clutter.
+ * Tracks which thinking blocks have been collapsed to avoid duplicate collapses.
+ * 
+ * @param messageId - ID of the message containing the thinking block
+ * @param agentId - Optional agent ID for nested agent thinking blocks
+ * @param autoCollapsedThinkingIdsRef - Ref tracking which thinking IDs have been auto-collapsed
+ * @param setCollapsedAgents - State setter for collapsed agents
+ */
+const autoCollapseThinkingBlock = (
+  messageId: string,
+  agentId: string | undefined,
+  autoCollapsedThinkingIdsRef: React.MutableRefObject<Set<string>>,
+  setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>,
+) => {
+  const thinkingId = agentId
+    ? `${messageId}-agent-${agentId}-thinking-0`
+    : `${messageId}-thinking-0`
+
+  if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
+    autoCollapsedThinkingIdsRef.current.add(thinkingId)
+    setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
+  }
+}
+
 export type SendMessageTimerEvent =
   | {
       type: 'start'
@@ -819,11 +844,12 @@ export const useSendMessage = ({
 
               // Auto-collapse thinking blocks by default (only once per thinking block)
               if (eventObj.type === 'reasoning') {
-                const thinkingId = `${aiMessageId}-thinking-0`
-                if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
-                  autoCollapsedThinkingIdsRef.current.add(thinkingId)
-                  setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
-                }
+                autoCollapseThinkingBlock(
+                  aiMessageId,
+                  undefined,
+                  autoCollapsedThinkingIdsRef,
+                  setCollapsedAgents,
+                )
               }
 
               rootStreamSeenRef.current = true
@@ -892,11 +918,12 @@ export const useSendMessage = ({
 
                 // Auto-collapse thinking blocks for subagents on first content
                 if (previous.length === 0) {
-                  const thinkingId = `${aiMessageId}-agent-${event.agentId}-thinking-0`
-                  if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
-                    autoCollapsedThinkingIdsRef.current.add(thinkingId)
-                    setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
-                  }
+                  autoCollapseThinkingBlock(
+                    aiMessageId,
+                    event.agentId,
+                    autoCollapsedThinkingIdsRef,
+                    setCollapsedAgents,
+                  )
                 }
 
                 updateAgentContent(event.agentId, {
@@ -905,14 +932,7 @@ export const useSendMessage = ({
                 })
               } else {
                 if (rootStreamSeenRef.current) {
-                  // Disabled noisy log
-                  // logger.info(
-                  //   {
-                  //     textPreview: text.slice(0, 100),
-                  //     textLength: text.length,
-                  //   },
-                  //   'Skipping root text event (stream already handled)',
-                  // )
+                  // Skip redundant root text events when stream chunks already handled
                   return
                 }
                 const previous = rootStreamBufferRef.current ?? ''
