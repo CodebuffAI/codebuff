@@ -737,9 +737,10 @@ export const detectSystemTheme = (): ThemeName => {
       return ideTheme
     }
 
-    if (oscDetectedTheme) {
-      return oscDetectedTheme
-    }
+    // OSC 10/11 logic commented out
+    // if (oscDetectedTheme) {
+    //   return oscDetectedTheme
+    // }
 
     return detectPlatformTheme()
   }
@@ -1105,13 +1106,14 @@ process.on('SIGUSR2', () => {
  * Initialize OSC theme detection with a one-time check
  */
 export async function initializeOSCDetection(): Promise<void> {
-  try {
-    // Run one-time detection
-    const theme = await detectTerminalTheme()
-    if (theme) {
-      oscDetectedTheme = theme
-    }
-  } catch {
-    // Silently ignore OSC detection errors
-  }
+  // OSC 10/11 logic commented out
+  // try {
+  //   // Run one-time detection
+  //   const theme = await detectTerminalTheme()
+  //   if (theme) {
+  //     oscDetectedTheme = theme
+  //   }
+  // } catch {
+  //   // Silently ignore OSC detection errors
+  // }
 }
