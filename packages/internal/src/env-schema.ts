@@ -5,6 +5,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
   // Backend variables
   CODEBUFF_API_KEY: z.string().optional(),
   OPEN_ROUTER_API_KEY: z.string().min(1),
+  OPENAI_API_KEY: z.string().min(1),
   RELACE_API_KEY: z.string().min(1),
   LINKUP_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
@@ -44,6 +45,7 @@ export const serverProcessEnv: ServerInput = {
   // Backend variables
   CODEBUFF_API_KEY: process.env.CODEBUFF_API_KEY,
   OPEN_ROUTER_API_KEY: process.env.OPEN_ROUTER_API_KEY,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   RELACE_API_KEY: process.env.RELACE_API_KEY,
   LINKUP_API_KEY: process.env.LINKUP_API_KEY,
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,

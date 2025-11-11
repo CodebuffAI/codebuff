@@ -20,6 +20,7 @@ import {
   handleOpenRouterNonStream,
   handleOpenRouterStream,
 } from '@/llm-api/openrouter'
+import { handleOpenAIStream } from '@/llm-api/openai'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 export async function postChatCompletions(params: {
@@ -204,14 +205,27 @@ export async function postChatCompletions(params: {
     try {
       if (bodyStream) {
         // Streaming request
-        const stream = await handleOpenRouterStream({
-          body,
-          userId,
-          agentId,
-          fetch,
-          logger,
-          insertMessageBigquery,
-        })
+        const model = (body as any)?.model
+        const isOpenAIDirectModel =
+          typeof model === 'string' &&
+          (!model.includes('/') || model.startsWith('openai/'))
+        const stream = await (isOpenAIDirectModel
+          ? handleOpenAIStream({
+              body,
+              userId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : handleOpenRouterStream({
+              body,
+              userId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            }))
 
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
