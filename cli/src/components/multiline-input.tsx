@@ -12,6 +12,7 @@ import {
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
+import { clamp } from '../utils/math'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
 
 import type { InputValue } from '../state/chat-store'
@@ -159,17 +160,45 @@ export const MultilineInput = forwardRef<
     ),
   )
 
-  // Auto-scroll to bottom when content changes
+  const getCursorRow = useCallback(() => {
+    const cols = getEffectiveCols()
+
+    let lines = 0
+    let index = 0
+    let nextNewline = value.indexOf('\n', index)
+    if (nextNewline === -1 || nextNewline > cursorPosition) {
+      nextNewline = cursorPosition
+    }
+    while (index < cursorPosition) {
+      lines += Math.floor((nextNewline - index) / cols) + 1
+      if ((nextNewline - index) % cols === 0 && nextNewline - index > 0) {
+        // special case for the newline being exactly at the end of the line
+        lines -= 1
+      }
+      index = nextNewline + 1
+      nextNewline = value.indexOf('\n', index)
+      if (nextNewline === -1 || nextNewline > cursorPosition) {
+        nextNewline = cursorPosition
+      }
+    }
+    return lines
+  }, [getEffectiveCols, cursorPosition, value])
+
+  // Auto-scroll to cursor when content changes
   useEffect(() => {
     const scrollBox = scrollBoxRef.current
     if (scrollBox && focused) {
-      const maxScroll = Math.max(
-        0,
-        scrollBox.scrollHeight - scrollBox.viewport.height,
+      const cursorRow = getCursorRow()
+      const scrollPosition = clamp(
+        scrollBox.verticalScrollBar.scrollPosition,
+        Math.max(0, cursorRow - scrollBox.viewport.height + 1),
+        Math.min(scrollBox.scrollHeight - scrollBox.viewport.height, cursorRow),
       )
-      scrollBox.verticalScrollBar.scrollPosition = maxScroll
+
+      scrollBox.verticalScrollBar.scrollPosition = scrollPosition
     }
-  }, [value, cursorPosition, focused])
+  }, [value, cursorPosition, focused, getCursorRow])
+
   // Measure actual viewport width from the scrollbox to avoid
   // wrap miscalculations from heuristic padding/border math.
   useEffect(() => {
