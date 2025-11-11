@@ -652,7 +652,11 @@ export const MultilineInput = forwardRef<
           if (afterNewline === -1) {
             afterNewline = value.length
           }
-          let prevNewlineExclusive = value.lastIndexOf('\n', cursorPosition - 1)
+          // For some reason, there is a special case for lastIndexOf for negative indices if the match is a prefix
+          let prevNewlineExclusive =
+            cursorPosition === 0
+              ? -1
+              : value.lastIndexOf('\n', cursorPosition - 1)
           const col = (cursorPosition - prevNewlineExclusive) % cols
           onChange({
             text: value,
