@@ -16,6 +16,7 @@ import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
+import type { StreamStatus } from './use-message-queue'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
@@ -173,7 +174,7 @@ interface UseSendMessageOptions {
   isChainInProgressRef: React.MutableRefObject<boolean>
   setActiveSubagents: React.Dispatch<React.SetStateAction<Set<string>>>
   setIsChainInProgress: (value: boolean) => void
-  setStreamStatus: (status: import('./use-message-queue').StreamStatus) => void
+  setStreamStatus: (status: StreamStatus) => void
   startStreaming: () => void
   stopStreaming: () => void
   setCanProcessQueue: (can: boolean) => void
