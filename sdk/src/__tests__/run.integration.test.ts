@@ -6,6 +6,7 @@ import { CodebuffClient } from '../client'
 describe('Prompt Caching', () => {
   it('should be cheaper on second request', async () => {
     const filler =
+      `Run UUID: ${crypto.randomUUID()} ` +
       'Ignore this text. This is just to make the prompt longer. '.repeat(500)
     const prompt = 'respond with "hi"'
 
