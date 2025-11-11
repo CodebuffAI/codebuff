@@ -1,6 +1,6 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
-import React, { memo, type ReactNode } from 'react'
+import React, { memo, useCallback, useMemo, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
@@ -28,6 +28,13 @@ const trimTrailingNewlines = (value: string): string =>
 const sanitizePreview = (value: string): string =>
   value.replace(/[#*_`~\[\]()]/g, '').trim()
 
+const isReasoningTextBlock = (b: any): boolean =>
+  b?.type === 'text' &&
+  (b.textType === 'reasoning' ||
+    b.textType === 'reasoning_chunk' ||
+    (typeof b.color === 'string' &&
+      (b.color.toLowerCase() === 'grey' || b.color.toLowerCase() === 'gray')))
+
 interface MessageBlockProps {
   messageId: string
   blocks?: ContentBlock[]
@@ -52,130 +59,49 @@ interface MessageBlockProps {
   onBuildMax: () => void
 }
 
-export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
-  const {
-    messageId,
-    blocks,
+interface ContentWithMarkdownProps {
+  content: string
+  isStreaming: boolean
+  codeBlockWidth: number
+  palette: MarkdownPalette
+}
+
+const ContentWithMarkdown = memo(
+  ({
     content,
-    isUser,
-    isAi,
-    isLoading,
-    timestamp,
-    isComplete,
-    completionTime,
-    credits,
-    timerStartTime,
-    textColor,
-    timestampColor,
-    markdownOptions,
+    isStreaming,
+    codeBlockWidth,
+    palette,
+  }: ContentWithMarkdownProps) => {
+    if (!hasMarkdown(content)) {
+      return content
+    }
+    const options = { codeBlockWidth, palette }
+    if (isStreaming) {
+      return renderStreamingMarkdown(content, options)
+    }
+    return renderMarkdown(content, options)
+  },
+)
+
+interface PlanBoxProps {
+  planContent: string
+  availableWidth: number
+  markdownPalette: MarkdownPalette
+  onBuildFast: () => void
+  onBuildMax: () => void
+}
+
+const PlanBox = memo(
+  ({
+    planContent,
     availableWidth,
     markdownPalette,
-    collapsedAgents,
-    streamingAgents,
-    onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-  } = props
-  useWhyDidYouUpdateById('MessageBlock', messageId, props, {
-    logLevel: 'debug',
-    enabled: false,
-  })
+  }: PlanBoxProps) => {
+    const theme = useTheme()
 
-  const theme = useTheme()
-  const resolvedTextColor = textColor ?? theme.foreground
-
-  const renderContentWithMarkdown = (
-    rawContent: string,
-    isStreaming: boolean,
-    options: { codeBlockWidth: number; palette: MarkdownPalette },
-  ): ReactNode => {
-    if (!hasMarkdown(rawContent)) {
-      return rawContent
-    }
-    if (isStreaming) {
-      return renderStreamingMarkdown(rawContent, options)
-    }
-    return renderMarkdown(rawContent, options)
-  }
-
-  const getToolFinishedPreview = (
-    toolBlock: Extract<ContentBlock, { type: 'tool' }>,
-    commandPreview: string | null,
-    lastLine: string,
-  ): string => {
-    if (commandPreview) {
-      return commandPreview
-    }
-
-    if (toolBlock.toolName === 'run_terminal_command' && toolBlock.output) {
-      const outputLines = toolBlock.output
-        .split('\n')
-        .filter((line) => line.trim())
-      const lastThreeLines = outputLines.slice(-3)
-      const hasMoreLines = outputLines.length > 3
-      const preview = lastThreeLines.join('\n')
-      return hasMoreLines ? `...\n${preview}` : preview
-    }
-
-    return sanitizePreview(lastLine)
-  }
-
-  const getAgentMarkdownOptions = (indentLevel: number) => {
-    const indentationOffset = indentLevel * 2
-
-    return {
-      codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
-      palette: {
-        ...markdownPalette,
-        codeTextFg: theme.foreground,
-      },
-    }
-  }
-
-  const isReasoningTextBlock = (b: any): boolean =>
-    b?.type === 'text' &&
-    (b.textType === 'reasoning' ||
-      b.textType === 'reasoning_chunk' ||
-      (typeof b.color === 'string' &&
-        (b.color.toLowerCase() === 'grey' || b.color.toLowerCase() === 'gray')))
-
-  const renderThinkingBlock = (
-    blocks: Extract<ContentBlock, { type: 'text' }>[],
-    keyPrefix: string,
-    startIndex: number,
-    indentLevel: number = 0,
-  ): React.ReactNode => {
-    const thinkingId = `${keyPrefix}-thinking-${startIndex}`
-    const combinedContent = blocks
-      .map((b) => b.content)
-      .join('')
-      .trim()
-
-    if (!combinedContent) {
-      return null
-    }
-
-    const isCollapsed = collapsedAgents.has(thinkingId)
-    const marginLeft = Math.max(0, indentLevel * 2)
-    const availWidth = Math.max(10, availableWidth - marginLeft - 4)
-
-    return (
-      <box key={thinkingId} style={{ marginLeft }}>
-        <Thinking
-          content={combinedContent}
-          isCollapsed={isCollapsed}
-          onToggle={() => onToggleCollapsed(thinkingId)}
-          availableWidth={availWidth}
-        />
-      </box>
-    )
-  }
-
-  const renderPlanBox = (planContent: string): React.ReactNode => {
-    const planNodes = renderMarkdown(planContent, {
-      codeBlockWidth: Math.max(10, availableWidth - 8),
-      palette: markdownPalette,
-    })
     return (
       <box
         style={{
@@ -192,7 +118,10 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
         }}
       >
         <text style={{ wrapMode: 'word', fg: theme.foreground }}>
-          {planNodes}
+          {renderMarkdown(planContent, {
+            codeBlockWidth: Math.max(10, availableWidth - 8),
+            palette: markdownPalette,
+          })}
         </text>
         <BuildModeButtons
           theme={theme}
@@ -201,13 +130,84 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
         />
       </box>
     )
-  }
+  },
+)
 
-  const renderToolBranch = (
-    toolBlock: Extract<ContentBlock, { type: 'tool' }>,
-    indentLevel: number,
-    keyPrefix: string,
-  ): React.ReactNode => {
+interface ThinkingBlockProps {
+  blocks: Extract<ContentBlock, { type: 'text' }>[]
+  keyPrefix: string
+  startIndex: number
+  indentLevel: number
+  collapsedAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+  availableWidth: number
+}
+
+const ThinkingBlock = memo(
+  ({
+    blocks,
+    keyPrefix,
+    startIndex,
+    indentLevel,
+    collapsedAgents,
+    onToggleCollapsed,
+    availableWidth,
+  }: ThinkingBlockProps) => {
+    const thinkingId = `${keyPrefix}-thinking-${startIndex}`
+    const combinedContent = blocks
+      .map((b) => b.content)
+      .join('')
+      .trim()
+
+    const isCollapsed = collapsedAgents.has(thinkingId)
+    const marginLeft = Math.max(0, indentLevel * 2)
+    const availWidth = Math.max(10, availableWidth - marginLeft - 4)
+
+    const handleToggle = useCallback(() => {
+      onToggleCollapsed(thinkingId)
+    }, [onToggleCollapsed, thinkingId])
+
+    if (!combinedContent) {
+      return null
+    }
+
+    return (
+      <box style={{ marginLeft }}>
+        <Thinking
+          content={combinedContent}
+          isCollapsed={isCollapsed}
+          onToggle={handleToggle}
+          availableWidth={availWidth}
+        />
+      </box>
+    )
+  },
+)
+
+interface ToolBranchProps {
+  toolBlock: Extract<ContentBlock, { type: 'tool' }>
+  indentLevel: number
+  keyPrefix: string
+  availableWidth: number
+  collapsedAgents: Set<string>
+  streamingAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+  markdownPalette: MarkdownPalette
+}
+
+const ToolBranch = memo(
+  ({
+    toolBlock,
+    indentLevel,
+    keyPrefix,
+    availableWidth,
+    collapsedAgents,
+    streamingAgents,
+    onToggleCollapsed,
+    markdownPalette,
+  }: ToolBranchProps) => {
+    const theme = useTheme()
+
     if (toolBlock.toolName === 'end_turn') {
       return null
     }
@@ -244,18 +244,53 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
         previewPrefix: '',
         labelWidth: 0,
       }) ?? {}
+
     const streamingPreview = isStreaming
       ? commandPreview ?? `${sanitizePreview(firstLine)}...`
       : ''
+
+    const getToolFinishedPreview = useCallback(
+      (commandPrev: string | null, lastLn: string): string => {
+        if (commandPrev) {
+          return commandPrev
+        }
+
+        if (toolBlock.toolName === 'run_terminal_command' && toolBlock.output) {
+          const outputLines = toolBlock.output
+            .split('\n')
+            .filter((line) => line.trim())
+          const lastThreeLines = outputLines.slice(-3)
+          const hasMoreLines = outputLines.length > 3
+          const preview = lastThreeLines.join('\n')
+          return hasMoreLines ? `...\n${preview}` : preview
+        }
+
+        return sanitizePreview(lastLn)
+      },
+      [toolBlock],
+    )
+
     const finishedPreview = !isStreaming
       ? toolRenderConfig.collapsedPreview ??
-        getToolFinishedPreview(toolBlock, commandPreview, lastLine)
+        getToolFinishedPreview(commandPreview, lastLine)
       : ''
-    const agentMarkdownOptions = getAgentMarkdownOptions(indentLevel)
-    const displayContent = renderContentWithMarkdown(
-      fullContent,
-      false,
-      agentMarkdownOptions,
+
+    const indentationOffset = indentLevel * 2
+    const agentMarkdownOptions = {
+      codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
+      palette: {
+        ...markdownPalette,
+        codeTextFg: theme.foreground,
+      },
+    }
+
+    const displayContent = (
+      <ContentWithMarkdown
+        content={fullContent}
+        isStreaming={false}
+        codeBlockWidth={agentMarkdownOptions.codeBlockWidth}
+        palette={agentMarkdownOptions.palette}
+      />
     )
 
     const renderableDisplayContent =
@@ -278,6 +313,10 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
 
     const headerName = displayInfo.name
 
+    const handleToggle = useCallback(() => {
+      onToggleCollapsed(toolBlock.toolCallId)
+    }, [onToggleCollapsed, toolBlock.toolCallId])
+
     return (
       <box key={keyPrefix}>
         {toolRenderConfig.content ? (
@@ -290,92 +329,34 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
             isStreaming={isStreaming}
             streamingPreview={streamingPreview}
             finishedPreview={finishedPreview}
-            onToggle={() => onToggleCollapsed(toolBlock.toolCallId)}
+            onToggle={handleToggle}
             titleSuffix={toolRenderConfig.path}
           />
         )}
       </box>
     )
-  }
+  },
+)
 
-  function renderAgentBranch(
-    agentBlock: Extract<ContentBlock, { type: 'agent' }>,
-    indentLevel: number,
-    keyPrefix: string,
-  ): React.ReactNode {
-    const isCollapsed = collapsedAgents.has(agentBlock.agentId)
-    const isStreaming =
-      agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
+interface AgentListBranchProps {
+  agentListBlock: Extract<ContentBlock, { type: 'agent-list' }>
+  keyPrefix: string
+  collapsedAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+}
 
-    const allTextContent =
-      agentBlock.blocks
-        ?.filter((nested) => nested.type === 'text')
-        .map((nested) => (nested as any).content)
-        .join('') || ''
-    const lines = allTextContent.split('\n').filter((line) => line.trim())
-    const firstLine = lines[0] || ''
-
-    let streamingPreview = ''
-    if (isStreaming) {
-      streamingPreview = agentBlock.initialPrompt
-        ? sanitizePreview(agentBlock.initialPrompt)
-        : `${sanitizePreview(firstLine)}...`
-    }
-
-    const finishedPreview =
-      !isStreaming && isCollapsed && agentBlock.initialPrompt
-        ? sanitizePreview(agentBlock.initialPrompt)
-        : ''
-
-    const childNodes = renderAgentBody(
-      agentBlock,
-      indentLevel + 1,
-      keyPrefix,
-      isStreaming,
-    )
-
-    const displayContent =
-      childNodes.length > 0 ? (
-        <box style={{ flexDirection: 'column', gap: 0 }}>{childNodes}</box>
-      ) : null
-    const isActive = isStreaming || agentBlock.status === 'running'
-    const statusLabel = isActive
-      ? 'running'
-      : agentBlock.status === 'complete'
-        ? 'completed'
-        : agentBlock.status
-    const statusColor = isActive ? theme.primary : theme.muted
-    const statusIndicator = isActive ? '●' : '✓'
-
-    return (
-      <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
-        <AgentBranchItem
-          name={agentBlock.agentName}
-          content={displayContent}
-          prompt={agentBlock.initialPrompt}
-          agentId={agentBlock.agentId}
-          isCollapsed={isCollapsed}
-          isStreaming={isStreaming}
-          streamingPreview={streamingPreview}
-          finishedPreview={finishedPreview}
-          statusLabel={statusLabel ?? undefined}
-          statusColor={statusColor}
-          statusIndicator={statusIndicator}
-          onToggle={() => onToggleCollapsed(agentBlock.agentId)}
-        />
-      </box>
-    )
-  }
-
-  function renderAgentListBranch(
-    agentListBlock: Extract<ContentBlock, { type: 'agent-list' }>,
-    keyPrefix: string,
-  ): React.ReactNode {
+const AgentListBranch = memo(
+  ({
+    agentListBlock,
+    keyPrefix,
+    collapsedAgents,
+    onToggleCollapsed,
+  }: AgentListBranchProps) => {
+    const theme = useTheme()
     const isCollapsed = collapsedAgents.has(agentListBlock.id)
     const { agents } = agentListBlock
 
     const sortedAgents = [...agents].sort((a, b) => {
-      // Sort by displayName first (empty string if missing), then by ID as tiebreaker
       const displayNameComparison = (a.displayName || '')
         .toLowerCase()
         .localeCompare((b.displayName || '').toLowerCase())
@@ -388,57 +369,96 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
 
     const agentCount = sortedAgents.length
 
-    const formatIdentifier = (agent: { id: string; displayName: string }) =>
-      agent.displayName && agent.displayName !== agent.id
-        ? `${agent.displayName} (${agent.id})`
-        : agent.displayName || agent.id
-
-    const renderAgentListItem = (
-      agent: { id: string; displayName: string },
-      idx: number,
-    ) => {
-      const identifier = formatIdentifier(agent)
-      return (
-        <text
-          key={`agent-${idx}`}
-          style={{ wrapMode: 'word', fg: theme.foreground }}
-        >
-          {`• ${identifier}`}
-        </text>
-      )
-    }
-
-    const agentListContent = (
-      <box style={{ flexDirection: 'column', gap: 0 }}>
-        {sortedAgents.map(renderAgentListItem)}
-      </box>
+    const formatIdentifier = useCallback(
+      (agent: { id: string; displayName: string }) =>
+        agent.displayName && agent.displayName !== agent.id
+          ? `${agent.displayName} (${agent.id})`
+          : agent.displayName || agent.id,
+      [],
     )
 
     const headerText = pluralize(agentCount, 'local agent')
+
+    const handleToggle = useCallback(() => {
+      onToggleCollapsed(agentListBlock.id)
+    }, [onToggleCollapsed, agentListBlock.id])
+
     return (
       <box key={keyPrefix}>
         <ToolCallItem
           name={headerText}
-          content={agentListContent}
+          content={
+            <box style={{ flexDirection: 'column', gap: 0 }}>
+              {sortedAgents.map((agent, idx) => {
+                const identifier = formatIdentifier(agent)
+                return (
+                  <text
+                    key={`agent-${idx}`}
+                    style={{ wrapMode: 'word', fg: theme.foreground }}
+                  >
+                    {`• ${identifier}`}
+                  </text>
+                )
+              })}
+            </box>
+          }
           isCollapsed={isCollapsed}
           isStreaming={false}
           streamingPreview=""
           finishedPreview=""
-          onToggle={() => onToggleCollapsed(agentListBlock.id)}
+          onToggle={handleToggle}
           dense
         />
       </box>
     )
-  }
+  },
+)
 
-  function renderAgentBody(
-    agentBlock: Extract<ContentBlock, { type: 'agent' }>,
-    indentLevel: number,
-    keyPrefix: string,
-    parentIsStreaming: boolean,
-  ): React.ReactNode[] {
+interface AgentBodyProps {
+  agentBlock: Extract<ContentBlock, { type: 'agent' }>
+  indentLevel: number
+  keyPrefix: string
+  parentIsStreaming: boolean
+  availableWidth: number
+  markdownPalette: MarkdownPalette
+  collapsedAgents: Set<string>
+  streamingAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
+}
+
+const AgentBody = memo(
+  ({
+    agentBlock,
+    indentLevel,
+    keyPrefix,
+    parentIsStreaming,
+    availableWidth,
+    markdownPalette,
+    collapsedAgents,
+    streamingAgents,
+    onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
+  }: AgentBodyProps): ReactNode[] => {
+    const theme = useTheme()
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
+
+    const getAgentMarkdownOptions = useCallback(
+      (indent: number) => {
+        const indentationOffset = indent * 2
+        return {
+          codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
+          palette: {
+            ...markdownPalette,
+            codeTextFg: theme.foreground,
+          },
+        }
+      },
+      [availableWidth, markdownPalette, theme.foreground],
+    )
 
     for (let nestedIdx = 0; nestedIdx < nestedBlocks.length; ) {
       const nestedBlock = nestedBlocks[nestedIdx]
@@ -454,15 +474,18 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
           nestedIdx++
         }
 
-        const thinkingNode = renderThinkingBlock(
-          reasoningBlocks,
-          keyPrefix,
-          start,
-          indentLevel,
+        nodes.push(
+          <ThinkingBlock
+            key={`${keyPrefix}-thinking-${start}`}
+            blocks={reasoningBlocks}
+            keyPrefix={keyPrefix}
+            startIndex={start}
+            indentLevel={indentLevel}
+            collapsedAgents={collapsedAgents}
+            onToggleCollapsed={onToggleCollapsed}
+            availableWidth={availableWidth}
+          />,
         )
-        if (thinkingNode) {
-          nodes.push(thinkingNode)
-        }
         continue
       }
       switch (nestedBlock.type) {
@@ -478,11 +501,6 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
             : nestedBlock.content.trim()
           const renderKey = `${keyPrefix}-text-${nestedIdx}`
           const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
-          const renderedContent = renderContentWithMarkdown(
-            filteredNestedContent,
-            isNestedStreamingText,
-            markdownOptionsForLevel,
-          )
           const marginTop = nestedBlock.marginTop ?? 0
           const marginBottom = nestedBlock.marginBottom ?? 0
           const explicitColor =
@@ -501,7 +519,12 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
                 marginBottom,
               }}
             >
-              {renderedContent}
+              <ContentWithMarkdown
+                content={filteredNestedContent}
+                isStreaming={isNestedStreamingText}
+                codeBlockWidth={markdownOptionsForLevel.codeBlockWidth}
+                palette={markdownOptionsForLevel.palette}
+              />
             </text>,
           )
           nestedIdx++
@@ -542,13 +565,19 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
             nestedIdx++
           }
 
-          const groupNodes = toolGroup.map((toolBlock, idxInGroup) => {
-            return renderToolBranch(
-              toolBlock,
-              indentLevel,
-              `${keyPrefix}-tool-${toolBlock.toolCallId}`,
-            )
-          })
+          const groupNodes = toolGroup.map((toolBlock) => (
+            <ToolBranch
+              key={`${keyPrefix}-tool-${toolBlock.toolCallId}`}
+              toolBlock={toolBlock}
+              indentLevel={indentLevel}
+              keyPrefix={`${keyPrefix}-tool-${toolBlock.toolCallId}`}
+              availableWidth={availableWidth}
+              collapsedAgents={collapsedAgents}
+              streamingAgents={streamingAgents}
+              onToggleCollapsed={onToggleCollapsed}
+              markdownPalette={markdownPalette}
+            />
+          ))
 
           const nonNullGroupNodes = groupNodes.filter(
             Boolean,
@@ -599,11 +628,21 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
 
         case 'agent': {
           nodes.push(
-            renderAgentBranch(
-              nestedBlock,
-              indentLevel,
-              `${keyPrefix}-agent-${nestedIdx}`,
-            ),
+            <AgentBranchWrapper
+              key={`${keyPrefix}-agent-${nestedIdx}`}
+              agentBlock={
+                nestedBlock as Extract<ContentBlock, { type: 'agent' }>
+              }
+              indentLevel={indentLevel}
+              keyPrefix={`${keyPrefix}-agent-${nestedIdx}`}
+              availableWidth={availableWidth}
+              markdownPalette={markdownPalette}
+              collapsedAgents={collapsedAgents}
+              streamingAgents={streamingAgents}
+              onToggleCollapsed={onToggleCollapsed}
+              onBuildFast={onBuildFast}
+              onBuildMax={onBuildMax}
+            />,
           )
           nestedIdx++
           break
@@ -612,30 +651,190 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     }
 
     return nodes
-  }
+  },
+)
 
-  const renderSimpleContent = () => {
+interface AgentBranchWrapperProps {
+  agentBlock: Extract<ContentBlock, { type: 'agent' }>
+  indentLevel: number
+  keyPrefix: string
+  availableWidth: number
+  markdownPalette: MarkdownPalette
+  collapsedAgents: Set<string>
+  streamingAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
+}
+
+const AgentBranchWrapper = memo(
+  ({
+    agentBlock,
+    indentLevel,
+    keyPrefix,
+    availableWidth,
+    markdownPalette,
+    collapsedAgents,
+    streamingAgents,
+    onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
+  }: AgentBranchWrapperProps) => {
+    const theme = useTheme()
+    const isCollapsed = collapsedAgents.has(agentBlock.agentId)
+    const isStreaming =
+      agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
+
+    const allTextContent =
+      agentBlock.blocks
+        ?.filter((nested) => nested.type === 'text')
+        .map((nested) => (nested as any).content)
+        .join('') || ''
+
+    const lines = allTextContent.split('\n').filter((line) => line.trim())
+    const firstLine = lines[0] || ''
+
+    const streamingPreview = isStreaming
+      ? agentBlock.initialPrompt
+        ? sanitizePreview(agentBlock.initialPrompt)
+        : `${sanitizePreview(firstLine)}...`
+      : ''
+
+    const finishedPreview =
+      !isStreaming && isCollapsed && agentBlock.initialPrompt
+        ? sanitizePreview(agentBlock.initialPrompt)
+        : ''
+
+    const isActive = isStreaming || agentBlock.status === 'running'
+    const statusLabel = isActive
+      ? 'running'
+      : agentBlock.status === 'complete'
+        ? 'completed'
+        : agentBlock.status
+    const statusColor = isActive ? theme.primary : theme.muted
+    const statusIndicator = isActive ? '●' : '✓'
+
+    const onToggle = useCallback(() => {
+      onToggleCollapsed(agentBlock.agentId)
+    }, [onToggleCollapsed, agentBlock.agentId])
+
+    return (
+      <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
+        <AgentBranchItem
+          name={agentBlock.agentName}
+          prompt={agentBlock.initialPrompt}
+          agentId={agentBlock.agentId}
+          isCollapsed={isCollapsed}
+          isStreaming={isStreaming}
+          streamingPreview={streamingPreview}
+          finishedPreview={finishedPreview}
+          statusLabel={statusLabel ?? undefined}
+          statusColor={statusColor}
+          statusIndicator={statusIndicator}
+          onToggle={onToggle}
+        >
+          <AgentBody
+            agentBlock={agentBlock}
+            indentLevel={indentLevel + 1}
+            keyPrefix={keyPrefix}
+            parentIsStreaming={isStreaming}
+            availableWidth={availableWidth}
+            markdownPalette={markdownPalette}
+            collapsedAgents={collapsedAgents}
+            streamingAgents={streamingAgents}
+            onToggleCollapsed={onToggleCollapsed}
+            onBuildFast={onBuildFast}
+            onBuildMax={onBuildMax}
+          />
+        </AgentBranchItem>
+      </box>
+    )
+  },
+)
+
+interface SimpleContentProps {
+  content: string
+  messageId: string
+  isLoading: boolean
+  isComplete?: boolean
+  isUser: boolean
+  textColor: string
+  codeBlockWidth: number
+  palette: MarkdownPalette
+}
+
+const SimpleContent = memo(
+  ({
+    content,
+    messageId,
+    isLoading,
+    isComplete,
+    isUser,
+    textColor,
+    codeBlockWidth,
+    palette,
+  }: SimpleContentProps) => {
     const isStreamingMessage = isLoading || !isComplete
     const normalizedContent = isStreamingMessage
       ? trimTrailingNewlines(content)
       : content.trim()
-    const displayContent = renderContentWithMarkdown(
-      normalizedContent,
-      isStreamingMessage,
-      markdownOptions,
-    )
+
     return (
       <text
         key={`message-content-${messageId}`}
-        style={{ wrapMode: 'word', fg: resolvedTextColor }}
+        style={{ wrapMode: 'word', fg: textColor }}
         attributes={isUser ? TextAttributes.ITALIC : undefined}
       >
-        {displayContent}
+        <ContentWithMarkdown
+          content={normalizedContent}
+          isStreaming={isStreamingMessage}
+          codeBlockWidth={codeBlockWidth}
+          palette={palette}
+        />
       </text>
     )
-  }
+  },
+)
 
-  const renderSingleBlock = (block: ContentBlock, idx: number) => {
+interface SingleBlockProps {
+  block: ContentBlock
+  idx: number
+  messageId: string
+  blocks?: ContentBlock[]
+  isLoading: boolean
+  isComplete?: boolean
+  isUser: boolean
+  textColor: string
+  availableWidth: number
+  markdownPalette: MarkdownPalette
+  collapsedAgents: Set<string>
+  streamingAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
+}
+
+const SingleBlock = memo(
+  ({
+    block,
+    idx,
+    messageId,
+    blocks,
+    isLoading,
+    isComplete,
+    isUser,
+    textColor,
+    availableWidth,
+    markdownPalette,
+    collapsedAgents,
+    streamingAgents,
+    onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
+  }: SingleBlockProps): ReactNode => {
+    const theme = useTheme()
+    const codeBlockWidth = Math.max(10, availableWidth - 8)
+
     switch (block.type) {
       case 'text': {
         // Skip raw rendering for reasoning; grouped above into <Thinking>
@@ -647,11 +846,6 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
           ? trimTrailingNewlines(block.content)
           : block.content.trim()
         const renderKey = `${messageId}-text-${idx}`
-        const renderedContent = renderContentWithMarkdown(
-          filteredContent,
-          isStreamingText,
-          markdownOptions,
-        )
         const prevBlock = idx > 0 && blocks ? blocks[idx - 1] : null
         const marginTop =
           prevBlock && (prevBlock.type === 'tool' || prevBlock.type === 'agent')
@@ -662,7 +856,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
           typeof (block as any).color === 'string'
             ? ((block as any).color as string)
             : undefined
-        const blockTextColor = explicitColor ?? resolvedTextColor
+        const blockTextColor = explicitColor ?? textColor
         return (
           <text
             key={renderKey}
@@ -674,7 +868,12 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
             }}
             attributes={isUser ? TextAttributes.ITALIC : undefined}
           >
-            {renderedContent}
+            <ContentWithMarkdown
+              content={filteredContent}
+              isStreaming={isStreamingText}
+              codeBlockWidth={codeBlockWidth}
+              palette={markdownPalette}
+            />
           </text>
         )
       }
@@ -682,7 +881,13 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
       case 'plan': {
         return (
           <box key={`${messageId}-plan-${idx}`} style={{ width: '100%' }}>
-            {renderPlanBox(block.content)}
+            <PlanBox
+              planContent={block.content}
+              availableWidth={availableWidth}
+              markdownPalette={markdownPalette}
+              onBuildFast={onBuildFast}
+              onBuildMax={onBuildMax}
+            />
           </box>
         )
       }
@@ -701,37 +906,84 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
               width: '100%',
             }}
           >
-            {block.render({ textColor: resolvedTextColor, theme })}
+            {block.render({ textColor, theme })}
           </box>
         )
       }
 
       case 'tool': {
-        // Handled in renderBlocks grouping logic
+        // Handled in BlocksRenderer grouping logic
         return null
       }
 
       case 'agent': {
-        return renderAgentBranch(
-          block,
-          0,
-          `${messageId}-agent-${block.agentId}`,
+        return (
+          <AgentBranchWrapper
+            key={`${messageId}-agent-${block.agentId}`}
+            agentBlock={block as Extract<ContentBlock, { type: 'agent' }>}
+            indentLevel={0}
+            keyPrefix={`${messageId}-agent-${block.agentId}`}
+            availableWidth={availableWidth}
+            markdownPalette={markdownPalette}
+            collapsedAgents={collapsedAgents}
+            streamingAgents={streamingAgents}
+            onToggleCollapsed={onToggleCollapsed}
+            onBuildFast={onBuildFast}
+            onBuildMax={onBuildMax}
+          />
         )
       }
 
       case 'agent-list': {
-        return renderAgentListBranch(
-          block,
-          `${messageId}-agent-list-${block.id}`,
+        return (
+          <AgentListBranch
+            key={`${messageId}-agent-list-${block.id}`}
+            agentListBlock={block}
+            keyPrefix={`${messageId}-agent-list-${block.id}`}
+            collapsedAgents={collapsedAgents}
+            onToggleCollapsed={onToggleCollapsed}
+          />
         )
       }
 
       default:
         return null
     }
-  }
+  },
+)
 
-  const renderBlocks = (sourceBlocks: ContentBlock[]) => {
+interface BlocksRendererProps {
+  sourceBlocks: ContentBlock[]
+  messageId: string
+  isLoading: boolean
+  isComplete?: boolean
+  isUser: boolean
+  textColor: string
+  availableWidth: number
+  markdownPalette: MarkdownPalette
+  collapsedAgents: Set<string>
+  streamingAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
+}
+
+const BlocksRenderer = memo(
+  ({
+    sourceBlocks,
+    messageId,
+    isLoading,
+    isComplete,
+    isUser,
+    textColor,
+    availableWidth,
+    markdownPalette,
+    collapsedAgents,
+    streamingAgents,
+    onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
+  }: BlocksRendererProps) => {
     const nodes: React.ReactNode[] = []
     for (let i = 0; i < sourceBlocks.length; ) {
       const block = sourceBlocks[i]
@@ -747,14 +999,18 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
           i++
         }
 
-        const thinkingNode = renderThinkingBlock(
-          reasoningBlocks,
-          messageId,
-          start,
+        nodes.push(
+          <ThinkingBlock
+            key={`${messageId}-thinking-${start}`}
+            blocks={reasoningBlocks}
+            keyPrefix={messageId}
+            startIndex={start}
+            indentLevel={0}
+            collapsedAgents={collapsedAgents}
+            onToggleCollapsed={onToggleCollapsed}
+            availableWidth={availableWidth}
+          />,
         )
-        if (thinkingNode) {
-          nodes.push(thinkingNode)
-        }
         continue
       }
       if (block.type === 'tool') {
@@ -765,13 +1021,19 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
           i++
         }
 
-        const groupNodes = group.map((toolBlock, idxInGroup) => {
-          return renderToolBranch(
-            toolBlock,
-            0,
-            `${messageId}-tool-${toolBlock.toolCallId}`,
-          )
-        })
+        const groupNodes = group.map((toolBlock) => (
+          <ToolBranch
+            key={`${messageId}-tool-${toolBlock.toolCallId}`}
+            toolBlock={toolBlock}
+            indentLevel={0}
+            keyPrefix={`${messageId}-tool-${toolBlock.toolCallId}`}
+            availableWidth={availableWidth}
+            collapsedAgents={collapsedAgents}
+            streamingAgents={streamingAgents}
+            onToggleCollapsed={onToggleCollapsed}
+            markdownPalette={markdownPalette}
+          />
+        ))
 
         const nonNullGroupNodes = groupNodes.filter(
           Boolean,
@@ -813,11 +1075,63 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
         continue
       }
 
-      nodes.push(renderSingleBlock(block, i))
+      nodes.push(
+        <SingleBlock
+          key={`${messageId}-block-${i}`}
+          block={block}
+          idx={i}
+          messageId={messageId}
+          blocks={sourceBlocks}
+          isLoading={isLoading}
+          isComplete={isComplete}
+          isUser={isUser}
+          textColor={textColor}
+          availableWidth={availableWidth}
+          markdownPalette={markdownPalette}
+          collapsedAgents={collapsedAgents}
+          streamingAgents={streamingAgents}
+          onToggleCollapsed={onToggleCollapsed}
+          onBuildFast={onBuildFast}
+          onBuildMax={onBuildMax}
+        />,
+      )
       i++
     }
     return nodes
-  }
+  },
+)
+
+export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
+  const {
+    messageId,
+    blocks,
+    content,
+    isUser,
+    isAi,
+    isLoading,
+    timestamp,
+    isComplete,
+    completionTime,
+    credits,
+    timerStartTime,
+    textColor,
+    timestampColor,
+    markdownOptions,
+    availableWidth,
+    markdownPalette,
+    collapsedAgents,
+    streamingAgents,
+    onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
+  } = props
+  useWhyDidYouUpdateById('MessageBlock', messageId, props, {
+    logLevel: 'debug',
+    enabled: false,
+  })
+
+  const theme = useTheme()
+  const resolvedTextColor = textColor ?? theme.foreground
 
   return (
     <>
@@ -837,10 +1151,33 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
       )}
       {blocks ? (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-          {renderBlocks(blocks)}
+          <BlocksRenderer
+            sourceBlocks={blocks}
+            messageId={messageId}
+            isLoading={isLoading}
+            isComplete={isComplete}
+            isUser={isUser}
+            textColor={resolvedTextColor}
+            availableWidth={availableWidth}
+            markdownPalette={markdownPalette}
+            collapsedAgents={collapsedAgents}
+            streamingAgents={streamingAgents}
+            onToggleCollapsed={onToggleCollapsed}
+            onBuildFast={onBuildFast}
+            onBuildMax={onBuildMax}
+          />
         </box>
       ) : (
-        renderSimpleContent()
+        <SimpleContent
+          content={content}
+          messageId={messageId}
+          isLoading={isLoading}
+          isComplete={isComplete}
+          isUser={isUser}
+          textColor={resolvedTextColor}
+          codeBlockWidth={markdownOptions.codeBlockWidth}
+          palette={markdownOptions.palette}
+        />
       )}
       {isAi && (
         <>

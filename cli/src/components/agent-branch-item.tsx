@@ -1,12 +1,13 @@
-import { TextAttributes, type BorderCharacters } from '@opentui/core'
-import React, { type ReactNode } from 'react'
+import { TextAttributes } from '@opentui/core'
+import React, { memo, type ReactNode } from 'react'
 
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
+import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 
 interface AgentBranchItemProps {
   name: string
-  content: ReactNode
+  children?: ReactNode
   prompt?: string
   agentId?: string
   isCollapsed: boolean
@@ -20,21 +21,26 @@ interface AgentBranchItemProps {
   titleSuffix?: string
 }
 
-export const AgentBranchItem = ({
-  name,
-  content,
-  prompt,
-  agentId,
-  isCollapsed,
-  isStreaming,
-  streamingPreview,
-  finishedPreview,
-  statusLabel,
-  statusColor,
-  statusIndicator = '●',
-  onToggle,
-  titleSuffix,
-}: AgentBranchItemProps) => {
+export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
+  const {
+    name,
+    children,
+    prompt,
+    agentId,
+    isCollapsed,
+    isStreaming,
+    streamingPreview,
+    finishedPreview,
+    statusLabel,
+    statusColor,
+    statusIndicator = '●',
+    onToggle,
+    titleSuffix,
+  } = props
+  useWhyDidYouUpdateById('AgentBranchItem', agentId ?? '', props, {
+    logLevel: 'debug',
+    enabled: false,
+  })
   const theme = useTheme()
 
   const baseTextAttributes = theme.messageTextAttributes ?? 0
@@ -44,9 +50,7 @@ export const AgentBranchItem = ({
   }
 
   const isExpanded = !isCollapsed
-  const toggleFrameColor = isExpanded
-    ? theme.secondary
-    : theme.muted
+  const toggleFrameColor = isExpanded ? theme.secondary : theme.muted
   const toggleIconColor = isStreaming ? theme.primary : theme.foreground
   const bulletChar = '• '
   const toggleIndicator = onToggle ? (isCollapsed ? '▸ ' : '▾ ') : ''
@@ -247,7 +251,7 @@ export const AgentBranchItem = ({
                   flexDirection: 'row',
                   gap: 0,
                   alignItems: 'stretch',
-                  marginBottom: content ? 1 : 0,
+                  marginBottom: children ? 1 : 0,
                 }}
               >
                 <box
@@ -274,7 +278,7 @@ export const AgentBranchItem = ({
                 </box>
               </box>
             )}
-            {renderExpandedContent(content)}
+            {renderExpandedContent(children)}
             {onToggle && (
               <box
                 style={{
@@ -283,10 +287,7 @@ export const AgentBranchItem = ({
                 }}
                 onMouseDown={onToggle}
               >
-                <text
-                  fg={theme.secondary}
-                  style={{ wrapMode: 'none' }}
-                >
+                <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
                   ▴ collapse
                 </text>
               </box>
@@ -296,4 +297,4 @@ export const AgentBranchItem = ({
       </box>
     </box>
   )
-}
+})

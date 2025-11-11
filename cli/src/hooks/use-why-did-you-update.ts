@@ -114,10 +114,8 @@ export function useWhyDidYouUpdateById<T extends Record<string, any>>(
     enabled?: boolean
   } = {},
 ): void {
-  const {
-    logLevel = 'info',
-    enabled = process.env.NODE_ENV === 'development',
-  } = options
+  const { logLevel = 'info', enabled = process.env.ENVIRONMENT === 'dev' } =
+    options
 
   const previousProps = useRef<T | null>(null)
   const renderCountById = useRef<Record<string, number>>({})
