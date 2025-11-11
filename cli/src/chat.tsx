@@ -78,7 +78,7 @@ export const Chat = ({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<MultilineInputHandle | null>(null)
 
-  const { separatorWidth } = useTerminalDimensions()
+  const { separatorWidth, terminalWidth } = useTerminalDimensions()
 
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
@@ -795,7 +795,11 @@ export const Chat = ({
                   value={inputValue}
                   onChange={setInputValue}
                   onSubmit={handleSubmit}
-                  placeholder="Enter a coding task or / for commands"
+                  placeholder={
+                    terminalWidth < 65
+                      ? 'Enter a coding task'
+                      : 'Enter a coding task or / for commands'
+                  }
                   focused={inputFocused}
                   maxHeight={5}
                   width={inputWidth}
