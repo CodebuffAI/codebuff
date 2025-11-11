@@ -137,9 +137,9 @@ function getCurrentVersion() {
           if (!child.killed) {
             child.kill('SIGKILL')
           }
-        }, 1000)
+        }, 4000)
         resolve('error')
-      }, 1000)
+      }, 4000)
 
       child.on('exit', (code) => {
         clearTimeout(timeout)
