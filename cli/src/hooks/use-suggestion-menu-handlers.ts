@@ -62,7 +62,13 @@ export const useSuggestionMenuHandlers = ({
       setSlashSelectedIndex(0)
       return true
     },
-    [slashMatches, slashContext, inputValue, setInputValue, setSlashSelectedIndex],
+    [
+      slashMatches,
+      slashContext,
+      inputValue,
+      setInputValue,
+      setSlashSelectedIndex,
+    ],
   )
 
   const selectAgentItem = useCallback(
@@ -85,7 +91,13 @@ export const useSuggestionMenuHandlers = ({
       setAgentSelectedIndex(0)
       return true
     },
-    [agentMatches, mentionContext, inputValue, setInputValue, setAgentSelectedIndex],
+    [
+      agentMatches,
+      mentionContext,
+      inputValue,
+      setInputValue,
+      setAgentSelectedIndex,
+    ],
   )
 
   const handleSlashMenuKey = useCallback(
@@ -96,13 +108,13 @@ export const useSuggestionMenuHandlers = ({
         selectSlashItem(slashSelectedIndex) || selectSlashItem(0)
 
       if (key.name === 'down' && !hasModifier(key)) {
-        if (slashSelectedIndex === slashMatches.length - 1) return false
+        if (slashSelectedIndex === slashMatches.length - 1) return true
         setSlashSelectedIndex((prev) => prev + 1)
         return true
       }
 
       if (key.name === 'up' && !hasModifier(key)) {
-        if (slashSelectedIndex === 0) return false
+        if (slashSelectedIndex === 0) return true
         setSlashSelectedIndex((prev) => prev - 1)
         return true
       }
@@ -130,7 +142,13 @@ export const useSuggestionMenuHandlers = ({
 
       return false
     },
-    [slashContext, slashMatches, slashSelectedIndex, selectSlashItem, setSlashSelectedIndex],
+    [
+      slashContext,
+      slashMatches,
+      slashSelectedIndex,
+      selectSlashItem,
+      setSlashSelectedIndex,
+    ],
   )
 
   const handleAgentMenuKey = useCallback(
@@ -175,7 +193,13 @@ export const useSuggestionMenuHandlers = ({
 
       return false
     },
-    [mentionContext, agentMatches, agentSelectedIndex, selectAgentItem, setAgentSelectedIndex],
+    [
+      mentionContext,
+      agentMatches,
+      agentSelectedIndex,
+      selectAgentItem,
+      setAgentSelectedIndex,
+    ],
   )
 
   const handleSuggestionMenuKey = useCallback(
