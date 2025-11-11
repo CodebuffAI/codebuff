@@ -14,11 +14,9 @@ export function createBestOfNEditor(
   return {
     publisher,
     model: isGpt5 ? 'openai/gpt-5' : 'anthropic/claude-sonnet-4.5',
-    displayName: isGpt5
-      ? 'Best-of-N GPT-5 Implementation Editor'
-      : 'Best-of-N Fast Implementation Editor',
+    displayName: isGpt5 ? 'Best-of-N GPT-5 Editor' : 'Best-of-N Editor',
     spawnerPrompt:
-      'Edits code by orchestrating multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes. Do not specify an input prompt for this agent; it reads the context from the message history.',
+      'Edits code by orchestrating multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent.',
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,

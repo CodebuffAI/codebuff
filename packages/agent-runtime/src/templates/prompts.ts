@@ -66,9 +66,12 @@ params: None`
 
   return `\n\n## Spawnable Agents
 
-Use the spawn_agents tool to spawn agents to help you complete the user request. Below are the *only* available agents by their agent_type. Other agents may be referenced earlier in the conversation, but they are not available to you.
+Use the spawn_agents tool to spawn agents to help you complete the user request.
 
-Note: You can not call the agents as tool names directly: you must use the spawn_agents tool with the correct parameters to spawn them!
+Notes:
+- You can not call the agents as tool names directly: you must use the spawn_agents tool with the correct parameters to spawn them!
+- There are two types of input arguments for agents: prompt and params. The prompt is a string, and the params is a json object. Some agents require only one or the other, some require both, and some require none.
+- Below are the *only* available agents by their agent_type. Other agents may be referenced earlier in the conversation, but they are not available to you.
 
 Example:
 
@@ -76,7 +79,7 @@ ${getToolCallString('spawn_agents', {
   agents: [
     {
       agent_type: 'example-agent',
-      prompt: 'Example prompt for the example agent',
+      prompt: 'Do an example task for me',
     },
   ],
 })}

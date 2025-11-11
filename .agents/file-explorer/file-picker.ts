@@ -17,7 +17,7 @@ const definition: SecretAgentDefinition = {
     exclude: false,
   },
   spawnerPrompt:
-    'Spawn to find relevant files in a codebase related to the prompt. Cannot do string searches on the codebase, but does a fuzzy search. Unless you know which directories are relevant, omit the directories parameter. This agent is extremely effective at finding files in the codebase that could be relevant to the prompt.',
+    'Spawn to find relevant files in a codebase related to the prompt. Outputs up to 12 file paths with short summaries for each file. Cannot do string searches on the codebase, but does a fuzzy search. Unless you know which directories are relevant, omit the directories parameter. This agent is extremely effective at finding files in the codebase that could be relevant to the prompt.',
   inputSchema: {
     prompt: {
       type: 'string',
