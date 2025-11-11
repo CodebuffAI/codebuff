@@ -10,7 +10,6 @@ import { Command } from 'commander'
 import React from 'react'
 
 import { App } from './app'
-import './state/theme-store' // Initialize theme store and watchers
 import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
@@ -71,6 +70,8 @@ function parseArgs(): ParsedArgs {
 }
 
 const { initialPrompt, agent, clearLogs } = parseArgs()
+
+import './state/theme-store' // Initialize theme store and watchers
 
 if (clearLogs) {
   clearLogFile()
