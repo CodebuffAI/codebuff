@@ -14,6 +14,7 @@ import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile } from './utils/logger'
+import { initializeThemeStore } from './state/theme-store'
 
 const require = createRequire(import.meta.url)
 
@@ -71,7 +72,8 @@ function parseArgs(): ParsedArgs {
 
 const { initialPrompt, agent, clearLogs } = parseArgs()
 
-import './state/theme-store' // Initialize theme store and watchers
+// Initialize theme store and watchers
+initializeThemeStore()
 
 if (clearLogs) {
   clearLogFile()

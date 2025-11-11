@@ -2,6 +2,8 @@ import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
 
+import { detectTerminalTheme } from './terminal-color-detection'
+
 import type { MarkdownPalette } from './markdown-renderer'
 import type {
   ChatTheme,
@@ -9,7 +11,6 @@ import type {
   MarkdownThemeOverrides,
   ThemeName,
 } from '../types/theme-system'
-import { detectTerminalTheme } from './terminal-color-detection'
 
 const IDE_THEME_INFERENCE = {
   dark: [
@@ -1020,14 +1021,16 @@ const debouncedRecomputeSystemTheme = (source: string) => {
   }, FILE_WATCHER_DEBOUNCE_MS)
 }
 
-// Initialize on module load
-lastDetectedTheme = detectSystemTheme()
+lastDetectedTheme = null as unknown as ThemeName
+export function setLastDetectedTheme(theme: ThemeName) {
+  lastDetectedTheme = theme
+}
 
 /**
  * Setup file watchers for theme changes
  * Watches parent directories which reliably catches all file modifications
  */
-const setupFileWatchers = () => {
+export const setupFileWatchers = () => {
   const watchTargets: string[] = []
   const watchedDirs = new Set<string>()
 
@@ -1085,8 +1088,6 @@ const setupFileWatchers = () => {
   }
 }
 
-setupFileWatchers()
-
 /**
  * SIGUSR2 signal handler for manual theme refresh
  * Users can send `kill -USR2 <pid>` to force theme recomputation
@@ -1103,7 +1104,7 @@ process.on('SIGUSR2', () => {
 /**
  * Initialize OSC theme detection with a one-time check
  */
-async function initializeOSCDetection(): Promise<void> {
+export async function initializeOSCDetection(): Promise<void> {
   try {
     // Run one-time detection
     const theme = await detectTerminalTheme()
@@ -1114,6 +1115,3 @@ async function initializeOSCDetection(): Promise<void> {
     // Silently ignore OSC detection errors
   }
 }
-
-// Initialize OSC detection on module load
-initializeOSCDetection()
