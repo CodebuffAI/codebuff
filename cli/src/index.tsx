@@ -50,7 +50,16 @@ async function runOscDetectionSubprocess(): Promise<void> {
   process.env.CODEBUFF_GITHUB_ACTIONS = 'true'
 
   // Avoid importing logger or other modules that produce output
-  const { detectTerminalTheme } = await import('./utils/terminal-color-detection')
+  const { detectTerminalTheme, terminalSupportsOSC } = await import(
+    './utils/terminal-color-detection'
+  )
+
+  if (!terminalSupportsOSC()) {
+    console.log(JSON.stringify({ theme: null }))
+    await new Promise((resolve) => setImmediate(resolve))
+    process.exit(0)
+  }
+
   try {
     const theme = await detectTerminalTheme()
     console.log(JSON.stringify({ theme }))

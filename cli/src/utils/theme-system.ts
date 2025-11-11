@@ -2,7 +2,8 @@ import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
 
-import { detectTerminalTheme } from './terminal-color-detection'
+import { detectShell } from './detect-shell'
+import { logger } from './logger'
 
 import type { MarkdownPalette } from './markdown-renderer'
 import type {
@@ -662,6 +663,38 @@ const runSystemCommand = (command: string[]): string | null => {
   }
 }
 
+/**
+ * Detect Windows PowerShell background color theme
+ * Uses PowerShell's (Get-Host).UI.RawUI.BackgroundColor command
+ */
+function detectWindowsPowerShellTheme(): ThemeName | null {
+  if (process.platform !== 'win32') return null
+
+  const shell = detectShell()
+  if (shell !== 'powershell') return null
+
+  const bgColor = runSystemCommand([
+    'powershell',
+    '-NoProfile',
+    '-Command',
+    '(Get-Host).UI.RawUI.BackgroundColor',
+  ])
+
+  if (!bgColor) return null
+
+  const colorLower = bgColor.toLowerCase()
+
+  // Dark background colors in PowerShell
+  const darkColors = ['black', 'darkblue', 'darkgreen', 'darkcyan', 'darkred', 'darkmagenta', 'darkyellow', 'darkgray']
+  // Light background colors in PowerShell
+  const lightColors = ['gray', 'blue', 'green', 'cyan', 'red', 'magenta', 'yellow', 'white']
+
+  if (darkColors.includes(colorLower)) return 'dark'
+  if (lightColors.includes(colorLower)) return 'light'
+
+  return null
+}
+
 const detectTerminalOverrides = (): ThemeName | null => {
   const termProgram = (process.env.TERM_PROGRAM ?? '').toLowerCase()
   const term = (process.env.TERM ?? '').toLowerCase()
@@ -692,6 +725,11 @@ function detectPlatformTheme(): ThemeName {
     }
 
     if (process.platform === 'win32') {
+      // Try PowerShell background color detection first
+      const powershellTheme = detectWindowsPowerShellTheme()
+      if (powershellTheme) return powershellTheme
+
+      // Fallback to Windows system theme
       const value = runSystemCommand([
         'powershell',
         '-NoProfile',
@@ -737,10 +775,9 @@ export const detectSystemTheme = (): ThemeName => {
       return ideTheme
     }
 
-    // OSC 10/11 logic commented out
-    // if (oscDetectedTheme) {
-    //   return oscDetectedTheme
-    // }
+    if (oscDetectedTheme) {
+      return oscDetectedTheme
+    }
 
     return detectPlatformTheme()
   }
@@ -1104,16 +1141,65 @@ process.on('SIGUSR2', () => {
 
 /**
  * Initialize OSC theme detection with a one-time check
+ * Runs in a separate process to avoid blocking and hiding I/O from user
  */
 export async function initializeOSCDetection(): Promise<void> {
-  // OSC 10/11 logic commented out
-  // try {
-  //   // Run one-time detection
-  //   const theme = await detectTerminalTheme()
-  //   if (theme) {
-  //     oscDetectedTheme = theme
-  //   }
-  // } catch {
-  //   // Silently ignore OSC detection errors
-  // }
+  // Don't await - fire and forget
+  detectOSCInBackground()
+}
+
+/**
+ * Run OSC detection in a detached background process
+ * This prevents blocking the main thread and hides terminal I/O from the user
+ */
+async function detectOSCInBackground() {
+  // Skip on Windows where OSC queries can hang PowerShell
+  if (process.platform === 'win32') {
+    return
+  }
+
+  try {
+    // Spawn self with internal flag to run OSC detection
+    // Use stored CLI entry point path
+    const cliEntryPoint = (globalThis as any).__CLI_ENTRY_POINT || Bun.main
+    const proc = Bun.spawn({
+      cmd: [process.execPath, cliEntryPoint, '--internal-osc-detect'],
+      stdio: ['ignore', 'pipe', 'ignore'], // pipe stdout only, ignore stdin/stderr
+      timeout: 2000, // 2 second timeout to allow for module loading
+      env: {
+        ...process.env,
+        __INTERNAL_OSC_DETECT: '1', // Suppress console output
+      },
+    })
+
+    // Read result from stdout
+    const text = await new Response(proc.stdout).text()
+
+    // Extract JSON from output (ignore any console.log noise)
+    // Look for the last line that starts with { or contains "theme"
+    const lines = text.trim().split('\n')
+    let jsonLine = ''
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim()
+      if (line.startsWith('{') && line.includes('theme')) {
+        jsonLine = line
+        break
+      }
+    }
+
+    if (!jsonLine) return
+
+    const result = JSON.parse(jsonLine) as { theme: 'dark' | 'light' | null }
+
+    if (result.theme) {
+      oscDetectedTheme = result.theme
+      // Trigger theme recomputation to apply OSC-detected theme
+      recomputeSystemTheme('osc-background')
+    }
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'OSC detection failed',
+    )
+  }
 }
