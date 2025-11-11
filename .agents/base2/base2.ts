@@ -252,7 +252,7 @@ function buildImplementationStepPrompt({
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself.`,
     isGpt5 &&
-      `IMPORTANT: if you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
+      `IMPORTANT: You should include at least one tool call ("<codebuff_tool_call>") per message response. If you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
   ).join('\n')
 }
 
