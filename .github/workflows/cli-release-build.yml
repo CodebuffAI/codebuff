@@ -44,7 +44,7 @@ jobs:
             arch: arm64
             # Cross-compiles on x64 runner; binary can't be executed here.
             smoke_test: false
-          - os: macos-13
+          - os: macos-15-intel
             target: darwin-x64
             bun_target: bun-darwin-x64
             platform: darwin
