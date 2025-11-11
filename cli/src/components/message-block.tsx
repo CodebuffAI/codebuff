@@ -35,6 +35,30 @@ const isReasoningTextBlock = (b: any): boolean =>
     (typeof b.color === 'string' &&
       (b.color.toLowerCase() === 'grey' || b.color.toLowerCase() === 'gray')))
 
+const isRenderableTimelineBlock = (
+  block: ContentBlock | null | undefined,
+): boolean => {
+  if (!block) {
+    return false
+  }
+
+  if (block.type === 'tool') {
+    return (block as any).toolName !== 'end_turn'
+  }
+
+  switch (block.type) {
+    case 'text':
+    case 'html':
+    case 'agent':
+    case 'agent-list':
+    case 'plan':
+    case 'mode-divider':
+      return true
+    default:
+      return false
+  }
+}
+
 interface MessageBlockProps {
   messageId: string
   blocks?: ContentBlock[]
@@ -583,25 +607,12 @@ const AgentBody = memo(
             Boolean,
           ) as React.ReactNode[]
           if (nonNullGroupNodes.length > 0) {
-            const isRenderableBlock = (b: ContentBlock): boolean => {
-              if (b.type === 'tool') {
-                return (b as any).toolName !== 'end_turn'
-              }
-              switch (b.type) {
-                case 'text':
-                case 'html':
-                case 'agent':
-                case 'agent-list':
-                  return true
-                default:
-                  return false
-              }
-            }
-
-            // Check for any subsequent renderable blocks without allocating a slice
+            const hasRenderableBefore =
+              start > 0 &&
+              isRenderableTimelineBlock(nestedBlocks[start - 1] as any)
             let hasRenderableAfter = false
             for (let i = nestedIdx; i < nestedBlocks.length; i++) {
-              if (isRenderableBlock(nestedBlocks[i] as any)) {
+              if (isRenderableTimelineBlock(nestedBlocks[i] as any)) {
                 hasRenderableAfter = true
                 break
               }
@@ -612,10 +623,7 @@ const AgentBody = memo(
                 style={{
                   flexDirection: 'column',
                   gap: 0,
-                  // Avoid double spacing with the agent header, which already
-                  // adds bottom padding. Only add top margin if this group is
-                  // not the first rendered child.
-                  marginTop: nodes.length === 0 ? 0 : 1,
+                  marginTop: hasRenderableBefore ? 1 : 0,
                   marginBottom: hasRenderableAfter ? 1 : 0,
                 }}
               >
@@ -1039,21 +1047,13 @@ const BlocksRenderer = memo(
           Boolean,
         ) as React.ReactNode[]
         if (nonNullGroupNodes.length > 0) {
+          const hasRenderableBefore =
+            start > 0 &&
+            isRenderableTimelineBlock(sourceBlocks[start - 1] as any)
           // Check for any subsequent renderable blocks without allocating a slice
           let hasRenderableAfter = false
           for (let j = i; j < sourceBlocks.length; j++) {
-            const b = sourceBlocks[j] as any
-            if (b.type === 'tool') {
-              if ((b as any).toolName !== 'end_turn') {
-                hasRenderableAfter = true
-                break
-              }
-            } else if (
-              b.type === 'text' ||
-              b.type === 'html' ||
-              b.type === 'agent' ||
-              b.type === 'agent-list'
-            ) {
+            if (isRenderableTimelineBlock(sourceBlocks[j] as any)) {
               hasRenderableAfter = true
               break
             }
@@ -1064,7 +1064,7 @@ const BlocksRenderer = memo(
               style={{
                 flexDirection: 'column',
                 gap: 0,
-                marginTop: 1,
+                marginTop: hasRenderableBefore ? 1 : 0,
                 marginBottom: hasRenderableAfter ? 1 : 0,
               }}
             >

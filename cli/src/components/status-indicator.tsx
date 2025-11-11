@@ -1,104 +1,158 @@
 import React, { useEffect, useState } from 'react'
 
-import { ElapsedTimer } from './elapsed-timer'
 import { ShimmerText } from './shimmer-text'
 import { useTheme } from '../hooks/use-theme'
-import { getCodebuffClient } from '../utils/codebuff-client'
+import { formatElapsedTime } from '../utils/format-elapsed-time'
+import type { StreamStatus } from '../hooks/use-message-queue'
 
-const useConnectionStatus = () => {
-  const [isConnected, setIsConnected] = useState(true)
+// Shimmer animation interval for status text (milliseconds)
+const SHIMMER_INTERVAL_MS = 160
 
-  useEffect(() => {
-    const checkConnection = async () => {
-      const client = getCodebuffClient()
-      if (!client) {
-        setIsConnected(false)
-        return
-      }
+export type StatusIndicatorState =
+  | { kind: 'idle' }
+  | { kind: 'clipboard'; message: string }
+  | { kind: 'ctrlC' }
+  | { kind: 'connecting' }
+  | { kind: 'waiting' }
+  | { kind: 'streaming' }
 
-      try {
-        const connected = await client.checkConnection()
-        setIsConnected(connected)
-      } catch (error) {
-        setIsConnected(false)
-      }
-    }
+export type StatusIndicatorStateArgs = {
+  clipboardMessage?: string | null
+  streamStatus: StreamStatus
+  nextCtrlCWillExit: boolean
+  isConnected: boolean
+}
 
-    checkConnection()
+/**
+ * Determines the status indicator state based on current context.
+ * 
+ * State priority (highest to lowest):
+ * 1. nextCtrlCWillExit - User pressed Ctrl+C once, warn about exit
+ * 2. clipboardMessage - Temporary feedback for clipboard operations
+ * 3. connecting - Not connected to backend
+ * 4. waiting - Waiting for AI response to start
+ * 5. streaming - AI is actively responding
+ * 6. idle - No activity
+ * 
+ * @param args - Context for determining indicator state
+ * @returns The appropriate state indicator
+ */
+export const getStatusIndicatorState = ({
+  clipboardMessage,
+  streamStatus,
+  nextCtrlCWillExit,
+  isConnected,
+}: StatusIndicatorStateArgs): StatusIndicatorState => {
+  if (nextCtrlCWillExit) {
+    return { kind: 'ctrlC' }
+  }
 
-    const interval = setInterval(checkConnection, 30000)
+  if (clipboardMessage) {
+    return { kind: 'clipboard', message: clipboardMessage }
+  }
 
-    return () => clearInterval(interval)
-  }, [])
+  if (!isConnected) {
+    return { kind: 'connecting' }
+  }
 
-  return isConnected
+  if (streamStatus === 'waiting') {
+    return { kind: 'waiting' }
+  }
+
+  if (streamStatus === 'streaming') {
+    return { kind: 'streaming' }
+  }
+
+  return { kind: 'idle' }
+}
+
+type StatusIndicatorProps = StatusIndicatorStateArgs & {
+  timerStartTime: number | null
 }
 
 export const StatusIndicator = ({
   clipboardMessage,
-  isActive = false,
-  isWaitingForResponse = false,
+  streamStatus,
   timerStartTime,
   nextCtrlCWillExit,
-}: {
-  clipboardMessage?: string | null
-  isActive?: boolean
-  isWaitingForResponse?: boolean
-  timerStartTime: number | null
-  nextCtrlCWillExit: boolean
-}) => {
+  isConnected,
+}: StatusIndicatorProps) => {
   const theme = useTheme()
-  const isConnected = useConnectionStatus()
+  const state = getStatusIndicatorState({
+    clipboardMessage,
+    streamStatus,
+    nextCtrlCWillExit,
+    isConnected,
+  })
 
-  if (nextCtrlCWillExit) {
+  if (state.kind === 'ctrlC') {
     return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
   }
 
-  if (clipboardMessage) {
-    return <span fg={theme.primary}>{clipboardMessage}</span>
+  if (state.kind === 'clipboard') {
+    return <span fg={theme.primary}>{state.message}</span>
   }
 
-  const hasStatus = isConnected === false || isActive
-
-  if (!hasStatus) {
-    return null
-  }
-
-  if (isConnected === false) {
+  if (state.kind === 'connecting') {
     return <ShimmerText text="connecting..." />
   }
 
-  if (isActive) {
-    if (isWaitingForResponse) {
-      return (
-        <ShimmerText
-          text="thinking..."
-          interval={160}
-          primaryColor={theme.secondary}
-        />
-      )
-    }
-    return <ElapsedTimer startTime={timerStartTime} />
+  if (state.kind === 'waiting') {
+    return (
+      <ShimmerText
+        text="thinking..."
+        interval={SHIMMER_INTERVAL_MS}
+        primaryColor={theme.secondary}
+      />
+    )
+  }
+
+  if (state.kind === 'streaming') {
+    return (
+      <ShimmerText
+        text="working..."
+        interval={SHIMMER_INTERVAL_MS}
+        primaryColor={theme.secondary}
+      />
+    )
   }
 
   return null
 }
 
-export const useHasStatus = (params: {
-  isActive: boolean
-  clipboardMessage?: string | null
-  timerStartTime?: number | null
-  nextCtrlCWillExit: boolean
-}): boolean => {
-  const { isActive, clipboardMessage, timerStartTime, nextCtrlCWillExit } =
-    params
+export const StatusElapsedTime = ({
+  streamStatus,
+  timerStartTime,
+}: {
+  streamStatus: StreamStatus
+  timerStartTime: number | null
+}) => {
+  const theme = useTheme()
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
-  const isConnected = useConnectionStatus()
-  return (
-    isConnected === false ||
-    isActive ||
-    Boolean(clipboardMessage) ||
-    Boolean(timerStartTime) ||
-    nextCtrlCWillExit
-  )
+  const shouldShowTimer = streamStatus !== 'idle'
+
+  useEffect(() => {
+    if (!timerStartTime || !shouldShowTimer) {
+      setElapsedSeconds(0)
+      return
+    }
+
+    const updateElapsed = () => {
+      const now = Date.now()
+      const elapsed = Math.floor((now - timerStartTime) / 1000)
+      setElapsedSeconds(elapsed)
+    }
+
+    updateElapsed()
+    const interval = setInterval(updateElapsed, 1000)
+
+    return () => clearInterval(interval)
+  }, [timerStartTime, shouldShowTimer])
+
+  if (!shouldShowTimer || elapsedSeconds === 0) {
+    return null
+  }
+
+  return <span fg={theme.secondary}>{formatElapsedTime(elapsedSeconds)}</span>
 }

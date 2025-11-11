@@ -194,7 +194,7 @@ export const ToolCallItem = ({
             paddingLeft: 0,
             paddingRight: 0,
             paddingTop: 0,
-            paddingBottom: isCollapsed ? 0 : dense ? 0 : 1,
+            paddingBottom: 0,
             width: '100%',
           }}
           onMouseDown={onToggle}

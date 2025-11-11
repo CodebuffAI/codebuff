@@ -16,6 +16,7 @@ import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
+import type { StreamStatus } from './use-message-queue'
 import type { AgentDefinition, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
@@ -77,6 +78,31 @@ const scrubPlanTagsInBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
       return b
     })
     .filter((b) => b.type !== 'text' || b.content.trim() !== '')
+}
+
+/**
+ * Auto-collapse thinking blocks to reduce UI clutter.
+ * Tracks which thinking blocks have been collapsed to avoid duplicate collapses.
+ * 
+ * @param messageId - ID of the message containing the thinking block
+ * @param agentId - Optional agent ID for nested agent thinking blocks
+ * @param autoCollapsedThinkingIdsRef - Ref tracking which thinking IDs have been auto-collapsed
+ * @param setCollapsedAgents - State setter for collapsed agents
+ */
+const autoCollapseThinkingBlock = (
+  messageId: string,
+  agentId: string | undefined,
+  autoCollapsedThinkingIdsRef: React.MutableRefObject<Set<string>>,
+  setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>,
+) => {
+  const thinkingId = agentId
+    ? `${messageId}-agent-${agentId}-thinking-0`
+    : `${messageId}-thinking-0`
+
+  if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
+    autoCollapsedThinkingIdsRef.current.add(thinkingId)
+    setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
+  }
 }
 
 export type SendMessageTimerEvent =
@@ -185,10 +211,9 @@ interface UseSendMessageOptions {
   isChainInProgressRef: React.MutableRefObject<boolean>
   setActiveSubagents: React.Dispatch<React.SetStateAction<Set<string>>>
   setIsChainInProgress: (value: boolean) => void
-  setIsWaitingForResponse: (waiting: boolean) => void
+  setStreamStatus: (status: StreamStatus) => void
   startStreaming: () => void
   stopStreaming: () => void
-  setIsStreaming: (streaming: boolean) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
@@ -219,10 +244,9 @@ export const useSendMessage = ({
   isChainInProgressRef,
   setActiveSubagents,
   setIsChainInProgress,
-  setIsWaitingForResponse,
+  setStreamStatus,
   startStreaming,
   stopStreaming,
-  setIsStreaming,
   setCanProcessQueue,
   abortControllerRef,
   agentId,
@@ -734,9 +758,8 @@ export const useSendMessage = ({
         }
       }
 
-      setIsWaitingForResponse(true)
+      setStreamStatus('waiting')
       applyMessageUpdate((prev) => [...prev, aiMessage])
-      setIsStreaming(true)
       setCanProcessQueue(false)
       updateChainInProgress(true)
       let hasReceivedContent = false
@@ -745,10 +768,9 @@ export const useSendMessage = ({
       const abortController = new AbortController()
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
-        setIsStreaming(false)
+        setStreamStatus('idle')
         setCanProcessQueue(true)
         updateChainInProgress(false)
-        setIsWaitingForResponse(false)
         timerController.stop('aborted')
 
         applyMessageUpdate((prev) =>
@@ -820,7 +842,7 @@ export const useSendMessage = ({
                   : { type: 'reasoning', text: event.chunk }
               if (!hasReceivedContent) {
                 hasReceivedContent = true
-                setIsWaitingForResponse(false)
+                setStreamStatus('streaming')
               }
 
               if (!eventObj.text) {
@@ -834,11 +856,12 @@ export const useSendMessage = ({
 
               // Auto-collapse thinking blocks by default (only once per thinking block)
               if (eventObj.type === 'reasoning') {
-                const thinkingId = `${aiMessageId}-thinking-0`
-                if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
-                  autoCollapsedThinkingIdsRef.current.add(thinkingId)
-                  setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
-                }
+                autoCollapseThinkingBlock(
+                  aiMessageId,
+                  undefined,
+                  autoCollapsedThinkingIdsRef,
+                  setCollapsedAgents,
+                )
               }
 
               rootStreamSeenRef.current = true
@@ -881,10 +904,10 @@ export const useSendMessage = ({
               // Track if main agent (no agentId) started streaming
               if (!hasReceivedContent && !event.agentId) {
                 hasReceivedContent = true
-                setIsWaitingForResponse(false)
+                setStreamStatus('streaming')
               } else if (!hasReceivedContent) {
                 hasReceivedContent = true
-                setIsWaitingForResponse(false)
+                setStreamStatus('streaming')
               }
 
               if (event.agentId) {
@@ -907,11 +930,12 @@ export const useSendMessage = ({
 
                 // Auto-collapse thinking blocks for subagents on first content
                 if (previous.length === 0) {
-                  const thinkingId = `${aiMessageId}-agent-${event.agentId}-thinking-0`
-                  if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
-                    autoCollapsedThinkingIdsRef.current.add(thinkingId)
-                    setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
-                  }
+                  autoCollapseThinkingBlock(
+                    aiMessageId,
+                    event.agentId,
+                    autoCollapsedThinkingIdsRef,
+                    setCollapsedAgents,
+                  )
                 }
 
                 updateAgentContent(event.agentId, {
@@ -920,14 +944,7 @@ export const useSendMessage = ({
                 })
               } else {
                 if (rootStreamSeenRef.current) {
-                  // Disabled noisy log
-                  // logger.info(
-                  //   {
-                  //     textPreview: text.slice(0, 100),
-                  //     textLength: text.length,
-                  //   },
-                  //   'Skipping root text event (stream already handled)',
-                  // )
+                  // Skip redundant root text events when stream chunks already handled
                   return
                 }
                 const previous = rootStreamBufferRef.current ?? ''
@@ -1539,10 +1556,9 @@ export const useSendMessage = ({
           return
         }
 
-        setIsStreaming(false)
+        setStreamStatus('idle')
         setCanProcessQueue(true)
         updateChainInProgress(false)
-        setIsWaitingForResponse(false)
         const timerResult = timerController.stop('success')
 
         if (agentMode === 'PLAN') {
@@ -1576,10 +1592,9 @@ export const useSendMessage = ({
           { error: getErrorObject(error) },
           'SDK client.run() failed',
         )
-        setIsStreaming(false)
+        setStreamStatus('idle')
         setCanProcessQueue(true)
         updateChainInProgress(false)
-        setIsWaitingForResponse(false)
         timerController.stop('error')
 
         const errorMessage =
@@ -1620,10 +1635,9 @@ export const useSendMessage = ({
       userOpenedAgents,
       activeSubagentsRef,
       isChainInProgressRef,
-      setIsWaitingForResponse,
+      setStreamStatus,
       startStreaming,
       stopStreaming,
-      setIsStreaming,
       setCanProcessQueue,
       abortControllerRef,
       updateChainInProgress,

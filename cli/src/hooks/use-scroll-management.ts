@@ -2,13 +2,33 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { ScrollBoxRenderable } from '@opentui/core'
 
+// Scroll detection threshold - how close to bottom to consider "at bottom"
+const SCROLL_NEAR_BOTTOM_THRESHOLD = 1
+
+// Animation constants
+const ANIMATION_FRAME_INTERVAL_MS = 16 // ~60fps
+const DEFAULT_SCROLL_ANIMATION_DURATION_MS = 200
+
+// Delay before auto-scrolling after content changes
+const AUTO_SCROLL_DELAY_MS = 50
+
 const easeOutCubic = (t: number): number => {
   return 1 - Math.pow(1 - t, 3)
 }
 
+/**
+ * Manages scroll behavior for the chat scrollbox with smooth animations and auto-scroll.
+ * 
+ * @param scrollRef - Reference to the scrollbox component
+ * @param messages - Array of chat messages (triggers auto-scroll on change)
+ * @param isUserCollapsing - Callback to check if user is actively collapsing/expanding toggles.
+ *                          When true, auto-scroll is temporarily suppressed to prevent jarring UX.
+ * @returns Scroll management functions and state
+ */
 export const useChatScrollbox = (
   scrollRef: React.RefObject<ScrollBoxRenderable | null>,
   messages: any[],
+  isUserCollapsing: () => boolean,
 ) => {
   const autoScrollEnabledRef = useRef<boolean>(true)
   const programmaticScrollRef = useRef<boolean>(false)
@@ -23,7 +43,7 @@ export const useChatScrollbox = (
   }, [])
 
   const animateScrollTo = useCallback(
-    (targetScroll: number, duration = 200) => {
+    (targetScroll: number, duration = DEFAULT_SCROLL_ANIMATION_DURATION_MS) => {
       const scrollbox = scrollRef.current
       if (!scrollbox) return
 
@@ -32,7 +52,7 @@ export const useChatScrollbox = (
       const startScroll = scrollbox.scrollTop
       const distance = targetScroll - startScroll
       const startTime = Date.now()
-      const frameInterval = 16
+      const frameInterval = ANIMATION_FRAME_INTERVAL_MS
 
       const animate = () => {
         const elapsed = Date.now() - startTime
@@ -78,7 +98,7 @@ export const useChatScrollbox = (
         scrollbox.scrollHeight - scrollbox.viewport.height,
       )
       const current = scrollbox.verticalScrollBar.scrollPosition
-      const isNearBottom = Math.abs(maxScroll - current) <= 1
+      const isNearBottom = Math.abs(maxScroll - current) <= SCROLL_NEAR_BOTTOM_THRESHOLD
 
       if (programmaticScrollRef.current) {
         programmaticScrollRef.current = false
@@ -111,16 +131,16 @@ export const useChatScrollbox = (
         if (scrollbox.scrollTop > maxScroll) {
           programmaticScrollRef.current = true
           scrollbox.scrollTop = maxScroll
-        } else if (autoScrollEnabledRef.current) {
+        } else if (autoScrollEnabledRef.current && !isUserCollapsing()) {
           programmaticScrollRef.current = true
           scrollbox.scrollTop = maxScroll
         }
-      }, 50)
+      }, AUTO_SCROLL_DELAY_MS)
 
       return () => clearTimeout(timeoutId)
     }
     return undefined
-  }, [messages, scrollToLatest, scrollRef])
+  }, [messages, scrollToLatest, scrollRef, isUserCollapsing])
 
   useEffect(() => {
     return () => {

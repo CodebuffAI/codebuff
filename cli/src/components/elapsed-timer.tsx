@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { TextAttributes } from '@opentui/core'
 
 import { useTheme } from '../hooks/use-theme'
+import { formatElapsedTime } from '../utils/format-elapsed-time'
 
 interface ElapsedTimerProps {
   startTime: number | null
@@ -54,7 +55,7 @@ export const ElapsedTimer = ({
 
   return (
     <span fg={theme.secondary} attributes={attributes}>
-      {elapsedSeconds}s{suffix}
+      {formatElapsedTime(elapsedSeconds)}{suffix}
     </span>
   )
 }
