@@ -681,6 +681,16 @@ export const useSendMessage = ({
           return
         }
 
+        // Auto-collapse thinking blocks on first reasoning content
+        if (delta.type === 'reasoning') {
+          autoCollapseThinkingBlock(
+            aiMessageId,
+            undefined,
+            autoCollapsedThinkingIdsRef,
+            setCollapsedAgents,
+          )
+        }
+
         queueMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id !== aiMessageId) {
@@ -852,16 +862,6 @@ export const useSendMessage = ({
               if (eventObj.type === 'text') {
                 rootStreamBufferRef.current =
                   (rootStreamBufferRef.current ?? '') + eventObj.text
-              }
-
-              // Auto-collapse thinking blocks by default (only once per thinking block)
-              if (eventObj.type === 'reasoning') {
-                autoCollapseThinkingBlock(
-                  aiMessageId,
-                  undefined,
-                  autoCollapsedThinkingIdsRef,
-                  setCollapsedAgents,
-                )
               }
 
               rootStreamSeenRef.current = true
