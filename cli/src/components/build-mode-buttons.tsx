@@ -30,7 +30,7 @@ export const BuildModeButtons = ({
       }}
     >
       {isNarrow ? null : (
-        <text style={{ wrapMode: 'none' }}>
+        <text style={{ wrapMode: 'none' }} selectable={false}>
           <span fg={theme.secondary}>Choose an option to build this plan:</span>
         </text>
       )}
