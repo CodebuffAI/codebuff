@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
 import { Button } from '../button'
+import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
+import { getLastNVisualLines } from '../../utils/text-layout'
 
 import type { ToolRenderConfig } from './types'
 
@@ -49,6 +51,8 @@ const TerminalCommandContent = ({
   output,
 }: TerminalCommandContentProps) => {
   const theme = useTheme()
+  const { contentMaxWidth } = useTerminalDimensions()
+  const padding = 5
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (!output) {
@@ -68,12 +72,43 @@ const TerminalCommandContent = ({
     )
   }
 
-  const lines = output.split('\n')
-  const hasMoreThanFiveLines = lines.length > 5
-  const displayLines =
-    isExpanded || !hasMoreThanFiveLines ? lines : lines.slice(0, 5)
-  const displayOutput = displayLines.join('\n')
-  const hiddenLinesCount = lines.length - 5
+  // Use visual line calculation based on terminal width
+  const width = Math.max(10, Math.min(contentMaxWidth - padding * 2, 120))
+  const allLines = output.split('\n')
+
+  // Calculate total visual lines across all output lines
+  let totalVisualLines = 0
+  const visualLinesByOriginalLine: string[][] = []
+
+  for (const line of allLines) {
+    const { lines: wrappedLines } = getLastNVisualLines(line, width, Infinity)
+    visualLinesByOriginalLine.push(wrappedLines)
+    totalVisualLines += wrappedLines.length
+  }
+
+  const hasMoreThanFiveLines = totalVisualLines > 5
+  const hiddenLinesCount = totalVisualLines - 5
+
+  // Build display output
+  let displayOutput: string
+  if (isExpanded || !hasMoreThanFiveLines) {
+    displayOutput = output
+  } else {
+    // Take first 5 visual lines
+    const displayLines: string[] = []
+    let count = 0
+
+    for (const wrappedLines of visualLinesByOriginalLine) {
+      for (const line of wrappedLines) {
+        if (count >= 5) break
+        displayLines.push(line)
+        count++
+      }
+      if (count >= 5) break
+    }
+
+    displayOutput = displayLines.join('\n')
+  }
 
   return (
     <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
