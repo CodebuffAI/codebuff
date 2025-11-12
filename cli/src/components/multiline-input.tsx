@@ -14,9 +14,17 @@ import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
 import { clamp } from '../utils/math'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
+import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
 import type { InputValue } from '../state/chat-store'
-import type { KeyEvent, PasteEvent, ScrollBoxRenderable } from '@opentui/core'
+import type {
+  KeyEvent,
+  LineInfo,
+  PasteEvent,
+  ScrollBoxRenderable,
+  TextBufferView,
+  TextRenderable,
+} from '@opentui/core'
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
@@ -209,6 +217,33 @@ export const MultilineInput = forwardRef<
     const cols = Math.max(1, vpWidth)
     setMeasuredCols(cols)
   }, [width])
+
+  const textRef = useRef<TextRenderable | null>(null)
+
+  // Helper function to get current lineInfo from the text ref
+  const getLineInfo = useCallback(() => {
+    if (!textRef.current) {
+      return {
+        lineStarts: [],
+        lineWidths: [],
+        maxLineWidth: 0,
+      } satisfies LineInfo
+    }
+
+    return ((textRef.current as any).textBufferView as TextBufferView).lineInfo
+  }, [])
+
+  const isPlaceholder = value.length === 0 && placeholder.length > 0
+  const displayValue = isPlaceholder ? placeholder : value
+  const showCursor = focused
+  const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
+  const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
+  const activeChar = afterCursor.charAt(0) || ' '
+  const shouldHighlight =
+    showCursor &&
+    !isPlaceholder &&
+    cursorPosition < displayValue.length &&
+    displayValue[cursorPosition] !== '\n'
 
   // Handle all keyboard input with advanced shortcuts
   useKeyboard(
@@ -607,65 +642,32 @@ export const MultilineInput = forwardRef<
         // Up arrow (no modifiers)
         if (key.name === 'up' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          const cols = getEffectiveCols()
-          const prevNewline = value.lastIndexOf('\n', cursorPosition - 1)
-          if (cursorPosition - cols >= prevNewline) {
-            onChange({
-              text: value,
-              cursorPosition: cursorPosition - cols,
-              lastEditDueToNav: false,
-            })
-            return
-          }
-
-          const priorNewline = value.lastIndexOf('\n', prevNewline - 1)
-          const lastParagraphLength = prevNewline - priorNewline
-          const lastRow = Math.floor(lastParagraphLength / cols)
           onChange({
             text: value,
-            cursorPosition: Math.min(
-              priorNewline + lastRow * cols + cursorPosition - prevNewline,
-              prevNewline,
-            ),
+            cursorPosition: calculateNewCursorPosition({
+              cursorPosition,
+              lineInfo: getLineInfo(),
+              cursorIsChar: !shouldHighlight,
+              direction: 'up',
+            }),
             lastEditDueToNav: false,
           })
+          return
         }
 
         // Down arrow (no modifiers)
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
-          preventKeyDefault(key)
-          const cols = getEffectiveCols()
-          let nextNewlineInclusive = value.indexOf('\n', cursorPosition)
-          if (nextNewlineInclusive === -1) {
-            nextNewlineInclusive = value.length
-          }
-          if (cursorPosition + cols <= nextNewlineInclusive) {
-            onChange({
-              text: value,
-              cursorPosition: cursorPosition + cols,
-              lastEditDueToNav: false,
-            })
-            return
-          }
-
-          let afterNewline = value.indexOf('\n', nextNewlineInclusive + 1)
-          if (afterNewline === -1) {
-            afterNewline = value.length
-          }
-          /*
-           * The second argument of lastIndexOf is converted to 0 if it's
-           * negative, so we need to special case cursorPosition === 0
-           */
-          let prevNewlineExclusive =
-            cursorPosition === 0
-              ? -1
-              : value.lastIndexOf('\n', cursorPosition - 1)
-          const col = (cursorPosition - prevNewlineExclusive) % cols
           onChange({
             text: value,
-            cursorPosition: Math.min(nextNewlineInclusive + col, afterNewline),
+            cursorPosition: calculateNewCursorPosition({
+              cursorPosition,
+              lineInfo: getLineInfo(),
+              cursorIsChar: !shouldHighlight,
+              direction: 'down',
+            }),
             lastEditDueToNav: false,
           })
+          return
         }
 
         // Regular character input
@@ -689,22 +691,20 @@ export const MultilineInput = forwardRef<
           return
         }
       },
-      [focused, value, cursorPosition, onChange, onSubmit, onKeyIntercept],
+      [
+        focused,
+        value,
+        cursorPosition,
+        shouldHighlight,
+        getLineInfo,
+        onChange,
+        onSubmit,
+        onKeyIntercept,
+      ],
     ),
   )
 
   // Calculate display with cursor
-  const isPlaceholder = value.length === 0 && placeholder.length > 0
-  const displayValue = isPlaceholder ? placeholder : value
-  const showCursor = focused
-  const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
-  const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
-  const activeChar = afterCursor.charAt(0) || ' '
-  const shouldHighlight =
-    showCursor &&
-    !isPlaceholder &&
-    cursorPosition < displayValue.length &&
-    displayValue[cursorPosition] !== '\n'
 
   const layoutContent = showCursor
     ? shouldHighlight
@@ -777,7 +777,7 @@ export const MultilineInput = forwardRef<
         },
       }}
     >
-      <text style={{ ...textStyle, wrapMode: 'char' }}>
+      <text ref={textRef} style={{ ...textStyle, wrapMode: 'word' }}>
         {showCursor ? (
           <>
             {beforeCursor}
