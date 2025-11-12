@@ -127,6 +127,7 @@ describe('runProgrammaticStep', () => {
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
+      onCostCalculated: async () => {},
       fileContext: mockFileContext,
       localAgentTemplates: {},
       system: undefined,

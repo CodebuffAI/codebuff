@@ -78,6 +78,7 @@ describe('malformed tool call error handling', () => {
       system: 'Test system prompt',
       agentContext: {},
       onResponseChunk: mock(() => {}),
+      onCostCalculated: mock(async () => {}),
       fullResponse: '',
     }
 

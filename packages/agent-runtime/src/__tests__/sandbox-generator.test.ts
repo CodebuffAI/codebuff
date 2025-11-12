@@ -82,6 +82,7 @@ describe('QuickJS Sandbox Generator', () => {
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
+      onCostCalculated: async () => {},
       fileContext: mockFileContext,
       localAgentTemplates: {},
       stepsComplete: false,
