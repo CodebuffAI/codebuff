@@ -1154,7 +1154,11 @@ export class Client {
         } else {
           printModeLog(chunk)
           printSubagentHeader(chunk)
-          if (chunk.type === 'reasoning' && chunk.text) {
+          if (
+            (chunk.type === 'reasoning' && chunk.text) ||
+            (chunk.type === 'reasoning_delta' &&
+              chunk.ancestorRunIds.length === 0)
+          ) {
             if (!this.streamStarted) {
               this.streamStarted = true
               onStreamStart()
