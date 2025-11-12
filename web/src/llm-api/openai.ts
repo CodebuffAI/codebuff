@@ -17,7 +17,8 @@ function extractRequestMetadata(params: { body: unknown; logger: Logger }) {
     logger.warn({ body }, 'Received request without client_id')
   }
   const rawRunId = (body as any)?.codebuff_metadata?.run_id
-  const clientRequestId: string | null = typeof rawRunId === 'string' ? rawRunId : null
+  const clientRequestId: string | null =
+    typeof rawRunId === 'string' ? rawRunId : null
   if (!clientRequestId) {
     logger.warn({ body }, 'Received request without run_id')
   }
@@ -40,9 +41,16 @@ type OpenAIUsage = {
   cost_details?: { upstream_inference_cost?: number | null } | null
 }
 
-function getOpenAIRatesPerMTokens(model: string): { inUsd: number; outUsd: number } {
+function getOpenAIRatesPerMTokens(model: string): {
+  inUsd: number
+  outUsd: number
+} {
   const m = model.toLowerCase()
-  if (m.includes('gpt-4o-mini') || m.includes('4o-mini') || m.includes('o4-mini')) {
+  if (
+    m.includes('gpt-4o-mini') ||
+    m.includes('4o-mini') ||
+    m.includes('o4-mini')
+  ) {
     return { inUsd: 0.15, outUsd: 0.6 }
   }
   if (m.includes('gpt-4o')) {
@@ -98,7 +106,8 @@ export async function handleOpenAIStream({
   openaiBody.stream_options = streamOptions
 
   // Transform max_tokens to max_completion_tokens
-  openaiBody.max_completion_tokens = openaiBody.max_tokens
+  openaiBody.max_completion_tokens =
+    openaiBody.max_completion_tokens ?? openaiBody.max_tokens
   delete (openaiBody as any).max_tokens
 
   // Remove fields that OpenAI doesn't support
@@ -118,7 +127,9 @@ export async function handleOpenAIStream({
   })
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status} ${response.statusText} ${await response.text()}`)
+    throw new Error(
+      `OpenAI API error: ${response.status} ${response.statusText} ${await response.text()}`,
+    )
   }
 
   const reader = response.body?.getReader?.()
@@ -135,12 +146,18 @@ export async function handleOpenAIStream({
       const decoder = new TextDecoder()
       let buffer = ''
 
-      controller.enqueue(new TextEncoder().encode(`: connected ${new Date().toISOString()}\n`))
+      controller.enqueue(
+        new TextEncoder().encode(`: connected ${new Date().toISOString()}\n`),
+      )
 
       heartbeatInterval = setInterval(() => {
         if (!clientDisconnected) {
           try {
-            controller.enqueue(new TextEncoder().encode(`: heartbeat ${new Date().toISOString()}\n\n`))
+            controller.enqueue(
+              new TextEncoder().encode(
+                `: heartbeat ${new Date().toISOString()}\n\n`,
+              ),
+            )
           } catch {}
         }
       }, 30000)
@@ -176,7 +193,9 @@ export async function handleOpenAIStream({
               try {
                 controller.enqueue(new TextEncoder().encode(line))
               } catch (error) {
-                logger.warn('Client disconnected during stream, continuing for billing')
+                logger.warn(
+                  'Client disconnected during stream, continuing for billing',
+                )
                 clientDisconnected = true
               }
             }
@@ -192,7 +211,10 @@ export async function handleOpenAIStream({
         if (!clientDisconnected) {
           controller.error(error)
         } else {
-          logger.warn(getErrorObject(error), 'Error after client disconnect in OpenAI stream')
+          logger.warn(
+            getErrorObject(error),
+            'Error after client disconnect in OpenAI stream',
+          )
         }
       } finally {
         clearInterval(heartbeatInterval)
@@ -201,7 +223,10 @@ export async function handleOpenAIStream({
     cancel() {
       clearInterval(heartbeatInterval)
       clientDisconnected = true
-      logger.warn({ clientDisconnected, state }, 'Client cancelled stream, continuing OpenAI consumption for billing')
+      logger.warn(
+        { clientDisconnected, state },
+        'Client cancelled stream, continuing OpenAI consumption for billing',
+      )
     },
   })
 
@@ -243,25 +268,36 @@ async function handleOpenAILine({
   try {
     obj = JSON.parse(raw)
   } catch (error) {
-    logger.warn(`Received non-JSON OpenAI response: ${JSON.stringify(getErrorObject(error), null, 2)}`)
+    logger.warn(
+      `Received non-JSON OpenAI response: ${JSON.stringify(getErrorObject(error), null, 2)}`,
+    )
     return { state, outgoingLine: line }
   }
 
   // Accumulate text
   try {
-    const choice = Array.isArray(obj.choices) && obj.choices.length ? obj.choices[0] : undefined
+    const choice =
+      Array.isArray(obj.choices) && obj.choices.length
+        ? obj.choices[0]
+        : undefined
     const delta = choice?.delta
     if (delta) {
       if (typeof delta.content === 'string') state.responseText += delta.content
       // OpenAI may not provide reasoning delta in standard chat completions; keep parity
-      if (typeof delta.reasoning === 'string') state.reasoningText += delta.reasoning
+      if (typeof delta.reasoning === 'string')
+        state.reasoningText += delta.reasoning
     }
   } catch {}
 
   // If usage present, it's the final chunk. Compute cost, log, and consume credits.
   if (obj && obj.usage) {
     const usage: OpenAIUsage = obj.usage
-    const model: string = typeof obj.model === 'string' ? obj.model : (typeof (request as any)?.model === 'string' ? (request as any).model : '')
+    const model: string =
+      typeof obj.model === 'string'
+        ? obj.model
+        : typeof (request as any)?.model === 'string'
+          ? (request as any).model
+          : ''
 
     const cost = computeCostDollars(usage, model)
     obj.usage.cost = cost
@@ -288,7 +324,10 @@ async function handleOpenAILine({
         logger,
       })
       if (!success) {
-        logger.error({ request }, 'Failed to insert message into BigQuery (OpenAI)')
+        logger.error(
+          { request },
+          'Failed to insert message into BigQuery (OpenAI)',
+        )
       }
     })
 
@@ -307,7 +346,8 @@ async function handleOpenAILine({
       inputTokens: obj.usage.prompt_tokens ?? 0,
       cacheCreationInputTokens: null,
       cacheReadInputTokens: obj.usage.prompt_tokens_details?.cached_tokens ?? 0,
-      reasoningTokens: obj.usage.completion_tokens_details?.reasoning_tokens ?? null,
+      reasoningTokens:
+        obj.usage.completion_tokens_details?.reasoning_tokens ?? null,
       outputTokens: obj.usage.completion_tokens ?? 0,
       logger,
     })
