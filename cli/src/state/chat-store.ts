@@ -29,6 +29,7 @@ export type ChatStoreState = {
   agentMode: AgentMode
   hasReceivedPlanResponse: boolean
   lastMessageMode: AgentMode | null
+  sessionCreditsUsed: number
 }
 
 type ChatStoreActions = {
@@ -58,6 +59,7 @@ type ChatStoreActions = {
   toggleAgentMode: () => void
   setHasReceivedPlanResponse: (value: boolean) => void
   setLastMessageMode: (mode: AgentMode | null) => void
+  addSessionCredits: (credits: number) => void
   reset: () => void
 }
 
@@ -81,6 +83,7 @@ const initialState: ChatStoreState = {
   agentMode: 'DEFAULT',
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
+  sessionCreditsUsed: 0,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -180,6 +183,11 @@ export const useChatStore = create<ChatStore>()(
         state.lastMessageMode = mode
       }),
 
+    addSessionCredits: (credits) =>
+      set((state) => {
+        state.sessionCreditsUsed += credits
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -197,6 +205,7 @@ export const useChatStore = create<ChatStore>()(
         state.agentMode = initialState.agentMode
         state.hasReceivedPlanResponse = initialState.hasReceivedPlanResponse
         state.lastMessageMode = initialState.lastMessageMode
+        state.sessionCreditsUsed = initialState.sessionCreditsUsed
       }),
   })),
 )

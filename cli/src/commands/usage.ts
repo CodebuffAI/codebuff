@@ -1,5 +1,6 @@
 import { BACKEND_URL } from '@codebuff/sdk'
 
+import { useChatStore } from '../state/chat-store'
 import { getAuthToken } from '../utils/auth'
 import { logger } from '../utils/logger'
 import type { PostUserMessageFn } from '../types/contracts/send-message'
@@ -16,6 +17,7 @@ export async function handleUsageCommand(): Promise<{
   postUserMessage: PostUserMessageFn
 }> {
   const authToken = getAuthToken()
+  const sessionCreditsUsed = useChatStore.getState().sessionCreditsUsed
 
   if (!authToken) {
     const postUserMessage: PostUserMessageFn = (prev) => [
@@ -64,7 +66,7 @@ export async function handleUsageCommand(): Promise<{
     const data = (await response.json()) as UsageResponse
 
     // Format the usage message similar to npm-app
-    let usageMessage = ''
+    let usageMessage = `Session usage: ${sessionCreditsUsed.toLocaleString()} credits used`
 
     if (data.remainingBalance !== null) {
       const remainingColor =
@@ -74,7 +76,7 @@ export async function handleUsageCommand(): Promise<{
             ? 'yellow'
             : 'green'
 
-      usageMessage = `Credits Remaining: ${data.remainingBalance.toLocaleString()}`
+      usageMessage += `\n\nCredits Remaining: ${data.remainingBalance.toLocaleString()}`
 
       // Add next quota reset info if available
       if (data.next_quota_reset) {
@@ -89,7 +91,7 @@ export async function handleUsageCommand(): Promise<{
         usageMessage += `\n\nFree credits will renew on ${dateDisplay}.`
       }
     } else {
-      usageMessage = 'Usage information not available.'
+      usageMessage += '\n\nTotal balance information not available.'
     }
 
     const postUserMessage: PostUserMessageFn = (prev) => [

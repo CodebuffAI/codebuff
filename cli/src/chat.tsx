@@ -119,6 +119,7 @@ export const Chat = ({
     setHasReceivedPlanResponse,
     lastMessageMode,
     setLastMessageMode,
+    addSessionCredits,
     resetChatStore,
   } = useChatStore(
     useShallow((store) => ({
@@ -151,6 +152,7 @@ export const Chat = ({
       setHasReceivedPlanResponse: store.setHasReceivedPlanResponse,
       lastMessageMode: store.lastMessageMode,
       setLastMessageMode: store.setLastMessageMode,
+      addSessionCredits: store.addSessionCredits,
       resetChatStore: store.reset,
     })),
   )
@@ -403,6 +405,7 @@ export const Chat = ({
     setHasReceivedPlanResponse,
     lastMessageMode,
     setLastMessageMode,
+    addSessionCredits,
   })
 
   sendMessageRef.current = sendMessage
