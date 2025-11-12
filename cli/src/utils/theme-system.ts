@@ -792,7 +792,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     surfaceHover: '#334155',
 
     // Context-specific
-    aiLine: '#34d399',
+    aiLine: '#6b7280',
     userLine: '#38bdf8',
 
     // Agent backgrounds
@@ -856,7 +856,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     surfaceHover: '#e5e7eb',
 
     // AI/User context
-    aiLine: '#059669',
+    aiLine: '#6b7280',
     userLine: '#3b82f6',
 
     // Agent context
