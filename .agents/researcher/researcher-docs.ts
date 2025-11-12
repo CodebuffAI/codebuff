@@ -23,7 +23,7 @@ const definition: SecretAgentDefinition = {
   instructionsPrompt: `Instructions:
 1. Use the read_docs tool to get detailed documentation relevant to the user's question.
 2. Repeat the read_docs tool call until you have gathered all the relevant documentation.
-3. Write up a comprehensive report of the documentation. Include key findings, relevant insights, and actionable recommendations.
+3. Write up a concise report of the documentation. Include key findings for the user's prompt.
   `.trim(),
 }
 

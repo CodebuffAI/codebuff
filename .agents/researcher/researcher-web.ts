@@ -23,7 +23,7 @@ const definition: SecretAgentDefinition = {
 
 Use web_search to find current information. Repeat the web_search tool call until you have gathered all the relevant information.
 
-Then, write up a report that includes key findings, relevant insights, and actionable recommendations for the user's prompt.
+Then, write up a concise report that includes key findings for the user's prompt.
 `.trim(),
 
   handleSteps: function* ({ agentState, prompt, params }) {
