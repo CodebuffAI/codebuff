@@ -1,5 +1,6 @@
-import { convertToOpenAICompatibleChatMessages } from './convert-to-openai-compatible-chat-messages';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test'
+
+import { convertToOpenAICompatibleChatMessages } from './convert-to-openai-compatible-chat-messages'
 
 describe('user messages', () => {
   it('should convert messages with only a text part to a string content', async () => {
@@ -8,10 +9,10 @@ describe('user messages', () => {
         role: 'user',
         content: [{ type: 'text', text: 'Hello' }],
       },
-    ]);
+    ])
 
-    expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
-  });
+    expect(result).toEqual([{ role: 'user', content: 'Hello' }])
+  })
 
   it('should convert messages with image parts', async () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -26,7 +27,7 @@ describe('user messages', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -39,8 +40,8 @@ describe('user messages', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should convert messages with image parts from Uint8Array', async () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -55,7 +56,7 @@ describe('user messages', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -68,8 +69,8 @@ describe('user messages', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle URL-based images', async () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -83,7 +84,7 @@ describe('user messages', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -95,9 +96,9 @@ describe('user messages', () => {
           },
         ],
       },
-    ]);
-  });
-});
+    ])
+  })
+})
 
 describe('tool calls', () => {
   it('should stringify arguments to tool calls', () => {
@@ -124,7 +125,7 @@ describe('tool calls', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -146,8 +147,8 @@ describe('tool calls', () => {
         content: JSON.stringify({ oof: '321rab' }),
         tool_call_id: 'quux',
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle text output type in tool results', () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -173,7 +174,7 @@ describe('tool calls', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -195,9 +196,9 @@ describe('tool calls', () => {
         content: 'It is sunny today',
         tool_call_id: 'call-1',
       },
-    ]);
-  });
-});
+    ])
+  })
+})
 
 describe('provider-specific metadata merging', () => {
   it('should merge system message metadata', async () => {
@@ -211,7 +212,7 @@ describe('provider-specific metadata merging', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -219,8 +220,8 @@ describe('provider-specific metadata merging', () => {
         content: 'You are a helpful assistant.',
         cacheControl: { type: 'ephemeral' },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should merge user message content metadata', async () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -238,7 +239,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -246,8 +247,8 @@ describe('provider-specific metadata merging', () => {
         content: 'Hello',
         cacheControl: { type: 'ephemeral' },
       },
-    ]);
-  });
+    ])
+  })
 
   it('should prioritize content-level metadata when merging', async () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -270,7 +271,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -278,8 +279,8 @@ describe('provider-specific metadata merging', () => {
         content: 'Hello',
         contentLevel: true,
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle tool calls with metadata', async () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -299,7 +300,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -317,11 +318,11 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle image content with metadata', async () => {
-    const imageUrl = new URL('https://example.com/image.jpg');
+    const imageUrl = new URL('https://example.com/image.jpg')
     const result = convertToOpenAICompatibleChatMessages([
       {
         role: 'user',
@@ -338,7 +339,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -351,8 +352,8 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should omit non-openaiCompatible metadata', async () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -365,15 +366,15 @@ describe('provider-specific metadata merging', () => {
           },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
         role: 'system',
         content: 'Hello',
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle a user message with multiple content parts (text + image)', () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -401,7 +402,7 @@ describe('provider-specific metadata merging', () => {
           openaiCompatible: { priority: 'high' },
         },
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -422,8 +423,8 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle a user message with multiple text parts (flattening disabled)', () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -434,7 +435,7 @@ describe('provider-specific metadata merging', () => {
           { type: 'text', text: 'Part 2' },
         ],
       },
-    ]);
+    ])
 
     // Because there are multiple text parts, the converter won't flatten them
     expect(result).toEqual([
@@ -445,8 +446,8 @@ describe('provider-specific metadata merging', () => {
           { type: 'text', text: 'Part 2' },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle an assistant message with text plus multiple tool calls', () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -472,7 +473,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -498,8 +499,8 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle a single tool role message with multiple tool-result parts', () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -527,7 +528,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -541,8 +542,8 @@ describe('provider-specific metadata merging', () => {
         content: JSON.stringify({ stepTwo: 'data chunk 2' }),
         partial: true,
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle multiple content parts with multiple metadata layers', () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -571,7 +572,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -592,8 +593,8 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle different tool metadata vs. message-level metadata', () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -617,7 +618,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -636,8 +637,8 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
-  });
+    ])
+  })
 
   it('should handle metadata collisions and overwrites in tool calls', () => {
     const result = convertToOpenAICompatibleChatMessages([
@@ -664,7 +665,7 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
+    ])
 
     expect(result).toEqual([
       {
@@ -685,6 +686,6 @@ describe('provider-specific metadata merging', () => {
           },
         ],
       },
-    ]);
-  });
-});
+    ])
+  })
+})

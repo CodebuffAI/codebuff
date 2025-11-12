@@ -42,6 +42,7 @@ export function convertToOpenAICompatibleCompletionPrompt({
                 return part.text;
               }
             }
+            return
           })
           .filter(Boolean)
           .join('');
@@ -63,6 +64,7 @@ export function convertToOpenAICompatibleCompletionPrompt({
                 });
               }
             }
+            return undefined
           })
           .join('');
 
