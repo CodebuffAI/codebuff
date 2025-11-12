@@ -179,7 +179,7 @@ export const useSuggestionMenuHandlers = ({
         selectAgentItem(agentSelectedIndex) || selectAgentItem(0)
 
       if (key.name === 'down' && !hasModifier(key)) {
-        if (agentSelectedIndex === totalMatches - 1) return false
+        if (agentSelectedIndex === totalMatches - 1) return true
         setAgentSelectedIndex((prev) => prev + 1)
         return true
       }
