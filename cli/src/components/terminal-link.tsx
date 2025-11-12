@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
 
 import { useTheme } from '../hooks/use-theme'
+import { Button } from './button'
 
 type FormatLinesFn = (text: string, maxWidth?: number) => string[]
 
@@ -63,7 +64,7 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
   }
 
   return (
-    <box
+    <Button
       style={{
         flexDirection: 'column',
         alignItems: 'flex-start',
@@ -73,7 +74,7 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
       }}
       onMouseOver={() => setIsHovered(true)}
       onMouseOut={() => setIsHovered(false)}
-      onMouseDown={handleActivate}
+      onClick={handleActivate}
     >
       {displayLines.map((line: string, index: number) => {
         const coloredText = <span fg={displayColor}>{line}</span>
@@ -83,6 +84,6 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
           </text>
         )
       })}
-    </box>
+    </Button>
   )
 }

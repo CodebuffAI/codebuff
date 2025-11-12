@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import stringWidth from 'string-width'
 
 import { useTheme } from '../hooks/use-theme'
+import { Button } from './button'
 
 import type { ChatTheme } from '../types/theme-system'
 
@@ -75,8 +76,8 @@ export const SegmentedControl = ({
               </box>
             ) : null}
 
-            <box
-              onMouseDown={() => onSegmentClick && onSegmentClick(seg.id)}
+            <Button
+              onClick={() => onSegmentClick && onSegmentClick(seg.id)}
               onMouseOver={() => {
                 setHoveredId(seg.id)
                 setHasHoveredSinceOpen(true)
@@ -99,7 +100,7 @@ export const SegmentedControl = ({
                 )}
               </text>
               <text fg={seg.frameColor} selectable={false}>{seg.bottomBorder}</text>
-            </box>
+            </Button>
 
             {rightOfHovered ? (
               <box style={{ flexDirection: 'column', gap: 0 }}>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ChatTheme } from '../types/theme-system'
 import { BORDER_CHARS } from '../utils/ui-constants'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
+import { Button } from './button'
 export const BuildModeButtons = ({
   theme,
   onBuildFast,
@@ -39,7 +40,7 @@ export const BuildModeButtons = ({
           gap: 1,
         }}
       >
-        <box
+        <Button
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -50,15 +51,15 @@ export const BuildModeButtons = ({
               hoveredButton === 'fast' ? theme.foreground : theme.secondary,
             customBorderChars: BORDER_CHARS,
           }}
-          onMouseDown={onBuildFast}
+          onClick={onBuildFast}
           onMouseOver={() => setHoveredButton('fast')}
           onMouseOut={() => setHoveredButton(null)}
         >
           <text wrapMode="none" selectable={false}>
             <span fg={theme.foreground}>Build DEFAULT</span>
           </text>
-        </box>
-        <box
+        </Button>
+        <Button
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -69,14 +70,14 @@ export const BuildModeButtons = ({
               hoveredButton === 'max' ? theme.foreground : theme.secondary,
             customBorderChars: BORDER_CHARS,
           }}
-          onMouseDown={onBuildMax}
+          onClick={onBuildMax}
           onMouseOver={() => setHoveredButton('max')}
           onMouseOut={() => setHoveredButton(null)}
         >
           <text wrapMode="none" selectable={false}>
             <span fg={theme.foreground}>Build MAX</span>
           </text>
-        </box>
+        </Button>
       </box>
     </box>
   )
