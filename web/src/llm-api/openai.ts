@@ -7,6 +7,19 @@ import { env } from '@codebuff/internal/env'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
+export const OPENAI_SUPPORTED_MODELS = ['gpt-5'] as const
+export type OpenAIModel = (typeof OPENAI_SUPPORTED_MODELS)[number]
+
+const INPUT_TOKEN_COSTS: Record<OpenAIModel, number> = {
+  'gpt-5': 1.25,
+} as const
+const CACHED_INPUT_TOKEN_COSTS: Record<OpenAIModel, number> = {
+  'gpt-5': 0.125,
+} as const
+const OUTPUT_TOKEN_COSTS: Record<OpenAIModel, number> = {
+  'gpt-5': 10,
+} as const
+
 type StreamState = { responseText: string; reasoningText: string }
 
 function extractRequestMetadata(params: { body: unknown; logger: Logger }) {
@@ -25,11 +38,6 @@ function extractRequestMetadata(params: { body: unknown; logger: Logger }) {
   return { clientId, clientRequestId }
 }
 
-function normalizeOpenAIModel(model: unknown): string | undefined {
-  if (typeof model !== 'string') return undefined
-  return model.startsWith('openai/') ? model.slice('openai/'.length) : model
-}
-
 type OpenAIUsage = {
   prompt_tokens?: number
   prompt_tokens_details?: { cached_tokens?: number } | null
@@ -41,41 +49,19 @@ type OpenAIUsage = {
   cost_details?: { upstream_inference_cost?: number | null } | null
 }
 
-function getOpenAIRatesPerMTokens(model: string): {
-  inUsd: number
-  outUsd: number
-} {
-  const m = model.toLowerCase()
-  if (
-    m.includes('gpt-4o-mini') ||
-    m.includes('4o-mini') ||
-    m.includes('o4-mini')
-  ) {
-    return { inUsd: 0.15, outUsd: 0.6 }
-  }
-  if (m.includes('gpt-4o')) {
-    return { inUsd: 2.5, outUsd: 10 }
-  }
-  if (m.includes('gpt-4.1')) {
-    return { inUsd: 5, outUsd: 15 }
-  }
-  if (m.startsWith('o3-pro')) {
-    return { inUsd: 5, outUsd: 15 }
-  }
-  if (m.startsWith('o3')) {
-    return { inUsd: 5, outUsd: 15 }
-  }
-  if (m.startsWith('gpt-5')) {
-    return { inUsd: 5, outUsd: 15 }
-  }
-  return { inUsd: 2.5, outUsd: 10 }
-}
+function computeCostDollars(usage: OpenAIUsage, model: OpenAIModel): number {
+  const inputTokenCost = INPUT_TOKEN_COSTS[model]
+  const cachedInputTokenCost = CACHED_INPUT_TOKEN_COSTS[model]
+  const outputTokenCost = OUTPUT_TOKEN_COSTS[model]
 
-function computeCostDollars(usage: OpenAIUsage, model: string): number {
-  const { inUsd, outUsd } = getOpenAIRatesPerMTokens(model)
   const inTokens = usage.prompt_tokens ?? 0
+  const cachedInTokens = usage.prompt_tokens_details?.cached_tokens ?? 0
   const outTokens = usage.completion_tokens ?? 0
-  return (inTokens / 1_000_000) * inUsd + (outTokens / 1_000_000) * outUsd
+  return (
+    (inTokens / 1_000_000) * inputTokenCost +
+    (cachedInTokens / 1_000_000) * cachedInputTokenCost +
+    (outTokens / 1_000_000) * outputTokenCost
+  )
 }
 
 export async function handleOpenAIStream({
@@ -96,10 +82,24 @@ export async function handleOpenAIStream({
   const startTime = new Date()
   const { clientId, clientRequestId } = extractRequestMetadata({ body, logger })
 
-  const model = normalizeOpenAIModel((body as any)?.model)
+  const { model } = body
+  const modelShortName =
+    typeof model === 'string' ? model.split('/')[1] : undefined
+  if (
+    !modelShortName ||
+    !OPENAI_SUPPORTED_MODELS.includes(modelShortName as OpenAIModel)
+  ) {
+    throw new Error(
+      `Unsupported OpenAI model: ${model} (supported models include only: ${OPENAI_SUPPORTED_MODELS.map((m) => `'${m}'`).join(', ')})`,
+    )
+  }
 
   // Build OpenAI-compatible body
-  const openaiBody: Record<string, unknown> = { ...body, model, stream: true }
+  const openaiBody: Record<string, unknown> = {
+    ...body,
+    model: modelShortName,
+    stream: true,
+  }
   // Ensure usage in final chunk
   const streamOptions = (openaiBody.stream_options as any) ?? {}
   streamOptions.include_usage = true
@@ -182,6 +182,7 @@ export async function handleOpenAIStream({
               startTime,
               request: openaiBody,
               line,
+              modelShortName: modelShortName as OpenAIModel,
               state,
               logger,
               insertMessage: insertMessageBigquery,
@@ -239,6 +240,7 @@ async function handleOpenAILine({
   clientId,
   clientRequestId,
   startTime,
+  modelShortName,
   request,
   line,
   state,
@@ -250,6 +252,7 @@ async function handleOpenAILine({
   clientId: string | null
   clientRequestId: string | null
   startTime: Date
+  modelShortName: OpenAIModel
   request: unknown
   line: string
   state: StreamState
@@ -292,14 +295,7 @@ async function handleOpenAILine({
   // If usage present, it's the final chunk. Compute cost, log, and consume credits.
   if (obj && obj.usage) {
     const usage: OpenAIUsage = obj.usage
-    const model: string =
-      typeof obj.model === 'string'
-        ? obj.model
-        : typeof (request as any)?.model === 'string'
-          ? (request as any).model
-          : ''
-
-    const cost = computeCostDollars(usage, model)
+    const cost = computeCostDollars(usage, modelShortName)
     obj.usage.cost = cost
     obj.usage.cost_details = { upstream_inference_cost: null }
 

@@ -20,7 +20,7 @@ import {
   handleOpenRouterNonStream,
   handleOpenRouterStream,
 } from '@/llm-api/openrouter'
-import { handleOpenAIStream } from '@/llm-api/openai'
+import { handleOpenAIStream, OPENAI_SUPPORTED_MODELS } from '@/llm-api/openai'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 export async function postChatCompletions(params: {
@@ -206,8 +206,12 @@ export async function postChatCompletions(params: {
       if (bodyStream) {
         // Streaming request
         const model = (body as any)?.model
+        const shortModelName =
+          typeof model === 'string' ? model.split('/')[1] : undefined
         const isOpenAIDirectModel =
-          typeof model === 'string' && model.startsWith('openai/')
+          typeof model === 'string' &&
+          model.startsWith('openai/') &&
+          OPENAI_SUPPORTED_MODELS.includes(shortModelName as any)
         const stream = await (isOpenAIDirectModel
           ? handleOpenAIStream({
               body,
