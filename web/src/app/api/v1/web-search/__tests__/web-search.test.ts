@@ -1,0 +1,121 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { NextRequest } from 'next/server'
+
+import { postWebSearch } from '../_post'
+
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
+import type {
+  GetUserUsageDataFn,
+  ConsumeCreditsWithFallbackFn,
+} from '@codebuff/common/types/contracts/billing'
+import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
+import type {
+  Logger,
+  LoggerWithContextFn,
+} from '@codebuff/common/types/contracts/logger'
+
+describe('/api/v1/web-search POST endpoint', () => {
+  let mockLogger: Logger
+  let mockLoggerWithContext: LoggerWithContextFn
+  let mockTrackEvent: TrackEventFn
+  let mockGetUserUsageData: GetUserUsageDataFn
+  let mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn
+  let mockConsumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
+  let mockFetch: typeof globalThis.fetch
+
+  beforeEach(() => {
+    mockLogger = {
+      error: mock(() => {}),
+      warn: mock(() => {}),
+      info: mock(() => {}),
+      debug: mock(() => {}),
+    }
+    mockLoggerWithContext = mock(() => mockLogger)
+    mockTrackEvent = mock(() => {})
+
+    mockGetUserUsageData = mock(async () => ({
+      balance: { totalRemaining: 10 },
+      nextQuotaReset: 'soon',
+    }))
+    mockGetUserInfoFromApiKey = mock(async ({ apiKey }) =>
+      apiKey === 'valid' ? ({ id: 'user-1' } as any) : null,
+    )
+    mockConsumeCreditsWithFallback = mock(
+      async () =>
+        ({ success: true, value: { chargedToOrganization: false } }) as any,
+    )
+
+    // Mock fetch to return Linkup-like response
+    mockFetch = (async () =>
+      new Response(JSON.stringify({ answer: 'result', sources: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })) as any
+  })
+
+  afterEach(() => {
+    mock.restore()
+  })
+
+  test('401 when missing API key', async () => {
+    const req = new NextRequest('http://localhost:3000/api/v1/web-search', {
+      method: 'POST',
+      body: JSON.stringify({ query: 'foo' }),
+    })
+    const res = await postWebSearch({
+      req,
+      getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+      logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
+      trackEvent: mockTrackEvent,
+      getUserUsageData: mockGetUserUsageData,
+      consumeCreditsWithFallback: mockConsumeCreditsWithFallback,
+      fetch: mockFetch,
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('402 when insufficient credits', async () => {
+    mockGetUserUsageData = mock(async () => ({
+      balance: { totalRemaining: 0 },
+      nextQuotaReset: 'soon',
+    }))
+    const req = new NextRequest('http://localhost:3000/api/v1/web-search', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer valid' },
+      body: JSON.stringify({ query: 'foo' }),
+    })
+    const res = await postWebSearch({
+      req,
+      getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+      logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
+      trackEvent: mockTrackEvent,
+      getUserUsageData: mockGetUserUsageData,
+      consumeCreditsWithFallback: mockConsumeCreditsWithFallback,
+      fetch: mockFetch,
+    })
+    expect(res.status).toBe(402)
+  })
+
+  test('200 on success', async () => {
+    const req = new NextRequest('http://localhost:3000/api/v1/web-search', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer valid' },
+      body: JSON.stringify({ query: 'hello', depth: 'standard' }),
+    })
+    const res = await postWebSearch({
+      req,
+      getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+      logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
+      trackEvent: mockTrackEvent,
+      getUserUsageData: mockGetUserUsageData,
+      consumeCreditsWithFallback: mockConsumeCreditsWithFallback,
+      fetch: mockFetch,
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.result).toBeDefined()
+  })
+})
