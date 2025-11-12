@@ -35,7 +35,7 @@ export type AgentContentBlock = {
   agentName: string
   agentType: string
   content: string
-  status: 'running' | 'complete'
+  status: 'running' | 'complete' | 'failed'
   blocks?: ContentBlock[]
   initialPrompt?: string
 }

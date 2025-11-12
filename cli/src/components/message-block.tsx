@@ -718,13 +718,16 @@ const AgentBranchWrapper = memo(
         : ''
 
     const isActive = isStreaming || agentBlock.status === 'running'
+    const isFailed = agentBlock.status === 'failed'
     const statusLabel = isActive
       ? 'running'
       : agentBlock.status === 'complete'
         ? 'completed'
-        : agentBlock.status
-    const statusColor = isActive ? theme.primary : theme.muted
-    const statusIndicator = isActive ? '●' : '✓'
+        : isFailed
+          ? 'failed'
+          : agentBlock.status
+    const statusColor = isActive ? theme.primary : isFailed ? 'red' : theme.muted
+    const statusIndicator = isActive ? '●' : isFailed ? '✗' : '✓'
 
     const onToggle = useCallback(() => {
       onToggleCollapsed(agentBlock.agentId)

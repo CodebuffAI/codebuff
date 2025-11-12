@@ -1439,6 +1439,12 @@ export const useSendMessage = ({
                             if (typeof result.value === 'string') {
                               content = result.value
                             } else if (
+                              has(result.value, 'errorMessage') &&
+                              result.value.errorMessage
+                            ) {
+                              // Handle error messages from failed agent spawns
+                              content = String(result.value.errorMessage)
+                            } else if (
                               has(result.value, 'value') &&
                               result.value.value &&
                               typeof result.value.value === 'string'
@@ -1467,10 +1473,12 @@ export const useSendMessage = ({
                               type: 'text',
                               content,
                             }
+                            // Determine status based on whether there's an error
+                            const hasError = has(result.value, 'errorMessage') && result.value.errorMessage
                             return {
                               ...block,
                               blocks: [resultTextBlock],
-                              status: 'complete' as const,
+                              status: hasError ? ('failed' as const) : ('complete' as const),
                             }
                           }
                         }

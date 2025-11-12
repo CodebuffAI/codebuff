@@ -119,6 +119,10 @@ export function formatToolOutput(output: unknown): string {
     return output
       .map((item) => {
         if (item.type === 'json') {
+          // Handle errorMessage in the value object
+          if (item.value && typeof item.value === 'object' && 'errorMessage' in item.value) {
+            return String(item.value.errorMessage)
+          }
           return toYaml(item.value)
         }
         if (item.type === 'text') {
