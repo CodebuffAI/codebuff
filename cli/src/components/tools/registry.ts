@@ -70,11 +70,11 @@ export function renderToolComponent(
   toolBlock: ToolBlock,
   theme: ChatTheme,
   options: ToolRenderOptions,
-): ToolRenderConfig | null {
+): ToolRenderConfig | undefined {
   const component = getToolComponent(toolBlock.toolName)
 
-  if (!component) {
-    return null
+  if (component === undefined) {
+    return undefined
   }
 
   try {
@@ -84,7 +84,7 @@ export function renderToolComponent(
       `Error rendering tool component for ${toolBlock.toolName}:`,
       error,
     )
-    return null
+    return undefined
   }
 }
 

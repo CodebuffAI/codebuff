@@ -28,10 +28,10 @@ export type ToolRenderConfig = {
 export interface ToolComponent<T extends ToolName = ToolName> {
   /** The tool name this component handles */
   toolName: T
-  
+
   /**
    * Render function that returns configuration for how to display this tool.
-   * 
+   *
    * @param toolBlock - The tool block data containing input/output
    * @param theme - The current chat theme
    * @param options - Rendering options like width and indentation
@@ -41,7 +41,7 @@ export interface ToolComponent<T extends ToolName = ToolName> {
     toolBlock: ToolBlock & { toolName: T },
     theme: ChatTheme,
     options: ToolRenderOptions,
-  ): ToolRenderConfig | null
+  ): ToolRenderConfig
 }
 
 /**
