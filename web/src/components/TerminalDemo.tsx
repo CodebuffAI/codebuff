@@ -334,7 +334,7 @@ const TypingEffect = ({
 }
 
 const TerminalDemo = () => {
-  const { theme: colorTheme } = useTheme()
+  const colorTheme = useTheme()
   const [terminalLines, setTerminalLines] = useState<React.ReactNode[]>([
     <TerminalOutput key="welcome">
       <span className="text-green-400 font-bold">Codebuff CLI v1.5.0</span>

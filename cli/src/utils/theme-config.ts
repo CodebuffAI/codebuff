@@ -135,6 +135,7 @@ export const buildTheme = (
 
   // Final step: Resolve all 'default' values to actual colors
   resolveThemeColors(theme, mode)
+  theme.name = mode
 
   return theme
 }

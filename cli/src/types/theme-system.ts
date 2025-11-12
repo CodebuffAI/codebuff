@@ -24,6 +24,8 @@ export interface MarkdownThemeOverrides {
  * This makes theming easier and more intuitive
  */
 export interface ChatTheme {
+  /** Theme identifier ('dark' or 'light') */
+  name: ThemeName
   // ============================================================================
   // CORE SEMANTIC COLORS
   // ============================================================================

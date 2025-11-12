@@ -505,7 +505,7 @@ const detectZedTheme = (): ThemeName | null => {
   return null
 }
 
-const detectIDETheme = (): ThemeName | null => {
+export const detectIDETheme = (): ThemeName | null => {
   const detectors = [detectVSCodeTheme, detectJetBrainsTheme, detectZedTheme]
   for (const detector of detectors) {
     const theme = detector()
@@ -712,7 +712,7 @@ function detectWindowsPowerShellTheme(): ThemeName | null {
   return null
 }
 
-const detectTerminalOverrides = (): ThemeName | null => {
+export const detectTerminalOverrides = (): ThemeName | null => {
   const termProgram = (process.env.TERM_PROGRAM ?? '').toLowerCase()
   const term = (process.env.TERM ?? '').toLowerCase()
 
@@ -728,7 +728,7 @@ const detectTerminalOverrides = (): ThemeName | null => {
   return null
 }
 
-function detectPlatformTheme(): ThemeName {
+export function detectPlatformTheme(): ThemeName {
   if (typeof Bun !== 'undefined') {
     if (process.platform === 'darwin') {
       const value = runSystemCommand([
@@ -772,44 +772,9 @@ function detectPlatformTheme(): ThemeName {
   return 'dark'
 }
 
-export const detectSystemTheme = (): ThemeName => {
-  const envPreference = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
-  const normalizedEnv = envPreference?.toLowerCase()
-
-  if (normalizedEnv === 'dark' || normalizedEnv === 'light') {
-    return normalizedEnv
-  }
-
-  // Helper to detect theme with priority: Terminal override > IDE > OSC > Platform > Default
-  const detectPreferredTheme = (): ThemeName => {
-    const terminalOverrideTheme = detectTerminalOverrides()
-    if (terminalOverrideTheme) {
-      return terminalOverrideTheme
-    }
-
-    const ideTheme = detectIDETheme()
-    if (ideTheme) {
-      return ideTheme
-    }
-
-    if (oscDetectedTheme) {
-      return oscDetectedTheme
-    }
-
-    return detectPlatformTheme()
-  }
-
-  const preferredTheme = detectPreferredTheme()
-
-  if (normalizedEnv === 'opposite') {
-    return preferredTheme === 'dark' ? 'light' : 'dark'
-  }
-
-  return preferredTheme
-}
-
 const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
+    name: 'dark',
     // Core semantic colors
     primary: '#facc15',
     secondary: '#a3aed0',
@@ -873,6 +838,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     },
   },
   light: {
+    name: 'light',
     // Core semantic colors
     primary: '#f59e0b',
     secondary: '#6b7280',
@@ -1029,8 +995,17 @@ const FILE_WATCHER_DEBOUNCE_MS = 250
 
 let lastDetectedTheme: ThemeName | null = null
 let themeStoreUpdater: ((name: ThemeName) => void) | null = null
+// OSC detections happen asynchronously and at most once.
+// We cache the resolved value so synchronous theme code can read it later
+// without triggering terminal I/O.
 let oscDetectedTheme: ThemeName | null = null
 let pendingRecomputeTimer: NodeJS.Timeout | null = null
+let themeResolver: (() => ThemeName) | null = null
+
+export const getOscDetectedTheme = (): ThemeName | null => oscDetectedTheme
+export const setThemeResolver = (resolver: () => ThemeName) => {
+  themeResolver = resolver
+}
 
 /**
  * Initialize theme store updater
@@ -1053,7 +1028,11 @@ const recomputeSystemTheme = (source: string) => {
     return
   }
 
-  const newTheme = detectSystemTheme()
+  if (!themeResolver) {
+    return
+  }
+
+  const newTheme = themeResolver()
 
   // Always call the updater and let it decide if an update is needed
   lastDetectedTheme = newTheme

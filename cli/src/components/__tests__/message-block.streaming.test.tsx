@@ -4,7 +4,7 @@ import { describe, test, expect } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { MessageBlock } from '../message-block'
-import '../../state/theme-store' // Initialize theme store
+import { initializeThemeStore } from '../../hooks/use-theme'
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
@@ -71,3 +71,4 @@ describe('MessageBlock streaming indicator', () => {
     expect(markup).not.toContain('0s')
   })
 })
+initializeThemeStore()

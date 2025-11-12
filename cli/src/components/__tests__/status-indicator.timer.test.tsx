@@ -3,7 +3,7 @@ import React from 'react'
 
 import { StatusIndicator, StatusElapsedTime } from '../status-indicator'
 
-import '../../state/theme-store' // Initialize theme store
+import { initializeThemeStore } from '../../hooks/use-theme'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { getStatusIndicatorState } from '../status-indicator'
 
@@ -160,3 +160,4 @@ describe('StatusIndicator state transitions', () => {
     })
   })
 })
+initializeThemeStore()

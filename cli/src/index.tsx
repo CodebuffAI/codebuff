@@ -34,7 +34,7 @@ import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile } from './utils/logger'
-import { initializeThemeStore } from './state/theme-store'
+import { initializeThemeStore } from './hooks/use-theme'
 
 const require = createRequire(import.meta.url)
 

@@ -10,6 +10,7 @@ import {
 import type { ChatTheme } from '../../types/theme-system'
 
 const theme: ChatTheme = {
+  name: 'dark',
   // Core
   primary: '#ff0',
   secondary: '#888',
