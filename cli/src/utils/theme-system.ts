@@ -1161,6 +1161,10 @@ process.on('SIGUSR2', () => {
  * Runs in a separate process to avoid blocking and hiding I/O from user
  */
 export function initializeOSCDetection(): void {
+  const ideTheme = detectIDETheme()
+  if (ideTheme) {
+    return
+  }
   void detectOSCInBackground()
 }
 
