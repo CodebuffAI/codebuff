@@ -207,7 +207,7 @@ describe('providerOptions', () => {
     expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       messages: [
         {
-          content: 'Hello',
+          content: [{ type: 'text', text: 'Hello' }],
           role: 'user',
         },
       ],

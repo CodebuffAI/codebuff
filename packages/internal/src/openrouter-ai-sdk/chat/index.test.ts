@@ -1,5 +1,5 @@
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test'
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { createOpenRouter } from '../provider'
 import { ReasoningDetailType } from '../schemas/reasoning-details'
