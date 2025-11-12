@@ -97,7 +97,12 @@ export async function handleOpenAIStream({
   streamOptions.include_usage = true
   openaiBody.stream_options = streamOptions
 
-  // Remove fields that OpenAI might not accept
+  // Transform max_tokens to max_completion_tokens
+  openaiBody.max_completion_tokens = openaiBody.max_tokens
+  delete (openaiBody as any).max_tokens
+
+  // Remove fields that OpenAI doesn't support
+  delete (openaiBody as any).stop
   delete (openaiBody as any).usage
   delete (openaiBody as any).provider
   delete (openaiBody as any).transforms
@@ -113,10 +118,10 @@ export async function handleOpenAIStream({
   })
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
+    throw new Error(`OpenAI API error: ${response.status} ${response.statusText} ${await response.text()}`)
   }
 
-  const reader = response.body?.getReader()
+  const reader = response.body?.getReader?.()
   if (!reader) {
     throw new Error('Failed to get response reader')
   }
