@@ -636,11 +636,7 @@ describe('convertCbToModelMessages', () => {
           content: [
             {
               type: 'text',
-              text: 'M',
-            },
-            {
-              type: 'text',
-              text: 'ore context',
+              text: 'More context',
               providerOptions: expect.objectContaining({
                 openaiCompatible: {
                   cache_control: {
@@ -682,11 +678,7 @@ describe('convertCbToModelMessages', () => {
           content: [
             {
               type: 'text',
-              text: 'I',
-            },
-            {
-              type: 'text',
-              text: 'nstructions',
+              text: 'Instructions',
               providerOptions: expect.objectContaining({
                 openaiCompatible: {
                   cache_control: {
@@ -724,11 +716,7 @@ describe('convertCbToModelMessages', () => {
           content: [
             {
               type: 'text',
-              text: 'M',
-            },
-            {
-              type: 'text',
-              text: 'ore context',
+              text: 'More context',
               providerOptions: expect.objectContaining({
                 openaiCompatible: {
                   cache_control: {
@@ -768,11 +756,7 @@ describe('convertCbToModelMessages', () => {
             { type: 'text', text: 'More context' },
             {
               type: 'text',
-              text: 'U',
-            },
-            {
-              type: 'text',
-              text: 'ser message',
+              text: 'User message',
               providerOptions: expect.objectContaining({
                 openaiCompatible: {
                   cache_control: {
@@ -863,14 +847,14 @@ describe('convertCbToModelMessages', () => {
       ])
     })
 
-    it('should skip very short text content when finding cache control location', () => {
+    it('should handle very short text content when finding cache control location', () => {
       const messages: Message[] = [
         { role: 'system', content: 'System' },
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Long enough text' },
-            { type: 'text', text: 'X' }, // Too short
+            { type: 'text', text: 'Longer text' },
+            { type: 'text', text: 'X' }, // Short
           ],
         },
         { role: 'user', content: 'Next', tags: ['USER_PROMPT'] },
@@ -886,10 +870,10 @@ describe('convertCbToModelMessages', () => {
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'L' },
+            { type: 'text', text: 'Longer text' },
             {
               type: 'text',
-              text: 'ong enough text',
+              text: 'X',
               providerOptions: expect.objectContaining({
                 openaiCompatible: {
                   cache_control: {
@@ -897,10 +881,6 @@ describe('convertCbToModelMessages', () => {
                   },
                 },
               }),
-            },
-            {
-              type: 'text',
-              text: 'X',
             },
           ],
         },

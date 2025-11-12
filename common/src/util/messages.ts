@@ -302,11 +302,6 @@ export function convertCbToModelMessages({
           break addCacheControlLoop
         }
 
-        if (lastContentPart.text.length < 2) {
-          // continue searching in this message
-          continue
-        }
-
         prevMessage.content = [
           ...contentBlock.slice(0, lastContentIndex),
           withCacheControl(lastContentPart),
