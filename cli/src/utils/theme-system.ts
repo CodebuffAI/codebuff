@@ -672,9 +672,6 @@ const runSystemCommand = (command: string[]): string | null => {
 function detectWindowsPowerShellTheme(): ThemeName | null {
   if (process.platform !== 'win32') return null
 
-  const shell = detectShell()
-  if (shell !== 'powershell') return null
-
   const bgColor = runSystemCommand([
     'powershell',
     '-NoProfile',
@@ -687,9 +684,27 @@ function detectWindowsPowerShellTheme(): ThemeName | null {
   const colorLower = bgColor.toLowerCase()
 
   // Dark background colors in PowerShell
-  const darkColors = ['black', 'darkblue', 'darkgreen', 'darkcyan', 'darkred', 'darkmagenta', 'darkyellow', 'darkgray']
+  const darkColors = [
+    'black',
+    'darkblue',
+    'darkgreen',
+    'darkcyan',
+    'darkred',
+    'darkmagenta',
+    'darkyellow',
+    'darkgray',
+  ]
   // Light background colors in PowerShell
-  const lightColors = ['gray', 'blue', 'green', 'cyan', 'red', 'magenta', 'yellow', 'white']
+  const lightColors = [
+    'gray',
+    'blue',
+    'green',
+    'cyan',
+    'red',
+    'magenta',
+    'yellow',
+    'white',
+  ]
 
   if (darkColors.includes(colorLower)) return 'dark'
   if (lightColors.includes(colorLower)) return 'light'
