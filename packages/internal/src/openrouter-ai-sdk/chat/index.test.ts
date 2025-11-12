@@ -542,7 +542,7 @@ describe('doGenerate', () => {
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
     })
   })
 
@@ -560,7 +560,7 @@ describe('doGenerate', () => {
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       models: ['anthropic/claude-2', 'gryphe/mythomax-l2-13b'],
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
     })
   })
 
@@ -580,7 +580,7 @@ describe('doGenerate', () => {
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'openai/gpt-3.5-turbo',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       logprobs: true,
       top_logprobs: 2,
       logit_bias: { 50256: -100 },
@@ -616,7 +616,7 @@ describe('doGenerate', () => {
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       tools: [
         {
           type: 'function',
@@ -693,7 +693,7 @@ describe('doGenerate', () => {
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       response_format: {
         type: 'json_schema',
         json_schema: {
@@ -729,7 +729,7 @@ describe('doGenerate', () => {
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       response_format: {
         type: 'json_schema',
         json_schema: {
@@ -1471,7 +1471,7 @@ describe('doStream', () => {
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
     })
   })
 
@@ -1559,7 +1559,7 @@ describe('doStream', () => {
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       response_format: {
         type: 'json_schema',
         json_schema: {
