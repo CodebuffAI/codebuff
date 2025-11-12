@@ -2,6 +2,7 @@ import React from 'react'
 
 import { HighlightedSubsequenceText } from './highlighted-text'
 import { useTheme } from '../hooks/use-theme'
+import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 
 export interface SuggestionItem {
   id: string
@@ -25,15 +26,15 @@ export const SuggestionMenu = ({
   prefix = '/',
 }: SuggestionMenuProps) => {
   const theme = useTheme()
+  const { terminalWidth } = useTerminalDimensions()
+  const screenPadding = 4
+  const menuWidth = Math.max(10, terminalWidth - screenPadding * 2)
+
   if (items.length === 0) {
     return null
   }
 
   const effectivePrefix = prefix ?? ''
-  const maxLabelLength = items.reduce((max, item) => {
-    const totalLength = effectivePrefix.length + item.label.length
-    return totalLength > max ? totalLength : max
-  }, 0)
 
   const clampedSelected = Math.min(
     Math.max(selectedIndex, 0),
@@ -50,7 +51,7 @@ export const SuggestionMenu = ({
     const absoluteIndex = start + idx
     const isSelected = absoluteIndex === clampedSelected
     const labelLength = effectivePrefix.length + item.label.length
-    const paddingLength = Math.max(maxLabelLength - labelLength + 2, 2)
+    const paddingLength = Math.max(menuWidth - labelLength + 2, 2)
     const padding = ' '.repeat(paddingLength)
     const textColor = isSelected ? theme.foreground : theme.inputFg
     const descriptionColor = isSelected ? theme.foreground : theme.muted
@@ -108,16 +109,7 @@ export const SuggestionMenu = ({
         width: '100%',
       }}
     >
-      <box
-        style={{
-          flexDirection: 'column',
-          gap: 0,
-          backgroundColor: theme.background,
-          width: '100%',
-        }}
-      >
-        {visibleItems.map(renderSuggestionItem)}
-      </box>
+      {visibleItems.map(renderSuggestionItem)}
     </box>
   )
 }
