@@ -21,8 +21,11 @@ if (cliEntryPoint && typeof globalThis !== 'undefined') {
 
 import './polyfills/bun-strip-ansi'
 import { createRequire } from 'module'
+import { promises as fs } from 'fs'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { getProjectFileTree } from '@codebuff/common/project-file-tree'
+import type { FileTreeNode } from '@codebuff/common/util/file'
 import { validateAgents } from '@codebuff/sdk'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -33,8 +36,9 @@ import { App } from './app'
 import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
-import { clearLogFile } from './utils/logger'
+import { clearLogFile, logger } from './utils/logger'
 import { initializeThemeStore } from './hooks/use-theme'
+import { getProjectRoot } from './project-files'
 
 const require = createRequire(import.meta.url)
 
@@ -190,6 +194,7 @@ async function bootstrapCli(): Promise<void> {
     const [requireAuth, setRequireAuth] = React.useState<boolean | null>(null)
     const [hasInvalidCredentials, setHasInvalidCredentials] =
       React.useState(false)
+    const [fileTree, setFileTree] = React.useState<FileTreeNode[]>([])
 
     React.useEffect(() => {
       const userCredentials = getUserCredentials()
@@ -206,6 +211,26 @@ async function bootstrapCli(): Promise<void> {
       setRequireAuth(false)
     }, [])
 
+    React.useEffect(() => {
+      const loadFileTree = async () => {
+        try {
+          const projectRoot = getProjectRoot()
+          if (projectRoot) {
+            const tree = await getProjectFileTree({
+              projectRoot,
+              fs: fs,
+            })
+            logger.info({ tree }, 'Loaded file tree')
+            setFileTree(tree)
+          }
+        } catch (error) {
+          // Silently fail - fileTree is optional for @ menu
+        }
+      }
+
+      loadFileTree()
+    }, [])
+
     return (
       <App
         initialPrompt={initialPrompt}
@@ -214,6 +239,7 @@ async function bootstrapCli(): Promise<void> {
         hasInvalidCredentials={hasInvalidCredentials}
         loadedAgentsData={loadedAgentsData}
         validationErrors={validationErrors}
+        fileTree={fileTree}
       />
     )
   }

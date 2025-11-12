@@ -14,11 +14,16 @@ interface MenuItem {
   displayName?: string
 }
 
+interface FileItem {
+  filePath: string
+}
+
 interface UseSuggestionMenuHandlersOptions {
   slashContext: MenuContext
   mentionContext: MenuContext
   slashMatches: MenuItem[]
   agentMatches: MenuItem[]
+  fileMatches: FileItem[]
   slashSelectedIndex: number
   agentSelectedIndex: number
   inputValue: string
@@ -35,6 +40,7 @@ export const useSuggestionMenuHandlers = ({
   mentionContext,
   slashMatches,
   agentMatches,
+  fileMatches,
   slashSelectedIndex,
   agentSelectedIndex,
   inputValue,
@@ -73,14 +79,26 @@ export const useSuggestionMenuHandlers = ({
 
   const selectAgentItem = useCallback(
     (index: number) => {
-      const selected = agentMatches[index]
-      if (!selected || mentionContext.startIndex < 0) return false
+      if (mentionContext.startIndex < 0) return false
+
+      let replacement: string
+      if (index < agentMatches.length) {
+        // Selected an agent
+        const selected = agentMatches[index]
+        if (!selected) return false
+        replacement = `@${selected.displayName} `
+      } else {
+        // Selected a file
+        const fileIndex = index - agentMatches.length
+        const selectedFile = fileMatches[fileIndex]
+        if (!selectedFile) return false
+        replacement = `@${selectedFile.filePath} `
+      }
 
       const before = inputValue.slice(0, mentionContext.startIndex)
       const after = inputValue.slice(
         mentionContext.startIndex + 1 + mentionContext.query.length,
       )
-      const replacement = `@${selected.displayName} `
       const newValue = before + replacement + after
 
       setInputValue({
@@ -93,6 +111,7 @@ export const useSuggestionMenuHandlers = ({
     },
     [
       agentMatches,
+      fileMatches,
       mentionContext,
       inputValue,
       setInputValue,
@@ -153,13 +172,14 @@ export const useSuggestionMenuHandlers = ({
 
   const handleAgentMenuKey = useCallback(
     (key: KeyEvent): boolean => {
-      if (!mentionContext.active || agentMatches.length === 0) return false
+      const totalMatches = agentMatches.length + fileMatches.length
+      if (!mentionContext.active || totalMatches === 0) return false
 
       const selectCurrent = () =>
         selectAgentItem(agentSelectedIndex) || selectAgentItem(0)
 
       if (key.name === 'down' && !hasModifier(key)) {
-        if (agentSelectedIndex === agentMatches.length - 1) return false
+        if (agentSelectedIndex === totalMatches - 1) return false
         setAgentSelectedIndex((prev) => prev + 1)
         return true
       }
@@ -172,14 +192,14 @@ export const useSuggestionMenuHandlers = ({
 
       if (key.name === 'tab' && key.shift && !hasModifier(key)) {
         setAgentSelectedIndex(
-          (prev) => (agentMatches.length + prev - 1) % agentMatches.length,
+          (prev) => (totalMatches + prev - 1) % totalMatches,
         )
         return true
       }
 
       if (key.name === 'tab' && !key.shift && !hasModifier(key)) {
-        if (agentMatches.length > 1) {
-          setAgentSelectedIndex((prev) => (prev + 1) % agentMatches.length)
+        if (totalMatches > 1) {
+          setAgentSelectedIndex((prev) => (prev + 1) % totalMatches)
         } else {
           selectCurrent()
         }
@@ -196,6 +216,7 @@ export const useSuggestionMenuHandlers = ({
     [
       mentionContext,
       agentMatches,
+      fileMatches,
       agentSelectedIndex,
       selectAgentItem,
       setAgentSelectedIndex,

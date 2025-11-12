@@ -1,12 +1,12 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from 'react'
 
 import { range } from '../utils/arrays'
-import { getSubsequenceIndices } from '../utils/strings'
 
 import type { SuggestionItem } from '../components/suggestion-menu'
 import type { SlashCommand } from '../data/slash-commands'
 import type { Prettify } from '../types/utils'
 import type { LocalAgentInfo } from '../utils/local-agent-registry'
+import type { FileTreeNode } from '@codebuff/common/util/file'
 
 export interface TriggerContext {
   active: boolean
@@ -165,38 +165,6 @@ const filterSlashCommands = (
     }
   }
 
-  // Breakpoint for filter
-  if (!shouldKeepSearching) {
-    return matches
-  }
-
-  // Subsequence of ID
-  for (const command of commands) {
-    if (seen.has(command.id)) continue
-    const id = command.id.toLowerCase()
-    const aliasList = (command.aliases ?? []).map((alias) =>
-      alias.toLowerCase(),
-    )
-
-    for (const alias of [id, ...aliasList]) {
-      const subsequenceIndices = getSubsequenceIndices(alias, normalized)
-      if (subsequenceIndices) {
-        const label = command.label.toLowerCase()
-        const firstIndex = label.indexOf(alias)
-        pushUnique({
-          ...command,
-          ...(firstIndex === -1
-            ? null
-            : {
-                labelHighlightIndices: subsequenceIndices.map(
-                  (i) => firstIndex + i,
-                ),
-              }),
-        })
-      }
-    }
-  }
-
   return matches
 }
 
@@ -206,6 +174,111 @@ export type MatchedAgentInfo = Prettify<
     idHighlightIndices?: number[] | null
   }
 >
+
+export type MatchedFileInfo = Prettify<{
+  filePath: string
+  pathHighlightIndices?: number[] | null
+}>
+
+const filterFileMatches = (
+  files: FileTreeNode[],
+  query: string,
+): MatchedFileInfo[] => {
+  if (!query) {
+    return []
+  }
+
+  // Flatten the file tree to get all file paths
+  const flattenFiles = (nodes: FileTreeNode[]): string[] => {
+    const result: string[] = []
+    for (const node of nodes) {
+      if (node.type === 'file') {
+        result.push(node.filePath)
+      } else if (node.type === 'directory' && node.children) {
+        result.push(...flattenFiles(node.children))
+      }
+    }
+    return result
+  }
+
+  const allFilePaths = flattenFiles(files)
+  const normalized = query.toLowerCase()
+  const matches: MatchedFileInfo[] = []
+  const seen = new Set<string>()
+  let shouldKeepSearching = true
+
+  const pushUnique = (target: MatchedFileInfo[], file: MatchedFileInfo) => {
+    if (!seen.has(file.filePath)) {
+      target.push(file)
+      seen.add(file.filePath)
+    }
+  }
+
+  // Prefix of file path
+  for (const filePath of allFilePaths) {
+    const path = filePath.toLowerCase()
+    const fileName = filePath.split('/').pop() || ''
+    const fileNameLower = fileName.toLowerCase()
+
+    if (fileNameLower.startsWith(normalized)) {
+      if (normalized === fileNameLower) {
+        shouldKeepSearching = false
+      }
+      pushUnique(matches, {
+        filePath,
+        pathHighlightIndices: [
+          ...range(
+            filePath.lastIndexOf(fileName),
+            filePath.lastIndexOf(fileName) + normalized.length,
+          ),
+        ],
+      })
+      continue
+    }
+
+    if (path.startsWith(normalized)) {
+      pushUnique(matches, {
+        filePath,
+        pathHighlightIndices: [...range(normalized.length)],
+      })
+    }
+  }
+
+  // Substring of file name or path
+  for (const filePath of allFilePaths) {
+    if (seen.has(filePath)) continue
+    const path = filePath.toLowerCase()
+    const fileName = filePath.split('/').pop() || ''
+    const fileNameLower = fileName.toLowerCase()
+
+    const fileNameIndex = fileNameLower.indexOf(normalized)
+    if (fileNameIndex !== -1) {
+      const actualFileNameStart = filePath.lastIndexOf(fileName)
+      pushUnique(matches, {
+        filePath,
+        pathHighlightIndices: [
+          ...range(
+            actualFileNameStart + fileNameIndex,
+            actualFileNameStart + fileNameIndex + normalized.length,
+          ),
+        ],
+      })
+      continue
+    }
+
+    const pathIndex = path.indexOf(normalized)
+    if (pathIndex !== -1) {
+      pushUnique(matches, {
+        filePath,
+        pathHighlightIndices: [
+          ...range(pathIndex, pathIndex + normalized.length),
+        ],
+      })
+    }
+  }
+
+  return matches
+}
 
 const filterAgentMatches = (
   agents: LocalAgentInfo[],
@@ -283,34 +356,6 @@ const filterAgentMatches = (
     }
   }
 
-  // Breakpoint for filter
-  if (!shouldKeepSearching) {
-    return matches
-  }
-
-  // Subsequence of ID or name
-  for (const agent of agents) {
-    if (seen.has(agent.id)) continue
-    const id = agent.id.toLowerCase()
-    const idSubsequenceIndices = getSubsequenceIndices(id, normalized)
-    if (idSubsequenceIndices) {
-      pushUnique(matches, {
-        ...agent,
-        idHighlightIndices: idSubsequenceIndices,
-      })
-      continue
-    }
-
-    const name = agent.displayName.toLowerCase()
-    const nameSubsequenceIndices = getSubsequenceIndices(name, normalized)
-    if (nameSubsequenceIndices) {
-      pushUnique(matches, {
-        ...agent,
-        nameHighlightIndices: nameSubsequenceIndices,
-      })
-    }
-  }
-
   return matches
 }
 
@@ -318,28 +363,35 @@ export interface SuggestionEngineResult {
   slashContext: TriggerContext
   mentionContext: TriggerContext
   slashMatches: MatchedSlashCommand[]
-  agentMatches: LocalAgentInfo[]
+  agentMatches: MatchedAgentInfo[]
+  fileMatches: MatchedFileInfo[]
   slashSuggestionItems: SuggestionItem[]
   agentSuggestionItems: SuggestionItem[]
+  fileSuggestionItems: SuggestionItem[]
 }
 
 interface SuggestionEngineOptions {
   inputValue: string
   slashCommands: SlashCommand[]
   localAgents: LocalAgentInfo[]
+  fileTree: FileTreeNode[]
 }
 
 export const useSuggestionEngine = ({
   inputValue,
   slashCommands,
   localAgents,
+  fileTree,
 }: SuggestionEngineOptions): SuggestionEngineResult => {
   const deferredInput = useDeferredValue(inputValue)
   const slashCacheRef = useRef<Map<string, MatchedSlashCommand[]>>(
     new Map<string, SlashCommand[]>(),
   )
-  const agentCacheRef = useRef<Map<string, LocalAgentInfo[]>>(
-    new Map<string, LocalAgentInfo[]>(),
+  const agentCacheRef = useRef<Map<string, MatchedAgentInfo[]>>(
+    new Map<string, MatchedAgentInfo[]>(),
+  )
+  const fileCacheRef = useRef<Map<string, MatchedFileInfo[]>>(
+    new Map<string, MatchedFileInfo[]>(),
   )
 
   useEffect(() => {
@@ -349,6 +401,10 @@ export const useSuggestionEngine = ({
   useEffect(() => {
     agentCacheRef.current.clear()
   }, [localAgents])
+
+  useEffect(() => {
+    fileCacheRef.current.clear()
+  }, [fileTree])
 
   const slashContext = useMemo(
     () => parseSlashContext(deferredInput),
@@ -392,6 +448,22 @@ export const useSuggestionEngine = ({
     return computed
   }, [mentionContext, localAgents])
 
+  const fileMatches = useMemo<MatchedFileInfo[]>(() => {
+    if (!mentionContext.active) {
+      return []
+    }
+
+    const key = mentionContext.query.toLowerCase()
+    const cached = fileCacheRef.current.get(key)
+    if (cached) {
+      return cached
+    }
+
+    const computed = filterFileMatches(fileTree, mentionContext.query)
+    fileCacheRef.current.set(key, computed)
+    return computed
+  }, [mentionContext, fileTree])
+
   const slashSuggestionItems = useMemo<SuggestionItem[]>(() => {
     return slashMatches.map((command) => ({
       id: command.id,
@@ -412,12 +484,30 @@ export const useSuggestionEngine = ({
     }))
   }, [agentMatches])
 
+  const fileSuggestionItems = useMemo<SuggestionItem[]>(() => {
+    return fileMatches.map((file) => ({
+      id: file.filePath,
+      label: file.filePath.split('/').pop() || file.filePath,
+      labelHighlightIndices: file.pathHighlightIndices
+        ? file.pathHighlightIndices.map((idx) => {
+            const fileName = file.filePath.split('/').pop() || file.filePath
+            const fileNameStart = file.filePath.lastIndexOf(fileName)
+            return idx >= fileNameStart ? idx - fileNameStart : -1
+          }).filter((idx) => idx >= 0)
+        : null,
+      description: file.filePath,
+      descriptionHighlightIndices: file.pathHighlightIndices,
+    }))
+  }, [fileMatches])
+
   return {
     slashContext,
     mentionContext,
     slashMatches,
     agentMatches,
+    fileMatches,
     slashSuggestionItems,
     agentSuggestionItems,
+    fileSuggestionItems,
   }
 }
