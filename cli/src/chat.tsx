@@ -16,7 +16,6 @@ import {
   getStatusIndicatorState,
 } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
-import { Button } from './components/button'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthState } from './hooks/use-auth-state'
@@ -44,6 +43,7 @@ import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
+import { Button } from './components/button'
 
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
@@ -365,12 +365,17 @@ export const Chat = ({
   const {
     queuedMessages,
     streamStatus,
+    queuePaused,
     streamMessageIdRef,
     addToQueue,
     startStreaming,
     stopStreaming,
     setStreamStatus,
     setCanProcessQueue,
+    pauseQueue,
+    resumeQueue,
+    clearQueue,
+    isQueuePausedRef,
   } = useMessageQueue(
     (content: string) =>
       sendMessageRef.current?.({ content, agentMode }) ?? Promise.resolve(),
@@ -414,6 +419,8 @@ export const Chat = ({
     lastMessageMode,
     setLastMessageMode,
     addSessionCredits,
+    isQueuePausedRef,
+    resumeQueue,
   })
 
   sendMessageRef.current = sendMessage
@@ -441,6 +448,7 @@ export const Chat = ({
         streamMessageIdRef,
         addToQueue,
         clearMessages,
+        clearQueue,
         handleCtrlC,
         saveToHistory,
         scrollToLatest,
@@ -464,6 +472,9 @@ export const Chat = ({
       isChainInProgressRef,
       scrollToLatest,
       handleCtrlC,
+      clearQueue,
+      queuedMessages,
+      pauseQueue,
     ],
   )
 
@@ -496,6 +507,11 @@ export const Chat = ({
     navigateDown,
     toggleAgentMode,
     onCtrlC: handleCtrlC,
+    onInterrupt: () => {
+      if (queuedMessages.length > 0) {
+        pauseQueue()
+      }
+    },
     historyNavUpEnabled,
     historyNavDownEnabled,
   })
@@ -524,12 +540,22 @@ export const Chat = ({
       </text>
     ) : null
 
-  const shouldShowQueuePreview = queuedMessages.length > 0
+  const shouldShowQueuePreview = queuedMessages.length > 0 && !queuePaused
   const queuePreviewTitle = useMemo(() => {
     if (!shouldShowQueuePreview) return undefined
     const previewWidth = Math.max(30, separatorWidth - 20)
     return formatQueuedPreview(queuedMessages, previewWidth)
   }, [queuedMessages, separatorWidth, shouldShowQueuePreview])
+
+  const pausedQueueText = useMemo(() => {
+    if (!queuePaused || queuedMessages.length === 0) return undefined
+    const count = queuedMessages.length
+    return `${count} queued — your next message sends first`
+  }, [queuePaused, queuedMessages])
+
+  const handleClearQueue = useCallback(() => {
+    clearQueue()
+  }, [clearQueue])
   const hasSlashSuggestions =
     slashContext.active && slashSuggestionItems.length > 0
   const hasMentionSuggestions =
@@ -836,6 +862,32 @@ export const Chat = ({
             )}
           </box>
         </box>
+
+        {/* Paused queue indicator - fake bottom border continuation */}
+        {pausedQueueText && (
+          <box style={{ width: '100%' }}>
+            <box style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <text style={{ wrapMode: 'none', flexGrow: 1 }}>
+                <span fg={theme.warning}>
+                  {BORDER_CHARS.vertical} ⏸ {pausedQueueText}
+                </span>
+              </text>
+              <Button onClick={handleClearQueue} style={{ paddingRight: 1 }}>
+                <text>
+                  <span fg={theme.error}>✕</span>
+                </text>
+              </Button>
+              <text style={{ wrapMode: 'none' }}>
+                <span fg={theme.warning}>{BORDER_CHARS.vertical}</span>
+              </text>
+            </box>
+            <text style={{ wrapMode: 'none' }}>
+              <span fg={theme.warning}>
+                {BORDER_CHARS.bottomLeft}{BORDER_CHARS.horizontal.repeat(separatorWidth - 2)}{BORDER_CHARS.bottomRight}
+              </span>
+            </text>
+          </box>
+        )}
       </box>
 
       {/* Login Modal Overlay - show when not authenticated and done checking */}

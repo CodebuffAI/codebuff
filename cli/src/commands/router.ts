@@ -22,6 +22,7 @@ export async function routeUserPrompt(params: {
   streamMessageIdRef: React.MutableRefObject<string | null>
   addToQueue: (message: string) => void
   clearMessages: () => void
+  clearQueue: () => string[]
   handleCtrlC: () => true
   saveToHistory: (message: string) => void
   scrollToLatest: () => void
@@ -49,6 +50,7 @@ export async function routeUserPrompt(params: {
     streamMessageIdRef,
     addToQueue,
     clearMessages,
+    clearQueue,
     handleCtrlC,
     saveToHistory,
     scrollToLatest,

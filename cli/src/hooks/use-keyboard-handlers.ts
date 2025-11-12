@@ -16,6 +16,7 @@ interface KeyboardHandlersConfig {
   navigateDown: () => void
   toggleAgentMode: () => void
   onCtrlC: () => boolean
+  onInterrupt: () => void
   historyNavUpEnabled: boolean
   historyNavDownEnabled: boolean
 }
@@ -33,6 +34,7 @@ export const useKeyboardHandlers = ({
   navigateDown,
   toggleAgentMode,
   onCtrlC,
+  onInterrupt,
   historyNavUpEnabled,
   historyNavDownEnabled,
 }: KeyboardHandlersConfig) => {
@@ -53,6 +55,7 @@ export const useKeyboardHandlers = ({
           if (abortControllerRef.current) {
             abortControllerRef.current.abort()
           }
+          onInterrupt()
 
           return
         }
@@ -68,7 +71,7 @@ export const useKeyboardHandlers = ({
           }
         }
       },
-      [isStreaming, isWaitingForResponse, abortControllerRef, onCtrlC],
+      [isStreaming, isWaitingForResponse, abortControllerRef, onCtrlC, onInterrupt],
     ),
   )
 

@@ -233,6 +233,8 @@ interface UseSendMessageOptions {
   lastMessageMode: AgentMode | null
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
+  isQueuePausedRef?: React.MutableRefObject<boolean>
+  resumeQueue?: () => void
 }
 
 export const useSendMessage = ({
@@ -264,6 +266,8 @@ export const useSendMessage = ({
   lastMessageMode,
   setLastMessageMode,
   addSessionCredits,
+  isQueuePausedRef,
+  resumeQueue,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -785,7 +789,7 @@ export const useSendMessage = ({
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
         setStreamStatus('idle')
-        setCanProcessQueue(true)
+        setCanProcessQueue(!isQueuePausedRef?.current)
         updateChainInProgress(false)
         timerController.stop('aborted')
 
@@ -1581,6 +1585,9 @@ export const useSendMessage = ({
         }
 
         setStreamStatus('idle')
+        if (resumeQueue) {
+          resumeQueue()
+        }
         setCanProcessQueue(true)
         updateChainInProgress(false)
         const timerResult = timerController.stop('success')
@@ -1675,6 +1682,7 @@ export const useSendMessage = ({
       lastMessageMode,
       setLastMessageMode,
       addSessionCredits,
+      resumeQueue,
     ],
   )
 
