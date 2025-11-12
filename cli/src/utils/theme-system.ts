@@ -4,6 +4,8 @@ import { dirname, join } from 'path'
 
 import { detectShell } from './detect-shell'
 import { logger } from './logger'
+import { detectTerminalTheme } from './terminal-color-detection'
+import { withTerminalInputGuard } from './terminal-input-guard'
 
 import type { MarkdownPalette } from './markdown-renderer'
 import type {
@@ -1143,9 +1145,8 @@ process.on('SIGUSR2', () => {
  * Initialize OSC theme detection with a one-time check
  * Runs in a separate process to avoid blocking and hiding I/O from user
  */
-export async function initializeOSCDetection(): Promise<void> {
-  // Don't await - fire and forget
-  detectOSCInBackground()
+export function initializeOSCDetection(): void {
+  void detectOSCInBackground()
 }
 
 /**
@@ -1158,48 +1159,18 @@ async function detectOSCInBackground() {
     return
   }
 
-  try {
-    // Spawn self with internal flag to run OSC detection
-    // Use stored CLI entry point path
-    const cliEntryPoint = (globalThis as any).__CLI_ENTRY_POINT || Bun.main
-    const proc = Bun.spawn({
-      cmd: [process.execPath, cliEntryPoint, '--internal-osc-detect'],
-      stdio: ['ignore', 'pipe', 'ignore'], // pipe stdout only, ignore stdin/stderr
-      timeout: 2000, // 2 second timeout to allow for module loading
-      env: {
-        ...process.env,
-        __INTERNAL_OSC_DETECT: '1', // Suppress console output
-      },
-    })
-
-    // Read result from stdout
-    const text = await new Response(proc.stdout).text()
-
-    // Extract JSON from output (ignore any console.log noise)
-    // Look for the last line that starts with { or contains "theme"
-    const lines = text.trim().split('\n')
-    let jsonLine = ''
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].trim()
-      if (line.startsWith('{') && line.includes('theme')) {
-        jsonLine = line
-        break
+  await withTerminalInputGuard(async () => {
+    try {
+      const theme = await detectTerminalTheme()
+      if (theme) {
+        oscDetectedTheme = theme
+        recomputeSystemTheme('osc-inline')
       }
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'OSC detection failed',
+      )
     }
-
-    if (!jsonLine) return
-
-    const result = JSON.parse(jsonLine) as { theme: 'dark' | 'light' | null }
-
-    if (result.theme) {
-      oscDetectedTheme = result.theme
-      // Trigger theme recomputation to apply OSC-detected theme
-      recomputeSystemTheme('osc-background')
-    }
-  } catch (error) {
-    logger.warn(
-      { error: error instanceof Error ? error.message : String(error) },
-      'OSC detection failed',
-    )
-  }
+  })
 }
