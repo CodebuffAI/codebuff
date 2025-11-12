@@ -8,7 +8,6 @@ import {
   FetchFunction,
   withoutTrailingSlash,
   withUserAgentSuffix,
-  getRuntimeEnvironmentUserAgent,
 } from '@ai-sdk/provider-utils';
 import {
   OpenAICompatibleChatConfig,
