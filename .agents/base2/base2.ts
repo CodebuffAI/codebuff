@@ -289,20 +289,23 @@ It should not include:
 
 This is more like an extremely short PRD which describes the end result of what the user wants. Think of it like fleshing out the user's prompt to make it more precise, although it should be as short as possible.
 
-## Questions
+## Follow-up questions
 
-After closing the <PLAN> tags, the last optional section is Questions, which is a Questions header with a numbered list of questions and alternate choices demarcated by letters.
+After closing the <PLAN> tags, the last optional section is Follow-up questions, which has a numbered list of questions and alternate choices demarcated by letters to clarify and improve upon the spec. These questions are optional for to complete for the user.
 
-For example, here is a nice short question, where the options are helpfully written out for the user:
+For example, here is a nice short follow-up question, where the options are helpfully written out for the user, with the answers a) and b) indented with two spaces for readability:
 
-Questions:
+<example>
+## Optional follow-up questions:
 
 1. Do you want to:
-  a) (DEFAULT) Keep Express and integrate Bun WebSockets
+  a) (CURRENT) Keep Express and integrate Bun WebSockets
   b) Migrate the entire HTTP server to Bun.serve()
+</example>
 
 Try to have as few questions as possible (even none), and focus on the most important decisions or assumptions that it would be helpful to clarify with the user.
-You should also let them know what you plan to do by default, and let them know that they can choose a different option if they want to.
+
+You should also let them know what the plan currently does by default by labeling that option with "(CURRENT)", and let them know that they can choose a different option if they want to.
 
 The questions section should be last and there should be no summary or further elaboration. Just end your turn.
 

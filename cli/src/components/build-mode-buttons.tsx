@@ -3,6 +3,7 @@ import type { ChatTheme } from '../types/theme-system'
 import { BORDER_CHARS } from '../utils/ui-constants'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { Button } from './button'
+
 export const BuildModeButtons = ({
   theme,
   onBuildFast,
@@ -17,21 +18,20 @@ export const BuildModeButtons = ({
   )
   const { terminalWidth } = useTerminalDimensions()
   const isNarrow = terminalWidth < 55
+
   return (
     <box
       style={{
-        flexDirection: 'row',
-        gap: 1,
+        flexDirection: 'column',
+        gap: 0,
         paddingTop: 0,
         paddingBottom: 0,
         paddingLeft: 1,
-        alignItems: 'center',
-        justifyContent: 'space-between',
       }}
     >
       {isNarrow ? null : (
-        <text style={{ wrapMode: 'none' }} selectable={false}>
-          <span fg={theme.secondary}>Ready to build?</span>
+        <text style={{ wrapMode: 'none' }}>
+          <span fg={theme.secondary}>Choose an option to build this plan:</span>
         </text>
       )}
       <box

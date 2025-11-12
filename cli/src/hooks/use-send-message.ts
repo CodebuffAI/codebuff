@@ -2,7 +2,11 @@ import { has, isEqual } from 'lodash'
 import { useCallback, useEffect, useRef } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
-import { MAIN_AGENT_ID, shouldHideAgent } from '../utils/constants'
+import {
+  MAIN_AGENT_ID,
+  shouldHideAgent,
+  shouldCollapseByDefault,
+} from '../utils/constants'
 import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
 import { getErrorObject } from '../utils/error'
 import { formatTimestamp } from '../utils/helpers'
@@ -1130,10 +1134,13 @@ export const useSendMessage = ({
                     setCollapsedAgents((prev) => {
                       const next = new Set(prev)
                       next.delete(tempId)
-                      // Only collapse if parent is NOT main agent (i.e., it's a nested agent)
+                      // Collapse if:
+                      // 1. Parent is NOT main agent (nested agent), OR
+                      // 2. Agent type is in the collapsed-by-default list
                       if (
-                        event.parentAgentId &&
-                        event.parentAgentId !== MAIN_AGENT_ID
+                        (event.parentAgentId &&
+                          event.parentAgentId !== MAIN_AGENT_ID) ||
+                        shouldCollapseByDefault(event.agentType)
                       ) {
                         next.add(event.agentId)
                       }
@@ -1233,10 +1240,13 @@ export const useSendMessage = ({
                   )
 
                   setStreamingAgents((prev) => new Set(prev).add(event.agentId))
-                  // Only collapse if parent is NOT main agent (i.e., it's a nested agent)
+                  // Collapse if:
+                  // 1. Parent is NOT main agent (nested agent), OR
+                  // 2. Agent type is in the collapsed-by-default list
                   if (
-                    event.parentAgentId &&
-                    event.parentAgentId !== MAIN_AGENT_ID
+                    (event.parentAgentId &&
+                      event.parentAgentId !== MAIN_AGENT_ID) ||
+                    shouldCollapseByDefault(event.agentType)
                   ) {
                     setCollapsedAgents((prev) =>
                       new Set(prev).add(event.agentId),

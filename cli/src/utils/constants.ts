@@ -8,6 +8,18 @@ export const shouldHideAgent = (agentId: string): boolean => {
   return HIDDEN_AGENT_IDS.some((hiddenId) => agentId.includes(hiddenId))
 }
 
+// Agent IDs that should be collapsed by default when they start
+export const COLLAPSED_BY_DEFAULT_AGENT_IDS = ['file-picker'] as const
+
+/**
+ * Check if an agent should be collapsed by default
+ */
+export const shouldCollapseByDefault = (agentType: string): boolean => {
+  return COLLAPSED_BY_DEFAULT_AGENT_IDS.some((collapsedId) =>
+    agentType.includes(collapsedId),
+  )
+}
+
 /**
  * The parent agent ID for all root-level agents
  */
