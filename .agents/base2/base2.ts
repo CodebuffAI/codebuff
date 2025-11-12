@@ -29,7 +29,7 @@ export function createBase2(
         ? 'z-ai/glm-4.6:nitro'
         : 'anthropic/claude-sonnet-4.5',
     ...(isGpt5 && {
-      reasoningModel: {
+      reasoningOptions: {
         effort: 'high',
       },
     }),
