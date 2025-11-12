@@ -44,12 +44,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   //   label: 'checkpoint',
   //   description: 'Restore the workspace to a specific checkpoint',
   // },
-  // {
-  //   id: 'usage',
-  //   label: 'usage (credits)',
-  //   description: 'View remaining or bonus AI credits',
-  //   aliases: ['credits'],
-  // },
+  {
+    id: 'usage',
+    label: 'usage (credits)',
+    description: 'View remaining or bonus credits',
+    aliases: ['credits'],
+  },
   {
     id: 'new',
     label: 'new (reset, clear)',

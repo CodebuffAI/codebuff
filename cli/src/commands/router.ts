@@ -1,6 +1,7 @@
 import { runTerminalCommand } from '@codebuff/sdk'
 
 import { handleInitializationFlowLocally } from './init'
+import { handleUsageCommand } from './usage'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue } from '../state/chat-store'
@@ -10,7 +11,7 @@ import type { User } from '../utils/auth'
 import type { AgentMode } from '../utils/constants'
 import type { UseMutationResult } from '@tanstack/react-query'
 
-export function routeUserPrompt(params: {
+export async function routeUserPrompt(params: {
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentMode: AgentMode
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
@@ -189,6 +190,14 @@ export function routeUserPrompt(params: {
   if (cmd === 'init') {
     ;({ postUserMessage } = handleInitializationFlowLocally())
     // do not return, continue and send to agent runtime
+  }
+
+  if (cmd === 'usage' || cmd === 'credits') {
+    const { postUserMessage: usagePostMessage } = await handleUsageCommand()
+    setMessages((prev) => usagePostMessage(prev))
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    return
   }
 
   saveToHistory(trimmed)
