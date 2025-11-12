@@ -29,7 +29,7 @@ export const BuildModeButtons = ({
       }}
     >
       {isNarrow ? null : (
-        <text style={{ wrapMode: 'none' }}>
+        <text style={{ wrapMode: 'none' }} selectable={false}>
           <span fg={theme.secondary}>Ready to build?</span>
         </text>
       )}
@@ -54,7 +54,7 @@ export const BuildModeButtons = ({
           onMouseOver={() => setHoveredButton('fast')}
           onMouseOut={() => setHoveredButton(null)}
         >
-          <text wrapMode="none">
+          <text wrapMode="none" selectable={false}>
             <span fg={theme.foreground}>Build DEFAULT</span>
           </text>
         </box>
@@ -73,7 +73,7 @@ export const BuildModeButtons = ({
           onMouseOver={() => setHoveredButton('max')}
           onMouseOut={() => setHoveredButton(null)}
         >
-          <text wrapMode="none">
+          <text wrapMode="none" selectable={false}>
             <span fg={theme.foreground}>Build MAX</span>
           </text>
         </box>

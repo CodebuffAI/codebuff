@@ -215,6 +215,7 @@ export const AgentModeToggle = ({
         onMouseOut={handleMouseOut}
       >
         <text
+          selectable={false}
           wrapMode="none"
           fg={isCollapsedHovered ? theme.foreground : theme.muted}
         >
