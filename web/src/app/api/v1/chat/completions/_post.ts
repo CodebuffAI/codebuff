@@ -207,8 +207,7 @@ export async function postChatCompletions(params: {
         // Streaming request
         const model = (body as any)?.model
         const isOpenAIDirectModel =
-          typeof model === 'string' &&
-          (!model.includes('/') || model.startsWith('openai/'))
+          typeof model === 'string' && model.startsWith('openai/')
         const stream = await (isOpenAIDirectModel
           ? handleOpenAIStream({
               body,
