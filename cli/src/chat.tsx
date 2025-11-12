@@ -10,11 +10,8 @@ import {
   MultilineInput,
   type MultilineInputHandle,
 } from './components/multiline-input'
-import {
-  StatusIndicator,
-  StatusElapsedTime,
-  getStatusIndicatorState,
-} from './components/status-indicator'
+import { getStatusIndicatorState } from './utils/status-indicator-state'
+import { StatusBar } from './components/status-bar'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
@@ -603,23 +600,6 @@ export const Chat = ({
   const shouldShowStatusLine =
     hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom
 
-  const statusIndicatorNode = (
-    <StatusIndicator
-      clipboardMessage={clipboardMessage}
-      streamStatus={streamStatus}
-      timerStartTime={timerStartTime}
-      nextCtrlCWillExit={nextCtrlCWillExit}
-      isConnected={isConnected}
-    />
-  )
-
-  const elapsedTimeNode = (
-    <StatusElapsedTime
-      streamStatus={streamStatus}
-      timerStartTime={timerStartTime}
-    />
-  )
-
   const validationBanner = useValidationBanner({
     liveValidationErrors: validationErrors,
     loadedAgentsData,
@@ -698,70 +678,18 @@ export const Chat = ({
         }}
       >
         {shouldShowStatusLine && (
-          <box
-            style={{
-              flexDirection: 'column',
-              width: '100%',
-            }}
-          >
-            {/* Main status line: status indicator | scroll indicator | elapsed time */}
-            <box
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                width: '100%',
-              }}
-            >
-              {/* Left section - status indicator */}
-              <box
-                style={{
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 0,
-                }}
-              >
-                <text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
-              </box>
-
-              {/* Center section - scroll indicator (always centered) */}
-              <box style={{ flexShrink: 0 }}>
-                {!isAtBottom && (
-                  <Button
-                    style={{ paddingLeft: 2, paddingRight: 2 }}
-                    onClick={() => scrollToLatest()}
-                    onMouseOver={() => setScrollIndicatorHovered(true)}
-                    onMouseOut={() => setScrollIndicatorHovered(false)}
-                  >
-                    <text>
-                      <span
-                        fg={theme.info}
-                        attributes={
-                          scrollIndicatorHovered
-                            ? TextAttributes.BOLD
-                            : TextAttributes.DIM
-                        }
-                      >
-                        {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
-                      </span>
-                    </text>
-                  </Button>
-                )}
-              </box>
-
-              {/* Right section - elapsed time */}
-              <box
-                style={{
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 0,
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                }}
-              >
-                <text style={{ wrapMode: 'none' }}>{elapsedTimeNode}</text>
-              </box>
-            </box>
-          </box>
+          <StatusBar
+            clipboardMessage={clipboardMessage}
+            streamStatus={streamStatus}
+            timerStartTime={timerStartTime}
+            nextCtrlCWillExit={nextCtrlCWillExit}
+            isConnected={isConnected}
+            isAtBottom={isAtBottom}
+            separatorWidth={separatorWidth}
+            scrollToLatest={scrollToLatest}
+            scrollIndicatorHovered={scrollIndicatorHovered}
+            setScrollIndicatorHovered={setScrollIndicatorHovered}
+          />
         )}
 
         {/* Wrap the input row in a single OpenTUI border so the toggle stays inside the flex layout.
@@ -871,16 +799,28 @@ export const Chat = ({
         {pausedQueueText && (
           <box style={{ width: '100%' }}>
             <box style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <text style={{ wrapMode: 'none', flexGrow: 1 }}>
-                <span fg={theme.warning}>
-                  {BORDER_CHARS.vertical} ⏸ {pausedQueueText}
-                </span>
+              <text style={{ wrapMode: 'none' }}>
+                <span fg={theme.warning}>{BORDER_CHARS.vertical}</span>
               </text>
-              <Button onClick={handleClearQueue} style={{ paddingRight: 1 }}>
-                <text>
-                  <span fg={theme.error}>✕</span>
+              <box
+                style={{
+                  flexGrow: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  gap: 1,
+                }}
+              >
+                <text style={{ wrapMode: 'none', flexGrow: 1 }}>
+                  <span fg={theme.warning}>⏸ {pausedQueueText}</span>
                 </text>
-              </Button>
+                <Button onClick={handleClearQueue}>
+                  <text>
+                    <span fg={theme.error}>✕</span>
+                  </text>
+                </Button>
+              </box>
               <text style={{ wrapMode: 'none' }}>
                 <span fg={theme.warning}>{BORDER_CHARS.vertical}</span>
               </text>
