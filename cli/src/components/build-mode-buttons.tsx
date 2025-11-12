@@ -55,7 +55,7 @@ export const BuildModeButtons = ({
           onMouseOver={() => setHoveredButton('fast')}
           onMouseOut={() => setHoveredButton(null)}
         >
-          <text wrapMode="none" selectable={false}>
+          <text wrapMode="none">
             <span fg={theme.foreground}>Build DEFAULT</span>
           </text>
         </Button>
@@ -74,7 +74,7 @@ export const BuildModeButtons = ({
           onMouseOver={() => setHoveredButton('max')}
           onMouseOut={() => setHoveredButton(null)}
         >
-          <text wrapMode="none" selectable={false}>
+          <text wrapMode="none">
             <span fg={theme.foreground}>Build MAX</span>
           </text>
         </Button>

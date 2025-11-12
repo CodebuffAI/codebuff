@@ -65,10 +65,10 @@ export const RaisedPill = ({
       }}
       onClick={onPress}
     >
-      <text selectable={false}>
+      <text>
         <span fg={frameColor}>{`╭${horizontal}╮`}</span>
       </text>
-      <text selectable={false}>
+      <text>
         <span fg={frameColor}>
           │
         </span>
@@ -86,7 +86,7 @@ export const RaisedPill = ({
           │
         </span>
       </text>
-      <text selectable={false}>
+      <text>
         <span fg={frameColor}>{`╰${horizontal}╯`}</span>
       </text>
     </Button>

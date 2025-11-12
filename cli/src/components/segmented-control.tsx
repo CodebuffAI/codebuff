@@ -89,8 +89,8 @@ export const SegmentedControl = ({
                 minWidth: seg.width,
               }}
             >
-              <text fg={seg.frameColor} selectable={false}>{seg.topBorder}</text>
-              <text fg={seg.textColor} selectable={false}>
+              <text fg={seg.frameColor}>{seg.topBorder}</text>
+              <text fg={seg.textColor}>
                 {seg.isItalic ? (
                   <i>{seg.content}</i>
                 ) : seg.isBold ? (
@@ -99,7 +99,7 @@ export const SegmentedControl = ({
                   seg.content
                 )}
               </text>
-              <text fg={seg.frameColor} selectable={false}>{seg.bottomBorder}</text>
+              <text fg={seg.frameColor}>{seg.bottomBorder}</text>
             </Button>
 
             {rightOfHovered ? (
