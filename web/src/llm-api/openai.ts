@@ -110,6 +110,20 @@ export async function handleOpenAIStream({
     openaiBody.max_completion_tokens ?? openaiBody.max_tokens
   delete (openaiBody as any).max_tokens
 
+  // Transform reasoning to reasoning_effort
+  if (openaiBody.reasoning && typeof openaiBody.reasoning === 'object') {
+    const reasoning = openaiBody.reasoning as {
+      enabled?: boolean
+      effort?: 'high' | 'medium' | 'low'
+    }
+    const enabled = reasoning.enabled ?? true
+
+    if (enabled) {
+      openaiBody.reasoning_effort = reasoning.effort ?? 'medium'
+    }
+  }
+  delete (openaiBody as any).reasoning
+
   // Remove fields that OpenAI doesn't support
   delete (openaiBody as any).stop
   delete (openaiBody as any).usage
