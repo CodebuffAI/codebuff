@@ -1,18 +1,12 @@
-import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
-
-import { searchWeb } from '../../../llm-api/linkup-api'
+import { callWebSearchAPI } from '../../../llm-api/codebuff-web-api'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type {
-  ConsumeCreditsWithFallbackFn,
-  CreditFallbackResult,
-} from '@codebuff/common/types/contracts/billing'
+import type { ConsumeCreditsWithFallbackFn } from '@codebuff/common/types/contracts/billing'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ErrorOr } from '@codebuff/common/util/error'
 
 export const handleWebSearch = ((params: {
   previousToolCallFinished: Promise<void>
@@ -42,15 +36,9 @@ export const handleWebSearch = ((params: {
     repoUrl,
     state,
     fetch,
-    consumeCreditsWithFallback,
   } = params
   const { query, depth } = toolCall.input
   const { userId, fingerprintId, repoId } = state
-  if (!fingerprintId) {
-    throw new Error(
-      'Internal error for web_search: Missing fingerprintId in state',
-    )
-  }
 
   const searchStartTime = Date.now()
   const searchContext = {
@@ -65,40 +53,44 @@ export const handleWebSearch = ((params: {
     repoId,
   }
 
+  let capturedCreditsUsed = 0
   const webSearchPromise: Promise<CodebuffToolOutput<'web_search'>> =
     (async () => {
       try {
-        const searchResult = await searchWeb({ query, depth, logger, fetch })
-        const searchDuration = Date.now() - searchStartTime
-        const resultLength = searchResult?.length || 0
-        const hasResults = Boolean(searchResult && searchResult.trim())
+        const webApi = await callWebSearchAPI({
+          query,
+          depth,
+          repoUrl: repoUrl ?? null,
+          fetch,
+          logger,
+        })
 
-        // Charge credits for web search usage
-        let creditResult: ErrorOr<CreditFallbackResult> | null = null
-        if (userId) {
-          const creditsToCharge = Math.round(
-            (depth === 'deep' ? 5 : 1) * (1 + PROFIT_MARGIN),
+        if (webApi.error) {
+          const searchDuration = Date.now() - searchStartTime
+          logger.warn(
+            {
+              ...searchContext,
+              searchDuration,
+              usedWebApi: true,
+              success: false,
+              error: webApi.error,
+            },
+            'Web API search returned error',
           )
+          return [
+            {
+              type: 'json',
+              value: { errorMessage: webApi.error },
+            },
+          ]
+        }
+        const searchDuration = Date.now() - searchStartTime
+        const resultLength = webApi.result?.length || 0
+        const hasResults = Boolean(webApi.result && webApi.result.trim())
 
-          creditResult = await consumeCreditsWithFallback({
-            userId,
-            creditsToCharge,
-            repoUrl,
-            context: 'web search',
-            logger,
-          })
-
-          if (!creditResult.success) {
-            logger.error(
-              {
-                ...searchContext,
-                error: creditResult.error,
-                creditsToCharge,
-                searchDuration,
-              },
-              'Failed to charge credits for web search',
-            )
-          }
+        // Capture credits used from the API response
+        if (typeof webApi.creditsUsed === 'number') {
+          capturedCreditsUsed = webApi.creditsUsed
         }
 
         logger.info(
@@ -107,42 +99,25 @@ export const handleWebSearch = ((params: {
             searchDuration,
             resultLength,
             hasResults,
-            creditsCharged: creditResult?.success
-              ? depth === 'deep'
-                ? 5
-                : 1
-              : 0,
+            usedWebApi: true,
+            creditsCharged: 'server',
+            creditsUsed: capturedCreditsUsed,
             success: true,
           },
-          'Search completed',
+          'Search completed via web API',
         )
 
-        if (searchResult) {
-          return [
-            {
-              type: 'json',
-              value: { result: searchResult },
-            },
-          ]
-        } else {
-          logger.warn(
-            {
-              ...searchContext,
-              searchDuration,
-            },
-            'No results returned from search API',
-          )
-          return [
-            {
-              type: 'json',
-              value: {
-                errorMessage: `No search results found for "${query}". Try refining your search query or using different keywords.`,
-              },
-            },
-          ]
-        }
+        return [
+          {
+            type: 'json',
+            value: { result: webApi.result ?? '' },
+          },
+        ]
       } catch (error) {
         const searchDuration = Date.now() - searchStartTime
+        const errorMessage = `Error performing web search for "${query}": ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
         logger.error(
           {
             ...searchContext,
@@ -163,9 +138,7 @@ export const handleWebSearch = ((params: {
           {
             type: 'json',
             value: {
-              errorMessage: `Error performing web search for "${query}": ${
-                error instanceof Error ? error.message : 'Unknown error'
-              }`,
+              errorMessage,
             },
           },
         ]
@@ -175,8 +148,14 @@ export const handleWebSearch = ((params: {
   return {
     result: (async () => {
       await previousToolCallFinished
-      return await webSearchPromise
+      const result = await webSearchPromise
+      return result
     })(),
-    state: {},
+    state: {
+      creditsUsed: (async () => {
+        await webSearchPromise
+        return capturedCreditsUsed
+      })(),
+    },
   }
 }) satisfies CodebuffToolHandlerFunction<'web_search'>

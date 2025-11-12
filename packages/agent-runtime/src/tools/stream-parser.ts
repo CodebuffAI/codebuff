@@ -51,6 +51,7 @@ export async function processStreamWithTools(
     fullResponse: string
     sendSubagentChunk: SendSubagentChunkFn
     logger: Logger
+    onCostCalculated: (credits: number) => Promise<void>
   } & Omit<
     ExecuteToolCallParams<any>,
     | 'toolName'
@@ -83,6 +84,7 @@ export async function processStreamWithTools(
     onResponseChunk,
     sendSubagentChunk,
     logger,
+    onCostCalculated,
   } = params
   const fullResponseChunks: string[] = [params.fullResponse]
 
@@ -125,6 +127,7 @@ export async function processStreamWithTools(
           fullResponse: fullResponseChunks.join(''),
           state,
           fromHandleSteps: false,
+          onCostCalculated,
         })
       },
     }

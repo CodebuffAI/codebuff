@@ -1,4 +1,5 @@
 import { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
+import { callDocsSearchAPI } from '../../../llm-api/codebuff-web-api'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -39,17 +40,10 @@ export const handleReadDocs = ((
     clientSessionId,
     userInputId,
     state,
+    fetch,
   } = params
   const { libraryTitle, topic, max_tokens } = toolCall.input
   const { userId, fingerprintId, repoId } = state
-  if (!userId) {
-    throw new Error('Internal error for read_docs: Missing userId in state')
-  }
-  if (!fingerprintId) {
-    throw new Error(
-      'Internal error for read_docs: Missing fingerprintId in state',
-    )
-  }
 
   const docsStartTime = Date.now()
   const docsContext = {
@@ -65,19 +59,45 @@ export const handleReadDocs = ((
     repoId,
   }
 
+  let capturedCreditsUsed = 0
   const documentationPromise = (async () => {
     try {
-      const documentation = await fetchContext7LibraryDocumentation({
-        ...params,
-        query: libraryTitle,
+      const viaWebApi = await callDocsSearchAPI({
+        libraryTitle,
         topic,
-        tokens: max_tokens,
+        maxTokens: max_tokens,
+        repoUrl: null,
+        logger,
+        fetch,
       })
 
+      if (viaWebApi.error || typeof viaWebApi.documentation !== 'string') {
+        const docsDuration = Date.now() - docsStartTime
+        const docMsg = `Error fetching documentation for "${libraryTitle}"${topic ? ` (topic: ${topic})` : ''}: ${viaWebApi.error}`
+        logger.warn(
+          {
+            ...docsContext,
+            docsDuration,
+            usedWebApi: true,
+            success: false,
+            error: viaWebApi.error,
+          },
+          'Web API docs returned error',
+        )
+        return { documentation: docMsg, errorMessage: viaWebApi.error }
+      }
+
       const docsDuration = Date.now() - docsStartTime
-      const resultLength = documentation?.length || 0
-      const hasResults = Boolean(documentation && documentation.trim())
+      const resultLength = viaWebApi.documentation?.length || 0
+      const hasResults = Boolean(
+        viaWebApi.documentation && viaWebApi.documentation.trim(),
+      )
       const estimatedTokens = Math.ceil(resultLength / 4)
+
+      // Capture credits used from the API response
+      if (typeof viaWebApi.creditsUsed === 'number') {
+        capturedCreditsUsed = viaWebApi.creditsUsed
+      }
 
       logger.info(
         {
@@ -86,27 +106,18 @@ export const handleReadDocs = ((
           resultLength,
           estimatedTokens,
           hasResults,
+          usedWebApi: true,
+          creditsUsed: capturedCreditsUsed,
           success: true,
         },
-        'Documentation request completed successfully',
+        'Documentation request completed successfully via web API',
       )
-
-      if (documentation) {
-        return documentation
-      } else {
-        logger.warn(
-          {
-            ...docsContext,
-            docsDuration,
-          },
-          'No documentation found in Context7 database',
-        )
-        return `No documentation found for "${libraryTitle}"${
-          topic ? ` with topic "${topic}"` : ''
-        }. Try using the exact library name (e.g., "Next.js", "React", "MongoDB"). The library may not be available in Context7's database.`
-      }
+      return { documentation: viaWebApi.documentation }
     } catch (error) {
       const docsDuration = Date.now() - docsStartTime
+      const errMsg = `Error fetching documentation for "${libraryTitle}": ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
       logger.error(
         {
           ...docsContext,
@@ -123,24 +134,27 @@ export const handleReadDocs = ((
         },
         'Documentation request failed with error',
       )
-      return `Error fetching documentation for "${libraryTitle}": ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`
+      return { documentation: errMsg, errorMessage: errMsg }
     }
   })()
 
   return {
     result: (async () => {
       await previousToolCallFinished
+      const value = await documentationPromise
+      // Always include documentation, and include error when present
       return [
         {
           type: 'json',
-          value: {
-            documentation: await documentationPromise,
-          },
+          value,
         },
       ]
     })(),
-    state: {},
+    state: {
+      creditsUsed: (async () => {
+        await documentationPromise
+        return capturedCreditsUsed
+      })(),
+    },
   }
 }) satisfies CodebuffToolHandlerFunction<'read_docs'>
