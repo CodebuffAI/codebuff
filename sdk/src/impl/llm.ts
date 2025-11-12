@@ -63,15 +63,18 @@ function getProviderOptions(params: {
   model: string
   runId: string
   clientSessionId: string
+  providerOptions?: Record<string, JSONObject>
 }): { codebuff: JSONObject } {
-  const { model, runId, clientSessionId } = params
+  const { model, runId, clientSessionId, providerOptions } = params
 
   // Set allow_fallbacks based on whether model is explicitly defined
   const isExplicitlyDefined = isExplicitlyDefinedModel(model)
 
   return {
+    ...providerOptions,
     // Could either be "codebuff" or "openaiCompatible"
     codebuff: {
+      ...providerOptions?.codebuff,
       // All values here get appended to the request body
       codebuff_metadata: {
         run_id: runId,
