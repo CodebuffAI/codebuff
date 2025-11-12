@@ -50,7 +50,11 @@ export function withoutCacheControl<
 >(obj: T): T {
   const wrapper = cloneDeep(obj)
 
-  for (const provider of ['anthropic', 'openrouter', 'openaiCompatible'] as const) {
+  for (const provider of [
+    'anthropic',
+    'openrouter',
+    'openaiCompatible',
+  ] as const) {
     if (has(wrapper.providerOptions?.[provider]?.cache_control, 'type')) {
       delete wrapper.providerOptions?.[provider]?.cache_control?.type
     }
@@ -305,14 +309,7 @@ export function convertCbToModelMessages({
 
         prevMessage.content = [
           ...contentBlock.slice(0, lastContentIndex),
-          {
-            ...lastContentPart,
-            text: lastContentPart.text.slice(0, 1),
-          },
-          withCacheControl({
-            ...lastContentPart,
-            text: lastContentPart.text.slice(1),
-          }),
+          withCacheControl(lastContentPart),
           ...contentBlock.slice(lastContentIndex + 1),
         ] as typeof contentBlock
 

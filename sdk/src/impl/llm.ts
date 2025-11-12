@@ -1,10 +1,6 @@
 import path from 'path'
 
 import {
-  OpenAICompatibleChatLanguageModel,
-  VERSION,
-} from '@ai-sdk/openai-compatible'
-import {
   checkLiveUserInput,
   getLiveUserInputIds,
 } from '@codebuff/agent-runtime/live-user-inputs'
@@ -14,6 +10,10 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
+import {
+  OpenAICompatibleChatLanguageModel,
+  VERSION,
+} from '@codebuff/internal/openai-compatible/index'
 import { streamText, APICallError, generateText, generateObject } from 'ai'
 
 import { WEBSITE_URL } from '../constants'
