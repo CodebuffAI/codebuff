@@ -16,6 +16,7 @@ import {
   getStatusIndicatorState,
 } from './components/status-indicator'
 import { SuggestionMenu } from './components/suggestion-menu'
+import { Button } from './components/button'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthState } from './hooks/use-auth-state'
@@ -694,9 +695,9 @@ export const Chat = ({
               {/* Center section - scroll indicator (always centered) */}
               <box style={{ flexShrink: 0 }}>
                 {!isAtBottom && (
-                  <box
+                  <Button
                     style={{ paddingLeft: 2, paddingRight: 2 }}
-                    onMouseDown={() => scrollToLatest()}
+                    onClick={() => scrollToLatest()}
                     onMouseOver={() => setScrollIndicatorHovered(true)}
                     onMouseOut={() => setScrollIndicatorHovered(false)}
                   >
@@ -712,7 +713,7 @@ export const Chat = ({
                         {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
                       </span>
                     </text>
-                  </box>
+                  </Button>
                 )}
               </box>
 

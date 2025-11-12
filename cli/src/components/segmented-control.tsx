@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import stringWidth from 'string-width'
 
 import { useTheme } from '../hooks/use-theme'
+import { Button } from './button'
 
 import type { ChatTheme } from '../types/theme-system'
 
@@ -69,14 +70,14 @@ export const SegmentedControl = ({
           <React.Fragment key={seg.id}>
             {leftOfHovered ? (
               <box style={{ flexDirection: 'column', gap: 0 }}>
-                <text fg={seg.frameColor}>╭</text>
-                <text fg={seg.frameColor}>│</text>
-                <text fg={seg.frameColor}>╰</text>
+                <text fg={seg.frameColor} selectable={false}>╭</text>
+                <text fg={seg.frameColor} selectable={false}>│</text>
+                <text fg={seg.frameColor} selectable={false}>╰</text>
               </box>
             ) : null}
 
-            <box
-              onMouseDown={() => onSegmentClick && onSegmentClick(seg.id)}
+            <Button
+              onClick={() => onSegmentClick && onSegmentClick(seg.id)}
               onMouseOver={() => {
                 setHoveredId(seg.id)
                 setHasHoveredSinceOpen(true)
@@ -99,13 +100,13 @@ export const SegmentedControl = ({
                 )}
               </text>
               <text fg={seg.frameColor}>{seg.bottomBorder}</text>
-            </box>
+            </Button>
 
             {rightOfHovered ? (
               <box style={{ flexDirection: 'column', gap: 0 }}>
-                <text fg={seg.frameColor}>╮</text>
-                <text fg={seg.frameColor}>│</text>
-                <text fg={seg.frameColor}>╯</text>
+                <text fg={seg.frameColor} selectable={false}>╮</text>
+                <text fg={seg.frameColor} selectable={false}>│</text>
+                <text fg={seg.frameColor} selectable={false}>╯</text>
               </box>
             ) : null}
           </React.Fragment>

@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
+import { Button } from '../button'
 
 import type { ToolRenderConfig } from './types'
 
@@ -98,9 +99,9 @@ const TerminalCommandContent = ({
           {displayOutput}
         </text>
         {hasMoreThanFiveLines && (
-          <box
+          <Button
             style={{ marginTop: 0 }}
-            onMouseDown={() => setIsExpanded(!isExpanded)}
+            onClick={() => setIsExpanded(!isExpanded)}
           >
             <text
               fg={theme.secondary}
@@ -111,7 +112,7 @@ const TerminalCommandContent = ({
                 ? 'Show less'
                 : `Show ${hiddenLinesCount} more ${hiddenLinesCount === 1 ? 'line' : 'lines'}`}
             </text>
-          </box>
+          </Button>
         )}
       </box>
     </box>

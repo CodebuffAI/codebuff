@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { SegmentedControl } from './segmented-control'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
+import { Button } from './button'
 
 import type { Segment } from './segmented-control'
 import type { AgentMode } from '../utils/constants'
@@ -194,7 +195,7 @@ export const AgentModeToggle = ({
 
   if (!hoverToggle.isOpen) {
     return (
-      <box
+      <Button
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -204,7 +205,7 @@ export const AgentModeToggle = ({
           borderColor: isCollapsedHovered ? theme.foreground : theme.border,
           customBorderChars: BORDER_CHARS,
         }}
-        onMouseDown={() => {
+        onClick={() => {
           hoverToggle.clearAllTimers()
           hoverToggle.openNow()
         }}
@@ -224,7 +225,7 @@ export const AgentModeToggle = ({
             `< ${MODE_LABELS[mode]}`
           )}
         </text>
-      </box>
+      </Button>
     )
   }
 

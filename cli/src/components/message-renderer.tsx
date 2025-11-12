@@ -4,6 +4,7 @@ import React from 'react'
 
 import { MessageBlock } from './message-block'
 import { ModeDivider } from './mode-divider'
+import { Button } from './button'
 import {
   renderMarkdown,
   hasMarkdown,
@@ -506,7 +507,7 @@ const AgentMessage = memo(
               flexGrow: 1,
             }}
           >
-            <box
+            <Button
               style={{
                 flexDirection: 'row',
                 alignSelf: 'flex-start',
@@ -514,7 +515,7 @@ const AgentMessage = memo(
                 paddingLeft: 1,
                 paddingRight: 1,
               }}
-              onMouseDown={handleTitleClick}
+              onClick={handleTitleClick}
             >
               <text style={{ wrapMode: 'word' }}>
                 <span fg={theme.foreground}>{isCollapsed ? '▸ ' : '▾ '}</span>
@@ -522,10 +523,10 @@ const AgentMessage = memo(
                   {agentInfo.agentName}
                 </span>
               </text>
-            </box>
-            <box
+            </Button>
+            <Button
               style={{ flexShrink: 1, marginBottom: isCollapsed ? 1 : 0 }}
-              onMouseDown={handleContentClick}
+              onClick={handleContentClick}
             >
               {isStreaming && isCollapsed && streamingPreview && (
                 <text
@@ -551,7 +552,7 @@ const AgentMessage = memo(
                   {displayContent}
                 </text>
               )}
-            </box>
+            </Button>
           </box>
         </box>
         {agentChildren.length > 0 && (

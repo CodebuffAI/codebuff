@@ -3,6 +3,7 @@ import React, { type ReactNode } from 'react'
 import stringWidth from 'string-width'
 
 import { useTheme } from '../../hooks/use-theme'
+import { Button } from '../button'
 
 import type { ChatTheme } from '../../types/theme-system'
 
@@ -187,7 +188,7 @@ export const ToolCallItem = ({
           width: '100%',
         }}
       >
-        <box
+        <Button
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -197,7 +198,7 @@ export const ToolCallItem = ({
             paddingBottom: 0,
             width: '100%',
           }}
-          onMouseDown={onToggle}
+          onClick={onToggle}
         >
           <text style={{ wrapMode: 'none' }}>
             <span
@@ -220,7 +221,7 @@ export const ToolCallItem = ({
               </span>
             ) : null}
           </text>
-        </box>
+        </Button>
 
         {isCollapsed ? (
           showCollapsedPreview ? (

@@ -2,6 +2,7 @@ import { TextAttributes } from '@opentui/core'
 import React, { memo, type ReactNode } from 'react'
 
 import { useTheme } from '../hooks/use-theme'
+import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { getLastNVisualLines } from '../utils/text-layout'
 
@@ -39,14 +40,14 @@ export const Thinking = memo(
     }
 
     return (
-      <box
+      <Button
         style={{
           flexDirection: 'column',
           gap: 0,
           marginTop: 0,
           marginBottom: 0,
         }}
-        onMouseDown={onToggle}
+        onClick={onToggle}
       >
         <box
           style={{
@@ -140,7 +141,7 @@ export const Thinking = memo(
             </box>
           </box>
         )}
-      </box>
+      </Button>
     )
   },
 )
