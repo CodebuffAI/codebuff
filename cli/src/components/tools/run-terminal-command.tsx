@@ -2,10 +2,10 @@ import { TextAttributes } from '@opentui/core'
 import { useState } from 'react'
 
 import { defineToolComponent } from './types'
-import { useTheme } from '../../hooks/use-theme'
-import { Button } from '../button'
 import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
+import { useTheme } from '../../hooks/use-theme'
 import { getLastNVisualLines } from '../../utils/text-layout'
+import { Button } from '../button'
 
 import type { ToolRenderConfig } from './types'
 
@@ -17,16 +17,12 @@ import type { ToolRenderConfig } from './types'
 export const RunTerminalCommandComponent = defineToolComponent({
   toolName: 'run_terminal_command',
 
-  render(toolBlock, theme): ToolRenderConfig | null {
+  render(toolBlock, theme): ToolRenderConfig {
     // Extract command from input
     const command =
       toolBlock.input && typeof (toolBlock.input as any).command === 'string'
         ? (toolBlock.input as any).command.trim()
         : null
-
-    if (!command) {
-      return null
-    }
 
     // Extract output if available
     const output = toolBlock.output ? toolBlock.output.trim() : null

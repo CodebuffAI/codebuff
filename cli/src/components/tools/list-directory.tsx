@@ -13,7 +13,7 @@ import type { ToolRenderConfig } from './types'
 export const ListDirectoryComponent = defineToolComponent({
   toolName: 'list_directory',
 
-  render(toolBlock, theme, options): ToolRenderConfig | null {
+  render(toolBlock, theme, options): ToolRenderConfig {
     const input = toolBlock.input as any
 
     // Extract directories from input
@@ -35,19 +35,14 @@ export const ListDirectoryComponent = defineToolComponent({
     }
 
     if (directories.length === 0) {
-      return null
+      return { content: null }
     }
 
     // Format directory list
     const description = directories.join(', ')
 
     return {
-      content: (
-        <SimpleToolCallItem
-          name="List"
-          description={description}
-        />
-      ),
+      content: <SimpleToolCallItem name="List" description={description} />,
     }
   },
 })

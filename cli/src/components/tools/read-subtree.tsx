@@ -1,7 +1,7 @@
+import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
 
 import type { ToolRenderConfig } from './types'
-import { SimpleToolCallItem } from './tool-call-item'
 
 /**
  * UI component for read_subtree tool.
@@ -11,7 +11,7 @@ import { SimpleToolCallItem } from './tool-call-item'
 export const ReadSubtreeComponent = defineToolComponent({
   toolName: 'read_subtree',
 
-  render(toolBlock, theme, options): ToolRenderConfig | null {
+  render(toolBlock, theme, options): ToolRenderConfig {
     const input = toolBlock.input as any
     const paths: string[] = Array.isArray(input?.paths)
       ? input.paths.filter((p: any) => typeof p === 'string' && p.trim().length)
