@@ -81,8 +81,9 @@ export function createBase2(
       isGpt5 && 'editor-best-of-n-gpt-5',
       isDefault && 'thinker-best-of-n',
       isGpt5 && 'thinker-best-of-n-gpt-5',
-      hasCodeReviewer && 'code-reviewer',
-      hasCodeReviewerBestOfN && 'code-reviewer-best-of-n',
+      hasCodeReviewer && (isGpt5 ? 'code-reviewer-gpt-5' : 'code-reviewer'),
+      hasCodeReviewerBestOfN &&
+        (isGpt5 ? 'code-reviewer-best-of-n-gpt-5' : 'code-reviewer-best-of-n'),
       'context-pruner',
     ),
 

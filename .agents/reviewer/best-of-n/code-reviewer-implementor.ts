@@ -1,9 +1,9 @@
-import { publisher } from '../constants'
+import { publisher } from '../../constants'
 
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
+} from '../../types/secret-agent-definition'
 
 export const createCodeReviewerImplementor = (options: {
   model: 'sonnet' | 'gpt-5'
@@ -28,7 +28,7 @@ export const createCodeReviewerImplementor = (options: {
     inputSchema: {},
     outputMode: 'last_message',
 
-    instructionsPrompt: `You are one agent within the best-of-n code reviewer orchestrator. You were spawned to generate a comprehensive code review for the recent changes.
+    instructionsPrompt: `You are one agent of the code reviewer best-of-n. You were spawned to generate a comprehensive code review for the recent changes.
     
 Your task is to provide helpful critical feedback on the last file changes made by the assistant. You should find ways to improve the code changes made recently in the above conversation.
 
@@ -60,7 +60,7 @@ ${PLACEHOLDER.USER_INPUT_PROMPT}
 
 ${
   isGpt5
-    ? ``
+    ? `Now, give your review. Be concise and focus on the most important issues that need to be addressed.`
     : `
 You can also use tags interspersed throughout your review to think about the best way to analyze the changes. Keep these thoughts very brief. You may not need to use think tags at all.
 

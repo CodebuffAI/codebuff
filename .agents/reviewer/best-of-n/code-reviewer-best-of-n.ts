@@ -1,7 +1,7 @@
-import { publisher } from '../constants'
+import { publisher } from '../../constants'
 
-import type { AgentStepContext, ToolCall } from '../types/agent-definition'
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import type { AgentStepContext, ToolCall } from '../../types/agent-definition'
+import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export function createCodeReviewerBestOfN(
   model: 'sonnet' | 'gpt-5',
@@ -100,7 +100,6 @@ function* handleStepsSonnet({
 
   const selectorOutput = extractSpawnResults<{
     reviewId: string
-    reasoning: string
   }>(selectorResult)[0]
 
   if ('errorMessage' in selectorOutput) {
@@ -120,12 +119,11 @@ function* handleStepsSonnet({
     return
   }
 
-  // Set output with the chosen review and reasoning
+  // Set output with the chosen review
   yield {
     toolName: 'set_output',
     input: {
       response: chosenReview.content,
-      reasoning: selectorOutput.reasoning,
     },
     includeToolCall: false,
   } satisfies ToolCall<'set_output'>
