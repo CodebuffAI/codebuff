@@ -195,6 +195,15 @@ export async function routeUserPrompt(params: {
     return
   }
 
+  if (trimmed.startsWith('/') && cmd !== 'init') {
+    setMessages((prev) => [
+      ...prev,
+      getUserMessage(trimmed),
+      getSystemMessage(`Command not found: ${JSON.stringify(trimmed)}`),
+    ])
+    return
+  }
+
   sendMessage({ content: trimmed, agentMode, postUserMessage })
 
   setTimeout(() => {
