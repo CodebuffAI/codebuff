@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { ScrollBoxRenderable } from '@opentui/core'
+import { logger } from '../utils/logger'
 
 // Scroll detection threshold - how close to bottom to consider "at bottom"
 const SCROLL_NEAR_BOTTOM_THRESHOLD = 1
@@ -18,7 +19,7 @@ const easeOutCubic = (t: number): number => {
 
 /**
  * Manages scroll behavior for the chat scrollbox with smooth animations and auto-scroll.
- * 
+ *
  * @param scrollRef - Reference to the scrollbox component
  * @param messages - Array of chat messages (triggers auto-scroll on change)
  * @param isUserCollapsing - Callback to check if user is actively collapsing/expanding toggles.
@@ -86,8 +87,6 @@ export const useChatScrollbox = (
     animateScrollTo(maxScroll)
   }, [scrollRef, animateScrollTo])
 
-
-
   useEffect(() => {
     const scrollbox = scrollRef.current
     if (!scrollbox) return
@@ -98,7 +97,8 @@ export const useChatScrollbox = (
         scrollbox.scrollHeight - scrollbox.viewport.height,
       )
       const current = scrollbox.verticalScrollBar.scrollPosition
-      const isNearBottom = Math.abs(maxScroll - current) <= SCROLL_NEAR_BOTTOM_THRESHOLD
+      const isNearBottom =
+        Math.abs(maxScroll - current) <= SCROLL_NEAR_BOTTOM_THRESHOLD
 
       if (programmaticScrollRef.current) {
         programmaticScrollRef.current = false
@@ -147,6 +147,36 @@ export const useChatScrollbox = (
       cancelAnimation()
     }
   }, [cancelAnimation])
+
+  const previousHeightRef = useRef<number>(0)
+  // Monitor scrollbox height and trigger re-render when it changes significantly
+  useEffect(() => {
+    const scrollbox = scrollRef.current
+    if (!scrollbox) return
+
+    const heightThreshold = 10 // Re-render if height changes by more than this
+
+    const checkHeightChange = () => {
+      const currentHeight = scrollbox.scrollHeight
+      const previousHeight = previousHeightRef.current
+      const heightDiff = Math.abs(currentHeight - previousHeight)
+
+      if (heightDiff > heightThreshold) {
+        logger.info(
+          { currentHeight, previousHeight, heightDiff },
+          `Re-rendering ScrollBox due to height change of ${heightDiff}`,
+        )
+        previousHeightRef.current = currentHeight
+        scrollbox.requestRender()
+      } else {
+        previousHeightRef.current = currentHeight
+      }
+    }
+
+    const timeoutId = setTimeout(checkHeightChange, 0)
+
+    return () => clearTimeout(timeoutId)
+  })
 
   return {
     scrollToLatest,
