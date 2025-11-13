@@ -1,31 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
-const cliEntryPoint =
-  (typeof Bun !== 'undefined' && typeof Bun.main === 'string' && Bun.main) ||
-  (typeof process !== 'undefined' &&
-    Array.isArray(process.argv) &&
-    process.argv[1]) ||
-  ''
-
-if (cliEntryPoint && typeof globalThis !== 'undefined') {
-  const globalScope = globalThis as Record<string, unknown>
-  if (!('__CLI_ENTRY_POINT' in globalScope)) {
-    Object.defineProperty(globalScope, '__CLI_ENTRY_POINT', {
-      value: cliEntryPoint,
-      enumerable: false,
-      writable: false,
-      configurable: false,
-    })
-  }
-}
-
-import './polyfills/bun-strip-ansi'
-import { createRequire } from 'module'
 import { promises as fs } from 'fs'
+import { createRequire } from 'module'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
-import type { FileTreeNode } from '@codebuff/common/util/file'
 import { validateAgents } from '@codebuff/sdk'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -33,12 +12,14 @@ import { Command } from 'commander'
 import React from 'react'
 
 import { App } from './app'
+import { initializeThemeStore } from './hooks/use-theme'
+import { getProjectRoot } from './project-files'
 import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
-import { initializeThemeStore } from './hooks/use-theme'
-import { getProjectRoot } from './project-files'
+
+import type { FileTreeNode } from '@codebuff/common/util/file'
 
 const require = createRequire(import.meta.url)
 
