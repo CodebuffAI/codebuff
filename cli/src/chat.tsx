@@ -40,6 +40,7 @@ import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
+import { pluralize } from '@codebuff/common/util/string'
 
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
@@ -555,9 +556,8 @@ export const Chat = ({
   const pausedQueueText = useMemo(() => {
     if (!queuePaused || queuedMessages.length === 0) return undefined
     const count = queuedMessages.length
-    const noun = count === 1 ? 'message' : 'messages'
-    return `${count} ${noun} queued — your message sends first`
-  }, [queuePaused, queuedMessages])
+    return `${pluralize(count, 'message')} queued — your message sends first`
+  }, [queuePaused, queuedMessages.length])
   const inputPlaceholder = useMemo(() => {
     const base =
       terminalWidth < 65

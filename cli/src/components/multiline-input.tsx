@@ -671,6 +671,28 @@ export const MultilineInput = forwardRef<
           return
         }
 
+        // Tab: insert literal tab when no modifiers are held
+        if (
+          key.name === 'tab' &&
+          key.sequence &&
+          !key.shift &&
+          !key.ctrl &&
+          !key.meta &&
+          !key.option
+        ) {
+          preventKeyDefault(key)
+          const newValue =
+            value.slice(0, cursorPosition) +
+            '\t' +
+            value.slice(cursorPosition)
+          onChange({
+            text: newValue,
+            cursorPosition: cursorPosition + 1,
+            lastEditDueToNav: false,
+          })
+          return
+        }
+
         // Regular character input
         if (
           key.sequence &&
