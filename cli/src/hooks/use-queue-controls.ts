@@ -5,6 +5,7 @@ interface UseQueueControlsParams {
   queuedCount: number
   clearQueue: () => string[]
   resumeQueue: () => void
+  inputHasText: boolean
   baseHandleCtrlC: () => true
 }
 
@@ -13,6 +14,7 @@ export const useQueueControls = ({
   queuedCount,
   clearQueue,
   resumeQueue,
+  inputHasText,
   baseHandleCtrlC,
 }: UseQueueControlsParams) => {
   const handleCtrlC = useCallback(() => {

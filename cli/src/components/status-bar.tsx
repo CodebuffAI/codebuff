@@ -97,6 +97,10 @@ export const StatusBar = ({
 
   const statusIndicatorContent = renderStatusIndicator()
   const elapsedTimeContent = renderElapsedTime()
+  
+  // Only show gray background when there's status indicator or timer content
+  const hasContent = statusIndicatorContent || elapsedTimeContent
+  
   return (
     <box
       style={{
@@ -106,7 +110,7 @@ export const StatusBar = ({
         paddingLeft: 1,
         paddingRight: 1,
         gap: 1,
-        backgroundColor: theme.surface,
+        backgroundColor: hasContent ? theme.surface : 'transparent',
       }}
     >
       <box

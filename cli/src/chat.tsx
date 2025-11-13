@@ -385,6 +385,7 @@ export const Chat = ({
     queuedCount,
     clearQueue,
     resumeQueue,
+    inputHasText: Boolean(inputValue),
     baseHandleCtrlC,
   })
 
