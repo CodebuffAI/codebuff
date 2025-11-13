@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { LoginModal } from './components/login-modal'
-import { MessageRenderer } from './components/message-renderer'
+import { MessageWithAgents } from './components/message-with-agents'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -670,25 +670,32 @@ export const Chat = ({
       >
         {headerContent}
         {virtualizationNotice}
-        <MessageRenderer
-          messages={messages}
-          messageTree={messageTree}
-          topLevelMessages={virtualTopLevelMessages}
-          availableWidth={separatorWidth}
-          theme={theme}
-          markdownPalette={markdownPalette}
-          collapsedAgents={collapsedAgents}
-          streamingAgents={streamingAgents}
-          isWaitingForResponse={isWaitingForResponse}
-          timerStartTime={timerStartTime}
-          onCollapseToggle={handleCollapseToggle}
-          setCollapsedAgents={setCollapsedAgents}
-          setFocusedAgentId={setFocusedAgentId}
-          userOpenedAgents={userOpenedAgents}
-          setUserOpenedAgents={setUserOpenedAgents}
-          onBuildFast={handleBuildFast}
-          onBuildMax={handleBuildMax}
-        />
+        {topLevelMessages.map((message, idx) => {
+          const isLast = idx === topLevelMessages.length - 1
+          return (
+            <MessageWithAgents
+              key={message.id}
+              message={message}
+              depth={0}
+              isLastMessage={isLast}
+              theme={theme}
+              markdownPalette={markdownPalette}
+              collapsedAgents={collapsedAgents}
+              streamingAgents={streamingAgents}
+              messageTree={messageTree}
+              messages={messages}
+              availableWidth={separatorWidth}
+              setCollapsedAgents={setCollapsedAgents}
+              setUserOpenedAgents={setUserOpenedAgents}
+              setFocusedAgentId={setFocusedAgentId}
+              isWaitingForResponse={isWaitingForResponse}
+              timerStartTime={timerStartTime}
+              onToggleCollapsed={handleCollapseToggle}
+              onBuildFast={handleBuildFast}
+              onBuildMax={handleBuildMax}
+            />
+          )
+        })}
       </scrollbox>
 
       <box

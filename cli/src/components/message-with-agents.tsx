@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { memo, useCallback, useMemo, type ReactNode } from 'react'
+import { memo, useMemo, type ReactNode } from 'react'
 import React from 'react'
 
 import { MessageBlock } from './message-block'
@@ -14,78 +14,6 @@ import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
-
-interface MessageRendererProps {
-  messages: ChatMessage[]
-  messageTree: Map<string, ChatMessage[]>
-  topLevelMessages: ChatMessage[]
-  availableWidth: number
-  theme: ChatTheme
-  markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  streamingAgents: Set<string>
-  isWaitingForResponse: boolean
-  timerStartTime: number | null
-  onCollapseToggle: (id: string) => void
-  setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
-  setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
-  userOpenedAgents: Set<string>
-  setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
-  onBuildFast: () => void
-  onBuildMax: () => void
-}
-
-export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
-  const {
-    messages,
-    messageTree,
-    topLevelMessages,
-    availableWidth,
-    theme,
-    markdownPalette,
-    collapsedAgents,
-    streamingAgents,
-    isWaitingForResponse,
-    timerStartTime,
-    onCollapseToggle,
-    setCollapsedAgents,
-    setFocusedAgentId,
-    setUserOpenedAgents,
-    onBuildFast,
-    onBuildMax,
-  } = props
-
-  return (
-    <>
-      {topLevelMessages.map((message, idx) => {
-        const isLast = idx === topLevelMessages.length - 1
-        return (
-          <MessageWithAgents
-            key={message.id}
-            message={message}
-            depth={0}
-            isLastMessage={isLast}
-            theme={theme}
-            markdownPalette={markdownPalette}
-            collapsedAgents={collapsedAgents}
-            streamingAgents={streamingAgents}
-            messageTree={messageTree}
-            messages={messages}
-            availableWidth={availableWidth}
-            setCollapsedAgents={setCollapsedAgents}
-            setUserOpenedAgents={setUserOpenedAgents}
-            setFocusedAgentId={setFocusedAgentId}
-            isWaitingForResponse={isWaitingForResponse}
-            timerStartTime={timerStartTime}
-            onToggleCollapsed={onCollapseToggle}
-            onBuildFast={onBuildFast}
-            onBuildMax={onBuildMax}
-          />
-        )
-      })}
-    </>
-  )
-}
 
 interface MessageWithAgentsProps {
   message: ChatMessage
@@ -108,7 +36,7 @@ interface MessageWithAgentsProps {
   onBuildMax: () => void
 }
 
-const MessageWithAgents = memo(
+export const MessageWithAgents = memo(
   ({
     message,
     depth,
