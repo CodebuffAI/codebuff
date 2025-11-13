@@ -76,6 +76,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
 }
 
 const CURSOR_CHAR = '▍'
+const CONTROL_CHAR_REGEX = /[\u0000-\u001f\u007f]/
 
 type KeyWithPreventDefault =
   | {
@@ -676,7 +677,8 @@ export const MultilineInput = forwardRef<
           key.sequence.length === 1 &&
           !key.ctrl &&
           !key.meta &&
-          !key.option
+          !key.option &&
+          !CONTROL_CHAR_REGEX.test(key.sequence)
         ) {
           preventKeyDefault(key)
           const newValue =

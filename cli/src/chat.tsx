@@ -40,18 +40,11 @@ import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
-import { Button } from './components/button'
 
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { ScrollBoxRenderable } from '@opentui/core'
 import type { FileTreeNode } from '@codebuff/common/util/file'
-
-const DEFAULT_AGENT_IDS = {
-  DEFAULT: 'base2',
-  MAX: 'base2-max',
-  PLAN: 'base2-plan',
-} as const
 
 export const Chat = ({
   headerContent,
@@ -194,15 +187,6 @@ export const Chat = ({
     resetChatStore,
   })
 
-  const showAgentDisplayName = !!agentId
-  const agentDisplayName = useMemo(() => {
-    if (!loadedAgentsData) return null
-
-    const currentAgentId = agentId || DEFAULT_AGENT_IDS[agentMode]
-    const agent = loadedAgentsData.agents.find((a) => a.id === currentAgentId)
-    return agent?.displayName || currentAgentId
-  }, [loadedAgentsData, agentId, agentMode])
-
   // Refs for tracking state across renders
   const activeAgentStreamsRef = useRef<number>(0)
   const isChainInProgressRef = useRef<boolean>(isChainInProgress)
@@ -280,13 +264,6 @@ export const Chat = ({
     : scrollboxProps
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
-
-  const { handleCtrlC, nextCtrlCWillExit } = useExitHandler({
-    inputValue,
-    setInputValue,
-  })
-
-  const [scrollIndicatorHovered, setScrollIndicatorHovered] = useState(false)
 
   const {
     slashContext,
@@ -385,6 +362,28 @@ export const Chat = ({
     activeAgentStreamsRef,
   )
 
+  const { handleCtrlC: baseHandleCtrlC, nextCtrlCWillExit } = useExitHandler({
+    inputValue,
+    setInputValue,
+  })
+
+  const handleCtrlC = useCallback(() => {
+    if (queuePaused && queuedMessages.length > 0) {
+      clearQueue()
+      resumeQueue()
+      return true
+    }
+    return baseHandleCtrlC()
+  }, [
+    baseHandleCtrlC,
+    clearQueue,
+    queuePaused,
+    queuedMessages.length,
+    resumeQueue,
+  ])
+
+  const [scrollIndicatorHovered, setScrollIndicatorHovered] = useState(false)
+
   // Derive boolean flags from streamStatus for convenience
   const isWaitingForResponse = streamStatus === 'waiting'
   const isStreaming = streamStatus !== 'idle'
@@ -437,48 +436,52 @@ export const Chat = ({
     sendMessageRef,
   })
 
-  const handleSubmit = useCallback(
-    () =>
-      routeUserPrompt({
-        abortControllerRef,
-        agentMode,
-        inputRef,
-        inputValue,
-        isChainInProgressRef,
-        isStreaming,
-        logoutMutation,
-        streamMessageIdRef,
-        addToQueue,
-        clearMessages,
-        clearQueue,
-        handleCtrlC,
-        saveToHistory,
-        scrollToLatest,
-        sendMessage,
-        setCanProcessQueue,
-        setInputFocused,
-        setInputValue,
-        setIsAuthenticated,
-        setMessages,
-        setUser,
-        stopStreaming,
-      }),
-    [
+  const handleSubmit = useCallback(() => {
+    if (queuePaused) {
+      resumeQueue()
+    }
+
+    return routeUserPrompt({
+      abortControllerRef,
       agentMode,
+      inputRef,
       inputValue,
-      isStreaming,
-      sendMessage,
-      saveToHistory,
-      addToQueue,
-      streamMessageIdRef,
       isChainInProgressRef,
-      scrollToLatest,
-      handleCtrlC,
+      isStreaming,
+      logoutMutation,
+      streamMessageIdRef,
+      addToQueue,
+      clearMessages,
       clearQueue,
-      queuedMessages,
-      pauseQueue,
-    ],
-  )
+      handleCtrlC,
+      saveToHistory,
+      scrollToLatest,
+      sendMessage,
+      setCanProcessQueue,
+      setInputFocused,
+      setInputValue,
+      setIsAuthenticated,
+      setMessages,
+      setUser,
+      stopStreaming,
+    })
+  }, [
+    agentMode,
+    inputValue,
+    isStreaming,
+    sendMessage,
+    saveToHistory,
+    addToQueue,
+    streamMessageIdRef,
+    isChainInProgressRef,
+    scrollToLatest,
+    handleCtrlC,
+    clearQueue,
+    queuedMessages,
+    pauseQueue,
+    queuePaused,
+    resumeQueue,
+  ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
@@ -552,12 +555,19 @@ export const Chat = ({
   const pausedQueueText = useMemo(() => {
     if (!queuePaused || queuedMessages.length === 0) return undefined
     const count = queuedMessages.length
-    return `${count} queued — your next message sends first`
+    const noun = count === 1 ? 'message' : 'messages'
+    return `${count} ${noun} queued — your message sends first`
   }, [queuePaused, queuedMessages])
-
-  const handleClearQueue = useCallback(() => {
-    clearQueue()
-  }, [clearQueue])
+  const inputPlaceholder = useMemo(() => {
+    const base =
+      terminalWidth < 65
+        ? 'Enter a coding task'
+        : 'Enter a coding task or / for commands'
+    if (queuePaused && queuedMessages.length > 0) {
+      return 'Ctrl-C to cancel queued messages'
+    }
+    return base
+  }, [queuePaused, queuedMessages.length, terminalWidth])
   const hasSlashSuggestions =
     slashContext.active && slashSuggestionItems.length > 0
   const hasMentionSuggestions =
@@ -565,7 +575,6 @@ export const Chat = ({
     mentionContext.active &&
     (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
-  const showAgentStatusLine = showAgentDisplayName && loadedAgentsData
 
   const inputLayoutMetrics = useMemo(() => {
     const text = inputValue ?? ''
@@ -587,8 +596,7 @@ export const Chat = ({
     })
   }, [inputValue, cursorPosition, inputWidth])
   const isMultilineInput = inputLayoutMetrics.heightLines > 1
-  const shouldCenterInputVertically =
-    !hasSuggestionMenu && !showAgentStatusLine && !isMultilineInput
+  const shouldCenterInputVertically = !hasSuggestionMenu && !isMultilineInput
   const statusIndicatorState = getStatusIndicatorState({
     clipboardMessage,
     streamStatus,
@@ -596,6 +604,21 @@ export const Chat = ({
     isConnected,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
+  const inputBoxTitle = useMemo(() => {
+    const segments: string[] = []
+
+    if (queuePreviewTitle) {
+      segments.push(`▶ ${queuePreviewTitle}`)
+    } else if (pausedQueueText) {
+      segments.push(`⏸ ${pausedQueueText}`)
+    }
+
+    if (segments.length === 0) {
+      return undefined
+    }
+
+    return ` ${segments.join('   ')} `
+  }, [queuePreviewTitle, pausedQueueText])
 
   const shouldShowStatusLine =
     hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom
@@ -685,7 +708,6 @@ export const Chat = ({
             nextCtrlCWillExit={nextCtrlCWillExit}
             isConnected={isConnected}
             isAtBottom={isAtBottom}
-            separatorWidth={separatorWidth}
             scrollToLatest={scrollToLatest}
             scrollIndicatorHovered={scrollIndicatorHovered}
             setScrollIndicatorHovered={setScrollIndicatorHovered}
@@ -693,10 +715,10 @@ export const Chat = ({
         )}
 
         {/* Wrap the input row in a single OpenTUI border so the toggle stays inside the flex layout.
-            The queue preview is injected via the border title rather than custom text nodes, which
-            keeps the border coupled to the content height while preserving the inline preview look. */}
+            Non-actionable queue context is injected via the border title to keep the content
+            area stable while still surfacing that information. */}
         <box
-          title={queuePreviewTitle ? ` ${queuePreviewTitle} ` : undefined}
+          title={inputBoxTitle}
           titleAlignment="center"
           style={{
             width: '100%',
@@ -734,7 +756,7 @@ export const Chat = ({
                 ? 'center'
                 : 'flex-start',
               minHeight: shouldCenterInputVertically ? 3 : undefined,
-              gap: showAgentStatusLine ? 1 : 0,
+              gap: 0,
             }}
           >
             <box
@@ -751,11 +773,7 @@ export const Chat = ({
                   value={inputValue}
                   onChange={setInputValue}
                   onSubmit={handleSubmit}
-                  placeholder={
-                    terminalWidth < 65
-                      ? 'Enter a coding task'
-                      : 'Enter a coding task or / for commands'
-                  }
+                  placeholder={inputPlaceholder}
                   focused={inputFocused}
                   maxHeight={5}
                   width={inputWidth}
@@ -778,62 +796,8 @@ export const Chat = ({
                 />
               </box>
             </box>
-            {/* Agent status line - right-aligned under toggle */}
-            {showAgentStatusLine && (
-              <box
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                  paddingTop: 0,
-                }}
-              >
-                <text>
-                  <span fg={theme.muted}>Agent: {agentDisplayName}</span>
-                </text>
-              </box>
-            )}
           </box>
         </box>
-
-        {/* Paused queue indicator - fake bottom border continuation */}
-        {pausedQueueText && (
-          <box style={{ width: '100%' }}>
-            <box style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <text style={{ wrapMode: 'none' }}>
-                <span fg={theme.warning}>{BORDER_CHARS.vertical}</span>
-              </text>
-              <box
-                style={{
-                  flexGrow: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingLeft: 1,
-                  paddingRight: 1,
-                  gap: 1,
-                }}
-              >
-                <text style={{ wrapMode: 'none', flexGrow: 1 }}>
-                  <span fg={theme.warning}>⏸ {pausedQueueText}</span>
-                </text>
-                <Button onClick={handleClearQueue}>
-                  <text>
-                    <span fg={theme.error}>✕</span>
-                  </text>
-                </Button>
-              </box>
-              <text style={{ wrapMode: 'none' }}>
-                <span fg={theme.warning}>{BORDER_CHARS.vertical}</span>
-              </text>
-            </box>
-            <text style={{ wrapMode: 'none' }}>
-              <span fg={theme.warning}>
-                {BORDER_CHARS.bottomLeft}
-                {BORDER_CHARS.horizontal.repeat(separatorWidth - 2)}
-                {BORDER_CHARS.bottomRight}
-              </span>
-            </text>
-          </box>
-        )}
       </box>
 
       {/* Login Modal Overlay - show when not authenticated and done checking */}

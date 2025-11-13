@@ -5,7 +5,6 @@ import { Button } from './button'
 import { ShimmerText } from './shimmer-text'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
-import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { StreamStatus } from '../hooks/use-message-queue'
 
@@ -18,7 +17,6 @@ interface StatusBarProps {
   nextCtrlCWillExit: boolean
   isConnected: boolean
   isAtBottom: boolean
-  separatorWidth: number
   scrollToLatest: () => void
   scrollIndicatorHovered: boolean
   setScrollIndicatorHovered: (hovered: boolean) => void
@@ -31,7 +29,6 @@ export const StatusBar = ({
   nextCtrlCWillExit,
   isConnected,
   isAtBottom,
-  separatorWidth,
   scrollToLatest,
   scrollIndicatorHovered,
   setScrollIndicatorHovered,
@@ -103,78 +100,64 @@ export const StatusBar = ({
     return <span fg={theme.secondary}>{formatElapsedTime(elapsedSeconds)}</span>
   }
 
+  const statusIndicatorContent = renderStatusIndicator()
+  const elapsedTimeContent = renderElapsedTime()
   return (
-    <box style={{ width: '100%' }}>
-      <text style={{ wrapMode: 'none' }}>
-        <span fg={theme.success}>
-          {BORDER_CHARS.topLeft}
-          {BORDER_CHARS.horizontal.repeat(Math.max(0, separatorWidth - 2))}
-          {BORDER_CHARS.topRight}
-        </span>
-      </text>
-      <box style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <text style={{ wrapMode: 'none' }}>
-          <span fg={theme.success}>{BORDER_CHARS.vertical}</span>
-        </text>
-        <box
-          style={{
-            flexGrow: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingLeft: 1,
-            paddingRight: 1,
-            gap: 1,
-          }}
-        >
-          <box
-            style={{
-              flexGrow: 1,
-              flexShrink: 1,
-              flexBasis: 0,
-            }}
-          >
-            <text style={{ wrapMode: 'none' }}>{renderStatusIndicator()}</text>
-          </box>
+    <box
+      style={{
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingLeft: 1,
+        paddingRight: 1,
+        gap: 1,
+        backgroundColor: theme.surface,
+      }}
+    >
+      <box
+        style={{
+          flexGrow: 1,
+          flexShrink: 1,
+          flexBasis: 0,
+        }}
+      >
+        <text style={{ wrapMode: 'none' }}>{statusIndicatorContent}</text>
+      </box>
 
-          <box style={{ flexShrink: 0 }}>
-            {!isAtBottom && (
-              <Button
-                style={{ paddingLeft: 2, paddingRight: 2 }}
-                onClick={() => scrollToLatest()}
-                onMouseOver={() => setScrollIndicatorHovered(true)}
-                onMouseOut={() => setScrollIndicatorHovered(false)}
+      <box style={{ flexShrink: 0 }}>
+        {!isAtBottom && (
+          <Button
+            style={{ paddingLeft: 2, paddingRight: 2 }}
+            onClick={() => scrollToLatest()}
+            onMouseOver={() => setScrollIndicatorHovered(true)}
+            onMouseOut={() => setScrollIndicatorHovered(false)}
+          >
+            <text>
+              <span
+                fg={theme.info}
+                attributes={
+                  scrollIndicatorHovered
+                    ? TextAttributes.BOLD
+                    : TextAttributes.DIM
+                }
               >
-                <text>
-                  <span
-                    fg={theme.info}
-                    attributes={
-                      scrollIndicatorHovered
-                        ? TextAttributes.BOLD
-                        : TextAttributes.DIM
-                    }
-                  >
-                    {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
-                  </span>
-                </text>
-              </Button>
-            )}
-          </box>
+                {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
+              </span>
+            </text>
+          </Button>
+        )}
+      </box>
 
-          <box
-            style={{
-              flexGrow: 1,
-              flexShrink: 1,
-              flexBasis: 0,
-              flexDirection: 'row',
-              justifyContent: 'flex-end',
-            }}
-          >
-            <text style={{ wrapMode: 'none' }}>{renderElapsedTime()}</text>
-          </box>
-        </box>
-        <text style={{ wrapMode: 'none' }}>
-          <span fg={theme.success}>{BORDER_CHARS.vertical}</span>
-        </text>
+      <box
+        style={{
+          flexGrow: 1,
+          flexShrink: 1,
+          flexBasis: 0,
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
       </box>
     </box>
   )
