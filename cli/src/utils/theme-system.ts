@@ -800,11 +800,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     agentToggleExpandedBg: '#1d4ed8',
     agentFocusedBg: '#334155',
     agentContentBg: '#000000',
-
-    // Input
-    inputBg: '#000000',
     inputFg: '#f5f5f5',
-    inputFocusedBg: '#000000',
     inputFocusedFg: '#ffffff',
 
     // Mode toggles
@@ -864,11 +860,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     agentToggleExpandedBg: '#1d4ed8',
     agentFocusedBg: '#f3f4f6',
     agentContentBg: '#ffffff',
-
-    // Input
-    inputBg: '#f9fafb',
     inputFg: '#111827',
-    inputFocusedBg: '#ffffff',
     inputFocusedFg: '#000000',
 
     // Mode toggles

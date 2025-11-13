@@ -341,7 +341,12 @@ export const Chat = ({
     if (totalMatches === 0 && agentSelectedIndex !== 0) {
       setAgentSelectedIndex(0)
     }
-  }, [agentMatches.length, fileMatches.length, agentSelectedIndex, setAgentSelectedIndex])
+  }, [
+    agentMatches.length,
+    fileMatches.length,
+    agentSelectedIndex,
+    setAgentSelectedIndex,
+  ])
 
   const { handleSuggestionMenuKey } = useSuggestionMenuHandlers({
     slashContext,
@@ -768,8 +773,7 @@ export const Chat = ({
           style={{
             width: '100%',
             borderStyle: 'single',
-            borderColor: theme.secondary,
-            focusedBorderColor: theme.foreground,
+            borderColor: theme.foreground,
             customBorderChars: BORDER_CHARS,
             paddingLeft: 1,
             paddingRight: 1,
@@ -883,7 +887,9 @@ export const Chat = ({
             </box>
             <text style={{ wrapMode: 'none' }}>
               <span fg={theme.warning}>
-                {BORDER_CHARS.bottomLeft}{BORDER_CHARS.horizontal.repeat(separatorWidth - 2)}{BORDER_CHARS.bottomRight}
+                {BORDER_CHARS.bottomLeft}
+                {BORDER_CHARS.horizontal.repeat(separatorWidth - 2)}
+                {BORDER_CHARS.bottomRight}
               </span>
             </text>
           </box>

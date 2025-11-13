@@ -93,16 +93,8 @@ export interface ChatTheme {
 
   /** Agent content background */
   agentContentBg: string
-
-  // Input specific
-  /** Input background */
-  inputBg: string
-
   /** Input text color */
   inputFg: ThemeColor
-
-  /** Focused input background */
-  inputFocusedBg: string
 
   /** Focused input text color */
   inputFocusedFg: ThemeColor

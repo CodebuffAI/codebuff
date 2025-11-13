@@ -33,9 +33,7 @@ const theme: ChatTheme = {
   agentFocusedBg: '#334155',
   agentContentBg: '#000000',
   // Input
-  inputBg: '#000',
   inputFg: '#fff',
-  inputFocusedBg: '#000',
   inputFocusedFg: '#fff',
   // Modes
   modeFastBg: '#f60',
