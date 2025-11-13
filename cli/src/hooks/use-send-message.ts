@@ -1580,6 +1580,8 @@ export const useSendMessage = ({
           },
         })
 
+        previousRunStateRef.current = runState
+
         if (!runState.output || runState.output.type === 'error') {
           logger.warn(
             {
@@ -1625,8 +1627,6 @@ export const useSendMessage = ({
             }
           }),
         )
-
-        previousRunStateRef.current = runState
       } catch (error) {
         logger.error(
           { error: getErrorObject(error) },
