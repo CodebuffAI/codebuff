@@ -40,6 +40,8 @@ export async function processStreamWithTools(
     userInputId: string
     userId: string | undefined
     repoId: string | undefined
+    ancestorRunIds: string[]
+    runId: string
     agentTemplate: AgentTemplate
     localAgentTemplates: Record<string, AgentTemplate>
     fileContext: ProjectFileContext
@@ -74,6 +76,8 @@ export async function processStreamWithTools(
     fingerprintId,
     userInputId,
     userId,
+    ancestorRunIds,
+    runId,
     repoId,
     agentTemplate,
     localAgentTemplates,
@@ -188,7 +192,12 @@ export async function processStreamWithTools(
     }
 
     if (chunk.type === 'reasoning') {
-      onResponseChunk(chunk)
+      onResponseChunk({
+        type: 'reasoning_delta',
+        text: chunk.text,
+        ancestorRunIds,
+        runId,
+      })
     } else if (chunk.type === 'text') {
       onResponseChunk(chunk.text)
       fullResponseChunks.push(chunk.text)

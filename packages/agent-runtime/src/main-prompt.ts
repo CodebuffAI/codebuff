@@ -47,6 +47,7 @@ export async function mainPrompt(
     | 'agentType'
     | 'fingerprintId'
     | 'fileContext'
+    | 'ancestorRunIds'
   > &
     ParamsExcluding<
       typeof checkTerminalCommand,
@@ -227,6 +228,7 @@ export async function mainPrompt(
     userInputId: promptId,
     spawnParams: promptParams,
     agentState: mainAgentState,
+    ancestorRunIds: [],
     prompt,
     content,
     agentType,

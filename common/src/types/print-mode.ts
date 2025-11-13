@@ -44,12 +44,6 @@ export const printModeToolResultSchema = z.object({
 })
 export type PrintModeToolResult = z.infer<typeof printModeToolResultSchema>
 
-export const printModeReasoningSchema = z.object({
-  type: z.literal('reasoning'),
-  text: z.string(),
-})
-export type PrintModeReasoning = z.infer<typeof printModeReasoningSchema>
-
 export const printModeTextSchema = z.object({
   type: z.literal('text'),
   text: z.string(),
@@ -102,7 +96,6 @@ export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeDownloadStatusSchema,
   printModeErrorSchema,
   printModeFinishSchema,
-  printModeReasoningSchema,
   printModeStartSchema,
   printModeSubagentFinishSchema,
   printModeSubagentStartSchema,

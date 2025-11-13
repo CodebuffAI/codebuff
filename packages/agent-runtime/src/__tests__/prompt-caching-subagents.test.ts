@@ -145,6 +145,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -180,6 +181,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
@@ -229,6 +231,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -258,6 +261,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
@@ -308,6 +312,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -340,6 +345,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
@@ -416,6 +422,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -445,6 +452,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
@@ -505,6 +513,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -537,6 +546,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       localAgentTemplates: mockLocalAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })

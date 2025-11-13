@@ -67,6 +67,8 @@ export type CodebuffClientOptions = {
         }
       | {
           type: 'reasoning_chunk'
+          agentId: string
+          ancestorRunIds: string[]
           chunk: string
         },
   ) => void | Promise<void>
@@ -204,16 +206,6 @@ export async function run({
 
   const buffers: Record<string | 0, string> = { 0: '' }
 
-  let reasoning = ''
-  async function flushReasoning() {
-    if (reasoning) {
-      await handleEvent?.({
-        type: 'reasoning',
-        text: reasoning,
-      })
-    }
-    reasoning = ''
-  }
   const onResponseChunk = async (
     action: ServerAction<'response-chunk'>,
   ): Promise<void> => {
@@ -230,13 +222,14 @@ export async function run({
     }
     const { chunk } = action
     if (typeof chunk !== 'string') {
-      if (chunk.type === 'reasoning') {
+      if (chunk.type === 'reasoning_delta') {
         handleStreamChunk?.({
           type: 'reasoning_chunk',
           chunk: chunk.text,
+          agentId: chunk.runId,
+          ancestorRunIds: chunk.ancestorRunIds,
         })
       } else {
-        await flushReasoning()
         await handleEvent?.(chunk)
       }
       return
@@ -255,7 +248,6 @@ export async function run({
         }
 
         if (value.chunk) {
-          await flushReasoning()
           await handleStreamChunk(value.chunk)
         }
       }
@@ -614,15 +606,13 @@ async function handlePromptResponse({
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
-    resolve(
-      {
-        sessionState: initialSessionState,
-        output: {
-          type: 'error',
-          message: action.message,
-        },
+    resolve({
+      sessionState: initialSessionState,
+      output: {
+        type: 'error',
+        message: action.message,
       },
-    )
+    })
   } else if (action.type === 'prompt-response') {
     // Stop enforcing session state schema! It's a black box we will pass back to the server.
     // Only check the output schema.

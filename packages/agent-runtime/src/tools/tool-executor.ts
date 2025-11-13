@@ -137,6 +137,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   fetch: typeof globalThis.fetch
   fromHandleSteps?: boolean
   onCostCalculated: (credits: number) => Promise<void>
+  ancestorRunIds: string[]
 } & AgentRuntimeDeps &
   AgentRuntimeScopedDeps
 

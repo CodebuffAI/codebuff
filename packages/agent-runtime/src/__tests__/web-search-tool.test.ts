@@ -125,6 +125,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       repoUrl: undefined,
       spawnParams: undefined,
       runId: 'test-run-id',
+      ancestorRunIds: [],
     })
 
     expect(spy).toHaveBeenCalledWith(
@@ -173,6 +174,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       repoUrl: undefined,
       spawnParams: undefined,
       runId: 'test-run-id',
+      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -225,6 +227,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       repoUrl: undefined,
       spawnParams: undefined,
       runId: 'test-run-id',
+      ancestorRunIds: [],
     })
 
     expect(webApi.callWebSearchAPI).toHaveBeenCalledWith(
@@ -270,6 +273,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       repoUrl: undefined,
       spawnParams: undefined,
       runId: 'test-run-id',
+      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -320,6 +324,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       repoUrl: undefined,
       spawnParams: undefined,
       runId: 'test-run-id',
+      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -370,6 +375,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       repoUrl: undefined,
       spawnParams: undefined,
       runId: 'test-run-id',
+      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -421,6 +427,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       repoUrl: undefined,
       spawnParams: undefined,
       runId: 'test-run-id',
+      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -476,6 +483,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       repoUrl: undefined,
       spawnParams: undefined,
       runId: 'test-run-id',
+      ancestorRunIds: [],
     })
 
     // Verify that the credits from the web search API were added to agent state

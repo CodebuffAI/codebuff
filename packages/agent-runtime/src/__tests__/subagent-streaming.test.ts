@@ -135,6 +135,7 @@ describe('Subagent Streaming', () => {
       clientSessionId: 'test-session',
       userInputId: 'test-input',
       writeToClient: mockWriteToClient,
+      ancestorRunIds: [],
       getLatestState: () => ({ messages: [] }),
       state: {
         fingerprintId: 'test-fingerprint',
@@ -200,6 +201,7 @@ describe('Subagent Streaming', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input-123',
+      ancestorRunIds: [],
       writeToClient: () => {},
       getLatestState: () => ({ messages: [] }),
       state: {

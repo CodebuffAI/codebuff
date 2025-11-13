@@ -241,6 +241,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -275,6 +276,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -311,6 +313,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -349,6 +352,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -383,6 +387,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -420,6 +425,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -468,6 +474,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -523,6 +530,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -555,6 +563,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -588,6 +597,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -620,6 +630,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -652,6 +663,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -687,6 +699,7 @@ describe('Spawn Agents Permissions', () => {
         fileContext: mockFileContext,
         clientSessionId: 'test-session',
         userInputId: 'test-input',
+        ancestorRunIds: [],
         writeToClient: () => {},
         getLatestState: () => ({ messages: [] }),
         state: {
@@ -720,6 +733,7 @@ describe('Spawn Agents Permissions', () => {
           fileContext: mockFileContext,
           clientSessionId: 'test-session',
           userInputId: 'test-input',
+          ancestorRunIds: [],
           writeToClient: () => {},
           getLatestState: () => ({ messages: [] }),
           state: {

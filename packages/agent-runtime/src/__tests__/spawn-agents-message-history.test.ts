@@ -113,6 +113,7 @@ describe('Spawn Agents Message History', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      ancestorRunIds: [],
       writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
@@ -185,6 +186,7 @@ describe('Spawn Agents Message History', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      ancestorRunIds: [],
       writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
@@ -222,6 +224,7 @@ describe('Spawn Agents Message History', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      ancestorRunIds: [],
       writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
@@ -262,6 +265,7 @@ describe('Spawn Agents Message History', () => {
       fileContext: mockFileContext,
       clientSessionId: 'test-session',
       userInputId: 'test-input',
+      ancestorRunIds: [],
       writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {

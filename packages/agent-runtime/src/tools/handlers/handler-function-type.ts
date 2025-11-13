@@ -31,6 +31,8 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     repoId: string | undefined
     fileContext: ProjectFileContext
 
+    ancestorRunIds: string[]
+
     fullResponse: string
     fetch: typeof globalThis.fetch
 

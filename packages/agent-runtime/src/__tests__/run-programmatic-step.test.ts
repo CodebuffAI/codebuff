@@ -116,6 +116,7 @@ describe('runProgrammaticStep', () => {
     mockParams = {
       ...agentRuntimeImpl,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       agentState: mockAgentState,

@@ -63,6 +63,7 @@ describe('malformed tool call error handling', () => {
       ...agentRuntimeImpl,
       stream: createMockStream([]),
       runId: 'test-run-id',
+      ancestorRunIds: [],
       agentStepId: 'test-step',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',

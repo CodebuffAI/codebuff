@@ -70,6 +70,7 @@ describe('QuickJS Sandbox Generator', () => {
     mockParams = {
       ...agentRuntimeImpl,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       system: undefined,
