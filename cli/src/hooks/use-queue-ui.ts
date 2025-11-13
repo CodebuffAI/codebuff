@@ -28,7 +28,7 @@ export const useQueueUi = ({
 
   const pausedQueueText = useMemo(() => {
     if (!queuePaused || queuedCount === 0) return undefined
-    return `${pluralize(queuedCount, 'message')} queued — your message sends first`
+    return `${pluralize(queuedCount, 'message')} queued — your next message sends first`
   }, [queuePaused, queuedCount])
 
   const inputPlaceholder = useMemo(() => {
@@ -38,7 +38,7 @@ export const useQueueUi = ({
         : 'Enter a coding task or / for commands'
 
     if (queuePaused && queuedCount > 0) {
-      return 'Queue paused — your next message sends first (Ctrl-C cancels)'
+      return 'Ctrl-C to cancel queued messages'
     }
 
     return base
