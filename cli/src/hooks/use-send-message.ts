@@ -13,6 +13,7 @@ import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
+import { getUserMessage } from '../utils/message-history'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
@@ -404,7 +405,6 @@ export const useSendMessage = ({
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
       const { content, agentMode, postUserMessage } = params
-      const timestamp = formatTimestamp()
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
@@ -424,14 +424,6 @@ export const useSendMessage = ({
       // Also show divider on first message (when lastMessageMode is null)
       const shouldInsertDivider =
         lastMessageMode === null || lastMessageMode !== agentMode
-
-      // Add user message to UI first
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        variant: 'user',
-        content,
-        timestamp,
-      }
 
       applyMessageUpdate((prev) => {
         let newMessages = [...prev]
@@ -453,7 +445,8 @@ export const useSendMessage = ({
           newMessages.push(dividerMessage)
         }
 
-        newMessages.push(userMessage)
+        // Add user message to UI first
+        newMessages.push(getUserMessage(content))
 
         if (postUserMessage) {
           newMessages = postUserMessage(newMessages)

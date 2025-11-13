@@ -4,7 +4,43 @@ import path from 'path'
 import { getConfigDir } from './auth'
 import { logger } from './logger'
 
+import type { ChatMessage, ContentBlock } from '../types/chat'
+
 const MAX_HISTORY_SIZE = 1000
+
+export function getUserMessage(message: string | ContentBlock[]): ChatMessage {
+  return {
+    id: `user-${Date.now()}`,
+    variant: 'user',
+    ...(typeof message === 'string'
+      ? {
+          content: message,
+        }
+      : {
+          content: '',
+          blocks: message,
+        }),
+    timestamp: new Date().toISOString(),
+  }
+}
+
+export function getSystemMessage(
+  content: string | ContentBlock[],
+): ChatMessage {
+  return {
+    id: `sys-${Date.now()}`,
+    variant: 'ai' as const,
+    ...(typeof content === 'string'
+      ? {
+          content,
+        }
+      : {
+          content: '',
+          blocks: content,
+        }),
+    timestamp: new Date().toISOString(),
+  }
+}
 
 /**
  * Get the message history file path

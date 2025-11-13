@@ -3,6 +3,8 @@ import { BACKEND_URL } from '@codebuff/sdk'
 import { useChatStore } from '../state/chat-store'
 import { getAuthToken } from '../utils/auth'
 import { logger } from '../utils/logger'
+import { getSystemMessage } from '../utils/message-history'
+
 import type { PostUserMessageFn } from '../types/contracts/send-message'
 
 interface UsageResponse {
@@ -22,12 +24,7 @@ export async function handleUsageCommand(): Promise<{
   if (!authToken) {
     const postUserMessage: PostUserMessageFn = (prev) => [
       ...prev,
-      {
-        id: `sys-${Date.now()}`,
-        variant: 'ai' as const,
-        content: 'Please log in first to view your usage.',
-        timestamp: new Date().toISOString(),
-      },
+      getSystemMessage('Please log in first to view your usage.'),
     ]
     return { postUserMessage }
   }
@@ -53,12 +50,7 @@ export async function handleUsageCommand(): Promise<{
 
       const postUserMessage: PostUserMessageFn = (prev) => [
         ...prev,
-        {
-          id: `sys-${Date.now()}`,
-          variant: 'ai' as const,
-          content: `Failed to fetch usage data: ${errorText}`,
-          timestamp: new Date().toISOString(),
-        },
+        getSystemMessage(`Failed to fetch usage data: ${errorText}`),
       ]
       return { postUserMessage }
     }
@@ -96,12 +88,7 @@ export async function handleUsageCommand(): Promise<{
 
     const postUserMessage: PostUserMessageFn = (prev) => [
       ...prev,
-      {
-        id: `sys-${Date.now()}`,
-        variant: 'ai' as const,
-        content: usageMessage,
-        timestamp: new Date().toISOString(),
-      },
+      getSystemMessage(usageMessage),
     ]
     return { postUserMessage }
   } catch (error) {
@@ -115,12 +102,7 @@ export async function handleUsageCommand(): Promise<{
 
     const postUserMessage: PostUserMessageFn = (prev) => [
       ...prev,
-      {
-        id: `sys-${Date.now()}`,
-        variant: 'ai' as const,
-        content: 'Error checking usage. Please try again later.',
-        timestamp: new Date().toISOString(),
-      },
+      getSystemMessage('Error checking usage. Please try again later.'),
     ]
     return { postUserMessage }
   }

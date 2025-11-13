@@ -2,6 +2,7 @@ import { runTerminalCommand } from '@codebuff/sdk'
 
 import { handleInitializationFlowLocally } from './init'
 import { handleUsageCommand } from './usage'
+import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue } from '../state/chat-store'
@@ -82,19 +83,8 @@ export async function routeUserPrompt(params: {
 
     setMessages((prev) => [
       ...prev,
-      {
-        id: `user-${Date.now()}`,
-        variant: 'user',
-        content: trimmed,
-        timestamp: new Date().toISOString(),
-      },
-      {
-        id: `sys-${Date.now()}`,
-        variant: 'ai',
-        content: '',
-        blocks: [resultBlock],
-        timestamp: new Date().toISOString(),
-      },
+      getUserMessage(trimmed),
+      getSystemMessage([resultBlock]),
     ])
 
     runTerminalCommand({
@@ -134,13 +124,12 @@ export async function routeUserPrompt(params: {
   const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
   const cmd = normalized.split(/\s+/)[0].toLowerCase()
   if (cmd === 'login' || cmd === 'signin') {
-    const msg = {
-      id: `sys-${Date.now()}`,
-      variant: 'ai' as const,
-      content: "You're already in the app. Use /logout to switch accounts.",
-      timestamp: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, msg])
+    setMessages((prev) => [
+      ...prev,
+      getSystemMessage(
+        "You're already in the app. Use /logout to switch accounts.",
+      ),
+    ])
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     return
   }
@@ -151,13 +140,7 @@ export async function routeUserPrompt(params: {
 
     logoutMutation.mutate(undefined, {
       onSettled: () => {
-        const msg = {
-          id: `sys-${Date.now()}`,
-          variant: 'ai' as const,
-          content: 'Logged out.',
-          timestamp: new Date().toISOString(),
-        }
-        setMessages((prev) => [...prev, msg])
+        setMessages((prev) => [...prev, getSystemMessage('Logged out.')])
         setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
         setTimeout(() => {
           setUser(null)

@@ -1,3 +1,5 @@
+import { getSystemMessage } from './message-history'
+
 import type { User } from './auth'
 import type { AgentMode } from './constants'
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -60,13 +62,12 @@ export function handleSlashCommands(params: {
   const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
   const cmd = normalized.split(/\s+/)[0].toLowerCase()
   if (cmd === 'login' || cmd === 'signin') {
-    const msg = {
-      id: `sys-${Date.now()}`,
-      variant: 'ai' as const,
-      content: "You're already in the app. Use /logout to switch accounts.",
-      timestamp: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, msg])
+    setMessages((prev) => [
+      ...prev,
+      getSystemMessage(
+        "You're already in the app. Use /logout to switch accounts.",
+      ),
+    ])
     setInputValue('')
     return
   }
