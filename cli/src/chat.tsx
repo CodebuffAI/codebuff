@@ -1,4 +1,3 @@
-import { TextAttributes } from '@opentui/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -32,15 +31,15 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
+import { useQueueUi } from './hooks/use-queue-ui'
+import { useQueueControls } from './hooks/use-queue-controls'
 import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
-import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
-import { pluralize } from '@codebuff/common/util/string'
 
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
@@ -363,27 +362,31 @@ export const Chat = ({
     activeAgentStreamsRef,
   )
 
+  const {
+    queuedCount,
+    shouldShowQueuePreview,
+    queuePreviewTitle,
+    pausedQueueText,
+    inputPlaceholder,
+  } = useQueueUi({
+    queuePaused,
+    queuedMessages,
+    separatorWidth,
+    terminalWidth,
+  })
+
   const { handleCtrlC: baseHandleCtrlC, nextCtrlCWillExit } = useExitHandler({
     inputValue,
     setInputValue,
   })
 
-  const handleCtrlC = useCallback(() => {
-    if (queuePaused && queuedMessages.length > 0) {
-      clearQueue()
-      resumeQueue()
-      return true
-    }
-    return baseHandleCtrlC()
-  }, [
-    baseHandleCtrlC,
-    clearQueue,
+  const { handleCtrlC, ensureQueueActiveBeforeSubmit } = useQueueControls({
     queuePaused,
-    queuedMessages.length,
+    queuedCount,
+    clearQueue,
     resumeQueue,
-  ])
-
-  const [scrollIndicatorHovered, setScrollIndicatorHovered] = useState(false)
+    baseHandleCtrlC,
+  })
 
   // Derive boolean flags from streamStatus for convenience
   const isWaitingForResponse = streamStatus === 'waiting'
@@ -438,9 +441,7 @@ export const Chat = ({
   })
 
   const handleSubmit = useCallback(() => {
-    if (queuePaused) {
-      resumeQueue()
-    }
+    ensureQueueActiveBeforeSubmit()
 
     return routeUserPrompt({
       abortControllerRef,
@@ -467,21 +468,29 @@ export const Chat = ({
       stopStreaming,
     })
   }, [
+    abortControllerRef,
     agentMode,
+    inputRef,
     inputValue,
-    isStreaming,
-    sendMessage,
-    saveToHistory,
-    addToQueue,
-    streamMessageIdRef,
     isChainInProgressRef,
-    scrollToLatest,
-    handleCtrlC,
+    isStreaming,
+    logoutMutation,
+    streamMessageIdRef,
+    addToQueue,
+    clearMessages,
     clearQueue,
-    queuedMessages,
-    pauseQueue,
-    queuePaused,
-    resumeQueue,
+    handleCtrlC,
+    saveToHistory,
+    scrollToLatest,
+    sendMessage,
+    setCanProcessQueue,
+    setInputFocused,
+    setInputValue,
+    setIsAuthenticated,
+    setMessages,
+    setUser,
+    stopStreaming,
+    ensureQueueActiveBeforeSubmit,
   ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
@@ -546,28 +555,6 @@ export const Chat = ({
       </text>
     ) : null
 
-  const shouldShowQueuePreview = queuedMessages.length > 0 && !queuePaused
-  const queuePreviewTitle = useMemo(() => {
-    if (!shouldShowQueuePreview) return undefined
-    const previewWidth = Math.max(30, separatorWidth - 20)
-    return formatQueuedPreview(queuedMessages, previewWidth)
-  }, [queuedMessages, separatorWidth, shouldShowQueuePreview])
-
-  const pausedQueueText = useMemo(() => {
-    if (!queuePaused || queuedMessages.length === 0) return undefined
-    const count = queuedMessages.length
-    return `${pluralize(count, 'message')} queued — your message sends first`
-  }, [queuePaused, queuedMessages.length])
-  const inputPlaceholder = useMemo(() => {
-    const base =
-      terminalWidth < 65
-        ? 'Enter a coding task'
-        : 'Enter a coding task or / for commands'
-    if (queuePaused && queuedMessages.length > 0) {
-      return 'Ctrl-C to cancel queued messages'
-    }
-    return base
-  }, [queuePaused, queuedMessages.length, terminalWidth])
   const hasSlashSuggestions =
     slashContext.active && slashSuggestionItems.length > 0
   const hasMentionSuggestions =
@@ -709,8 +696,6 @@ export const Chat = ({
             isConnected={isConnected}
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
-            scrollIndicatorHovered={scrollIndicatorHovered}
-            setScrollIndicatorHovered={setScrollIndicatorHovered}
           />
         )}
 

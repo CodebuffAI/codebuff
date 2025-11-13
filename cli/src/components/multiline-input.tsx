@@ -234,6 +234,35 @@ export const MultilineInput = forwardRef<
     return ((textRef.current as any).textBufferView as TextBufferView).lineInfo
   }, [])
 
+  const insertTextAtCursor = useCallback(
+    (textToInsert: string) => {
+      if (!textToInsert) return
+      const newValue =
+        value.slice(0, cursorPosition) +
+        textToInsert +
+        value.slice(cursorPosition)
+      onChange({
+        text: newValue,
+        cursorPosition: cursorPosition + textToInsert.length,
+        lastEditDueToNav: false,
+      })
+    },
+    [cursorPosition, onChange, value],
+  )
+
+  const moveCursor = useCallback(
+    (nextPosition: number) => {
+      const clamped = Math.max(0, Math.min(value.length, nextPosition))
+      if (clamped === cursorPosition) return
+      onChange({
+        text: value,
+        cursorPosition: clamped,
+        lastEditDueToNav: false,
+      })
+    },
+    [cursorPosition, onChange, value],
+  )
+
   const isPlaceholder = value.length === 0 && placeholder.length > 0
   const displayValue = isPlaceholder ? placeholder : value
   const showCursor = focused
@@ -621,22 +650,14 @@ export const MultilineInput = forwardRef<
         // Left arrow (no modifiers)
         if (key.name === 'left' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          onChange({
-            text: value,
-            cursorPosition: cursorPosition - 1,
-            lastEditDueToNav: false,
-          })
+          moveCursor(cursorPosition - 1)
           return
         }
 
         // Right arrow (no modifiers)
         if (key.name === 'right' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          onChange({
-            text: value,
-            cursorPosition: cursorPosition + 1,
-            lastEditDueToNav: false,
-          })
+          moveCursor(cursorPosition + 1)
           return
         }
 
@@ -681,15 +702,7 @@ export const MultilineInput = forwardRef<
           !key.option
         ) {
           preventKeyDefault(key)
-          const newValue =
-            value.slice(0, cursorPosition) +
-            '\t' +
-            value.slice(cursorPosition)
-          onChange({
-            text: newValue,
-            cursorPosition: cursorPosition + 1,
-            lastEditDueToNav: false,
-          })
+          insertTextAtCursor('\t')
           return
         }
 
@@ -703,15 +716,7 @@ export const MultilineInput = forwardRef<
           !CONTROL_CHAR_REGEX.test(key.sequence)
         ) {
           preventKeyDefault(key)
-          const newValue =
-            value.slice(0, cursorPosition) +
-            key.sequence +
-            value.slice(cursorPosition)
-          onChange({
-            text: newValue,
-            cursorPosition: cursorPosition + 1,
-            lastEditDueToNav: false,
-          })
+          insertTextAtCursor(key.sequence)
           return
         }
       },
@@ -724,6 +729,8 @@ export const MultilineInput = forwardRef<
         onChange,
         onSubmit,
         onKeyIntercept,
+        insertTextAtCursor,
+        moveCursor,
       ],
     ),
   )

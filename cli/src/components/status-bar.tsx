@@ -1,8 +1,7 @@
-import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useState } from 'react'
 
-import { Button } from './button'
 import { ShimmerText } from './shimmer-text'
+import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 
@@ -18,8 +17,6 @@ interface StatusBarProps {
   isConnected: boolean
   isAtBottom: boolean
   scrollToLatest: () => void
-  scrollIndicatorHovered: boolean
-  setScrollIndicatorHovered: (hovered: boolean) => void
 }
 
 export const StatusBar = ({
@@ -30,8 +27,6 @@ export const StatusBar = ({
   isConnected,
   isAtBottom,
   scrollToLatest,
-  scrollIndicatorHovered,
-  setScrollIndicatorHovered,
 }: StatusBarProps) => {
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -125,27 +120,7 @@ export const StatusBar = ({
       </box>
 
       <box style={{ flexShrink: 0 }}>
-        {!isAtBottom && (
-          <Button
-            style={{ paddingLeft: 2, paddingRight: 2 }}
-            onClick={() => scrollToLatest()}
-            onMouseOver={() => setScrollIndicatorHovered(true)}
-            onMouseOut={() => setScrollIndicatorHovered(false)}
-          >
-            <text>
-              <span
-                fg={theme.info}
-                attributes={
-                  scrollIndicatorHovered
-                    ? TextAttributes.BOLD
-                    : TextAttributes.DIM
-                }
-              >
-                {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
-              </span>
-            </text>
-          </Button>
-        )}
+        {!isAtBottom && <ScrollToBottomButton onClick={scrollToLatest} />}
       </box>
 
       <box
