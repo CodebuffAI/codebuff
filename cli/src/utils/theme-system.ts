@@ -786,9 +786,9 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     // Neutral scale
     foreground: '#f1f5f9',
     background: 'transparent',
-    muted: '#9ca3af',
-    border: '#334155',
-    surface: '#000000',
+    muted: '#acb3bf',
+    border: '#536175',
+    surface: '#202327',
     surfaceHover: '#334155',
 
     // Context-specific
