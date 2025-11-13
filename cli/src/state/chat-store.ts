@@ -30,6 +30,7 @@ export type ChatStoreState = {
   hasReceivedPlanResponse: boolean
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
+  previousRunState: any
 }
 
 type ChatStoreActions = {
@@ -60,6 +61,7 @@ type ChatStoreActions = {
   setHasReceivedPlanResponse: (value: boolean) => void
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
+  setPreviousRunState: (runState: any) => void
   reset: () => void
 }
 
@@ -84,6 +86,7 @@ const initialState: ChatStoreState = {
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
   sessionCreditsUsed: 0,
+  previousRunState: null,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -187,6 +190,15 @@ export const useChatStore = create<ChatStore>()(
       set((state) => {
         state.sessionCreditsUsed += credits
       }),
+    setPreviousRunState: (runState) =>
+      set(
+        (state) => {
+          // Cast to any to bypass Immer's WritableDraft type checking
+          // RunState contains complex nested types that Immer can't handle
+          ;(state as any).previousRunState = runState
+        },
+        false, // Don't replace state, just mutate
+      ),
 
     reset: () =>
       set((state) => {
@@ -206,6 +218,7 @@ export const useChatStore = create<ChatStore>()(
         state.hasReceivedPlanResponse = initialState.hasReceivedPlanResponse
         state.lastMessageMode = initialState.lastMessageMode
         state.sessionCreditsUsed = initialState.sessionCreditsUsed
+        state.previousRunState = initialState.previousRunState
       }),
   })),
 )

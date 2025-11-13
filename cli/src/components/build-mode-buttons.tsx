@@ -8,10 +8,12 @@ export const BuildModeButtons = ({
   theme,
   onBuildFast,
   onBuildMax,
+  messageId,
 }: {
   theme: ChatTheme
-  onBuildFast: () => void
-  onBuildMax: () => void
+  onBuildFast: (messageId: string) => void
+  onBuildMax: (messageId: string) => void
+  messageId: string
 }) => {
   const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | null>(
     null,
@@ -51,7 +53,7 @@ export const BuildModeButtons = ({
               hoveredButton === 'fast' ? theme.foreground : theme.secondary,
             customBorderChars: BORDER_CHARS,
           }}
-          onClick={onBuildFast}
+          onClick={() => onBuildFast(messageId)}
           onMouseOver={() => setHoveredButton('fast')}
           onMouseOut={() => setHoveredButton(null)}
         >
@@ -70,7 +72,7 @@ export const BuildModeButtons = ({
               hoveredButton === 'max' ? theme.foreground : theme.secondary,
             customBorderChars: BORDER_CHARS,
           }}
-          onClick={onBuildMax}
+          onClick={() => onBuildMax(messageId)}
           onMouseOver={() => setHoveredButton('max')}
           onMouseOut={() => setHoveredButton(null)}
         >

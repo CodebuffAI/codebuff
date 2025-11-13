@@ -235,6 +235,8 @@ interface UseSendMessageOptions {
   addSessionCredits: (credits: number) => void
   isQueuePausedRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
+  previousRunState: any
+  setPreviousRunState: (runState: any) => void
 }
 
 export const useSendMessage = ({
@@ -268,11 +270,12 @@ export const useSendMessage = ({
   addSessionCredits,
   isQueuePausedRef,
   resumeQueue,
+  previousRunState,
+  setPreviousRunState,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
 } => {
-  const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
   >(new Map())
@@ -291,7 +294,7 @@ export const useSendMessage = ({
   )
 
   function clearMessages() {
-    previousRunStateRef.current = null
+    setPreviousRunState(null)
   }
 
   const updateActiveSubagents = useCallback(
@@ -457,9 +460,6 @@ export const useSendMessage = ({
 
         if (postUserMessage) {
           newMessages = postUserMessage(newMessages)
-        }
-        if (newMessages.length > 100) {
-          return newMessages.slice(-100)
         }
         return newMessages
       })
@@ -847,7 +847,7 @@ export const useSendMessage = ({
           logger,
           agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
           prompt: content,
-          previousRun: previousRunStateRef.current,
+          previousRun: previousRunState,
           signal: abortController.signal,
           agentDefinitions: agentDefinitions,
           maxAgentSteps: 40,
@@ -1626,7 +1626,7 @@ export const useSendMessage = ({
           }),
         )
 
-        previousRunStateRef.current = runState
+        setPreviousRunState(runState)
       } catch (error) {
         logger.error(
           { error: getErrorObject(error) },

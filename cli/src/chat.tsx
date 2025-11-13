@@ -123,6 +123,8 @@ export const Chat = ({
     lastMessageMode,
     setLastMessageMode,
     addSessionCredits,
+    previousRunState,
+    setPreviousRunState,
     resetChatStore,
   } = useChatStore(
     useShallow((store) => ({
@@ -156,6 +158,8 @@ export const Chat = ({
       lastMessageMode: store.lastMessageMode,
       setLastMessageMode: store.setLastMessageMode,
       addSessionCredits: store.addSessionCredits,
+      previousRunState: store.previousRunState,
+      setPreviousRunState: store.setPreviousRunState,
       resetChatStore: store.reset,
     })),
   )
@@ -426,6 +430,8 @@ export const Chat = ({
     addSessionCredits,
     isQueuePausedRef,
     resumeQueue,
+    previousRunState,
+    setPreviousRunState,
   })
 
   sendMessageRef.current = sendMessage
@@ -438,6 +444,10 @@ export const Chat = ({
     separatorWidth,
     initialPrompt,
     sendMessageRef,
+    messages,
+    setMessages,
+    previousRunState,
+    setPreviousRunState,
   })
 
   const handleSubmit = useCallback(

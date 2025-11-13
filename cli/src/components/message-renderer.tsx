@@ -31,8 +31,8 @@ interface MessageRendererProps {
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   userOpenedAgents: Set<string>
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
-  onBuildFast: () => void
-  onBuildMax: () => void
+  onBuildFast: (messageId: string) => void
+  onBuildMax: (messageId: string) => void
 }
 
 export const MessageRenderer = (props: MessageRendererProps): ReactNode => {
@@ -104,8 +104,8 @@ interface MessageWithAgentsProps {
   isWaitingForResponse: boolean
   timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
-  onBuildFast: () => void
-  onBuildMax: () => void
+  onBuildFast: (messageId: string) => void
+  onBuildMax: (messageId: string) => void
 }
 
 const MessageWithAgents = memo(
@@ -366,8 +366,8 @@ interface AgentMessageProps {
   isWaitingForResponse: boolean
   timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
-  onBuildFast: () => void
-  onBuildMax: () => void
+  onBuildFast: (messageId: string) => void
+  onBuildMax: (messageId: string) => void
 }
 
 const AgentMessage = memo(
