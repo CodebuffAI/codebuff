@@ -85,31 +85,6 @@ const scrubPlanTagsInBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
     .filter((b) => b.type !== 'text' || b.content.trim() !== '')
 }
 
-/**
- * Auto-collapse thinking blocks to reduce UI clutter.
- * Tracks which thinking blocks have been collapsed to avoid duplicate collapses.
- *
- * @param messageId - ID of the message containing the thinking block
- * @param agentId - Optional agent ID for nested agent thinking blocks
- * @param autoCollapsedThinkingIdsRef - Ref tracking which thinking IDs have been auto-collapsed
- * @param setCollapsedAgents - State setter for collapsed agents
- */
-const autoCollapseThinkingBlock = (
-  messageId: string,
-  agentId: string | undefined,
-  autoCollapsedThinkingIdsRef: React.MutableRefObject<Set<string>>,
-  setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>,
-) => {
-  const thinkingId = agentId
-    ? `${messageId}-agent-${agentId}-thinking-0`
-    : `${messageId}-thinking-0`
-
-  if (!autoCollapsedThinkingIdsRef.current.has(thinkingId)) {
-    autoCollapsedThinkingIdsRef.current.add(thinkingId)
-    setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
-  }
-}
-
 export type SendMessageTimerEvent =
   | {
       type: 'start'
@@ -684,16 +659,6 @@ export const useSendMessage = ({
           return
         }
 
-        // Auto-collapse thinking blocks on first reasoning content
-        if (delta.type === 'reasoning') {
-          autoCollapseThinkingBlock(
-            aiMessageId,
-            undefined,
-            autoCollapsedThinkingIdsRef,
-            setCollapsedAgents,
-          )
-        }
-
         queueMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id !== aiMessageId) {
@@ -939,16 +904,6 @@ export const useSendMessage = ({
                   event.agentId,
                   previous + text,
                 )
-
-                // Auto-collapse thinking blocks for subagents on first content
-                if (previous.length === 0) {
-                  autoCollapseThinkingBlock(
-                    aiMessageId,
-                    event.agentId,
-                    autoCollapsedThinkingIdsRef,
-                    setCollapsedAgents,
-                  )
-                }
 
                 updateAgentContent(event.agentId, {
                   type: 'text',

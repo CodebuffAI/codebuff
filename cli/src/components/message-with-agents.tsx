@@ -22,11 +22,13 @@ interface MessageWithAgentsProps {
   theme: ChatTheme
   markdownPalette: MarkdownPalette
   collapsedAgents: Set<string>
+  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
   availableWidth: number
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
+  addAutoCollapsedAgent: (value: string) => void
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
@@ -44,11 +46,13 @@ export const MessageWithAgents = memo(
     theme,
     markdownPalette,
     collapsedAgents,
+    autoCollapsedAgents,
     streamingAgents,
     messageTree,
     messages,
     availableWidth,
     setCollapsedAgents,
+    addAutoCollapsedAgent,
     setUserOpenedAgents,
     setFocusedAgentId,
     isWaitingForResponse,
@@ -68,11 +72,13 @@ export const MessageWithAgents = memo(
           theme={theme}
           markdownPalette={markdownPalette}
           collapsedAgents={collapsedAgents}
+          autoCollapsedAgents={autoCollapsedAgents}
           streamingAgents={streamingAgents}
           messageTree={messageTree}
           messages={messages}
           availableWidth={availableWidth}
           setCollapsedAgents={setCollapsedAgents}
+          addAutoCollapsedAgent={addAutoCollapsedAgent}
           setUserOpenedAgents={setUserOpenedAgents}
           setFocusedAgentId={setFocusedAgentId}
           isWaitingForResponse={isWaitingForResponse}
@@ -196,10 +202,13 @@ export const MessageWithAgents = memo(
                   availableWidth={availableWidth}
                   markdownPalette={markdownPalette}
                   collapsedAgents={collapsedAgents}
+                  autoCollapsedAgents={autoCollapsedAgents}
                   streamingAgents={streamingAgents}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
+                  setCollapsedAgents={setCollapsedAgents}
+                  addAutoCollapsedAgent={addAutoCollapsedAgent}
                 />
               </box>
             </box>
@@ -236,10 +245,13 @@ export const MessageWithAgents = memo(
                 availableWidth={availableWidth}
                 markdownPalette={markdownPalette}
                 collapsedAgents={collapsedAgents}
+                autoCollapsedAgents={autoCollapsedAgents}
                 streamingAgents={streamingAgents}
                 onToggleCollapsed={onToggleCollapsed}
                 onBuildFast={onBuildFast}
                 onBuildMax={onBuildMax}
+                setCollapsedAgents={setCollapsedAgents}
+                addAutoCollapsedAgent={addAutoCollapsedAgent}
               />
             </box>
           )}
@@ -256,11 +268,13 @@ export const MessageWithAgents = memo(
                   theme={theme}
                   markdownPalette={markdownPalette}
                   collapsedAgents={collapsedAgents}
+                  autoCollapsedAgents={autoCollapsedAgents}
                   streamingAgents={streamingAgents}
                   messageTree={messageTree}
                   messages={messages}
                   availableWidth={availableWidth}
                   setCollapsedAgents={setCollapsedAgents}
+                  addAutoCollapsedAgent={addAutoCollapsedAgent}
                   setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
@@ -284,11 +298,13 @@ interface AgentMessageProps {
   theme: ChatTheme
   markdownPalette: MarkdownPalette
   collapsedAgents: Set<string>
+  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
   availableWidth: number
   setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
+  addAutoCollapsedAgent: (value: string) => void
   setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
@@ -305,11 +321,13 @@ const AgentMessage = memo(
     theme,
     markdownPalette,
     collapsedAgents,
+    autoCollapsedAgents,
     streamingAgents,
     messageTree,
     messages,
     availableWidth,
     setCollapsedAgents,
+    addAutoCollapsedAgent,
     setUserOpenedAgents,
     setFocusedAgentId,
     isWaitingForResponse,
@@ -500,11 +518,13 @@ const AgentMessage = memo(
                   theme={theme}
                   markdownPalette={markdownPalette}
                   collapsedAgents={collapsedAgents}
+                  autoCollapsedAgents={autoCollapsedAgents}
                   streamingAgents={streamingAgents}
                   messageTree={messageTree}
                   messages={messages}
                   availableWidth={availableWidth}
                   setCollapsedAgents={setCollapsedAgents}
+                  addAutoCollapsedAgent={addAutoCollapsedAgent}
                   setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}

@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
+import { Button } from './components/button'
 import { LoginModal } from './components/login-modal'
 import { MessageWithAgents } from './components/message-with-agents'
 import {
@@ -43,12 +44,11 @@ import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
-import { Button } from './components/button'
 
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
-import type { ScrollBoxRenderable } from '@opentui/core'
 import type { FileTreeNode } from '@codebuff/common/util/file'
+import type { ScrollBoxRenderable } from '@opentui/core'
 
 const DEFAULT_AGENT_IDS = {
   DEFAULT: 'base2',
@@ -106,6 +106,8 @@ export const Chat = ({
     setAgentSelectedIndex,
     collapsedAgents,
     setCollapsedAgents,
+    autoCollapsedAgents,
+    addAutoCollapsedAgent,
     streamingAgents,
     setStreamingAgents,
     focusedAgentId,
@@ -138,6 +140,8 @@ export const Chat = ({
       setAgentSelectedIndex: store.setAgentSelectedIndex,
       collapsedAgents: store.collapsedAgents,
       setCollapsedAgents: store.setCollapsedAgents,
+      autoCollapsedAgents: store.autoCollapsedAgents,
+      addAutoCollapsedAgent: store.addAutoCollapsedAgent,
       streamingAgents: store.streamingAgents,
       setStreamingAgents: store.setStreamingAgents,
       focusedAgentId: store.focusedAgentId,
@@ -681,11 +685,13 @@ export const Chat = ({
               theme={theme}
               markdownPalette={markdownPalette}
               collapsedAgents={collapsedAgents}
+              autoCollapsedAgents={autoCollapsedAgents}
               streamingAgents={streamingAgents}
               messageTree={messageTree}
               messages={messages}
               availableWidth={separatorWidth}
               setCollapsedAgents={setCollapsedAgents}
+              addAutoCollapsedAgent={addAutoCollapsedAgent}
               setUserOpenedAgents={setUserOpenedAgents}
               setFocusedAgentId={setFocusedAgentId}
               isWaitingForResponse={isWaitingForResponse}

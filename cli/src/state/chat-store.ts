@@ -17,6 +17,7 @@ export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
   collapsedAgents: Set<string>
+  autoCollapsedAgents: Set<string>
   focusedAgentId: string | null
   inputValue: string
   cursorPosition: number
@@ -41,6 +42,9 @@ type ChatStoreActions = {
   ) => void
   setCollapsedAgents: (
     value: Set<string> | ((prev: Set<string>) => Set<string>),
+  ) => void
+  addAutoCollapsedAgent: (
+    value: string
   ) => void
   setFocusedAgentId: (
     value: string | null | ((prev: string | null) => string | null),
@@ -71,6 +75,7 @@ const initialState: ChatStoreState = {
   messages: [],
   streamingAgents: new Set<string>(),
   collapsedAgents: new Set<string>(),
+  autoCollapsedAgents: new Set<string>(),
   focusedAgentId: null,
   inputValue: '',
   cursorPosition: 0,
@@ -106,6 +111,10 @@ export const useChatStore = create<ChatStore>()(
       set((state) => {
         state.collapsedAgents =
           typeof value === 'function' ? value(state.collapsedAgents) : value
+      }),
+    addAutoCollapsedAgent: (value) =>
+      set((state) => {
+        state.autoCollapsedAgents.add(value)
       }),
 
     setFocusedAgentId: (value) =>
