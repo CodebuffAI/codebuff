@@ -76,7 +76,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
 }
 
 const CURSOR_CHAR = '▍'
-const CONTROL_CHAR_REGEX = /[\u0000-\u001f\u007f]/
+const CONTROL_CHAR_REGEX = /[\u0000-\u0008\u000b-\u000c\u000e-\u001f\u007f]/
 
 type KeyWithPreventDefault =
   | {
@@ -266,14 +266,27 @@ export const MultilineInput = forwardRef<
   const isPlaceholder = value.length === 0 && placeholder.length > 0
   const displayValue = isPlaceholder ? placeholder : value
   const showCursor = focused
-  const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
-  const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
+  
+  // Replace tabs with spaces for proper rendering
+  // Terminal tab stops are typically 8 columns, but 4 is more readable
+  const TAB_WIDTH = 4
+  const displayValueForRendering = displayValue.replace(/\t/g, ' '.repeat(TAB_WIDTH))
+  
+  // Calculate cursor position in the expanded string (accounting for tabs)
+  let renderCursorPosition = 0
+  for (let i = 0; i < cursorPosition && i < displayValue.length; i++) {
+    renderCursorPosition += displayValue[i] === '\t' ? TAB_WIDTH : 1
+  }
+  
+  const beforeCursor = showCursor ? displayValueForRendering.slice(0, renderCursorPosition) : ''
+  const afterCursor = showCursor ? displayValueForRendering.slice(renderCursorPosition) : ''
   const activeChar = afterCursor.charAt(0) || ' '
   const shouldHighlight =
     showCursor &&
     !isPlaceholder &&
     cursorPosition < displayValue.length &&
-    displayValue[cursorPosition] !== '\n'
+    displayValue[cursorPosition] !== '\n' &&
+    displayValue[cursorPosition] !== '\t'
 
   // Handle all keyboard input with advanced shortcuts
   useKeyboard(
@@ -739,15 +752,15 @@ export const MultilineInput = forwardRef<
 
   const layoutContent = showCursor
     ? shouldHighlight
-      ? displayValue
-      : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}${afterCursor}`
-    : displayValue
+      ? displayValueForRendering
+      : `${beforeCursor}${CURSOR_CHAR}${afterCursor}`
+    : displayValueForRendering
 
   const cursorProbe = showCursor
     ? shouldHighlight
-      ? displayValue.slice(0, cursorPosition + 1)
-      : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}`
-    : displayValue.slice(0, cursorPosition)
+      ? displayValueForRendering.slice(0, renderCursorPosition + 1)
+      : `${beforeCursor}${CURSOR_CHAR}`
+    : displayValueForRendering.slice(0, renderCursorPosition)
 
   const layoutMetrics = useMemo(
     () =>
@@ -834,7 +847,7 @@ export const MultilineInput = forwardRef<
           </>
         ) : (
           <>
-            {displayValue}
+            {displayValueForRendering}
             {shouldRenderBottomGutter ? '\n' : ''}
           </>
         )}
