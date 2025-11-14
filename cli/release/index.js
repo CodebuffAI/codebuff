@@ -9,7 +9,7 @@ const zlib = require('zlib')
 
 const tar = require('tar')
 
-const packageName = 'codecane'
+const packageName = 'codebuff'
 
 function createConfig(packageName) {
   const homeDir = os.homedir()
@@ -162,6 +162,12 @@ function getCurrentVersion() {
 
 function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
+
+  // Always update if the current version is not a valid semver
+  // e.g. 1.0.420-beta.1
+  if (!v1.match(/^\d+(\.\d+)*$/)) {
+    return -1
+  }
 
   const parseVersion = (version) => {
     const parts = version.split('-')
@@ -324,7 +330,7 @@ async function downloadBinary(version) {
   }
 
   term.clearLine()
-  console.log('Download complete! Starting Codecane...')
+  console.log('Download complete! Starting Codebuff...')
 }
 
 async function ensureBinaryExists() {
@@ -344,7 +350,7 @@ async function ensureBinaryExists() {
     await downloadBinary(version)
   } catch (error) {
     term.clearLine()
-    console.error('❌ Failed to download codecane:', error.message)
+    console.error('❌ Failed to download codebuff:', error.message)
     console.error('Please check your internet connection and try again')
     process.exit(1)
   }
@@ -398,14 +404,6 @@ async function checkForUpdates(runningProcess, exitListener) {
 }
 
 async function main() {
-  console.log('\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m')
-  console.log('\x1b[1m\x1b[93m❄️ CODECANE STAGING ENVIRONMENT ❄️\x1b[0m')
-  console.log(
-    '\x1b[1m\x1b[91mFOR TESTING PURPOSES ONLY - NOT FOR PRODUCTION USE\x1b[0m',
-  )
-  console.log('\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m')
-  console.log('')
-
   await ensureBinaryExists()
 
   const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {

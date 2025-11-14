@@ -1,13 +1,14 @@
 {
-  "name": "codecane",
-  "version": "1.0.420",
-  "description": "AI coding agent CLI (staging)",
+  "name": "codebuff",
+  "version": "1.0.511",
+  "description": "AI coding agent",
   "license": "MIT",
   "bin": {
-    "codecane": "index.js"
+    "codebuff": "index.js",
+    "cb": "index.js"
   },
   "scripts": {
-    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'codecane.exe' : 'codecane'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
+    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'codebuff.exe' : 'codebuff'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
   },
   "files": [
     "index.js",
