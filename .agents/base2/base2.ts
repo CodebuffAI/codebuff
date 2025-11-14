@@ -190,6 +190,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
       : buildImplementationStepPrompt({
+          isFast,
           isMax,
           isGpt5,
           hasNoValidation,
@@ -262,11 +263,13 @@ ${buildArray(
 }
 
 function buildImplementationStepPrompt({
+  isFast,
   isMax,
   isGpt5,
   hasNoValidation,
   isSonnet,
 }: {
+  isFast: boolean
   isMax: boolean
   isGpt5: boolean
   hasNoValidation: boolean
@@ -275,6 +278,8 @@ function buildImplementationStepPrompt({
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
+    !isFast &&
+      `You must spawn the ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
     `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself -- especially if you already summarized your changes then just end your turn.`,
     isGpt5 &&
       `IMPORTANT: You must include at least one tool call ("<codebuff_tool_call>") per message response. If you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
