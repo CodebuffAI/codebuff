@@ -3,8 +3,6 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
-import { Button } from './components/button'
-import { LoginModal } from './components/login-modal'
 import { MessageWithAgents } from './components/message-with-agents'
 import {
   MultilineInput,
@@ -15,7 +13,6 @@ import { StatusBar } from './components/status-bar'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
-import { useAuthState } from './hooks/use-auth-state'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
@@ -44,33 +41,39 @@ import { BORDER_CHARS } from './utils/ui-constants'
 
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
+import type { User } from './utils/auth'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
+import type { UseMutationResult } from '@tanstack/react-query'
+import type { Dispatch, SetStateAction } from 'react'
 
 export const Chat = ({
   headerContent,
   initialPrompt,
   agentId,
-  requireAuth,
-  hasInvalidCredentials,
   loadedAgentsData,
   validationErrors,
   fileTree,
+  inputRef,
+  setIsAuthenticated,
+  setUser,
+  logoutMutation,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
   agentId?: string
-  requireAuth: boolean | null
-  hasInvalidCredentials: boolean
   loadedAgentsData: {
     agents: Array<{ id: string; displayName: string }>
     agentsDir: string
   } | null
   validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
+  inputRef: React.MutableRefObject<MultilineInputHandle | null>
+  setIsAuthenticated: Dispatch<SetStateAction<boolean | null>>
+  setUser: Dispatch<SetStateAction<User | null>>
+  logoutMutation: UseMutationResult<boolean, Error, void, unknown>
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const inputRef = useRef<MultilineInputHandle | null>(null)
 
   const { separatorWidth, terminalWidth } = useTerminalDimensions()
 
@@ -177,20 +180,6 @@ export const Chat = ({
 
     return ids
   }, [messages])
-
-  const {
-    isAuthenticated,
-    setIsAuthenticated,
-    setUser,
-    handleLoginSuccess,
-    logoutMutation,
-  } = useAuthState({
-    requireAuth,
-    hasInvalidCredentials,
-    inputRef,
-    setInputFocused,
-    resetChatStore,
-  })
 
   // Refs for tracking state across renders
   const activeAgentStreamsRef = useRef<number>(0)
@@ -800,15 +789,7 @@ export const Chat = ({
         </box>
       </box>
 
-      {/* Login Modal Overlay - show when not authenticated and done checking */}
       {validationBanner}
-
-      {requireAuth !== null && isAuthenticated === false && (
-        <LoginModal
-          onLoginSuccess={handleLoginSuccess}
-          hasInvalidCredentials={hasInvalidCredentials}
-        />
-      )}
     </box>
   )
 }
