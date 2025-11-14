@@ -11,16 +11,9 @@ import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme } from '../hooks/use-theme'
 import {
-  DEFAULT_TERMINAL_HEIGHT,
-  MODAL_VERTICAL_MARGIN,
-  MAX_MODAL_BASE_HEIGHT,
-  WARNING_BANNER_HEIGHT,
-} from '../login/constants'
-import {
   formatUrl,
   generateFingerprintId,
   calculateResponsiveLayout,
-  calculateModalDimensions,
 } from '../login/utils'
 import { useLoginStore } from '../state/login-store'
 import { copyTextToClipboard } from '../utils/clipboard'
@@ -272,7 +265,7 @@ export const LoginModal = ({
           style={{
             width: '100%',
             padding: 1,
-            backgroundColor: theme.error,
+            backgroundColor: theme.surface,
             flexShrink: 0,
           }}
         >
@@ -364,10 +357,10 @@ export const LoginModal = ({
             }}
           >
             <text style={{ wrapMode: 'word' }}>
-              <span fg={theme.primary}>
+              <span fg={'#00cc00'}>
                 {isNarrow
                   ? 'Press ENTER to login...'
-                  : 'Press ENTER to open your browser and finish logging in...'}
+                  : 'Press ENTER to open your browser and login...'}
               </span>
             </text>
           </box>
