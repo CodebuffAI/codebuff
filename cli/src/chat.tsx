@@ -450,6 +450,26 @@ export const Chat = ({
     sendMessageRef,
   })
 
+  // Feedback state and handlers
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
+  const [feedbackMessageId, setFeedbackMessageId] = useState<string | null>(null)
+
+  const openFeedbackForMessage = useCallback((id: string) => {
+    setFeedbackMessageId(id)
+    setIsFeedbackOpen(true)
+  }, [])
+
+  const openFeedbackForLatestMessage = useCallback(() => {
+    const latest = [...messages]
+      .reverse()
+      .find((m) => m.variant === 'ai' && m.isComplete)
+    if (!latest) {
+      return false
+    }
+    openFeedbackForMessage(latest.id)
+    return true
+  }, [messages, openFeedbackForMessage])
+
   const handleSubmit = useCallback(
     () =>
       routeUserPrompt({
@@ -630,14 +650,6 @@ export const Chat = ({
     />
   )
 
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
-  const [feedbackMessageId, setFeedbackMessageId] = useState<string | null>(null)
-
-  const openFeedbackForMessage = useCallback((id: string) => {
-    setFeedbackMessageId(id)
-    setIsFeedbackOpen(true)
-  }, [])
-
   // Ctrl+F to open feedback for latest completed AI message
   useKeyboard(
     useCallback(
@@ -646,14 +658,10 @@ export const Chat = ({
           if ('preventDefault' in key && typeof key.preventDefault === 'function') {
             key.preventDefault()
           }
-          const latest = [...messages].reverse().find((m) => m.variant === 'ai' && m.isComplete)
-          if (latest) {
-            setFeedbackMessageId(latest.id)
-            setIsFeedbackOpen(true)
-          }
+          openFeedbackForLatestMessage()
         }
       },
-      [messages],
+      [openFeedbackForLatestMessage],
     ),
   )
 
@@ -875,7 +883,7 @@ export const Chat = ({
                       ? 'Enter a coding task'
                       : 'Enter a coding task or / for commands'
                   }
-                  focused={inputFocused}
+                  focused={inputFocused && !isFeedbackOpen}
                   maxHeight={5}
                   width={inputWidth}
                   onKeyIntercept={handleSuggestionMenuKey}
@@ -958,7 +966,7 @@ export const Chat = ({
           open={isFeedbackOpen}
           message={messages.find((m) => m.id === feedbackMessageId) ?? null}
           onClose={() => setIsFeedbackOpen(false)}
-          onSubmit={(text) => {
+          onSubmit={(data) => {
             const target = messages.find((m) => m.id === feedbackMessageId)
             const recent = messages.slice(Math.max(0, messages.length - 5)).map((m) => ({
               id: m.id,
@@ -977,7 +985,8 @@ export const Chat = ({
                 credits: target?.credits,
                 agentMode,
                 sessionCreditsUsed,
-                feedbackText: text,
+                feedbackCategory: data.category,
+                feedbackText: data.text,
                 runState: target?.metadata?.runState,
                 recentMessages: recent,
               },

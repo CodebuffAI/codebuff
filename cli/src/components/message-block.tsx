@@ -1,4 +1,5 @@
 import { TextAttributes } from '@opentui/core'
+import { pluralize } from '@codebuff/common/util/string'
 import React, { memo, useCallback, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
@@ -169,7 +170,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
                 }}
               >
                 {completionTime}
-                {credits && ` • ${credits} credits`}
+                {typeof credits === 'number' && credits > 0 && ` • ${pluralize(credits, 'credit')}`}
               </text>
               <FeedbackIconButton onClick={() => onFeedback?.(messageId)} messageId={messageId} />
             </box>

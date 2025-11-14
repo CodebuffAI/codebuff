@@ -1,24 +1,25 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { useRenderer } from '@opentui/react'
 
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
+import { BORDER_CHARS } from '../utils/ui-constants'
 import type { ChatMessage } from '../types/chat'
 
 interface FeedbackModalProps {
   open: boolean
   message: ChatMessage | null
   onClose: () => void
-  onSubmit: (text: string) => void
+  onSubmit: (data: { text: string; category: string | null }) => void
 }
 
-export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, message, onClose, onSubmit }) => {
+export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onSubmit }) => {
   const theme = useTheme()
   const renderer = useRenderer()
-  const [value, setValue] = useState('')
-  const [cursorPosition, setCursorPosition] = useState(0)
-  const [showDetails, setShowDetails] = useState(false)
+  const [feedbackText, setFeedbackText] = useState('')
+  const [feedbackCursor, setFeedbackCursor] = useState(0)
+  const [category, setCategory] = useState<string>('other')
   const inputRef = useRef<MultilineInputHandle | null>(null)
 
   const terminalWidth = renderer?.width || 80
@@ -29,28 +30,24 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, message, onC
   const modalLeft = Math.floor((terminalWidth - modalWidth) / 2)
   const modalTop = Math.floor((terminalHeight - modalHeight) / 2)
 
-  const contextPreview = useMemo(() => {
-    if (!message) return 'No message context'
-    const runState = message.metadata?.runState
-    const safe = {
-      id: message.id,
-      variant: message.variant,
-      timestamp: message.timestamp,
-      completionTime: message.completionTime,
-      credits: message.credits,
-      runStatePreview: runState ? JSON.stringify(runState).slice(0, 1000) + (JSON.stringify(runState).length > 1000 ? ' …' : '') : 'n/a',
-    }
-    return JSON.stringify(safe, null, 2)
-  }, [message])
-
   const handleSubmit = useCallback(() => {
-    const text = value.trim()
+    const text = feedbackText.trim()
     if (text.length === 0) return
-    onSubmit(text)
-    setValue('')
-  }, [onSubmit, value])
+    onSubmit({ text, category })
+    setFeedbackText('')
+    setCategory('other')
+  }, [onSubmit, feedbackText, category])
 
   if (!open) return null
+
+  const categoryOptions = [
+    { id: 'good_code', label: 'Good code', highlight: theme.success },
+    { id: 'bad_code', label: 'Bad code', highlight: theme.error },
+    { id: 'bug', label: 'Bug', highlight: theme.warning },
+    { id: 'other', label: 'Other', highlight: theme.info },
+  ] as const
+
+  const canSubmit = feedbackText.trim().length > 0
 
   return (
     <box
@@ -69,61 +66,111 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, message, onC
         gap: 1,
       }}
     >
-      <text style={{ wrapMode: 'none' }}>
-        <span fg={theme.primary}>Share Feedback</span>
-      </text>
+      <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <text style={{ wrapMode: 'none' }}>
+          <span fg={theme.primary}>Share Feedback</span>
+        </text>
+        <Button
+          onClick={onClose}
+          style={{
+            paddingLeft: 1,
+            paddingRight: 1,
+            borderStyle: 'single',
+            borderColor: theme.border,
+            customBorderChars: BORDER_CHARS,
+          }}
+        >
+          <text style={{ wrapMode: 'none' }}>
+            <span fg={theme.muted}>X</span>
+          </text>
+        </Button>
+      </box>
 
       <text style={{ wrapMode: 'word' }}>
         <span fg={theme.secondary}>Thanks for helping us improve! What happened?</span>
       </text>
 
-      <box style={{ flexDirection: 'column' }}>
+      <box style={{ flexDirection: 'column', gap: 0 }}>
+        <text style={{ wrapMode: 'none', paddingBottom: 1 }}>
+          <span fg={theme.muted}>Select a category:</span>
+        </text>
+        <box style={{ flexDirection: 'row', gap: 1, flexWrap: 'wrap' }}>
+          {categoryOptions.map((option) => {
+            const isSelected = category === option.id
+            return (
+              <Button
+                key={option.id}
+                onClick={() => setCategory(option.id)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 1,
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                  borderStyle: 'single',
+                  borderColor: isSelected ? option.highlight : theme.border,
+                  customBorderChars: BORDER_CHARS,
+                  backgroundColor: isSelected ? theme.surface : undefined,
+                }}
+              >
+                <text style={{ wrapMode: 'none' }}>
+                  <span fg={isSelected ? option.highlight : theme.muted}>{isSelected ? '◉' : '◯'}</span>
+                  <span fg={isSelected ? theme.foreground : theme.secondary}> {option.label}</span>
+                </text>
+              </Button>
+            )
+          })}
+        </box>
+      </box>
+
+      <box
+        border
+        borderStyle="single"
+        borderColor={theme.border}
+        customBorderChars={BORDER_CHARS}
+        style={{ paddingLeft: 1, paddingRight: 1, paddingTop: 0, paddingBottom: 0 }}
+      >
         <MultilineInput
-          value={value}
+          value={feedbackText}
           onChange={(next: { text: string; cursorPosition: number; lastEditDueToNav: boolean } | ((prev: { text: string; cursorPosition: number; lastEditDueToNav: boolean }) => { text: string; cursorPosition: number; lastEditDueToNav: boolean })) => {
-            const v = typeof next === 'function' ? next({ text: value, cursorPosition, lastEditDueToNav: false }) : next
-            setValue(v.text)
-            setCursorPosition(v.cursorPosition)
+            const v = typeof next === 'function' ? next({ text: feedbackText, cursorPosition: feedbackCursor, lastEditDueToNav: false }) : next
+            setFeedbackText(v.text)
+            setFeedbackCursor(v.cursorPosition)
           }}
           onSubmit={handleSubmit}
           placeholder={'Tell us more...'}
           focused={true}
           maxHeight={6}
-          width={modalWidth - 4}
+          width={modalWidth - 6}
           textAttributes={undefined}
           ref={inputRef}
-          cursorPosition={cursorPosition}
+          cursorPosition={feedbackCursor}
         />
       </box>
 
-      <box style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}>
+      <box style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <text style={{ wrapMode: 'none' }}>
           <span fg={theme.muted}>Auto-attached: Message content • Trace data • Session info</span>
         </text>
-        <Button onClick={() => setShowDetails((s) => !s)}>
+        <Button
+          onClick={() => {
+            if (canSubmit) handleSubmit()
+          }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingLeft: 1,
+            paddingRight: 1,
+            borderStyle: 'single',
+            borderColor: canSubmit ? theme.foreground : theme.border,
+            customBorderChars: BORDER_CHARS,
+            backgroundColor: canSubmit ? theme.surface : undefined,
+          }}
+        >
           <text style={{ wrapMode: 'none' }}>
-            <span fg={theme.info}>{showDetails ? '[Hide details]' : '[View details]'}</span>
-          </text>
-        </Button>
-      </box>
-
-      {showDetails && (
-        <box style={{ flexDirection: 'column', maxHeight: 6 }}>
-          <text style={{ wrapMode: 'word' }}>
-            <span fg={theme.muted}>{contextPreview}</span>
-          </text>
-        </box>
-      )}
-
-      <box style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 2 }}>
-        <Button onClick={onClose}>
-          <text style={{ wrapMode: 'none' }}>
-            <span fg={theme.error}>Cancel</span>
-          </text>
-        </Button>
-        <Button onClick={handleSubmit}>
-          <text style={{ wrapMode: 'none' }}>
-            <span fg={theme.success}>Submit</span>
+            <span fg={canSubmit ? theme.foreground : theme.muted}>{'< SUBMIT'}</span>
           </text>
         </Button>
       </box>

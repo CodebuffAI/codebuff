@@ -42,17 +42,14 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick,
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingLeft: 1,
-        paddingRight: 1,
-        borderStyle: 'single',
-        borderColor: hover.isOpen ? theme.foreground : theme.border,
-        customBorderChars: BORDER_CHARS,
+        paddingLeft: 0,
+        paddingRight: 0,
       }}
       onClick={() => onClick?.()}
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
     >
-      <text style={{ wrapMode: 'none', fg: theme.foreground }}>
+      <text style={{ wrapMode: 'none', fg: hover.isOpen ? theme.foreground : theme.muted }}>
         {hover.isOpen ? textExpanded : textCollapsed}
       </text>
     </Button>
