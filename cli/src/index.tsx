@@ -213,7 +213,6 @@ async function bootstrapCli(): Promise<void> {
     }, [])
 
     return (
-      // Hi, I created this comment to push a commit to codecane haha.
       <App
         initialPrompt={initialPrompt}
         agentId={agent}
