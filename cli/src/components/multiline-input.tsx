@@ -76,6 +76,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
 }
 
 const CURSOR_CHAR = '▍'
+const CONTROL_CHAR_REGEX = /[\u0000-\u0008\u000b-\u000c\u000e-\u001f\u007f]/
 
 type KeyWithPreventDefault =
   | {
@@ -233,17 +234,59 @@ export const MultilineInput = forwardRef<
     return ((textRef.current as any).textBufferView as TextBufferView).lineInfo
   }, [])
 
+  const insertTextAtCursor = useCallback(
+    (textToInsert: string) => {
+      if (!textToInsert) return
+      const newValue =
+        value.slice(0, cursorPosition) +
+        textToInsert +
+        value.slice(cursorPosition)
+      onChange({
+        text: newValue,
+        cursorPosition: cursorPosition + textToInsert.length,
+        lastEditDueToNav: false,
+      })
+    },
+    [cursorPosition, onChange, value],
+  )
+
+  const moveCursor = useCallback(
+    (nextPosition: number) => {
+      const clamped = Math.max(0, Math.min(value.length, nextPosition))
+      if (clamped === cursorPosition) return
+      onChange({
+        text: value,
+        cursorPosition: clamped,
+        lastEditDueToNav: false,
+      })
+    },
+    [cursorPosition, onChange, value],
+  )
+
   const isPlaceholder = value.length === 0 && placeholder.length > 0
   const displayValue = isPlaceholder ? placeholder : value
   const showCursor = focused
-  const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
-  const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
+  
+  // Replace tabs with spaces for proper rendering
+  // Terminal tab stops are typically 8 columns, but 4 is more readable
+  const TAB_WIDTH = 4
+  const displayValueForRendering = displayValue.replace(/\t/g, ' '.repeat(TAB_WIDTH))
+  
+  // Calculate cursor position in the expanded string (accounting for tabs)
+  let renderCursorPosition = 0
+  for (let i = 0; i < cursorPosition && i < displayValue.length; i++) {
+    renderCursorPosition += displayValue[i] === '\t' ? TAB_WIDTH : 1
+  }
+  
+  const beforeCursor = showCursor ? displayValueForRendering.slice(0, renderCursorPosition) : ''
+  const afterCursor = showCursor ? displayValueForRendering.slice(renderCursorPosition) : ''
   const activeChar = afterCursor.charAt(0) || ' '
   const shouldHighlight =
     showCursor &&
     !isPlaceholder &&
     cursorPosition < displayValue.length &&
-    displayValue[cursorPosition] !== '\n'
+    displayValue[cursorPosition] !== '\n' &&
+    displayValue[cursorPosition] !== '\t'
 
   // Handle all keyboard input with advanced shortcuts
   useKeyboard(
@@ -620,22 +663,14 @@ export const MultilineInput = forwardRef<
         // Left arrow (no modifiers)
         if (key.name === 'left' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          onChange({
-            text: value,
-            cursorPosition: cursorPosition - 1,
-            lastEditDueToNav: false,
-          })
+          moveCursor(cursorPosition - 1)
           return
         }
 
         // Right arrow (no modifiers)
         if (key.name === 'right' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
-          onChange({
-            text: value,
-            cursorPosition: cursorPosition + 1,
-            lastEditDueToNav: false,
-          })
+          moveCursor(cursorPosition + 1)
           return
         }
 
@@ -670,24 +705,31 @@ export const MultilineInput = forwardRef<
           return
         }
 
+        // Tab: insert literal tab when no modifiers are held
+        if (
+          key.name === 'tab' &&
+          key.sequence &&
+          !key.shift &&
+          !key.ctrl &&
+          !key.meta &&
+          !key.option
+        ) {
+          preventKeyDefault(key)
+          insertTextAtCursor('\t')
+          return
+        }
+
         // Regular character input
         if (
           key.sequence &&
           key.sequence.length === 1 &&
           !key.ctrl &&
           !key.meta &&
-          !key.option
+          !key.option &&
+          !CONTROL_CHAR_REGEX.test(key.sequence)
         ) {
           preventKeyDefault(key)
-          const newValue =
-            value.slice(0, cursorPosition) +
-            key.sequence +
-            value.slice(cursorPosition)
-          onChange({
-            text: newValue,
-            cursorPosition: cursorPosition + 1,
-            lastEditDueToNav: false,
-          })
+          insertTextAtCursor(key.sequence)
           return
         }
       },
@@ -700,6 +742,8 @@ export const MultilineInput = forwardRef<
         onChange,
         onSubmit,
         onKeyIntercept,
+        insertTextAtCursor,
+        moveCursor,
       ],
     ),
   )
@@ -708,15 +752,15 @@ export const MultilineInput = forwardRef<
 
   const layoutContent = showCursor
     ? shouldHighlight
-      ? displayValue
-      : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}${afterCursor}`
-    : displayValue
+      ? displayValueForRendering
+      : `${beforeCursor}${CURSOR_CHAR}${afterCursor}`
+    : displayValueForRendering
 
   const cursorProbe = showCursor
     ? shouldHighlight
-      ? displayValue.slice(0, cursorPosition + 1)
-      : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}`
-    : displayValue.slice(0, cursorPosition)
+      ? displayValueForRendering.slice(0, renderCursorPosition + 1)
+      : `${beforeCursor}${CURSOR_CHAR}`
+    : displayValueForRendering.slice(0, renderCursorPosition)
 
   const layoutMetrics = useMemo(
     () =>
@@ -803,7 +847,7 @@ export const MultilineInput = forwardRef<
           </>
         ) : (
           <>
-            {displayValue}
+            {displayValueForRendering}
             {shouldRenderBottomGutter ? '\n' : ''}
           </>
         )}
