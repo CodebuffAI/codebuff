@@ -21,7 +21,8 @@ const definition: SecretAgentDefinition = {
   inputSchema: {
     prompt: {
       type: 'string',
-      description: 'A coding task to complete',
+      description:
+        'A description of the files you need to find. Be more broad for better results: instead of "Find x file" say "Find x file and related files". This agent is designed to help you find several files that could be relevant to the prompt.',
     },
     params: {
       type: 'object' as const,
