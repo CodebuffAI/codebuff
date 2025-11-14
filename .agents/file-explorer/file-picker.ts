@@ -43,8 +43,10 @@ const definition: SecretAgentDefinition = {
 
   systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
   instructionsPrompt: `Instructions:
-Provide an extremely short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt. Leave out irrelevant locations.
+Provide an extremely short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
 In your report, please give a very concise analysis that includes the full paths of files that are relevant and (extremely briefly) how they could be useful.
+
+Do not use any further tools or spawn any further agents.
   `.trim(),
 
   handleSteps: function* ({ prompt, params }) {
