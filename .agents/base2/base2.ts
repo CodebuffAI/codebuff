@@ -133,7 +133,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
-    `- Spawn a ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. Don't spawn the editor in parallel with context-gathering agents.`,
+    `- Spawn a ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     hasCodeReviewer &&
       '- Spawn a code-reviewer agent to review the code changes after you have made them.',
@@ -249,7 +249,7 @@ ${buildArray(
   `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasCodeReviewer ? ' Include a step to review the code changes with the code-reviewer agent after you have made them.' : ''}${hasCodeReviewerBestOfN ? ' Include a step to review the code changes with the code-reviewer-best-of-n agent after you have made them.' : ''}${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for simple tasks like quick edits or answering questions.`,
   !isFast &&
-    `- You must spawn the ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
+    `- IMPORTANT: You must spawn the ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
   hasCodeReviewer &&
     `- Spawn a code-reviewer agent to review the code changes after you have made them. You can skip this step for small changes that are obvious and don't require a review.`,
   hasCodeReviewerBestOfN &&
@@ -275,9 +275,9 @@ function buildImplementationStepPrompt({
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
-    `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself.`,
+    `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself -- especially if you already summarized your changes then just end your turn.`,
     isGpt5 &&
-      `IMPORTANT: You should include at least one tool call ("<codebuff_tool_call>") per message response. If you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
+      `IMPORTANT: You must include at least one tool call ("<codebuff_tool_call>") per message response. If you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
   ).join('\n')
 }
 
