@@ -36,6 +36,7 @@ interface MessageWithAgentsProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onFeedback: (messageId: string) => void
 }
 
 export const MessageWithAgents = memo(
@@ -60,6 +61,7 @@ export const MessageWithAgents = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
+    onFeedback,
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
@@ -86,6 +88,7 @@ export const MessageWithAgents = memo(
           onToggleCollapsed={onToggleCollapsed}
           onBuildFast={onBuildFast}
           onBuildMax={onBuildMax}
+          onFeedback={onFeedback}
         />
       )
     }
@@ -209,6 +212,7 @@ export const MessageWithAgents = memo(
                   onBuildMax={onBuildMax}
                   setCollapsedAgents={setCollapsedAgents}
                   addAutoCollapsedAgent={addAutoCollapsedAgent}
+                  onFeedback={onFeedback}
                 />
               </box>
             </box>
@@ -252,6 +256,7 @@ export const MessageWithAgents = memo(
                 onBuildMax={onBuildMax}
                 setCollapsedAgents={setCollapsedAgents}
                 addAutoCollapsedAgent={addAutoCollapsedAgent}
+                onFeedback={onFeedback}
               />
             </box>
           )}
@@ -282,6 +287,7 @@ export const MessageWithAgents = memo(
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
+                  onFeedback={onFeedback}
                 />
               </box>
             ))}
@@ -312,6 +318,7 @@ interface AgentMessageProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onFeedback: (messageId: string) => void
 }
 
 const AgentMessage = memo(
@@ -335,6 +342,7 @@ const AgentMessage = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
+    onFeedback,
   }: AgentMessageProps): ReactNode => {
     const agentInfo = message.agent!
     const isCollapsed = collapsedAgents.has(message.id)
@@ -532,6 +540,7 @@ const AgentMessage = memo(
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
+                  onFeedback={onFeedback}
                 />
               </box>
             ))}

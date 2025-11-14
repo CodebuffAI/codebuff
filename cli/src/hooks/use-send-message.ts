@@ -1572,6 +1572,10 @@ export const useSendMessage = ({
               ...(actualCredits !== undefined && {
                 credits: actualCredits,
               }),
+              metadata: {
+                ...(msg.metadata ?? {}),
+                runState,
+              },
             }
           }),
         )

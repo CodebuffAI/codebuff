@@ -3,6 +3,7 @@ import React, { memo, useCallback, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
+import { FeedbackIconButton } from './feedback-icon-button'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { isTextBlock, isToolBlock } from '../types/chat'
@@ -72,6 +73,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     onBuildMax,
     setCollapsedAgents,
     addAutoCollapsedAgent,
+    onFeedback,
   } = props
   useWhyDidYouUpdateById('MessageBlock', messageId, props, {
     logLevel: 'debug',
@@ -149,19 +151,28 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
             </text>
           )}
           {isComplete && (
-            <text
-              attributes={TextAttributes.DIM}
+            <box
               style={{
-                wrapMode: 'none',
-                fg: theme.secondary,
-                marginTop: 0,
-                marginBottom: 0,
+                flexDirection: 'row',
+                alignItems: 'center',
                 alignSelf: 'flex-end',
+                gap: 1,
               }}
             >
-              {completionTime}
-              {credits && ` • ${credits} credits`}
-            </text>
+              <text
+                attributes={TextAttributes.DIM}
+                style={{
+                  wrapMode: 'none',
+                  fg: theme.secondary,
+                  marginTop: 0,
+                  marginBottom: 0,
+                }}
+              >
+                {completionTime}
+                {credits && ` • ${credits} credits`}
+              </text>
+              <FeedbackIconButton onClick={() => onFeedback?.(messageId)} messageId={messageId} />
+            </box>
           )}
         </>
       )}
@@ -237,6 +248,7 @@ interface MessageBlockProps {
   onBuildMax: () => void
   setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
   addAutoCollapsedAgent: (value: string) => void
+  onFeedback?: (messageId: string) => void
 }
 
 interface AgentBodyProps {

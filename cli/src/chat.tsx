@@ -1,4 +1,5 @@
 import { TextAttributes } from '@opentui/core'
+import { useKeyboard } from '@opentui/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -7,6 +8,7 @@ import { AgentModeToggle } from './components/agent-mode-toggle'
 import { Button } from './components/button'
 import { LoginModal } from './components/login-modal'
 import { MessageWithAgents } from './components/message-with-agents'
+import { FeedbackModal } from './components/feedback-modal'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -36,6 +38,8 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
+import { logger } from './utils/logger'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { formatQueuedPreview } from './utils/helpers'
@@ -126,6 +130,7 @@ export const Chat = ({
     setLastMessageMode,
     addSessionCredits,
     resetChatStore,
+    sessionCreditsUsed,
   } = useChatStore(
     useShallow((store) => ({
       inputValue: store.inputValue,
@@ -161,6 +166,7 @@ export const Chat = ({
       setLastMessageMode: store.setLastMessageMode,
       addSessionCredits: store.addSessionCredits,
       resetChatStore: store.reset,
+      sessionCreditsUsed: store.sessionCreditsUsed,
     })),
   )
 
@@ -624,6 +630,33 @@ export const Chat = ({
     />
   )
 
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
+  const [feedbackMessageId, setFeedbackMessageId] = useState<string | null>(null)
+
+  const openFeedbackForMessage = useCallback((id: string) => {
+    setFeedbackMessageId(id)
+    setIsFeedbackOpen(true)
+  }, [])
+
+  // Ctrl+F to open feedback for latest completed AI message
+  useKeyboard(
+    useCallback(
+      (key) => {
+        if (key?.ctrl && key.name === 'f') {
+          if ('preventDefault' in key && typeof key.preventDefault === 'function') {
+            key.preventDefault()
+          }
+          const latest = [...messages].reverse().find((m) => m.variant === 'ai' && m.isComplete)
+          if (latest) {
+            setFeedbackMessageId(latest.id)
+            setIsFeedbackOpen(true)
+          }
+        }
+      },
+      [messages],
+    ),
+  )
+
   const validationBanner = useValidationBanner({
     liveValidationErrors: validationErrors,
     loadedAgentsData,
@@ -699,6 +732,7 @@ export const Chat = ({
               onToggleCollapsed={handleCollapseToggle}
               onBuildFast={handleBuildFast}
               onBuildMax={handleBuildMax}
+              onFeedback={openFeedbackForMessage}
             />
           )
         })}
@@ -916,6 +950,41 @@ export const Chat = ({
         <LoginModal
           onLoginSuccess={handleLoginSuccess}
           hasInvalidCredentials={hasInvalidCredentials}
+        />
+      )}
+
+      {isFeedbackOpen && (
+        <FeedbackModal
+          open={isFeedbackOpen}
+          message={messages.find((m) => m.id === feedbackMessageId) ?? null}
+          onClose={() => setIsFeedbackOpen(false)}
+          onSubmit={(text) => {
+            const target = messages.find((m) => m.id === feedbackMessageId)
+            const recent = messages.slice(Math.max(0, messages.length - 5)).map((m) => ({
+              id: m.id,
+              variant: m.variant,
+              timestamp: m.timestamp,
+              hasBlocks: !!m.blocks,
+              contentPreview: (m.content || '').slice(0, 400),
+            }))
+            logger.info(
+              {
+                eventId: AnalyticsEvent.FEEDBACK_SUBMITTED,
+                source: 'cli',
+                messageId: target?.id,
+                variant: target?.variant,
+                completionTime: target?.completionTime,
+                credits: target?.credits,
+                agentMode,
+                sessionCreditsUsed,
+                feedbackText: text,
+                runState: target?.metadata?.runState,
+                recentMessages: recent,
+              },
+              'User submitted feedback',
+            )
+            setIsFeedbackOpen(false)
+          }}
         />
       )}
     </box>
