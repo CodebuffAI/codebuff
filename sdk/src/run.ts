@@ -38,6 +38,7 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -89,6 +90,7 @@ export type CodebuffClientOptions = {
   customToolDefinitions?: CustomToolDefinition[]
 
   fsSource?: Source<CodebuffFileSystem>
+  spawnSource?: Source<CodebuffSpawn>
   logger?: Logger
 }
 
@@ -120,6 +122,7 @@ export async function run({
   customToolDefinitions,
 
   fsSource = () => require('fs').promises,
+  spawnSource,
   logger,
 
   agent,
@@ -134,6 +137,9 @@ export async function run({
     fingerprintId: string
   }): Promise<RunState> {
   const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
+  const spawn: CodebuffSpawn = (
+    spawnSource ? await spawnSource : require('child_process').spawn
+  ) as CodebuffSpawn
 
   // Init session state
   let agentId
@@ -167,6 +173,7 @@ export async function run({
       projectFiles,
       maxAgentSteps,
       fs,
+      spawn,
       logger,
     })
   }
