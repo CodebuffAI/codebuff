@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
 import { getUserCredentials } from '../utils/auth'
-import { logger } from '../utils/logger'
+import { resetCodebuffClient } from '../utils/codebuff-client'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { User } from '../utils/auth'
@@ -63,6 +63,8 @@ export const useAuthState = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
+      // Reset the SDK client to pick up new credentials
+      resetCodebuffClient()
       resetChatStore()
       setInputFocused(true)
       setUser(loggedInUser)
