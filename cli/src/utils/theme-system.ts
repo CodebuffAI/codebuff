@@ -474,6 +474,10 @@ const extractZedTheme = (content: string): ThemeName | null => {
 }
 
 const detectZedTheme = (): ThemeName | null => {
+  if (!isZedTerminal()) {
+    return null
+  }
+
   const settingsPaths = collectExistingPaths(resolveZedSettingsPaths())
   for (const settingsPath of settingsPaths) {
     const content = safeReadFile(settingsPath)
@@ -715,15 +719,6 @@ function detectWindowsPowerShellTheme(): ThemeName | null {
 export const detectTerminalOverrides = (): ThemeName | null => {
   const termProgram = (process.env.TERM_PROGRAM ?? '').toLowerCase()
   const term = (process.env.TERM ?? '').toLowerCase()
-
-  // Ghostty renders our light theme text too dark; force dark for legibility
-  if (
-    termProgram.includes('ghostty') ||
-    term.includes('ghostty') ||
-    typeof process.env.GHOSTTY_RESOURCES_DIR === 'string'
-  ) {
-    return 'dark'
-  }
 
   return null
 }
