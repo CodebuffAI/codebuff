@@ -596,7 +596,7 @@ export const Chat = ({
     const segments: string[] = []
 
     if (queuePreviewTitle) {
-      segments.push(`▶ ${queuePreviewTitle}`)
+      segments.push(queuePreviewTitle)
     } else if (pausedQueueText) {
       segments.push(`⏸ ${pausedQueueText}`)
     }
